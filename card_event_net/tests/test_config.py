@@ -54,6 +54,7 @@ def test_config_from_mapping_round_trips() -> None:
 
     assert config.seed == 42
     assert config.input.clip_offsets_s == (-1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0)
+    assert config.training.hard_negative_repeat == 3
     assert config.to_dict()["input"]["clip_offsets_s"] == [
         -1.4,
         -1.2,
@@ -92,4 +93,3 @@ def test_load_config_uses_yaml_loader(tmp_path: Path, monkeypatch: pytest.Monkey
 
     assert captured["text"] == "seed: 42\n"
     assert config.seed == 42
-

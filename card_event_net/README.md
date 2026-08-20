@@ -6,7 +6,7 @@ Run the commands below from `card_event_net/`.
 
 ## Current state
 
-This repo now has the phase-5 model, inference, and evaluation pipeline:
+This repo now has the phase-6 model, inference, evaluation, and hard-negative pipeline:
 
 - project metadata
 - config loading
@@ -29,6 +29,8 @@ This repo now has the phase-5 model, inference, and evaluation pipeline:
 - event recall, precision, false/hour, and latency metrics
 - probability and threshold plots
 - classical cached-frame motion baseline
+- hard-negative mining from false triggers on training videos
+- optional repeated hard-negative sampling during training
 - test and lint setup
 
 The annotator stores one JSON file per source video in `data/annotations/`.
@@ -144,3 +146,30 @@ uv run cardevent baseline \
   --split data/splits/default.yaml \
   --partition val
 ```
+
+## Hard-negative mining
+
+Mine false triggers from the training videos after a first evaluation run:
+
+```bash
+uv run cardevent mine-hard-negatives \
+  --checkpoint data/outputs/run-.../best.pt \
+  --split data/splits/default.yaml
+```
+
+The command writes `data/outputs/hard-negatives.json`. It uses the validation threshold
+saved next to the checkpoint. Pass `--threshold` if that file does not exist. The manifest
+contains only false-trigger timestamps from training videos. It does not change annotations.
+
+Use the manifest in a later training run:
+
+```bash
+uv run cardevent train \
+  --config configs/base.yaml \
+  --split data/splits/default.yaml \
+  --hard-negative-manifest data/outputs/hard-negatives.json
+```
+
+Each mined timestamp is repeated three times by default. This gives hard negatives a higher
+sampling rate than ordinary negatives. Change `training.hard_negative_repeat` in the config
+to use a different repeat count of two or more.

@@ -27,6 +27,7 @@ training:
   warmup_lr: 0.001
   finetune_lr: 0.0001
   weight_decay: 0.0001
+  hard_negative_repeat: 3
   device: auto
 
 inference:
@@ -35,4 +36,3 @@ inference:
 metrics:
   event_match_tolerance_s: 0.75
   target_recall: 0.98
-

@@ -29,6 +29,7 @@ def test_train_command_parses_config_and_split() -> None:
     assert args.config == Path("configs/base.yaml")
     assert args.split == Path("data/splits/default.yaml")
     assert args.max_samples is None
+    assert args.hard_negative_manifest is None
 
 
 def test_infer_command_parses_checkpoint_video_and_output() -> None:
@@ -68,6 +69,23 @@ def test_evaluate_and_baseline_commands_parse_partitions() -> None:
 
     assert evaluate_args.partition == "test"
     assert baseline_args.partition == "val"
+
+
+def test_mine_hard_negatives_command_parses_checkpoint_and_split() -> None:
+    args = build_parser().parse_args(
+        [
+            "mine-hard-negatives",
+            "--checkpoint",
+            "run/best.pt",
+            "--split",
+            "data/splits/default.yaml",
+        ]
+    )
+
+    assert args.command_name == "mine-hard-negatives"
+    assert args.checkpoint == Path("run/best.pt")
+    assert args.split == Path("data/splits/default.yaml")
+    assert args.out == Path("data/outputs/hard-negatives.json")
 
 
 def test_main_without_arguments_prints_help(capsys) -> None:

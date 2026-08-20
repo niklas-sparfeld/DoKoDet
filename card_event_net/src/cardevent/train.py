@@ -26,6 +26,7 @@ from .dataset import (
 )
 from .device import resolve_device
 from .events import ProbabilitySample, match_events, probabilities_to_events
+from .hard_negatives import HardNegativeError, load_hard_negative_times
 from .model import CardEventNet, build_model, freeze_backbone, unfreeze_backbone
 from .sampling import DEFAULT_CLIP_OFFSETS_S
 from .splits import SplitError, VideoSplit, load_split
@@ -135,13 +136,32 @@ def _training_samples_for_split(
     cache_dir: Path,
     annotations_dir: Path,
     config: Config,
+    hard_negative_manifest: str | Path | None = None,
 ) -> list[DatasetSample]:
     samples: list[DatasetSample] = []
+    hard_negative_times: dict[str, tuple[float, ...]] = {}
+    if hard_negative_manifest is not None:
+        try:
+            hard_negative_times = load_hard_negative_times(
+                hard_negative_manifest,
+                split.train,
+            )
+        except HardNegativeError as exc:
+            raise TrainingError(str(exc)) from exc
+
     for name in split.train:
         cache_path = _cache_for_video(name, cache_dir)
         annotation = _annotation_for_video(name, annotations_dir)
         try:
             samples.extend(_training_samples_for_annotation(cache_path, annotation, config))
+            samples.extend(
+                _hard_negative_samples_for_video(
+                    cache_path,
+                    name,
+                    hard_negative_times.get(name, ()),
+                    repeat=config.training.hard_negative_repeat,
+                )
+            )
         except (AnnotationError, CacheError, ValueError) as exc:
             raise TrainingError(f"Could not build training samples for {name}: {exc}") from exc
     if not samples:
@@ -149,6 +169,33 @@ def _training_samples_for_split(
     if not any(sample.label == 1.0 for sample in samples):
         raise TrainingError("The train split produced no positive samples.")
     return samples
+
+
+def _hard_negative_samples_for_video(
+    cache_path: Path,
+    name: str,
+    times_s: Sequence[float],
+    *,
+    repeat: int,
+) -> list[DatasetSample]:
+    if repeat < 2:
+        raise TrainingError("hard_negative_repeat must be at least 2.")
+    try:
+        source_video = load_cache_metadata(cache_path).source_video
+    except CacheError as exc:
+        raise TrainingError(
+            f"Could not load cache metadata for hard negatives in {name}: {exc}"
+        ) from exc
+    return [
+        DatasetSample(
+            source_video=source_video,
+            cache_dir=cache_path,
+            decision_time_s=time_s,
+            label=0.0,
+        )
+        for time_s in sorted(times_s)
+        for _ in range(repeat)
+    ]
 
 
 def _training_samples_for_annotation(
@@ -371,6 +418,7 @@ def _save_checkpoint(
     split: VideoSplit,
     device: torch.device,
     metrics: dict[str, float],
+    hard_negative_manifest: str | Path | None,
 ) -> None:
     torch.save(
         {
@@ -382,6 +430,9 @@ def _save_checkpoint(
             "split": split.to_mapping(),
             "device": str(device),
             "metrics": metrics,
+            "hard_negative_manifest": (
+                str(hard_negative_manifest) if hard_negative_manifest is not None else None
+            ),
         },
         path,
     )
@@ -396,6 +447,7 @@ def train_model(
     annotations_dir: str | Path = "data/annotations",
     max_samples: int | None = None,
     device_override: str | None = None,
+    hard_negative_manifest: str | Path | None = None,
 ) -> TrainingResult:
     """Run the two-stage CardEventNet training schedule."""
     run_path = Path(run_dir)
@@ -410,6 +462,7 @@ def train_model(
         cache_dir=cache_path,
         annotations_dir=annotation_path,
         config=config,
+        hard_negative_manifest=hard_negative_manifest,
     )
     train_samples = _limit_samples(train_samples, max_samples)
     validation_videos = _validation_videos(
@@ -489,6 +542,7 @@ def train_model(
                     split=split,
                     device=device,
                     metrics=row,
+                    hard_negative_manifest=hard_negative_manifest,
                 )
                 rank = _checkpoint_rank(validation_metrics, config.metrics.target_recall)
                 if best_rank is None or rank > best_rank:
@@ -506,6 +560,7 @@ def train_model(
                         split=split,
                         device=device,
                         metrics=row,
+                        hard_negative_manifest=hard_negative_manifest,
                     )
                 LOGGER.info(
                     "epoch=%d stage=%s train_loss=%.4f val_loss=%.4f recall=%.3f false/hour=%.2f",
@@ -532,6 +587,9 @@ def train_model(
         "python_version": platform.python_version(),
         "torch_version": torch.__version__,
         "torchvision_version": _torchvision_version(),
+        "hard_negative_manifest": (
+            str(hard_negative_manifest) if hard_negative_manifest is not None else None
+        ),
     }
     (run_path / "summary.json").write_text(
         json.dumps(summary, indent=2, allow_nan=False) + "\n",
@@ -551,6 +609,7 @@ def train_from_files(
     annotations_dir: str | Path = "data/annotations",
     max_samples: int | None = None,
     device_override: str | None = None,
+    hard_negative_manifest: str | Path | None = None,
 ) -> TrainingResult:
     try:
         config = load_config(config_path)
@@ -566,4 +625,5 @@ def train_from_files(
         annotations_dir=annotations_dir,
         max_samples=max_samples,
         device_override=device_override,
+        hard_negative_manifest=hard_negative_manifest,
     )

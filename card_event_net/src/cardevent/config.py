@@ -36,6 +36,18 @@ def _require_int(data: Mapping[str, Any], key: str, *, min_value: int | None = N
     return value
 
 
+def _optional_int(
+    data: Mapping[str, Any],
+    key: str,
+    *,
+    default: int,
+    min_value: int | None = None,
+) -> int:
+    if key not in data:
+        return default
+    return _require_int(data, key, min_value=min_value)
+
+
 def _require_float(data: Mapping[str, Any], key: str, *, min_value: float | None = None) -> float:
     try:
         value = data[key]
@@ -178,6 +190,7 @@ class TrainingConfig:
     warmup_lr: float
     finetune_lr: float
     weight_decay: float
+    hard_negative_repeat: int
     device: str
 
     @classmethod
@@ -193,6 +206,10 @@ class TrainingConfig:
             warmup_lr=_require_float(mapping, "warmup_lr", min_value=0.0),
             finetune_lr=_require_float(mapping, "finetune_lr", min_value=0.0),
             weight_decay=_require_float(mapping, "weight_decay", min_value=0.0),
+            # Keep old Phase 4/5 checkpoints loadable.
+            hard_negative_repeat=_optional_int(
+                mapping, "hard_negative_repeat", default=3, min_value=2
+            ),
             device=device,
         )
 

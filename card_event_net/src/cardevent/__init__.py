@@ -51,6 +51,13 @@ from .events import (
     match_events,
     probabilities_to_events,
 )
+from .hard_negatives import (
+    HardNegativeError,
+    HardNegativeSample,
+    false_triggers,
+    load_hard_negative_times,
+    mine_hard_negatives_from_files,
+)
 from .infer import InferenceError, infer_cached_video, infer_from_files, load_checkpoint
 from .model import (
     CardEventNet,
@@ -106,6 +113,8 @@ __all__ = [
     "EventMatchResult",
     "EvaluationError",
     "InferenceError",
+    "HardNegativeError",
+    "HardNegativeSample",
     "LabeledTime",
     "ModelError",
     "ProbabilitySample",
@@ -142,9 +151,12 @@ __all__ = [
     "load_cache_metadata",
     "load_config",
     "load_checkpoint",
+    "load_hard_negative_times",
     "load_split",
     "make_video_split",
     "match_events",
+    "false_triggers",
+    "mine_hard_negatives_from_files",
     "open_annotation_session",
     "prepare_videos",
     "resolve_device",

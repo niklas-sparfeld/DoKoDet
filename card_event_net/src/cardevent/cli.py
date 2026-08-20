@@ -8,6 +8,7 @@ from .annotation import AnnotationError, annotate_video
 from .baseline import evaluate_baseline_from_files
 from .cache import CacheError, prepare_videos
 from .evaluate import EvaluationError, evaluate_checkpoint_from_files, format_report
+from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
 from .splits import SplitError, make_video_split, save_split
 from .train import TrainingError, train_from_files
@@ -162,6 +163,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override the device in the config.",
     )
+    train_parser.add_argument(
+        "--hard-negative-manifest",
+        type=Path,
+        default=None,
+        help="Use mined false-trigger timestamps during training.",
+    )
     train_parser.set_defaults(command_name="train")
 
     infer_parser = subparsers.add_parser(
@@ -276,8 +283,74 @@ def build_parser() -> argparse.ArgumentParser:
     )
     baseline_parser.set_defaults(command_name="baseline")
 
+    mine_parser = subparsers.add_parser(
+        "mine-hard-negatives",
+        help="Mine hard negatives from training videos.",
+        description="Find false model triggers in the training partition.",
+    )
+    mine_parser.add_argument("--checkpoint", type=Path, required=True, help="Model checkpoint.")
+    mine_parser.add_argument("--split", type=Path, required=True, help="Video split YAML.")
+    mine_parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path("data/outputs/hard-negatives.json"),
+        help="Manifest path (default: data/outputs/hard-negatives.json).",
+    )
+    mine_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=Path("data/cache"),
+        help="Prepared cache root (default: data/cache).",
+    )
+    mine_parser.add_argument(
+        "--annotations-dir",
+        type=Path,
+        default=Path("data/annotations"),
+        help="Annotation directory (default: data/annotations).",
+    )
+    mine_parser.add_argument(
+        "--device",
+        choices=("auto", "cpu", "cuda", "mps"),
+        default=None,
+        help="Override the device stored in the checkpoint.",
+    )
+    mine_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Inference batch size (default: training batch size).",
+    )
+    mine_parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="Use this event threshold instead of the validation threshold.",
+    )
+    mine_parser.add_argument(
+        "--merge-window",
+        type=float,
+        default=None,
+        help="Override the event merge window in seconds.",
+    )
+    mine_parser.add_argument(
+        "--event-match-tolerance",
+        type=float,
+        default=None,
+        help="Override the event matching tolerance in seconds.",
+    )
+    mine_parser.set_defaults(command_name="mine-hard-negatives")
+
     for name, help_text in _PLACEHOLDER_COMMANDS.items():
-        if name in {"annotate", "prepare", "make-split", "train", "infer", "evaluate", "baseline"}:
+        if name in {
+            "annotate",
+            "prepare",
+            "make-split",
+            "train",
+            "infer",
+            "evaluate",
+            "baseline",
+            "mine-hard-negatives",
+        }:
             continue
         command_parser = subparsers.add_parser(name, help=help_text, description=help_text)
         command_parser.set_defaults(command_name=name)
@@ -348,6 +421,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 annotations_dir=args.annotations_dir,
                 max_samples=args.max_samples,
                 device_override=args.device,
+                hard_negative_manifest=args.hard_negative_manifest,
             )
         except (TrainingError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
@@ -406,6 +480,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.exit(1, f"error: {exc}\n")
         print(format_report(payload))
         print(f"Metrics JSON: {args.out or 'data/outputs/baseline-' + args.partition + '.json'}")
+        return 0
+
+    if command_name == "mine-hard-negatives":
+        try:
+            payload = mine_hard_negatives_from_files(
+                args.checkpoint,
+                args.split,
+                out_path=args.out,
+                cache_dir=args.cache_dir,
+                annotations_dir=args.annotations_dir,
+                device_override=args.device,
+                batch_size=args.batch_size,
+                threshold=args.threshold,
+                merge_window_s=args.merge_window,
+                event_match_tolerance_s=args.event_match_tolerance,
+            )
+        except (HardNegativeError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Mined {payload['hard_negative_count']} hard negatives: {args.out}")
         return 0
 
     _dispatch_placeholder(parser, command_name)
