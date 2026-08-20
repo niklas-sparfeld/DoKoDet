@@ -46,7 +46,9 @@ final class VideoReplayRunner {
                         eventCount: 0,
                         lastEventTimestampSeconds: nil,
                         averageInferenceDurationMs: nil,
+                        frame: nil,
                         prediction: nil,
+                        event: nil,
                         isComplete: true,
                         isCancelled: false,
                         errorMessage: error.localizedDescription
@@ -114,7 +116,9 @@ final class VideoReplayRunner {
                             total: totalInferenceDurationMs,
                             count: predictionsProduced
                         ),
+                        frame: nil,
                         prediction: latestPrediction,
+                        event: nil,
                         isComplete: true,
                         isCancelled: true,
                         errorMessage: nil
@@ -140,7 +144,8 @@ final class VideoReplayRunner {
             latestPrediction = prediction
             predictionsProduced += 1
             totalInferenceDurationMs += prediction.inferenceDurationMs
-            if let event = eventPostProcessor.consume(prediction) {
+            let event = eventPostProcessor.consume(prediction)
+            if let event {
                 eventCount += 1
                 lastEventTimestampSeconds = CMTimeGetSeconds(event.timestamp)
             }
@@ -158,7 +163,9 @@ final class VideoReplayRunner {
                         total: totalInferenceDurationMs,
                         count: predictionsProduced
                     ),
+                    frame: frame,
                     prediction: prediction,
+                    event: event,
                     isComplete: false,
                     isCancelled: false,
                     errorMessage: nil
@@ -183,7 +190,9 @@ final class VideoReplayRunner {
                     total: totalInferenceDurationMs,
                     count: predictionsProduced
                 ),
+                frame: nil,
                 prediction: latestPrediction,
+                event: nil,
                 isComplete: true,
                 isCancelled: false,
                 errorMessage: nil

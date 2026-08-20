@@ -109,6 +109,42 @@ struct DiagnosticsPanel: View {
                 .padding(.top, 4)
             }
 
+            DisclosureGroup("Diagnostics recording") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(
+                        "Record session log and event frames",
+                        isOn: Binding(
+                            get: { appState.diagnosticsRecording },
+                            set: appState.setDiagnosticsRecording
+                        )
+                    )
+                    Text("Logs and images stay on this device until you export them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Missed event") {
+                            appState.recordAnnotation(.missedEvent)
+                        }
+                        Button("False event") {
+                            appState.recordAnnotation(.falseEvent)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!appState.diagnosticsRecording)
+                    if let url = appState.diagnosticsLogURL {
+                        ShareLink(item: url) {
+                            Label("Export session log", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    if let diagnosticsError = appState.diagnosticsError {
+                        Text(diagnosticsError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+                .padding(.top, 4)
+            }
+
             DisclosureGroup("Table ROI") {
                 Text("Use normalized x, y, width, and height in the oriented camera frame.")
                     .font(.caption)

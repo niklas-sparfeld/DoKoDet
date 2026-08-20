@@ -2,6 +2,7 @@ import CoreML
 import CoreMedia
 import Foundation
 import SwiftUI
+import UIKit
 
 enum ModelLoadState {
     case loading
@@ -41,11 +42,17 @@ final class AppState: ObservableObject {
     @Published private(set) var replayProgress: ReplayProgress?
     @Published private(set) var replayRunning = false
     @Published private(set) var roiError: String?
+    @Published private(set) var diagnosticsLogURL: URL?
+    @Published private(set) var diagnosticsError: String?
+    @Published private(set) var diagnosticsRecording = false
 
     private(set) var modelRunner: CardEventModelRunner?
     let eventPostProcessor = EventPostProcessor()
     private var liveCoordinator: FrameInferenceCoordinator?
     private var replayRunner: VideoReplayRunner?
+    private var sessionLog: SessionLog?
+    private var activeDiagnosticSource: DiagnosticSource?
+    private var latestFrame: VideoFrame?
 
     var roiStatus: String {
         guard let runner = modelRunner as? CoreMLCardEventModelRunner else {
@@ -99,9 +106,11 @@ final class AppState: ObservableObject {
     }
 
     func startLiveInference() -> ((VideoFrame) -> Void)? {
-        cancelReplay()
+        stopReplayForNewSession()
         stopLiveInference()
         guard let runner = modelRunner else { return nil }
+        activeDiagnosticSource = .live
+        beginDiagnosticsSessionIfNeeded(source: .live)
 
         let coordinator = FrameInferenceCoordinator(
             runner: runner,
@@ -118,6 +127,10 @@ final class AppState: ObservableObject {
     func stopLiveInference() {
         liveCoordinator?.stop()
         liveCoordinator = nil
+        if activeDiagnosticSource == .live {
+            finishDiagnosticsSession()
+            activeDiagnosticSource = nil
+        }
     }
 
     func setROI(x: Double, y: Double, width: Double, height: Double) {
@@ -137,7 +150,7 @@ final class AppState: ObservableObject {
 
     func startReplay(url: URL) {
         stopLiveInference()
-        cancelReplay()
+        stopReplayForNewSession()
         guard let runner = modelRunner else {
             inferenceError = "The model is not ready."
             return
@@ -146,6 +159,8 @@ final class AppState: ObservableObject {
         resetEvents()
         replayProgress = nil
         replayRunning = true
+        activeDiagnosticSource = .replay
+        beginDiagnosticsSessionIfNeeded(source: .replay)
         let replayRunner = VideoReplayRunner()
         self.replayRunner = replayRunner
         replayRunner.start(
@@ -154,6 +169,7 @@ final class AppState: ObservableObject {
             eventPostProcessor: eventPostProcessor
         ) { [weak self] progress in
             Task { @MainActor in
+                guard self?.replayRunner === replayRunner else { return }
                 self?.applyReplay(progress)
             }
         }
@@ -170,6 +186,36 @@ final class AppState: ObservableObject {
         inferenceError = nil
         scoreHistory.removeAll(keepingCapacity: true)
         lastEventTimestampSeconds = nil
+        latestFrame = nil
+    }
+
+    func setDiagnosticsRecording(_ enabled: Bool) {
+        diagnosticsRecording = enabled
+        diagnosticsError = nil
+        if enabled, let activeDiagnosticSource {
+            beginDiagnosticsSessionIfNeeded(source: activeDiagnosticSource)
+        } else if !enabled {
+            finishDiagnosticsSession()
+        }
+    }
+
+    func recordAnnotation(_ kind: SessionLogAnnotation.Kind) {
+        guard let source = activeDiagnosticSource, let sessionLog else {
+            diagnosticsError = "Start diagnostics recording before adding an annotation."
+            return
+        }
+        do {
+            try sessionLog.appendAnnotation(
+                SessionLogAnnotation(
+                    source: source,
+                    timestampSeconds: latestPrediction.map { CMTimeGetSeconds($0.timestamp) },
+                    kind: kind
+                )
+            )
+            saveDiagnosticFrame(kind.rawValue)
+        } catch {
+            diagnosticsError = error.localizedDescription
+        }
     }
 
     func setHighThreshold(_ value: Double) {
@@ -201,7 +247,10 @@ final class AppState: ObservableObject {
         inferenceMetrics = update.metrics
         inferenceError = update.errorMessage
         if let prediction = update.prediction {
-            appendScore(prediction)
+            latestFrame = update.frame
+            if appendScore(prediction) {
+                recordPrediction(prediction, event: update.event)
+            }
         }
         if update.event != nil {
             eventCount += 1
@@ -224,7 +273,10 @@ final class AppState: ObservableObject {
         )
         if let prediction = progress.prediction {
             latestPrediction = prediction
-            appendScore(prediction)
+            latestFrame = progress.frame ?? latestFrame
+            if appendScore(prediction) {
+                recordPrediction(prediction, event: progress.event)
+            }
         }
         eventCount = progress.eventCount
         if let timestamp = progress.lastEventTimestampSeconds {
@@ -232,13 +284,18 @@ final class AppState: ObservableObject {
         }
         if progress.isComplete {
             replayRunner = nil
+            if activeDiagnosticSource == .replay {
+                finishDiagnosticsSession()
+                activeDiagnosticSource = nil
+            }
         }
     }
 
-    private func appendScore(_ prediction: ModelPrediction) {
+    @discardableResult
+    private func appendScore(_ prediction: ModelPrediction) -> Bool {
         let timestamp = CMTimeGetSeconds(prediction.timestamp)
         if scoreHistory.last?.timestampSeconds == timestamp {
-            return
+            return false
         }
         scoreHistory.append(
             ScoreSample(
@@ -249,5 +306,88 @@ final class AppState: ObservableObject {
         if scoreHistory.count > 80 {
             scoreHistory.removeFirst(scoreHistory.count - 80)
         }
+        return true
+    }
+
+    private func beginDiagnosticsSessionIfNeeded(source: DiagnosticSource) {
+        guard diagnosticsRecording, sessionLog == nil else { return }
+        do {
+            let directory = try diagnosticsDirectory()
+            let configuration = eventPostProcessor.configuration
+            let metadata = SessionLogMetadata(
+                source: source,
+                appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
+                device: UIDevice.current.model,
+                osVersion: UIDevice.current.systemVersion,
+                modelName: "CardEventNet",
+                modelVersion: modelRunner?.contract.metadata["version"] ?? "unknown",
+                targetInferenceHz: 8.0,
+                highThreshold: configuration.highThreshold,
+                lowThreshold: configuration.lowThreshold
+            )
+            let log = try SessionLog(directory: directory, metadata: metadata)
+            sessionLog = log
+            diagnosticsLogURL = log.url
+        } catch {
+            diagnosticsRecording = false
+            diagnosticsError = error.localizedDescription
+        }
+    }
+
+    private func finishDiagnosticsSession() {
+        sessionLog?.close()
+        sessionLog = nil
+    }
+
+    private func stopReplayForNewSession() {
+        replayRunner?.cancel()
+        replayRunner = nil
+        if activeDiagnosticSource == .replay {
+            finishDiagnosticsSession()
+            activeDiagnosticSource = nil
+        }
+    }
+
+    private func recordPrediction(_ prediction: ModelPrediction, event: DetectionEvent?) {
+        guard let source = activeDiagnosticSource, let sessionLog else { return }
+        do {
+            try sessionLog.appendPrediction(
+                SessionLogPrediction(
+                    source: source,
+                    timestampSeconds: CMTimeGetSeconds(prediction.timestamp),
+                    rawProbability: prediction.cardEventProbability,
+                    smoothedProbability: prediction.cardEventProbability,
+                    eventEmitted: event != nil,
+                    inferenceMs: prediction.inferenceDurationMs
+                )
+            )
+            if event != nil {
+                saveDiagnosticFrame("event")
+            }
+        } catch {
+            diagnosticsError = error.localizedDescription
+        }
+    }
+
+    private func saveDiagnosticFrame(_ prefix: String) {
+        guard let latestFrame, let sessionLog else { return }
+        let timestamp = String(format: "%.3f", CMTimeGetSeconds(latestFrame.timestamp))
+            .replacingOccurrences(of: ".", with: "_")
+        let url = sessionLog.url.deletingLastPathComponent()
+            .appendingPathComponent("\(prefix)-\(timestamp)-\(UUID().uuidString).jpg")
+        do {
+            try DiagnosticFrameWriter.writeJPEG(pixelBuffer: latestFrame.pixelBuffer, to: url)
+        } catch {
+            diagnosticsError = error.localizedDescription
+        }
+    }
+
+    private func diagnosticsDirectory() throws -> URL {
+        guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw SessionLogError.cannotCreateDirectory(URL(fileURLWithPath: "Documents"))
+        }
+        return documents
+            .appendingPathComponent("CardEventProbeDiagnostics", isDirectory: true)
+            .appendingPathComponent("session-\(UUID().uuidString)", isDirectory: true)
     }
 }

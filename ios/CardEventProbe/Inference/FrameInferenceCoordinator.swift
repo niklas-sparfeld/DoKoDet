@@ -10,6 +10,7 @@ struct FrameInferenceMetrics: Equatable {
 }
 
 struct FrameInferenceUpdate {
+    let frame: VideoFrame?
     let prediction: ModelPrediction?
     let event: DetectionEvent?
     let errorMessage: String?
@@ -73,6 +74,7 @@ final class FrameInferenceCoordinator {
             publish(
                 prediction: nil,
                 event: nil,
+                frame: nil,
                 errorMessage: "The camera produced a frame with an invalid timestamp."
             )
             return
@@ -114,12 +116,18 @@ final class FrameInferenceCoordinator {
         }
         lock.unlock()
 
-        publish(prediction: prediction, event: event, errorMessage: errorMessage)
+        publish(
+            prediction: prediction,
+            event: event,
+            frame: prediction == nil ? nil : frame,
+            errorMessage: errorMessage
+        )
     }
 
     private func publish(
         prediction: ModelPrediction?,
         event: DetectionEvent?,
+        frame: VideoFrame?,
         errorMessage: String?
     ) {
         lock.lock()
@@ -139,6 +147,7 @@ final class FrameInferenceCoordinator {
         DispatchQueue.main.async { [onUpdate] in
             onUpdate(
                 FrameInferenceUpdate(
+                    frame: frame,
                     prediction: prediction,
                     event: event,
                     errorMessage: errorMessage,

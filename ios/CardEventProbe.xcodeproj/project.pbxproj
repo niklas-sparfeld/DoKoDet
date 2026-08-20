@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -22,7 +22,7 @@
 		A0000000000000000000000D /* LiveDetectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000D /* LiveDetectionView.swift */; };
 		A0000000000000000000000E /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000E /* ReplayView.swift */; };
 		A0000000000000000000000F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000F /* RootView.swift */; };
-		A00000000000000000000010 /* CardEventNet.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* CardEventNet.mlpackage */; };
+		A00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage */; };
 		A00000000000000000000011 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000011 /* AVFoundation.framework */; };
 		A00000000000000000000012 /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000012 /* CoreML.framework */; };
 		A00000000000000000000013 /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000013 /* CoreMedia.framework */; };
@@ -35,7 +35,9 @@
 		A0000000000000000000001A /* FrameInferenceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001A /* FrameInferenceCoordinator.swift */; };
 		A0000000000000000000001B /* ReplayResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001B /* ReplayResult.swift */; };
 		A0000000000000000000001C /* VideoReplayRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001C /* VideoReplayRunner.swift */; };
-
+		A0000000000000000000001D /* SessionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001D /* SessionLog.swift */; };
+		A0000000000000000000001E /* DiagnosticFrameWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001E /* DiagnosticFrameWriter.swift */; };
+		A0000000000000000000001F /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001F /* CoreImage.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,7 +57,7 @@
 		B0000000000000000000000D /* LiveDetectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDetectionView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000E /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000F /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		B00000000000000000000010 /* CardEventNet.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = ../card_event_net/CardEventNet.mlpackage; sourceTree = "<group>"; };
+		B00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = ../card_event_net/CardEventNet.mlpackage; sourceTree = "<group>"; };
 		B00000000000000000000011 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B00000000000000000000012 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		B00000000000000000000013 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
@@ -68,7 +70,9 @@
 		B0000000000000000000001A /* FrameInferenceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameInferenceCoordinator.swift; sourceTree = "<group>"; };
 		B0000000000000000000001B /* ReplayResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayResult.swift; sourceTree = "<group>"; };
 		B0000000000000000000001C /* VideoReplayRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoReplayRunner.swift; sourceTree = "<group>"; };
-
+		B0000000000000000000001D /* SessionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLog.swift; sourceTree = "<group>"; };
+		B0000000000000000000001E /* DiagnosticFrameWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticFrameWriter.swift; sourceTree = "<group>"; };
+		B0000000000000000000001F /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -81,20 +85,29 @@
 				A00000000000000000000013 /* CoreMedia.framework in Frameworks */,
 				A00000000000000000000014 /* CoreVideo.framework in Frameworks */,
 				A00000000000000000000015 /* ImageIO.framework in Frameworks */,
+				A0000000000000000000001F /* CoreImage.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		854184EA3037408D009260B8 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				B0000000000000000000001F /* CoreImage.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		D00000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
 				D00000000000000000000002 /* CardEventProbe */,
 				D00000000000000000000003 /* Products */,
 				D00000000000000000000004 /* Frameworks */,
-				B00000000000000000000010 /* CardEventNet.mlpackage */,
+				B00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage */,
+				854184EA3037408D009260B8 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -107,6 +120,7 @@
 				D00000000000000000000008 /* Inference */,
 				D00000000000000000000009 /* UI */,
 				D0000000000000000000000A /* Replay */,
+				D0000000000000000000000B /* Diagnostics */,
 			);
 			path = CardEventProbe;
 			sourceTree = "<group>";
@@ -195,7 +209,15 @@
 			path = Replay;
 			sourceTree = "<group>";
 		};
-
+		D0000000000000000000000B /* Diagnostics */ = {
+			isa = PBXGroup;
+			children = (
+				B0000000000000000000001D /* SessionLog.swift */,
+				B0000000000000000000001E /* DiagnosticFrameWriter.swift */,
+			);
+			path = Diagnostics;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -216,7 +238,6 @@
 			productReference = B00000000000000000000000 /* CardEventProbe.app */;
 			productType = "com.apple.product-type.application";
 		};
-
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -228,6 +249,7 @@
 				TargetAttributes = {
 					E00000000000000000000001 = {
 						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -247,7 +269,6 @@
 				E00000000000000000000001 /* CardEventProbe */,
 			);
 		};
-
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
@@ -255,11 +276,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A00000000000000000000010 /* CardEventNet.mlpackage in Resources */,
+				A00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -285,6 +305,8 @@
 				A00000000000000000000018 /* CameraFrameDelegate.swift in Sources */,
 				A0000000000000000000001B /* ReplayResult.swift in Sources */,
 				A0000000000000000000001C /* VideoReplayRunner.swift in Sources */,
+				A0000000000000000000001D /* SessionLog.swift in Sources */,
+				A0000000000000000000001E /* DiagnosticFrameWriter.swift in Sources */,
 				A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */,
 				A0000000000000000000000D /* LiveDetectionView.swift in Sources */,
 				A0000000000000000000000E /* ReplayView.swift in Sources */,
@@ -292,16 +314,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
 		F10000000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_STYLE = Automatic;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = QQCN7VUH3J;
 				INFOPLIST_FILE = CardEventProbe/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dokodetector.CardEventProbe;
@@ -315,20 +336,20 @@
 		F10000000000000000000002 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = QQCN7VUH3J;
 				INFOPLIST_FILE = CardEventProbe/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dokodetector.CardEventProbe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
-		F10000000000000000000003 /* Project Debug */ = {
+		F10000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -338,7 +359,7 @@
 			};
 			name = Debug;
 		};
-		F10000000000000000000004 /* Project Release */ = {
+		F10000000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -348,7 +369,6 @@
 			};
 			name = Release;
 		};
-
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -364,13 +384,12 @@
 		F00000000000000000000002 /* Build configuration list for PBXProject "CardEventProbe" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F10000000000000000000003 /* Project Debug */,
-				F10000000000000000000004 /* Project Release */,
+				F10000000000000000000003 /* Debug */,
+				F10000000000000000000004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-
 /* End XCConfigurationList section */
 	};
 	rootObject = F00000000000000000000001 /* Project object */;
