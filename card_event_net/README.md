@@ -109,8 +109,35 @@ uv run cardevent train \
 ```
 
 Runs are stored in `data/outputs/run-YYYYMMDD-HHMMSS/`. Each run contains `config.yaml`,
-`metrics.jsonl`, `best.pt`, `last.pt`, and `summary.json`. The best checkpoint uses validation
-event recall and false events per hour for ranking.
+`environment.json`, `metrics.jsonl`, `best.pt`, `last.pt`, and `summary.json`. The best
+checkpoint uses validation event recall and false events per hour for ranking. The summary
+and checkpoints store the resolved batch size, worker count, pin-memory setting, and precision.
+
+Use runtime overrides for a CUDA run:
+
+```bash
+uv run cardevent train \
+  --config configs/base.yaml \
+  --split data/splits/default.yaml \
+  --device cuda \
+  --precision bf16 \
+  --num-workers 4 \
+  --batch-size 32
+```
+
+The default precision is `fp32`, the default worker count is zero, and pin memory is enabled
+only for CUDA. The worker count and batch size depend on the machine. If a run stops, resume
+from its directory or `last.pt`:
+
+```bash
+uv run cardevent train \
+  --config configs/base.yaml \
+  --split data/splits/default.yaml \
+  --resume data/outputs/run-...
+```
+
+See [CLOUD_TRAINING.md](CLOUD_TRAINING.md) for the complete persistent-storage and RunPod
+workflow.
 
 Use `--max-samples 32` for a fast local training sanity check. This limits the samples used from
 each training and validation video. A normal run uses all samples.

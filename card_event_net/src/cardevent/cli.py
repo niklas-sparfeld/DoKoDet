@@ -165,6 +165,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override the device in the config.",
     )
     train_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Override the training batch size.",
+    )
+    train_parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=None,
+        help="DataLoader worker count (default: 0).",
+    )
+    train_parser.add_argument(
+        "--precision",
+        choices=("fp32", "bf16"),
+        default=None,
+        help="Training precision (default: fp32; bf16 requires CUDA).",
+    )
+    train_parser.add_argument(
+        "--resume",
+        type=Path,
+        default=None,
+        help="Resume a run directory or checkpoint.",
+    )
+    train_parser.add_argument(
         "--hard-negative-manifest",
         type=Path,
         default=None,
@@ -432,6 +456,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if command_name == "train":
+        if args.resume is not None and args.run_name is not None:
+            parser.exit(2, "error: --resume cannot be combined with --run-name.\n")
         try:
             result = train_from_files(
                 args.config,
@@ -443,6 +469,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 max_samples=args.max_samples,
                 device_override=args.device,
                 hard_negative_manifest=args.hard_negative_manifest,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers,
+                precision=args.precision,
+                resume_path=args.resume,
             )
         except (TrainingError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")

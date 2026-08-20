@@ -31,6 +31,35 @@ def test_train_command_parses_config_and_split() -> None:
     assert args.split == Path("data/splits/default.yaml")
     assert args.max_samples is None
     assert args.hard_negative_manifest is None
+    assert args.batch_size is None
+    assert args.num_workers is None
+    assert args.precision is None
+    assert args.resume is None
+
+
+def test_train_command_parses_runtime_overrides_and_resume() -> None:
+    args = build_parser().parse_args(
+        [
+            "train",
+            "--config",
+            "configs/base.yaml",
+            "--split",
+            "data/splits/default.yaml",
+            "--batch-size",
+            "32",
+            "--num-workers",
+            "4",
+            "--precision",
+            "bf16",
+            "--resume",
+            "data/outputs/run-1",
+        ]
+    )
+
+    assert args.batch_size == 32
+    assert args.num_workers == 4
+    assert args.precision == "bf16"
+    assert args.resume == Path("data/outputs/run-1")
 
 
 def test_infer_command_parses_checkpoint_video_and_output() -> None:

@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import platform
 import random
+import socket
 import subprocess
-from dataclasses import dataclass
+import tempfile
+import time
+from contextlib import nullcontext
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from statistics import median
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import torch
@@ -17,7 +22,7 @@ from torch.utils.data import DataLoader
 
 from .annotation import AnnotationError, load_annotation
 from .cache import CacheError, load_cache_metadata
-from .config import Config, load_config, save_config
+from .config import Config, ConfigError, load_config, save_config
 from .dataset import (
     CausalClipDataset,
     DatasetSample,
@@ -46,11 +51,38 @@ class TrainingResult:
 
 
 @dataclass(frozen=True, slots=True)
+class TrainingRuntimeOptions:
+    """Resolved options that affect one training process."""
+
+    batch_size: int
+    num_workers: int
+    pin_memory: bool
+    precision: str
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "batch_size": self.batch_size,
+            "num_workers": self.num_workers,
+            "pin_memory": self.pin_memory,
+            "precision": self.precision,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class _ValidationVideo:
     name: str
     samples: tuple[DatasetSample, ...]
     event_times_s: tuple[float, ...]
     duration_s: float
+
+
+@dataclass(frozen=True, slots=True)
+class _ResumeState:
+    checkpoint_path: Path
+    checkpoint: Mapping[str, Any]
+    global_epoch: int
+    stage: str
+    stage_epoch: int
 
 
 def seed_everything(seed: int) -> None:
@@ -60,6 +92,109 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def resolve_runtime_options(
+    config: Config,
+    device: torch.device,
+    *,
+    batch_size: int | None = None,
+    num_workers: int | None = None,
+    precision: str | None = None,
+) -> TrainingRuntimeOptions:
+    """Resolve command-line runtime overrides for the selected device."""
+    resolved_batch_size = config.training.batch_size if batch_size is None else batch_size
+    if isinstance(resolved_batch_size, bool) or not isinstance(resolved_batch_size, int):
+        raise TrainingError("batch_size must be an integer.")
+    if resolved_batch_size <= 0:
+        raise TrainingError("batch_size must be positive.")
+
+    resolved_num_workers = 0 if num_workers is None else num_workers
+    if isinstance(resolved_num_workers, bool) or not isinstance(resolved_num_workers, int):
+        raise TrainingError("num_workers must be an integer.")
+    if resolved_num_workers < 0:
+        raise TrainingError("num_workers must be zero or greater.")
+
+    if precision is not None and not isinstance(precision, str):
+        raise TrainingError("precision must be a string.")
+    resolved_precision = "fp32" if precision is None else precision.strip().lower()
+    if resolved_precision not in {"fp32", "bf16"}:
+        raise TrainingError("precision must be one of: fp32, bf16.")
+    if resolved_precision == "bf16":
+        if device.type != "cuda" or not torch.cuda.is_available():
+            raise TrainingError(
+                "BF16 precision requires an available CUDA device. "
+                "Use --precision fp32 on CPU or MPS."
+            )
+        is_supported = getattr(torch.cuda, "is_bf16_supported", None)
+        if not callable(is_supported) or not is_supported():
+            raise TrainingError(
+                "BF16 precision is not supported by this CUDA device. "
+                "Use --precision fp32 or a GPU with BF16 support."
+            )
+
+    return TrainingRuntimeOptions(
+        batch_size=resolved_batch_size,
+        num_workers=resolved_num_workers,
+        pin_memory=device.type == "cuda",
+        precision=resolved_precision,
+    )
+
+
+def _seed_worker(_worker_id: int) -> None:
+    """Seed Python and NumPy in each DataLoader worker."""
+    worker_seed = torch.initial_seed() % (2**32)
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
+
+
+def _autocast_context(device: torch.device, runtime: TrainingRuntimeOptions) -> Any:
+    if runtime.precision == "bf16":
+        return torch.autocast(device_type=device.type, dtype=torch.bfloat16)
+    return nullcontext()
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            temporary_file.write(text)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
+
+
+def _atomic_torch_save(payload: Mapping[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            torch.save(payload, temporary_file)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
 
 
 def _find_repo_root() -> Path | None:
@@ -93,6 +228,35 @@ def _torchvision_version() -> str | None:
     except ModuleNotFoundError:
         return None
     return torchvision.__version__
+
+
+def _environment_metadata(device: torch.device) -> dict[str, Any]:
+    cuda_available = device.type == "cuda" and torch.cuda.is_available()
+    gpu_name: str | None = None
+    gpu_count: int | None = None
+    gpu_total_memory: int | None = None
+    cudnn_version: int | None = None
+    if cuda_available:
+        gpu_count = torch.cuda.device_count()
+        current_device = torch.cuda.current_device()
+        gpu_name = torch.cuda.get_device_name(current_device)
+        gpu_total_memory = int(torch.cuda.get_device_properties(current_device).total_memory)
+        cudnn_version = torch.backends.cudnn.version()
+
+    return {
+        "hostname": socket.gethostname(),
+        "platform": platform.platform(),
+        "python_version": platform.python_version(),
+        "torch_version": torch.__version__,
+        "torchvision_version": _torchvision_version(),
+        "git_commit": _git_commit(),
+        "device": str(device),
+        "cuda_version": torch.version.cuda if cuda_available else None,
+        "cudnn_version": cudnn_version,
+        "gpu_name": gpu_name,
+        "gpu_count": gpu_count,
+        "gpu_total_memory": gpu_total_memory,
+    }
 
 
 def _new_run_dir(output_dir: Path, run_name: str | None) -> Path:
@@ -277,13 +441,35 @@ def _make_loader(
     batch_size: int,
     shuffle: bool,
     offsets_s: Sequence[float] | None = None,
+    runtime: TrainingRuntimeOptions | None = None,
 ) -> DataLoader[Any]:
+    if runtime is None:
+        runtime = TrainingRuntimeOptions(
+            batch_size=batch_size,
+            num_workers=0,
+            pin_memory=False,
+            precision="fp32",
+        )
     dataset = CausalClipDataset(
         samples,
         offsets_s=DEFAULT_CLIP_OFFSETS_S if offsets_s is None else offsets_s,
         transform=ClipTransform(training=training),
     )
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=0)
+    loader_options: dict[str, Any] = {
+        "batch_size": batch_size,
+        "shuffle": shuffle,
+        "num_workers": runtime.num_workers,
+        "pin_memory": runtime.pin_memory,
+        "worker_init_fn": _seed_worker,
+    }
+    if runtime.num_workers > 0:
+        loader_options.update(
+            {
+                "persistent_workers": True,
+                "prefetch_factor": 2,
+            }
+        )
+    return DataLoader(dataset, **loader_options)
 
 
 def _run_train_epoch(
@@ -294,7 +480,15 @@ def _run_train_epoch(
     device: torch.device,
     *,
     backbone_frozen: bool,
+    runtime: TrainingRuntimeOptions | None = None,
 ) -> float:
+    if runtime is None:
+        runtime = TrainingRuntimeOptions(
+            batch_size=loader.batch_size or 1,
+            num_workers=loader.num_workers,
+            pin_memory=device.type == "cuda",
+            precision="fp32",
+        )
     model.train()
     if backbone_frozen:
         model.backbone.eval()
@@ -302,11 +496,20 @@ def _run_train_epoch(
     total_loss = 0.0
     sample_count = 0
     for clips, labels in loader:
-        clips = clips.to(device=device, dtype=torch.float32)
-        labels = labels.to(device=device, dtype=torch.float32)
+        clips = clips.to(
+            device=device,
+            dtype=torch.float32,
+            non_blocking=runtime.pin_memory,
+        )
+        labels = labels.to(
+            device=device,
+            dtype=torch.float32,
+            non_blocking=runtime.pin_memory,
+        )
         optimizer.zero_grad(set_to_none=True)
-        logits = model(clips)
-        loss = criterion(logits, labels)
+        with _autocast_context(device, runtime):
+            logits = model(clips)
+            loss = criterion(logits, labels)
         loss.backward()
         optimizer.step()
         batch_size = labels.shape[0]
@@ -327,7 +530,15 @@ def _evaluate_validation(
     merge_window_s: float,
     event_tolerance_s: float,
     offsets_s: Sequence[float],
+    runtime: TrainingRuntimeOptions | None = None,
 ) -> dict[str, float]:
+    if runtime is None:
+        runtime = TrainingRuntimeOptions(
+            batch_size=batch_size,
+            num_workers=0,
+            pin_memory=device.type == "cuda",
+            precision="fp32",
+        )
     model.eval()
     criterion = torch.nn.BCEWithLogitsLoss()
     total_loss = 0.0
@@ -345,14 +556,24 @@ def _evaluate_validation(
             batch_size=batch_size,
             shuffle=False,
             offsets_s=offsets_s,
+            runtime=runtime,
         )
         probabilities: list[ProbabilitySample] = []
         sample_offset = 0
         for clips, labels in loader:
-            clips = clips.to(device=device, dtype=torch.float32)
-            labels = labels.to(device=device, dtype=torch.float32)
-            logits = model(clips)
-            loss = criterion(logits, labels)
+            clips = clips.to(
+                device=device,
+                dtype=torch.float32,
+                non_blocking=runtime.pin_memory,
+            )
+            labels = labels.to(
+                device=device,
+                dtype=torch.float32,
+                non_blocking=runtime.pin_memory,
+            )
+            with _autocast_context(device, runtime):
+                logits = model(clips)
+                loss = criterion(logits, labels)
             batch_size_actual = labels.shape[0]
             total_loss += float(loss.detach().cpu()) * batch_size_actual
             total_samples += batch_size_actual
@@ -407,6 +628,184 @@ def _checkpoint_rank(metrics: dict[str, float], target_recall: float) -> tuple[f
     return (0.0, recall, -false_events_per_hour, metrics["validation_precision"])
 
 
+def _load_training_checkpoint(path: Path) -> Mapping[str, Any]:
+    if not path.is_file():
+        raise TrainingError(f"Checkpoint does not exist: {path}")
+    try:
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise TrainingError(f"Could not load checkpoint {path}: {exc}") from exc
+    if not isinstance(checkpoint, Mapping):
+        raise TrainingError(f"Checkpoint must contain a mapping: {path}")
+    return checkpoint
+
+
+def _validate_checkpoint_compatibility(
+    checkpoint: Mapping[str, Any],
+    *,
+    config: Config,
+    split: VideoSplit,
+    path: Path,
+) -> None:
+    checkpoint_config = checkpoint.get("config")
+    if not isinstance(checkpoint_config, Mapping):
+        raise TrainingError(f"Checkpoint is missing its config: {path}")
+    try:
+        normalized_checkpoint_config = Config.from_mapping(checkpoint_config).to_dict()
+    except (ConfigError, TypeError, ValueError) as exc:
+        raise TrainingError(f"Checkpoint has an invalid config: {path}") from exc
+    if normalized_checkpoint_config != config.to_dict():
+        raise TrainingError(
+            "The resume checkpoint config does not match the supplied config. "
+            "Resume with the original config."
+        )
+
+    checkpoint_split = checkpoint.get("split")
+    if checkpoint_split != split.to_mapping():
+        raise TrainingError(
+            "The resume checkpoint split does not match the supplied split. "
+            "Resume with the original split."
+        )
+    if not isinstance(checkpoint.get("model_state"), Mapping):
+        raise TrainingError(f"Checkpoint is missing model_state: {path}")
+
+
+def _resume_state(
+    checkpoint_path: Path,
+    *,
+    config: Config,
+    split: VideoSplit,
+) -> _ResumeState:
+    checkpoint = _load_training_checkpoint(checkpoint_path)
+    _validate_checkpoint_compatibility(
+        checkpoint,
+        config=config,
+        split=split,
+        path=checkpoint_path,
+    )
+    global_epoch_value = checkpoint.get("global_epoch", checkpoint.get("epoch"))
+    if isinstance(global_epoch_value, bool) or not isinstance(global_epoch_value, int):
+        raise TrainingError(f"Checkpoint has no valid epoch: {checkpoint_path}")
+    global_epoch = global_epoch_value
+
+    stages = (
+        ("warmup", config.training.warmup_epochs),
+        ("finetune", config.training.finetune_epochs),
+    )
+    stage = checkpoint.get("stage")
+    if stage not in {stage_name for stage_name, _ in stages}:
+        raise TrainingError(f"Checkpoint has an unknown training stage: {stage}")
+    stage_index = next(index for index, (stage_name, _) in enumerate(stages) if stage_name == stage)
+    stage_offset = sum(stage_epochs for _, stage_epochs in stages[:stage_index])
+    stage_epochs = stages[stage_index][1]
+    stage_epoch_value = checkpoint.get("stage_epoch")
+    if stage_epoch_value is None:
+        stage_epoch = global_epoch - stage_offset
+    elif isinstance(stage_epoch_value, int) and not isinstance(stage_epoch_value, bool):
+        stage_epoch = stage_epoch_value
+    else:
+        raise TrainingError(f"Checkpoint has no valid stage_epoch: {checkpoint_path}")
+
+    if stage_epoch < 1 or stage_epoch > stage_epochs or global_epoch != stage_offset + stage_epoch:
+        raise TrainingError(f"Checkpoint has an invalid epoch position: {checkpoint_path}")
+    total_epochs = sum(stage_epochs for _, stage_epochs in stages)
+    if global_epoch >= total_epochs:
+        raise TrainingError(
+            f"Checkpoint already completed all {total_epochs} configured epochs. "
+            "Choose a checkpoint from an earlier epoch."
+        )
+    return _ResumeState(
+        checkpoint_path=checkpoint_path,
+        checkpoint=checkpoint,
+        global_epoch=global_epoch,
+        stage=stage,
+        stage_epoch=stage_epoch,
+    )
+
+
+def _best_state(
+    run_path: Path,
+    *,
+    resume_state: _ResumeState,
+    config: Config,
+    split: VideoSplit,
+) -> tuple[tuple[float, ...], dict[str, Any], int, str]:
+    best_path = run_path / "best.pt"
+    best_checkpoints: list[Mapping[str, Any]] = []
+    if best_path.is_file():
+        best_checkpoint = _load_training_checkpoint(best_path)
+        _validate_checkpoint_compatibility(
+            best_checkpoint,
+            config=config,
+            split=split,
+            path=best_path,
+        )
+        best_checkpoints.append(best_checkpoint)
+    else:
+        LOGGER.warning(
+            "Resume run has no best.pt. Using last.pt as the initial best checkpoint."
+        )
+    best_checkpoints.append(resume_state.checkpoint)
+
+    selected: tuple[tuple[float, ...], dict[str, Any], int, str] | None = None
+    for checkpoint in best_checkpoints:
+        best_metrics = checkpoint.get("best_metrics", checkpoint.get("metrics"))
+        if not isinstance(best_metrics, Mapping):
+            raise TrainingError("The resume checkpoint does not contain best metrics.")
+        best_metrics = dict(best_metrics)
+        try:
+            best_rank = _checkpoint_rank(best_metrics, config.metrics.target_recall)
+            best_epoch = int(checkpoint.get("best_epoch", checkpoint["epoch"]))
+            best_stage = str(checkpoint.get("best_stage", checkpoint["stage"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise TrainingError(
+                "The resume checkpoint has invalid best-checkpoint metadata."
+            ) from exc
+        candidate = (best_rank, best_metrics, best_epoch, best_stage)
+        if selected is None or candidate[0] > selected[0]:
+            selected = candidate
+    if selected is None:
+        raise TrainingError("The resume checkpoint does not contain best metrics.")
+    return selected
+
+
+def _optimizer_to_device(optimizer: Any, device: torch.device) -> None:
+    for state in optimizer.state.values():
+        for key, value in state.items():
+            if isinstance(value, torch.Tensor):
+                state[key] = value.to(device)
+
+
+def _reconcile_metrics_file(
+    path: Path,
+    *,
+    checkpoint_epoch: int,
+    checkpoint_metrics: Mapping[str, Any] | None,
+) -> None:
+    if not path.exists():
+        rows: list[str] = []
+    else:
+        rows = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise TrainingError(f"Metrics file contains invalid JSON: {path}") from exc
+            row_epoch = row.get("epoch") if isinstance(row, Mapping) else None
+            if isinstance(row_epoch, int) and row_epoch <= checkpoint_epoch:
+                rows.append(json.dumps(row, allow_nan=False))
+
+    last_epoch = None
+    if rows:
+        last_row = json.loads(rows[-1])
+        last_epoch = last_row.get("epoch")
+    if last_epoch != checkpoint_epoch and checkpoint_metrics is not None:
+        rows.append(json.dumps(dict(checkpoint_metrics), allow_nan=False))
+    _atomic_write_text(path, "".join(f"{row}\n" for row in rows))
+
+
 def _save_checkpoint(
     path: Path,
     *,
@@ -414,28 +813,53 @@ def _save_checkpoint(
     optimizer: Any,
     epoch: int,
     stage: str,
+    stage_epoch: int | None = None,
+    global_epoch: int | None = None,
     config: Config,
     split: VideoSplit,
     device: torch.device,
-    metrics: dict[str, float],
+    metrics: Mapping[str, Any],
     hard_negative_manifest: str | Path | None,
+    runtime: TrainingRuntimeOptions | None = None,
+    max_samples: int | None = None,
+    best_metrics: Mapping[str, Any] | None = None,
+    best_epoch: int | None = None,
+    best_stage: str | None = None,
+    best_rank: Sequence[float] | None = None,
 ) -> None:
-    torch.save(
-        {
-            "model_state": model.state_dict(),
-            "optimizer_state": optimizer.state_dict(),
-            "epoch": epoch,
-            "stage": stage,
-            "config": config.to_dict(),
-            "split": split.to_mapping(),
-            "device": str(device),
-            "metrics": metrics,
-            "hard_negative_manifest": (
-                str(hard_negative_manifest) if hard_negative_manifest is not None else None
-            ),
-        },
-        path,
-    )
+    if runtime is None:
+        runtime = TrainingRuntimeOptions(
+            batch_size=config.training.batch_size,
+            num_workers=0,
+            pin_memory=device.type == "cuda",
+            precision="fp32",
+        )
+    payload: dict[str, Any] = {
+        "model_state": model.state_dict(),
+        "optimizer_state": optimizer.state_dict(),
+        "epoch": epoch,
+        "global_epoch": epoch if global_epoch is None else global_epoch,
+        "stage": stage,
+        "stage_epoch": epoch if stage_epoch is None else stage_epoch,
+        "config": config.to_dict(),
+        "split": split.to_mapping(),
+        "runtime": runtime.to_mapping(),
+        "device": str(device),
+        "metrics": dict(metrics),
+        "hard_negative_manifest": (
+            str(hard_negative_manifest) if hard_negative_manifest is not None else None
+        ),
+        "max_samples": max_samples,
+    }
+    if best_metrics is not None:
+        payload["best_metrics"] = dict(best_metrics)
+    if best_epoch is not None:
+        payload["best_epoch"] = best_epoch
+    if best_stage is not None:
+        payload["best_stage"] = best_stage
+    if best_rank is not None:
+        payload["best_rank"] = list(best_rank)
+    _atomic_torch_save(payload, path)
 
 
 def train_model(
@@ -448,14 +872,80 @@ def train_model(
     max_samples: int | None = None,
     device_override: str | None = None,
     hard_negative_manifest: str | Path | None = None,
+    batch_size: int | None = None,
+    num_workers: int | None = None,
+    precision: str | None = None,
+    resume_path: str | Path | None = None,
 ) -> TrainingResult:
     """Run the two-stage CardEventNet training schedule."""
     run_path = Path(run_dir)
-    run_path.mkdir(parents=True, exist_ok=True)
+    resume_state: _ResumeState | None = None
+    if resume_path is not None:
+        resume_file = Path(resume_path)
+        resume_state = _resume_state(resume_file, config=config, split=split)
+        if not run_path.is_dir():
+            raise TrainingError(f"Resume run directory does not exist: {run_path}")
+    else:
+        run_path.mkdir(parents=True, exist_ok=True)
+
     cache_path = Path(cache_dir)
     annotation_path = Path(annotations_dir)
     seed_everything(config.seed)
     device = resolve_device(device_override or config.training.device)
+
+    save_config(config, run_path / "config.yaml")
+    environment = _environment_metadata(device)
+    _atomic_write_text(
+        run_path / "environment.json",
+        json.dumps(environment, indent=2, allow_nan=False) + "\n",
+    )
+
+    saved_runtime = resume_state.checkpoint.get("runtime") if resume_state else None
+    if saved_runtime is not None and not isinstance(saved_runtime, Mapping):
+        raise TrainingError("The resume checkpoint has invalid runtime metadata.")
+    if resume_state and isinstance(saved_runtime, Mapping):
+        if batch_size is None:
+            batch_size = saved_runtime.get("batch_size")
+        if num_workers is None:
+            num_workers = saved_runtime.get("num_workers")
+        if precision is None:
+            precision = saved_runtime.get("precision")
+    runtime = resolve_runtime_options(
+        config,
+        device,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        precision=precision,
+    )
+
+    has_saved_max_samples = resume_state is not None and "max_samples" in resume_state.checkpoint
+    saved_max_samples = resume_state.checkpoint.get("max_samples") if resume_state else None
+    if resume_state and max_samples is None and has_saved_max_samples:
+        max_samples = saved_max_samples
+    elif resume_state and has_saved_max_samples and max_samples != saved_max_samples:
+        raise TrainingError(
+            "The resume max-samples setting does not match the checkpoint. "
+            "Resume with the original --max-samples value."
+        )
+
+    has_saved_manifest = (
+        resume_state is not None and "hard_negative_manifest" in resume_state.checkpoint
+    )
+    saved_manifest = (
+        resume_state.checkpoint.get("hard_negative_manifest") if resume_state else None
+    )
+    if (
+        resume_state
+        and hard_negative_manifest is None
+        and has_saved_manifest
+        and saved_manifest is not None
+    ):
+        hard_negative_manifest = saved_manifest
+    elif resume_state and has_saved_manifest and str(hard_negative_manifest) != str(saved_manifest):
+        raise TrainingError(
+            "The resume hard-negative manifest does not match the checkpoint. "
+            "Resume with the original manifest."
+        )
 
     train_samples = _training_samples_for_split(
         split,
@@ -473,21 +963,57 @@ def train_model(
         max_samples=max_samples,
     )
 
-    model = build_model(config.model).to(device)
+    model_config = replace(config.model, pretrained=False) if resume_state else config.model
+    model = build_model(model_config).to(device)
+    if resume_state:
+        try:
+            model.load_state_dict(resume_state.checkpoint["model_state"])
+        except (RuntimeError, TypeError, ValueError) as exc:
+            raise TrainingError(
+                f"Could not load model state from {resume_state.checkpoint_path}: {exc}"
+            ) from exc
     criterion = torch.nn.BCEWithLogitsLoss()
     metrics_path = run_path / "metrics.jsonl"
     best_rank: tuple[float, ...] | None = None
-    best_metrics: dict[str, float] | None = None
+    best_metrics: dict[str, Any] | None = None
     best_epoch = 0
     best_stage = ""
-    epoch_number = 0
+    if resume_state:
+        best_rank, best_metrics, best_epoch, best_stage = _best_state(
+            run_path,
+            resume_state=resume_state,
+            config=config,
+            split=split,
+        )
+        _reconcile_metrics_file(
+            metrics_path,
+            checkpoint_epoch=resume_state.global_epoch,
+            checkpoint_metrics=(
+                resume_state.checkpoint.get("metrics")
+                if isinstance(resume_state.checkpoint.get("metrics"), Mapping)
+                else None
+            ),
+        )
 
     stages = (
         ("warmup", config.training.warmup_epochs, config.training.warmup_lr, True),
         ("finetune", config.training.finetune_epochs, config.training.finetune_lr, False),
     )
-    with metrics_path.open("w", encoding="utf-8") as metrics_file:
-        for stage_name, stage_epochs, learning_rate, backbone_frozen in stages:
+    start_stage_index = 0
+    if resume_state:
+        start_stage_index = next(
+            index
+            for index, (stage_name, *_rest) in enumerate(stages)
+            if stage_name == resume_state.stage
+        )
+
+    metrics_mode = "a" if resume_state else "w"
+    with metrics_path.open(metrics_mode, encoding="utf-8") as metrics_file:
+        for stage_index, (stage_name, stage_epochs, learning_rate, backbone_frozen) in enumerate(
+            stages
+        ):
+            if stage_index < start_stage_index:
+                continue
             if backbone_frozen:
                 freeze_backbone(model)
             else:
@@ -497,14 +1023,33 @@ def train_model(
                 lr=learning_rate,
                 weight_decay=config.training.weight_decay,
             )
-            for _ in range(stage_epochs):
-                epoch_number += 1
+            stage_start_epoch = 0
+            if resume_state and stage_name == resume_state.stage:
+                optimizer_state = resume_state.checkpoint.get("optimizer_state")
+                if not isinstance(optimizer_state, Mapping):
+                    raise TrainingError(
+                        f"Checkpoint is missing optimizer state for stage {stage_name}."
+                    )
+                try:
+                    optimizer.load_state_dict(optimizer_state)
+                    _optimizer_to_device(optimizer, device)
+                except (RuntimeError, ValueError, TypeError) as exc:
+                    raise TrainingError(
+                        f"Could not restore the {stage_name} optimizer state: {exc}"
+                    ) from exc
+                stage_start_epoch = resume_state.stage_epoch
+
+            stage_offset = sum(stage_length for _, stage_length, *_rest in stages[:stage_index])
+            for stage_epoch in range(stage_start_epoch + 1, stage_epochs + 1):
+                epoch_number = stage_offset + stage_epoch
+                train_start = time.perf_counter()
                 train_loader = _make_loader(
                     train_samples,
                     training=True,
-                    batch_size=config.training.batch_size,
+                    batch_size=runtime.batch_size,
                     shuffle=True,
                     offsets_s=config.input.clip_offsets_s,
+                    runtime=runtime,
                 )
                 train_loss = _run_train_epoch(
                     model,
@@ -513,63 +1058,94 @@ def train_model(
                     criterion,
                     device,
                     backbone_frozen=backbone_frozen,
+                    runtime=runtime,
                 )
+                train_duration_s = time.perf_counter() - train_start
+                validation_start = time.perf_counter()
                 validation_metrics = _evaluate_validation(
                     model,
                     validation_videos,
-                    batch_size=config.training.batch_size,
+                    batch_size=runtime.batch_size,
                     device=device,
                     merge_window_s=config.inference.merge_window_s,
                     event_tolerance_s=config.metrics.event_match_tolerance_s,
                     offsets_s=config.input.clip_offsets_s,
+                    runtime=runtime,
                 )
-                row = {
+                validation_duration_s = time.perf_counter() - validation_start
+                row: dict[str, Any] = {
                     "epoch": epoch_number,
+                    "global_epoch": epoch_number,
                     "stage": stage_name,
+                    "stage_epoch": stage_epoch,
                     "train_loss": train_loss,
                     "learning_rate": learning_rate,
+                    "train_duration_s": train_duration_s,
+                    "train_samples_per_s": len(train_samples) / max(train_duration_s, 1e-9),
+                    "validation_duration_s": validation_duration_s,
                     **validation_metrics,
                 }
-                metrics_file.write(json.dumps(row, allow_nan=False) + "\n")
-                metrics_file.flush()
+                rank = _checkpoint_rank(validation_metrics, config.metrics.target_recall)
+                is_new_best = best_rank is None or rank > best_rank
+                if is_new_best:
+                    best_rank = rank
+                    best_metrics = row
+                    best_epoch = epoch_number
+                    best_stage = stage_name
+
                 _save_checkpoint(
                     run_path / "last.pt",
                     model=model,
                     optimizer=optimizer,
                     epoch=epoch_number,
                     stage=stage_name,
+                    stage_epoch=stage_epoch,
+                    global_epoch=epoch_number,
                     config=config,
                     split=split,
                     device=device,
                     metrics=row,
                     hard_negative_manifest=hard_negative_manifest,
+                    runtime=runtime,
+                    max_samples=max_samples,
+                    best_metrics=best_metrics,
+                    best_epoch=best_epoch,
+                    best_stage=best_stage,
+                    best_rank=best_rank,
                 )
-                rank = _checkpoint_rank(validation_metrics, config.metrics.target_recall)
-                if best_rank is None or rank > best_rank:
-                    best_rank = rank
-                    best_metrics = row
-                    best_epoch = epoch_number
-                    best_stage = stage_name
+                if is_new_best:
                     _save_checkpoint(
                         run_path / "best.pt",
                         model=model,
                         optimizer=optimizer,
                         epoch=epoch_number,
                         stage=stage_name,
+                        stage_epoch=stage_epoch,
+                        global_epoch=epoch_number,
                         config=config,
                         split=split,
                         device=device,
                         metrics=row,
                         hard_negative_manifest=hard_negative_manifest,
+                        runtime=runtime,
+                        max_samples=max_samples,
+                        best_metrics=best_metrics,
+                        best_epoch=best_epoch,
+                        best_stage=best_stage,
+                        best_rank=best_rank,
                     )
+                metrics_file.write(json.dumps(row, allow_nan=False) + "\n")
+                metrics_file.flush()
                 LOGGER.info(
-                    "epoch=%d stage=%s train_loss=%.4f val_loss=%.4f recall=%.3f false/hour=%.2f",
+                    "epoch=%d stage=%s train_loss=%.4f val_loss=%.4f recall=%.3f "
+                    "false/hour=%.2f samples/s=%.1f",
                     epoch_number,
                     stage_name,
                     train_loss,
                     validation_metrics["val_loss"],
                     validation_metrics["validation_event_recall"],
                     validation_metrics["validation_false_events_per_hour"],
+                    row["train_samples_per_s"],
                 )
 
     if best_metrics is None:
@@ -580,22 +1156,28 @@ def train_model(
         "best_stage": best_stage,
         "best_metrics": best_metrics,
         "device": str(device),
+        "runtime": runtime.to_mapping(),
         "seed": config.seed,
         "config": config.to_dict(),
         "split": split.to_mapping(),
-        "git_commit": _git_commit(),
-        "python_version": platform.python_version(),
-        "torch_version": torch.__version__,
-        "torchvision_version": _torchvision_version(),
+        "environment": environment,
+        "git_commit": environment["git_commit"],
+        "python_version": environment["python_version"],
+        "torch_version": environment["torch_version"],
+        "torchvision_version": environment["torchvision_version"],
+        "cuda_version": environment["cuda_version"],
+        "cudnn_version": environment["cudnn_version"],
+        "gpu_name": environment["gpu_name"],
+        "gpu_count": environment["gpu_count"],
+        "gpu_total_memory": environment["gpu_total_memory"],
         "hard_negative_manifest": (
             str(hard_negative_manifest) if hard_negative_manifest is not None else None
         ),
     }
-    (run_path / "summary.json").write_text(
+    _atomic_write_text(
+        run_path / "summary.json",
         json.dumps(summary, indent=2, allow_nan=False) + "\n",
-        encoding="utf-8",
     )
-    save_config(config, run_path / "config.yaml")
     return TrainingResult(run_dir=run_path, summary=summary)
 
 
@@ -610,13 +1192,33 @@ def train_from_files(
     max_samples: int | None = None,
     device_override: str | None = None,
     hard_negative_manifest: str | Path | None = None,
+    batch_size: int | None = None,
+    num_workers: int | None = None,
+    precision: str | None = None,
+    resume_path: str | Path | None = None,
 ) -> TrainingResult:
     try:
         config = load_config(config_path)
         split = load_split(split_path)
     except (OSError, RuntimeError, SplitError, ValueError) as exc:
         raise TrainingError(f"Could not load training inputs: {exc}") from exc
-    run_dir = _new_run_dir(Path(output_dir), run_name)
+    if resume_path is not None:
+        if run_name is not None:
+            raise TrainingError("--resume cannot be combined with --run-name.")
+        resume_file = Path(resume_path)
+        if resume_file.is_dir():
+            run_dir = resume_file
+            checkpoint_path = resume_file / "last.pt"
+        else:
+            checkpoint_path = resume_file
+            run_dir = resume_file.parent
+        if not run_dir.is_dir():
+            raise TrainingError(f"Resume run directory does not exist: {run_dir}")
+        if not checkpoint_path.is_file():
+            raise TrainingError(f"Resume checkpoint does not exist: {checkpoint_path}")
+    else:
+        run_dir = _new_run_dir(Path(output_dir), run_name)
+        checkpoint_path = None
     return train_model(
         config,
         split,
@@ -626,4 +1228,8 @@ def train_from_files(
         max_samples=max_samples,
         device_override=device_override,
         hard_negative_manifest=hard_negative_manifest,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        precision=precision,
+        resume_path=checkpoint_path,
     )
