@@ -5,6 +5,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .annotation import AnnotationError, annotate_video
+from .cache import CacheError, prepare_videos
+from .splits import SplitError, make_video_split, save_split
 from .video import VideoError
 
 _PLACEHOLDER_COMMANDS = {
@@ -56,8 +58,66 @@ def build_parser() -> argparse.ArgumentParser:
     )
     annotate_parser.set_defaults(command_name="annotate")
 
+    prepare_parser = subparsers.add_parser(
+        "prepare",
+        help="Build the low-resolution frame cache.",
+        description="Decode annotated videos and build their 10 fps ROI caches.",
+    )
+    prepare_parser.add_argument(
+        "--videos",
+        nargs="+",
+        type=Path,
+        required=True,
+        help="Source videos to cache.",
+    )
+    prepare_parser.add_argument(
+        "--annotations-dir",
+        type=Path,
+        default=None,
+        help="Override the annotations directory.",
+    )
+    prepare_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Override the cache root directory.",
+    )
+    prepare_parser.add_argument(
+        "--cache-fps",
+        type=float,
+        default=10.0,
+        help="Cached frame rate (default: 10).",
+    )
+    prepare_parser.add_argument(
+        "--size",
+        type=int,
+        default=224,
+        help="Square cached frame size (default: 224).",
+    )
+    prepare_parser.set_defaults(command_name="prepare")
+
+    split_parser = subparsers.add_parser(
+        "make-split",
+        help="Create a video-level split file.",
+        description="Create a deterministic train/val/test split by source video.",
+    )
+    split_parser.add_argument("videos", nargs="+", type=Path, help="Source videos to split.")
+    split_parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path("data/splits/default.yaml"),
+        help="Split file path (default: data/splits/default.yaml).",
+    )
+    split_parser.add_argument("--seed", type=int, default=42, help="Split random seed.")
+    split_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace an existing split file.",
+    )
+    split_parser.set_defaults(command_name="make-split")
+
     for name, help_text in _PLACEHOLDER_COMMANDS.items():
-        if name == "annotate":
+        if name in {"annotate", "prepare", "make-split"}:
             continue
         command_parser = subparsers.add_parser(name, help=help_text, description=help_text)
         command_parser.set_defaults(command_name=name)
@@ -83,6 +143,38 @@ def main(argv: Sequence[str] | None = None) -> int:
             annotate_video(args.video, annotations_dir=args.annotations_dir)
         except (AnnotationError, VideoError, RuntimeError) as exc:
             parser.exit(1, f"error: {exc}\n")
+        return 0
+
+    if command_name == "prepare":
+        try:
+            cache_paths = prepare_videos(
+                args.videos,
+                annotations_dir=args.annotations_dir,
+                cache_root=args.cache_dir,
+                cache_fps=args.cache_fps,
+                size=args.size,
+            )
+        except (AnnotationError, CacheError, VideoError, RuntimeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        for cache_path in cache_paths:
+            print(f"Prepared cache: {cache_path}")
+        return 0
+
+    if command_name == "make-split":
+        if args.out.exists() and not args.force:
+            parser.exit(
+                2,
+                f"error: split file already exists: {args.out} (use --force to replace it)\n",
+            )
+        try:
+            split = make_video_split(args.videos, seed=args.seed)
+            save_split(split, args.out)
+        except (SplitError, RuntimeError, OSError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote split: {args.out}")
+        print(f"  train: {len(split.train)} videos")
+        print(f"  val:   {len(split.val)} videos")
+        print(f"  test:  {len(split.test)} videos")
         return 0
 
     _dispatch_placeholder(parser, command_name)

@@ -6,7 +6,7 @@ Run the commands below from `card_event_net/`.
 
 ## Current state
 
-This repo now has the phase-2 annotator:
+This repo now has the phase-3 cache and dataset pipeline:
 
 - project metadata
 - config loading
@@ -14,6 +14,11 @@ This repo now has the phase-2 annotator:
 - annotation schema and validation
 - video metadata reading
 - OpenCV annotation tool
+- 10 fps cached ROI frame extraction
+- causal 8-frame dataset sampling
+- positive and clean-negative label windows
+- deterministic video-level train/val/test splits
+- temporally consistent training transforms
 - test and lint setup
 
 The annotator stores one JSON file per source video in `data/annotations/`.
@@ -53,3 +58,18 @@ uv run cardevent annotate data/raw/IMG_0090.mov
 The tool shows the event definition at startup. On first use, select the ROI in the OpenCV
 window, then save. You can quit and reopen the same video later. Existing events stay in the
 JSON file.
+
+## Cache and split
+
+Prepare the annotated videos from `card_event_net/`:
+
+```bash
+uv run cardevent prepare --videos data/raw/*.mov
+uv run cardevent make-split data/raw/*.mov
+```
+
+The cache stores 224 x 224 JPEG frames in `data/cache/<video>/`. It also stores the source
+timestamp for every cached frame in `metadata.json`. The cache is ignored by Git.
+
+The split file is `data/splits/default.yaml`. It uses video names without their file extension.
+It is not replaced when it already exists. Use `--force` only when you want to create a new split.
