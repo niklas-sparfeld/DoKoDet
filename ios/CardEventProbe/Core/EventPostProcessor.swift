@@ -39,7 +39,7 @@ public final class EventPostProcessor {
         case cooldown(until: CMTime)
     }
 
-    public let configuration: Configuration
+    public private(set) var configuration: Configuration
     private var state: State = .idle
     private var lastTimestamp: CMTime?
 
@@ -50,6 +50,11 @@ public final class EventPostProcessor {
     public func reset() {
         state = .idle
         lastTimestamp = nil
+    }
+
+    public func updateConfiguration(_ configuration: Configuration) {
+        self.configuration = configuration
+        reset()
     }
 
     /// Consume one prediction. The return value is non-nil only when a new event is emitted.

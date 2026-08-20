@@ -62,6 +62,49 @@ struct DiagnosticsPanel: View {
                 Text("\(appState.inferenceMetrics.framesSkippedForSampling) / \(appState.inferenceMetrics.framesDroppedWhileBusy)")
             }
 
+            HStack {
+                Text("Rate / avg")
+                Spacer()
+                Text(rateAndLatency)
+            }
+
+            HStack {
+                Text("Thermal")
+                Spacer()
+                Text(appState.thermalStateDescription)
+            }
+
+            if let timestamp = appState.lastEventTimestampSeconds {
+                Text(String(format: "Card event at %.3f s", timestamp))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.green)
+            }
+
+            ScoreHistoryView(
+                samples: appState.scoreHistory,
+                highThreshold: appState.eventPostProcessor.configuration.highThreshold,
+                lowThreshold: appState.eventPostProcessor.configuration.lowThreshold
+            )
+
+            DisclosureGroup("Settings") {
+                VStack(alignment: .leading, spacing: 8) {
+                    thresholdSlider(
+                        title: "High threshold",
+                        value: appState.eventPostProcessor.configuration.highThreshold,
+                        onChange: appState.setHighThreshold
+                    )
+                    thresholdSlider(
+                        title: "Low threshold",
+                        value: appState.eventPostProcessor.configuration.lowThreshold,
+                        onChange: appState.setLowThreshold
+                    )
+                    Button("Reset events and history") {
+                        appState.resetEvents()
+                    }
+                }
+                .padding(.top, 4)
+            }
+
             if let inferenceError = appState.inferenceError {
                 Text(inferenceError)
                     .font(.caption)
@@ -70,5 +113,74 @@ struct DiagnosticsPanel: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var rateAndLatency: String {
+        let rate = appState.actualPredictionRateHz.map { String(format: "%.1f Hz", $0) } ?? "—"
+        let latency = appState.inferenceMetrics.averageInferenceDurationMs
+            .map { String(format: "%.1f ms", $0) } ?? "—"
+        return "\(rate) / \(latency)"
+    }
+
+    private func thresholdSlider(
+        title: String,
+        value: Double,
+        onChange: @escaping (Double) -> Void
+    ) -> some View {
+        VStack(alignment: .leading) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(String(format: "%.2f", value))
+                    .monospacedDigit()
+            }
+            Slider(value: Binding(get: { value }, set: onChange), in: 0.0...1.0)
+        }
+    }
+}
+
+private struct ScoreHistoryView: View {
+    let samples: [ScoreSample]
+    let highThreshold: Double
+    let lowThreshold: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Score history")
+                .font(.caption.weight(.medium))
+            Canvas { context, size in
+                drawThreshold(highThreshold, in: &context, size: size, color: .orange)
+                drawThreshold(lowThreshold, in: &context, size: size, color: .blue)
+
+                guard samples.count > 1 else { return }
+                var path = Path()
+                for (index, sample) in samples.enumerated() {
+                    let x = CGFloat(index) / CGFloat(samples.count - 1) * size.width
+                    let y = CGFloat(1.0 - sample.probability) * size.height
+                    let point = CGPoint(x: x, y: y)
+                    if index == 0 {
+                        path.move(to: point)
+                    } else {
+                        path.addLine(to: point)
+                    }
+                }
+                context.stroke(path, with: .color(.green), lineWidth: 2)
+            }
+            .frame(height: 90)
+            .background(.black.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    private func drawThreshold(
+        _ threshold: Double,
+        in context: inout GraphicsContext,
+        size: CGSize,
+        color: Color
+    ) {
+        let y = CGFloat(1.0 - threshold) * size.height
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: y))
+        path.addLine(to: CGPoint(x: size.width, y: y))
+        context.stroke(path, with: .color(color.opacity(0.7)), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
     }
 }

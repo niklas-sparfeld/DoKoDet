@@ -1,4 +1,5 @@
 import CoreML
+import CoreMedia
 import Foundation
 import SwiftUI
 
@@ -16,6 +17,12 @@ enum ModelLoadState {
     }
 }
 
+struct ScoreSample: Identifiable {
+    let id = UUID()
+    let timestampSeconds: Double
+    let probability: Double
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published private(set) var modelState: ModelLoadState = .loading
@@ -29,6 +36,8 @@ final class AppState: ObservableObject {
         averageInferenceDurationMs: nil
     )
     @Published private(set) var inferenceError: String?
+    @Published private(set) var scoreHistory: [ScoreSample] = []
+    @Published private(set) var lastEventTimestampSeconds: Double?
 
     private(set) var modelRunner: CardEventModelRunner?
     let eventPostProcessor = EventPostProcessor()
@@ -39,6 +48,27 @@ final class AppState: ObservableObject {
             return "Unavailable"
         }
         return runner.roi == nil ? "Not configured" : "Configured"
+    }
+
+    var actualPredictionRateHz: Double? {
+        guard let first = scoreHistory.first,
+              let last = scoreHistory.last,
+              scoreHistory.count > 1 else {
+            return nil
+        }
+        let duration = last.timestampSeconds - first.timestampSeconds
+        guard duration > 0.0 else { return nil }
+        return Double(scoreHistory.count - 1) / duration
+    }
+
+    var thermalStateDescription: String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: return "Nominal"
+        case .fair: return "Fair"
+        case .serious: return "Serious"
+        case .critical: return "Critical"
+        @unknown default: return "Unknown"
+        }
     }
 
     init() {
@@ -90,14 +120,54 @@ final class AppState: ObservableObject {
         eventCount = 0
         latestPrediction = nil
         inferenceError = nil
+        scoreHistory.removeAll(keepingCapacity: true)
+        lastEventTimestampSeconds = nil
+    }
+
+    func setHighThreshold(_ value: Double) {
+        let low = eventPostProcessor.configuration.lowThreshold
+        setThresholds(high: max(value, low + 0.01), low: low)
+    }
+
+    func setLowThreshold(_ value: Double) {
+        let high = eventPostProcessor.configuration.highThreshold
+        setThresholds(high: high, low: min(value, high - 0.01))
+    }
+
+    private func setThresholds(high: Double, low: Double) {
+        guard high > low else { return }
+        let current = eventPostProcessor.configuration
+        eventPostProcessor.updateConfiguration(
+            EventPostProcessor.Configuration(
+                highThreshold: high,
+                lowThreshold: low,
+                minimumConsecutiveHighPredictions: current.minimumConsecutiveHighPredictions,
+                cooldown: current.cooldown
+            )
+        )
+        objectWillChange.send()
     }
 
     private func apply(_ update: FrameInferenceUpdate) {
         latestPrediction = update.prediction ?? latestPrediction
         inferenceMetrics = update.metrics
         inferenceError = update.errorMessage
+        if let prediction = update.prediction {
+            scoreHistory.append(
+                ScoreSample(
+                    timestampSeconds: CMTimeGetSeconds(prediction.timestamp),
+                    probability: prediction.cardEventProbability
+                )
+            )
+            if scoreHistory.count > 80 {
+                scoreHistory.removeFirst(scoreHistory.count - 80)
+            }
+        }
         if update.event != nil {
             eventCount += 1
+            if let event = update.event {
+                lastEventTimestampSeconds = CMTimeGetSeconds(event.timestamp)
+            }
         }
     }
 }
