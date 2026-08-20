@@ -31,6 +31,45 @@ def test_train_command_parses_config_and_split() -> None:
     assert args.max_samples is None
 
 
+def test_infer_command_parses_checkpoint_video_and_output() -> None:
+    args = build_parser().parse_args(
+        [
+            "infer",
+            "--checkpoint",
+            "run/best.pt",
+            "--video",
+            "data/raw/game.mov",
+            "--out",
+            "predictions.json",
+        ]
+    )
+
+    assert args.command_name == "infer"
+    assert args.checkpoint == Path("run/best.pt")
+    assert args.video == Path("data/raw/game.mov")
+    assert args.out == Path("predictions.json")
+
+
+def test_evaluate_and_baseline_commands_parse_partitions() -> None:
+    evaluate_args = build_parser().parse_args(
+        [
+            "evaluate",
+            "--checkpoint",
+            "run/best.pt",
+            "--split",
+            "data/splits/default.yaml",
+            "--partition",
+            "test",
+        ]
+    )
+    baseline_args = build_parser().parse_args(
+        ["baseline", "--split", "data/splits/default.yaml", "--partition", "val"]
+    )
+
+    assert evaluate_args.partition == "test"
+    assert baseline_args.partition == "val"
+
+
 def test_main_without_arguments_prints_help(capsys) -> None:
     exit_code = main([])
 

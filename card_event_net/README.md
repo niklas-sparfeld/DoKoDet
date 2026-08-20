@@ -6,7 +6,7 @@ Run the commands below from `card_event_net/`.
 
 ## Current state
 
-This repo now has the phase-4 model and training pipeline:
+This repo now has the phase-5 model, inference, and evaluation pipeline:
 
 - project metadata
 - config loading
@@ -23,6 +23,12 @@ This repo now has the phase-4 model and training pipeline:
 - causal Conv1D temporal head
 - two-stage freeze and fine-tune training
 - timestamped checkpoints and run metadata
+- full-video causal inference at 8 Hz
+- probability-to-event clustering
+- validation threshold selection
+- event recall, precision, false/hour, and latency metrics
+- probability and threshold plots
+- classical cached-frame motion baseline
 - test and lint setup
 
 The annotator stores one JSON file per source video in `data/annotations/`.
@@ -94,3 +100,47 @@ event recall and false events per hour for ranking.
 
 Use `--max-samples 32` for a fast local training sanity check. This limits the samples used from
 each training and validation video. A normal run uses all samples.
+
+## Inference and evaluation
+
+Run causal inference for one prepared video. The JSON file contains one probability for every
+0.125 second decision timestamp:
+
+```bash
+uv run cardevent infer \
+  --checkpoint data/outputs/run-.../best.pt \
+  --video data/raw/IMG_0097.mov \
+  --out predictions.json
+```
+
+Evaluate the validation partition. This selects a threshold from validation event behavior and
+saves it beside the checkpoint in `threshold.json`:
+
+```bash
+uv run cardevent evaluate \
+  --checkpoint data/outputs/run-.../best.pt \
+  --split data/splits/default.yaml \
+  --partition val
+```
+
+Evaluate the test partition after validation. The command uses the persisted validation
+threshold. If it is missing, the command selects it from validation first. It never uses test
+events to select the threshold:
+
+```bash
+uv run cardevent evaluate \
+  --checkpoint data/outputs/run-.../best.pt \
+  --split data/splits/default.yaml \
+  --partition test
+```
+
+Each evaluation writes JSON metrics, one probability plot per video, and a threshold tradeoff
+plot. The report includes event recall, precision, false events per hour, and latency p50/p95.
+
+Run the simple motion baseline with the same event evaluator:
+
+```bash
+uv run cardevent baseline \
+  --split data/splits/default.yaml \
+  --partition val
+```

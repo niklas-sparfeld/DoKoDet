@@ -25,7 +25,9 @@ from .dataset import (
     samples_for_annotation,
 )
 from .device import resolve_device
+from .events import ProbabilitySample, match_events, probabilities_to_events
 from .model import CardEventNet, build_model, freeze_backbone, unfreeze_backbone
+from .sampling import DEFAULT_CLIP_OFFSETS_S
 from .splits import SplitError, VideoSplit, load_split
 from .transforms import ClipTransform
 
@@ -227,9 +229,11 @@ def _make_loader(
     training: bool,
     batch_size: int,
     shuffle: bool,
+    offsets_s: Sequence[float] | None = None,
 ) -> DataLoader[Any]:
     dataset = CausalClipDataset(
         samples,
+        offsets_s=DEFAULT_CLIP_OFFSETS_S if offsets_s is None else offsets_s,
         transform=ClipTransform(training=training),
     )
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=0)
@@ -266,47 +270,6 @@ def _run_train_epoch(
     return total_loss / sample_count
 
 
-def _cluster_predictions(
-    samples: Sequence[DatasetSample],
-    probabilities: Sequence[float],
-    *,
-    threshold: float,
-    merge_window_s: float,
-) -> list[tuple[float, float]]:
-    clusters: list[list[tuple[float, float]]] = []
-    for sample, probability in zip(samples, probabilities, strict=True):
-        if probability < threshold:
-            continue
-        if not clusters or sample.decision_time_s - clusters[-1][-1][0] > merge_window_s:
-            clusters.append([])
-        clusters[-1].append((sample.decision_time_s, probability))
-    return [max(cluster, key=lambda item: item[1]) for cluster in clusters]
-
-
-def _match_events(
-    predicted_times_s: Sequence[float],
-    event_times_s: Sequence[float],
-    *,
-    tolerance_s: float,
-) -> tuple[int, list[float]]:
-    unmatched_predictions = set(range(len(predicted_times_s)))
-    latencies: list[float] = []
-    matched = 0
-    for event_time_s in event_times_s:
-        candidates = [
-            index
-            for index in unmatched_predictions
-            if abs(predicted_times_s[index] - event_time_s) <= tolerance_s
-        ]
-        if not candidates:
-            continue
-        index = min(candidates, key=lambda item: abs(predicted_times_s[item] - event_time_s))
-        unmatched_predictions.remove(index)
-        matched += 1
-        latencies.append(predicted_times_s[index] - event_time_s)
-    return matched, latencies
-
-
 @torch.no_grad()
 def _evaluate_validation(
     model: CardEventNet,
@@ -316,6 +279,7 @@ def _evaluate_validation(
     device: torch.device,
     merge_window_s: float,
     event_tolerance_s: float,
+    offsets_s: Sequence[float],
 ) -> dict[str, float]:
     model.eval()
     criterion = torch.nn.BCEWithLogitsLoss()
@@ -333,8 +297,10 @@ def _evaluate_validation(
             training=False,
             batch_size=batch_size,
             shuffle=False,
+            offsets_s=offsets_s,
         )
-        probabilities: list[float] = []
+        probabilities: list[ProbabilitySample] = []
+        sample_offset = 0
         for clips, labels in loader:
             clips = clips.to(device=device, dtype=torch.float32)
             labels = labels.to(device=device, dtype=torch.float32)
@@ -343,24 +309,30 @@ def _evaluate_validation(
             batch_size_actual = labels.shape[0]
             total_loss += float(loss.detach().cpu()) * batch_size_actual
             total_samples += batch_size_actual
-            probabilities.extend(torch.sigmoid(logits).detach().cpu().tolist())
+            probabilities.extend(
+                ProbabilitySample(
+                    time_s=video.samples[sample_offset + index].decision_time_s,
+                    probability=float(probability),
+                )
+                for index, probability in enumerate(torch.sigmoid(logits).detach().cpu().tolist())
+            )
+            sample_offset += len(logits)
 
-        predictions = _cluster_predictions(
-            video.samples,
+        predictions = probabilities_to_events(
             probabilities,
             threshold=0.5,
             merge_window_s=merge_window_s,
         )
-        matched, video_latencies = _match_events(
-            [time_s for time_s, _ in predictions],
+        match = match_events(
+            predictions,
             video.event_times_s,
             tolerance_s=event_tolerance_s,
         )
         total_events += len(video.event_times_s)
-        total_detected += matched
-        total_false += len(predictions) - matched
+        total_detected += match.detected_true_events
+        total_false += match.false_events
         total_duration_s += video.duration_s
-        latencies.extend(video_latencies)
+        latencies.extend(match.latencies_s)
 
     if total_samples == 0:
         raise TrainingError("The validation loader produced no samples.")
@@ -479,6 +451,7 @@ def train_model(
                     training=True,
                     batch_size=config.training.batch_size,
                     shuffle=True,
+                    offsets_s=config.input.clip_offsets_s,
                 )
                 train_loss = _run_train_epoch(
                     model,
@@ -495,6 +468,7 @@ def train_model(
                     device=device,
                     merge_window_s=config.inference.merge_window_s,
                     event_tolerance_s=config.metrics.event_match_tolerance_s,
+                    offsets_s=config.input.clip_offsets_s,
                 )
                 row = {
                     "epoch": epoch_number,
