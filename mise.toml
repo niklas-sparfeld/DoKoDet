@@ -1,2 +1,6 @@
 [tools]
 python = "3.14"
+uv = "0.12"
+
+[env]
+UV_CACHE_DIR = "{{config_root}}/.uv-cache"

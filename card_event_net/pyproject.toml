@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cardevent"
+version = "0.1.0"
+description = "CardEventNet event detector for DokoDetector"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "matplotlib>=3.9",
+  "numpy>=2.0",
+  "opencv-python>=4.10",
+  "pyyaml>=6.0",
+  "pytest>=8.0",
+  "ruff>=0.6",
+  "torch>=2.4",
+  "torchvision>=0.19",
+]
+
+[project.optional-dependencies]
+coreml = ["coremltools>=8.0; platform_system == 'Darwin'"]
+
+[project.scripts]
+cardevent = "cardevent.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "SIM"]
