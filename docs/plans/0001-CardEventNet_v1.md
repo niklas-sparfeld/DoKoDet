@@ -1,5 +1,10 @@
 # CardEventNet v1 — Implementation Plan
 
+## Plan status
+
+- **Summary:** Train and export CardEventNet
+- **Status:** In Progress
+
 ## Purpose
 
 Run the commands in this document from `card_event_net/`.
