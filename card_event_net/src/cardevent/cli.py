@@ -8,6 +8,7 @@ from .annotation import AnnotationError, annotate_video
 from .baseline import evaluate_baseline_from_files
 from .cache import CacheError, prepare_videos
 from .evaluate import EvaluationError, evaluate_checkpoint_from_files, format_report
+from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
 from .splits import SplitError, make_video_split, save_split
@@ -340,6 +341,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mine_parser.set_defaults(command_name="mine-hard-negatives")
 
+    export_parser = subparsers.add_parser(
+        "export-coreml",
+        help="Export a checkpoint to Core ML.",
+        description="Export CardEventNet as a fixed-shape Core ML model.",
+    )
+    export_parser.add_argument("--checkpoint", type=Path, required=True, help="Model checkpoint.")
+    export_parser.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="Output .mlpackage path.",
+    )
+    export_parser.add_argument(
+        "--skip-parity",
+        action="store_true",
+        help="Skip the Core ML versus PyTorch output check.",
+    )
+    export_parser.set_defaults(command_name="export-coreml")
+
     for name, help_text in _PLACEHOLDER_COMMANDS.items():
         if name in {
             "annotate",
@@ -350,6 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
             "evaluate",
             "baseline",
             "mine-hard-negatives",
+            "export-coreml",
         }:
             continue
         command_parser = subparsers.add_parser(name, help=help_text, description=help_text)
@@ -499,6 +520,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (HardNegativeError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Mined {payload['hard_negative_count']} hard negatives: {args.out}")
+        return 0
+
+    if command_name == "export-coreml":
+        try:
+            result = export_checkpoint_to_coreml(
+                args.checkpoint,
+                args.out,
+                verify_parity=not args.skip_parity,
+            )
+        except (CoreMLExportError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote Core ML model: {result.output_path}")
+        if result.parity_verified:
+            print(f"Parity check passed (max absolute error: {result.max_abs_error:.6g})")
+        else:
+            print("Parity check skipped")
         return 0
 
     _dispatch_placeholder(parser, command_name)

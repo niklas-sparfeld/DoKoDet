@@ -6,7 +6,8 @@ Run the commands below from `card_event_net/`.
 
 ## Current state
 
-This repo now has the phase-6 model, inference, evaluation, and hard-negative pipeline:
+This repo now has the phase-7 model, inference, evaluation, hard-negative, and Core ML export
+pipeline:
 
 - project metadata
 - config loading
@@ -31,6 +32,7 @@ This repo now has the phase-6 model, inference, evaluation, and hard-negative pi
 - classical cached-frame motion baseline
 - hard-negative mining from false triggers on training videos
 - optional repeated hard-negative sampling during training
+- fixed-shape Core ML export with optional PyTorch parity verification
 - test and lint setup
 
 The annotator stores one JSON file per source video in `data/annotations/`.
@@ -58,6 +60,16 @@ uv run cardevent --help
 uv run pytest
 uv run ruff check .
 ```
+
+Core ML export is optional and requires macOS:
+
+```bash
+mise install
+uv sync --extra coreml
+```
+
+The project pins Python 3.13, PyTorch 2.7.0, torchvision 0.22.0, and coremltools 9.0.
+These versions provide the native macOS Core ML modules and a tested PyTorch converter.
 
 ## Annotation
 
@@ -173,3 +185,32 @@ uv run cardevent train \
 Each mined timestamp is repeated three times by default. This gives hard negatives a higher
 sampling rate than ordinary negatives. Change `training.hard_negative_repeat` in the config
 to use a different repeat count of two or more.
+
+## Core ML export
+
+Export a trained checkpoint on macOS:
+
+```bash
+uv run cardevent export-coreml \
+  --checkpoint data/outputs/run-.../best.pt \
+  --out CardEventNet.mlpackage
+```
+
+The package has one fixed input named `clips` with shape `[1, 8, 3, 224, 224]`. Input values
+must be ImageNet-normalized `float32` values. The output is one raw logit named `logit`.
+The v1 package also uses float32 computation to keep the converted logit close to PyTorch.
+The command runs a deterministic PyTorch/Core ML parity check by default. Use
+`--skip-parity` only when the Core ML prediction runtime is not available.
+
+The complete workflow is:
+
+```bash
+uv sync
+uv run cardevent annotate data/raw/game01.mov
+uv run cardevent prepare --videos data/raw/*.mov
+uv run cardevent make-split data/raw/*.mov
+uv run cardevent train --config configs/base.yaml --split data/splits/default.yaml
+uv run cardevent evaluate --checkpoint <best.pt> --split data/splits/default.yaml --partition test
+uv run cardevent infer --checkpoint <best.pt> --video data/raw/game05.mov --out predictions.json
+uv run cardevent export-coreml --checkpoint <best.pt> --out CardEventNet.mlpackage
+```

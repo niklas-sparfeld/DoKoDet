@@ -11,6 +11,7 @@ def test_root_help_lists_the_expected_commands() -> None:
     assert "annotate" in help_text
     assert "prepare" in help_text
     assert "train" in help_text
+    assert "export-coreml" in help_text
 
 
 def test_annotate_command_parses_a_video_path() -> None:
@@ -86,6 +87,23 @@ def test_mine_hard_negatives_command_parses_checkpoint_and_split() -> None:
     assert args.checkpoint == Path("run/best.pt")
     assert args.split == Path("data/splits/default.yaml")
     assert args.out == Path("data/outputs/hard-negatives.json")
+
+
+def test_export_coreml_command_parses_checkpoint_and_output() -> None:
+    args = build_parser().parse_args(
+        [
+            "export-coreml",
+            "--checkpoint",
+            "run/best.pt",
+            "--out",
+            "CardEventNet.mlpackage",
+        ]
+    )
+
+    assert args.command_name == "export-coreml"
+    assert args.checkpoint == Path("run/best.pt")
+    assert args.out == Path("CardEventNet.mlpackage")
+    assert args.skip_parity is False
 
 
 def test_main_without_arguments_prints_help(capsys) -> None:

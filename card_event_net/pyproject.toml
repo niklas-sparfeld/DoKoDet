@@ -7,7 +7,7 @@ name = "cardevent"
 version = "0.1.0"
 description = "CardEventNet event detector for DokoDetector"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
   "matplotlib>=3.9",
   "numpy>=2.0",
@@ -15,12 +15,12 @@ dependencies = [
   "pyyaml>=6.0",
   "pytest>=8.0",
   "ruff>=0.6",
-  "torch>=2.4",
-  "torchvision>=0.19",
+  "torch==2.7.0",
+  "torchvision==0.22.0",
 ]
 
 [project.optional-dependencies]
-coreml = ["coremltools>=8.0; platform_system == 'Darwin'"]
+coreml = ["coremltools==9.0; platform_system == 'Darwin'"]
 
 [project.scripts]
 cardevent = "cardevent.cli:main"
