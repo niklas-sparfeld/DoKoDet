@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LiveDetectionView: View {
     @StateObject private var camera = CameraSession()
+    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         ScrollView {
@@ -28,7 +29,14 @@ struct LiveDetectionView: View {
             .padding()
         }
         .navigationTitle("Live")
-        .onAppear { camera.start() }
-        .onDisappear { camera.stop() }
+        .onAppear {
+            camera.setFrameHandler(appState.startLiveInference())
+            camera.start()
+        }
+        .onDisappear {
+            camera.setFrameHandler(nil)
+            camera.stop()
+            appState.stopLiveInference()
+        }
     }
 }

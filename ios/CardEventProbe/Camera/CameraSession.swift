@@ -26,7 +26,13 @@ final class CameraSession: ObservableObject {
     let captureSession = AVCaptureSession()
 
     private let sessionQueue = DispatchQueue(label: "com.dokodetector.CardEventProbe.camera")
+    private let videoOutput = AVCaptureVideoDataOutput()
+    private let frameDelegate = CameraFrameDelegate()
     private var isConfigured = false
+
+    func setFrameHandler(_ handler: ((VideoFrame) -> Void)?) {
+        frameDelegate.onFrame = handler
+    }
 
     func start() {
         guard state != .running, state != .requestingPermission else { return }
@@ -95,17 +101,35 @@ final class CameraSession: ObservableObject {
 
         guard captureSession.canAddInput(input) else { throw CameraError.cannotAddInput }
         captureSession.addInput(input)
+
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        ]
+        guard captureSession.canAddOutput(videoOutput) else { throw CameraError.cannotAddOutput }
+        captureSession.addOutput(videoOutput)
+        videoOutput.setSampleBufferDelegate(frameDelegate, queue: sessionQueue)
+
+        if let connection = videoOutput.connection(with: .video) {
+            let portraitAngle: CGFloat = 90.0
+            if connection.isVideoRotationAngleSupported(portraitAngle) {
+                connection.videoRotationAngle = portraitAngle
+                frameDelegate.orientation = .up
+            }
+        }
     }
 }
 
 private enum CameraError: LocalizedError {
     case unavailable
     case cannotAddInput
+    case cannotAddOutput
 
     var errorDescription: String? {
         switch self {
         case .unavailable: return "No rear camera is available on this device."
         case .cannotAddInput: return "The camera input could not be added."
+        case .cannotAddOutput: return "The camera video output could not be added."
         }
     }
 }

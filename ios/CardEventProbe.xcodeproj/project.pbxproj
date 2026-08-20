@@ -30,6 +30,9 @@
 		A00000000000000000000015 /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000015 /* ImageIO.framework */; };
 		A00000000000000000000016 /* CardEventTensorBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000016 /* CardEventTensorBuilder.swift */; };
 		A00000000000000000000017 /* ModelPreprocessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000017 /* ModelPreprocessing.swift */; };
+		A00000000000000000000018 /* CameraFrameDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000018 /* CameraFrameDelegate.swift */; };
+		A00000000000000000000019 /* InferenceSamplingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000019 /* InferenceSamplingPolicy.swift */; };
+		A0000000000000000000001A /* FrameInferenceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001A /* FrameInferenceCoordinator.swift */; };
 
 /* End PBXBuildFile section */
 
@@ -58,6 +61,9 @@
 		B00000000000000000000015 /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
 		B00000000000000000000016 /* CardEventTensorBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEventTensorBuilder.swift; sourceTree = "<group>"; };
 		B00000000000000000000017 /* ModelPreprocessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPreprocessing.swift; sourceTree = "<group>"; };
+		B00000000000000000000018 /* CameraFrameDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFrameDelegate.swift; sourceTree = "<group>"; };
+		B00000000000000000000019 /* InferenceSamplingPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceSamplingPolicy.swift; sourceTree = "<group>"; };
+		B0000000000000000000001A /* FrameInferenceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameInferenceCoordinator.swift; sourceTree = "<group>"; };
 
 /* End PBXFileReference section */
 
@@ -134,6 +140,7 @@
 			children = (
 				B00000000000000000000003 /* CameraSession.swift */,
 				B00000000000000000000004 /* CameraPreview.swift */,
+				B00000000000000000000018 /* CameraFrameDelegate.swift */,
 			);
 			path = Camera;
 			sourceTree = "<group>";
@@ -142,6 +149,7 @@
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000017 /* ModelPreprocessing.swift */,
+				B00000000000000000000019 /* InferenceSamplingPolicy.swift */,
 				B00000000000000000000009 /* ModelPrediction.swift */,
 				B0000000000000000000000A /* DetectionEvent.swift */,
 				B0000000000000000000000B /* EventPostProcessor.swift */,
@@ -157,6 +165,7 @@
 				B00000000000000000000007 /* CardEventModelRunner.swift */,
 				B00000000000000000000008 /* CoreMLCardEventModelRunner.swift */,
 				B00000000000000000000016 /* CardEventTensorBuilder.swift */,
+				B0000000000000000000001A /* FrameInferenceCoordinator.swift */,
 			);
 			path = Inference;
 			sourceTree = "<group>";
@@ -256,7 +265,10 @@
 				A0000000000000000000000A /* DetectionEvent.swift in Sources */,
 				A0000000000000000000000B /* EventPostProcessor.swift in Sources */,
 				A00000000000000000000017 /* ModelPreprocessing.swift in Sources */,
+				A00000000000000000000019 /* InferenceSamplingPolicy.swift in Sources */,
 				A00000000000000000000016 /* CardEventTensorBuilder.swift in Sources */,
+				A0000000000000000000001A /* FrameInferenceCoordinator.swift in Sources */,
+				A00000000000000000000018 /* CameraFrameDelegate.swift in Sources */,
 				A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */,
 				A0000000000000000000000D /* LiveDetectionView.swift in Sources */,
 				A0000000000000000000000E /* ReplayView.swift in Sources */,

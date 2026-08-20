@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct DiagnosticsPanel: View {
@@ -35,6 +36,36 @@ struct DiagnosticsPanel: View {
                 Text("ROI")
                 Spacer()
                 Text(appState.roiStatus)
+            }
+
+            HStack {
+                Text("Score")
+                Spacer()
+                Text(appState.latestPrediction.map { String(format: "%.3f", $0.cardEventProbability) } ?? "—")
+            }
+
+            HStack {
+                Text("Inference")
+                Spacer()
+                Text(appState.latestPrediction.map { String(format: "%.1f ms", $0.inferenceDurationMs) } ?? "—")
+            }
+
+            HStack {
+                Text("Frames")
+                Spacer()
+                Text("\(appState.inferenceMetrics.cameraFramesReceived)")
+            }
+
+            HStack {
+                Text("Skipped / busy")
+                Spacer()
+                Text("\(appState.inferenceMetrics.framesSkippedForSampling) / \(appState.inferenceMetrics.framesDroppedWhileBusy)")
+            }
+
+            if let inferenceError = appState.inferenceError {
+                Text(inferenceError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
             }
         }
         .padding()

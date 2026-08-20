@@ -20,9 +20,19 @@ enum ModelLoadState {
 final class AppState: ObservableObject {
     @Published private(set) var modelState: ModelLoadState = .loading
     @Published private(set) var eventCount = 0
+    @Published private(set) var latestPrediction: ModelPrediction?
+    @Published private(set) var inferenceMetrics = FrameInferenceMetrics(
+        cameraFramesReceived: 0,
+        framesSkippedForSampling: 0,
+        framesDroppedWhileBusy: 0,
+        predictionsProduced: 0,
+        averageInferenceDurationMs: nil
+    )
+    @Published private(set) var inferenceError: String?
 
     private(set) var modelRunner: CardEventModelRunner?
     let eventPostProcessor = EventPostProcessor()
+    private var liveCoordinator: FrameInferenceCoordinator?
 
     var roiStatus: String {
         guard let runner = modelRunner as? CoreMLCardEventModelRunner else {
@@ -36,6 +46,7 @@ final class AppState: ObservableObject {
     }
 
     func loadModel() {
+        stopLiveInference()
         modelState = .loading
         modelRunner = nil
 
@@ -53,8 +64,40 @@ final class AppState: ObservableObject {
         }
     }
 
+    func startLiveInference() -> ((VideoFrame) -> Void)? {
+        stopLiveInference()
+        guard let runner = modelRunner else { return nil }
+
+        let coordinator = FrameInferenceCoordinator(
+            runner: runner,
+            eventPostProcessor: eventPostProcessor
+        ) { [weak self] update in
+            self?.apply(update)
+        }
+        liveCoordinator = coordinator
+        return { [weak coordinator] frame in
+            coordinator?.consume(frame)
+        }
+    }
+
+    func stopLiveInference() {
+        liveCoordinator?.stop()
+        liveCoordinator = nil
+    }
+
     func resetEvents() {
         eventPostProcessor.reset()
         eventCount = 0
+        latestPrediction = nil
+        inferenceError = nil
+    }
+
+    private func apply(_ update: FrameInferenceUpdate) {
+        latestPrediction = update.prediction ?? latestPrediction
+        inferenceMetrics = update.metrics
+        inferenceError = update.errorMessage
+        if update.event != nil {
+            eventCount += 1
+        }
     }
 }

@@ -32,6 +32,15 @@ final class PreviewView: UIView {
         previewLayer.videoGravity = .resizeAspectFill
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let portraitAngle: CGFloat = 90.0
+        if let connection = previewLayer.connection,
+           connection.isVideoRotationAngleSupported(portraitAngle) {
+            connection.videoRotationAngle = portraitAngle
+        }
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("PreviewView does not support storyboards")

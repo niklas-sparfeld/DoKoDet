@@ -83,3 +83,8 @@ the raw `logit` in `rawOutputs`.
 - The package does not contain temporal timestamps or frame sampling metadata.
 - The app has no default live-camera ROI yet. Inference reports a clear error
   until the host supplies the table ROI.
+
+The live camera path requests 32-bit BGRA frames, rotates the capture output
+to portrait when the connection supports it, and samples at 8 Hz. The camera
+stream and model queue are separate. Busy inference drops a frame instead of
+adding it to an unbounded queue.
