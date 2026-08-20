@@ -7,6 +7,7 @@ from pathlib import Path
 from .annotation import AnnotationError, annotate_video
 from .cache import CacheError, prepare_videos
 from .splits import SplitError, make_video_split, save_split
+from .train import TrainingError, train_from_files
 from .video import VideoError
 
 _PLACEHOLDER_COMMANDS = {
@@ -116,8 +117,52 @@ def build_parser() -> argparse.ArgumentParser:
     )
     split_parser.set_defaults(command_name="make-split")
 
+    train_parser = subparsers.add_parser(
+        "train",
+        help="Train the CardEventNet model.",
+        description="Train CardEventNet with the two-stage transfer-learning schedule.",
+    )
+    train_parser.add_argument("--config", type=Path, required=True, help="Training config YAML.")
+    train_parser.add_argument("--split", type=Path, required=True, help="Video split YAML.")
+    train_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/outputs"),
+        help="Directory for timestamped runs (default: data/outputs).",
+    )
+    train_parser.add_argument(
+        "--run-name",
+        default=None,
+        help="Optional stable run directory name.",
+    )
+    train_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=Path("data/cache"),
+        help="Prepared cache root (default: data/cache).",
+    )
+    train_parser.add_argument(
+        "--annotations-dir",
+        type=Path,
+        default=Path("data/annotations"),
+        help="Annotation directory (default: data/annotations).",
+    )
+    train_parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=None,
+        help="Limit train and validation samples for a fast development sanity check.",
+    )
+    train_parser.add_argument(
+        "--device",
+        choices=("auto", "cpu", "cuda", "mps"),
+        default=None,
+        help="Override the device in the config.",
+    )
+    train_parser.set_defaults(command_name="train")
+
     for name, help_text in _PLACEHOLDER_COMMANDS.items():
-        if name in {"annotate", "prepare", "make-split"}:
+        if name in {"annotate", "prepare", "make-split", "train"}:
             continue
         command_parser = subparsers.add_parser(name, help=help_text, description=help_text)
         command_parser.set_defaults(command_name=name)
@@ -175,6 +220,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"  train: {len(split.train)} videos")
         print(f"  val:   {len(split.val)} videos")
         print(f"  test:  {len(split.test)} videos")
+        return 0
+
+    if command_name == "train":
+        try:
+            result = train_from_files(
+                args.config,
+                args.split,
+                output_dir=args.output_dir,
+                run_name=args.run_name,
+                cache_dir=args.cache_dir,
+                annotations_dir=args.annotations_dir,
+                max_samples=args.max_samples,
+                device_override=args.device,
+            )
+        except (TrainingError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Training run: {result.run_dir}")
+        print(f"Best checkpoint: {result.run_dir / 'best.pt'}")
         return 0
 
     _dispatch_placeholder(parser, command_name)

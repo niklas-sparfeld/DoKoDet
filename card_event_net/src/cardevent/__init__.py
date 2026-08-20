@@ -34,6 +34,14 @@ from .dataset import (
     samples_for_cache,
 )
 from .device import resolve_device
+from .model import (
+    CardEventNet,
+    ModelError,
+    backbone_is_frozen,
+    build_model,
+    freeze_backbone,
+    unfreeze_backbone,
+)
 from .sampling import (
     DEFAULT_CLIP_OFFSETS_S,
     LabeledTime,
@@ -47,6 +55,7 @@ from .sampling import (
     select_frame_timestamps,
 )
 from .splits import SplitError, VideoSplit, load_split, make_video_split, save_split, video_id
+from .train import TrainingError, TrainingResult, train_from_files, train_model
 from .transforms import ClipTransform, TransformError
 from .video import VideoError, VideoMetadata, read_video_metadata
 
@@ -66,6 +75,7 @@ __all__ = [
     "AnnotationSession",
     "CacheError",
     "CacheMetadata",
+    "CardEventNet",
     "CachedFrameStore",
     "Config",
     "CausalClipDataset",
@@ -73,10 +83,13 @@ __all__ = [
     "DatasetSample",
     "DEFAULT_CLIP_OFFSETS_S",
     "LabeledTime",
+    "ModelError",
     "Roi",
     "SamplingError",
     "SplitError",
     "TransformError",
+    "TrainingError",
+    "TrainingResult",
     "VideoAnnotation",
     "VideoDataset",
     "VideoError",
@@ -85,8 +98,10 @@ __all__ = [
     "annotate_video",
     "annotation_path_for_video",
     "build_inference_times",
+    "build_model",
     "build_training_times",
     "cache_path_for_video",
+    "backbone_is_frozen",
     "extract_video_cache",
     "event_in_window",
     "inference_samples_for_cache",
@@ -108,6 +123,10 @@ __all__ = [
     "save_split",
     "select_frame_indices",
     "select_frame_timestamps",
+    "freeze_backbone",
+    "train_from_files",
+    "train_model",
+    "unfreeze_backbone",
     "validate_annotation",
     "video_id",
     "__version__",

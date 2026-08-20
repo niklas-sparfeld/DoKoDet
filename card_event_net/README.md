@@ -6,7 +6,7 @@ Run the commands below from `card_event_net/`.
 
 ## Current state
 
-This repo now has the phase-3 cache and dataset pipeline:
+This repo now has the phase-4 model and training pipeline:
 
 - project metadata
 - config loading
@@ -19,6 +19,10 @@ This repo now has the phase-3 cache and dataset pipeline:
 - positive and clean-negative label windows
 - deterministic video-level train/val/test splits
 - temporally consistent training transforms
+- MobileNetV3-Small spatial backbone
+- causal Conv1D temporal head
+- two-stage freeze and fine-tune training
+- timestamped checkpoints and run metadata
 - test and lint setup
 
 The annotator stores one JSON file per source video in `data/annotations/`.
@@ -73,3 +77,20 @@ timestamp for every cached frame in `metadata.json`. The cache is ignored by Git
 
 The split file is `data/splits/default.yaml`. It uses video names without their file extension.
 It is not replaced when it already exists. Use `--force` only when you want to create a new split.
+
+## Training
+
+Train from the prepared cache and the persisted video split:
+
+```bash
+uv run cardevent train \
+  --config configs/base.yaml \
+  --split data/splits/default.yaml
+```
+
+Runs are stored in `data/outputs/run-YYYYMMDD-HHMMSS/`. Each run contains `config.yaml`,
+`metrics.jsonl`, `best.pt`, `last.pt`, and `summary.json`. The best checkpoint uses validation
+event recall and false events per hour for ranking.
+
+Use `--max-samples 32` for a fast local training sanity check. This limits the samples used from
+each training and validation video. A normal run uses all samples.

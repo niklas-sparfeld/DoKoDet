@@ -11,6 +11,7 @@ from .sampling import (
     LabeledTime,
     build_inference_times,
     build_training_times,
+    is_positive_time,
     select_frame_indices,
 )
 from .transforms import ClipTransform
@@ -99,11 +100,25 @@ def inference_samples_for_cache(
     cache_dir: str | Path,
     *,
     stride_s: float = 0.125,
+    event_times_s: Sequence[float] | None = None,
+    positive_window_s: float = 0.45,
 ) -> list[DatasetSample]:
     cache_path = Path(cache_dir)
     metadata = load_cache_metadata(cache_path)
     times = (
-        LabeledTime(time_s=time_s, label=0.0)
+        LabeledTime(
+            time_s=time_s,
+            label=(
+                1.0
+                if event_times_s is not None
+                and is_positive_time(
+                    time_s,
+                    event_times_s,
+                    positive_window_s=positive_window_s,
+                )
+                else 0.0
+            ),
+        )
         for time_s in build_inference_times(metadata.duration_s, stride_s=stride_s)
     )
     return _dataset_samples(cache_path, metadata, times)

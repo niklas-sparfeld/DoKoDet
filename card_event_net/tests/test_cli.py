@@ -20,6 +20,17 @@ def test_annotate_command_parses_a_video_path() -> None:
     assert args.video == Path("data/raw/IMG_0090.mov")
 
 
+def test_train_command_parses_config_and_split() -> None:
+    args = build_parser().parse_args(
+        ["train", "--config", "configs/base.yaml", "--split", "data/splits/default.yaml"]
+    )
+
+    assert args.command_name == "train"
+    assert args.config == Path("configs/base.yaml")
+    assert args.split == Path("data/splits/default.yaml")
+    assert args.max_samples is None
+
+
 def test_main_without_arguments_prints_help(capsys) -> None:
     exit_code = main([])
 
