@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Train and export CardEventNet
-- **Status:** In Progress
+- **Status:** Done
 
 ## Purpose
 

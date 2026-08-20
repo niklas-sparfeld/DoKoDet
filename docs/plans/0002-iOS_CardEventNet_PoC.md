@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Test CardEventNet on iPhone
-- **Status:** Draft
+- **Status:** In Progress
 
 ## 0. Mission
 

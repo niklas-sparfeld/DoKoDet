@@ -1,0 +1,341 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00000000000000000000001 /* CardEventProbeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000001 /* CardEventProbeApp.swift */; };
+		A00000000000000000000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002 /* AppState.swift */; };
+		A00000000000000000000003 /* CameraSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003 /* CameraSession.swift */; };
+		A00000000000000000000004 /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000004 /* CameraPreview.swift */; };
+		A00000000000000000000005 /* ModelContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* ModelContract.swift */; };
+		A00000000000000000000006 /* VideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000006 /* VideoFrame.swift */; };
+		A00000000000000000000007 /* CardEventModelRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000007 /* CardEventModelRunner.swift */; };
+		A00000000000000000000008 /* CoreMLCardEventModelRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000008 /* CoreMLCardEventModelRunner.swift */; };
+		A00000000000000000000009 /* ModelPrediction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000009 /* ModelPrediction.swift */; };
+		A0000000000000000000000A /* DetectionEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000A /* DetectionEvent.swift */; };
+		A0000000000000000000000B /* EventPostProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000B /* EventPostProcessor.swift */; };
+		A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000C /* DiagnosticsPanel.swift */; };
+		A0000000000000000000000D /* LiveDetectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000D /* LiveDetectionView.swift */; };
+		A0000000000000000000000E /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000E /* ReplayView.swift */; };
+		A0000000000000000000000F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000F /* RootView.swift */; };
+		A00000000000000000000010 /* CardEventNet.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* CardEventNet.mlpackage */; };
+		A00000000000000000000011 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000011 /* AVFoundation.framework */; };
+		A00000000000000000000012 /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000012 /* CoreML.framework */; };
+		A00000000000000000000013 /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000013 /* CoreMedia.framework */; };
+		A00000000000000000000014 /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000014 /* CoreVideo.framework */; };
+		A00000000000000000000015 /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000015 /* ImageIO.framework */; };
+
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B00000000000000000000000 /* CardEventProbe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CardEventProbe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B00000000000000000000001 /* CardEventProbeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEventProbeApp.swift; sourceTree = "<group>"; };
+		B00000000000000000000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		B00000000000000000000003 /* CameraSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraSession.swift; sourceTree = "<group>"; };
+		B00000000000000000000004 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
+		B00000000000000000000005 /* ModelContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContract.swift; sourceTree = "<group>"; };
+		B00000000000000000000006 /* VideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFrame.swift; sourceTree = "<group>"; };
+		B00000000000000000000007 /* CardEventModelRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEventModelRunner.swift; sourceTree = "<group>"; };
+		B00000000000000000000008 /* CoreMLCardEventModelRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMLCardEventModelRunner.swift; sourceTree = "<group>"; };
+		B00000000000000000000009 /* ModelPrediction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPrediction.swift; sourceTree = "<group>"; };
+		B0000000000000000000000A /* DetectionEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionEvent.swift; sourceTree = "<group>"; };
+		B0000000000000000000000B /* EventPostProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventPostProcessor.swift; sourceTree = "<group>"; };
+		B0000000000000000000000C /* DiagnosticsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsPanel.swift; sourceTree = "<group>"; };
+		B0000000000000000000000D /* LiveDetectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDetectionView.swift; sourceTree = "<group>"; };
+		B0000000000000000000000E /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
+		B0000000000000000000000F /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		B00000000000000000000010 /* CardEventNet.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = ../card_event_net/CardEventNet.mlpackage; sourceTree = "<group>"; };
+		B00000000000000000000011 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		B00000000000000000000012 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
+		B00000000000000000000013 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
+		B00000000000000000000014 /* CoreVideo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreVideo.framework; path = System/Library/Frameworks/CoreVideo.framework; sourceTree = SDKROOT; };
+		B00000000000000000000015 /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
+
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C00000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000011 /* AVFoundation.framework in Frameworks */,
+				A00000000000000000000012 /* CoreML.framework in Frameworks */,
+				A00000000000000000000013 /* CoreMedia.framework in Frameworks */,
+				A00000000000000000000014 /* CoreVideo.framework in Frameworks */,
+				A00000000000000000000015 /* ImageIO.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D00000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				D00000000000000000000002 /* CardEventProbe */,
+				D00000000000000000000003 /* Products */,
+				D00000000000000000000004 /* Frameworks */,
+				B00000000000000000000010 /* CardEventNet.mlpackage */,
+			);
+			sourceTree = "<group>";
+		};
+		D00000000000000000000002 /* CardEventProbe */ = {
+			isa = PBXGroup;
+			children = (
+				D00000000000000000000005 /* App */,
+				D00000000000000000000006 /* Camera */,
+				D00000000000000000000007 /* Core */,
+				D00000000000000000000008 /* Inference */,
+				D00000000000000000000009 /* UI */,
+			);
+			path = CardEventProbe;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000000 /* CardEventProbe.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000004 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000011 /* AVFoundation.framework */,
+				B00000000000000000000012 /* CoreML.framework */,
+				B00000000000000000000013 /* CoreMedia.framework */,
+				B00000000000000000000014 /* CoreVideo.framework */,
+				B00000000000000000000015 /* ImageIO.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000005 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000001 /* CardEventProbeApp.swift */,
+				B00000000000000000000002 /* AppState.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000006 /* Camera */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000003 /* CameraSession.swift */,
+				B00000000000000000000004 /* CameraPreview.swift */,
+			);
+			path = Camera;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000007 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000009 /* ModelPrediction.swift */,
+				B0000000000000000000000A /* DetectionEvent.swift */,
+				B0000000000000000000000B /* EventPostProcessor.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000008 /* Inference */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000005 /* ModelContract.swift */,
+				B00000000000000000000006 /* VideoFrame.swift */,
+				B00000000000000000000007 /* CardEventModelRunner.swift */,
+				B00000000000000000000008 /* CoreMLCardEventModelRunner.swift */,
+			);
+			path = Inference;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000009 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				B0000000000000000000000C /* DiagnosticsPanel.swift */,
+				B0000000000000000000000D /* LiveDetectionView.swift */,
+				B0000000000000000000000E /* ReplayView.swift */,
+				B0000000000000000000000F /* RootView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E00000000000000000000001 /* CardEventProbe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E00000000000000000000003 /* Build configuration list for PBXNativeTarget "CardEventProbe" */;
+			buildPhases = (
+				C00000000000000000000001 /* Frameworks */,
+				E00000000000000000000004 /* Sources */,
+				E00000000000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CardEventProbe;
+			productName = CardEventProbe;
+			productReference = B00000000000000000000000 /* CardEventProbe.app */;
+			productType = "com.apple.product-type.application";
+		};
+
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					E00000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = F00000000000000000000002 /* Build configuration list for PBXProject "CardEventProbe" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D00000000000000000000001;
+			productRefGroup = D00000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E00000000000000000000001 /* CardEventProbe */,
+			);
+		};
+
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E00000000000000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000010 /* CardEventNet.mlpackage in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E00000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000001 /* CardEventProbeApp.swift in Sources */,
+				A00000000000000000000002 /* AppState.swift in Sources */,
+				A00000000000000000000003 /* CameraSession.swift in Sources */,
+				A00000000000000000000004 /* CameraPreview.swift in Sources */,
+				A00000000000000000000005 /* ModelContract.swift in Sources */,
+				A00000000000000000000006 /* VideoFrame.swift in Sources */,
+				A00000000000000000000007 /* CardEventModelRunner.swift in Sources */,
+				A00000000000000000000008 /* CoreMLCardEventModelRunner.swift in Sources */,
+				A00000000000000000000009 /* ModelPrediction.swift in Sources */,
+				A0000000000000000000000A /* DetectionEvent.swift in Sources */,
+				A0000000000000000000000B /* EventPostProcessor.swift in Sources */,
+				A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */,
+				A0000000000000000000000D /* LiveDetectionView.swift in Sources */,
+				A0000000000000000000000E /* ReplayView.swift in Sources */,
+				A0000000000000000000000F /* RootView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F10000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				INFOPLIST_FILE = CardEventProbe/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dokodetector.CardEventProbe;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		F10000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				INFOPLIST_FILE = CardEventProbe/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dokodetector.CardEventProbe;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		F10000000000000000000003 /* Project Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F10000000000000000000004 /* Project Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E00000000000000000000003 /* Build configuration list for PBXNativeTarget "CardEventProbe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000001 /* Debug */,
+				F10000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F00000000000000000000002 /* Build configuration list for PBXProject "CardEventProbe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000003 /* Project Debug */,
+				F10000000000000000000004 /* Project Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+
+/* End XCConfigurationList section */
+	};
+	rootObject = F00000000000000000000001 /* Project object */;
+}
