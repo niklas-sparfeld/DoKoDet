@@ -30,6 +30,12 @@ struct DiagnosticsPanel: View {
                 Spacer()
                 Text("\(appState.eventCount)")
             }
+
+            HStack {
+                Text("ROI")
+                Spacer()
+                Text(appState.roiStatus)
+            }
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))

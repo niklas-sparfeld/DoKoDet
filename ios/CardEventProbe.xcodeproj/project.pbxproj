@@ -28,6 +28,8 @@
 		A00000000000000000000013 /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000013 /* CoreMedia.framework */; };
 		A00000000000000000000014 /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000014 /* CoreVideo.framework */; };
 		A00000000000000000000015 /* ImageIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000015 /* ImageIO.framework */; };
+		A00000000000000000000016 /* CardEventTensorBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000016 /* CardEventTensorBuilder.swift */; };
+		A00000000000000000000017 /* ModelPreprocessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000017 /* ModelPreprocessing.swift */; };
 
 /* End PBXBuildFile section */
 
@@ -54,6 +56,8 @@
 		B00000000000000000000013 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
 		B00000000000000000000014 /* CoreVideo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreVideo.framework; path = System/Library/Frameworks/CoreVideo.framework; sourceTree = SDKROOT; };
 		B00000000000000000000015 /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
+		B00000000000000000000016 /* CardEventTensorBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEventTensorBuilder.swift; sourceTree = "<group>"; };
+		B00000000000000000000017 /* ModelPreprocessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPreprocessing.swift; sourceTree = "<group>"; };
 
 /* End PBXFileReference section */
 
@@ -137,6 +141,7 @@
 		D00000000000000000000007 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				B00000000000000000000017 /* ModelPreprocessing.swift */,
 				B00000000000000000000009 /* ModelPrediction.swift */,
 				B0000000000000000000000A /* DetectionEvent.swift */,
 				B0000000000000000000000B /* EventPostProcessor.swift */,
@@ -151,6 +156,7 @@
 				B00000000000000000000006 /* VideoFrame.swift */,
 				B00000000000000000000007 /* CardEventModelRunner.swift */,
 				B00000000000000000000008 /* CoreMLCardEventModelRunner.swift */,
+				B00000000000000000000016 /* CardEventTensorBuilder.swift */,
 			);
 			path = Inference;
 			sourceTree = "<group>";
@@ -249,6 +255,8 @@
 				A00000000000000000000009 /* ModelPrediction.swift in Sources */,
 				A0000000000000000000000A /* DetectionEvent.swift in Sources */,
 				A0000000000000000000000B /* EventPostProcessor.swift in Sources */,
+				A00000000000000000000017 /* ModelPreprocessing.swift in Sources */,
+				A00000000000000000000016 /* CardEventTensorBuilder.swift in Sources */,
 				A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */,
 				A0000000000000000000000D /* LiveDetectionView.swift in Sources */,
 				A0000000000000000000000E /* ReplayView.swift in Sources */,

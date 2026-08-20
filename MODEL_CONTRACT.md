@@ -37,10 +37,12 @@ The training and export pipeline supplies these values before Core ML:
    - mean: `[0.485, 0.456, 0.406]`
    - standard deviation: `[0.229, 0.224, 0.225]`
 
-The resize uses OpenCV `INTER_AREA` in the Python cache builder. The crop ROI
-is external annotation data and is not part of the model. The iOS app must
-define how a live table ROI is established before it can claim input parity.
-It must not silently substitute a center crop or a full-frame crop.
+The resize uses OpenCV `INTER_AREA` in the Python cache builder. The iOS
+preprocessor uses area resampling for downscaling and linear resampling for
+upscaling, which matches OpenCV's `INTER_AREA` behavior. The crop ROI is
+external annotation data and is not part of the model. The iOS runner requires
+an explicit normalized ROI in the oriented frame coordinate space. It does not
+silently substitute a center crop or a full-frame crop.
 
 The training clip offsets are:
 
@@ -79,5 +81,5 @@ the raw `logit` in `rawOutputs`.
   `card_played` event.
 - The package does not contain a live-camera ROI or calibration.
 - The package does not contain temporal timestamps or frame sampling metadata.
-- Exact parity for live preprocessing requires an iOS implementation of the
-  annotated ROI crop, letterbox, RGB conversion, resize, and normalization.
+- The app has no default live-camera ROI yet. Inference reports a clear error
+  until the host supplies the table ROI.

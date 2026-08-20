@@ -24,6 +24,13 @@ final class AppState: ObservableObject {
     private(set) var modelRunner: CardEventModelRunner?
     let eventPostProcessor = EventPostProcessor()
 
+    var roiStatus: String {
+        guard let runner = modelRunner as? CoreMLCardEventModelRunner else {
+            return "Unavailable"
+        }
+        return runner.roi == nil ? "Not configured" : "Configured"
+    }
+
     init() {
         loadModel()
     }

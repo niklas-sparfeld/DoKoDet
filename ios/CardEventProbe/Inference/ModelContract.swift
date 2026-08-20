@@ -152,7 +152,6 @@ public struct ModelContract {
         case .multiArray: return "multiArray"
         case .dictionary: return "dictionary"
         case .sequence: return "sequence"
-        case .boolean: return "boolean"
         case .state: return "state"
         @unknown default: return "unknown(\(type.rawValue))"
         }
