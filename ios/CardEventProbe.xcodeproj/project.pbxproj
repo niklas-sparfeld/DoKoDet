@@ -70,7 +70,7 @@
 		B0000000000000000000001A /* FrameInferenceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameInferenceCoordinator.swift; sourceTree = "<group>"; };
 		B0000000000000000000001B /* ReplayResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayResult.swift; sourceTree = "<group>"; };
 		B0000000000000000000001C /* VideoReplayRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoReplayRunner.swift; sourceTree = "<group>"; };
-		B0000000000000000000001D /* SessionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLog.swift; sourceTree = "<group>"; };
+		B0000000000000000000001D /* SessionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../Core/SessionLog.swift; sourceTree = "<group>"; };
 		B0000000000000000000001E /* DiagnosticFrameWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticFrameWriter.swift; sourceTree = "<group>"; };
 		B0000000000000000000001F /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
