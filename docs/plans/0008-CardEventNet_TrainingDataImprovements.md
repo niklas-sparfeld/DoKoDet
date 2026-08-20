@@ -1,4 +1,8 @@
 # CardEventNet Training-Data Expansion Plan
+## Plan status
+
+- **Summary:** Extend CardEventNet training data
+- **Status:** Draft
 
 ## Objective
 
