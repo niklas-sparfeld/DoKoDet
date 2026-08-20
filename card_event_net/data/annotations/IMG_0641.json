@@ -1,0 +1,171 @@
+{
+  "video": "IMG_0641.MOV",
+  "roi": {
+    "x": 0.003125,
+    "y": 0.18611111111111112,
+    "width": 0.9963541666666667,
+    "height": 0.8111111111111111
+  },
+  "events": [
+    {
+      "time_s": 4.504356846473029,
+      "type": "card_played"
+    },
+    {
+      "time_s": 5.505325034578147,
+      "type": "card_played"
+    },
+    {
+      "time_s": 7.006777316735823,
+      "type": "card_played"
+    },
+    {
+      "time_s": 8.25798755186722,
+      "type": "card_played"
+    },
+    {
+      "time_s": 14.764280774550485,
+      "type": "card_played"
+    },
+    {
+      "time_s": 16.01549100968188,
+      "type": "card_played"
+    },
+    {
+      "time_s": 17.26670124481328,
+      "type": "card_played"
+    },
+    {
+      "time_s": 18.768153526970956,
+      "type": "card_played"
+    },
+    {
+      "time_s": 22.772026279391426,
+      "type": "card_played"
+    },
+    {
+      "time_s": 24.02323651452282,
+      "type": "card_played"
+    },
+    {
+      "time_s": 25.02420470262794,
+      "type": "card_played"
+    },
+    {
+      "time_s": 26.275414937759336,
+      "type": "card_played"
+    },
+    {
+      "time_s": 31.030013831258646,
+      "type": "card_played"
+    },
+    {
+      "time_s": 32.281224066390045,
+      "type": "card_played"
+    },
+    {
+      "time_s": 33.28219225449516,
+      "type": "card_played"
+    },
+    {
+      "time_s": 34.53340248962656,
+      "type": "card_played"
+    },
+    {
+      "time_s": 39.53824343015214,
+      "type": "card_played"
+    },
+    {
+      "time_s": 40.53921161825726,
+      "type": "card_played"
+    },
+    {
+      "time_s": 41.79042185338866,
+      "type": "card_played"
+    },
+    {
+      "time_s": 43.04163208852006,
+      "type": "card_played"
+    },
+    {
+      "time_s": 46.79526279391425,
+      "type": "card_played"
+    },
+    {
+      "time_s": 48.04647302904564,
+      "type": "card_played"
+    },
+    {
+      "time_s": 49.297683264177046,
+      "type": "card_played"
+    },
+    {
+      "time_s": 50.79913554633472,
+      "type": "card_played"
+    },
+    {
+      "time_s": 57.55567081604426,
+      "type": "card_played"
+    },
+    {
+      "time_s": 58.80688105117566,
+      "type": "card_played"
+    },
+    {
+      "time_s": 60.058091286307054,
+      "type": "card_played"
+    },
+    {
+      "time_s": 61.55954356846473,
+      "type": "card_played"
+    },
+    {
+      "time_s": 67.56535269709543,
+      "type": "card_played"
+    },
+    {
+      "time_s": 68.81656293222683,
+      "type": "card_played"
+    },
+    {
+      "time_s": 70.06777316735824,
+      "type": "card_played"
+    },
+    {
+      "time_s": 71.31898340248964,
+      "type": "card_played"
+    },
+    {
+      "time_s": 75.3228561549101,
+      "type": "card_played"
+    },
+    {
+      "time_s": 76.82430843706777,
+      "type": "card_played"
+    },
+    {
+      "time_s": 77.82527662517289,
+      "type": "card_played"
+    },
+    {
+      "time_s": 79.32672890733058,
+      "type": "card_played"
+    },
+    {
+      "time_s": 84.83205394190871,
+      "type": "card_played"
+    },
+    {
+      "time_s": 86.08326417704012,
+      "type": "card_played"
+    },
+    {
+      "time_s": 87.33447441217152,
+      "type": "card_played"
+    },
+    {
+      "time_s": 88.33544260027664,
+      "type": "card_played"
+    }
+  ]
+}
