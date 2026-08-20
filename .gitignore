@@ -7,7 +7,6 @@
 **/.venv/
 .env
 .DS_Store
-**/data/raw/
 **/data/cache/
 **/data/outputs/
 **/node_modules/

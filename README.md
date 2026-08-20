@@ -91,6 +91,25 @@ doko-detector/
 
 The exact structure may evolve during implementation.
 
+## Git LFS
+
+The raw videos in `card_event_net/data/raw/` use Git LFS. Install Git LFS once before you
+work with the videos:
+
+```bash
+brew install git-lfs
+git lfs install
+```
+
+After a fresh clone, download the video content from the repository root:
+
+```bash
+git lfs pull
+```
+
+Run `git lfs pull` in an existing clone as well if the raw videos contain only LFS pointer
+files. Use `git lfs ls-files` to check which files are managed by Git LFS.
+
 ## Development
 
 The project is developed primarily on macOS.
