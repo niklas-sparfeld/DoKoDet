@@ -1,9 +1,14 @@
 train:
+- IMG_2778
 - IMG_0095
-- IMG_0091
 - IMG_0092
+- IMG_2779
+- IMG_0097
+- IMG_2777
+- IMG_2780
 - IMG_0096
 val:
 - IMG_0090
+- IMG_0091
 test:
-- IMG_0097
+- IMG_2781
