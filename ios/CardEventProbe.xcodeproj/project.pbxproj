@@ -33,6 +33,8 @@
 		A00000000000000000000018 /* CameraFrameDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000018 /* CameraFrameDelegate.swift */; };
 		A00000000000000000000019 /* InferenceSamplingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000019 /* InferenceSamplingPolicy.swift */; };
 		A0000000000000000000001A /* FrameInferenceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001A /* FrameInferenceCoordinator.swift */; };
+		A0000000000000000000001B /* ReplayResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001B /* ReplayResult.swift */; };
+		A0000000000000000000001C /* VideoReplayRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001C /* VideoReplayRunner.swift */; };
 
 /* End PBXBuildFile section */
 
@@ -64,6 +66,8 @@
 		B00000000000000000000018 /* CameraFrameDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFrameDelegate.swift; sourceTree = "<group>"; };
 		B00000000000000000000019 /* InferenceSamplingPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceSamplingPolicy.swift; sourceTree = "<group>"; };
 		B0000000000000000000001A /* FrameInferenceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameInferenceCoordinator.swift; sourceTree = "<group>"; };
+		B0000000000000000000001B /* ReplayResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayResult.swift; sourceTree = "<group>"; };
+		B0000000000000000000001C /* VideoReplayRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoReplayRunner.swift; sourceTree = "<group>"; };
 
 /* End PBXFileReference section */
 
@@ -102,6 +106,7 @@
 				D00000000000000000000007 /* Core */,
 				D00000000000000000000008 /* Inference */,
 				D00000000000000000000009 /* UI */,
+				D0000000000000000000000A /* Replay */,
 			);
 			path = CardEventProbe;
 			sourceTree = "<group>";
@@ -179,6 +184,15 @@
 				B0000000000000000000000F /* RootView.swift */,
 			);
 			path = UI;
+			sourceTree = "<group>";
+		};
+		D0000000000000000000000A /* Replay */ = {
+			isa = PBXGroup;
+			children = (
+				B0000000000000000000001B /* ReplayResult.swift */,
+				B0000000000000000000001C /* VideoReplayRunner.swift */,
+			);
+			path = Replay;
 			sourceTree = "<group>";
 		};
 
@@ -269,6 +283,8 @@
 				A00000000000000000000016 /* CardEventTensorBuilder.swift in Sources */,
 				A0000000000000000000001A /* FrameInferenceCoordinator.swift in Sources */,
 				A00000000000000000000018 /* CameraFrameDelegate.swift in Sources */,
+				A0000000000000000000001B /* ReplayResult.swift in Sources */,
+				A0000000000000000000001C /* VideoReplayRunner.swift in Sources */,
 				A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */,
 				A0000000000000000000000D /* LiveDetectionView.swift in Sources */,
 				A0000000000000000000000E /* ReplayView.swift in Sources */,

@@ -3,6 +3,10 @@ import SwiftUI
 
 struct DiagnosticsPanel: View {
     @EnvironmentObject private var appState: AppState
+    @State private var roiX = ""
+    @State private var roiY = ""
+    @State private var roiWidth = ""
+    @State private var roiHeight = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -105,6 +109,31 @@ struct DiagnosticsPanel: View {
                 .padding(.top, 4)
             }
 
+            DisclosureGroup("Table ROI") {
+                Text("Use normalized x, y, width, and height in the oriented camera frame.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    roiField("x", text: $roiX)
+                    roiField("y", text: $roiY)
+                    roiField("width", text: $roiWidth)
+                    roiField("height", text: $roiHeight)
+                }
+                Button("Apply ROI") {
+                    appState.setROI(
+                        x: Double(roiX) ?? .nan,
+                        y: Double(roiY) ?? .nan,
+                        width: Double(roiWidth) ?? .nan,
+                        height: Double(roiHeight) ?? .nan
+                    )
+                }
+                if let roiError = appState.roiError {
+                    Text(roiError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
             if let inferenceError = appState.inferenceError {
                 Text(inferenceError)
                     .font(.caption)
@@ -136,6 +165,11 @@ struct DiagnosticsPanel: View {
             }
             Slider(value: Binding(get: { value }, set: onChange), in: 0.0...1.0)
         }
+    }
+
+    private func roiField(_ title: String, text: Binding<String>) -> some View {
+        TextField(title, text: text)
+            .textFieldStyle(.roundedBorder)
     }
 }
 

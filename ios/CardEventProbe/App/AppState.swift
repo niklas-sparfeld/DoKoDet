@@ -38,10 +38,14 @@ final class AppState: ObservableObject {
     @Published private(set) var inferenceError: String?
     @Published private(set) var scoreHistory: [ScoreSample] = []
     @Published private(set) var lastEventTimestampSeconds: Double?
+    @Published private(set) var replayProgress: ReplayProgress?
+    @Published private(set) var replayRunning = false
+    @Published private(set) var roiError: String?
 
     private(set) var modelRunner: CardEventModelRunner?
     let eventPostProcessor = EventPostProcessor()
     private var liveCoordinator: FrameInferenceCoordinator?
+    private var replayRunner: VideoReplayRunner?
 
     var roiStatus: String {
         guard let runner = modelRunner as? CoreMLCardEventModelRunner else {
@@ -95,6 +99,7 @@ final class AppState: ObservableObject {
     }
 
     func startLiveInference() -> ((VideoFrame) -> Void)? {
+        cancelReplay()
         stopLiveInference()
         guard let runner = modelRunner else { return nil }
 
@@ -113,6 +118,49 @@ final class AppState: ObservableObject {
     func stopLiveInference() {
         liveCoordinator?.stop()
         liveCoordinator = nil
+    }
+
+    func setROI(x: Double, y: Double, width: Double, height: Double) {
+        do {
+            let roi = try NormalizedROI(x: x, y: y, width: width, height: height)
+            guard let runner = modelRunner as? CoreMLCardEventModelRunner else {
+                roiError = "The model is not ready."
+                return
+            }
+            runner.setROI(roi)
+            eventPostProcessor.reset()
+            roiError = nil
+        } catch {
+            roiError = error.localizedDescription
+        }
+    }
+
+    func startReplay(url: URL) {
+        stopLiveInference()
+        cancelReplay()
+        guard let runner = modelRunner else {
+            inferenceError = "The model is not ready."
+            return
+        }
+
+        resetEvents()
+        replayProgress = nil
+        replayRunning = true
+        let replayRunner = VideoReplayRunner()
+        self.replayRunner = replayRunner
+        replayRunner.start(
+            url: url,
+            modelRunner: runner,
+            eventPostProcessor: eventPostProcessor
+        ) { [weak self] progress in
+            Task { @MainActor in
+                self?.applyReplay(progress)
+            }
+        }
+    }
+
+    func cancelReplay() {
+        replayRunner?.cancel()
     }
 
     func resetEvents() {
@@ -153,21 +201,53 @@ final class AppState: ObservableObject {
         inferenceMetrics = update.metrics
         inferenceError = update.errorMessage
         if let prediction = update.prediction {
-            scoreHistory.append(
-                ScoreSample(
-                    timestampSeconds: CMTimeGetSeconds(prediction.timestamp),
-                    probability: prediction.cardEventProbability
-                )
-            )
-            if scoreHistory.count > 80 {
-                scoreHistory.removeFirst(scoreHistory.count - 80)
-            }
+            appendScore(prediction)
         }
         if update.event != nil {
             eventCount += 1
             if let event = update.event {
                 lastEventTimestampSeconds = CMTimeGetSeconds(event.timestamp)
             }
+        }
+    }
+
+    private func applyReplay(_ progress: ReplayProgress) {
+        replayProgress = progress
+        replayRunning = !progress.isComplete
+        inferenceError = progress.errorMessage
+        inferenceMetrics = FrameInferenceMetrics(
+            cameraFramesReceived: progress.framesRead,
+            framesSkippedForSampling: 0,
+            framesDroppedWhileBusy: 0,
+            predictionsProduced: progress.predictionsProduced,
+            averageInferenceDurationMs: progress.averageInferenceDurationMs
+        )
+        if let prediction = progress.prediction {
+            latestPrediction = prediction
+            appendScore(prediction)
+        }
+        eventCount = progress.eventCount
+        if let timestamp = progress.lastEventTimestampSeconds {
+            lastEventTimestampSeconds = timestamp
+        }
+        if progress.isComplete {
+            replayRunner = nil
+        }
+    }
+
+    private func appendScore(_ prediction: ModelPrediction) {
+        let timestamp = CMTimeGetSeconds(prediction.timestamp)
+        if scoreHistory.last?.timestampSeconds == timestamp {
+            return
+        }
+        scoreHistory.append(
+            ScoreSample(
+                timestampSeconds: timestamp,
+                probability: prediction.cardEventProbability
+            )
+        )
+        if scoreHistory.count > 80 {
+            scoreHistory.removeFirst(scoreHistory.count - 80)
         }
     }
 }
