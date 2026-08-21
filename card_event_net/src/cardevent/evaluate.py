@@ -1,46 +1,30 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from math import isfinite
 from pathlib import Path
-from statistics import median
 from typing import Any, Mapping, Sequence
-
-import numpy as np
 
 from .annotation import AnnotationError, load_annotation
 from .cache import CacheError, load_cache_metadata
-from .events import (
-    EventMatchResult,
-    ProbabilitySample,
-    match_events,
-    probabilities_to_events,
+from .evaluation import THRESHOLD_GRID as _THRESHOLD_GRID
+from .evaluation import (
+    EvaluationError,
+    ScoredVideo,
+    ThresholdSelection,
+    evaluate_streams,
+    load_threshold_selection,
+    save_threshold_selection,
+    select_threshold,
 )
+from .evaluation import event_f1 as _event_f1
+from .events import probabilities_to_events
 from .infer import InferenceError, LoadedCheckpoint, infer_cached_video, load_checkpoint
 from .splits import SplitError, VideoSplit, load_split
 
-
-class EvaluationError(RuntimeError):
-    """Raised when inference or event evaluation cannot be completed."""
-
-
-THRESHOLD_GRID: tuple[float, ...] = tuple(round(0.10 + index * 0.05, 2) for index in range(18))
-
-
-@dataclass(frozen=True, slots=True)
-class ScoredVideo:
-    name: str
-    duration_s: float
-    ground_truth_times_s: tuple[float, ...]
-    probabilities: tuple[ProbabilitySample, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class ThresholdSelection:
-    threshold: float
-    metrics: dict[str, float]
-    candidates: tuple[dict[str, float], ...]
+_save_threshold_selection = save_threshold_selection
+_load_threshold_selection = load_threshold_selection
+THRESHOLD_GRID = _THRESHOLD_GRID
+event_f1 = _event_f1
 
 
 def _partition_names(split: VideoSplit, partition: str) -> tuple[str, ...]:
@@ -112,196 +96,6 @@ def load_model_streams(
             )
         )
     return videos
-
-
-def _metrics_from_match(
-    match: EventMatchResult,
-    *,
-    duration_s: float,
-    latencies_s: Sequence[float] | None = None,
-) -> dict[str, float]:
-    latencies = tuple(match.latencies_s if latencies_s is None else latencies_s)
-    duration_hours = duration_s / 3600.0
-    return {
-        "duration_s": duration_s,
-        "duration_hours": duration_hours,
-        "real_events": float(match.real_events),
-        "detected_true_events": float(match.detected_true_events),
-        "missed_events": float(match.missed_events),
-        "false_events": float(match.false_events),
-        "event_recall": (
-            match.detected_true_events / match.real_events if match.real_events else 0.0
-        ),
-        "event_precision": (
-            match.detected_true_events / (match.detected_true_events + match.false_events)
-            if match.detected_true_events + match.false_events
-            else 0.0
-        ),
-        "false_events_per_hour": (
-            match.false_events / duration_hours if duration_hours > 0.0 else 0.0
-        ),
-        "latency_median_s": median(latencies) if latencies else 0.0,
-        "latency_p95_s": float(np.percentile(latencies, 95)) if latencies else 0.0,
-    }
-
-
-def evaluate_streams(
-    videos: Sequence[ScoredVideo],
-    *,
-    threshold: float,
-    merge_window_s: float,
-    event_match_tolerance_s: float,
-) -> tuple[dict[str, float], list[dict[str, Any]]]:
-    """Evaluate probability streams at one threshold."""
-    if not videos:
-        raise EvaluationError("No videos were provided for evaluation.")
-
-    per_video: list[dict[str, Any]] = []
-    total_duration_s = 0.0
-    total_real_events = 0
-    total_detected_true_events = 0
-    total_missed_events = 0
-    total_false_events = 0
-    all_latencies: list[float] = []
-
-    for video in videos:
-        detected_events = probabilities_to_events(
-            video.probabilities,
-            threshold=threshold,
-            merge_window_s=merge_window_s,
-        )
-        match = match_events(
-            detected_events,
-            video.ground_truth_times_s,
-            tolerance_s=event_match_tolerance_s,
-        )
-        metrics = _metrics_from_match(match, duration_s=video.duration_s)
-        per_video.append(
-            {
-                "video": video.name,
-                **metrics,
-                "ground_truth_events_s": list(video.ground_truth_times_s),
-                "probabilities": [sample.to_mapping() for sample in video.probabilities],
-                "predicted_events": [event.to_mapping() for event in detected_events],
-            }
-        )
-        total_duration_s += video.duration_s
-        total_real_events += match.real_events
-        total_detected_true_events += match.detected_true_events
-        total_missed_events += match.missed_events
-        total_false_events += match.false_events
-        all_latencies.extend(match.latencies_s)
-
-    total_duration_hours = total_duration_s / 3600.0
-    overall = {
-        "videos": float(len(videos)),
-        "duration_s": total_duration_s,
-        "duration_hours": total_duration_hours,
-        "real_events": float(total_real_events),
-        "detected_true_events": float(total_detected_true_events),
-        "missed_events": float(total_missed_events),
-        "false_events": float(total_false_events),
-        "event_recall": (
-            total_detected_true_events / total_real_events if total_real_events else 0.0
-        ),
-        "event_precision": (
-            total_detected_true_events / (total_detected_true_events + total_false_events)
-            if total_detected_true_events + total_false_events
-            else 0.0
-        ),
-        "false_events_per_hour": (
-            total_false_events / total_duration_hours if total_duration_hours > 0.0 else 0.0
-        ),
-        "latency_median_s": median(all_latencies) if all_latencies else 0.0,
-        "latency_p95_s": float(np.percentile(all_latencies, 95)) if all_latencies else 0.0,
-    }
-    return overall, per_video
-
-
-def _threshold_rank(metrics: Mapping[str, float], target_recall: float) -> tuple[float, ...]:
-    recall = metrics["event_recall"]
-    false_events_per_hour = metrics["false_events_per_hour"]
-    if recall >= target_recall:
-        return (1.0, -false_events_per_hour, metrics["event_precision"])
-    return (0.0, recall, -false_events_per_hour, metrics["event_precision"])
-
-
-def select_threshold(
-    videos: Sequence[ScoredVideo],
-    *,
-    merge_window_s: float,
-    event_match_tolerance_s: float,
-    target_recall: float,
-    thresholds: Sequence[float] = THRESHOLD_GRID,
-) -> ThresholdSelection:
-    """Select a threshold using validation event behavior only."""
-    if not 0.0 <= target_recall <= 1.0 or not isfinite(target_recall):
-        raise EvaluationError("target_recall must be between 0 and 1.")
-    if not thresholds:
-        raise EvaluationError("At least one threshold is required.")
-
-    candidates: list[dict[str, float]] = []
-    for threshold in thresholds:
-        if not isfinite(threshold):
-            raise EvaluationError("Threshold candidates must be finite.")
-        metrics, _ = evaluate_streams(
-            videos,
-            threshold=threshold,
-            merge_window_s=merge_window_s,
-            event_match_tolerance_s=event_match_tolerance_s,
-        )
-        candidates.append({"threshold": float(threshold), **metrics})
-
-    selected = max(
-        candidates,
-        key=lambda candidate: _threshold_rank(candidate, target_recall),
-    )
-    return ThresholdSelection(
-        threshold=selected["threshold"],
-        metrics={key: value for key, value in selected.items() if key != "threshold"},
-        candidates=tuple(candidates),
-    )
-
-
-def _threshold_path(checkpoint_path: Path) -> Path:
-    return checkpoint_path.with_name("threshold.json")
-
-
-def _save_threshold_selection(
-    checkpoint_path: Path,
-    selection: ThresholdSelection,
-    *,
-    merge_window_s: float,
-    event_match_tolerance_s: float,
-    target_recall: float,
-) -> Path:
-    path = _threshold_path(checkpoint_path)
-    payload = {
-        "checkpoint": str(checkpoint_path),
-        "threshold": selection.threshold,
-        "merge_window_s": merge_window_s,
-        "event_match_tolerance_s": event_match_tolerance_s,
-        "target_recall": target_recall,
-        "validation_metrics": selection.metrics,
-        "candidates": list(selection.candidates),
-    }
-    path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    return path
-
-
-def _load_threshold_selection(checkpoint_path: Path) -> ThresholdSelection:
-    path = _threshold_path(checkpoint_path)
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        threshold = float(payload["threshold"])
-        metrics = dict(payload["validation_metrics"])
-        candidates = tuple(dict(candidate) for candidate in payload["candidates"])
-    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        raise EvaluationError(
-            f"Could not load the validation threshold from {path}. "
-            "Run evaluation on the val partition first."
-        ) from exc
-    return ThresholdSelection(threshold=threshold, metrics=metrics, candidates=candidates)
 
 
 def _safe_plot_name(video_name: str) -> str:
@@ -412,6 +206,171 @@ def save_threshold_plot(
     return destination
 
 
+def save_operating_plots(
+    candidates: Sequence[Mapping[str, float]],
+    *,
+    selected_threshold: float,
+    max_f1_threshold: float,
+    output_dir: str | Path,
+) -> dict[str, Path]:
+    """Save precision/recall and recall/false-event operating curves."""
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as exc:
+        raise EvaluationError(
+            "matplotlib is required for evaluation plots. Run `uv sync` to install it."
+        ) from exc
+
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    thresholds = [candidate["threshold"] for candidate in candidates]
+    recalls = [candidate["event_recall"] for candidate in candidates]
+    precisions = [candidate["event_precision"] for candidate in candidates]
+    false_rates = [candidate["false_events_per_hour"] for candidate in candidates]
+
+    def mark(axis: Any) -> None:
+        for threshold, color, label in (
+            (selected_threshold, "tab:green", "selected target-recall threshold"),
+            (max_f1_threshold, "tab:orange", "maximum-F1 threshold"),
+        ):
+            try:
+                index = thresholds.index(threshold)
+            except ValueError:
+                continue
+            axis.scatter(
+                [recalls[index]],
+                [precisions[index]],
+                color=color,
+                zorder=3,
+                label=label,
+            )
+
+    precision_recall_figure, precision_recall_axis = plt.subplots(figsize=(7, 5))
+    precision_recall_axis.plot(recalls, precisions, marker=".", color="tab:blue")
+    mark(precision_recall_axis)
+    precision_recall_axis.set_xlabel("event recall")
+    precision_recall_axis.set_ylabel("event precision")
+    precision_recall_axis.set_xlim(0.0, 1.05)
+    precision_recall_axis.set_ylim(0.0, 1.05)
+    precision_recall_axis.grid(alpha=0.2)
+    precision_recall_axis.legend(loc="best")
+    precision_recall_figure.tight_layout()
+    precision_recall_path = destination / "precision-recall.png"
+    precision_recall_figure.savefig(precision_recall_path, dpi=140)
+    plt.close(precision_recall_figure)
+
+    recall_false_figure, recall_false_axis = plt.subplots(figsize=(7, 5))
+    recall_false_axis.plot(recalls, false_rates, marker=".", color="tab:red")
+    for threshold, color, label in (
+        (selected_threshold, "tab:green", "selected target-recall threshold"),
+        (max_f1_threshold, "tab:orange", "maximum-F1 threshold"),
+    ):
+        try:
+            index = thresholds.index(threshold)
+        except ValueError:
+            continue
+        recall_false_axis.scatter(
+            [recalls[index]],
+            [false_rates[index]],
+            color=color,
+            zorder=3,
+            label=label,
+        )
+    recall_false_axis.set_xlabel("event recall")
+    recall_false_axis.set_ylabel("false events/hour")
+    recall_false_axis.set_xlim(0.0, 1.05)
+    recall_false_axis.grid(alpha=0.2)
+    recall_false_axis.legend(loc="best")
+    recall_false_figure.tight_layout()
+    recall_false_path = destination / "recall-false-events.png"
+    recall_false_figure.savefig(recall_false_path, dpi=140)
+    plt.close(recall_false_figure)
+    return {
+        "precision_recall": precision_recall_path,
+        "recall_false_events": recall_false_path,
+    }
+
+
+def save_training_history_plot(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    output_path: str | Path,
+) -> Path:
+    """Save the main training and calibrated validation history."""
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as exc:
+        raise EvaluationError(
+            "matplotlib is required for training plots. Run `uv sync` to install it."
+        ) from exc
+
+    if not rows:
+        raise EvaluationError("At least one training metric row is required.")
+    destination = Path(output_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    epochs = [int(row["epoch"]) for row in rows]
+    figure, axes = plt.subplots(2, 2, figsize=(11, 7))
+    axes[0, 0].plot(epochs, [row["train_loss"] for row in rows], label="train loss")
+    axes[0, 0].plot(epochs, [row["val_loss"] for row in rows], label="validation loss")
+    axes[0, 0].set_title("Loss")
+    axes[0, 0].legend()
+    axes[0, 1].plot(
+        epochs,
+        [
+            row.get("validation_selected_recall", row.get("validation_event_recall", 0.0))
+            for row in rows
+        ],
+        label="recall",
+    )
+    axes[0, 1].plot(
+        epochs,
+        [
+            row.get("validation_selected_precision", row.get("validation_precision", 0.0))
+            for row in rows
+        ],
+        label="precision",
+    )
+    axes[0, 1].set_ylim(0.0, 1.05)
+    axes[0, 1].set_title("Calibrated validation quality")
+    axes[0, 1].legend()
+    axes[1, 0].plot(
+        epochs,
+        [
+            row.get(
+                "validation_selected_false_events_per_hour",
+                row.get("validation_false_events_per_hour", 0.0),
+            )
+            for row in rows
+        ],
+        label="false events/hour",
+        color="tab:red",
+    )
+    axes[1, 0].set_title("Calibrated validation false events")
+    axes[1, 0].legend()
+    axes[1, 1].plot(
+        epochs,
+        [row.get("validation_selected_threshold", 0.5) for row in rows],
+        label="selected threshold",
+        color="tab:green",
+    )
+    axes[1, 1].set_ylim(0.0, 1.0)
+    axes[1, 1].set_title("Selected threshold")
+    axes[1, 1].legend()
+    for axis in axes.flat:
+        axis.set_xlabel("epoch")
+        axis.grid(alpha=0.2)
+    figure.tight_layout()
+    figure.savefig(destination, dpi=140)
+    plt.close(figure)
+    return destination
+
+
 def _evaluation_payload(
     *,
     method: str,
@@ -453,9 +412,12 @@ def format_report(payload: Mapping[str, Any]) -> str:
             f"Recall:             {overall['event_recall']:.2%}",
             f"Precision:          {overall['event_precision']:.2%}",
             f"False/hour:         {overall['false_events_per_hour']:.2f}",
+            f"F1:                 {overall.get('event_f1', 0.0):.2%}",
+            f"Max F1:             {payload.get('max_f1', 0.0):.2%}",
             f"Latency p50:        {overall['latency_median_s']:.2f} s",
             f"Latency p95:        {overall['latency_p95_s']:.2f} s",
             f"Threshold:          {payload['threshold']:.2f}",
+            f"Max F1 threshold:   {payload.get('max_f1_threshold', 0.0):.2f}",
         )
     )
 
@@ -538,8 +500,10 @@ def evaluate_checkpoint_from_files(
         merge_window_s=loaded.config.inference.merge_window_s,
         event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
     )
-    destination = Path(output_path) if output_path is not None else (
-        checkpoint_file.parent / f"evaluation-{partition}.json"
+    destination = (
+        Path(output_path)
+        if output_path is not None
+        else (checkpoint_file.parent / f"evaluation-{partition}.json")
     )
     plots_dir = destination.parent / f"{destination.stem}-plots"
     plots = save_probability_plots(
@@ -551,6 +515,12 @@ def evaluate_checkpoint_from_files(
     threshold_plot = save_threshold_plot(
         selection.candidates,
         output_path=plots_dir / "threshold-tradeoff.png",
+    )
+    operating_plots = save_operating_plots(
+        selection.candidates,
+        selected_threshold=selection.threshold,
+        max_f1_threshold=selection.max_f1_threshold,
+        output_dir=plots_dir,
     )
     payload = _evaluation_payload(
         method="cardeventnet",
@@ -564,5 +534,109 @@ def evaluate_checkpoint_from_files(
     payload["checkpoint"] = str(checkpoint_file)
     payload["threshold_source"] = "validation"
     payload["validation_threshold_metrics"] = selection.metrics
+    payload["max_f1"] = selection.max_f1
+    payload["max_f1_threshold"] = selection.max_f1_threshold
+    payload["operating_plots"] = {name: str(path) for name, path in operating_plots.items()}
+    _save_evaluation(payload, destination)
+    return payload
+
+
+def diagnose_checkpoint_from_files(
+    checkpoint_path: str | Path,
+    split_path: str | Path,
+    *,
+    cache_dir: str | Path = "data/cache",
+    annotations_dir: str | Path = "data/annotations",
+    output_path: str | Path | None = None,
+    device_override: str | None = None,
+) -> dict[str, Any]:
+    """Compare train and validation event behavior at a validation threshold."""
+    try:
+        split = load_split(split_path)
+        checkpoint_file = Path(checkpoint_path)
+        loaded = load_checkpoint(checkpoint_file, device_override=device_override)
+        validation_videos = load_model_streams(
+            loaded,
+            split,
+            "val",
+            cache_dir=cache_dir,
+            annotations_dir=annotations_dir,
+        )
+        selection = select_threshold(
+            validation_videos,
+            merge_window_s=loaded.config.inference.merge_window_s,
+            event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
+            target_recall=loaded.config.metrics.target_recall,
+        )
+        save_threshold_selection(
+            checkpoint_file,
+            selection,
+            merge_window_s=loaded.config.inference.merge_window_s,
+            event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
+            target_recall=loaded.config.metrics.target_recall,
+        )
+        train_videos = load_model_streams(
+            loaded,
+            split,
+            "train",
+            cache_dir=cache_dir,
+            annotations_dir=annotations_dir,
+        )
+    except (OSError, SplitError, ValueError, InferenceError, EvaluationError) as exc:
+        raise EvaluationError(f"Could not diagnose checkpoint: {exc}") from exc
+
+    evaluation_options = {
+        "threshold": selection.threshold,
+        "merge_window_s": loaded.config.inference.merge_window_s,
+        "event_match_tolerance_s": loaded.config.metrics.event_match_tolerance_s,
+        "include_streams": False,
+    }
+    train_overall, train_per_video = evaluate_streams(train_videos, **evaluation_options)
+    validation_overall, validation_per_video = evaluate_streams(
+        validation_videos,
+        **evaluation_options,
+    )
+    plots_dir = (
+        Path(output_path).parent / f"{Path(output_path).stem}-plots"
+        if output_path is not None
+        else checkpoint_file.parent / "diagnostics-plots"
+    )
+    operating_plots = save_operating_plots(
+        selection.candidates,
+        selected_threshold=selection.threshold,
+        max_f1_threshold=selection.max_f1_threshold,
+        output_dir=plots_dir,
+    )
+    payload: dict[str, Any] = {
+        "method": "cardeventnet_train_validation_diagnostics",
+        "checkpoint": str(checkpoint_file),
+        "split": str(Path(split_path)),
+        "partition": {"train": "train", "validation": "val"},
+        "threshold": selection.threshold,
+        "threshold_source": "validation",
+        "threshold_selection": {
+            "selected_metrics": selection.metrics,
+            "max_f1": selection.max_f1,
+            "max_f1_threshold": selection.max_f1_threshold,
+            "candidates": list(selection.candidates),
+        },
+        "train": train_overall,
+        "validation": validation_overall,
+        "val": validation_overall,
+        "generalization_gap": {
+            "recall": train_overall["event_recall"] - validation_overall["event_recall"],
+            "precision": train_overall["event_precision"] - validation_overall["event_precision"],
+        },
+        "videos": {
+            "train": train_per_video,
+            "validation": validation_per_video,
+        },
+        "operating_plots": {name: str(path) for name, path in operating_plots.items()},
+    }
+    destination = (
+        Path(output_path)
+        if output_path is not None
+        else checkpoint_file.parent / "diagnostics.json"
+    )
     _save_evaluation(payload, destination)
     return payload

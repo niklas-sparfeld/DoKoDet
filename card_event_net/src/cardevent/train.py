@@ -13,7 +13,6 @@ from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
-from statistics import median
 from typing import Any, Mapping, Sequence
 
 import numpy as np
@@ -30,7 +29,16 @@ from .dataset import (
     samples_for_annotation,
 )
 from .device import resolve_device
-from .events import ProbabilitySample, match_events, probabilities_to_events
+from .evaluate import save_operating_plots, save_training_history_plot
+from .evaluation import (
+    EvaluationError,
+    ScoredVideo,
+    ThresholdSelection,
+    evaluate_streams,
+    save_threshold_selection,
+    select_threshold,
+)
+from .events import ProbabilitySample
 from .hard_negatives import HardNegativeError, load_hard_negative_times
 from .model import CardEventNet, build_model, freeze_backbone, unfreeze_backbone
 from .sampling import DEFAULT_CLIP_OFFSETS_S
@@ -529,10 +537,11 @@ def _evaluate_validation(
     device: torch.device,
     merge_window_s: float,
     event_tolerance_s: float,
+    target_recall: float,
     offsets_s: Sequence[float],
     runtime: TrainingRuntimeOptions | None = None,
     transform: ClipTransform | None = None,
-) -> dict[str, float]:
+) -> dict[str, Any]:
     if runtime is None:
         runtime = TrainingRuntimeOptions(
             batch_size=batch_size,
@@ -545,11 +554,7 @@ def _evaluate_validation(
     criterion = torch.nn.BCEWithLogitsLoss()
     total_loss = 0.0
     total_samples = 0
-    total_events = 0
-    total_detected = 0
-    total_false = 0
-    total_duration_s = 0.0
-    latencies: list[float] = []
+    scored_videos: list[ScoredVideo] = []
 
     for video in videos:
         loader = _make_loader(
@@ -559,7 +564,7 @@ def _evaluate_validation(
             offsets_s=offsets_s,
             runtime=runtime,
         )
-        probabilities: list[ProbabilitySample] = []
+        probabilities = []
         sample_offset = 0
         for clips, labels in loader:
             clips = clips.to(
@@ -586,47 +591,103 @@ def _evaluate_validation(
                 for index, probability in enumerate(torch.sigmoid(logits).detach().cpu().tolist())
             )
             sample_offset += len(logits)
-
-        predictions = probabilities_to_events(
-            probabilities,
-            threshold=0.5,
-            merge_window_s=merge_window_s,
+        scored_videos.append(
+            ScoredVideo(
+                name=video.name,
+                duration_s=video.duration_s,
+                ground_truth_times_s=video.event_times_s,
+                probabilities=tuple(probabilities),
+            )
         )
-        match = match_events(
-            predictions,
-            video.event_times_s,
-            tolerance_s=event_tolerance_s,
-        )
-        total_events += len(video.event_times_s)
-        total_detected += match.detected_true_events
-        total_false += match.false_events
-        total_duration_s += video.duration_s
-        latencies.extend(match.latencies_s)
 
     if total_samples == 0:
         raise TrainingError("The validation loader produced no samples.")
-    duration_hours = total_duration_s / 3600.0
-    return {
+    try:
+        fixed_overall, _ = evaluate_streams(
+            scored_videos,
+            threshold=0.5,
+            merge_window_s=merge_window_s,
+            event_match_tolerance_s=event_tolerance_s,
+            include_streams=False,
+        )
+        selection = select_threshold(
+            scored_videos,
+            merge_window_s=merge_window_s,
+            event_match_tolerance_s=event_tolerance_s,
+            target_recall=target_recall,
+        )
+    except EvaluationError as exc:
+        raise TrainingError(f"Could not evaluate validation streams: {exc}") from exc
+
+    try:
+        selected_overall, selected_per_video = evaluate_streams(
+            scored_videos,
+            threshold=selection.threshold,
+            merge_window_s=merge_window_s,
+            event_match_tolerance_s=event_tolerance_s,
+            include_streams=False,
+        )
+    except EvaluationError as exc:
+        raise TrainingError(f"Could not evaluate selected validation threshold: {exc}") from exc
+    recalls = [float(video["event_recall"]) for video in selected_per_video]
+    metrics: dict[str, Any] = {
         "val_loss": total_loss / total_samples,
-        "validation_event_recall": total_detected / total_events if total_events else 0.0,
-        "validation_precision": (
-            total_detected / (total_detected + total_false)
-            if total_detected + total_false
-            else 0.0
-        ),
-        "validation_false_events_per_hour": total_false / duration_hours
-        if duration_hours > 0.0
-        else 0.0,
-        "validation_latency_median_s": median(latencies) if latencies else 0.0,
+        "validation_fixed_threshold": 0.5,
+        "validation_fixed_recall": fixed_overall["event_recall"],
+        "validation_fixed_precision": fixed_overall["event_precision"],
+        "validation_fixed_f1": fixed_overall["event_f1"],
+        "validation_fixed_false_events_per_hour": fixed_overall["false_events_per_hour"],
+        "validation_selected_threshold": selection.threshold,
+        "validation_selected_recall": selected_overall["event_recall"],
+        "validation_selected_precision": selected_overall["event_precision"],
+        "validation_selected_f1": selected_overall["event_f1"],
+        "validation_selected_false_events_per_hour": selected_overall["false_events_per_hour"],
+        "validation_selected_latency_median_s": selected_overall["latency_median_s"],
+        "validation_max_f1": selection.max_f1,
+        "validation_max_f1_threshold": selection.max_f1_threshold,
+        "validation_recall_min_video": min(recalls, default=0.0),
+        "validation_recall_median_video": float(np.median(recalls)) if recalls else 0.0,
+        "validation_recall_max_video": max(recalls, default=0.0),
+        # Keep the old names in checkpoints and metrics files for consumers
+        # from before the calibrated validation metrics were added.
+        "validation_event_recall": selected_overall["event_recall"],
+        "validation_precision": selected_overall["event_precision"],
+        "validation_false_events_per_hour": selected_overall["false_events_per_hour"],
+        "validation_latency_median_s": selected_overall["latency_median_s"],
+        "_detail": {
+            "selected_threshold": selection.threshold,
+            "target_recall": target_recall,
+            "selected_metrics": selected_overall,
+            "fixed_threshold": 0.5,
+            "fixed_metrics": fixed_overall,
+            "max_f1": selection.max_f1,
+            "max_f1_threshold": selection.max_f1_threshold,
+            "threshold_candidates": list(selection.candidates),
+            "per_video": selected_per_video,
+        },
     }
+    return metrics
 
 
-def _checkpoint_rank(metrics: dict[str, float], target_recall: float) -> tuple[float, ...]:
-    recall = metrics["validation_event_recall"]
-    false_events_per_hour = metrics["validation_false_events_per_hour"]
+def _checkpoint_rank(metrics: Mapping[str, float], target_recall: float) -> tuple[float, ...]:
+    recall = (
+        metrics["validation_selected_recall"]
+        if "validation_selected_recall" in metrics
+        else metrics["validation_event_recall"]
+    )
+    false_events_per_hour = (
+        metrics["validation_selected_false_events_per_hour"]
+        if "validation_selected_false_events_per_hour" in metrics
+        else metrics["validation_false_events_per_hour"]
+    )
+    precision = (
+        metrics["validation_selected_precision"]
+        if "validation_selected_precision" in metrics
+        else metrics["validation_precision"]
+    )
     if recall >= target_recall:
-        return (1.0, -false_events_per_hour, metrics["validation_precision"])
-    return (0.0, recall, -false_events_per_hour, metrics["validation_precision"])
+        return (1.0, -false_events_per_hour, precision)
+    return (0.0, recall, -false_events_per_hour, precision)
 
 
 def _load_training_checkpoint(path: Path) -> Mapping[str, Any]:
@@ -743,9 +804,7 @@ def _best_state(
         )
         best_checkpoints.append(best_checkpoint)
     else:
-        LOGGER.warning(
-            "Resume run has no best.pt. Using last.pt as the initial best checkpoint."
-        )
+        LOGGER.warning("Resume run has no best.pt. Using last.pt as the initial best checkpoint.")
     best_checkpoints.append(resume_state.checkpoint)
 
     selected: tuple[tuple[float, ...], dict[str, Any], int, str] | None = None
@@ -827,6 +886,8 @@ def _save_checkpoint(
     best_epoch: int | None = None,
     best_stage: str | None = None,
     best_rank: Sequence[float] | None = None,
+    validation_detail: Mapping[str, Any] | None = None,
+    best_validation_detail: Mapping[str, Any] | None = None,
 ) -> None:
     if runtime is None:
         runtime = TrainingRuntimeOptions(
@@ -860,6 +921,10 @@ def _save_checkpoint(
         payload["best_stage"] = best_stage
     if best_rank is not None:
         payload["best_rank"] = list(best_rank)
+    if validation_detail is not None:
+        payload["validation_detail"] = dict(validation_detail)
+    if best_validation_detail is not None:
+        payload["best_validation_detail"] = dict(best_validation_detail)
     _atomic_torch_save(payload, path)
 
 
@@ -934,9 +999,7 @@ def train_model(
     has_saved_manifest = (
         resume_state is not None and "hard_negative_manifest" in resume_state.checkpoint
     )
-    saved_manifest = (
-        resume_state.checkpoint.get("hard_negative_manifest") if resume_state else None
-    )
+    saved_manifest = resume_state.checkpoint.get("hard_negative_manifest") if resume_state else None
     if (
         resume_state
         and hard_negative_manifest is None
@@ -981,6 +1044,7 @@ def train_model(
     best_metrics: dict[str, Any] | None = None
     best_epoch = 0
     best_stage = ""
+    best_validation_detail: dict[str, Any] | None = None
     if resume_state:
         best_rank, best_metrics, best_epoch, best_stage = _best_state(
             run_path,
@@ -997,6 +1061,16 @@ def train_model(
                 else None
             ),
         )
+        resume_detail = resume_state.checkpoint.get("best_validation_detail")
+        if isinstance(resume_detail, Mapping):
+            best_validation_detail = dict(resume_detail)
+        else:
+            best_path = run_path / "best.pt"
+            best_detail = _load_training_checkpoint(best_path) if best_path.is_file() else None
+            if isinstance(best_detail, Mapping):
+                detail = best_detail.get("validation_detail")
+                if isinstance(detail, Mapping):
+                    best_validation_detail = dict(detail)
 
     stages = (
         ("warmup", config.training.warmup_epochs, config.training.warmup_lr, True),
@@ -1072,11 +1146,30 @@ def train_model(
                     device=device,
                     merge_window_s=config.inference.merge_window_s,
                     event_tolerance_s=config.metrics.event_match_tolerance_s,
+                    target_recall=config.metrics.target_recall,
                     offsets_s=config.input.clip_offsets_s,
                     runtime=runtime,
                     transform=eval_transform,
                 )
                 validation_duration_s = time.perf_counter() - validation_start
+                validation_detail = validation_metrics.pop("_detail", None)
+                if not isinstance(validation_detail, Mapping):
+                    validation_detail = {
+                        "selected_threshold": validation_metrics.get(
+                            "validation_selected_threshold", 0.5
+                        ),
+                        "target_recall": config.metrics.target_recall,
+                        "selected_metrics": {},
+                        "fixed_threshold": 0.5,
+                        "fixed_metrics": {},
+                        "max_f1": validation_metrics.get("validation_max_f1", 0.0),
+                        "max_f1_threshold": validation_metrics.get(
+                            "validation_max_f1_threshold", 0.5
+                        ),
+                        "threshold_candidates": [],
+                        "per_video": [],
+                    }
+                validation_detail = dict(validation_detail)
                 row: dict[str, Any] = {
                     "epoch": epoch_number,
                     "global_epoch": epoch_number,
@@ -1096,6 +1189,18 @@ def train_model(
                     best_metrics = row
                     best_epoch = epoch_number
                     best_stage = stage_name
+                    best_validation_detail = validation_detail
+
+                epoch_detail = {
+                    "epoch": epoch_number,
+                    "stage": stage_name,
+                    "stage_epoch": stage_epoch,
+                    **validation_detail,
+                }
+                _atomic_write_text(
+                    run_path / "epochs" / f"epoch-{epoch_number:03d}.json",
+                    json.dumps(epoch_detail, indent=2, allow_nan=False) + "\n",
+                )
 
                 _save_checkpoint(
                     run_path / "last.pt",
@@ -1116,6 +1221,8 @@ def train_model(
                     best_epoch=best_epoch,
                     best_stage=best_stage,
                     best_rank=best_rank,
+                    validation_detail=validation_detail,
+                    best_validation_detail=best_validation_detail,
                 )
                 if is_new_best:
                     _save_checkpoint(
@@ -1137,23 +1244,90 @@ def train_model(
                         best_epoch=best_epoch,
                         best_stage=best_stage,
                         best_rank=best_rank,
+                        validation_detail=validation_detail,
+                        best_validation_detail=best_validation_detail,
                     )
                 metrics_file.write(json.dumps(row, allow_nan=False) + "\n")
                 metrics_file.flush()
                 LOGGER.info(
-                    "epoch=%d stage=%s train_loss=%.4f val_loss=%.4f recall=%.3f "
-                    "false/hour=%.2f samples/s=%.1f",
+                    "epoch=%d stage=%s train_loss=%.4f val_loss=%.4f "
+                    "selected_recall=%.3f selected_threshold=%.2f false/hour=%.2f "
+                    "worst_video=%.3f median_video=%.3f samples/s=%.1f",
                     epoch_number,
                     stage_name,
                     train_loss,
                     validation_metrics["val_loss"],
-                    validation_metrics["validation_event_recall"],
-                    validation_metrics["validation_false_events_per_hour"],
+                    validation_metrics.get(
+                        "validation_selected_recall",
+                        validation_metrics.get("validation_event_recall", 0.0),
+                    ),
+                    validation_metrics.get("validation_selected_threshold", 0.5),
+                    validation_metrics.get(
+                        "validation_selected_false_events_per_hour",
+                        validation_metrics.get("validation_false_events_per_hour", 0.0),
+                    ),
+                    validation_metrics.get(
+                        "validation_recall_min_video",
+                        validation_metrics.get("validation_event_recall", 0.0),
+                    ),
+                    validation_metrics.get(
+                        "validation_recall_median_video",
+                        validation_metrics.get("validation_event_recall", 0.0),
+                    ),
                     row["train_samples_per_s"],
                 )
 
     if best_metrics is None:
         raise TrainingError("Training completed without producing a checkpoint.")
+
+    training_rows = [
+        json.loads(line)
+        for line in (run_path / "metrics.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    plot_paths: dict[str, str] = {}
+    try:
+        plot_paths["training_history"] = str(
+            save_training_history_plot(
+                training_rows,
+                output_path=run_path / "training-history.png",
+            )
+        )
+    except EvaluationError as exc:
+        LOGGER.warning("Could not save the training history plot: %s", exc)
+
+    if best_validation_detail is not None:
+        try:
+            selection = ThresholdSelection(
+                threshold=float(best_validation_detail["selected_threshold"]),
+                metrics=dict(best_validation_detail["selected_metrics"]),
+                candidates=tuple(
+                    dict(candidate) for candidate in best_validation_detail["threshold_candidates"]
+                ),
+                max_f1=float(best_validation_detail.get("max_f1", 0.0)),
+                max_f1_threshold=float(best_validation_detail.get("max_f1_threshold", 0.0)),
+            )
+            save_threshold_selection(
+                run_path / "best.pt",
+                selection,
+                merge_window_s=config.inference.merge_window_s,
+                event_match_tolerance_s=config.metrics.event_match_tolerance_s,
+                target_recall=config.metrics.target_recall,
+            )
+            if selection.candidates:
+                plot_paths.update(
+                    {
+                        name: str(path)
+                        for name, path in save_operating_plots(
+                            selection.candidates,
+                            selected_threshold=selection.threshold,
+                            max_f1_threshold=selection.max_f1_threshold,
+                            output_dir=run_path / "diagnostics",
+                        ).items()
+                    }
+                )
+        except (EvaluationError, KeyError, TypeError, ValueError) as exc:
+            LOGGER.warning("Could not save the validation threshold artifacts: %s", exc)
 
     summary: dict[str, Any] = {
         "best_epoch": best_epoch,
@@ -1177,6 +1351,7 @@ def train_model(
         "hard_negative_manifest": (
             str(hard_negative_manifest) if hard_negative_manifest is not None else None
         ),
+        "plots": plot_paths,
     }
     _atomic_write_text(
         run_path / "summary.json",

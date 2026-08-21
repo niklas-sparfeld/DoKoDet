@@ -101,6 +101,22 @@ def test_evaluate_and_baseline_commands_parse_partitions() -> None:
     assert baseline_args.partition == "val"
 
 
+def test_diagnose_command_parses_checkpoint_and_split() -> None:
+    args = build_parser().parse_args(
+        [
+            "diagnose",
+            "--checkpoint",
+            "run/best.pt",
+            "--split",
+            "data/splits/default.yaml",
+        ]
+    )
+
+    assert args.command_name == "diagnose"
+    assert args.checkpoint == Path("run/best.pt")
+    assert args.split == Path("data/splits/default.yaml")
+
+
 def test_mine_hard_negatives_command_parses_checkpoint_and_split() -> None:
     args = build_parser().parse_args(
         [
@@ -142,3 +158,21 @@ def test_main_without_arguments_prints_help(capsys) -> None:
 
     assert exit_code == 0
     assert "usage:" in captured.out
+
+
+def test_prepare_command_reports_progress(monkeypatch, capsys) -> None:
+    def fake_prepare_videos(videos, **kwargs):
+        progress_callback = kwargs["progress_callback"]
+        progress_callback(Path(videos[0]), 0, 4)
+        progress_callback(Path(videos[0]), 4, 4)
+        return [Path("data/cache/sample")]
+
+    monkeypatch.setattr("cardevent.cli.prepare_videos", fake_prepare_videos)
+
+    assert main(["prepare", "--videos", "sample.mov"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Preparing sample.mov" in captured.err
+    assert "  0%" in captured.err
+    assert "100%" in captured.err
+    assert "Prepared cache: data/cache/sample" in captured.out

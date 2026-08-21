@@ -92,6 +92,10 @@ class EventMatchResult:
     missed_events: int
     false_events: int
     matches: tuple[EventMatch, ...]
+    unmatched_predicted_indices: tuple[int, ...] = ()
+    unmatched_ground_truth_indices: tuple[int, ...] = ()
+    unmatched_predicted_times_s: tuple[float, ...] = ()
+    unmatched_ground_truth_times_s: tuple[float, ...] = ()
 
     @property
     def latencies_s(self) -> tuple[float, ...]:
@@ -118,9 +122,10 @@ def match_events(
     predicted_times = sorted(_event_time(event) for event in predicted_events)
     ground_truth_times = sorted(_event_time(time_s) for time_s in ground_truth_times_s)
     available_predictions = set(range(len(predicted_times)))
+    matched_ground_truth_indices: set[int] = set()
     matches: list[EventMatch] = []
 
-    for ground_truth_time_s in ground_truth_times:
+    for ground_truth_index, ground_truth_time_s in enumerate(ground_truth_times):
         candidates = [
             index
             for index in available_predictions
@@ -133,6 +138,7 @@ def match_events(
             key=lambda index: (abs(predicted_times[index] - ground_truth_time_s), index),
         )
         available_predictions.remove(prediction_index)
+        matched_ground_truth_indices.add(ground_truth_index)
         matches.append(
             EventMatch(
                 predicted_time_s=predicted_times[prediction_index],
@@ -147,4 +153,18 @@ def match_events(
         missed_events=len(ground_truth_times) - detected_true_events,
         false_events=len(predicted_times) - detected_true_events,
         matches=tuple(matches),
+        unmatched_predicted_indices=tuple(sorted(available_predictions)),
+        unmatched_ground_truth_indices=tuple(
+            index
+            for index in range(len(ground_truth_times))
+            if index not in matched_ground_truth_indices
+        ),
+        unmatched_predicted_times_s=tuple(
+            predicted_times[index] for index in sorted(available_predictions)
+        ),
+        unmatched_ground_truth_times_s=tuple(
+            ground_truth_times[index]
+            for index in range(len(ground_truth_times))
+            if index not in matched_ground_truth_indices
+        ),
     )

@@ -193,5 +193,7 @@ def evaluate_baseline_from_files(
     payload["config"] = str(Path(config_path))
     payload["threshold_source"] = "validation"
     payload["threshold_file"] = str(threshold_path)
+    payload["max_f1"] = selection.max_f1
+    payload["max_f1_threshold"] = selection.max_f1_threshold
     _save_evaluation(payload, destination)
     return payload

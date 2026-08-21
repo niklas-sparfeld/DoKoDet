@@ -38,8 +38,10 @@ from .evaluate import (
     EvaluationError,
     ScoredVideo,
     ThresholdSelection,
+    diagnose_checkpoint_from_files,
     evaluate_checkpoint_from_files,
     evaluate_streams,
+    event_f1,
     select_threshold,
 )
 from .events import (
@@ -158,7 +160,9 @@ __all__ = [
     "event_in_window",
     "export_checkpoint_to_coreml",
     "evaluate_checkpoint_from_files",
+    "diagnose_checkpoint_from_files",
     "evaluate_streams",
+    "event_f1",
     "infer_cached_video",
     "infer_from_files",
     "inference_samples_for_cache",

@@ -109,9 +109,11 @@ uv run cardevent train \
 ```
 
 Runs are stored in `data/outputs/run-YYYYMMDD-HHMMSS/`. Each run contains `config.yaml`,
-`environment.json`, `metrics.jsonl`, `best.pt`, `last.pt`, and `summary.json`. The best
-checkpoint uses validation event recall and false events per hour for ranking. The summary
-and checkpoints store the resolved batch size, worker count, pin-memory setting, and precision.
+`environment.json`, `metrics.jsonl`, `epochs/`, `best.pt`, `last.pt`, and `summary.json`.
+Training selects a validation threshold for each epoch. It reports fixed-0.5 metrics,
+calibrated metrics, maximum F1, and worst/median/best video recall. The best checkpoint uses
+the calibrated validation target-recall ranking. It also writes `threshold.json`,
+`training-history.png`, and operating curves in `diagnostics/`.
 
 Use runtime overrides for a CUDA run:
 
@@ -176,7 +178,19 @@ uv run cardevent evaluate \
 ```
 
 Each evaluation writes JSON metrics, one probability plot per video, and a threshold tradeoff
-plot. The report includes event recall, precision, false events per hour, and latency p50/p95.
+plots. It also writes precision/recall and recall/false-event operating curves. The report
+includes event recall, precision, F1, false events per hour, and latency p50/p95.
+
+Compare train and validation behavior at a validation-selected threshold:
+
+```bash
+uv run cardevent diagnose \
+  --checkpoint data/outputs/run-.../best.pt \
+  --split data/splits/default.yaml
+```
+
+The diagnostics JSON contains train and validation metrics, generalization gaps, per-video
+metrics, and missed/false event timestamps. It does not use the test partition.
 
 Run the simple motion baseline with the same event evaluator:
 

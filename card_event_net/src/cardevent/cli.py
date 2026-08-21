@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TextIO
 
 from .annotation import AnnotationError, annotate_video
 from .baseline import evaluate_baseline_from_files
-from .cache import CacheError, prepare_videos
-from .evaluate import EvaluationError, evaluate_checkpoint_from_files, format_report
+from .cache import CacheError, PrepareProgressCallback, prepare_videos
+from .evaluate import (
+    EvaluationError,
+    diagnose_checkpoint_from_files,
+    evaluate_checkpoint_from_files,
+    format_report,
+)
 from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
@@ -22,11 +29,67 @@ _PLACEHOLDER_COMMANDS = {
     "train": "Train the CardEventNet model.",
     "infer": "Run offline inference on one video.",
     "evaluate": "Evaluate one checkpoint on a split.",
+    "diagnose": "Compare train and validation event behavior.",
     "baseline": "Run the classical motion baseline.",
     "mine-hard-negatives": "Mine hard negatives from training videos.",
     "export-coreml": "Export a checkpoint to Core ML.",
     "extract-evidence": "Extract source-resolution evidence frames.",
 }
+
+
+class _PrepareProgress:
+    _BAR_WIDTH = 24
+
+    def __init__(self, *, stream: TextIO | None = None) -> None:
+        self._stream = sys.stderr if stream is None else stream
+        self._interactive = self._stream.isatty()
+        self._video_path: Path | None = None
+        self._last_percent = -1
+        self._line_active = False
+
+    def __call__(self, video_path: Path, current: int, total: int) -> None:
+        if total <= 0:
+            return
+        if video_path != self._video_path:
+            self.finish()
+            self._video_path = video_path
+            self._last_percent = -1
+
+        percent = min(100, current * 100 // total)
+        if percent == self._last_percent:
+            return
+        if (
+            not self._interactive
+            and current < total
+            and self._last_percent >= 0
+            and percent < self._last_percent + 10
+        ):
+            return
+
+        completed = self._BAR_WIDTH * percent // 100
+        bar = "#" * completed + "-" * (self._BAR_WIDTH - completed)
+        displayed_current = min(current, total)
+        text = (
+            f"Preparing {video_path.name}: [{bar}] {percent:3d}% "
+            f"({displayed_current}/{total} frames)"
+        )
+        if self._interactive:
+            self._stream.write(f"\r{text}")
+        else:
+            self._stream.write(f"{text}\n")
+        self._stream.flush()
+        self._last_percent = percent
+        self._line_active = self._interactive
+
+    def finish(self) -> None:
+        if self._line_active:
+            self._stream.write("\n")
+            self._stream.flush()
+        self._line_active = False
+
+
+def _prepare_progress_callback() -> PrepareProgressCallback:
+    return _PrepareProgress()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -275,6 +338,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate_parser.set_defaults(command_name="evaluate")
 
+    diagnose_parser = subparsers.add_parser(
+        "diagnose",
+        help=_PLACEHOLDER_COMMANDS["diagnose"],
+        description=(
+            "Select a threshold from validation and compare train and validation event metrics."
+        ),
+    )
+    diagnose_parser.add_argument("--checkpoint", type=Path, required=True, help="Model checkpoint.")
+    diagnose_parser.add_argument("--split", type=Path, required=True, help="Video split YAML.")
+    diagnose_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=Path("data/cache"),
+        help="Prepared cache root (default: data/cache).",
+    )
+    diagnose_parser.add_argument(
+        "--annotations-dir",
+        type=Path,
+        default=Path("data/annotations"),
+        help="Annotation directory (default: data/annotations).",
+    )
+    diagnose_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Diagnostics JSON path (default: next to the checkpoint).",
+    )
+    diagnose_parser.add_argument(
+        "--device",
+        choices=("auto", "cpu", "cuda", "mps"),
+        default=None,
+        help="Override the device stored in the checkpoint.",
+    )
+    diagnose_parser.set_defaults(command_name="diagnose")
+
     baseline_parser = subparsers.add_parser(
         "baseline",
         help="Run the classical motion baseline.",
@@ -392,6 +490,7 @@ def build_parser() -> argparse.ArgumentParser:
             "train",
             "infer",
             "evaluate",
+            "diagnose",
             "baseline",
             "mine-hard-negatives",
             "export-coreml",
@@ -424,6 +523,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if command_name == "prepare":
+        progress = _prepare_progress_callback()
         try:
             cache_paths = prepare_videos(
                 args.videos,
@@ -431,9 +531,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cache_root=args.cache_dir,
                 cache_fps=args.cache_fps,
                 size=args.size,
+                progress_callback=progress,
             )
         except (AnnotationError, CacheError, VideoError, RuntimeError) as exc:
+            progress.finish()
             parser.exit(1, f"error: {exc}\n")
+        progress.finish()
         for cache_path in cache_paths:
             print(f"Prepared cache: {cache_path}")
         return 0
@@ -515,6 +618,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(format_report(payload))
         output_path = args.out or args.checkpoint.parent / f"evaluation-{args.partition}.json"
         print(f"Metrics JSON: {output_path}")
+        return 0
+
+    if command_name == "diagnose":
+        try:
+            payload = diagnose_checkpoint_from_files(
+                args.checkpoint,
+                args.split,
+                cache_dir=args.cache_dir,
+                annotations_dir=args.annotations_dir,
+                output_path=args.out,
+                device_override=args.device,
+            )
+        except (EvaluationError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        train = payload["train"]
+        validation = payload["validation"]
+        print("                         train       val")
+        print(
+            f"Recall                   {train['event_recall']:.1%}      "
+            f"{validation['event_recall']:.1%}"
+        )
+        print(
+            f"Precision                {train['event_precision']:.1%}      "
+            f"{validation['event_precision']:.1%}"
+        )
+        print(
+            f"False events/hour       {train['false_events_per_hour']:.2f}     "
+            f"{validation['false_events_per_hour']:.2f}"
+        )
+        print(f"Selected threshold:     {payload['threshold']:.2f}")
+        print(f"Recall generalization gap: {payload['generalization_gap']['recall']:.1%}")
+        print(f"Precision generalization gap: {payload['generalization_gap']['precision']:.1%}")
+        output_path = args.out or args.checkpoint.parent / "diagnostics.json"
+        print(f"Diagnostics JSON: {output_path}")
         return 0
 
     if command_name == "baseline":

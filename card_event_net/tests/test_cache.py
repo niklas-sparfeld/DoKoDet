@@ -42,7 +42,13 @@ def test_extract_video_cache_writes_roi_frames_and_timestamps(tmp_path: Path) ->
         encoding="utf-8",
     )
 
-    cache_dir = extract_video_cache(video_path, cache_fps=10.0, size=32)
+    progress: list[tuple[int, int]] = []
+    cache_dir = extract_video_cache(
+        video_path,
+        cache_fps=10.0,
+        size=32,
+        progress_callback=lambda current, total: progress.append((current, total)),
+    )
     metadata = load_cache_metadata(cache_dir)
     frames = sorted((cache_dir / "frames").glob("*.jpg"))
 
@@ -51,3 +57,6 @@ def test_extract_video_cache_writes_roi_frames_and_timestamps(tmp_path: Path) ->
     assert metadata.frame_timestamps_s == pytest.approx((0.0, 0.1, 0.2))
     assert len(frames) == len(metadata.frame_timestamps_s)
     assert cv2.imread(str(frames[0])).shape == (32, 32, 3)
+    assert progress[0] == (0, 6)
+    assert progress[-1] == (6, 6)
+    assert [current for current, _ in progress] == list(range(7))

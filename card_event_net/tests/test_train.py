@@ -15,10 +15,12 @@ from cardevent.train import (
     TrainingError,
     TrainingRuntimeOptions,
     _checkpoint_rank,
+    _evaluate_validation,
     _limit_samples,
     _make_loader,
     _resume_state,
     _save_checkpoint,
+    _ValidationVideo,
     resolve_runtime_options,
 )
 
@@ -96,6 +98,71 @@ def test_checkpoint_ranking_prefers_low_false_rate_after_target_recall() -> None
     }
 
     assert _checkpoint_rank(low_false, target) > _checkpoint_rank(high_false, target)
+
+
+def test_checkpoint_ranking_uses_calibrated_metrics() -> None:
+    calibrated = {
+        "validation_selected_recall": 0.99,
+        "validation_selected_false_events_per_hour": 2.0,
+        "validation_selected_precision": 0.8,
+        "validation_event_recall": 0.2,
+        "validation_false_events_per_hour": 200.0,
+        "validation_precision": 0.1,
+    }
+    fixed_threshold_favorite = {
+        "validation_selected_recall": 0.7,
+        "validation_selected_false_events_per_hour": 1.0,
+        "validation_selected_precision": 0.9,
+        "validation_event_recall": 0.99,
+        "validation_false_events_per_hour": 1.0,
+        "validation_precision": 0.9,
+    }
+
+    assert _checkpoint_rank(calibrated, 0.98) > _checkpoint_rank(fixed_threshold_favorite, 0.98)
+
+
+def test_validation_inference_runs_once_per_video_before_threshold_sweep(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    train_module = importlib.import_module("cardevent.train")
+    samples = [make_sample(0.0, 0.0), make_sample(1.0, 0.125), make_sample(0.0, 0.25)]
+    video = _ValidationVideo(
+        name="val",
+        samples=tuple(samples),
+        event_times_s=(0.125,),
+        duration_s=60.0,
+    )
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def forward(self, clips: torch.Tensor) -> torch.Tensor:
+            self.calls += 1
+            return torch.full((clips.shape[0],), 2.0)
+
+    model = FakeModel()
+    monkeypatch.setattr(
+        train_module,
+        "_make_loader",
+        lambda *_args, **_kwargs: [(torch.zeros((len(samples), 1)), torch.zeros(len(samples)))],
+    )
+
+    result = _evaluate_validation(
+        model,
+        [video],
+        batch_size=4,
+        device=torch.device("cpu"),
+        merge_window_s=0.6,
+        event_tolerance_s=0.75,
+        target_recall=0.98,
+        offsets_s=(-1.0, 0.0),
+        transform=lambda clips: clips,
+    )
+
+    assert model.calls == 1
+    assert len(result["_detail"]["threshold_candidates"]) == 99
 
 
 def test_runtime_defaults_and_overrides() -> None:
@@ -205,9 +272,7 @@ def test_resume_infers_stage_epoch_for_older_checkpoint(tmp_path: Path) -> None:
 def test_resume_rejects_config_mismatch(tmp_path: Path) -> None:
     config = make_config()
     changed_config = make_config()
-    changed_config = Config.from_mapping(
-        {**changed_config.to_dict(), "seed": 43}
-    )
+    changed_config = Config.from_mapping({**changed_config.to_dict(), "seed": 43})
     split = VideoSplit(train=("train",), val=("val",), test=("test",))
     checkpoint_path = tmp_path / "last.pt"
     torch.save(
@@ -309,3 +374,10 @@ def test_training_resume_keeps_completed_epochs_and_best_checkpoint(
     assert [row["epoch"] for row in rows] == [1, 2, 3]
     assert result.summary["best_epoch"] == 1
     assert len(train_calls) == 3
+    assert [path.name for path in sorted((run_dir / "epochs").glob("epoch-*.json"))] == [
+        "epoch-001.json",
+        "epoch-002.json",
+        "epoch-003.json",
+    ]
+    assert (run_dir / "threshold.json").is_file()
+    assert (run_dir / "training-history.png").is_file()

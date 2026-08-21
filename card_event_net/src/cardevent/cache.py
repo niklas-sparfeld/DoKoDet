@@ -4,9 +4,10 @@ import json
 import math
 import shutil
 import tempfile
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from .annotation import (
     AnnotationError,
@@ -19,6 +20,10 @@ from .video import VideoError, _import_cv2, read_video_metadata
 
 class CacheError(RuntimeError):
     pass
+
+
+FrameProgressCallback = Callable[[int, int], None]
+PrepareProgressCallback = Callable[[Path, int, int], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +138,7 @@ def extract_video_cache(
     cache_root: str | Path | None = None,
     cache_fps: float = 10.0,
     size: int = 224,
+    progress_callback: FrameProgressCallback | None = None,
 ) -> Path:
     if cache_fps <= 0.0 or not math.isfinite(cache_fps):
         raise CacheError("cache_fps must be a finite positive number.")
@@ -171,6 +177,9 @@ def extract_video_cache(
     frame_index = 0
 
     try:
+        if progress_callback is not None:
+            progress_callback(0, metadata.frame_count)
+
         while True:
             ok, frame = capture.read()
             if not ok or frame is None:
@@ -214,6 +223,8 @@ def extract_video_cache(
             previous_frame = frame.copy()
             previous_time_s = current_time_s
             frame_index += 1
+            if progress_callback is not None:
+                progress_callback(frame_index, metadata.frame_count)
 
         if not frame_timestamps_s:
             raise CacheError(
@@ -252,14 +263,25 @@ def prepare_videos(
     cache_root: str | Path | None = None,
     cache_fps: float = 10.0,
     size: int = 224,
+    progress_callback: PrepareProgressCallback | None = None,
 ) -> list[Path]:
-    return [
-        extract_video_cache(
-            video,
-            annotations_dir=annotations_dir,
-            cache_root=cache_root,
-            cache_fps=cache_fps,
-            size=size,
+    cache_paths: list[Path] = []
+    for video in videos:
+        video_path = Path(video)
+        frame_progress_callback = None
+        if progress_callback is not None:
+
+            def frame_progress_callback(current: int, total: int, path: Path = video_path) -> None:
+                progress_callback(path, current, total)
+
+        cache_paths.append(
+            extract_video_cache(
+                video_path,
+                annotations_dir=annotations_dir,
+                cache_root=cache_root,
+                cache_fps=cache_fps,
+                size=size,
+                progress_callback=frame_progress_callback,
+            )
         )
-        for video in videos
-    ]
+    return cache_paths
