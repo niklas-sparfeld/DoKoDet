@@ -87,17 +87,15 @@ def predict_cached_samples(
     if not samples:
         return []
 
-    dataset = CausalClipDataset(
-        samples,
-        offsets_s=offsets_s,
-        transform=ClipTransform(training=False),
-    )
+    dataset = CausalClipDataset(samples, offsets_s=offsets_s)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    transform = ClipTransform(training=False)
     predictions: list[ProbabilitySample] = []
     sample_offset = 0
     model.eval()
     for clips, _labels in loader:
-        logits = model(clips.to(device=device, dtype=torch.float32))
+        clips = clips.to(device=device)
+        logits = model(transform(clips))
         probabilities = torch.sigmoid(logits).detach().cpu().tolist()
         for probability in probabilities:
             predictions.append(

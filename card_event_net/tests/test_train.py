@@ -126,7 +126,6 @@ def test_loader_propagates_worker_and_pin_options() -> None:
 
     loader = _make_loader(
         [],
-        training=True,
         batch_size=runtime.batch_size,
         shuffle=False,
         runtime=runtime,

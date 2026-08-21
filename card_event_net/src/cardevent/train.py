@@ -437,7 +437,6 @@ def _limit_samples(
 def _make_loader(
     samples: Sequence[DatasetSample],
     *,
-    training: bool,
     batch_size: int,
     shuffle: bool,
     offsets_s: Sequence[float] | None = None,
@@ -453,7 +452,6 @@ def _make_loader(
     dataset = CausalClipDataset(
         samples,
         offsets_s=DEFAULT_CLIP_OFFSETS_S if offsets_s is None else offsets_s,
-        transform=ClipTransform(training=training),
     )
     loader_options: dict[str, Any] = {
         "batch_size": batch_size,
@@ -481,6 +479,7 @@ def _run_train_epoch(
     *,
     backbone_frozen: bool,
     runtime: TrainingRuntimeOptions | None = None,
+    transform: ClipTransform | None = None,
 ) -> float:
     if runtime is None:
         runtime = TrainingRuntimeOptions(
@@ -492,15 +491,16 @@ def _run_train_epoch(
     model.train()
     if backbone_frozen:
         model.backbone.eval()
+    train_transform = transform or ClipTransform(training=True)
 
     total_loss = 0.0
     sample_count = 0
     for clips, labels in loader:
         clips = clips.to(
             device=device,
-            dtype=torch.float32,
             non_blocking=runtime.pin_memory,
         )
+        clips = train_transform(clips)
         labels = labels.to(
             device=device,
             dtype=torch.float32,
@@ -531,6 +531,7 @@ def _evaluate_validation(
     event_tolerance_s: float,
     offsets_s: Sequence[float],
     runtime: TrainingRuntimeOptions | None = None,
+    transform: ClipTransform | None = None,
 ) -> dict[str, float]:
     if runtime is None:
         runtime = TrainingRuntimeOptions(
@@ -540,6 +541,7 @@ def _evaluate_validation(
             precision="fp32",
         )
     model.eval()
+    eval_transform = transform or ClipTransform(training=False)
     criterion = torch.nn.BCEWithLogitsLoss()
     total_loss = 0.0
     total_samples = 0
@@ -552,7 +554,6 @@ def _evaluate_validation(
     for video in videos:
         loader = _make_loader(
             video.samples,
-            training=False,
             batch_size=batch_size,
             shuffle=False,
             offsets_s=offsets_s,
@@ -563,9 +564,9 @@ def _evaluate_validation(
         for clips, labels in loader:
             clips = clips.to(
                 device=device,
-                dtype=torch.float32,
                 non_blocking=runtime.pin_memory,
             )
+            clips = eval_transform(clips)
             labels = labels.to(
                 device=device,
                 dtype=torch.float32,
@@ -917,6 +918,8 @@ def train_model(
         num_workers=num_workers,
         precision=precision,
     )
+    train_transform = ClipTransform(training=True)
+    eval_transform = ClipTransform(training=False)
 
     has_saved_max_samples = resume_state is not None and "max_samples" in resume_state.checkpoint
     saved_max_samples = resume_state.checkpoint.get("max_samples") if resume_state else None
@@ -1045,7 +1048,6 @@ def train_model(
                 train_start = time.perf_counter()
                 train_loader = _make_loader(
                     train_samples,
-                    training=True,
                     batch_size=runtime.batch_size,
                     shuffle=True,
                     offsets_s=config.input.clip_offsets_s,
@@ -1059,6 +1061,7 @@ def train_model(
                     device,
                     backbone_frozen=backbone_frozen,
                     runtime=runtime,
+                    transform=train_transform,
                 )
                 train_duration_s = time.perf_counter() - train_start
                 validation_start = time.perf_counter()
@@ -1071,6 +1074,7 @@ def train_model(
                     event_tolerance_s=config.metrics.event_match_tolerance_s,
                     offsets_s=config.input.clip_offsets_s,
                     runtime=runtime,
+                    transform=eval_transform,
                 )
                 validation_duration_s = time.perf_counter() - validation_start
                 row: dict[str, Any] = {

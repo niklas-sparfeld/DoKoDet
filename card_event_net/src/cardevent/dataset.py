@@ -14,7 +14,6 @@ from .sampling import (
     is_positive_time,
     select_frame_indices,
 )
-from .transforms import ClipTransform
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,7 +159,6 @@ class CausalClipDataset:
         samples: Sequence[DatasetSample],
         *,
         offsets_s: Sequence[float] = DEFAULT_CLIP_OFFSETS_S,
-        transform: ClipTransform | None = None,
     ) -> None:
         try:
             import torch
@@ -172,7 +170,6 @@ class CausalClipDataset:
 
         self.samples = tuple(samples)
         self.offsets_s = tuple(offsets_s)
-        self.transform = transform or ClipTransform(training=False)
         self._stores: dict[Path, CachedFrameStore] = {}
         self._torch = torch
 
@@ -194,7 +191,6 @@ class CausalClipDataset:
             offsets_s=self.offsets_s,
         )
         clip = self._torch.stack([store.read_frame(frame_index) for frame_index in frame_indices])
-        clip = self.transform(clip)
         label = self._torch.tensor(sample.label, dtype=self._torch.float32)
         return clip, label
 
