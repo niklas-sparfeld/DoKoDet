@@ -3,9 +3,12 @@ from __future__ import annotations
 import pytest
 
 from cardevent.sampling import (
+    LABEL_CONFIRMED_HARD_NEGATIVE,
+    LABEL_IGNORE,
     build_training_times,
     is_clean_negative_time,
     is_positive_time,
+    label_state_for_time,
     select_frame_indices,
     select_frame_timestamps,
 )
@@ -68,3 +71,21 @@ def test_training_times_are_approximately_one_to_three() -> None:
 def test_sampler_rejects_future_offsets() -> None:
     with pytest.raises(ValueError, match="future frames"):
         select_frame_indices((0.0, 0.1), 0.1, offsets_s=(0.0, 0.1))
+
+
+def test_three_way_labels_ignore_transitions_and_hard_negatives_override_them() -> None:
+    assert label_state_for_time(10.6, (10.0,)) == LABEL_IGNORE
+    assert (
+        label_state_for_time(10.6, (10.0,), confirmed_hard_negative_times_s=(10.6,))
+        == LABEL_CONFIRMED_HARD_NEGATIVE
+    )
+
+
+def test_training_sampler_warns_when_clean_negative_ratio_is_unattainable() -> None:
+    with pytest.warns(UserWarning, match="ratio cannot be reached"):
+        samples = build_training_times(
+            (0.0, 0.1, 0.2, 0.3, 0.4),
+            (0.2,),
+            negative_to_positive_ratio=3,
+        )
+    assert samples

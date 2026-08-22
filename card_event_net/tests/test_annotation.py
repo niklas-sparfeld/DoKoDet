@@ -13,6 +13,7 @@ from cardevent.annotation import (
     VideoAnnotation,
     annotation_path_for_video,
     load_annotation,
+    load_annotation_proposals,
     save_annotation,
     validate_annotation,
 )
@@ -128,3 +129,46 @@ def test_annotation_session_resumes_existing_file(tmp_path: Path) -> None:
     assert session.annotation_path == annotation_path
     assert session.roi == Roi(x=0.1, y=0.1, width=0.6, height=0.6)
     assert [event.time_s for event in session.events] == [1.0]
+
+
+def test_extended_event_types_and_optional_fields_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "IMG_0090.json"
+    annotation = VideoAnnotation(
+        video="IMG_0090.mov",
+        roi=Roi(x=0.1, y=0.1, width=0.6, height=0.6),
+        events=(
+            AnnotationEvent(
+                time_s=1.0,
+                type="trick_cleared",
+                confidence="confirmed",
+                notes="all cards removed",
+            ),
+        ),
+    )
+
+    save_annotation(annotation, path, metadata=sample_metadata())
+
+    assert load_annotation(path).events[0] == annotation.events[0]
+
+
+def test_annotation_rejects_unknown_event_type() -> None:
+    annotation = VideoAnnotation(
+        video="IMG_0090.mov",
+        roi=Roi(x=0.1, y=0.1, width=0.6, height=0.6),
+        events=(AnnotationEvent(time_s=1.0, type="unknown"),),
+    )
+
+    with pytest.raises(AnnotationError, match="Unknown event type"):
+        validate_annotation(annotation, sample_metadata())
+
+
+def test_model_proposals_load_without_becoming_ground_truth(tmp_path: Path) -> None:
+    path = tmp_path / "predictions.json"
+    path.write_text(
+        json.dumps({"events": [{"time_s": 2.0, "probability": 0.91}]}), encoding="utf-8"
+    )
+
+    proposals = load_annotation_proposals(path)
+
+    assert proposals[0].time_s == 2.0
+    assert proposals[0].probability == 0.91

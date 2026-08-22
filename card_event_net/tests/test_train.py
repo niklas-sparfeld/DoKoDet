@@ -162,7 +162,7 @@ def test_validation_inference_runs_once_per_video_before_threshold_sweep(
     )
 
     assert model.calls == 1
-    assert len(result["_detail"]["threshold_candidates"]) == 99
+    assert len(result["_detail"]["threshold_candidates"]) == 2
 
 
 def test_runtime_defaults_and_overrides() -> None:

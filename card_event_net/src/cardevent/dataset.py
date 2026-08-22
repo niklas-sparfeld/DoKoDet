@@ -8,10 +8,12 @@ from .annotation import VideoAnnotation
 from .cache import CacheError, CacheMetadata, load_cache_metadata
 from .sampling import (
     DEFAULT_CLIP_OFFSETS_S,
+    LABEL_NEGATIVE,
     LabeledTime,
     build_inference_times,
     build_training_times,
-    is_positive_time,
+    label_for_state,
+    label_state_for_time,
     select_frame_indices,
 )
 
@@ -22,6 +24,7 @@ class DatasetSample:
     cache_dir: Path
     decision_time_s: float
     label: float
+    label_state: str = LABEL_NEGATIVE
 
 
 class CachedFrameStore:
@@ -80,6 +83,7 @@ def samples_for_cache(
     future_exclusion_s: float = 0.8,
     negative_to_positive_ratio: int = 3,
     seed: int = 42,
+    confirmed_hard_negative_times_s: Sequence[float] = (),
 ) -> list[DatasetSample]:
     cache_path = Path(cache_dir)
     metadata = load_cache_metadata(cache_path)
@@ -91,6 +95,7 @@ def samples_for_cache(
         future_exclusion_s=future_exclusion_s,
         negative_to_positive_ratio=negative_to_positive_ratio,
         seed=seed,
+        confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
     )
     return _dataset_samples(cache_path, metadata, times)
 
@@ -101,6 +106,9 @@ def inference_samples_for_cache(
     stride_s: float = 0.125,
     event_times_s: Sequence[float] | None = None,
     positive_window_s: float = 0.45,
+    past_exclusion_s: float = 1.8,
+    future_exclusion_s: float = 0.8,
+    confirmed_hard_negative_times_s: Sequence[float] = (),
 ) -> list[DatasetSample]:
     cache_path = Path(cache_dir)
     metadata = load_cache_metadata(cache_path)
@@ -108,14 +116,30 @@ def inference_samples_for_cache(
         LabeledTime(
             time_s=time_s,
             label=(
-                1.0
+                label_for_state(
+                    label_state_for_time(
+                        time_s,
+                        event_times_s,
+                        positive_window_s=positive_window_s,
+                        past_exclusion_s=past_exclusion_s,
+                        future_exclusion_s=future_exclusion_s,
+                        confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+                    )
+                )
                 if event_times_s is not None
-                and is_positive_time(
+                else 0.0
+            ),
+            label_state=(
+                label_state_for_time(
                     time_s,
                     event_times_s,
                     positive_window_s=positive_window_s,
+                    past_exclusion_s=past_exclusion_s,
+                    future_exclusion_s=future_exclusion_s,
+                    confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
                 )
-                else 0.0
+                if event_times_s is not None
+                else LABEL_NEGATIVE
             ),
         )
         for time_s in build_inference_times(metadata.duration_s, stride_s=stride_s)
@@ -134,6 +158,7 @@ def _dataset_samples(
             cache_dir=cache_dir,
             decision_time_s=sample.time_s,
             label=sample.label,
+            label_state=sample.label_state,
         )
         for sample in times
     ]
@@ -146,7 +171,11 @@ def samples_for_annotation(
 ) -> list[DatasetSample]:
     return samples_for_cache(
         cache_dir,
-        [event.time_s for event in annotation.events],
+        [
+            event.time_s
+            for event in annotation.events
+            if event.confidence in {None, "confirmed"}
+        ],
         **sampling_options,
     )
 

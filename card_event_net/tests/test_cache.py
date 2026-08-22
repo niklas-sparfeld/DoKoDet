@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pytest
 
-from cardevent.cache import extract_video_cache, load_cache_metadata
+from cardevent.cache import cache_is_usable, extract_video_cache, load_cache_metadata
 
 
 def test_extract_video_cache_writes_roi_frames_and_timestamps(tmp_path: Path) -> None:
@@ -60,3 +60,33 @@ def test_extract_video_cache_writes_roi_frames_and_timestamps(tmp_path: Path) ->
     assert progress[0] == (0, 6)
     assert progress[-1] == (6, 6)
     assert [current for current, _ in progress] == list(range(7))
+
+
+def test_cache_is_usable_requires_matching_complete_cache(tmp_path: Path) -> None:
+    cache_dir = tmp_path / "cache" / "sample"
+    frames_dir = cache_dir / "frames"
+    frames_dir.mkdir(parents=True)
+    (cache_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "source_video": "sample.mov",
+                "cache_fps": 10.0,
+                "duration_s": 0.1,
+                "frame_timestamps_s": [0.0, 0.1],
+                "frame_size": 224,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (frames_dir / "000000.jpg").write_bytes(b"frame")
+
+    assert not cache_is_usable(
+        "sample.mov", cache_root=tmp_path / "cache", cache_fps=10.0, size=224
+    )
+    (frames_dir / "000001.jpg").write_bytes(b"frame")
+    assert cache_is_usable(
+        "sample.mov", cache_root=tmp_path / "cache", cache_fps=10.0, size=224
+    )
+    assert not cache_is_usable(
+        "sample.mov", cache_root=tmp_path / "cache", cache_fps=5.0, size=224
+    )

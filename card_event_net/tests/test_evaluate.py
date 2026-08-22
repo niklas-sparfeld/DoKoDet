@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib
 
 from cardevent.evaluate import (
-    THRESHOLD_GRID,
     ScoredVideo,
     ThresholdSelection,
     diagnose_checkpoint_from_files,
@@ -80,9 +79,28 @@ def test_default_threshold_grid_can_select_below_point_one() -> None:
         target_recall=0.98,
     )
 
-    assert tuple(round(index / 100, 2) for index in range(1, 100)) == THRESHOLD_GRID
     assert selection.threshold < 0.10
-    assert len(selection.candidates) == 99
+    assert len(selection.candidates) == 2
+
+
+def test_threshold_selection_records_unmet_target_and_uses_f1_fallback() -> None:
+    video = ScoredVideo(
+        name="sample",
+        duration_s=60.0,
+        ground_truth_times_s=(10.0, 20.0),
+        probabilities=(ProbabilitySample(10.0, 0.9),),
+    )
+
+    selection = select_threshold(
+        [video],
+        merge_window_s=0.6,
+        event_match_tolerance_s=0.25,
+        target_recall=0.98,
+    )
+
+    assert selection.target_recall_met is False
+    assert selection.maximum_attainable_recall == 0.5
+    assert selection.selection_reason == "fallback_max_f1"
 
 
 def test_f1_is_zero_when_no_events_are_predicted() -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -14,6 +15,7 @@ from .evaluation import (
     evaluate_streams,
     load_threshold_selection,
     save_threshold_selection,
+    save_validation_stream,
     select_threshold,
 )
 from .evaluation import event_f1 as _event_f1
@@ -87,12 +89,20 @@ def load_model_streams(
             probabilities = infer_cached_video(loaded, cache_path)
         except InferenceError as exc:
             raise EvaluationError(f"Could not infer validation video {name}: {exc}") from exc
+        annotation_hash = hashlib.sha256(
+            (annotation_root / f"{name}.json").read_bytes()
+        ).hexdigest()
+        confirmed_events = tuple(
+            event for event in annotation.events if event.confidence in {None, "confirmed"}
+        )
         videos.append(
             ScoredVideo(
                 name=name,
                 duration_s=duration_s,
-                ground_truth_times_s=tuple(event.time_s for event in annotation.events),
+                ground_truth_times_s=tuple(event.time_s for event in confirmed_events),
                 probabilities=tuple(probabilities),
+                ground_truth_types=tuple(event.type for event in confirmed_events),
+                annotation_version_hash=annotation_hash,
             )
         )
     return videos
@@ -537,6 +547,16 @@ def evaluate_checkpoint_from_files(
     payload["max_f1"] = selection.max_f1
     payload["max_f1_threshold"] = selection.max_f1_threshold
     payload["operating_plots"] = {name: str(path) for name, path in operating_plots.items()}
+    payload["target_recall"] = loaded.config.metrics.target_recall
+    payload["target_recall_met"] = selection.target_recall_met
+    payload["maximum_attainable_recall"] = selection.maximum_attainable_recall
+    payload["selection_reason"] = selection.selection_reason
+    payload["validation_stream"] = str(
+        save_validation_stream(
+            validation_videos,
+            destination.parent / "validation-streams" / "evaluation.json.gz",
+        )
+    )
     _save_evaluation(payload, destination)
     return payload
 

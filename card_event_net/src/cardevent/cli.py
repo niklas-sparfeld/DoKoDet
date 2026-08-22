@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
 
-from .annotation import AnnotationError, annotate_video
+from .annotation import AnnotationError, annotate_video, load_annotation_proposals
 from .baseline import evaluate_baseline_from_files
 from .cache import CacheError, PrepareProgressCallback, prepare_videos
 from .evaluate import (
@@ -18,6 +18,7 @@ from .evaluate import (
 from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
+from .manifest import ManifestError, load_dataset_manifest, make_group_split
 from .splits import SplitError, make_video_split, save_split
 from .train import TrainingError, train_from_files
 from .video import VideoError
@@ -40,9 +41,18 @@ _PLACEHOLDER_COMMANDS = {
 class _PrepareProgress:
     _BAR_WIDTH = 24
 
-    def __init__(self, *, stream: TextIO | None = None) -> None:
+    def __init__(
+        self,
+        videos: Sequence[Path] = (),
+        *,
+        stream: TextIO | None = None,
+    ) -> None:
         self._stream = sys.stderr if stream is None else stream
         self._interactive = self._stream.isatty()
+        self._video_positions = {
+            video.resolve(): index for index, video in enumerate(videos, start=1)
+        }
+        self._video_count = len(videos)
         self._video_path: Path | None = None
         self._last_percent = -1
         self._line_active = False
@@ -69,8 +79,12 @@ class _PrepareProgress:
         completed = self._BAR_WIDTH * percent // 100
         bar = "#" * completed + "-" * (self._BAR_WIDTH - completed)
         displayed_current = min(current, total)
+        video_number = self._video_positions.get(video_path.resolve(), 1)
+        video_prefix = (
+            f"Video {video_number} / {self._video_count} — " if self._video_count else ""
+        )
         text = (
-            f"Preparing {video_path.name}: [{bar}] {percent:3d}% "
+            f"{video_prefix}Preparing {video_path.name}: [{bar}] {percent:3d}% "
             f"({displayed_current}/{total} frames)"
         )
         if self._interactive:
@@ -88,8 +102,8 @@ class _PrepareProgress:
         self._line_active = False
 
 
-def _prepare_progress_callback() -> PrepareProgressCallback:
-    return _PrepareProgress()
+def _prepare_progress_callback(videos: Sequence[Path] = ()) -> PrepareProgressCallback:
+    return _PrepareProgress(videos)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -124,6 +138,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Override the annotations directory.",
+    )
+    annotate_parser.add_argument(
+        "--proposals",
+        type=Path,
+        default=None,
+        help="Inference or review JSON with model candidates to review.",
     )
     annotate_parser.set_defaults(command_name="annotate")
 
@@ -163,6 +183,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=224,
         help="Square cached frame size (default: 224).",
     )
+    prepare_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild caches even when a matching complete cache exists.",
+    )
     prepare_parser.set_defaults(command_name="prepare")
 
     split_parser = subparsers.add_parser(
@@ -184,6 +209,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Replace an existing split file.",
     )
     split_parser.set_defaults(command_name="make-split")
+
+    group_split_parser = subparsers.add_parser(
+        "split", help="Create a session-aware split from a dataset manifest."
+    )
+    group_split_parser.add_argument("--manifest", type=Path, required=True)
+    group_split_parser.add_argument("--group-by", choices=("session_id",), default="session_id")
+    group_split_parser.add_argument("--out", type=Path, required=True)
+    group_split_parser.add_argument("--seed", type=int, default=42)
+    group_split_parser.set_defaults(command_name="split")
 
     train_parser = subparsers.add_parser(
         "train",
@@ -517,13 +551,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if command_name == "annotate":
         try:
-            annotate_video(args.video, annotations_dir=args.annotations_dir)
+            proposals = load_annotation_proposals(args.proposals) if args.proposals else ()
+            annotate_video(args.video, annotations_dir=args.annotations_dir, proposals=proposals)
         except (AnnotationError, VideoError, RuntimeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         return 0
 
     if command_name == "prepare":
-        progress = _prepare_progress_callback()
+        progress = _prepare_progress_callback(args.videos)
+        skipped: list[Path] = []
         try:
             cache_paths = prepare_videos(
                 args.videos,
@@ -532,13 +568,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cache_fps=args.cache_fps,
                 size=args.size,
                 progress_callback=progress,
+                skip_callback=lambda _video, cache_path: skipped.append(cache_path),
+                force=args.force,
             )
         except (AnnotationError, CacheError, VideoError, RuntimeError) as exc:
             progress.finish()
             parser.exit(1, f"error: {exc}\n")
         progress.finish()
         for cache_path in cache_paths:
-            print(f"Prepared cache: {cache_path}")
+            label = "Skipped cached video" if cache_path in skipped else "Prepared cache"
+            print(f"{label}: {cache_path}")
         return 0
 
     if command_name == "make-split":
@@ -556,6 +595,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"  train: {len(split.train)} videos")
         print(f"  val:   {len(split.val)} videos")
         print(f"  test:  {len(split.test)} videos")
+        return 0
+
+    if command_name == "split":
+        try:
+            split = make_group_split(load_dataset_manifest(args.manifest), seed=args.seed)
+            save_split(split, args.out)
+        except (ManifestError, SplitError, RuntimeError, OSError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote session-aware split: {args.out}")
         return 0
 
     if command_name == "train":
@@ -616,6 +664,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (EvaluationError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(format_report(payload))
+        if not payload.get("target_recall_met", True):
+            maximum_recall = payload.get("maximum_attainable_recall", 0.0)
+            print(
+                "WARNING: target recall was not met; "
+                f"maximum attainable recall was {maximum_recall:.2%}.",
+                file=sys.stderr,
+            )
         output_path = args.out or args.checkpoint.parent / f"evaluation-{args.partition}.json"
         print(f"Metrics JSON: {output_path}")
         return 0

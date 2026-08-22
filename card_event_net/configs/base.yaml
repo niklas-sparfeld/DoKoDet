@@ -29,9 +29,14 @@ training:
   weight_decay: 0.0001
   hard_negative_repeat: 3
   device: auto
+  early_stopping:
+    metric: validation_event_f1
+    patience: 3
+    min_delta: 0.005
 
 inference:
-  merge_window_s: 0.6
+  peak_confirmation_s: 0.125
+  min_event_gap_s: 0.6
 
 metrics:
   event_match_tolerance_s: 0.75

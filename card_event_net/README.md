@@ -1,12 +1,13 @@
 # CardEventNet
 
-CardEventNet detects the moment when a card has just landed in the trick area.
+CardEventNet detects meaningful visible card-state changes. A detected event triggers a new
+table-state evaluation.
 
 Run the commands below from `card_event_net/`.
 
 ## Current state
 
-This repo now has the phase-7 model, inference, evaluation, hard-negative, and Core ML export
+This repo has the model, annotation, inference, evaluation, hard-negative, and Core ML export
 pipeline:
 
 - project metadata
@@ -17,35 +18,44 @@ pipeline:
 - OpenCV annotation tool
 - 10 fps cached ROI frame extraction
 - causal 8-frame dataset sampling
-- positive and clean-negative label windows
-- deterministic video-level train/val/test splits
+- positive, negative, ignored, and confirmed-hard-negative label states
+- deterministic video-level and session-aware train/val/test splits
 - temporally consistent training transforms
 - MobileNetV3-Small spatial backbone
 - causal Conv1D temporal head
 - two-stage freeze and fine-tune training
 - timestamped checkpoints and run metadata
 - full-video causal inference at 8 Hz
-- probability-to-event clustering
-- validation threshold selection
+- threshold-independent peak extraction and temporal suppression
+- exact validation threshold selection from candidate-peak scores
 - event recall, precision, false/hour, and latency metrics
 - probability and threshold plots
 - classical cached-frame motion baseline
 - hard-negative mining from false triggers on training videos
 - optional repeated hard-negative sampling during training
 - fixed-shape Core ML export with optional PyTorch parity verification
+- saved validation streams for decoder-only evaluation
 - test and lint setup
 
-The annotator stores one JSON file per source video in `data/annotations/`.
-It remembers the ROI and the saved events.
+The annotation tool stores one JSON file per source video in `data/annotations/`. It remembers
+the ROI and saved events. Event types are `card_played`, `trick_cleared`, `card_moved`,
+`card_removed`, `card_returned`, `multiple_cards_dropped`, and `anomalous_state_change`.
 
-Startup controls:
+Annotation controls:
 
 ```text
-SPACE   mark a card_played event
+1-7     select event type
+SPACE   add a confirmed event of the selected type
+W / S   select previous or next saved event
+, / .   move the selected event one frame backward or forward
+T       cycle the selected event type
+U       mark the selected event or selected proposal uncertain
+N / B   jump to next or previous model proposal
+C       toggle before/after comparison
 P       pause or play
 A / D   seek backward or forward about 250 ms
 J / L   seek backward or forward about 2 s
-BACKSPACE or X  remove the latest event
+BACKSPACE or X  remove the selected event
 R       redefine the ROI
 Q       save and exit
 ```
@@ -83,6 +93,15 @@ The tool shows the event definition at startup. On first use, select the ROI in 
 window, then save. You can quit and reopen the same video later. Existing events stay in the
 JSON file.
 
+Review model candidates with an inference JSON file:
+
+```bash
+uv run cardevent annotate data/raw/IMG_0090.mov --proposals predictions.json
+```
+
+The annotator does not save model proposals automatically. Press `Space` to confirm one at the
+current timestamp. Press `U` to save it as uncertain instead.
+
 ## Cache and split
 
 Prepare the annotated videos from `card_event_net/`:
@@ -95,8 +114,25 @@ uv run cardevent make-split data/raw/*.mov
 The cache stores 224 x 224 JPEG frames in `data/cache/<video>/`. It also stores the source
 timestamp for every cached frame in `metadata.json`. The cache is ignored by Git.
 
+`prepare` skips a complete cache that matches the source video, cache frame rate, and frame size.
+Use `--force` to rebuild matching caches:
+
+```bash
+uv run cardevent prepare --videos data/raw/*.mov --force
+```
+
 The split file is `data/splits/default.yaml`. It uses video names without their file extension.
 It is not replaced when it already exists. Use `--force` only when you want to create a new split.
+
+For independent-session validation, create a dataset manifest with `video_id` and `session_id`
+fields, then make a session-aware split:
+
+```bash
+uv run cardevent split --manifest data/dataset-manifest.yaml --group-by session_id \
+  --out data/splits/session-aware.yaml
+```
+
+The command keeps all videos from one session in the same partition.
 
 ## Training
 
@@ -110,10 +146,15 @@ uv run cardevent train \
 
 Runs are stored in `data/outputs/run-YYYYMMDD-HHMMSS/`. Each run contains `config.yaml`,
 `environment.json`, `metrics.jsonl`, `epochs/`, `best.pt`, `last.pt`, and `summary.json`.
-Training selects a validation threshold for each epoch. It reports fixed-0.5 metrics,
-calibrated metrics, maximum F1, and worst/median/best video recall. The best checkpoint uses
-the calibrated validation target-recall ranking. It also writes `threshold.json`,
-`training-history.png`, and operating curves in `diagnostics/`.
+Training uses the same label semantics for training and validation. Ignored transition samples do
+not affect BCE loss. It reports label-state counts, effective positive fraction, validation loss,
+event recall, precision, F1, false events per hour, timestamp error, and target-recall status.
+
+Training selects a validation threshold for each epoch. It uses the target-recall operating point
+when possible. If target recall is impossible, it selects the maximum-F1 fallback and records the
+failure. The best checkpoint uses this event-level ranking. Early stopping uses the configured
+event metric. Each run writes `threshold.json`, `training-history.png`, operating curves, and
+`validation-streams/epoch-*.json.gz` files.
 
 Use runtime overrides for a CUDA run:
 
@@ -146,8 +187,8 @@ each training and validation video. A normal run uses all samples.
 
 ## Inference and evaluation
 
-Run causal inference for one prepared video. The JSON file contains one probability for every
-0.125 second decision timestamp:
+Run causal inference for one prepared video. The JSON file contains float32 logits and
+probabilities for every 0.125 second decision timestamp:
 
 ```bash
 uv run cardevent infer \
@@ -177,9 +218,11 @@ uv run cardevent evaluate \
   --partition test
 ```
 
-Each evaluation writes JSON metrics, one probability plot per video, and a threshold tradeoff
-plots. It also writes precision/recall and recall/false-event operating curves. The report
-includes event recall, precision, F1, false events per hour, and latency p50/p95.
+Each evaluation writes JSON metrics, one probability plot per video, a validation stream, and
+threshold tradeoff plots. It also writes precision/recall and recall/false-event operating curves.
+Threshold candidates use unique decoded peak scores, not a fixed probability grid. The report
+includes event recall, precision, F1, false events per hour, latency p50/p95, target-recall
+status, maximum attainable recall, and the selection reason.
 
 Compare train and validation behavior at a validation-selected threshold:
 

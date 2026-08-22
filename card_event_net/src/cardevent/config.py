@@ -61,6 +61,18 @@ def _require_float(data: Mapping[str, Any], key: str, *, min_value: float | None
     return result
 
 
+def _optional_float(
+    data: Mapping[str, Any],
+    key: str,
+    *,
+    default: float,
+    min_value: float | None = None,
+) -> float:
+    if key not in data:
+        return default
+    return _require_float(data, key, min_value=min_value)
+
+
 def _require_bool(data: Mapping[str, Any], key: str) -> bool:
     try:
         value = data[key]
@@ -183,6 +195,26 @@ class ModelConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class EarlyStoppingConfig:
+    metric: str = "validation_event_f1"
+    patience: int = 3
+    min_delta: float = 0.005
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> "EarlyStoppingConfig":
+        if not data:
+            return cls()
+        metric = _require_string(data, "metric")
+        if metric not in {"validation_event_f1", "validation_event_recall"}:
+            raise ConfigError("training.early_stopping.metric is not supported.")
+        return cls(
+            metric=metric,
+            patience=_require_int(data, "patience", min_value=1),
+            min_delta=_require_float(data, "min_delta", min_value=0.0),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class TrainingConfig:
     batch_size: int
     warmup_epochs: int
@@ -192,6 +224,7 @@ class TrainingConfig:
     weight_decay: float
     hard_negative_repeat: int
     device: str
+    early_stopping: EarlyStoppingConfig
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "TrainingConfig":
@@ -211,17 +244,40 @@ class TrainingConfig:
                 mapping, "hard_negative_repeat", default=3, min_value=2
             ),
             device=device,
+            early_stopping=EarlyStoppingConfig.from_mapping(
+                _require_mapping(mapping["early_stopping"], "training.early_stopping")
+                if "early_stopping" in mapping
+                else {}
+            ),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class InferenceConfig:
-    merge_window_s: float
+    peak_confirmation_s: float
+    min_event_gap_s: float
+
+    @property
+    def merge_window_s(self) -> float:
+        """Compatibility name for checkpoints created before peak decoding."""
+        return self.min_event_gap_s
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "InferenceConfig":
         mapping = _require_section(data, "inference")
-        return cls(merge_window_s=_require_float(mapping, "merge_window_s", min_value=0.0))
+        has_new_keys = "peak_confirmation_s" in mapping or "min_event_gap_s" in mapping
+        if has_new_keys:
+            return cls(
+                peak_confirmation_s=_optional_float(
+                    mapping, "peak_confirmation_s", default=0.125, min_value=0.0
+                ),
+                min_event_gap_s=_require_float(mapping, "min_event_gap_s", min_value=0.0),
+            )
+        # Old checkpoints only store the connected-component merge window.
+        return cls(
+            peak_confirmation_s=0.125,
+            min_event_gap_s=_require_float(mapping, "merge_window_s", min_value=0.0),
+        )
 
 
 @dataclass(frozen=True, slots=True)

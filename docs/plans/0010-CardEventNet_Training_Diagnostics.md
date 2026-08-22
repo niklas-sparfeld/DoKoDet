@@ -3,7 +3,7 @@
 ## Plan status
 
 - Summary: Improve CardEventNet training diagnostics
-- Status: Planned
+- Status: Done
 
 ### Goal
 

@@ -15,6 +15,30 @@ class AnnotationError(ValueError):
     pass
 
 
+EVENT_TYPES = frozenset(
+    {
+        "card_played",
+        "trick_cleared",
+        "card_moved",
+        "card_removed",
+        "card_returned",
+        "multiple_cards_dropped",
+        "anomalous_state_change",
+    }
+)
+EVENT_CONFIDENCES = frozenset({"confirmed", "uncertain", "ignore", "proposed"})
+DEFAULT_DUPLICATE_TOLERANCE_S = 0.01
+EVENT_TYPE_SHORTCUTS = {
+    ord("1"): "card_played",
+    ord("2"): "trick_cleared",
+    ord("3"): "card_moved",
+    ord("4"): "card_removed",
+    ord("5"): "card_returned",
+    ord("6"): "multiple_cards_dropped",
+    ord("7"): "anomalous_state_change",
+}
+
+
 def _require_mapping(data: Any, context: str) -> Mapping[str, Any]:
     if not isinstance(data, Mapping):
         raise AnnotationError(f"{context} must be a mapping.")
@@ -165,26 +189,98 @@ class Roi:
 class AnnotationEvent:
     time_s: float
     type: str = "card_played"
+    confidence: str | None = None
+    notes: str | None = None
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "AnnotationEvent":
         mapping = _require_mapping(data, "event")
-        _require_exact_keys(mapping, ("time_s", "type"), "event")
+        allowed_keys = {"time_s", "type", "confidence", "notes"}
+        unknown_keys = set(mapping) - allowed_keys
+        if unknown_keys:
+            names = ", ".join(sorted(unknown_keys))
+            raise AnnotationError(f"event has invalid keys (extra keys: {names}).")
+        confidence = mapping.get("confidence")
+        notes = mapping.get("notes")
+        if confidence is not None and (
+            not isinstance(confidence, str) or confidence not in EVENT_CONFIDENCES
+        ):
+            raise AnnotationError(
+                "event.confidence must be confirmed, uncertain, ignore, or proposed."
+            )
+        if notes is not None and not isinstance(notes, str):
+            raise AnnotationError("event.notes must be a string or null.")
         event = cls(
             time_s=_require_float(mapping, "time_s", min_value=0.0),
             type=_require_string(mapping, "type"),
+            confidence=confidence,
+            notes=notes,
         )
-        if event.type != "card_played":
-            raise AnnotationError("event.type must be card_played in phase 2.")
+        if event.type not in EVENT_TYPES:
+            raise AnnotationError(f"Unknown event type: {event.type}.")
         return event
 
     def to_mapping(self) -> dict[str, Any]:
         if not math.isfinite(self.time_s) or self.time_s < 0.0:
             raise AnnotationError("event time must be a finite, non-negative number.")
-        return {
+        if self.type not in EVENT_TYPES:
+            raise AnnotationError(f"Unknown event type: {self.type}.")
+        if self.confidence is not None and self.confidence not in EVENT_CONFIDENCES:
+            raise AnnotationError("event.confidence is invalid.")
+        if self.notes is not None and not isinstance(self.notes, str):
+            raise AnnotationError("event.notes must be a string or null.")
+        result: dict[str, Any] = {
             "time_s": self.time_s,
             "type": self.type,
         }
+        if self.confidence is not None:
+            result["confidence"] = self.confidence
+        if self.notes is not None:
+            result["notes"] = self.notes
+        return result
+
+
+@dataclass(frozen=True, slots=True)
+class AnnotationProposal:
+    """A model candidate shown to the reviewer but never saved automatically."""
+
+    time_s: float
+    probability: float | None = None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.time_s) or self.time_s < 0.0:
+            raise AnnotationError("Proposal time must be finite and non-negative.")
+        if self.probability is not None and not math.isfinite(self.probability):
+            raise AnnotationError("Proposal probability must be finite when provided.")
+
+
+def load_annotation_proposals(path: str | Path) -> tuple[AnnotationProposal, ...]:
+    """Load event candidates from an inference or review-manifest JSON file."""
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AnnotationError(f"Could not read model proposals: {exc}") from exc
+    if not isinstance(payload, Mapping):
+        raise AnnotationError("Model proposals must contain a JSON object.")
+    candidates = payload.get("events", payload.get("proposals", ()))
+    if not isinstance(candidates, list):
+        raise AnnotationError("Model proposals must contain an events list.")
+    proposals: list[AnnotationProposal] = []
+    for item in candidates:
+        if not isinstance(item, Mapping):
+            raise AnnotationError("Each model proposal must be a mapping.")
+        time_s = item.get("time_s", item.get("predicted_time_s"))
+        if isinstance(time_s, bool) or not isinstance(time_s, (int, float)):
+            raise AnnotationError("Each model proposal needs a numeric time_s.")
+        probability = item.get("probability")
+        if probability is not None and (
+            isinstance(probability, bool) or not isinstance(probability, (int, float))
+        ):
+            raise AnnotationError("Proposal probability must be numeric when provided.")
+        proposals.append(
+            AnnotationProposal(float(time_s), None if probability is None else float(probability))
+        )
+    return tuple(sorted(proposals, key=lambda proposal: proposal.time_s))
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,8 +294,7 @@ class VideoAnnotation:
         mapping = _require_mapping(data, "annotation")
         _require_exact_keys(mapping, ("video", "roi", "events"), "annotation")
         events = tuple(
-            AnnotationEvent.from_mapping(item)
-            for item in _require_list(mapping, "events")
+            AnnotationEvent.from_mapping(item) for item in _require_list(mapping, "events")
         )
         annotation = cls(
             video=_require_string(mapping, "video"),
@@ -248,20 +343,34 @@ def load_annotation(annotation_path: str | Path) -> VideoAnnotation:
     return VideoAnnotation.from_mapping(data)
 
 
-def _warn_close_events(annotation: VideoAnnotation) -> None:
+def _validate_duplicate_events(
+    annotation: VideoAnnotation,
+    *,
+    tolerance_s: float = DEFAULT_DUPLICATE_TOLERANCE_S,
+) -> None:
+    if tolerance_s < 0.0 or not math.isfinite(tolerance_s):
+        raise AnnotationError("Duplicate-event tolerance must be finite and non-negative.")
     for previous, current in zip(annotation.events, annotation.events[1:], strict=False):
         gap_s = current.time_s - previous.time_s
+        if gap_s <= tolerance_s:
+            raise AnnotationError(
+                f"Annotation {annotation.video} has duplicate events within "
+                f"{tolerance_s * 1000:.0f} ms at {previous.time_s:.3f}s and {current.time_s:.3f}s."
+            )
         if gap_s < 0.1:
             warnings.warn(
-                (
-                    f"Annotation {annotation.video} has events less than 100 ms apart at "
-                    f"{previous.time_s:.3f}s and {current.time_s:.3f}s."
-                ),
+                f"Annotation {annotation.video} has events less than 100 ms apart at "
+                f"{previous.time_s:.3f}s and {current.time_s:.3f}s.",
                 stacklevel=2,
             )
 
 
-def validate_annotation(annotation: VideoAnnotation, metadata: VideoMetadata) -> None:
+def validate_annotation(
+    annotation: VideoAnnotation,
+    metadata: VideoMetadata,
+    *,
+    duplicate_tolerance_s: float = DEFAULT_DUPLICATE_TOLERANCE_S,
+) -> None:
     if Path(annotation.video).name != metadata.path.name:
         raise AnnotationError(
             "Annotation video does not match the loaded source video: "
@@ -272,15 +381,15 @@ def validate_annotation(annotation: VideoAnnotation, metadata: VideoMetadata) ->
     _validate_sorted_events(annotation.events)
 
     for event in annotation.events:
-        if event.type != "card_played":
-            raise AnnotationError("Only card_played events are valid in phase 2.")
+        if event.type not in EVENT_TYPES:
+            raise AnnotationError(f"Unknown event type: {event.type}.")
         if event.time_s > metadata.duration_s + 1e-6:
             raise AnnotationError(
                 "Event time exceeds the video duration: "
                 f"{event.time_s:.3f}s > {metadata.duration_s:.3f}s"
             )
 
-    _warn_close_events(annotation)
+    _validate_duplicate_events(annotation, tolerance_s=duplicate_tolerance_s)
 
 
 def save_annotation(
@@ -374,11 +483,49 @@ class AnnotationSession:
         self.roi = roi
         return self.save()
 
-    def add_event(self, time_s: float) -> Path:
+    def add_event(
+        self,
+        time_s: float,
+        *,
+        event_type: str = "card_played",
+        confidence: str | None = "confirmed",
+        notes: str | None = None,
+    ) -> Path:
         if self.roi is None:
             raise AnnotationError("ROI is not set.")
-        self.events.append(AnnotationEvent(time_s=time_s))
+        self.events.append(
+            AnnotationEvent(time_s=time_s, type=event_type, confidence=confidence, notes=notes)
+        )
         return self.save()
+
+    def update_event(
+        self,
+        index: int,
+        *,
+        time_s: float | None = None,
+        event_type: str | None = None,
+        confidence: str | None = None,
+        notes: str | None = None,
+    ) -> Path:
+        try:
+            previous = self.events[index]
+        except IndexError as exc:
+            raise AnnotationError("Event index is out of range.") from exc
+        self.events[index] = AnnotationEvent(
+            time_s=previous.time_s if time_s is None else time_s,
+            type=previous.type if event_type is None else event_type,
+            confidence=previous.confidence if confidence is None else confidence,
+            notes=previous.notes if notes is None else notes,
+        )
+        return self.save()
+
+    def delete_event(self, index: int) -> AnnotationEvent:
+        try:
+            event = self.events.pop(index)
+        except IndexError as exc:
+            raise AnnotationError("Event index is out of range.") from exc
+        self.save()
+        return event
 
     def delete_latest_event(self) -> AnnotationEvent | None:
         if not self.events:
@@ -472,8 +619,7 @@ def _select_roi(
 ) -> Roi:
     preview, scale = _resize_preview(frame)
     print(
-        "Select the table ROI in the OpenCV window. "
-        "Drag a box and press Enter or Space to confirm."
+        "Select the table ROI in the OpenCV window. Drag a box and press Enter or Space to confirm."
     )
     print("Press C to cancel the ROI selection.")
     selection = cv2.selectROI("CardEventNet ROI", preview, showCrosshair=True, fromCenter=False)
@@ -513,11 +659,18 @@ def _print_annotation_help(session: AnnotationSession) -> None:
     )
     print()
     print("Controls:")
-    print("  SPACE   mark a card_played event")
+    print("  1-7     select event type (card play, clear, move, remove, return, drop, anomaly)")
+    print("  SPACE   add a confirmed event of the selected type")
+    print("  W / S   select previous or next saved event")
+    print("  , / .   move the selected event one frame backward or forward")
+    print("  T       cycle the selected event type")
+    print("  U       mark the selected event or proposal uncertain")
+    print("  N / B   jump to next or previous model proposal")
+    print("  C       toggle before/after comparison")
     print("  P       pause or play")
     print("  A / D   seek backward or forward about 250 ms")
     print("  J / L   seek backward or forward about 2 s")
-    print("  BACKSPACE or X  remove the latest event")
+    print("  BACKSPACE or X  remove the selected event")
     print("  R       redefine the ROI")
     print("  Q       save and exit")
     print()
@@ -531,7 +684,12 @@ def _print_annotation_help(session: AnnotationSession) -> None:
     print()
 
 
-def annotate_video(video_path: str | Path, *, annotations_dir: str | Path | None = None) -> Path:
+def annotate_video(
+    video_path: str | Path,
+    *,
+    annotations_dir: str | Path | None = None,
+    proposals: Sequence[AnnotationProposal] = (),
+) -> Path:
     cv2 = _import_cv2()
     session = open_annotation_session(video_path, annotations_dir=annotations_dir)
     capture = cv2.VideoCapture(str(session.video_path))
@@ -554,6 +712,10 @@ def annotate_video(video_path: str | Path, *, annotations_dir: str | Path | None
 
     playing = False
     needs_frame_refresh = False
+    selected_event_index: int | None = len(session.events) - 1 if session.events else None
+    selected_proposal_index: int | None = None
+    selected_type = "card_played"
+    compare_before_after = False
     wait_key = getattr(cv2, "waitKeyEx", cv2.waitKey)
 
     try:
@@ -564,12 +726,33 @@ def annotate_video(video_path: str | Path, *, annotations_dir: str | Path | None
 
             preview, _ = _resize_preview(current_frame)
             timestamp_s = current_frame_index / session.metadata.fps
+            if compare_before_after:
+                before = _capture_frame(
+                    capture,
+                    current_frame_index - max(1, int(round(session.metadata.fps * 0.5))),
+                    session.metadata,
+                )
+                after = _capture_frame(
+                    capture,
+                    current_frame_index + max(1, int(round(session.metadata.fps * 0.5))),
+                    session.metadata,
+                )
+                before_preview, _ = _resize_preview(before, max_width=620, max_height=600)
+                after_preview, _ = _resize_preview(after, max_width=620, max_height=600)
+                preview = cv2.hconcat((before_preview, after_preview))
+            event_selection = selected_event_index if selected_event_index is not None else "-"
+            proposal_selection = (
+                selected_proposal_index if selected_proposal_index is not None else "-"
+            )
             overlay = [
                 (
                     f"Time: {_format_timestamp(timestamp_s)} / "
                     f"{_format_timestamp(session.metadata.duration_s)}"
                 ),
                 f"Events: {session.event_count}",
+                f"Type: {selected_type}",
+                f"Selected event: {event_selection}",
+                f"Proposal: {proposal_selection}",
                 f"State: {'PLAY' if playing else 'PAUSE'}",
             ]
             shown_frame = _draw_overlay(preview, overlay)
@@ -611,12 +794,72 @@ def annotate_video(video_path: str | Path, *, annotations_dir: str | Path | None
                     current_frame_index + step,
                 )
                 frame_changed = True
+            elif key in EVENT_TYPE_SHORTCUTS:
+                selected_type = EVENT_TYPE_SHORTCUTS[key]
+                print(f"Selected event type: {selected_type}")
+            elif key in (ord("w"), ord("W")):
+                if session.events:
+                    selected_event_index = max(0, (selected_event_index or 0) - 1)
+            elif key in (ord("s"), ord("S")):
+                if session.events:
+                    selected_event_index = min(
+                        len(session.events) - 1, (selected_event_index or -1) + 1
+                    )
+            elif key in (ord("n"), ord("N"), ord("b"), ord("B")):
+                if proposals:
+                    direction = 1 if key in (ord("n"), ord("N")) else -1
+                    current = selected_proposal_index if selected_proposal_index is not None else 0
+                    selected_proposal_index = (current + direction) % len(proposals)
+                    current_frame_index = min(
+                        session.metadata.frame_count - 1,
+                        max(
+                            0,
+                            int(
+                                round(
+                                    proposals[selected_proposal_index].time_s * session.metadata.fps
+                                )
+                            ),
+                        ),
+                    )
+                    frame_changed = True
             elif key in (8, 127, ord("x"), ord("X")):
-                deleted = session.delete_latest_event()
-                if deleted is None:
-                    print("No events to delete.")
+                if selected_event_index is not None:
+                    session.delete_event(selected_event_index)
+                    selected_event_index = (
+                        min(selected_event_index, len(session.events) - 1)
+                        if session.events
+                        else None
+                    )
+            elif key in (ord(","), ord(".")) and selected_event_index is not None:
+                delta = -1 if key == ord(",") else 1
+                session.update_event(
+                    selected_event_index,
+                    time_s=max(
+                        0.0,
+                        session.events[selected_event_index].time_s + delta / session.metadata.fps,
+                    ),
+                )
+            elif key in (ord("t"), ord("T")) and selected_event_index is not None:
+                types = tuple(sorted(EVENT_TYPES))
+                current_type = session.events[selected_event_index].type
+                session.update_event(
+                    selected_event_index,
+                    event_type=types[(types.index(current_type) + 1) % len(types)],
+                )
+            elif key in (ord("u"), ord("U")):
+                if selected_event_index is not None:
+                    session.update_event(selected_event_index, confidence="uncertain")
+                elif selected_proposal_index is not None:
+                    proposal = proposals[selected_proposal_index]
+                    session.add_event(
+                        proposal.time_s, event_type=selected_type, confidence="uncertain"
+                    )
+                    selected_event_index = len(session.events) - 1
             elif key == ord(" "):
-                session.add_event(timestamp_s)
+                session.add_event(timestamp_s, event_type=selected_type)
+                selected_event_index = len(session.events) - 1
+            elif key in (ord("c"), ord("C")):
+                compare_before_after = not compare_before_after
             elif key in (ord("r"), ord("R")):
                 was_playing = playing
                 playing = False

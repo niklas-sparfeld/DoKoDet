@@ -95,13 +95,15 @@ def predict_cached_samples(
     model.eval()
     for clips, _labels in loader:
         clips = clips.to(device=device)
-        logits = model(transform(clips))
+        logits = model(transform(clips)).float()
+        logits_values = logits.detach().cpu().tolist()
         probabilities = torch.sigmoid(logits).detach().cpu().tolist()
-        for probability in probabilities:
+        for logit, probability in zip(logits_values, probabilities, strict=True):
             predictions.append(
                 ProbabilitySample(
                     time_s=samples[sample_offset].decision_time_s,
                     probability=float(probability),
+                    logit=float(logit),
                 )
             )
             sample_offset += 1
@@ -155,6 +157,7 @@ def _prediction_payload(
         )
         payload["threshold"] = threshold
         payload["merge_window_s"] = merge_window_s
+        payload["min_event_gap_s"] = merge_window_s
         payload["events"] = [event.to_mapping() for event in events]
     return payload
 

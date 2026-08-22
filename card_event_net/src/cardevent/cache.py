@@ -24,6 +24,7 @@ class CacheError(RuntimeError):
 
 FrameProgressCallback = Callable[[int, int], None]
 PrepareProgressCallback = Callable[[Path, int, int], None]
+PrepareSkipCallback = Callable[[Path, Path], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +109,33 @@ def load_cache_metadata(cache_dir: str | Path) -> CacheMetadata:
     except json.JSONDecodeError as exc:
         raise CacheError(f"Invalid JSON in cache metadata {path}: {exc.msg}.") from exc
     return CacheMetadata.from_mapping(data)
+
+
+def cache_is_usable(
+    video_path: str | Path,
+    *,
+    cache_root: str | Path | None,
+    cache_fps: float,
+    size: int,
+) -> bool:
+    """Return true only for a complete cache that matches this request."""
+    source = Path(video_path)
+    cache_path = cache_path_for_video(source, cache_root=cache_root)
+    try:
+        metadata = load_cache_metadata(cache_path)
+    except CacheError:
+        return False
+    if (
+        Path(metadata.source_video).name != source.name
+        or not math.isclose(metadata.cache_fps, cache_fps)
+        or metadata.frame_size != size
+    ):
+        return False
+    frames_dir = cache_path / "frames"
+    return frames_dir.is_dir() and all(
+        (frames_dir / f"{index:06d}.jpg").is_file()
+        for index in range(len(metadata.frame_timestamps_s))
+    )
 
 
 def _crop_and_letterbox(frame: Any, roi: Any, *, size: int, cv2: Any) -> Any:
@@ -264,10 +292,23 @@ def prepare_videos(
     cache_fps: float = 10.0,
     size: int = 224,
     progress_callback: PrepareProgressCallback | None = None,
+    skip_callback: PrepareSkipCallback | None = None,
+    force: bool = False,
 ) -> list[Path]:
     cache_paths: list[Path] = []
     for video in videos:
         video_path = Path(video)
+        cache_path = cache_path_for_video(video_path, cache_root=cache_root)
+        if not force and cache_is_usable(
+            video_path,
+            cache_root=cache_root,
+            cache_fps=cache_fps,
+            size=size,
+        ):
+            if skip_callback is not None:
+                skip_callback(video_path, cache_path)
+            cache_paths.append(cache_path)
+            continue
         frame_progress_callback = None
         if progress_callback is not None:
 

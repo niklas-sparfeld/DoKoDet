@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import warnings
 from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from math import isfinite
@@ -26,6 +27,53 @@ class SamplingError(ValueError):
 class LabeledTime:
     time_s: float
     label: float
+    label_state: str = "negative"
+
+
+LABEL_POSITIVE = "positive"
+LABEL_NEGATIVE = "negative"
+LABEL_IGNORE = "ignore"
+LABEL_CONFIRMED_HARD_NEGATIVE = "confirmed_hard_negative"
+
+
+def label_state_for_time(
+    decision_time_s: float,
+    event_times_s: Sequence[float],
+    *,
+    positive_window_s: float = 0.45,
+    past_exclusion_s: float = 1.8,
+    future_exclusion_s: float = 0.8,
+    confirmed_hard_negative_times_s: Sequence[float] = (),
+    hard_negative_tolerance_s: float = 1e-6,
+) -> str:
+    """Classify one decision time with shared train and validation semantics."""
+    if any(
+        abs(decision_time_s - time_s) <= hard_negative_tolerance_s
+        for time_s in confirmed_hard_negative_times_s
+    ):
+        if is_positive_time(decision_time_s, event_times_s, positive_window_s=positive_window_s):
+            raise SamplingError("Confirmed hard negatives cannot overlap positive windows.")
+        return LABEL_CONFIRMED_HARD_NEGATIVE
+    if is_positive_time(decision_time_s, event_times_s, positive_window_s=positive_window_s):
+        return LABEL_POSITIVE
+    if is_clean_negative_time(
+        decision_time_s,
+        event_times_s,
+        past_exclusion_s=past_exclusion_s,
+        future_exclusion_s=future_exclusion_s,
+    ):
+        return LABEL_NEGATIVE
+    return LABEL_IGNORE
+
+
+def label_for_state(label_state: str) -> float:
+    if label_state == LABEL_POSITIVE:
+        return 1.0
+    if label_state in {LABEL_NEGATIVE, LABEL_CONFIRMED_HARD_NEGATIVE}:
+        return 0.0
+    if label_state == LABEL_IGNORE:
+        return -1.0
+    raise SamplingError(f"Unknown label state: {label_state}")
 
 
 def _validate_timestamps(frame_timestamps_s: Sequence[float]) -> None:
@@ -160,41 +208,85 @@ def build_training_times(
     future_exclusion_s: float = 0.8,
     negative_to_positive_ratio: int = 3,
     seed: int = 42,
+    confirmed_hard_negative_times_s: Sequence[float] = (),
 ) -> tuple[LabeledTime, ...]:
     """Build deterministic, approximately 1:3 positive/clean-negative samples."""
     _validate_timestamps(frame_timestamps_s)
     if negative_to_positive_ratio < 1:
         raise SamplingError("negative_to_positive_ratio must be at least 1.")
 
-    positive_times = [
-        time_s
-        for time_s in frame_timestamps_s
-        if is_positive_time(
-            time_s,
-            event_times_s,
-            positive_window_s=positive_window_s,
+    labeled = [
+        LabeledTime(
+            time_s=time_s,
+            label=label_for_state(
+                label_state_for_time(
+                    time_s,
+                    event_times_s,
+                    positive_window_s=positive_window_s,
+                    past_exclusion_s=past_exclusion_s,
+                    future_exclusion_s=future_exclusion_s,
+                    confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+                )
+            ),
+            label_state=label_state_for_time(
+                time_s,
+                event_times_s,
+                positive_window_s=positive_window_s,
+                past_exclusion_s=past_exclusion_s,
+                future_exclusion_s=future_exclusion_s,
+                confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+            ),
         )
+        for time_s in frame_timestamps_s
     ]
-    negative_times = [
-        time_s
-        for time_s in frame_timestamps_s
-        if is_clean_negative_time(
-            time_s,
-            event_times_s,
-            past_exclusion_s=past_exclusion_s,
-            future_exclusion_s=future_exclusion_s,
-        )
+    positive_times = [sample for sample in labeled if sample.label_state == LABEL_POSITIVE]
+    negative_times = [sample for sample in labeled if sample.label_state == LABEL_NEGATIVE]
+    hard_negative_times = [
+        sample for sample in labeled if sample.label_state == LABEL_CONFIRMED_HARD_NEGATIVE
     ]
 
     rng = random.Random(seed)
     rng.shuffle(negative_times)
-    selected_negative_times = negative_times[: len(positive_times) * negative_to_positive_ratio]
+    requested_negatives = len(positive_times) * negative_to_positive_ratio
+    selected_negative_times = negative_times[:requested_negatives]
+    if len(selected_negative_times) < requested_negatives:
+        warnings.warn(
+            "Requested positive-to-negative ratio cannot be reached with clean negatives.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     samples = [
-        *(LabeledTime(time_s=time_s, label=1.0) for time_s in positive_times),
-        *(LabeledTime(time_s=time_s, label=0.0) for time_s in selected_negative_times),
+        *positive_times,
+        *selected_negative_times,
+        *hard_negative_times,
     ]
     return tuple(sorted(samples, key=lambda sample: sample.time_s))
+
+
+def build_labeled_times(
+    frame_timestamps_s: Sequence[float],
+    event_times_s: Sequence[float],
+    *,
+    positive_window_s: float = 0.45,
+    past_exclusion_s: float = 1.8,
+    future_exclusion_s: float = 0.8,
+    confirmed_hard_negative_times_s: Sequence[float] = (),
+) -> tuple[LabeledTime, ...]:
+    """Return every decision time, including ignored transition samples."""
+    _validate_timestamps(frame_timestamps_s)
+    result = []
+    for time_s in frame_timestamps_s:
+        state = label_state_for_time(
+            time_s,
+            event_times_s,
+            positive_window_s=positive_window_s,
+            past_exclusion_s=past_exclusion_s,
+            future_exclusion_s=future_exclusion_s,
+            confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+        )
+        result.append(LabeledTime(time_s=time_s, label=label_for_state(state), label_state=state))
+    return tuple(result)
 
 
 def build_inference_times(duration_s: float, *, stride_s: float = 0.125) -> tuple[float, ...]:

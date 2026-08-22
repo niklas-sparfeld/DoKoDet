@@ -21,6 +21,14 @@ def test_annotate_command_parses_a_video_path() -> None:
     assert args.video == Path("data/raw/IMG_0090.mov")
 
 
+def test_annotate_command_parses_model_proposals() -> None:
+    args = build_parser().parse_args(
+        ["annotate", "data/raw/IMG_0090.mov", "--proposals", "predictions.json"]
+    )
+
+    assert args.proposals == Path("predictions.json")
+
+
 def test_train_command_parses_config_and_split() -> None:
     args = build_parser().parse_args(
         ["train", "--config", "configs/base.yaml", "--split", "data/splits/default.yaml"]
@@ -173,6 +181,13 @@ def test_prepare_command_reports_progress(monkeypatch, capsys) -> None:
 
     captured = capsys.readouterr()
     assert "Preparing sample.mov" in captured.err
+    assert "Video 1 / 1" in captured.err
     assert "  0%" in captured.err
     assert "100%" in captured.err
     assert "Prepared cache: data/cache/sample" in captured.out
+
+
+def test_prepare_command_parses_force() -> None:
+    args = build_parser().parse_args(["prepare", "--videos", "sample.mov", "--force"])
+
+    assert args.force is True

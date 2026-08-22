@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import gzip
 import json
+import math
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
@@ -13,6 +15,7 @@ from .events import (
     DetectedEvent,
     EventMatchResult,
     ProbabilitySample,
+    candidate_peaks,
     match_events,
     probabilities_to_events,
 )
@@ -22,6 +25,7 @@ class EvaluationError(RuntimeError):
     """Raised when event evaluation cannot be completed."""
 
 
+# Kept for import compatibility. Calibration now uses candidate-peak scores.
 THRESHOLD_GRID: tuple[float, ...] = tuple(round(index / 100, 2) for index in range(1, 100))
 
 
@@ -33,6 +37,8 @@ class ScoredVideo:
     duration_s: float
     ground_truth_times_s: tuple[float, ...]
     probabilities: tuple[ProbabilitySample, ...]
+    ground_truth_types: tuple[str, ...] = ()
+    annotation_version_hash: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +50,9 @@ class ThresholdSelection:
     candidates: tuple[dict[str, float], ...]
     max_f1: float = 0.0
     max_f1_threshold: float = 0.0
+    target_recall_met: bool = False
+    maximum_attainable_recall: float = 0.0
+    selection_reason: str = "fallback_max_f1"
 
 
 def event_f1(precision: float, recall: float) -> float:
@@ -257,11 +266,25 @@ def evaluate_streams(
 
 
 def _threshold_rank(metrics: Mapping[str, float], target_recall: float) -> tuple[float, ...]:
-    recall = metrics["event_recall"]
-    false_events_per_hour = metrics["false_events_per_hour"]
-    if recall >= target_recall:
-        return (1.0, -false_events_per_hour, metrics["event_precision"])
-    return (0.0, recall, -false_events_per_hour, metrics["event_precision"])
+    if metrics["event_recall"] >= target_recall:
+        return (1.0, -metrics["false_events_per_hour"], metrics["event_precision"])
+    return (0.0, metrics["event_f1"], metrics["event_recall"], metrics["event_precision"])
+
+
+def _candidate_thresholds(
+    videos: Sequence[ScoredVideo],
+    *,
+    merge_window_s: float,
+) -> tuple[float, ...]:
+    scores = {
+        event.probability
+        for video in videos
+        for event in candidate_peaks(video.probabilities, min_event_gap_s=merge_window_s)
+    }
+    # Include one value above all scores to represent an empty event set.
+    if not scores:
+        return (1.0,)
+    return tuple(sorted(scores | {math.nextafter(max(scores), math.inf)}, reverse=True))
 
 
 def select_threshold(
@@ -270,18 +293,20 @@ def select_threshold(
     merge_window_s: float,
     event_match_tolerance_s: float,
     target_recall: float,
-    thresholds: Sequence[float] = THRESHOLD_GRID,
+    thresholds: Sequence[float] | None = None,
 ) -> ThresholdSelection:
     """Select a threshold from validation event behavior only."""
     if not 0.0 <= target_recall <= 1.0 or not isfinite(target_recall):
         raise EvaluationError("target_recall must be between 0 and 1.")
+    if thresholds is None:
+        thresholds = _candidate_thresholds(videos, merge_window_s=merge_window_s)
     if not thresholds:
         raise EvaluationError("At least one threshold is required.")
 
     candidates: list[dict[str, float]] = []
     for threshold in thresholds:
-        if not isfinite(threshold) or not 0.0 <= threshold <= 1.0:
-            raise EvaluationError("Threshold candidates must be finite and between 0 and 1.")
+        if not isfinite(threshold) or threshold < 0.0:
+            raise EvaluationError("Threshold candidates must be finite and non-negative.")
         metrics, _ = evaluate_streams(
             videos,
             threshold=threshold,
@@ -291,7 +316,24 @@ def select_threshold(
         )
         candidates.append({"threshold": float(threshold), **metrics})
 
-    selected = max(candidates, key=lambda candidate: _threshold_rank(candidate, target_recall))
+    target_candidates = [
+        candidate for candidate in candidates if candidate["event_recall"] >= target_recall
+    ]
+    target_recall_met = bool(target_candidates)
+    selected = (
+        max(target_candidates, key=lambda candidate: _threshold_rank(candidate, target_recall))
+        if target_candidates
+        else max(
+            candidates,
+            key=lambda candidate: (
+                candidate["event_f1"],
+                candidate["event_recall"],
+                candidate["event_precision"],
+                -candidate["false_events_per_hour"],
+                candidate["threshold"],
+            ),
+        )
+    )
     max_f1_candidate = max(
         candidates,
         key=lambda candidate: (
@@ -307,6 +349,13 @@ def select_threshold(
         candidates=tuple(candidates),
         max_f1=max_f1_candidate["event_f1"],
         max_f1_threshold=max_f1_candidate["threshold"],
+        target_recall_met=target_recall_met,
+        maximum_attainable_recall=max(
+            (candidate["event_recall"] for candidate in candidates), default=0.0
+        ),
+        selection_reason="target_recall_lowest_false_events_per_hour"
+        if target_recall_met
+        else "fallback_max_f1",
     )
 
 
@@ -317,6 +366,9 @@ def threshold_selection_to_mapping(selection: ThresholdSelection) -> dict[str, A
         "candidates": [dict(candidate) for candidate in selection.candidates],
         "max_f1": selection.max_f1,
         "max_f1_threshold": selection.max_f1_threshold,
+        "target_recall_met": selection.target_recall_met,
+        "maximum_attainable_recall": selection.maximum_attainable_recall,
+        "selection_reason": selection.selection_reason,
     }
 
 
@@ -362,6 +414,16 @@ def threshold_selection_from_mapping(mapping: Mapping[str, Any]) -> ThresholdSel
         max_f1_threshold=float(
             mapping.get("max_f1_threshold", max_f1_candidate.get("threshold", 0.0))
         ),
+        target_recall_met=bool(
+            mapping.get("target_recall_met", metrics.get("event_recall", 0.0) >= 0.98)
+        ),
+        maximum_attainable_recall=float(
+            mapping.get(
+                "maximum_attainable_recall",
+                max((candidate.get("event_recall", 0.0) for candidate in candidates), default=0.0),
+            )
+        ),
+        selection_reason=str(mapping.get("selection_reason", "legacy")),
     )
 
 
@@ -385,6 +447,9 @@ def save_threshold_selection(
         "candidates": list(selection.candidates),
         "max_f1": selection.max_f1,
         "max_f1_threshold": selection.max_f1_threshold,
+        "target_recall_met": selection.target_recall_met,
+        "maximum_attainable_recall": selection.maximum_attainable_recall,
+        "selection_reason": selection.selection_reason,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
@@ -405,6 +470,9 @@ def load_threshold_selection(checkpoint_path: str | Path) -> ThresholdSelection:
             selection_mapping["max_f1"] = payload["max_f1"]
         if "max_f1_threshold" in payload:
             selection_mapping["max_f1_threshold"] = payload["max_f1_threshold"]
+        for key in ("target_recall_met", "maximum_attainable_recall", "selection_reason"):
+            if key in payload:
+                selection_mapping[key] = payload[key]
         selection = threshold_selection_from_mapping(selection_mapping)
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError, EvaluationError) as exc:
         raise EvaluationError(
@@ -412,3 +480,31 @@ def load_threshold_selection(checkpoint_path: str | Path) -> ThresholdSelection:
             "Run evaluation on the val partition first."
         ) from exc
     return selection
+
+
+def save_validation_stream(
+    videos: Sequence[ScoredVideo],
+    output_path: str | Path,
+) -> Path:
+    """Persist a decoder-ready, gzip-compressed validation stream artifact."""
+    payload = {
+        "format": "cardevent-validation-stream-v1",
+        "videos": [
+            {
+                "video": video.name,
+                "decision_timestamps_s": [sample.time_s for sample in video.probabilities],
+                "logits": [sample.logit for sample in video.probabilities],
+                "probabilities": [sample.probability for sample in video.probabilities],
+                "ground_truth_events_s": list(video.ground_truth_times_s),
+                "ground_truth_event_types": list(video.ground_truth_types),
+                "annotation_version_hash": video.annotation_version_hash,
+            }
+            for video in videos
+        ],
+    }
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle, allow_nan=False)
+        handle.write("\n")
+    return path

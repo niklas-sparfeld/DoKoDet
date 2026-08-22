@@ -36,6 +36,7 @@ from .evaluation import (
     ThresholdSelection,
     evaluate_streams,
     save_threshold_selection,
+    save_validation_stream,
     select_threshold,
 )
 from .events import ProbabilitySample
@@ -364,6 +365,7 @@ def _hard_negative_samples_for_video(
             cache_dir=cache_path,
             decision_time_s=time_s,
             label=0.0,
+            label_state="confirmed_hard_negative",
         )
         for time_s in sorted(times_s)
         for _ in range(repeat)
@@ -399,12 +401,18 @@ def _validation_videos(
         cache_path = _cache_for_video(name, cache_dir)
         annotation = _annotation_for_video(name, annotations_dir)
         metadata = load_cache_metadata(cache_path)
-        event_times_s = tuple(event.time_s for event in annotation.events)
+        event_times_s = tuple(
+            event.time_s
+            for event in annotation.events
+            if event.confidence in {None, "confirmed"}
+        )
         samples = inference_samples_for_cache(
             cache_path,
             stride_s=config.input.inference_stride_s,
             event_times_s=event_times_s,
             positive_window_s=config.labels.positive_window_s,
+            past_exclusion_s=config.labels.negative_past_exclusion_s,
+            future_exclusion_s=config.labels.negative_future_exclusion_s,
         )
         if max_samples is not None:
             samples = _limit_samples(samples, max_samples)
@@ -517,7 +525,7 @@ def _run_train_epoch(
         optimizer.zero_grad(set_to_none=True)
         with _autocast_context(device, runtime):
             logits = model(clips)
-            loss = criterion(logits, labels)
+            loss = criterion(logits.float(), labels)
         loss.backward()
         optimizer.step()
         batch_size = labels.shape[0]
@@ -579,16 +587,25 @@ def _evaluate_validation(
             )
             with _autocast_context(device, runtime):
                 logits = model(clips)
-                loss = criterion(logits, labels)
-            batch_size_actual = labels.shape[0]
-            total_loss += float(loss.detach().cpu()) * batch_size_actual
-            total_samples += batch_size_actual
+            labeled_mask = labels >= 0.0
+            if bool(labeled_mask.any()):
+                loss = criterion(logits.float()[labeled_mask], labels[labeled_mask])
+                batch_size_actual = int(labeled_mask.sum().item())
+                total_loss += float(loss.detach().cpu()) * batch_size_actual
+                total_samples += batch_size_actual
             probabilities.extend(
                 ProbabilitySample(
                     time_s=video.samples[sample_offset + index].decision_time_s,
                     probability=float(probability),
+                    logit=float(logit),
                 )
-                for index, probability in enumerate(torch.sigmoid(logits).detach().cpu().tolist())
+                for index, (logit, probability) in enumerate(
+                    zip(
+                        logits.float().detach().cpu().tolist(),
+                        torch.sigmoid(logits.float()).detach().cpu().tolist(),
+                        strict=True,
+                    )
+                )
             )
             sample_offset += len(logits)
         scored_videos.append(
@@ -643,6 +660,13 @@ def _evaluate_validation(
         "validation_selected_f1": selected_overall["event_f1"],
         "validation_selected_false_events_per_hour": selected_overall["false_events_per_hour"],
         "validation_selected_latency_median_s": selected_overall["latency_median_s"],
+        "validation_labeled_loss": total_loss / total_samples,
+        "validation_event_f1": selected_overall["event_f1"],
+        "validation_emission_latency": 0.0,
+        "validation_timestamp_error": selected_overall["latency_median_s"],
+        "validation_target_recall_met": selection.target_recall_met,
+        "validation_maximum_attainable_recall": selection.maximum_attainable_recall,
+        "validation_threshold_selection_reason": selection.selection_reason,
         "validation_max_f1": selection.max_f1,
         "validation_max_f1_threshold": selection.max_f1_threshold,
         "validation_recall_min_video": min(recalls, default=0.0),
@@ -665,6 +689,7 @@ def _evaluate_validation(
             "threshold_candidates": list(selection.candidates),
             "per_video": selected_per_video,
         },
+        "_streams": tuple(scored_videos),
     }
     return metrics
 
@@ -685,9 +710,15 @@ def _checkpoint_rank(metrics: Mapping[str, float], target_recall: float) -> tupl
         if "validation_selected_precision" in metrics
         else metrics["validation_precision"]
     )
-    if recall >= target_recall:
+    if bool(metrics.get("validation_target_recall_met", recall >= target_recall)):
         return (1.0, -false_events_per_hour, precision)
-    return (0.0, recall, -false_events_per_hour, precision)
+    f1 = float(
+        metrics.get(
+            "validation_selected_f1",
+            metrics.get("validation_event_f1", 0.0),
+        )
+    )
+    return (0.0, f1, recall, precision, -false_events_per_hour)
 
 
 def _load_training_checkpoint(path: Path) -> Mapping[str, Any]:
@@ -1085,10 +1116,15 @@ def train_model(
         )
 
     metrics_mode = "a" if resume_state else "w"
+    early_stopping_best = float("-inf")
+    epochs_without_improvement = 0
+    stop_training = False
     with metrics_path.open(metrics_mode, encoding="utf-8") as metrics_file:
         for stage_index, (stage_name, stage_epochs, learning_rate, backbone_frozen) in enumerate(
             stages
         ):
+            if stop_training:
+                break
             if stage_index < start_stage_index:
                 continue
             if backbone_frozen:
@@ -1152,6 +1188,7 @@ def train_model(
                     transform=eval_transform,
                 )
                 validation_duration_s = time.perf_counter() - validation_start
+                validation_streams = validation_metrics.pop("_streams", ())
                 validation_detail = validation_metrics.pop("_detail", None)
                 if not isinstance(validation_detail, Mapping):
                     validation_detail = {
@@ -1201,6 +1238,20 @@ def train_model(
                     run_path / "epochs" / f"epoch-{epoch_number:03d}.json",
                     json.dumps(epoch_detail, indent=2, allow_nan=False) + "\n",
                 )
+                if isinstance(validation_streams, Sequence):
+                    # The validation stream is saved once per epoch. It permits
+                    # decoder and threshold experiments without neural inference.
+                    try:
+                        save_validation_stream(
+                            validation_streams,
+                            run_path / "validation-streams" / f"epoch-{epoch_number:03d}.json.gz",
+                        )
+                    except (OSError, TypeError, ValueError) as exc:
+                        LOGGER.warning(
+                            "Could not save validation stream for epoch %d: %s",
+                            epoch_number,
+                            exc,
+                        )
 
                 _save_checkpoint(
                     run_path / "last.pt",
@@ -1276,6 +1327,25 @@ def train_model(
                     ),
                     row["train_samples_per_s"],
                 )
+                early_metric = float(
+                        validation_metrics.get(
+                            config.training.early_stopping.metric,
+                            validation_metrics.get("validation_event_f1", 0.0),
+                    )
+                )
+                if early_metric > early_stopping_best + config.training.early_stopping.min_delta:
+                    early_stopping_best = early_metric
+                    epochs_without_improvement = 0
+                else:
+                    epochs_without_improvement += 1
+                    if epochs_without_improvement >= config.training.early_stopping.patience:
+                        LOGGER.info(
+                            "Early stopping after %d epochs without %s improvement.",
+                            epochs_without_improvement,
+                            config.training.early_stopping.metric,
+                        )
+                        stop_training = True
+                        break
 
     if best_metrics is None:
         raise TrainingError("Training completed without producing a checkpoint.")
@@ -1306,6 +1376,15 @@ def train_model(
                 ),
                 max_f1=float(best_validation_detail.get("max_f1", 0.0)),
                 max_f1_threshold=float(best_validation_detail.get("max_f1_threshold", 0.0)),
+                target_recall_met=bool(
+                    best_metrics.get("validation_target_recall_met", False)
+                ),
+                maximum_attainable_recall=float(
+                    best_metrics.get("validation_maximum_attainable_recall", 0.0)
+                ),
+                selection_reason=str(
+                    best_metrics.get("validation_threshold_selection_reason", "legacy")
+                ),
             )
             save_threshold_selection(
                 run_path / "best.pt",
@@ -1351,6 +1430,24 @@ def train_model(
         "hard_negative_manifest": (
             str(hard_negative_manifest) if hard_negative_manifest is not None else None
         ),
+        "sample_counts_by_label_state": {
+            state: sum(sample.label_state == state for sample in train_samples)
+            for state in ("positive", "negative", "confirmed_hard_negative", "ignore")
+        },
+        "effective_positive_fraction": (
+            sum(sample.label == 1.0 for sample in train_samples) / len(train_samples)
+        ),
+        "target_recall_status": {
+            "target_recall": config.metrics.target_recall,
+            "target_recall_met": bool(
+                best_metrics.get("validation_target_recall_met", False)
+            ),
+            "maximum_attainable_recall": best_metrics.get(
+                "validation_maximum_attainable_recall", 0.0
+            ),
+            "selection_reason": best_metrics.get(
+                "validation_threshold_selection_reason", "legacy"),
+        },
         "plots": plot_paths,
     }
     _atomic_write_text(
