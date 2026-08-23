@@ -24,8 +24,11 @@ The validation result improved materially. The test result did not meet the 0.98
 Do not tune another model from the test failures. Human annotation and session review are the next
 steps.
 
+The committed [final report](../reports/0012-CardEventNet_Unattended_Improvement_Report.md)
+contains the exact commands, per-video test results, and remaining risks.
+
 Codex did not expose the shared weekly token allowance. The user authorized a soft budget for the
-completed execution. The local final report records this exception and the full commands.
+completed execution. The final report records this exception and the full commands.
 
 ## Goal
 
