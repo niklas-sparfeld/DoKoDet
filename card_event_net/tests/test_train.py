@@ -157,12 +157,16 @@ def test_validation_inference_runs_once_per_video_before_threshold_sweep(
         merge_window_s=0.6,
         event_tolerance_s=0.75,
         target_recall=0.98,
+        peak_confirmation_s=0.25,
         offsets_s=(-1.0, 0.0),
         transform=lambda clips: clips,
     )
 
     assert model.calls == 1
     assert len(result["_detail"]["threshold_candidates"]) == 2
+    assert result["validation_emission_latency"] == pytest.approx(
+        result["validation_timestamp_error"] + 0.25
+    )
 
 
 def test_runtime_defaults_and_overrides() -> None:
@@ -244,6 +248,7 @@ def test_checkpoint_stores_resume_and_runtime_state(tmp_path: Path) -> None:
         "metrics",
     }.issubset(checkpoint)
     assert checkpoint["runtime"]["batch_size"] == 32
+    assert checkpoint["preprocessing"] == config.input.preprocessing
 
 
 def test_resume_infers_stage_epoch_for_older_checkpoint(tmp_path: Path) -> None:

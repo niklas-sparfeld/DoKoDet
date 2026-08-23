@@ -21,7 +21,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from .annotation import AnnotationError, load_annotation
-from .cache import CacheError, load_cache_metadata
+from .cache import CacheError, load_cache_metadata, require_cache_preprocessing
 from .config import Config, ConfigError, load_config, save_config
 from .dataset import (
     CausalClipDataset,
@@ -294,13 +294,17 @@ def _annotation_for_video(name: str, annotations_dir: Path) -> Any:
         raise TrainingError(f"Could not load annotation for {name}: {exc}") from exc
 
 
-def _cache_for_video(name: str, cache_dir: Path) -> Path:
+def _cache_for_video(name: str, cache_dir: Path, *, preprocessing: str) -> Path:
     path = cache_dir / name
     if not (path / "metadata.json").is_file():
         raise TrainingError(
             f"Missing prepared cache for split video {name}: {path}. "
             "Run `cardevent prepare --videos ...` first."
         )
+    try:
+        require_cache_preprocessing(path, preprocessing)
+    except CacheError as exc:
+        raise TrainingError(f"Invalid prepared cache for {name}: {exc}") from exc
     return path
 
 
@@ -324,7 +328,7 @@ def _training_samples_for_split(
             raise TrainingError(str(exc)) from exc
 
     for name in split.train:
-        cache_path = _cache_for_video(name, cache_dir)
+        cache_path = _cache_for_video(name, cache_dir, preprocessing=config.input.preprocessing)
         annotation = _annotation_for_video(name, annotations_dir)
         try:
             samples.extend(_training_samples_for_annotation(cache_path, annotation, config))
@@ -399,13 +403,11 @@ def _validation_videos(
 ) -> list[_ValidationVideo]:
     videos: list[_ValidationVideo] = []
     for name in split.val:
-        cache_path = _cache_for_video(name, cache_dir)
+        cache_path = _cache_for_video(name, cache_dir, preprocessing=config.input.preprocessing)
         annotation = _annotation_for_video(name, annotations_dir)
         metadata = load_cache_metadata(cache_path)
         event_times_s = tuple(
-            event.time_s
-            for event in annotation.events
-            if event.confidence in {None, "confirmed"}
+            event.time_s for event in annotation.events if event.confidence in {None, "confirmed"}
         )
         samples = inference_samples_for_cache(
             cache_path,
@@ -547,6 +549,7 @@ def _evaluate_validation(
     merge_window_s: float,
     event_tolerance_s: float,
     target_recall: float,
+    peak_confirmation_s: float,
     offsets_s: Sequence[float],
     runtime: TrainingRuntimeOptions | None = None,
     transform: ClipTransform | None = None,
@@ -626,6 +629,7 @@ def _evaluate_validation(
             threshold=0.5,
             merge_window_s=merge_window_s,
             event_match_tolerance_s=event_tolerance_s,
+            peak_confirmation_s=peak_confirmation_s,
             include_streams=False,
         )
         selection = select_threshold(
@@ -633,6 +637,7 @@ def _evaluate_validation(
             merge_window_s=merge_window_s,
             event_match_tolerance_s=event_tolerance_s,
             target_recall=target_recall,
+            peak_confirmation_s=peak_confirmation_s,
         )
     except EvaluationError as exc:
         raise TrainingError(f"Could not evaluate validation streams: {exc}") from exc
@@ -643,6 +648,7 @@ def _evaluate_validation(
             threshold=selection.threshold,
             merge_window_s=merge_window_s,
             event_match_tolerance_s=event_tolerance_s,
+            peak_confirmation_s=peak_confirmation_s,
             include_streams=False,
         )
     except EvaluationError as exc:
@@ -660,11 +666,11 @@ def _evaluate_validation(
         "validation_selected_precision": selected_overall["event_precision"],
         "validation_selected_f1": selected_overall["event_f1"],
         "validation_selected_false_events_per_hour": selected_overall["false_events_per_hour"],
-        "validation_selected_latency_median_s": selected_overall["latency_median_s"],
+        "validation_selected_latency_median_s": selected_overall["timestamp_error_median_s"],
         "validation_labeled_loss": total_loss / total_samples,
         "validation_event_f1": selected_overall["event_f1"],
-        "validation_emission_latency": 0.0,
-        "validation_timestamp_error": selected_overall["latency_median_s"],
+        "validation_emission_latency": selected_overall["emission_latency_median_s"],
+        "validation_timestamp_error": selected_overall["timestamp_error_median_s"],
         "validation_target_recall_met": selection.target_recall_met,
         "validation_maximum_attainable_recall": selection.maximum_attainable_recall,
         "validation_threshold_selection_reason": selection.selection_reason,
@@ -1016,6 +1022,7 @@ def _save_checkpoint(
         "stage": stage,
         "stage_epoch": epoch if stage_epoch is None else stage_epoch,
         "config": config.to_dict(),
+        "preprocessing": config.input.preprocessing,
         "split": split.to_mapping(),
         "runtime": runtime.to_mapping(),
         "device": str(device),
@@ -1294,6 +1301,7 @@ def train_model(
                     merge_window_s=config.inference.merge_window_s,
                     event_tolerance_s=config.metrics.event_match_tolerance_s,
                     target_recall=config.metrics.target_recall,
+                    peak_confirmation_s=config.inference.peak_confirmation_s,
                     offsets_s=config.input.clip_offsets_s,
                     runtime=runtime,
                     transform=eval_transform,
@@ -1510,9 +1518,7 @@ def train_model(
                 ),
                 max_f1=float(best_validation_detail.get("max_f1", 0.0)),
                 max_f1_threshold=float(best_validation_detail.get("max_f1_threshold", 0.0)),
-                target_recall_met=bool(
-                    best_metrics.get("validation_target_recall_met", False)
-                ),
+                target_recall_met=bool(best_metrics.get("validation_target_recall_met", False)),
                 maximum_attainable_recall=float(
                     best_metrics.get("validation_maximum_attainable_recall", 0.0)
                 ),
@@ -1550,6 +1556,7 @@ def train_model(
         "runtime": runtime.to_mapping(),
         "seed": config.seed,
         "config": config.to_dict(),
+        "preprocessing": config.input.preprocessing,
         "split": split.to_mapping(),
         "environment": environment,
         "git_commit": environment["git_commit"],
@@ -1573,14 +1580,11 @@ def train_model(
         ),
         "target_recall_status": {
             "target_recall": config.metrics.target_recall,
-            "target_recall_met": bool(
-                best_metrics.get("validation_target_recall_met", False)
-            ),
+            "target_recall_met": bool(best_metrics.get("validation_target_recall_met", False)),
             "maximum_attainable_recall": best_metrics.get(
                 "validation_maximum_attainable_recall", 0.0
             ),
-            "selection_reason": best_metrics.get(
-                "validation_threshold_selection_reason", "legacy"),
+            "selection_reason": best_metrics.get("validation_threshold_selection_reason", "legacy"),
         },
         "plots": plot_paths,
     }
