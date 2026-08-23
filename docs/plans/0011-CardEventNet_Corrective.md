@@ -3,7 +3,7 @@
 ## Plan status
 
 - Summary: Improve annotations and training, implement improved tooling
-- Status: Planned
+- Status: In Progress
 
 ## Goal
 
