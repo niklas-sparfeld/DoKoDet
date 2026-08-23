@@ -146,6 +146,7 @@ def evaluate_baseline_from_files(
         merge_window_s=config.inference.merge_window_s,
         event_match_tolerance_s=config.metrics.event_match_tolerance_s,
         target_recall=config.metrics.target_recall,
+        peak_confirmation_s=config.inference.peak_confirmation_s,
     )
     threshold_path = _save_baseline_threshold(
         destination,
@@ -169,6 +170,7 @@ def evaluate_baseline_from_files(
         threshold=selection.threshold,
         merge_window_s=config.inference.merge_window_s,
         event_match_tolerance_s=config.metrics.event_match_tolerance_s,
+        peak_confirmation_s=config.inference.peak_confirmation_s,
     )
     plots_dir = destination.parent / f"{destination.stem}-plots"
     plots = save_probability_plots(

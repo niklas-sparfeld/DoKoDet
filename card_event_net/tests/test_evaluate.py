@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
+
 from cardevent.evaluate import (
     ScoredVideo,
     ThresholdSelection,
@@ -38,7 +40,37 @@ def test_evaluate_streams_reports_event_metrics() -> None:
     assert overall["false_events"] == 1.0
     assert overall["event_recall"] == 1.0
     assert overall["false_events_per_hour"] == 1.0
+    assert overall["peak_confirmation_s"] == 0.125
+    assert overall["timestamp_error_median_s"] == 0.0
+    assert overall["emission_latency_median_s"] == 0.125
+    assert overall["timestamp_error_p95_s"] == 0.0
+    assert overall["emission_latency_p95_s"] == 0.125
     assert per_video[0]["predicted_events"]
+
+
+def test_evaluate_streams_separates_timestamp_error_from_online_emission_delay() -> None:
+    video = ScoredVideo(
+        name="sample",
+        duration_s=60.0,
+        ground_truth_times_s=(10.0,),
+        probabilities=(ProbabilitySample(10.1, 0.9),),
+    )
+
+    overall, per_video = evaluate_streams(
+        [video],
+        threshold=0.5,
+        merge_window_s=0.6,
+        peak_confirmation_s=0.125,
+        event_match_tolerance_s=0.75,
+    )
+
+    assert overall["timestamp_error_median_s"] == pytest.approx(0.1)
+    assert overall["emission_latency_median_s"] == pytest.approx(0.225)
+    assert per_video[0]["timestamp_error_median_s"] == pytest.approx(0.1)
+    assert per_video[0]["emission_latency_median_s"] == pytest.approx(0.225)
+    # Keep old names as aliases for timestamp error during migration.
+    assert overall["latency_median_s"] == overall["timestamp_error_median_s"]
+    assert per_video[0]["latency_p50_s"] == per_video[0]["timestamp_error_median_s"]
 
 
 def test_threshold_selection_prefers_low_false_rate_at_target_recall() -> None:

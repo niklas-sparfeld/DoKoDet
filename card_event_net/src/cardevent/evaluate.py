@@ -411,6 +411,18 @@ def _save_evaluation(payload: Mapping[str, Any], output_path: str | Path) -> Pat
 
 def format_report(payload: Mapping[str, Any]) -> str:
     overall = payload["overall"]
+    timestamp_error_median_s = overall.get(
+        "timestamp_error_median_s", overall.get("latency_median_s", 0.0)
+    )
+    timestamp_error_p95_s = overall.get("timestamp_error_p95_s", overall.get("latency_p95_s", 0.0))
+    emission_latency_median_s = overall.get(
+        "emission_latency_median_s",
+        timestamp_error_median_s + overall.get("peak_confirmation_s", 0.0),
+    )
+    emission_latency_p95_s = overall.get(
+        "emission_latency_p95_s",
+        timestamp_error_p95_s + overall.get("peak_confirmation_s", 0.0),
+    )
     return "\n".join(
         (
             f"Videos:             {int(overall['videos'])}",
@@ -424,8 +436,10 @@ def format_report(payload: Mapping[str, Any]) -> str:
             f"False/hour:         {overall['false_events_per_hour']:.2f}",
             f"F1:                 {overall.get('event_f1', 0.0):.2%}",
             f"Max F1:             {payload.get('max_f1', 0.0):.2%}",
-            f"Latency p50:        {overall['latency_median_s']:.2f} s",
-            f"Latency p95:        {overall['latency_p95_s']:.2f} s",
+            f"Timestamp error p50: {timestamp_error_median_s:.2f} s",
+            f"Timestamp error p95: {timestamp_error_p95_s:.2f} s",
+            f"Emission latency p50: {emission_latency_median_s:.2f} s",
+            f"Emission latency p95: {emission_latency_p95_s:.2f} s",
             f"Threshold:          {payload['threshold']:.2f}",
             f"Max F1 threshold:   {payload.get('max_f1_threshold', 0.0):.2f}",
         )
@@ -450,6 +464,7 @@ def evaluate_checkpoint_from_files(
     checkpoint_file = Path(checkpoint_path)
     try:
         loaded = load_checkpoint(checkpoint_file, device_override=device_override)
+        peak_confirmation_s = getattr(loaded.config.inference, "peak_confirmation_s", 0.125)
         validation_videos = load_model_streams(
             loaded,
             split,
@@ -467,6 +482,7 @@ def evaluate_checkpoint_from_files(
             merge_window_s=loaded.config.inference.merge_window_s,
             event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
             target_recall=loaded.config.metrics.target_recall,
+            peak_confirmation_s=peak_confirmation_s,
         )
         _save_threshold_selection(
             checkpoint_file,
@@ -485,6 +501,7 @@ def evaluate_checkpoint_from_files(
                 merge_window_s=loaded.config.inference.merge_window_s,
                 event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
                 target_recall=loaded.config.metrics.target_recall,
+                peak_confirmation_s=peak_confirmation_s,
             )
             _save_threshold_selection(
                 checkpoint_file,
@@ -509,6 +526,7 @@ def evaluate_checkpoint_from_files(
         threshold=selection.threshold,
         merge_window_s=loaded.config.inference.merge_window_s,
         event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
+        peak_confirmation_s=peak_confirmation_s,
     )
     destination = (
         Path(output_path)
@@ -575,6 +593,7 @@ def diagnose_checkpoint_from_files(
         split = load_split(split_path)
         checkpoint_file = Path(checkpoint_path)
         loaded = load_checkpoint(checkpoint_file, device_override=device_override)
+        peak_confirmation_s = getattr(loaded.config.inference, "peak_confirmation_s", 0.125)
         validation_videos = load_model_streams(
             loaded,
             split,
@@ -587,6 +606,7 @@ def diagnose_checkpoint_from_files(
             merge_window_s=loaded.config.inference.merge_window_s,
             event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
             target_recall=loaded.config.metrics.target_recall,
+            peak_confirmation_s=peak_confirmation_s,
         )
         save_threshold_selection(
             checkpoint_file,
@@ -609,6 +629,7 @@ def diagnose_checkpoint_from_files(
         "threshold": selection.threshold,
         "merge_window_s": loaded.config.inference.merge_window_s,
         "event_match_tolerance_s": loaded.config.metrics.event_match_tolerance_s,
+        "peak_confirmation_s": peak_confirmation_s,
         "include_streams": False,
     }
     train_overall, train_per_video = evaluate_streams(train_videos, **evaluation_options)

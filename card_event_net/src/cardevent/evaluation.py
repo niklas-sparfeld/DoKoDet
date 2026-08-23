@@ -66,15 +66,23 @@ def _metrics_from_match(
     match: EventMatchResult,
     *,
     duration_s: float,
+    peak_confirmation_s: float,
     latencies_s: Sequence[float] | None = None,
 ) -> dict[str, float]:
     latencies = tuple(match.latencies_s if latencies_s is None else latencies_s)
+    emission_latencies = tuple(latency + peak_confirmation_s for latency in latencies)
     duration_hours = duration_s / 3600.0
     recall = match.detected_true_events / match.real_events if match.real_events else 0.0
     precision = (
         match.detected_true_events / (match.detected_true_events + match.false_events)
         if match.detected_true_events + match.false_events
         else 0.0
+    )
+    timestamp_error_median_s = median(latencies) if latencies else 0.0
+    timestamp_error_p95_s = float(np.percentile(latencies, 95)) if latencies else 0.0
+    emission_latency_median_s = median(emission_latencies) if emission_latencies else 0.0
+    emission_latency_p95_s = (
+        float(np.percentile(emission_latencies, 95)) if emission_latencies else 0.0
     )
     return {
         "duration_s": duration_s,
@@ -89,8 +97,15 @@ def _metrics_from_match(
         "false_events_per_hour": (
             match.false_events / duration_hours if duration_hours > 0.0 else 0.0
         ),
-        "latency_median_s": median(latencies) if latencies else 0.0,
-        "latency_p95_s": float(np.percentile(latencies, 95)) if latencies else 0.0,
+        "peak_confirmation_s": peak_confirmation_s,
+        "timestamp_error_median_s": timestamp_error_median_s,
+        "timestamp_error_p95_s": timestamp_error_p95_s,
+        "emission_latency_median_s": emission_latency_median_s,
+        "emission_latency_p95_s": emission_latency_p95_s,
+        # Compatibility aliases. These have always meant signed peak timestamp
+        # error, not the time at which an online event becomes available.
+        "latency_median_s": timestamp_error_median_s,
+        "latency_p95_s": timestamp_error_p95_s,
     }
 
 
@@ -165,6 +180,7 @@ def evaluate_streams(
     threshold: float,
     merge_window_s: float,
     event_match_tolerance_s: float,
+    peak_confirmation_s: float = 0.125,
     include_streams: bool = True,
 ) -> tuple[dict[str, float], list[dict[str, Any]]]:
     """Evaluate saved probability streams at one threshold.
@@ -174,6 +190,8 @@ def evaluate_streams(
     """
     if not videos:
         raise EvaluationError("No videos were provided for evaluation.")
+    if peak_confirmation_s < 0.0 or not isfinite(peak_confirmation_s):
+        raise EvaluationError("peak_confirmation_s must be finite and non-negative.")
 
     per_video: list[dict[str, Any]] = []
     total_duration_s = 0.0
@@ -188,13 +206,18 @@ def evaluate_streams(
             video.probabilities,
             threshold=threshold,
             merge_window_s=merge_window_s,
+            peak_confirmation_s=peak_confirmation_s,
         )
         match = match_events(
             detected_events,
             video.ground_truth_times_s,
             tolerance_s=event_match_tolerance_s,
         )
-        metrics = _metrics_from_match(match, duration_s=video.duration_s)
+        metrics = _metrics_from_match(
+            match,
+            duration_s=video.duration_s,
+            peak_confirmation_s=peak_confirmation_s,
+        )
         missed_details, false_details = _failure_details(
             video,
             detected_events,
@@ -245,6 +268,13 @@ def evaluate_streams(
         if total_detected_true_events + total_false_events
         else 0.0
     )
+    timestamp_error_median_s = median(all_latencies) if all_latencies else 0.0
+    timestamp_error_p95_s = float(np.percentile(all_latencies, 95)) if all_latencies else 0.0
+    emission_latencies = tuple(latency + peak_confirmation_s for latency in all_latencies)
+    emission_latency_median_s = median(emission_latencies) if emission_latencies else 0.0
+    emission_latency_p95_s = (
+        float(np.percentile(emission_latencies, 95)) if emission_latencies else 0.0
+    )
     overall = {
         "videos": float(len(videos)),
         "duration_s": total_duration_s,
@@ -259,8 +289,15 @@ def evaluate_streams(
         "false_events_per_hour": (
             total_false_events / total_duration_hours if total_duration_hours > 0.0 else 0.0
         ),
-        "latency_median_s": median(all_latencies) if all_latencies else 0.0,
-        "latency_p95_s": float(np.percentile(all_latencies, 95)) if all_latencies else 0.0,
+        "peak_confirmation_s": peak_confirmation_s,
+        "timestamp_error_median_s": timestamp_error_median_s,
+        "timestamp_error_p95_s": timestamp_error_p95_s,
+        "emission_latency_median_s": emission_latency_median_s,
+        "emission_latency_p95_s": emission_latency_p95_s,
+        # Compatibility aliases. These have always meant signed peak timestamp
+        # error, not the time at which an online event becomes available.
+        "latency_median_s": timestamp_error_median_s,
+        "latency_p95_s": timestamp_error_p95_s,
     }
     return overall, per_video
 
@@ -293,6 +330,7 @@ def select_threshold(
     merge_window_s: float,
     event_match_tolerance_s: float,
     target_recall: float,
+    peak_confirmation_s: float = 0.125,
     thresholds: Sequence[float] | None = None,
 ) -> ThresholdSelection:
     """Select a threshold from validation event behavior only."""
@@ -312,6 +350,7 @@ def select_threshold(
             threshold=threshold,
             merge_window_s=merge_window_s,
             event_match_tolerance_s=event_match_tolerance_s,
+            peak_confirmation_s=peak_confirmation_s,
             include_streams=False,
         )
         candidates.append({"threshold": float(threshold), **metrics})
