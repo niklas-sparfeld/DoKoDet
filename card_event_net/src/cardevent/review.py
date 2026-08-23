@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .annotation import (
+    EVENT_TYPES,
     AnnotationError,
     AnnotationEvent,
     VideoAnnotation,
@@ -147,6 +148,7 @@ def _item(
         "score": score,
         "nearest_annotation": dict(nearest) if nearest is not None else None,
         "distance_s": distance_s,
+        "event_type": None,
         "preview": _preview(video, time_s, preview_half_window_s),
         "status": "unreviewed",
         "outcome": "unreviewed",
@@ -263,6 +265,9 @@ def _queue_items_for_video(
                         nearest=nearest,
                         distance_s=distance,
                         preview_half_window_s=preview_half_window_s,
+                        details={
+                            "event_type": (nearest.get("type") if nearest is not None else None)
+                        },
                     )
                 )
         else:
@@ -794,9 +799,11 @@ def apply_review_queue(
         elif outcome == "confirmed_positive":
             already_present = any(abs(event.time_s - timestamp) <= 0.01 for event in events)
             if not already_present:
-                event_type = item.get("event_type", "card_played")
-                if not isinstance(event_type, str) or not event_type:
-                    raise ReviewQueueError(f"Invalid event type for review item {item['id']}")
+                event_type = item.get("event_type")
+                if event_type not in EVENT_TYPES:
+                    raise ReviewQueueError(
+                        f"Confirmed positive needs a valid event_type: {item['id']}"
+                    )
                 events.append(
                     AnnotationEvent(
                         time_s=timestamp,

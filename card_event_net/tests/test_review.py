@@ -96,6 +96,7 @@ def test_review_queue_is_deterministic_and_keeps_outcomes_unreviewed() -> None:
         "score",
         "nearest_annotation",
         "distance_s",
+        "event_type",
         "preview",
         "status",
         "outcome",
@@ -153,6 +154,7 @@ def test_apply_review_writes_new_version_and_preserves_source(tmp_path: Path) ->
         item["outcome"] = "ignore"
     queue["items"][0]["outcome"] = "confirmed_positive"
     queue["items"][0]["timestamp_s"] = 2.0
+    queue["items"][0]["event_type"] = "card_moved"
     queue_path.write_text(json.dumps(queue), encoding="utf-8")
 
     destination = tmp_path / "version-2"
@@ -174,6 +176,9 @@ def test_apply_review_writes_new_version_and_preserves_source(tmp_path: Path) ->
     assert summary["annotations_added"] == 1
     assert "review_queue=" in next(
         event["notes"] for event in result["events"] if event["time_s"] == 2.0
+    )
+    assert next(event["type"] for event in result["events"] if event["time_s"] == 2.0) == (
+        "card_moved"
     )
     assert (destination / "review-application.json").is_file()
     assert json.loads((destination / "reviewed-queue.json").read_text(encoding="utf-8")) == queue
@@ -220,6 +225,40 @@ def test_apply_review_rejects_outcome_without_reviewed_status(tmp_path: Path) ->
         apply_review_queue(
             queue_path,
             annotations_dir=tmp_path / "annotations",
+            out_dir=tmp_path / "reviewed",
+            reviewer="reviewer",
+        )
+
+
+def test_apply_review_requires_event_type_for_new_positive(tmp_path: Path) -> None:
+    metadata = VideoMetadata(
+        path=tmp_path / "game-a",
+        width=10,
+        height=10,
+        fps=10.0,
+        frame_count=200,
+        duration_s=20.0,
+    )
+    source_dir = tmp_path / "annotations"
+    save_annotation(VideoAnnotation(video="game-a"), source_dir / "game-a.json", metadata=metadata)
+    queue = build_review_queue(
+        [scored_video()],
+        partition="val",
+        threshold=0.65,
+        merge_window_s=0.6,
+        event_match_tolerance_s=0.75,
+        empty_count=0,
+    )
+    item = next(item for item in queue["items"] if item["category"] == "unmatched_model_candidate")
+    item["status"] = "reviewed"
+    item["outcome"] = "confirmed_positive"
+    queue_path = tmp_path / "queue.json"
+    queue_path.write_text(json.dumps(queue), encoding="utf-8")
+
+    with pytest.raises(ReviewQueueError, match="needs a valid event_type"):
+        apply_review_queue(
+            queue_path,
+            annotations_dir=source_dir,
             out_dir=tmp_path / "reviewed",
             reviewer="reviewer",
         )
