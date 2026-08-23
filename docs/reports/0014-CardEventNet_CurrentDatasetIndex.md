@@ -2,7 +2,7 @@
 
 ## Status
 
-This index records all 40 local raw videos with matching annotation files. It is the V1 metadata
+This index records all 38 local raw videos with matching annotation files. It is the V1 metadata
 baseline, not final annotation review.
 
 ## Evidence
