@@ -628,6 +628,8 @@ def _load_queue(path: Path) -> dict[str, Any]:
             raise ReviewQueueError("Review item status must be unreviewed or reviewed.")
         if item.get("outcome") not in REVIEW_OUTCOMES:
             raise ReviewQueueError("Review item outcome is invalid.")
+        if item["status"] == "unreviewed" and item["outcome"] != "unreviewed":
+            raise ReviewQueueError(f"An unreviewed item has an outcome: {item['id']}")
         if item["status"] == "reviewed" and item["outcome"] == "unreviewed":
             raise ReviewQueueError(f"Reviewed item has no outcome: {item['id']}")
         if not isinstance(item.get("video"), str) or not item["video"]:
@@ -693,9 +695,18 @@ def apply_review_queue(
         raise ReviewQueueError(f"Output annotation directory is not empty: {destination}")
 
     items = payload["items"]
-    names = sorted({item["video"] for item in items})
-    if any(Path(name).name != name for name in names):
+    review_names = sorted({item["video"] for item in items})
+    if any(Path(name).name != name for name in review_names):
         raise ReviewQueueError("Review items must use simple video names.")
+    source_paths = sorted(source_dir.glob("*.json"))
+    if not source_paths:
+        raise ReviewQueueError(f"No source annotations found in {source_dir}")
+    names = [path.stem for path in source_paths]
+    missing_names = sorted(set(review_names) - set(names))
+    if missing_names:
+        raise ReviewQueueError(
+            "Review items have no source annotation: " + ", ".join(missing_names)
+        )
     annotations: dict[str, VideoAnnotation] = {}
     source_hashes: dict[str, str | None] = {}
     metadata_by_name: dict[str, VideoMetadata] = {}
@@ -825,6 +836,7 @@ def apply_review_queue(
         "reviewer": reviewer,
         "applied_at": applied_at,
         "video_count": len(names),
+        "reviewed_video_count": len(review_names),
         "item_count": len(items),
         "outcome_counts": outcome_counts,
         "annotations_added": added_count,

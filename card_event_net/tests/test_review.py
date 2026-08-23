@@ -124,6 +124,20 @@ def test_apply_review_writes_new_version_and_preserves_source(tmp_path: Path) ->
         metadata=metadata,
     )
     source_before = source_path.read_bytes()
+    other_source_path = source_dir / "game-b.json"
+    save_annotation(
+        VideoAnnotation(video="game-b.mov"),
+        other_source_path,
+        metadata=VideoMetadata(
+            path=tmp_path / "game-b.mov",
+            width=10,
+            height=10,
+            fps=10.0,
+            frame_count=100,
+            duration_s=10.0,
+        ),
+    )
+    other_source_before = other_source_path.read_bytes()
 
     queue_path = tmp_path / "queue.json"
     queue = build_review_queue(
@@ -150,9 +164,13 @@ def test_apply_review_writes_new_version_and_preserves_source(tmp_path: Path) ->
     )
 
     assert source_path.read_bytes() == source_before
+    assert other_source_path.read_bytes() == other_source_before
     result = json.loads((destination / "game-a.json").read_text(encoding="utf-8"))
     assert any(event["time_s"] == 2.0 for event in result["events"])
+    assert (destination / "game-b.json").is_file()
     assert summary["reviewer"] == "niklas"
+    assert summary["video_count"] == 2
+    assert summary["reviewed_video_count"] == 1
     assert summary["annotations_added"] == 1
     assert "review_queue=" in next(
         event["notes"] for event in result["events"] if event["time_s"] == 2.0
@@ -181,5 +199,27 @@ def test_apply_review_rejects_source_as_output(tmp_path: Path) -> None:
             queue_path,
             annotations_dir=annotations_dir,
             out_dir=annotations_dir,
+            reviewer="reviewer",
+        )
+
+
+def test_apply_review_rejects_outcome_without_reviewed_status(tmp_path: Path) -> None:
+    queue = build_review_queue(
+        [scored_video()],
+        partition="val",
+        threshold=0.65,
+        merge_window_s=0.6,
+        event_match_tolerance_s=0.75,
+        empty_count=0,
+    )
+    queue["items"][0]["outcome"] = "confirmed_hard_negative"
+    queue_path = tmp_path / "queue.json"
+    queue_path.write_text(json.dumps(queue), encoding="utf-8")
+
+    with pytest.raises(ReviewQueueError, match="unreviewed item has an outcome"):
+        apply_review_queue(
+            queue_path,
+            annotations_dir=tmp_path / "annotations",
+            out_dir=tmp_path / "reviewed",
             reviewer="reviewer",
         )
