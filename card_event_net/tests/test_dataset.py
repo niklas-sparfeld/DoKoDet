@@ -160,4 +160,4 @@ def test_evaluation_transform_keeps_available_accelerator_device(device_type: st
         torch.full((2, 8, 3, 16, 16), 128, dtype=torch.uint8, device=device)
     )
 
-    assert transformed.device == device
+    assert transformed.device.type == device.type
