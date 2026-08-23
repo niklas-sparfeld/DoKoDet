@@ -128,7 +128,6 @@ def build_parser() -> argparse.ArgumentParser:
             "  A / D   seek backward or forward about 250 ms\n"
             "  J / L   seek backward or forward about 2 s\n"
             "  BACKSPACE or X  remove the latest event\n"
-            "  R       redefine the ROI\n"
             "  Q       save and exit"
         ),
     )
@@ -150,7 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_parser = subparsers.add_parser(
         "prepare",
         help="Build the low-resolution frame cache.",
-        description="Decode annotated videos and build their 10 fps ROI caches.",
+        description="Decode annotated videos and build their 10 fps frame caches.",
     )
     prepare_parser.add_argument(
         "--videos",

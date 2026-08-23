@@ -209,13 +209,13 @@ reviewer will need context.
 ## Annotation format
 
 The current machine-readable contract is
-[`annotation-v1.schema.json`](../card_event_net/schemas/annotation-v1.schema.json). Each source
+[`annotation-v2.schema.json`](../card_event_net/schemas/annotation-v2.schema.json). Each source
 video has one JSON file:
 
 ```json
 {
+  "schema_version": "cardevent-annotation/v2",
   "video": "game-001.mov",
-  "roi": {"x": 0.05, "y": 0.12, "width": 0.8, "height": 0.75},
   "events": [
     {
       "time_s": 12.4,
@@ -232,9 +232,9 @@ video has one JSON file:
 }
 ```
 
-The V1 `roi` field is a legacy preprocessing field. Do not use it to decide event meaning. The
-[full-frame input plan](plans/0013-CardEventNet_FullFrameInput.md) will remove it from new
-annotations and retain read compatibility for existing files.
+V2 annotations have no geometry. V1 files with an `roi` field remain readable. When the annotator
+saves a V1 file, it writes V2 and preserves its events. Do not use a legacy ROI to decide event
+meaning.
 
 Keep events in time order. Close events are valid when they represent separate visible changes.
 The current validator rejects only effective duplicates within 10 ms and warns about events less

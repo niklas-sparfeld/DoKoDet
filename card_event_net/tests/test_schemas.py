@@ -26,11 +26,13 @@ def _load_schema(name: str) -> dict:
 
 
 def test_annotation_schema_uses_runtime_event_values() -> None:
-    schema = _load_schema("annotation-v1.schema.json")
+    schema = _load_schema("annotation-v2.schema.json")
     properties = schema["$defs"]["event"]["properties"]
 
     assert set(properties["type"]["enum"]) == EVENT_TYPES
     assert set(properties["confidence"]["enum"]) == EVENT_CONFIDENCES
+    assert schema["properties"]["schema_version"]["const"] == "cardevent-annotation/v2"
+    assert "roi" not in schema["properties"]
 
 
 def test_video_schema_uses_manifest_runtime_values() -> None:

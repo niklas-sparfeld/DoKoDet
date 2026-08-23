@@ -7,9 +7,9 @@ Run the commands below from `card_event_net/`.
 
 ## Current state
 
-The supplied model and current tools still use a manually selected ROI. This is the legacy
-contract. [Plan 0013](../docs/plans/0013-CardEventNet_FullFrameInput.md) will replace it with
-full-frame preprocessing. Do not use ROI geometry to decide annotation semantics.
+New annotations use the full frame and do not require a selected ROI. The current cache and model
+preprocessing are still being migrated under [Plan 0013](../docs/plans/0013-CardEventNet_FullFrameInput.md).
+Do not use legacy ROI geometry to decide annotation semantics.
 
 This repo has the model, annotation, inference, evaluation, hard-negative, and Core ML export
 pipeline:
@@ -20,7 +20,7 @@ pipeline:
 - annotation schema and validation
 - video metadata reading
 - OpenCV annotation tool
-- 10 fps cached ROI frame extraction
+- 10 fps cached frame extraction
 - causal 8-frame dataset sampling
 - positive, negative, ignored, and confirmed-hard-negative label states
 - deterministic video-level and session-aware train/val/test splits
@@ -41,8 +41,9 @@ pipeline:
 - saved validation streams for decoder-only evaluation
 - test and lint setup
 
-The annotation tool stores one JSON file per source video in `data/annotations/`. It remembers
-the ROI and saved events. Event types are `card_played`, `trick_cleared`, `card_moved`,
+The annotation tool stores one JSON file per source video in `data/annotations/`. New files use
+annotation V2 and contain saved events without geometry. Existing V1 files with an ROI load, and
+the next edit saves them as V2. Event types are `card_played`, `trick_cleared`, `card_moved`,
 `card_removed`, `card_returned`, `multiple_cards_dropped`, and `anomalous_state_change`.
 Use the repository's [labeling guidelines](../docs/CardEventNet_LabelingGuidelines.md) for class,
 timestamp, close-event, and hard-negative decisions.
@@ -62,7 +63,6 @@ P       pause or play
 A / D   seek backward or forward about 250 ms
 J / L   seek backward or forward about 2 s
 BACKSPACE or X  remove the selected event
-R       redefine the ROI
 Q       save and exit
 ```
 
@@ -95,9 +95,8 @@ Run the annotator from `card_event_net/`:
 uv run cardevent annotate data/raw/IMG_0090.mov
 ```
 
-The tool shows the event definition at startup. On first use, select the ROI in the OpenCV
-window, then save. You can quit and reopen the same video later. Existing events stay in the
-JSON file.
+The tool shows the event definition at startup. You can label a new video immediately. You can
+quit and reopen the same video later. Existing events stay in the JSON file.
 
 Review model candidates with an inference JSON file:
 

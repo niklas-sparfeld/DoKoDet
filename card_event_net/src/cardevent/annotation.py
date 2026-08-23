@@ -28,6 +28,7 @@ EVENT_TYPES = frozenset(
 )
 EVENT_CONFIDENCES = frozenset({"confirmed", "uncertain", "ignore", "proposed"})
 DEFAULT_DUPLICATE_TOLERANCE_S = 0.01
+ANNOTATION_SCHEMA_VERSION = "cardevent-annotation/v2"
 EVENT_TYPE_SHORTCUTS = {
     ord("1"): "card_played",
     ord("2"): "trick_cleared",
@@ -286,30 +287,44 @@ def load_annotation_proposals(path: str | Path) -> tuple[AnnotationProposal, ...
 @dataclass(frozen=True, slots=True)
 class VideoAnnotation:
     video: str
-    roi: Roi
     events: tuple[AnnotationEvent, ...] = ()
+    legacy_roi: Roi | None = None
+
+    @property
+    def roi(self) -> Roi | None:
+        """Return V1 geometry for legacy callers.
+
+        New annotations never write this value. Full-frame consumers must ignore it.
+        """
+        return self.legacy_roi
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "VideoAnnotation":
         mapping = _require_mapping(data, "annotation")
-        _require_exact_keys(mapping, ("video", "roi", "events"), "annotation")
+        if "schema_version" in mapping:
+            _require_exact_keys(mapping, ("schema_version", "video", "events"), "annotation")
+            if _require_string(mapping, "schema_version") != ANNOTATION_SCHEMA_VERSION:
+                raise AnnotationError(f"schema_version must be {ANNOTATION_SCHEMA_VERSION}.")
+            legacy_roi = None
+        else:
+            _require_exact_keys(mapping, ("video", "roi", "events"), "annotation")
+            legacy_roi = Roi.from_mapping(mapping["roi"])
         events = tuple(
             AnnotationEvent.from_mapping(item) for item in _require_list(mapping, "events")
         )
         annotation = cls(
             video=_require_string(mapping, "video"),
-            roi=Roi.from_mapping(mapping["roi"]),
             events=events,
+            legacy_roi=legacy_roi,
         )
         _validate_sorted_events(annotation.events)
         return annotation
 
     def to_mapping(self) -> dict[str, Any]:
-        self.roi.validate()
         _validate_sorted_events(self.events)
         return {
+            "schema_version": ANNOTATION_SCHEMA_VERSION,
             "video": self.video,
-            "roi": self.roi.to_mapping(),
             "events": [event.to_mapping() for event in self.events],
         }
 
@@ -377,7 +392,8 @@ def validate_annotation(
             f"{annotation.video} != {metadata.path.name}"
         )
 
-    annotation.roi.validate()
+    if annotation.legacy_roi is not None:
+        annotation.legacy_roi.validate()
     _validate_sorted_events(annotation.events)
 
     for event in annotation.events:
@@ -401,8 +417,8 @@ def save_annotation(
     sorted_events = tuple(sorted(annotation.events, key=lambda event: event.time_s))
     sorted_annotation = VideoAnnotation(
         video=annotation.video,
-        roi=annotation.roi,
         events=sorted_events,
+        legacy_roi=annotation.legacy_roi,
     )
     validate_annotation(sorted_annotation, metadata)
 
@@ -429,7 +445,6 @@ class AnnotationSession:
     video_path: Path
     metadata: VideoMetadata
     annotation_path: Path
-    roi: Roi | None = None
     events: list[AnnotationEvent] = field(default_factory=list)
 
     @property
@@ -453,7 +468,6 @@ class AnnotationSession:
                 video_path=metadata.path,
                 metadata=metadata,
                 annotation_path=annotation_path,
-                roi=annotation.roi,
                 events=list(annotation.events),
             )
 
@@ -464,11 +478,8 @@ class AnnotationSession:
         )
 
     def to_annotation(self) -> VideoAnnotation:
-        if self.roi is None:
-            raise AnnotationError("ROI is not set.")
         return VideoAnnotation(
             video=self.metadata.path.name,
-            roi=self.roi,
             events=tuple(self.events),
         )
 
@@ -479,10 +490,6 @@ class AnnotationSession:
             metadata=self.metadata,
         )
 
-    def set_roi(self, roi: Roi) -> Path:
-        self.roi = roi
-        return self.save()
-
     def add_event(
         self,
         time_s: float,
@@ -491,8 +498,6 @@ class AnnotationSession:
         confidence: str | None = "confirmed",
         notes: str | None = None,
     ) -> Path:
-        if self.roi is None:
-            raise AnnotationError("ROI is not set.")
         self.events.append(
             AnnotationEvent(time_s=time_s, type=event_type, confidence=confidence, notes=notes)
         )
@@ -611,45 +616,6 @@ def _capture_frame(cap: Any, frame_index: int, metadata: VideoMetadata) -> Any:
     return frame
 
 
-def _select_roi(
-    frame: Any,
-    *,
-    metadata: VideoMetadata,
-    cv2: Any,
-) -> Roi:
-    preview, scale = _resize_preview(frame)
-    print(
-        "Select the table ROI in the OpenCV window. Drag a box and press Enter or Space to confirm."
-    )
-    print("Press C to cancel the ROI selection.")
-    selection = cv2.selectROI("CardEventNet ROI", preview, showCrosshair=True, fromCenter=False)
-    cv2.destroyWindow("CardEventNet ROI")
-    x, y, width, height = (int(value) for value in selection)
-    if width <= 0 or height <= 0:
-        raise AnnotationError("ROI selection was cancelled.")
-
-    x1 = math.floor(x / scale)
-    y1 = math.floor(y / scale)
-    x2 = math.ceil((x + width) / scale)
-    y2 = math.ceil((y + height) / scale)
-
-    x1 = max(0, min(x1, metadata.width - 1))
-    y1 = max(0, min(y1, metadata.height - 1))
-    x2 = max(x1 + 1, min(x2, metadata.width))
-    y2 = max(y1 + 1, min(y2, metadata.height))
-
-    roi = Roi.from_pixels(
-        x=x1,
-        y=y1,
-        width=x2 - x1,
-        height=y2 - y1,
-        frame_width=metadata.width,
-        frame_height=metadata.height,
-    )
-    roi.validate()
-    return roi
-
-
 def _print_annotation_help(session: AnnotationSession) -> None:
     print()
     print("Event definition:")
@@ -671,7 +637,6 @@ def _print_annotation_help(session: AnnotationSession) -> None:
     print("  A / D   seek backward or forward about 250 ms")
     print("  J / L   seek backward or forward about 2 s")
     print("  BACKSPACE or X  remove the selected event")
-    print("  R       redefine the ROI")
     print("  Q       save and exit")
     print()
     print(f"Video: {session.metadata.path}")
@@ -706,9 +671,6 @@ def annotate_video(
 
     current_frame_index = 0
     current_frame = _capture_frame(capture, current_frame_index, session.metadata)
-    if session.roi is None:
-        session.set_roi(_select_roi(current_frame, metadata=session.metadata, cv2=cv2))
-        current_frame = _capture_frame(capture, current_frame_index, session.metadata)
 
     playing = False
     needs_frame_refresh = False
@@ -860,13 +822,6 @@ def annotate_video(
                 selected_event_index = len(session.events) - 1
             elif key in (ord("c"), ord("C")):
                 compare_before_after = not compare_before_after
-            elif key in (ord("r"), ord("R")):
-                was_playing = playing
-                playing = False
-                session.set_roi(_select_roi(current_frame, metadata=session.metadata, cv2=cv2))
-                playing = was_playing
-                frame_changed = True
-
             if playing and not frame_changed:
                 if current_frame_index >= session.metadata.frame_count - 1:
                     playing = False

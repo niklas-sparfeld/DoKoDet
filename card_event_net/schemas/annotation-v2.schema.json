@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/annotation-v2.schema.json",
+  "title": "CardEventNet video annotation v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "video", "events"],
+  "properties": {
+    "schema_version": {
+      "const": "cardevent-annotation/v2"
+    },
+    "video": {
+      "type": "string",
+      "minLength": 1
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time_s", "type"],
+      "properties": {
+        "time_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "type": {
+          "enum": [
+            "card_played",
+            "trick_cleared",
+            "card_moved",
+            "card_removed",
+            "card_returned",
+            "multiple_cards_dropped",
+            "anomalous_state_change"
+          ]
+        },
+        "confidence": {
+          "enum": ["confirmed", "uncertain", "ignore", "proposed"]
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
