@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import platform
 import random
@@ -897,6 +898,84 @@ def _reconcile_metrics_file(
     _atomic_write_text(path, "".join(f"{row}\n" for row in rows))
 
 
+def _restore_early_stopping_state(
+    checkpoint_path: Path,
+    checkpoint: Mapping[str, Any],
+    *,
+    checkpoint_epoch: int,
+    config: Config,
+) -> tuple[float, int]:
+    """Restore fine-tune early-stopping state, including legacy checkpoints."""
+    best_value = checkpoint.get("early_stopping_best")
+    epochs_value = checkpoint.get("early_stopping_epochs_without_improvement")
+    if best_value is not None or epochs_value is not None:
+        if (
+            isinstance(best_value, bool)
+            or not isinstance(best_value, (int, float))
+            or math.isnan(float(best_value))
+            or float(best_value) == float("inf")
+            or isinstance(epochs_value, bool)
+            or not isinstance(epochs_value, int)
+            or epochs_value < 0
+        ):
+            raise TrainingError(f"Checkpoint has invalid early-stopping state: {checkpoint_path}")
+        return float(best_value), epochs_value
+
+    metrics_path = checkpoint_path.parent / "metrics.jsonl"
+    rows: list[Mapping[str, Any]] = []
+    if metrics_path.is_file():
+        for line in metrics_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise TrainingError(f"Metrics file contains invalid JSON: {metrics_path}") from exc
+            if not isinstance(row, Mapping):
+                raise TrainingError(f"Metrics file contains an invalid row: {metrics_path}")
+            row_epoch = row.get("global_epoch", row.get("epoch"))
+            if (
+                row.get("stage") == "finetune"
+                and isinstance(row_epoch, int)
+                and not isinstance(row_epoch, bool)
+                and row_epoch <= checkpoint_epoch
+            ):
+                rows.append(row)
+
+    checkpoint_metrics = checkpoint.get("metrics")
+    if isinstance(checkpoint_metrics, Mapping):
+        checkpoint_metrics_epoch = checkpoint_metrics.get(
+            "global_epoch", checkpoint_metrics.get("epoch")
+        )
+        if (
+            checkpoint_metrics.get("stage") == "finetune"
+            and checkpoint_metrics_epoch == checkpoint_epoch
+            and not any(
+                row.get("global_epoch", row.get("epoch")) == checkpoint_epoch for row in rows
+            )
+        ):
+            rows.append(checkpoint_metrics)
+
+    rows.sort(key=lambda row: int(row.get("global_epoch", row.get("epoch"))))
+    best = float("-inf")
+    epochs_without_improvement = 0
+    early_stopping = config.training.early_stopping
+    for row in rows:
+        metric_value = row.get(early_stopping.metric, row.get("validation_event_f1", 0.0))
+        try:
+            metric = float(metric_value)
+        except (TypeError, ValueError) as exc:
+            raise TrainingError(
+                f"Metrics file contains an invalid early-stopping metric: {metrics_path}"
+            ) from exc
+        if metric > best + early_stopping.min_delta:
+            best = metric
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+    return best, epochs_without_improvement
+
+
 def _save_checkpoint(
     path: Path,
     *,
@@ -919,6 +998,8 @@ def _save_checkpoint(
     best_rank: Sequence[float] | None = None,
     validation_detail: Mapping[str, Any] | None = None,
     best_validation_detail: Mapping[str, Any] | None = None,
+    early_stopping_best: float | None = None,
+    early_stopping_epochs_without_improvement: int | None = None,
 ) -> None:
     if runtime is None:
         runtime = TrainingRuntimeOptions(
@@ -956,6 +1037,13 @@ def _save_checkpoint(
         payload["validation_detail"] = dict(validation_detail)
     if best_validation_detail is not None:
         payload["best_validation_detail"] = dict(best_validation_detail)
+    if (early_stopping_best is None) != (early_stopping_epochs_without_improvement is None):
+        raise TrainingError("Checkpoint early-stopping state must include both values.")
+    if early_stopping_best is not None:
+        payload["early_stopping_best"] = early_stopping_best
+        payload["early_stopping_epochs_without_improvement"] = (
+            early_stopping_epochs_without_improvement
+        )
     _atomic_torch_save(payload, path)
 
 
@@ -1076,6 +1164,8 @@ def train_model(
     best_epoch = 0
     best_stage = ""
     best_validation_detail: dict[str, Any] | None = None
+    resume_early_stopping_best: float | None = None
+    resume_epochs_without_improvement = 0
     if resume_state:
         best_rank, best_metrics, best_epoch, best_stage = _best_state(
             run_path,
@@ -1092,6 +1182,16 @@ def train_model(
                 else None
             ),
         )
+        if resume_state.stage == "finetune":
+            (
+                resume_early_stopping_best,
+                resume_epochs_without_improvement,
+            ) = _restore_early_stopping_state(
+                resume_state.checkpoint_path,
+                resume_state.checkpoint,
+                checkpoint_epoch=resume_state.global_epoch,
+                config=config,
+            )
         resume_detail = resume_state.checkpoint.get("best_validation_detail")
         if isinstance(resume_detail, Mapping):
             best_validation_detail = dict(resume_detail)
@@ -1130,9 +1230,18 @@ def train_model(
             else:
                 unfreeze_backbone(model)
             # Warm-up must always reach the fine-tune boundary. Early stopping
-            # starts fresh when the backbone is unfrozen, including on resume.
-            early_stopping_best = float("-inf")
-            epochs_without_improvement = 0
+            # starts fresh when the backbone is unfrozen, except when resuming
+            # inside the fine-tune stage.
+            if resume_state and stage_name == resume_state.stage == "finetune":
+                early_stopping_best = (
+                    float("-inf")
+                    if resume_early_stopping_best is None
+                    else resume_early_stopping_best
+                )
+                epochs_without_improvement = resume_epochs_without_improvement
+            else:
+                early_stopping_best = float("-inf")
+                epochs_without_improvement = 0
             optimizer = torch.optim.AdamW(
                 (parameter for parameter in model.parameters() if parameter.requires_grad),
                 lr=learning_rate,
@@ -1255,6 +1364,26 @@ def train_model(
                             exc,
                         )
 
+                early_stopping_triggered = False
+                if stage_index == len(stages) - 1:
+                    early_metric = float(
+                        validation_metrics.get(
+                            config.training.early_stopping.metric,
+                            validation_metrics.get("validation_event_f1", 0.0),
+                        )
+                    )
+                    if (
+                        early_metric
+                        > early_stopping_best + config.training.early_stopping.min_delta
+                    ):
+                        early_stopping_best = early_metric
+                        epochs_without_improvement = 0
+                    else:
+                        epochs_without_improvement += 1
+                        early_stopping_triggered = (
+                            epochs_without_improvement >= config.training.early_stopping.patience
+                        )
+
                 _save_checkpoint(
                     run_path / "last.pt",
                     model=model,
@@ -1276,6 +1405,12 @@ def train_model(
                     best_rank=best_rank,
                     validation_detail=validation_detail,
                     best_validation_detail=best_validation_detail,
+                    early_stopping_best=(
+                        early_stopping_best if stage_index == len(stages) - 1 else None
+                    ),
+                    early_stopping_epochs_without_improvement=(
+                        epochs_without_improvement if stage_index == len(stages) - 1 else None
+                    ),
                 )
                 if is_new_best:
                     _save_checkpoint(
@@ -1299,6 +1434,12 @@ def train_model(
                         best_rank=best_rank,
                         validation_detail=validation_detail,
                         best_validation_detail=best_validation_detail,
+                        early_stopping_best=(
+                            early_stopping_best if stage_index == len(stages) - 1 else None
+                        ),
+                        early_stopping_epochs_without_improvement=(
+                            epochs_without_improvement if stage_index == len(stages) - 1 else None
+                        ),
                     )
                 metrics_file.write(json.dumps(row, allow_nan=False) + "\n")
                 metrics_file.flush()
@@ -1331,25 +1472,14 @@ def train_model(
                 )
                 if stage_index < len(stages) - 1:
                     continue
-                early_metric = float(
-                        validation_metrics.get(
-                            config.training.early_stopping.metric,
-                            validation_metrics.get("validation_event_f1", 0.0),
+                if early_stopping_triggered:
+                    LOGGER.info(
+                        "Early stopping after %d epochs without %s improvement.",
+                        epochs_without_improvement,
+                        config.training.early_stopping.metric,
                     )
-                )
-                if early_metric > early_stopping_best + config.training.early_stopping.min_delta:
-                    early_stopping_best = early_metric
-                    epochs_without_improvement = 0
-                else:
-                    epochs_without_improvement += 1
-                    if epochs_without_improvement >= config.training.early_stopping.patience:
-                        LOGGER.info(
-                            "Early stopping after %d epochs without %s improvement.",
-                            epochs_without_improvement,
-                            config.training.early_stopping.metric,
-                        )
-                        stop_training = True
-                        break
+                    stop_training = True
+                    break
 
     if best_metrics is None:
         raise TrainingError("Training completed without producing a checkpoint.")

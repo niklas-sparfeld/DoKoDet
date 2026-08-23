@@ -445,3 +445,94 @@ def test_training_resume_keeps_completed_epochs_and_best_checkpoint(
     ]
     assert (run_dir / "threshold.json").is_file()
     assert (run_dir / "training-history.png").is_file()
+
+
+def test_training_resume_restores_finetune_early_stopping_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    train_module = importlib.import_module("cardevent.train")
+    config_data = make_config().to_dict()
+    config_data["training"] = {
+        **config_data["training"],
+        "warmup_epochs": 2,
+        "finetune_epochs": 4,
+        "early_stopping": {
+            "metric": "validation_event_f1",
+            "patience": 2,
+            "min_delta": 0.005,
+        },
+    }
+    config = Config.from_mapping(config_data)
+    split = VideoSplit(train=("train",), val=("val",), test=("test",))
+    samples = [make_sample(0.0, 0.0), make_sample(1.0, 0.1)]
+    run_dir = tmp_path / "run"
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.backbone = torch.nn.Sequential(torch.nn.Linear(1, 1))
+            self.head = torch.nn.Linear(1, 1)
+
+    monkeypatch.setattr(train_module, "build_model", lambda _config: FakeModel())
+    monkeypatch.setattr(
+        train_module,
+        "_training_samples_for_split",
+        lambda *_args, **_kwargs: samples,
+    )
+    monkeypatch.setattr(train_module, "_validation_videos", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        train_module,
+        "_make_loader",
+        lambda *_args, **_kwargs: SimpleNamespace(batch_size=2, num_workers=0),
+    )
+    monkeypatch.setattr(train_module, "_run_train_epoch", lambda *_args, **_kwargs: 1.0)
+
+    validation_calls = 0
+
+    def fake_validation(*_args, **_kwargs) -> dict[str, float]:
+        nonlocal validation_calls
+        validation_calls += 1
+        metric = 0.6 if validation_calls <= 3 else 0.59
+        return {
+            "val_loss": 1.0,
+            "validation_event_f1": metric,
+            "validation_event_recall": metric,
+            "validation_precision": metric,
+            "validation_false_events_per_hour": 1.0,
+            "validation_latency_median_s": 0.0,
+        }
+
+    monkeypatch.setattr(train_module, "_evaluate_validation", fake_validation)
+
+    original_save_checkpoint = train_module._save_checkpoint
+    interrupted_state: dict[str, object] = {}
+
+    def save_then_interrupt(path: Path, *args, **kwargs) -> None:
+        original_save_checkpoint(path, *args, **kwargs)
+        if path.name == "last.pt" and kwargs["stage"] == "finetune" and kwargs["stage_epoch"] == 2:
+            checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+            interrupted_state.update(checkpoint)
+            raise RuntimeError("simulated interruption")
+
+    monkeypatch.setattr(train_module, "_save_checkpoint", save_then_interrupt)
+    with pytest.raises(RuntimeError, match="simulated interruption"):
+        train_module.train_model(config, split, run_dir=run_dir, device_override="cpu")
+
+    assert interrupted_state["early_stopping_best"] == pytest.approx(0.6)
+    assert interrupted_state["early_stopping_epochs_without_improvement"] == 1
+
+    monkeypatch.setattr(train_module, "_save_checkpoint", original_save_checkpoint)
+    train_module.train_model(
+        config,
+        split,
+        run_dir=run_dir,
+        device_override="cpu",
+        resume_path=run_dir / "last.pt",
+    )
+
+    rows = [
+        json.loads(line)
+        for line in (run_dir / "metrics.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [row["epoch"] for row in rows] == [1, 2, 3, 4, 5]
+    assert validation_calls == 5
