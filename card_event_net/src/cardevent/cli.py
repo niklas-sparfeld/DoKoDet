@@ -502,15 +502,11 @@ def build_parser() -> argparse.ArgumentParser:
     review_queue_parser = subparsers.add_parser(
         "review-queue",
         help=_PLACEHOLDER_COMMANDS["review-queue"],
-        description=(
-            "Build a deterministic review queue. Generated outcomes remain unreviewed."
-        ),
+        description=("Build a deterministic review queue. Generated outcomes remain unreviewed."),
     )
     review_queue_parser.add_argument("--checkpoint", type=Path, required=True)
     review_queue_parser.add_argument("--split", type=Path, required=True)
-    review_queue_parser.add_argument(
-        "--partition", choices=("train", "val", "test"), required=True
-    )
+    review_queue_parser.add_argument("--partition", choices=("train", "val", "test"), required=True)
     review_queue_parser.add_argument("--out", type=Path, required=True)
     review_queue_parser.add_argument("--cache-dir", type=Path, default=Path("data/cache"))
     review_queue_parser.add_argument(
