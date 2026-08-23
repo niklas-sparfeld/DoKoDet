@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from cardevent.config import load_config
 from cardevent.events import (
     ProbabilitySample,
     candidate_peaks,
@@ -34,6 +37,18 @@ def test_distant_peaks_become_two_events() -> None:
     assert [event.time_s for event in events] == [1.125, 2.0]
 
 
+def test_configured_gap_suppresses_peaks_exactly_0_625_seconds_apart() -> None:
+    config = load_config(Path(__file__).parents[1] / "configs" / "base.yaml")
+
+    events = probabilities_to_events(
+        [sample(1.0, 0.9), sample(1.125, 0.1), sample(1.625, 0.8)],
+        threshold=0.5,
+        min_event_gap_s=config.inference.min_event_gap_s,
+    )
+
+    assert [event.time_s for event in events] == [1.0]
+
+
 def test_subthreshold_samples_produce_no_events() -> None:
     assert probabilities_to_events([sample(1.0, 0.49)], threshold=0.5) == []
 
@@ -62,13 +77,15 @@ def test_event_matching_accepts_exact_and_rejects_outside_tolerance() -> None:
 
 def test_event_count_is_monotonic_as_threshold_increases() -> None:
     stream = [
-        sample(1.0, 0.8), sample(1.125, 0.9), sample(2.0, 0.7),
-        sample(3.0, 0.85), sample(3.125, 0.8),
+        sample(1.0, 0.8),
+        sample(1.125, 0.9),
+        sample(2.0, 0.7),
+        sample(3.0, 0.85),
+        sample(3.125, 0.8),
     ]
 
     counts = [
-        len(probabilities_to_events(stream, threshold))
-        for threshold in (0.5, 0.8, 0.86, 0.95)
+        len(probabilities_to_events(stream, threshold)) for threshold in (0.5, 0.8, 0.86, 0.95)
     ]
 
     assert counts == sorted(counts, reverse=True)

@@ -36,7 +36,7 @@ training:
 
 inference:
   peak_confirmation_s: 0.125
-  min_event_gap_s: 0.6
+  min_event_gap_s: 0.625
 
 metrics:
   event_match_tolerance_s: 0.75
