@@ -137,9 +137,13 @@ geometry.
 
 ## Phase 4: Retrain and compare
 
-Train a new checkpoint from the normal pretrained backbone with full-frame caches. Use the same
-session-safe split, labels, seed, temporal sampling, architecture, and decoder as the latest
-accepted ROI run.
+Train a new checkpoint from the normal pretrained backbone with full-frame caches. For the first
+paired comparison, use the same split, labels, seed, temporal sampling, architecture, and decoder
+as the latest accepted ROI run. This isolates the preprocessing change.
+
+The repository does not yet contain a populated metadata manifest that proves the current split
+is session-isolated. Treat the paired comparison as a preprocessing diagnostic, not as a
+generalization estimate.
 
 Compare on validation only:
 
@@ -160,9 +164,9 @@ test.
 
 ### Decision rule
 
-Accept the full-frame contract when it meets target recall and has an acceptable false-event cost
-on the locked validation set. Use the latest accepted ROI run as the comparison baseline, not as a
-checkpoint initializer.
+Accept the full-frame preprocessing contract when it meets target recall and has an acceptable
+false-event cost on the locked paired-comparison validation set. Use the latest accepted ROI run
+as the comparison baseline, not as a checkpoint initializer.
 
 If recall drops because cards become too small, run a separate input-size experiment after this
 comparison. Test one larger size at a time. Do not restore a manual ROI as the first response.
@@ -213,8 +217,9 @@ positive. Use the semantic labeling guide.
 
 ### Acceptance gate
 
-Validation contains independent `table_with_context` footage. A separate robustness subset covers
-`wide_context` before production claims include that framing.
+Populate V1 metadata and create a group-safe split. Validation contains independent
+`table_with_context` footage. A separate robustness subset covers `wide_context` before
+production claims include that framing.
 
 ## Removal gate
 
@@ -224,7 +229,8 @@ ROI removal is complete when:
 - legacy annotations load without controlling preprocessing;
 - old ROI caches cannot be reused silently;
 - training and Python inference use full-frame letterboxing;
-- the accepted model was retrained on full frames;
+- the accepted preprocessing comparison was retrained on full frames;
+- a later generalization run uses a metadata-proven group-safe split;
 - Core ML and iOS use the same full-frame contract;
 - live inference needs no ROI setup;
 - ROI controls and errors are gone from the probe app;

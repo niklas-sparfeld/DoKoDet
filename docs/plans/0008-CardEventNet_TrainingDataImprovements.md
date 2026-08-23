@@ -165,7 +165,8 @@ Do not mix an ROI-trained checkpoint or ROI cache with full-frame inference.
 
 ## Phase 2: Build ingestion and dataset-indexing tooling
 
-**Current state:** Session-aware split creation and validation exist. The general ingestion and
+**Current state:** Session-aware split creation and validation exist. No populated metadata
+manifest proves that the current split is session-isolated. The general ingestion and
 dataset-indexing command does not exist.
 
 ### LLM/tooling work
