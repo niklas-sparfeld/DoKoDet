@@ -22,6 +22,10 @@ class CacheError(RuntimeError):
     pass
 
 
+FULL_FRAME_LETTERBOX_V1 = "full_frame_letterbox_v1"
+LEGACY_ROI_LETTERBOX_V1 = "roi_letterbox_v1"
+
+
 FrameProgressCallback = Callable[[int, int], None]
 PrepareProgressCallback = Callable[[Path, int, int], None]
 PrepareSkipCallback = Callable[[Path, Path], None]
@@ -34,6 +38,7 @@ class CacheMetadata:
     duration_s: float
     frame_timestamps_s: tuple[float, ...]
     frame_size: int = 224
+    preprocessing: str = FULL_FRAME_LETTERBOX_V1
 
     @classmethod
     def from_mapping(cls, data: Any) -> "CacheMetadata":
@@ -47,6 +52,7 @@ class CacheMetadata:
         cache_fps = data.get("cache_fps")
         duration_s = data.get("duration_s")
         frame_size = data.get("frame_size", 224)
+        preprocessing = data.get("preprocessing", LEGACY_ROI_LETTERBOX_V1)
         timestamps = data.get("frame_timestamps_s")
         if isinstance(cache_fps, bool) or not isinstance(cache_fps, (int, float)):
             raise CacheError("Cache metadata cache_fps must be a number.")
@@ -54,6 +60,8 @@ class CacheMetadata:
             raise CacheError("Cache metadata duration_s must be a number.")
         if isinstance(frame_size, bool) or not isinstance(frame_size, int) or frame_size <= 0:
             raise CacheError("Cache metadata frame_size must be a positive integer.")
+        if not isinstance(preprocessing, str) or not preprocessing:
+            raise CacheError("Cache metadata preprocessing must be a non-empty string.")
         if not isinstance(timestamps, list):
             raise CacheError("Cache metadata frame_timestamps_s must be a list.")
 
@@ -74,6 +82,7 @@ class CacheMetadata:
             duration_s=float(duration_s),
             frame_timestamps_s=frame_timestamps_s,
             frame_size=frame_size,
+            preprocessing=preprocessing,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -83,12 +92,11 @@ class CacheMetadata:
             "duration_s": self.duration_s,
             "frame_timestamps_s": list(self.frame_timestamps_s),
             "frame_size": self.frame_size,
+            "preprocessing": self.preprocessing,
         }
 
 
-def cache_path_for_video(
-    video_path: str | Path, *, cache_root: str | Path | None = None
-) -> Path:
+def cache_path_for_video(video_path: str | Path, *, cache_root: str | Path | None = None) -> Path:
     path = Path(video_path)
     if cache_root is not None:
         return Path(cache_root) / path.stem
@@ -129,6 +137,7 @@ def cache_is_usable(
         Path(metadata.source_video).name != source.name
         or not math.isclose(metadata.cache_fps, cache_fps)
         or metadata.frame_size != size
+        or metadata.preprocessing != FULL_FRAME_LETTERBOX_V1
     ):
         return False
     frames_dir = cache_path / "frames"
@@ -138,19 +147,17 @@ def cache_is_usable(
     )
 
 
-def _crop_and_letterbox(frame: Any, roi: Any, *, size: int, cv2: Any) -> Any:
+def _full_frame_letterbox(frame: Any, *, size: int, cv2: Any) -> Any:
     import numpy as np
 
     frame_height, frame_width = frame.shape[:2]
-    x, y, width, height = roi.to_pixels(frame_width, frame_height)
-    cropped = frame[y : y + height, x : x + width]
-    if cropped.size == 0:
-        raise CacheError("The annotation ROI produced an empty crop.")
+    if frame_width <= 0 or frame_height <= 0:
+        raise CacheError("The source frame has an invalid size.")
 
-    scale = min(size / width, size / height)
-    resized_width = max(1, round(width * scale))
-    resized_height = max(1, round(height * scale))
-    resized = cv2.resize(cropped, (resized_width, resized_height), interpolation=cv2.INTER_AREA)
+    scale = min(size / frame_width, size / frame_height)
+    resized_width = max(1, round(frame_width * scale))
+    resized_height = max(1, round(frame_height * scale))
+    resized = cv2.resize(frame, (resized_width, resized_height), interpolation=cv2.INTER_AREA)
 
     canvas = np.zeros((size, size, 3), dtype=resized.dtype)
     x_offset = (size - resized_width) // 2
@@ -191,6 +198,9 @@ def extract_video_cache(
             "Check FFmpeg/OpenCV support for this codec: "
             f"{metadata.path}"
         )
+    orientation_auto = getattr(cv2, "CAP_PROP_ORIENTATION_AUTO", None)
+    if orientation_auto is not None:
+        capture.set(orientation_auto, 1)
 
     destination = cache_path_for_video(metadata.path, cache_root=cache_root)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -231,9 +241,8 @@ def extract_video_cache(
                     selected_frame = frame
                     selected_time_s = current_time_s
 
-                cached_frame = _crop_and_letterbox(
+                cached_frame = _full_frame_letterbox(
                     selected_frame,
-                    annotation.roi,
                     size=size,
                     cv2=cv2,
                 )
@@ -266,6 +275,7 @@ def extract_video_cache(
             duration_s=metadata.duration_s,
             frame_timestamps_s=tuple(frame_timestamps_s),
             frame_size=size,
+            preprocessing=FULL_FRAME_LETTERBOX_V1,
         )
         (temporary_dir / "metadata.json").write_text(
             json.dumps(cache_metadata.to_mapping(), indent=2) + "\n",

@@ -7,10 +7,16 @@ import cv2
 import numpy as np
 import pytest
 
-from cardevent.cache import cache_is_usable, extract_video_cache, load_cache_metadata
+from cardevent.cache import (
+    FULL_FRAME_LETTERBOX_V1,
+    _full_frame_letterbox,
+    cache_is_usable,
+    extract_video_cache,
+    load_cache_metadata,
+)
 
 
-def test_extract_video_cache_writes_roi_frames_and_timestamps(tmp_path: Path) -> None:
+def test_extract_video_cache_writes_full_frames_and_timestamps(tmp_path: Path) -> None:
     raw_dir = tmp_path / "data" / "raw"
     annotation_dir = tmp_path / "data" / "annotations"
     raw_dir.mkdir(parents=True)
@@ -54,6 +60,7 @@ def test_extract_video_cache_writes_roi_frames_and_timestamps(tmp_path: Path) ->
 
     assert metadata.source_video == "sample.avi"
     assert metadata.frame_size == 32
+    assert metadata.preprocessing == FULL_FRAME_LETTERBOX_V1
     assert metadata.frame_timestamps_s == pytest.approx((0.0, 0.1, 0.2))
     assert len(frames) == len(metadata.frame_timestamps_s)
     assert cv2.imread(str(frames[0])).shape == (32, 32, 3)
@@ -74,6 +81,7 @@ def test_cache_is_usable_requires_matching_complete_cache(tmp_path: Path) -> Non
                 "duration_s": 0.1,
                 "frame_timestamps_s": [0.0, 0.1],
                 "frame_size": 224,
+                "preprocessing": FULL_FRAME_LETTERBOX_V1,
             }
         ),
         encoding="utf-8",
@@ -84,9 +92,42 @@ def test_cache_is_usable_requires_matching_complete_cache(tmp_path: Path) -> Non
         "sample.mov", cache_root=tmp_path / "cache", cache_fps=10.0, size=224
     )
     (frames_dir / "000001.jpg").write_bytes(b"frame")
-    assert cache_is_usable(
+    assert cache_is_usable("sample.mov", cache_root=tmp_path / "cache", cache_fps=10.0, size=224)
+    assert not cache_is_usable("sample.mov", cache_root=tmp_path / "cache", cache_fps=5.0, size=224)
+
+
+def test_legacy_cache_without_preprocessing_is_not_usable(tmp_path: Path) -> None:
+    cache_dir = tmp_path / "cache" / "sample"
+    frames_dir = cache_dir / "frames"
+    frames_dir.mkdir(parents=True)
+    (cache_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "source_video": "sample.mov",
+                "cache_fps": 10.0,
+                "duration_s": 0.0,
+                "frame_timestamps_s": [0.0],
+                "frame_size": 224,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (frames_dir / "000000.jpg").write_bytes(b"frame")
+
+    assert not cache_is_usable(
         "sample.mov", cache_root=tmp_path / "cache", cache_fps=10.0, size=224
     )
-    assert not cache_is_usable(
-        "sample.mov", cache_root=tmp_path / "cache", cache_fps=5.0, size=224
-    )
+
+
+def test_full_frame_letterbox_keeps_edge_content() -> None:
+    frame = np.zeros((2, 4, 3), dtype=np.uint8)
+    frame[:, 0] = (10, 20, 30)
+    frame[:, -1] = (40, 50, 60)
+
+    result = _full_frame_letterbox(frame, size=8, cv2=cv2)
+
+    assert result.shape == (8, 8, 3)
+    assert np.all(result[:2] == 0)
+    assert np.all(result[6:] == 0)
+    assert tuple(result[2, 0]) == (10, 20, 30)
+    assert tuple(result[2, -1]) == (40, 50, 60)
