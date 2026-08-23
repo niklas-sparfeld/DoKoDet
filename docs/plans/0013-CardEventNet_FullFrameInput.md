@@ -3,7 +3,7 @@
 ## Plan status
 
 - Summary: Remove the manual CardEventNet ROI and use the complete camera frame
-- Status: In progress; Python Phases 1-3 implemented, retraining and iOS migration pending
+- Status: In progress; Python Phases 1-3 implemented, first Phase 4 comparison did not pass
 
 ## Decision
 
@@ -272,6 +272,8 @@ Phases 1-3 are implemented in Python:
 - all 38 local caches were rebuilt with `full_frame_letterbox_v1` on 2026-08-23.
 
 The populated metadata manifest and provisional session-safe development split are in
-`card_event_net/data/`. The next automated gate is the Phase 4 paired validation comparison.
-Core ML model replacement and iOS ROI removal remain blocked until a full-frame checkpoint passes
-that gate.
+`card_event_net/data/`. The first Phase 4 paired comparison met aggregate recall but increased
+false events/hour by 40.9% and reduced worst-video recall. See the
+[paired comparison report](../reports/0013-CardEventNet_FullFrame_Paired_Comparison.md). Core ML
+model replacement and iOS ROI removal remain blocked until a reviewed full-frame run passes the
+gate.

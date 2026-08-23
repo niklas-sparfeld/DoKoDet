@@ -15,6 +15,9 @@ budget. The loop stopped after two iterations, below the maximum of four.
 
 - Run: `card_event_net/data/outputs/unattended-20260823-130344/run-iteration-02`
 - Checkpoint: `card_event_net/data/outputs/unattended-20260823-130344/run-iteration-02/best.pt`
+- Checkpoint SHA-256:
+  `dc2171dfb9d15070ad9d900c0082d082e708954c4448c51a630ba2695fcf1523`
+- Checkpoint size: approximately 12 MB
 - Commit: `bd6fd481744f3bf1ea01bf7ebba153096b6f4cad`
 - Seed: 42
 - Device: MPS

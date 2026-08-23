@@ -411,8 +411,9 @@ The human should prioritize collecting scenarios missing from this matrix. The t
 ## Recommended first iteration
 
 1. Preserve the locked ROI result. Do not tune from its test failures.
-2. Complete the full-frame validation comparison and iOS migration in plan 0013. Python
-   annotation, cache, training, and inference migration is implemented.
+2. Review the failed full-frame comparison candidates from plan 0013. Python annotation, cache,
+   training, and inference migration is implemented. The first paired run had 40.9% more false
+   events/hour than the ROI baseline, so iOS migration remains blocked.
 3. Complete the two-pass Phase 1 consistency check on a small sample.
 4. Review the generated V1 metadata and capture-time session groups for the existing footage.
 5. Correct missing state-change annotations before mining hard negatives.
