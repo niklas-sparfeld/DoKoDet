@@ -291,6 +291,70 @@ def test_resume_rejects_config_mismatch(tmp_path: Path) -> None:
         _resume_state(checkpoint_path, config=changed_config, split=split)
 
 
+def test_early_stopping_resets_at_finetune_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    train_module = importlib.import_module("cardevent.train")
+    config_data = make_config().to_dict()
+    config_data["training"] = {
+        **config_data["training"],
+        "warmup_epochs": 2,
+        "finetune_epochs": 2,
+        "early_stopping": {
+            "metric": "validation_event_f1",
+            "patience": 2,
+            "min_delta": 0.005,
+        },
+    }
+    config = Config.from_mapping(config_data)
+    split = VideoSplit(train=("train",), val=("val",), test=("test",))
+    samples = [make_sample(0.0, 0.0), make_sample(1.0, 0.1)]
+    run_dir = tmp_path / "run"
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.backbone = torch.nn.Sequential(torch.nn.Linear(1, 1))
+            self.head = torch.nn.Linear(1, 1)
+
+    train_stages: list[bool] = []
+
+    monkeypatch.setattr(train_module, "build_model", lambda _config: FakeModel())
+    monkeypatch.setattr(
+        train_module,
+        "_training_samples_for_split",
+        lambda *_args, **_kwargs: samples,
+    )
+    monkeypatch.setattr(train_module, "_validation_videos", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        train_module,
+        "_make_loader",
+        lambda *_args, **_kwargs: SimpleNamespace(batch_size=2, num_workers=0),
+    )
+
+    def fake_train_epoch(*_args, **kwargs) -> float:
+        train_stages.append(kwargs["backbone_frozen"])
+        return 1.0
+
+    monkeypatch.setattr(train_module, "_run_train_epoch", fake_train_epoch)
+    monkeypatch.setattr(
+        train_module,
+        "_evaluate_validation",
+        lambda *_args, **_kwargs: {
+            "val_loss": 1.0,
+            "validation_event_f1": 0.5,
+            "validation_event_recall": 0.5,
+            "validation_precision": 0.5,
+            "validation_false_events_per_hour": 1.0,
+            "validation_latency_median_s": 0.0,
+        },
+    )
+
+    train_module.train_model(config, split, run_dir=run_dir, device_override="cpu")
+
+    assert train_stages == [True, True, False, False]
+
+
 def test_training_resume_keeps_completed_epochs_and_best_checkpoint(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

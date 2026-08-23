@@ -1116,8 +1116,6 @@ def train_model(
         )
 
     metrics_mode = "a" if resume_state else "w"
-    early_stopping_best = float("-inf")
-    epochs_without_improvement = 0
     stop_training = False
     with metrics_path.open(metrics_mode, encoding="utf-8") as metrics_file:
         for stage_index, (stage_name, stage_epochs, learning_rate, backbone_frozen) in enumerate(
@@ -1131,6 +1129,10 @@ def train_model(
                 freeze_backbone(model)
             else:
                 unfreeze_backbone(model)
+            # Warm-up must always reach the fine-tune boundary. Early stopping
+            # starts fresh when the backbone is unfrozen, including on resume.
+            early_stopping_best = float("-inf")
+            epochs_without_improvement = 0
             optimizer = torch.optim.AdamW(
                 (parameter for parameter in model.parameters() if parameter.requires_grad),
                 lr=learning_rate,
@@ -1327,6 +1329,8 @@ def train_model(
                     ),
                     row["train_samples_per_s"],
                 )
+                if stage_index < len(stages) - 1:
+                    continue
                 early_metric = float(
                         validation_metrics.get(
                             config.training.early_stopping.metric,
