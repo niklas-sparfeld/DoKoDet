@@ -19,6 +19,7 @@ from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
 from .manifest import ManifestError, load_dataset_manifest, make_group_split
+from .review import ReviewQueueError, apply_review_queue, review_queue_from_files
 from .splits import SplitError, make_video_split, save_split
 from .train import TrainingError, train_from_files
 from .video import VideoError
@@ -35,6 +36,8 @@ _PLACEHOLDER_COMMANDS = {
     "mine-hard-negatives": "Mine hard negatives from training videos.",
     "export-coreml": "Export a checkpoint to Core ML.",
     "extract-evidence": "Extract source-resolution evidence frames.",
+    "review-queue": "Build a human review queue from model candidates.",
+    "apply-review": "Apply reviewed outcomes to a new annotation version.",
 }
 
 
@@ -496,6 +499,56 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mine_parser.set_defaults(command_name="mine-hard-negatives")
 
+    review_queue_parser = subparsers.add_parser(
+        "review-queue",
+        help=_PLACEHOLDER_COMMANDS["review-queue"],
+        description=(
+            "Build a deterministic review queue. Generated outcomes remain unreviewed."
+        ),
+    )
+    review_queue_parser.add_argument("--checkpoint", type=Path, required=True)
+    review_queue_parser.add_argument("--split", type=Path, required=True)
+    review_queue_parser.add_argument(
+        "--partition", choices=("train", "val", "test"), required=True
+    )
+    review_queue_parser.add_argument("--out", type=Path, required=True)
+    review_queue_parser.add_argument("--cache-dir", type=Path, default=Path("data/cache"))
+    review_queue_parser.add_argument(
+        "--annotations-dir", type=Path, default=Path("data/annotations")
+    )
+    review_queue_parser.add_argument(
+        "--device", choices=("auto", "cpu", "cuda", "mps"), default=None
+    )
+    review_queue_parser.add_argument("--threshold", type=float, default=None)
+    review_queue_parser.add_argument("--low-confidence-margin", type=float, default=0.05)
+    review_queue_parser.add_argument("--empty-count", type=int, default=2)
+    review_queue_parser.add_argument("--seed", type=int, default=42)
+    review_queue_parser.add_argument("--preview-half-window", type=float, default=1.0)
+    review_queue_parser.add_argument(
+        "--compare-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional second checkpoint for model-version disagreement items.",
+    )
+    review_queue_parser.set_defaults(command_name="review-queue")
+
+    apply_review_parser = subparsers.add_parser(
+        "apply-review",
+        help=_PLACEHOLDER_COMMANDS["apply-review"],
+        description=(
+            "Apply explicit human outcomes to a new annotation directory. "
+            "The source directory is never modified."
+        ),
+    )
+    apply_review_parser.add_argument("--queue", type=Path, required=True)
+    apply_review_parser.add_argument(
+        "--annotations-dir", type=Path, default=Path("data/annotations")
+    )
+    apply_review_parser.add_argument("--out-dir", type=Path, required=True)
+    apply_review_parser.add_argument("--reviewer", required=True)
+    apply_review_parser.add_argument("--videos-dir", type=Path, default=Path("data/raw"))
+    apply_review_parser.set_defaults(command_name="apply-review")
+
     export_parser = subparsers.add_parser(
         "export-coreml",
         help="Export a checkpoint to Core ML.",
@@ -527,6 +580,8 @@ def build_parser() -> argparse.ArgumentParser:
             "baseline",
             "mine-hard-negatives",
             "export-coreml",
+            "review-queue",
+            "apply-review",
         }:
             continue
         command_parser = subparsers.add_parser(name, help=help_text, description=help_text)
@@ -741,6 +796,46 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (HardNegativeError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Mined {payload['hard_negative_count']} hard negatives: {args.out}")
+        return 0
+
+    if command_name == "review-queue":
+        try:
+            payload = review_queue_from_files(
+                args.checkpoint,
+                args.split,
+                partition=args.partition,
+                out_path=args.out,
+                cache_dir=args.cache_dir,
+                annotations_dir=args.annotations_dir,
+                device_override=args.device,
+                threshold=args.threshold,
+                low_confidence_margin=args.low_confidence_margin,
+                empty_count=args.empty_count,
+                seed=args.seed,
+                preview_half_window_s=args.preview_half_window,
+                compare_checkpoint_path=args.compare_checkpoint,
+            )
+        except (ReviewQueueError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote {len(payload['items'])} review items: {args.out}")
+        return 0
+
+    if command_name == "apply-review":
+        try:
+            summary = apply_review_queue(
+                args.queue,
+                annotations_dir=args.annotations_dir,
+                out_dir=args.out_dir,
+                reviewer=args.reviewer,
+                videos_dir=args.videos_dir,
+            )
+        except (ReviewQueueError, AnnotationError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(
+            f"Wrote annotation version {args.out_dir} "
+            f"({summary['annotations_added']} events added, "
+            f"{summary['timestamps_corrected']} timestamps corrected)"
+        )
         return 0
 
     if command_name == "export-coreml":

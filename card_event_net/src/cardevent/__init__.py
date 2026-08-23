@@ -79,6 +79,12 @@ from .model import (
     freeze_backbone,
     unfreeze_backbone,
 )
+from .review import (
+    ReviewQueueError,
+    apply_review_queue,
+    build_review_queue,
+    review_queue_from_files,
+)
 from .sampling import (
     DEFAULT_CLIP_OFFSETS_S,
     LabeledTime,
@@ -137,6 +143,7 @@ __all__ = [
     "ModelError",
     "ProbabilitySample",
     "Roi",
+    "ReviewQueueError",
     "SamplingError",
     "SplitError",
     "TransformError",
@@ -150,9 +157,11 @@ __all__ = [
     "VideoMetadata",
     "VideoSplit",
     "annotate_video",
+    "apply_review_queue",
     "annotation_path_for_video",
     "build_inference_times",
     "build_model",
+    "build_review_queue",
     "build_training_times",
     "cache_path_for_video",
     "backbone_is_frozen",
@@ -182,6 +191,7 @@ __all__ = [
     "prepare_videos",
     "resolve_device",
     "read_video_metadata",
+    "review_queue_from_files",
     "samples_for_annotation",
     "samples_for_cache",
     "save_config",
