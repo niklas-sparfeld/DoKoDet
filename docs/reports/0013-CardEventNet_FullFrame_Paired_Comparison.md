@@ -76,6 +76,13 @@ All 78 items have status and outcome `unreviewed`. The queue SHA-256 is
 `316dad637447d1c407c5ee25e96681d2f184389c0cada8aa82b9f82794a83901`.
 The queue is a local ignored artifact. No review outcome has been inferred or applied.
 
+The separate training queue is
+`card_event_net/data/outputs/full-frame-20260823/paired-new-v1/review-train.json`. It contains 278
+unreviewed items across all 19 training videos: 229 unmatched candidates, 3 missed annotations, 8
+possible merged events, and 38 sampled empty intervals. Its SHA-256 is
+`003d23e1bd193d5a15ffe436cd9c13ae25e1d2d1cb153d024a7b644e2b377099`.
+Review the validation queue first. Do not use confirmed validation negatives for training.
+
 For each inspected item, set `status` to `reviewed` and select one documented `outcome`. For a new
 `confirmed_positive`, also set `event_type` to the class from the labeling guide. For
 `annotation_timestamp_corrected`, set `timestamp_s` to the corrected time. Leave uncertain items
@@ -127,6 +134,15 @@ uv run cardevent review-queue \
   --split data/splits/new.yaml \
   --partition val \
   --out data/outputs/full-frame-20260823/paired-new-v1/review-val.json \
+  --cache-dir data/cache \
+  --annotations-dir data/annotations \
+  --device mps
+
+uv run cardevent review-queue \
+  --checkpoint data/outputs/full-frame-20260823/paired-new-v1/best.pt \
+  --split data/splits/new.yaml \
+  --partition train \
+  --out data/outputs/full-frame-20260823/paired-new-v1/review-train.json \
   --cache-dir data/cache \
   --annotations-dir data/annotations \
   --device mps

@@ -389,7 +389,8 @@ Checkpoint selection is based on a valid event-level operating point, and traini
 candidates. `cardevent apply-review` requires explicit human outcomes, validates the result, and
 writes a complete annotation version without changing the source directory. The first full-frame
 validation queue has 78 items. A new confirmed positive requires an explicit semantic event type.
-Human review is still required before the acceptance gate passes.
+A separate training queue has 278 items across 19 videos. Human review is still required before
+the acceptance gate passes.
 
 ### Code changes
 
