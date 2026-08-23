@@ -9,4 +9,5 @@
 .DS_Store
 **/data/cache/
 **/data/outputs/
+/diagnostics/
 **/node_modules/
