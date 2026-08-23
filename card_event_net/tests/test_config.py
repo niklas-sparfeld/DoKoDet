@@ -80,10 +80,11 @@ def test_config_declares_full_frame_preprocessing() -> None:
     assert config.to_dict()["input"]["preprocessing"] == FULL_FRAME_LETTERBOX_V1
 
 
-def test_config_rejects_unknown_preprocessing() -> None:
+@pytest.mark.parametrize("value", ("center_crop_v1", []))
+def test_config_rejects_unknown_preprocessing(value: object) -> None:
     data = sample_config_dict()
     data["input"] = dict(data["input"])
-    data["input"]["preprocessing"] = "center_crop_v1"
+    data["input"]["preprocessing"] = value
 
     with pytest.raises(ConfigError, match="input.preprocessing"):
         Config.from_mapping(data)

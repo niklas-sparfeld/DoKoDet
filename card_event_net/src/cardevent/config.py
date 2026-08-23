@@ -130,7 +130,10 @@ class InputConfig:
         clip_offsets_s = _require_float_sequence(mapping, "clip_offsets_s", expected_len=8)
         inference_stride_s = _require_float(mapping, "inference_stride_s", min_value=0.0)
         preprocessing = mapping.get("preprocessing", LEGACY_ROI_LETTERBOX_V1)
-        if preprocessing not in {FULL_FRAME_LETTERBOX_V1, LEGACY_ROI_LETTERBOX_V1}:
+        if not isinstance(preprocessing, str) or preprocessing not in {
+            FULL_FRAME_LETTERBOX_V1,
+            LEGACY_ROI_LETTERBOX_V1,
+        }:
             raise ConfigError(
                 "input.preprocessing must be full_frame_letterbox_v1 or roi_letterbox_v1."
             )
