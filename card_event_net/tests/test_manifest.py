@@ -12,7 +12,7 @@ from cardevent.manifest import (
     make_group_split,
     validate_session_isolation,
 )
-from cardevent.splits import SplitError, VideoSplit
+from cardevent.splits import SplitError, VideoSplit, load_split
 
 
 def test_group_split_keeps_sessions_together() -> None:
@@ -43,6 +43,18 @@ def test_load_versioned_example_manifest() -> None:
         "trick_collected_during_play",
         "collected_tricks_visible",
     )
+
+
+def test_current_manifest_covers_local_annotations_and_development_split() -> None:
+    data_dir = Path(__file__).parents[1] / "data"
+    records = load_dataset_manifest(data_dir / "dataset-manifest.v1.yaml")
+    split = load_split(data_dir / "splits" / "full-frame-development.yaml")
+
+    expected_video_ids = {path.stem for path in (data_dir / "annotations").glob("*.json")}
+    assert {record.video_id for record in records} == expected_video_ids
+    assert {path.stem for path in (data_dir / "raw").glob("*.*")} == expected_video_ids
+    assert "IMG_2781" not in split.train + split.val + split.test
+    validate_session_isolation(split, records)
 
 
 def test_versioned_manifest_requires_complete_records(tmp_path: Path) -> None:
