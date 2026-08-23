@@ -5,6 +5,8 @@ from math import isclose
 from pathlib import Path
 from typing import Any, Mapping
 
+from .cache import FULL_FRAME_LETTERBOX_V1, LEGACY_ROI_LETTERBOX_V1
+
 
 class ConfigError(ValueError):
     pass
@@ -116,6 +118,7 @@ class InputConfig:
     cache_fps: float
     clip_offsets_s: tuple[float, ...]
     inference_stride_s: float
+    preprocessing: str
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "InputConfig":
@@ -126,9 +129,12 @@ class InputConfig:
         cache_fps = _require_float(mapping, "cache_fps", min_value=0.0)
         clip_offsets_s = _require_float_sequence(mapping, "clip_offsets_s", expected_len=8)
         inference_stride_s = _require_float(mapping, "inference_stride_s", min_value=0.0)
-        if any(
-            b < a for a, b in zip(clip_offsets_s, clip_offsets_s[1:], strict=False)
-        ):
+        preprocessing = mapping.get("preprocessing", LEGACY_ROI_LETTERBOX_V1)
+        if preprocessing not in {FULL_FRAME_LETTERBOX_V1, LEGACY_ROI_LETTERBOX_V1}:
+            raise ConfigError(
+                "input.preprocessing must be full_frame_letterbox_v1 or roi_letterbox_v1."
+            )
+        if any(b < a for a, b in zip(clip_offsets_s, clip_offsets_s[1:], strict=False)):
             raise ConfigError("clip_offsets_s must be sorted from low to high.")
         if any(offset > 0.0 for offset in clip_offsets_s):
             raise ConfigError("clip_offsets_s must not include future frames.")
@@ -139,6 +145,7 @@ class InputConfig:
             cache_fps=cache_fps,
             clip_offsets_s=clip_offsets_s,
             inference_stride_s=inference_stride_s,
+            preprocessing=preprocessing,
         )
 
 

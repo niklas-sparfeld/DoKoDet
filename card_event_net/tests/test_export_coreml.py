@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -12,6 +13,7 @@ from cardevent.export_coreml import (
     COREML_INPUT_NAME,
     COREML_INPUT_SHAPE,
     COREML_OUTPUT_NAME,
+    COREML_PREPROCESSING_METADATA_KEY,
     CoreMLExportError,
     CoreMLExportModel,
     deterministic_sample,
@@ -85,6 +87,7 @@ class _FakeConvertedModel:
     def __init__(self, traced_model: torch.jit.ScriptModule) -> None:
         self.traced_model = traced_model
         self.saved_path: str | None = None
+        self.user_defined_metadata: dict[str, str] = {}
 
     def save(self, path: str) -> None:
         self.saved_path = path
@@ -124,7 +127,16 @@ def test_export_checkpoint_uses_fixed_shape_and_checks_parity(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     fake_coremltools = _FakeCoreMLTools()
-    loaded = type("Loaded", (), {"model": _TinyModel()})()
+    loaded = type(
+        "Loaded",
+        (),
+        {
+            "model": _TinyModel(),
+            "config": SimpleNamespace(
+                input=SimpleNamespace(preprocessing="full_frame_letterbox_v1")
+            ),
+        },
+    )()
     monkeypatch.setattr(export_coreml, "_load_coremltools", lambda: fake_coremltools)
     monkeypatch.setattr(export_coreml, "load_checkpoint", lambda *_args, **_kwargs: loaded)
     monkeypatch.setattr(export_coreml, "CoreMLExportModel", lambda model: model)
@@ -138,3 +150,22 @@ def test_export_checkpoint_uses_fixed_shape_and_checks_parity(
     assert fake_coremltools.compute_precision is fake_coremltools.precision.FLOAT32
     assert fake_coremltools.converted is not None
     assert fake_coremltools.converted.saved_path == str(destination)
+    assert fake_coremltools.converted.user_defined_metadata == {
+        COREML_PREPROCESSING_METADATA_KEY: "full_frame_letterbox_v1"
+    }
+
+
+def test_export_rejects_legacy_roi_checkpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    loaded = type(
+        "Loaded",
+        (),
+        {
+            "model": _TinyModel(),
+            "config": SimpleNamespace(input=SimpleNamespace(preprocessing="roi_letterbox_v1")),
+        },
+    )()
+    monkeypatch.setattr(export_coreml, "_load_coremltools", _FakeCoreMLTools)
+    monkeypatch.setattr(export_coreml, "load_checkpoint", lambda *_args, **_kwargs: loaded)
+
+    with pytest.raises(CoreMLExportError, match="full_frame_letterbox_v1"):
+        export_coreml.export_checkpoint_to_coreml("checkpoint.pt", "CardEventNet.mlpackage")

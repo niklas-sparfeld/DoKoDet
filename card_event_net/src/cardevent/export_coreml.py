@@ -8,12 +8,14 @@ import numpy as np
 import torch
 from torch import nn
 
+from .cache import FULL_FRAME_LETTERBOX_V1
 from .infer import InferenceError, load_checkpoint
 from .model import CardEventNet
 
 COREML_INPUT_NAME = "clips"
 COREML_OUTPUT_NAME = "logit"
 COREML_INPUT_SHAPE = (1, 8, 3, 224, 224)
+COREML_PREPROCESSING_METADATA_KEY = "com.doko-detector.cardevent.preprocessing"
 
 
 class CoreMLExportError(RuntimeError):
@@ -69,9 +71,7 @@ def verify_coreml_parity(
         raise CoreMLExportError("Parity tolerances must not be negative.")
 
     try:
-        prediction = coreml_model.predict(
-            {COREML_INPUT_NAME: sample.detach().cpu().numpy()}
-        )
+        prediction = coreml_model.predict({COREML_INPUT_NAME: sample.detach().cpu().numpy()})
     except Exception as exc:
         raise CoreMLExportError(
             "Core ML prediction failed during the parity check. "
@@ -130,6 +130,11 @@ def export_checkpoint_to_coreml(
         loaded = load_checkpoint(checkpoint_path, device_override="cpu")
     except (InferenceError, RuntimeError, ValueError, OSError) as exc:
         raise CoreMLExportError(f"Could not load checkpoint for Core ML export: {exc}") from exc
+    if loaded.config.input.preprocessing != FULL_FRAME_LETTERBOX_V1:
+        raise CoreMLExportError(
+            "Core ML export requires a full_frame_letterbox_v1 checkpoint. "
+            "Retrain with the full-frame preprocessing contract first."
+        )
 
     sample = deterministic_sample(seed=sample_seed)
     loaded.model.eval()
@@ -153,6 +158,9 @@ def export_checkpoint_to_coreml(
         )
     except Exception as exc:
         raise CoreMLExportError(f"Could not convert checkpoint to Core ML: {exc}") from exc
+    converted_model.user_defined_metadata[COREML_PREPROCESSING_METADATA_KEY] = (
+        loaded.config.input.preprocessing
+    )
 
     actual_logit: float | None = None
     max_abs_error: float | None = None

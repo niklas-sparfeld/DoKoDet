@@ -6,14 +6,18 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytest
+import torch
 
 from cardevent.cache import (
     FULL_FRAME_LETTERBOX_V1,
+    CacheError,
     _full_frame_letterbox,
     cache_is_usable,
     extract_video_cache,
     load_cache_metadata,
+    require_cache_preprocessing,
 )
+from cardevent.transforms import ClipTransform
 
 
 def test_extract_video_cache_writes_full_frames_and_timestamps(tmp_path: Path) -> None:
@@ -131,3 +135,45 @@ def test_full_frame_letterbox_keeps_edge_content() -> None:
     assert np.all(result[6:] == 0)
     assert tuple(result[2, 0]) == (10, 20, 30)
     assert tuple(result[2, -1]) == (40, 50, 60)
+
+
+def test_require_cache_preprocessing_rejects_mismatch(tmp_path: Path) -> None:
+    cache_dir = tmp_path / "sample"
+    cache_dir.mkdir()
+    (cache_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "source_video": "sample.mov",
+                "cache_fps": 10.0,
+                "duration_s": 1.0,
+                "frame_timestamps_s": [0.0],
+                "frame_size": 224,
+                "preprocessing": "roi_letterbox_v1",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CacheError, match="preprocessing mismatch"):
+        require_cache_preprocessing(cache_dir, FULL_FRAME_LETTERBOX_V1)
+
+
+def test_full_frame_preprocessing_fixture_has_expected_tensor() -> None:
+    frame = np.zeros((2, 4, 3), dtype=np.uint8)
+    frame[:, 0] = (10, 20, 30)
+    letterboxed = _full_frame_letterbox(frame, size=8, cv2=cv2)
+    rgb = cv2.cvtColor(letterboxed, cv2.COLOR_BGR2RGB)
+    clip = torch.from_numpy(rgb).permute(2, 0, 1).repeat(8, 1, 1, 1)
+
+    tensor = ClipTransform(training=False)(clip)
+
+    expected_edge = torch.tensor(
+        [
+            (30 / 255 - 0.485) / 0.229,
+            (20 / 255 - 0.456) / 0.224,
+            (10 / 255 - 0.406) / 0.225,
+        ]
+    )
+    expected_black = torch.tensor([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225])
+    assert torch.allclose(tensor[0, :, 2, 0], expected_edge)
+    assert torch.allclose(tensor[0, :, 0, 0], expected_black)

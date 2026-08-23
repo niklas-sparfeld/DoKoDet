@@ -8,7 +8,12 @@ from typing import Any, Mapping, Sequence
 import torch
 from torch.utils.data import DataLoader
 
-from .cache import CacheError, cache_path_for_video, load_cache_metadata
+from .cache import (
+    CacheError,
+    cache_path_for_video,
+    load_cache_metadata,
+    require_cache_preprocessing,
+)
 from .config import Config
 from .dataset import CausalClipDataset, DatasetSample, inference_samples_for_cache
 from .device import resolve_device
@@ -53,8 +58,7 @@ def load_checkpoint(
     state_dict = checkpoint.get("model_state")
     if not isinstance(config_mapping, Mapping) or not isinstance(state_dict, Mapping):
         raise InferenceError(
-            "Checkpoint is missing the Phase 4 'config' or 'model_state' fields: "
-            f"{checkpoint_file}"
+            f"Checkpoint is missing the Phase 4 'config' or 'model_state' fields: {checkpoint_file}"
         )
 
     try:
@@ -119,6 +123,7 @@ def infer_cached_video(
     """Run full-video causal inference using a prepared cache."""
     cache_path = Path(cache_dir)
     try:
+        require_cache_preprocessing(cache_path, loaded.config.input.preprocessing)
         samples = inference_samples_for_cache(
             cache_path,
             stride_s=loaded.config.input.inference_stride_s,
@@ -142,11 +147,13 @@ def _prediction_payload(
     device: str,
     threshold: float | None,
     merge_window_s: float,
+    preprocessing: str,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "source_video": source_video,
         "checkpoint": checkpoint,
         "device": device,
+        "preprocessing": preprocessing,
         "probabilities": [prediction.to_mapping() for prediction in predictions],
     }
     if threshold is not None:
@@ -201,6 +208,7 @@ def infer_from_files(
         device=str(loaded.device),
         threshold=threshold,
         merge_window_s=selected_merge_window,
+        preprocessing=metadata.preprocessing,
     )
     destination = Path(out_path)
     destination.parent.mkdir(parents=True, exist_ok=True)

@@ -2,6 +2,7 @@ seed: 42
 
 input:
   size: 224
+  preprocessing: full_frame_letterbox_v1
   cache_fps: 10.0
   clip_offsets_s: [-1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0]
   inference_stride_s: 0.125

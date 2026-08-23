@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from cardevent.cache import FULL_FRAME_LETTERBOX_V1, LEGACY_ROI_LETTERBOX_V1
 from cardevent.config import Config, ConfigError, load_config
 
 
@@ -53,6 +54,7 @@ def test_config_from_mapping_round_trips() -> None:
     config = Config.from_mapping(sample_config_dict())
 
     assert config.seed == 42
+    assert config.input.preprocessing == LEGACY_ROI_LETTERBOX_V1
     assert config.input.clip_offsets_s == (-1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0)
     assert config.training.hard_negative_repeat == 3
     assert config.to_dict()["input"]["clip_offsets_s"] == [
@@ -65,6 +67,26 @@ def test_config_from_mapping_round_trips() -> None:
         -0.2,
         0.0,
     ]
+
+
+def test_config_declares_full_frame_preprocessing() -> None:
+    data = sample_config_dict()
+    data["input"] = dict(data["input"])
+    data["input"]["preprocessing"] = FULL_FRAME_LETTERBOX_V1
+
+    config = Config.from_mapping(data)
+
+    assert config.input.preprocessing == FULL_FRAME_LETTERBOX_V1
+    assert config.to_dict()["input"]["preprocessing"] == FULL_FRAME_LETTERBOX_V1
+
+
+def test_config_rejects_unknown_preprocessing() -> None:
+    data = sample_config_dict()
+    data["input"] = dict(data["input"])
+    data["input"]["preprocessing"] = "center_crop_v1"
+
+    with pytest.raises(ConfigError, match="input.preprocessing"):
+        Config.from_mapping(data)
 
 
 def test_config_rejects_future_offsets() -> None:

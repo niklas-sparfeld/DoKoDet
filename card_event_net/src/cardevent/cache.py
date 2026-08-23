@@ -119,6 +119,20 @@ def load_cache_metadata(cache_dir: str | Path) -> CacheMetadata:
     return CacheMetadata.from_mapping(data)
 
 
+def require_cache_preprocessing(
+    cache_dir: str | Path, expected_preprocessing: str
+) -> CacheMetadata:
+    """Load cache metadata and fail when its image contract does not match."""
+    metadata = load_cache_metadata(cache_dir)
+    if metadata.preprocessing != expected_preprocessing:
+        raise CacheError(
+            "Cache preprocessing mismatch: "
+            f"expected {expected_preprocessing}, got {metadata.preprocessing}. "
+            "Rebuild the cache with `cardevent prepare`."
+        )
+    return metadata
+
+
 def cache_is_usable(
     video_path: str | Path,
     *,
