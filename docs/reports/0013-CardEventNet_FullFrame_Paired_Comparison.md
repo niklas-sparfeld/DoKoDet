@@ -62,6 +62,37 @@ until a human reviews them.
 The generated run directory is local and ignored by git. Preserve it or archive it before deleting
 local training outputs.
 
+## Human review queue
+
+The deterministic validation queue is in
+`card_event_net/data/outputs/full-frame-20260823/paired-new-v1/review-val.json`. It contains:
+
+- 62 unmatched model candidates;
+- 3 missed annotations, all in `IMG_0639`;
+- 5 low-confidence matches;
+- 8 sampled empty intervals.
+
+All 78 items have status and outcome `unreviewed`. The queue SHA-256 is
+`316dad637447d1c407c5ee25e96681d2f184389c0cada8aa82b9f82794a83901`.
+The queue is a local ignored artifact. No review outcome has been inferred or applied.
+
+For each inspected item, set `status` to `reviewed` and select one documented `outcome`. For a new
+`confirmed_positive`, also set `event_type` to the class from the labeling guide. For
+`annotation_timestamp_corrected`, set `timestamp_s` to the corrected time. Leave uncertain items
+unchanged. After review, create a new annotation version with:
+
+```bash
+uv run cardevent apply-review \
+  --queue data/outputs/full-frame-20260823/paired-new-v1/review-val.json \
+  --annotations-dir data/annotations \
+  --out-dir data/annotations-full-frame-review-v1 \
+  --reviewer REVIEWER_NAME \
+  --videos-dir data/raw
+```
+
+The command rejects inconsistent review status, preserves all source annotations, validates the
+new version, and writes a change summary and a separate hard-negative file.
+
 ## Commands
 
 ```bash
@@ -89,6 +120,15 @@ uv run cardevent diagnose \
   --cache-dir data/cache \
   --annotations-dir data/annotations \
   --out data/outputs/full-frame-20260823/paired-new-v1/diagnostics.json \
+  --device mps
+
+uv run cardevent review-queue \
+  --checkpoint data/outputs/full-frame-20260823/paired-new-v1/best.pt \
+  --split data/splits/new.yaml \
+  --partition val \
+  --out data/outputs/full-frame-20260823/paired-new-v1/review-val.json \
+  --cache-dir data/cache \
+  --annotations-dir data/annotations \
   --device mps
 ```
 

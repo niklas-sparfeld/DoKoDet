@@ -385,6 +385,12 @@ Checkpoint selection is based on a valid event-level operating point, and traini
 
 ## Phase 8: Build the human review queue
 
+**Current state:** Implemented. `cardevent review-queue` creates deterministic, unreviewed
+candidates. `cardevent apply-review` requires explicit human outcomes, validates the result, and
+writes a complete annotation version without changing the source directory. The first full-frame
+validation queue has 78 items. A new confirmed positive requires an explicit semantic event type.
+Human review is still required before the acceptance gate passes.
+
 ### Code changes
 
 Create a command that compares model candidates with confirmed annotations:

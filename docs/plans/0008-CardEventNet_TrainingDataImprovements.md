@@ -202,8 +202,11 @@ A newly supplied folder of videos can be ingested reproducibly and appears in a 
 Start with a relatively small number of varied sessions rather than a huge number of clips from one recording.
 
 **Current state:** The annotator supports typed point events, timestamp edits, confidence changes,
-model proposals, and before/after comparison. It does not yet provide the complete versioned
-review-queue and apply workflow from plan 0011.
+model proposals, and before/after comparison. The versioned review-queue and apply workflow from
+plan 0011 is implemented. The first full-frame validation queue contains 78 unreviewed items. The
+apply command requires explicit review status and writes a complete new annotation directory. It
+does not modify the source annotations. A new confirmed positive also requires an explicit event
+type.
 
 ### LLM/tooling work
 
@@ -411,15 +414,16 @@ The human should prioritize collecting scenarios missing from this matrix. The t
 ## Recommended first iteration
 
 1. Preserve the locked ROI result. Do not tune from its test failures.
-2. Review the failed full-frame comparison candidates from plan 0013. Python annotation, cache,
-   training, and inference migration is implemented. The first paired run had 40.9% more false
-   events/hour than the ROI baseline, so iOS migration remains blocked.
+2. Review the 78 candidates in the generated full-frame validation queue. Python annotation,
+   cache, training, inference, and review-queue tooling is implemented. The first paired run had
+   40.9% more false events/hour than the ROI baseline, so iOS migration remains blocked.
 3. Complete the two-pass Phase 1 consistency check on a small sample.
 4. Review the generated V1 metadata and capture-time session groups for the existing footage.
 5. Correct missing state-change annotations before mining hard negatives.
 6. Collect independent real-game sessions and targeted staged scenarios for the known gaps.
 7. Reserve a new independent session for future full-frame testing.
-8. Train on a session-safe split and generate failure-review queues.
+8. Apply the reviewed queue to a new annotation version. Then train on a session-safe split and
+   generate the next failure-review queue.
 9. Repeat until modern-iPhone real-game validation performance stabilizes.
 10. Evaluate the new held-out test once, then introduce one other-phone domain.
 
