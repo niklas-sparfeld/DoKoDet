@@ -131,9 +131,21 @@ def test_training_transform_uses_independent_configuration_per_batch_clip() -> N
 
     transformed = transform(torch.stack((clip, clip)))
 
+    assert transformed.is_contiguous()
     assert torch.equal(transformed[0, 0], transformed[0, -1])
     assert torch.equal(transformed[1, 0], transformed[1, -1])
     assert not torch.equal(transformed[0], transformed[1])
+
+
+def test_training_transform_returns_contiguous_mps_batch() -> None:
+    if not torch.backends.mps.is_available():
+        pytest.skip("MPS is not available")
+
+    clip = torch.full((2, 8, 3, 224, 224), 128, dtype=torch.uint8, device="mps")
+
+    transformed = ClipTransform(training=True, rng=random.Random(0))(clip)
+
+    assert transformed.is_contiguous()
 
 
 @pytest.mark.parametrize("device_type", ("cuda", "mps"))

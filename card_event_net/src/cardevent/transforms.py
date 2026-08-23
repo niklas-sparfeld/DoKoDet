@@ -54,7 +54,7 @@ class ClipTransform:
         shape = (1, 3, 1, 1) if tensor.ndim == 4 else (1, 1, 3, 1, 1)
         mean = tensor.new_tensor((0.485, 0.456, 0.406)).view(shape)
         std = tensor.new_tensor((0.229, 0.224, 0.225)).view(shape)
-        return (tensor - mean) / std
+        return ((tensor - mean) / std).contiguous()
 
     def _augment_clip(self, clip: Any, functional: Any) -> Any:
         """Augment all frames in one clip with one shared configuration."""
