@@ -3,7 +3,7 @@
 ## Plan status
 
 - Summary: Remove the manual CardEventNet ROI and use the complete camera frame
-- Status: Planned
+- Status: In progress; Python Phases 1-3 implemented, retraining and iOS migration pending
 
 ## Decision
 
@@ -36,9 +36,9 @@ can be used.
 Evidence upload already keeps full frames. ROI fields used by other future vision components are
 outside this plan. Audit them separately before removing them from another contract.
 
-## Current coupling
+## Legacy coupling
 
-The ROI currently affects more than the annotation UI:
+The ROI affected more than the annotation UI in the legacy pipeline:
 
 1. Each annotation requires normalized ROI coordinates.
 2. Cache preparation crops to those coordinates and letterboxes the crop to `224 x 224`.
@@ -141,9 +141,10 @@ Train a new checkpoint from the normal pretrained backbone with full-frame cache
 paired comparison, use the same split, labels, seed, temporal sampling, architecture, and decoder
 as the latest accepted ROI run. This isolates the preprocessing change.
 
-The repository does not yet contain a populated metadata manifest that proves the current split
-is session-isolated. Treat the paired comparison as a preprocessing diagnostic, not as a
-generalization estimate.
+The populated V1 manifest and `full-frame-development.yaml` provide a provisional session-isolated
+development split. Its capture groups and semantic metadata still need human confirmation. Treat
+the comparison on `new.yaml` as a paired preprocessing diagnostic. Treat the provisional
+session-isolated split as a stronger development check, but not as a final generalization result.
 
 Compare on validation only:
 
@@ -256,3 +257,21 @@ Track `camera_framing` and require contextual validation footage.
 ### Old and new artifacts are mixed
 
 Version preprocessing in caches, run summaries, exports, and the app contract. Fail on a mismatch.
+
+## Implementation record
+
+Phases 1-3 are implemented in Python:
+
+- annotation V2 removes ROI geometry from new files and keeps V1 read compatibility;
+- cache preparation letterboxes the complete oriented frame;
+- cache reuse rejects old or mismatched preprocessing;
+- configs, checkpoints, run summaries, inference output, and Core ML exports record the
+  preprocessing identifier;
+- training and inference fail when checkpoint and cache preprocessing differ;
+- fixed image and tensor fixtures cover frame edges, RGB order, and ImageNet normalization;
+- all 38 local caches were rebuilt with `full_frame_letterbox_v1` on 2026-08-23.
+
+The populated metadata manifest and provisional session-safe development split are in
+`card_event_net/data/`. The next automated gate is the Phase 4 paired validation comparison.
+Core ML model replacement and iOS ROI removal remain blocked until a full-frame checkpoint passes
+that gate.

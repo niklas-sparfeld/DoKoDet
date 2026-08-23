@@ -7,9 +7,13 @@ Run the commands below from `card_event_net/`.
 
 ## Current state
 
-New annotations use the full frame and do not require a selected ROI. The current cache and model
-preprocessing are still being migrated under [Plan 0013](../docs/plans/0013-CardEventNet_FullFrameInput.md).
-Do not use legacy ROI geometry to decide annotation semantics.
+New annotations and caches use the full frame. They do not require a selected ROI. New training
+runs and Python inference require the preprocessing identifier `full_frame_letterbox_v1`. Legacy
+ROI annotations still load, but their geometry does not control preprocessing.
+
+The checked-in Core ML model and the iOS probe still use the legacy ROI contract. Do not combine
+them with a new full-frame checkpoint. [Plan 0013](../docs/plans/0013-CardEventNet_FullFrameInput.md)
+tracks the remaining retraining and iOS migration.
 
 This repo has the model, annotation, inference, evaluation, hard-negative, and Core ML export
 pipeline:
@@ -285,8 +289,10 @@ uv run cardevent export-coreml \
   --out CardEventNet.mlpackage
 ```
 
-The package has one fixed input named `clips` with shape `[1, 8, 3, 224, 224]`. Input values
-must be ImageNet-normalized `float32` values. The output is one raw logit named `logit`.
+Export accepts only a checkpoint with `full_frame_letterbox_v1` preprocessing. The package records
+this identifier in its user-defined metadata. It has one fixed input named `clips` with shape
+`[1, 8, 3, 224, 224]`. Input values must be ImageNet-normalized `float32` values. The output is
+one raw logit named `logit`.
 The v1 package also uses float32 computation to keep the converted logit close to PyTorch.
 The command runs a deterministic PyTorch/Core ML parity check by default. Use
 `--skip-parity` only when the Core ML prediction runtime is not available.

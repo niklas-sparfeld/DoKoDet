@@ -411,9 +411,10 @@ The human should prioritize collecting scenarios missing from this matrix. The t
 ## Recommended first iteration
 
 1. Preserve the locked ROI result. Do not tune from its test failures.
-2. Implement the full-frame migration in plan 0013.
+2. Complete the full-frame validation comparison and iOS migration in plan 0013. Python
+   annotation, cache, training, and inference migration is implemented.
 3. Complete the two-pass Phase 1 consistency check on a small sample.
-4. Register the existing footage with V1 metadata and session groups.
+4. Review the generated V1 metadata and capture-time session groups for the existing footage.
 5. Correct missing state-change annotations before mining hard negatives.
 6. Collect independent real-game sessions and targeted staged scenarios for the known gaps.
 7. Reserve a new independent session for future full-frame testing.
