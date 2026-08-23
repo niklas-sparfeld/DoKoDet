@@ -1,18 +1,76 @@
 # CardEventNet Training-Data Expansion Plan
+
 ## Plan status
 
 - **Summary:** Extend CardEventNet training data
-- **Status:** Draft
+- **Status:** In progress; Phase 1 drafted, full-frame migration and consistency gate pending
 
 ## Objective
 
-Expand CardEventNet’s training data through an iterative workflow in which tooling handles extraction, organization, model-assisted selection, and validation, while a human makes the semantic and quality-sensitive decisions.
+Expand CardEventNet's training data through an iterative workflow. Tooling handles extraction,
+organization, model-assisted selection, and validation. A human makes semantic and
+quality-sensitive decisions.
 
-The first target domain will be footage from modern iPhones under realistic deployment conditions. Other phones and older footage will be introduced gradually to measure whether they improve robustness without reducing performance in the primary domain.
+The primary target domain is real Doppelkopf footage from modern iPhones under realistic
+deployment conditions. Introduce other phones and older footage gradually. Measure whether each
+domain improves robustness without reducing performance in the primary domain.
+
+## Related work and current evidence
+
+This plan uses the tooling and findings from:
+
+- [0010](0010-CardEventNet_Training_Diagnostics.md), which added event-level threshold,
+  per-video, and failure diagnostics;
+- [0011](0011-CardEventNet_Corrective.md), which added typed annotations, three-way temporal
+  labels, peak-based decoding, optimal event matching, exact threshold calibration, and
+  session-aware manifest support;
+- [0012](0012-CardEventNet_Unattended_Improvement_Loop.md), which used those diagnostics to reduce
+  validation false events and then stopped after one final test evaluation;
+- [0013](0013-CardEventNet_FullFrameInput.md), which removes manual ROI setup and aligns training
+  with full-frame production input.
+
+The completed improvement loop showed that threshold tuning is not sufficient. Validation recall
+reached 0.9875 and false events fell from 144 to 44. The one-time test evaluation reached only
+0.8951 recall. Many remaining false triggers have high confidence, and no
+confirmed-hard-negative manifest was used. Before the next data cycle, annotations must cover
+every meaningful state change. Otherwise, a real but missing event can be trained as a negative.
+
+Do not use the old test failures to tune the full-frame pipeline. Treat that result as the final
+estimate for the ROI pipeline. Record a new independent held-out session before the final
+full-frame evaluation.
+
+## Current data domain
+
+The current videos are **staged trick sequences**. A staged trick sequence is real camera footage
+in which a person plays repeated groups of four cards without playing a real game. Use
+`staged_trick_sequence` in video metadata. Do not call this footage synthetic or artificial.
+
+This footage has useful diversity:
+
+- realistic camera setups and angles;
+- varied lighting and backgrounds;
+- varied card positions.
+
+It also has known domain gaps:
+
+- play cadence is too regular;
+- pauses between tricks are shorter than many game pauses;
+- separate plays do not overlap enough;
+- mistakes and corrections are rare;
+- one actor moves the cards;
+- no game decisions occur.
+
+Record these properties in metadata. Do not infer them later from filenames. More footage from
+the same domain will not by itself close these gaps.
+
+Most current videos use tight table framing. This makes full-frame migration practical, but it is
+also a coverage gap. Add contextual and wide framing after the migration. Record the framing in
+`camera_framing`.
 
 ## Working label definition
 
-An event is positive when it should cause the system to reevaluate the visible card state—not only when it represents a valid play.
+An event is positive when it should cause the system to reevaluate the visible card state. It does
+not have to be a valid play.
 
 Positive examples include:
 
@@ -32,51 +90,90 @@ Hard negatives include:
 - Camera shake, autofocus, or exposure changes
 - Cards being handled exclusively in a player’s hand
 
-Ambiguous tiny movements will be labeled according to this rule:
+Use this rule for ambiguous movement:
 
 > Label an event positive if rerunning card detection after it could legitimately produce a different table state.
 
+The operational movement threshold is one quarter of a card's visible short edge or 15 degrees of
+rotation. Also label smaller movement when it changes card identity, overlap, role, or ownership.
+Do not label smaller taps or jitter when the useful state stays the same.
+
+The complete class and timing rules are in
+[CardEventNet labeling guidelines](../CardEventNet_LabelingGuidelines.md).
+
 ## Phase 1: Establish the data contract
 
-### LLM/tooling work
+### Decisions
 
-- Define the annotation schema.
-- Define required video metadata:
-  - device and camera
-  - resolution and frame rate
-  - recording date
-  - game/session identifier
-  - table/setup identifier
-  - lighting and camera-position tags
-  - source and usage permission
-- Define event fields:
-  - event start
-  - state-change or contact time
-  - event end or settled state
-  - event subtype
-  - confidence
-  - ambiguity notes
-- Create a machine-readable annotation format.
-- Create written labeling guidelines with representative examples.
+- Use `staged_trick_sequence` for the current repeated four-card recordings.
+- Use the complete camera frame. Do not define a manual ROI or a geometric active area.
+- Keep annotations as point events. Do not store movement intervals.
+- Set an event time at the earliest frame where the new state is observable.
+- Do not wait for a hand to leave or for the table to become empty.
+- Label close semantic events separately, even inside the current decoder gap.
+- Store hard negatives separately from positive event annotations.
+- Keep model proposals unconfirmed until a human reviews them.
+
+### Implemented tooling work
+
+- The versioned video metadata contract is defined in
+  [`video-metadata-v1.schema.json`](../../card_event_net/schemas/video-metadata-v1.schema.json).
+- A complete staged-video example is in
+  [`dataset-manifest.example.yaml`](../../card_event_net/data/dataset-manifest.example.yaml).
+- Metadata distinguishes a recording session, a real game, and a physical table setup.
+- Metadata records content type, technical capture data, camera geometry, lighting, scenario
+  coverage, known limitations, provenance, and usage permission.
+- The current annotation JSON remains backward compatible. Its machine-readable V1 contract is
+  [`annotation-v1.schema.json`](../../card_event_net/schemas/annotation-v1.schema.json).
+- The V1 ROI is legacy preprocessing data. Plan 0013 will introduce ROI-free V2 annotations and
+  keep V1 read compatibility.
+- Events contain `time_s`, `type`, optional `confidence`, and optional `notes`.
+- The labeling guide defines every event class, timing, meaningful movement, close events, hard
+  negatives, and confidence states.
+- The manifest loader accepts legacy records. It applies the complete field contract when
+  `schema_version` is `cardevent-video-metadata/v1`.
 
 ### Human work
 
-- Review the event definition against actual product behavior.
-- Decide how much movement is “meaningful.”
-- Review a small collection of ambiguous examples.
-- Approve or correct the initial taxonomy.
+- Review a small sample of real and staged video with the new guide.
+- Check the movement threshold against actual VisionDetector state changes.
+- Review close plays and immediate trick collection.
+- Review face-down cards, visible collection stacks, and scoring cards left aside.
+- Approve or correct the taxonomy and controlled metadata values.
 
 ### Completion gate
 
-Two people—or the same person on two separate passes—can label a sample set with reasonably consistent results.
+Two people, or the same person on two separate passes, can label a sample with consistent event
+counts, classes, and timestamps. Record disagreements and update the guide before Phase 3 starts.
+
+**Current gate status:** The metadata schema and semantic guide exist. Full-frame migration and
+the two-pass human consistency check remain.
+
+## Prerequisite: remove CardEventNet ROI setup
+
+Implement [plan 0013](0013-CardEventNet_FullFrameInput.md) before the next large data cycle. It
+will:
+
+- remove ROI selection from annotation;
+- keep legacy annotation files readable;
+- rebuild caches from complete frames;
+- retrain CardEventNet with full-frame inputs;
+- align Python, Core ML, live iOS, and replay preprocessing;
+- add contextual footage and hard negatives.
+
+Do not mix an ROI-trained checkpoint or ROI cache with full-frame inference.
 
 ## Phase 2: Build ingestion and dataset-indexing tooling
+
+**Current state:** Session-aware split creation and validation exist. The general ingestion and
+dataset-indexing command does not exist.
 
 ### LLM/tooling work
 
 Implement a video-ingestion command that:
 
 - Registers each original video without modifying it.
+- Preserves and indexes the complete source frame.
 - Extracts technical metadata automatically.
 - Generates a low-resolution review copy if needed.
 - Creates stable video, session, and clip identifiers.
@@ -84,6 +181,7 @@ Implement a video-ingestion command that:
 - Produces thumbnails or contact sheets.
 - Stores annotations separately from the original video.
 - Tracks dataset and annotation versions.
+- Writes records that conform to `cardevent-video-metadata/v1`.
 
 Add safeguards that prevent clips from the same game or session from being split across training, validation, and test sets.
 
@@ -102,15 +200,19 @@ A newly supplied folder of videos can be ingested reproducibly and appears in a 
 
 Start with a relatively small number of varied sessions rather than a huge number of clips from one recording.
 
+**Current state:** The annotator supports typed point events, timestamp edits, confidence changes,
+model proposals, and before/after comparison. It does not yet provide the complete versioned
+review-queue and apply workflow from plan 0011.
+
 ### LLM/tooling work
 
 Build a lightweight review interface or annotation workflow that supports:
 
 - Fast video scrubbing
-- Event start/end selection
+- Point-event timestamp selection
 - Keyboard shortcuts
 - Event-subtype selection
-- Explicit hard-negative marking
+- Separate, reviewed hard-negative marking
 - Ambiguity flags
 - Side-by-side display of frames before and after the event
 - Export to the training format
@@ -119,8 +221,8 @@ Preselect candidate moments using simple signals such as motion, visual change, 
 
 ### Human work
 
-- Label positives, hard negatives, and ordinary background.
-- Correct proposed time boundaries.
+- Label positives and review proposed hard negatives and ordinary background.
+- Correct proposed point-event timestamps.
 - Mark unusual or ambiguous cases.
 - Identify missing event categories.
 - Note recurring false triggers such as hands, shadows, and camera motion.
@@ -140,6 +242,9 @@ The seed dataset covers every known event type and contains enough hard negative
 
 ## Phase 4: Train and evaluate the baseline
 
+**Current state:** The reproducible training and event-diagnostic pipeline exists. Dataset-domain
+and per-session reporting remain limited until V1 metadata is populated.
+
 ### LLM/tooling work
 
 Implement a reproducible training and evaluation pipeline with:
@@ -152,7 +257,7 @@ Implement a reproducible training and evaluation pipeline with:
 - Event-level precision, recall, and F1
 - False triggers per hour
 - Missed events per game
-- Timing error around event onset and completion
+- Event timestamp error and emission latency
 - Per-domain results, initially including modern-iPhone footage
 - Automatically generated false-positive and false-negative review queues
 
@@ -203,10 +308,11 @@ The human:
 
 The tooling checks for:
 
-- Invalid or overlapping timestamps
+- Invalid timestamps and effective duplicates
+- Close point events that need review but are not automatically invalid
 - Duplicate clips
 - Missing metadata
-- Suspiciously short or long events
+- Suspicious event gaps and dense event clusters
 - Conflicting labels
 - Leakage between dataset splits
 - Class and source imbalance
@@ -217,7 +323,10 @@ The human relabels a small random sample without seeing the original labels. Dis
 
 ### Step E — Retraining and comparison
 
-The tooling retrains the model and compares it with the current accepted model on the unchanged test set. It generates clips for every new regression and major improvement.
+The tooling retrains the model and compares it with the current accepted model on an unchanged
+validation set. It generates clips for every new regression and major improvement. Use the sealed
+test set only after labels, decoder settings, threshold policy, and checkpoint selection are
+frozen.
 
 ### Step F — Human acceptance
 
@@ -300,16 +409,16 @@ The human should prioritize collecting scenarios missing from this matrix. The t
 
 ## Recommended first iteration
 
-1. Finalize the positive-event rule and event subtypes.
-2. Collect 10–20 independent modern-iPhone sessions.
-3. Implement ingestion, metadata indexing, and session-safe splits.
-4. Build candidate extraction and a fast manual review workflow.
-5. Label a small but diverse seed dataset.
-6. Train a baseline and generate error-review clips.
-7. Add labels specifically for the largest error categories.
-8. Repeat until modern-iPhone performance stabilizes.
-9. Introduce one other-phone domain and measure its effect.
-10. Continue expanding by demonstrated coverage gaps rather than indiscriminately adding old footage.
+1. Preserve the locked ROI result. Do not tune from its test failures.
+2. Implement the full-frame migration in plan 0013.
+3. Complete the two-pass Phase 1 consistency check on a small sample.
+4. Register the existing footage with V1 metadata and session groups.
+5. Correct missing state-change annotations before mining hard negatives.
+6. Collect independent real-game sessions and targeted staged scenarios for the known gaps.
+7. Reserve a new independent session for future full-frame testing.
+8. Train on a session-safe split and generate failure-review queues.
+9. Repeat until modern-iPhone real-game validation performance stabilizes.
+10. Evaluate the new held-out test once, then introduce one other-phone domain.
 
 ## Division of responsibility
 

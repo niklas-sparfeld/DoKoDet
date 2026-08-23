@@ -1,0 +1,38 @@
+schema_version: cardevent-video-metadata/v1
+videos:
+  - video_id: staged-example-001
+    file_name: staged-example-001.mov
+    content_type: staged_trick_sequence
+    session_id: session-example-001
+    game_id: null
+    recording_date: "2026-08-23T14:30:00+02:00"
+    device: Apple iPhone 14
+    camera: rear_wide
+    resolution: 1920x1080
+    frame_rate: 30.0
+    duration_s: 90.0
+    orientation: landscape
+    camera_view: high_oblique
+    camera_motion: fixed
+    camera_framing: table_fills_frame
+    table_setup: setup-example-001
+    lighting:
+      - daylight
+      - room_light
+    background: wood table with objects outside the play area
+    card_deck: deck-example-001
+    scenario_tags:
+      - normal_card_play
+      - trick_collected_during_play
+      - collected_tricks_visible
+    known_limitations:
+      - regular_play_cadence
+      - short_inter_trick_pauses
+      - no_overlapping_card_plays
+      - few_mistakes
+      - no_game_decisions
+      - single_actor
+    source: self_recorded
+    annotation_version: null
+    source_permission: training_and_evaluation
+    notes: Ten staged four-card trick sequences in random card order.

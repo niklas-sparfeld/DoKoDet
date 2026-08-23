@@ -7,6 +7,10 @@ Run the commands below from `card_event_net/`.
 
 ## Current state
 
+The supplied model and current tools still use a manually selected ROI. This is the legacy
+contract. [Plan 0013](../docs/plans/0013-CardEventNet_FullFrameInput.md) will replace it with
+full-frame preprocessing. Do not use ROI geometry to decide annotation semantics.
+
 This repo has the model, annotation, inference, evaluation, hard-negative, and Core ML export
 pipeline:
 
@@ -40,6 +44,8 @@ pipeline:
 The annotation tool stores one JSON file per source video in `data/annotations/`. It remembers
 the ROI and saved events. Event types are `card_played`, `trick_cleared`, `card_moved`,
 `card_removed`, `card_returned`, `multiple_cards_dropped`, and `anomalous_state_change`.
+Use the repository's [labeling guidelines](../docs/CardEventNet_LabelingGuidelines.md) for class,
+timestamp, close-event, and hard-negative decisions.
 
 Annotation controls:
 
@@ -124,8 +130,8 @@ uv run cardevent prepare --videos data/raw/*.mov --force
 The split file is `data/splits/default.yaml`. It uses video names without their file extension.
 It is not replaced when it already exists. Use `--force` only when you want to create a new split.
 
-For independent-session validation, create a dataset manifest with `video_id` and `session_id`
-fields, then make a session-aware split:
+For independent-session validation, create a dataset manifest that follows the
+[V1 video metadata guide](../docs/CardEventNet_VideoMetadata.md), then make a session-aware split:
 
 ```bash
 uv run cardevent split --manifest data/dataset-manifest.yaml --group-by session_id \

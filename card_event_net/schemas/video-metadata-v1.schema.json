@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/video-metadata-v1.schema.json",
+  "title": "CardEventNet video metadata manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "videos"],
+  "properties": {
+    "schema_version": {
+      "const": "cardevent-video-metadata/v1"
+    },
+    "videos": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/video"
+      }
+    }
+  },
+  "$defs": {
+    "nullableString": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "video": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "video_id",
+        "file_name",
+        "content_type",
+        "session_id",
+        "game_id",
+        "recording_date",
+        "device",
+        "camera",
+        "resolution",
+        "frame_rate",
+        "duration_s",
+        "orientation",
+        "camera_view",
+        "camera_motion",
+        "camera_framing",
+        "table_setup",
+        "lighting",
+        "background",
+        "card_deck",
+        "scenario_tags",
+        "known_limitations",
+        "source",
+        "annotation_version",
+        "source_permission"
+      ],
+      "properties": {
+        "video_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_type": {
+          "enum": [
+            "real_game",
+            "staged_trick_sequence",
+            "staged_scenario",
+            "synthetic_render",
+            "other"
+          ]
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "game_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "recording_date": {
+          "oneOf": [
+            {"type": "string", "format": "date"},
+            {"type": "string", "format": "date-time"},
+            {"type": "null"}
+          ]
+        },
+        "device": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "camera": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "resolution": {
+          "type": ["string", "null"],
+          "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"
+        },
+        "frame_rate": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0
+        },
+        "duration_s": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0
+        },
+        "orientation": {
+          "enum": ["portrait", "landscape", "square", "other"]
+        },
+        "camera_view": {
+          "enum": ["overhead", "high_oblique", "low_oblique", "side_oblique", "other"]
+        },
+        "camera_motion": {
+          "enum": ["fixed", "handheld_static", "handheld_moving", "other"]
+        },
+        "camera_framing": {
+          "enum": ["table_fills_frame", "table_with_context", "wide_context", "other"]
+        },
+        "table_setup": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lighting": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "daylight",
+              "room_light",
+              "mixed",
+              "low_light",
+              "changing",
+              "strong_shadow",
+              "glare"
+            ]
+          }
+        },
+        "background": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "card_deck": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "scenario_tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "normal_card_play",
+              "rapid_consecutive_plays",
+              "long_pause",
+              "overlapping_card_plays",
+              "trick_collected_during_play",
+              "face_down_card_played",
+              "face_down_card_turned",
+              "collected_tricks_visible",
+              "score_card_set_aside",
+              "card_withdrawn",
+              "card_repositioned",
+              "multiple_cards_dropped",
+              "old_card_returned",
+              "other_anomaly"
+            ]
+          }
+        },
+        "known_limitations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "regular_play_cadence",
+              "short_inter_trick_pauses",
+              "no_overlapping_card_plays",
+              "few_mistakes",
+              "no_game_decisions",
+              "single_actor"
+            ]
+          }
+        },
+        "source": {
+          "enum": ["self_recorded", "contributed", "licensed", "synthetic", "other"]
+        },
+        "annotation_version": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_permission": {
+          "enum": [
+            "training_only",
+            "training_and_evaluation",
+            "project_use",
+            "unrestricted"
+          ]
+        },
+        "notes": {
+          "$ref": "#/$defs/nullableString"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"content_type": {"const": "real_game"}},
+            "required": ["content_type"]
+          },
+          "then": {
+            "properties": {"game_id": {"type": "string", "minLength": 1}}
+          }
+        }
+      ]
+    }
+  }
+}
