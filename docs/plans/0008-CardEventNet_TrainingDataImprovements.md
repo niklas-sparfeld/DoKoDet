@@ -206,7 +206,9 @@ model proposals, and before/after comparison. The versioned review-queue and app
 plan 0011 is implemented. The first full-frame validation queue contains 78 unreviewed items. The
 apply command requires explicit review status and writes a complete new annotation directory. It
 does not modify the source annotations. A new confirmed positive also requires an explicit event
-type. A separate training queue contains 278 unreviewed items across all 19 training videos.
+type. A separate training queue contains 278 unreviewed items across all 19 training videos. The
+interactive queue review gap is specified in
+[plan 0014](0014-CardEventNet_ReviewQueue_Workflow.md).
 
 ### LLM/tooling work
 

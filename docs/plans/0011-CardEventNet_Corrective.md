@@ -390,7 +390,8 @@ candidates. `cardevent apply-review` requires explicit human outcomes, validates
 writes a complete annotation version without changing the source directory. The first full-frame
 validation queue has 78 items. A new confirmed positive requires an explicit semantic event type.
 A separate training queue has 278 items across 19 videos. Human review is still required before
-the acceptance gate passes.
+the acceptance gate passes. [Plan 0014](0014-CardEventNet_ReviewQueue_Workflow.md) defines the
+interactive review command that removes manual video lookup, seeking, and JSON editing.
 
 ### Code changes
 
