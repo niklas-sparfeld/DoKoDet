@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Extend CardEventNet training data
-- **Status:** In progress; Phase 1 drafted, full-frame migration and consistency gate pending
+- **Status:** In progress; Phase 2 tooling implemented, and human consistency gates pending
 
 ## Objective
 
@@ -165,26 +165,93 @@ Do not mix an ROI-trained checkpoint or ROI cache with full-frame inference.
 
 ## Phase 2: Build ingestion and dataset-indexing tooling
 
-**Current state:** Session-aware split creation and validation exist. No populated metadata
-manifest proves that the current split is session-isolated. The general ingestion and
-dataset-indexing command does not exist.
+**Current state:** Session-aware split creation and validation exist. The populated
+[`dataset-manifest.v1.yaml`](../../card_event_net/data/dataset-manifest.v1.yaml) indexes all 38
+local raw videos. The
+[`full-frame-development.yaml`](../../card_event_net/data/splits/full-frame-development.yaml)
+split is session-isolated against that manifest. The metadata still needs human review, as
+described in the
+[`current dataset index`](../reports/0014-CardEventNet_CurrentDatasetIndex.md). `cardevent ingest`
+and `cardevent inspect-dataset` now provide the general ingestion and dataset-indexing workflow.
+The next new video batch must pass the completion gate below.
+
+### Boundary with the review workflow
+
+[Plan 0014](0014-CardEventNet_ReviewQueue_Workflow.md) owns interactive review of model and
+annotation discrepancies. Phase 2 owns source-video registration and dataset cataloging.
+
+The ingestion tooling must not:
+
+- read or write review queues;
+- change positive-event annotations or hard-negative files;
+- reuse the interactive review session as an ingestion step;
+- change the shared viewer or queue controls;
+- create per-item evidence clips for the review workflow.
+
+An optional low-resolution review copy or contact sheet is a derived dataset asset. It is not a
+review-queue artifact. Plan 0014 must continue to decode its before/after views from the original
+source video.
+
+### Artifact and identifier contract
+
+Treat each supplied source video as one clip until a later plan adds explicit subclip extraction.
+Use `video_id` as the stable clip key used by annotations and splits. Do not add a second `clip_id`
+with the same meaning.
+
+The operator must supply or confirm `session_id`. The tool can propose a capture-time group, but
+it must not treat that group as an authoritative recording session. A real-game record must also
+have an operator-supplied `game_id`.
+
+Produce these separate artifacts:
+
+- a `cardevent-video-metadata/v1` dataset manifest for training and split tooling;
+- a versioned ingestion index with source-relative path, byte size, SHA-256 digest, probe data,
+  generated-asset paths, duplicate findings, and the dataset-version digest;
+- optional derived review copies, thumbnails, and contact sheets in an output artifact directory.
+
+Keep source videos outside the artifact directory. Never rename, move, rewrite, or delete them.
+Keep annotations in their existing separate directory. `annotation_version` is only a manifest
+reference; ingestion must not create or edit annotations.
+
+Derive `video_id` deterministically from the source name for current data compatibility. Reject
+case-insensitive stem collisions instead of adding an unstable suffix. Preserve the same ID when
+the same file is ingested again.
+
+The dataset-version digest must depend on the normalized manifest records and source-file
+digests. It must not depend on absolute paths, timestamps from the ingestion run, or generated
+preview files.
 
 ### LLM/tooling work
 
-Implement a video-ingestion command that:
+Implement `cardevent ingest` so it:
 
-- Registers each original video without modifying it.
-- Preserves and indexes the complete source frame.
-- Extracts technical metadata automatically.
-- Generates a low-resolution review copy if needed.
-- Creates stable video, session, and clip identifiers.
-- Detects duplicate or near-duplicate videos.
-- Produces thumbnails or contact sheets.
-- Stores annotations separately from the original video.
-- Tracks dataset and annotation versions.
-- Writes records that conform to `cardevent-video-metadata/v1`.
+- accepts a source directory, an operator metadata file, a manifest output, and an index output;
+- discovers supported videos in deterministic order;
+- registers each original video without modifying it;
+- probes the complete source frame, duration, frame rate, orientation, and available capture
+  metadata;
+- merges probe data with operator-owned semantic and permission metadata;
+- fails when a required V1 field cannot be populated;
+- writes records that conform to `cardevent-video-metadata/v1`;
+- creates stable video and dataset identifiers as specified above;
+- detects exact duplicates by SHA-256 and reports, but does not discard, near duplicates from a
+  deterministic visual fingerprint;
+- generates optional low-resolution review copies, thumbnails, or contact sheets;
+- writes the manifest and ingestion index atomically;
+- gives the same manifest and dataset-version digest for the same inputs;
+- refuses to place generated outputs over source videos or annotation files.
 
-Add safeguards that prevent clips from the same game or session from being split across training, validation, and test sets.
+Implement `cardevent inspect-dataset` so an operator can filter the index by video ID, session ID,
+game ID, content type, source permission, or duplicate status. Keep output stable so it can be
+used in local scripts.
+
+Keep the existing session-isolation check. Extend it to use `game_id` when present. Reject a split
+when either a session or a real game occurs in more than one partition.
+
+Use injected metadata probing and preview generation in unit tests. The normal test loop must not
+need a camera, display server, network service, or new recorded footage. Keep command-line wiring
+separate from plan 0014 code while that work is in progress. Re-read shared files before a small
+additive edit, and do not modify review behavior.
 
 ### Human work
 
@@ -195,7 +262,10 @@ Add safeguards that prevent clips from the same game or session from being split
 
 ### Completion gate
 
-A newly supplied folder of videos can be ingested reproducibly and appears in a searchable dataset index.
+A newly supplied folder of videos can be ingested reproducibly and appears in a searchable
+dataset index. A second run produces the same manifest and dataset-version digest. Exact and near
+duplicates are reported. A split that crosses a session or game boundary is rejected. Source
+videos, annotations, review queues, and plan 0014 behavior stay unchanged.
 
 ## Phase 3: Create a small, carefully labeled seed dataset
 
@@ -206,13 +276,13 @@ model proposals, and before/after comparison. The versioned review-queue and app
 plan 0011 is implemented. The first full-frame validation queue contains 78 unreviewed items. The
 apply command requires explicit review status and writes a complete new annotation directory. It
 does not modify the source annotations. A new confirmed positive also requires an explicit event
-type. A separate training queue contains 278 unreviewed items across all 19 training videos. The
-interactive queue review gap is specified in
-[plan 0014](0014-CardEventNet_ReviewQueue_Workflow.md).
+type. A separate training queue contains 278 unreviewed items across all 19 training videos.
+[Plan 0014](0014-CardEventNet_ReviewQueue_Workflow.md) owns the interactive queue-review workflow.
 
 ### LLM/tooling work
 
-Build a lightweight review interface or annotation workflow that supports:
+Use the annotation editor and the queue-review workflow from plan 0014. Do not build a second
+review interface in this phase. Together, the workflows must support:
 
 - Fast video scrubbing
 - Point-event timestamp selection

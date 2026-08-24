@@ -12,6 +12,34 @@ def test_root_help_lists_the_expected_commands() -> None:
     assert "prepare" in help_text
     assert "train" in help_text
     assert "export-coreml" in help_text
+    assert "ingest" in help_text
+    assert "inspect-dataset" in help_text
+
+
+def test_ingest_and_inspect_commands_parse_paths() -> None:
+    ingest_args = build_parser().parse_args(
+        [
+            "ingest",
+            "source",
+            "--operator-metadata",
+            "operator.yaml",
+            "--manifest",
+            "manifest.yaml",
+            "--index",
+            "index.json",
+        ]
+    )
+    inspect_args = build_parser().parse_args(
+        ["inspect-dataset", "index.json", "--session-id", "session-one"]
+    )
+
+    assert ingest_args.command_name == "ingest"
+    assert ingest_args.source_dir == Path("source")
+    assert ingest_args.manifest_out == Path("manifest.yaml")
+    assert ingest_args.index_out == Path("index.json")
+    assert inspect_args.command_name == "inspect-dataset"
+    assert inspect_args.index_path == Path("index.json")
+    assert inspect_args.session_id == ["session-one"]
 
 
 def test_annotate_command_parses_a_video_path() -> None:

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/ingestion-index-v1.schema.json",
+  "title": "CardEventNet ingestion index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version_digest", "videos"],
+  "properties": {
+    "schema_version": {"const": "cardevent-ingestion-index/v1"},
+    "dataset_version_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "videos": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/video"}
+    }
+  },
+  "$defs": {
+    "video": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "video_id",
+        "source_relative_path",
+        "byte_size",
+        "sha256",
+        "probe",
+        "visual_fingerprint",
+        "generated_assets",
+        "duplicate_status",
+        "duplicate_findings",
+        "session_id",
+        "game_id",
+        "content_type",
+        "source_permission"
+      ],
+      "properties": {
+        "video_id": {"type": "string", "minLength": 1},
+        "source_relative_path": {"type": "string", "minLength": 1},
+        "byte_size": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "probe": {"type": "object"},
+        "visual_fingerprint": {"type": "string", "minLength": 1},
+        "generated_assets": {"type": "object", "additionalProperties": {"type": "string"}},
+        "duplicate_status": {
+          "enum": ["unique", "exact_duplicate", "near_duplicate", "exact_and_near_duplicate"]
+        },
+        "duplicate_findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kind", "video_id"],
+            "properties": {
+              "kind": {"enum": ["exact", "near"]},
+              "video_id": {"type": "string", "minLength": 1},
+              "distance": {"type": "number", "minimum": 0, "maximum": 1}
+            },
+            "additionalProperties": false
+          }
+        },
+        "session_id": {"type": "string", "minLength": 1},
+        "game_id": {"type": ["string", "null"], "minLength": 1},
+        "content_type": {"type": "string", "minLength": 1},
+        "source_permission": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

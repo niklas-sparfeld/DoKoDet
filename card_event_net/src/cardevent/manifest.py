@@ -90,6 +90,7 @@ VERSIONED_REQUIRED_FIELDS = frozenset(MANIFEST_FIELDS) - {"notes"}
 VERSIONED_NON_NULL_FIELDS = frozenset(
     {
         "file_name",
+        "session_id",
         "content_type",
         "orientation",
         "camera_view",
@@ -282,17 +283,23 @@ def load_dataset_manifest(path: str | Path) -> tuple[DatasetRecord, ...]:
 
 
 def validate_session_isolation(split: VideoSplit, records: Sequence[DatasetRecord]) -> None:
-    sessions = {record.video_id: record.session_id for record in records}
-    missing = set(split.train + split.val + split.test) - set(sessions)
+    by_video = {record.video_id: record for record in records}
+    missing = set(split.train + split.val + split.test) - set(by_video)
     if missing:
         raise ManifestError(f"Split videos missing from manifest: {', '.join(sorted(missing))}.")
-    seen: dict[str, str] = {}
+    seen_sessions: dict[str, str] = {}
+    seen_games: dict[str, str] = {}
     for partition in ("train", "val", "test"):
         for video in split.names(partition):
-            session = sessions[video]
-            if session in seen and seen[session] != partition:
+            record = by_video[video]
+            session = record.session_id
+            if session in seen_sessions and seen_sessions[session] != partition:
                 raise SplitError(f"Session {session} occurs in more than one partition.")
-            seen[session] = partition
+            seen_sessions[session] = partition
+            if record.game_id is not None:
+                if record.game_id in seen_games and seen_games[record.game_id] != partition:
+                    raise SplitError(f"Game {record.game_id} occurs in more than one partition.")
+                seen_games[record.game_id] = partition
 
 
 def make_group_split(records: Sequence[DatasetRecord], *, seed: int = 42) -> VideoSplit:

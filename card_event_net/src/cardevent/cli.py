@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -18,6 +19,7 @@ from .evaluate import (
 from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
+from .ingestion import IngestionError, ingest_dataset, inspect_dataset
 from .manifest import ManifestError, load_dataset_manifest, make_group_split
 from .review import (
     ReviewQueueError,
@@ -42,6 +44,8 @@ _PLACEHOLDER_COMMANDS = {
     "baseline": "Run the classical motion baseline.",
     "mine-hard-negatives": "Mine hard negatives from training videos.",
     "export-coreml": "Export a checkpoint to Core ML.",
+    "ingest": "Register source videos and write a dataset index.",
+    "inspect-dataset": "Filter and inspect a dataset index.",
     "extract-evidence": "Extract source-resolution evidence frames.",
     "review-queue": "Build a human review queue from model candidates.",
     "review": "Review queue items with the source videos.",
@@ -610,6 +614,77 @@ def build_parser() -> argparse.ArgumentParser:
     )
     export_parser.set_defaults(command_name="export-coreml")
 
+    ingest_parser = subparsers.add_parser(
+        "ingest",
+        help=_PLACEHOLDER_COMMANDS["ingest"],
+        description="Register source videos without changing the originals or annotations.",
+    )
+    ingest_parser.add_argument(
+        "source_dir",
+        nargs="?",
+        type=Path,
+        help="Directory with source videos (or use --source-dir).",
+    )
+    ingest_parser.add_argument("--source-dir", dest="source_dir_option", type=Path)
+    ingest_parser.add_argument(
+        "--operator-metadata",
+        "--metadata",
+        dest="operator_metadata",
+        type=Path,
+        required=True,
+        help="YAML operator metadata with defaults and per-video records.",
+    )
+    ingest_parser.add_argument(
+        "--manifest",
+        "--manifest-out",
+        dest="manifest_out",
+        type=Path,
+        required=True,
+        help="V1 dataset manifest output path.",
+    )
+    ingest_parser.add_argument(
+        "--index",
+        "--index-out",
+        dest="index_out",
+        type=Path,
+        required=True,
+        help="Versioned ingestion index output path.",
+    )
+    ingest_parser.add_argument(
+        "--artifact-dir",
+        type=Path,
+        default=None,
+        help="Optional directory for thumbnails and contact sheets.",
+    )
+    ingest_parser.add_argument(
+        "--annotations-dir",
+        type=Path,
+        default=None,
+        help="Read-only annotation directory used for output safety checks.",
+    )
+    ingest_parser.add_argument(
+        "--near-duplicate-distance",
+        type=float,
+        default=0.08,
+        help="Maximum visual fingerprint distance for near duplicates (default: 0.08).",
+    )
+    ingest_parser.set_defaults(command_name="ingest")
+
+    inspect_parser = subparsers.add_parser(
+        "inspect-dataset",
+        help=_PLACEHOLDER_COMMANDS["inspect-dataset"],
+        description="Print matching ingestion-index rows as stable JSON.",
+    )
+    inspect_parser.add_argument("index_path", nargs="?", type=Path)
+    inspect_parser.add_argument("--index", "--index-path", dest="index_option", type=Path)
+    inspect_parser.add_argument("--video-id", action="append", default=[])
+    inspect_parser.add_argument("--session-id", action="append", default=[])
+    inspect_parser.add_argument("--game-id", action="append", default=[])
+    inspect_parser.add_argument("--content-type", action="append", default=[])
+    inspect_parser.add_argument("--source-permission", action="append", default=[])
+    inspect_parser.add_argument("--duplicate-status", action="append", default=[])
+    inspect_parser.set_defaults(command_name="inspect-dataset")
+
     for name, help_text in _PLACEHOLDER_COMMANDS.items():
         if name in {
             "annotate",
@@ -622,6 +697,8 @@ def build_parser() -> argparse.ArgumentParser:
             "baseline",
             "mine-hard-negatives",
             "export-coreml",
+            "ingest",
+            "inspect-dataset",
             "review-queue",
             "review",
             "apply-review",
@@ -644,6 +721,46 @@ def main(argv: Sequence[str] | None = None) -> int:
     command_name = getattr(args, "command_name", None)
     if command_name is None:
         parser.print_help()
+        return 0
+
+    if command_name == "ingest":
+        source_dir = args.source_dir_option or args.source_dir
+        if source_dir is None:
+            parser.error("ingest requires a source directory (SOURCE_DIR or --source-dir)")
+        try:
+            result = ingest_dataset(
+                source_dir,
+                args.operator_metadata,
+                args.manifest_out,
+                args.index_out,
+                artifact_dir=args.artifact_dir,
+                annotation_dir=args.annotations_dir,
+                near_duplicate_distance=args.near_duplicate_distance,
+            )
+        except (IngestionError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote manifest: {result.manifest_path}")
+        print(f"Wrote ingestion index: {result.index_path}")
+        print(f"Dataset version: {result.dataset_version_digest}")
+        return 0
+
+    if command_name == "inspect-dataset":
+        index_path = args.index_option or args.index_path
+        if index_path is None:
+            parser.error("inspect-dataset requires an index path (INDEX_PATH or --index)")
+        try:
+            rows = inspect_dataset(
+                index_path,
+                video_id=args.video_id or None,
+                session_id=args.session_id or None,
+                game_id=args.game_id or None,
+                content_type=args.content_type or None,
+                source_permission=args.source_permission or None,
+                duplicate_status=args.duplicate_status or None,
+            )
+        except (IngestionError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(list(rows), indent=2, sort_keys=True))
         return 0
 
     if command_name == "annotate":

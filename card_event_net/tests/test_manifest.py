@@ -31,6 +31,15 @@ def test_session_validation_rejects_leakage() -> None:
         validate_session_isolation(VideoSplit(("one",), ("two",), ()), records)
 
 
+def test_game_validation_rejects_leakage() -> None:
+    records = (
+        DatasetRecord(video_id="one", session_id="session-one", game_id="game-one"),
+        DatasetRecord(video_id="two", session_id="session-two", game_id="game-one"),
+    )
+    with pytest.raises(SplitError, match="Game game-one"):
+        validate_session_isolation(VideoSplit(("one",), ("two",), ()), records)
+
+
 def test_load_versioned_example_manifest() -> None:
     path = Path(__file__).parents[1] / "data" / "dataset-manifest.example.yaml"
 
