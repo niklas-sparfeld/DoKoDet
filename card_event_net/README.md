@@ -5,6 +5,9 @@ table-state evaluation.
 
 Run the commands below from `card_event_net/`.
 
+Data contributors can start with the short
+[data and model lifecycle](../docs/CardEventNet_DataAndModelLifecycle.md).
+
 ## Current state
 
 New annotations and caches use the full frame. They do not require a selected ROI. New training
