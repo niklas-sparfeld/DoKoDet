@@ -111,6 +111,10 @@ uv run cardevent annotate data/raw/IMG_0090.mov --proposals predictions.json
 The annotator does not save model proposals automatically. Press `Space` to confirm one at the
 current timestamp. Press `U` to save it as uncertain instead.
 
+For queue-based visual review, use `cardevent review`. See the
+[CardEventNet review workflow](../docs/CardEventNet_ReviewWorkflow.md) for the full validation
+and training process.
+
 ## Cache and split
 
 Prepare the annotated videos from `card_event_net/`:

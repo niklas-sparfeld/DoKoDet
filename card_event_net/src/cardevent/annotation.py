@@ -9,6 +9,21 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .video import VideoError, VideoMetadata, _import_cv2, read_video_metadata
+from .viewer import (
+    capture_frame as _capture_frame,
+)
+from .viewer import (
+    draw_overlay as _draw_overlay,
+)
+from .viewer import (
+    format_timestamp as _format_timestamp,
+)
+from .viewer import (
+    normalize_key as _normalize_key,
+)
+from .viewer import (
+    resize_preview as _resize_preview,
+)
 
 
 class AnnotationError(ValueError):
@@ -546,76 +561,6 @@ def open_annotation_session(
     return AnnotationSession.open(video_path, annotations_dir=annotations_dir)
 
 
-def _resize_preview(
-    frame: Any,
-    *,
-    max_width: int = 1280,
-    max_height: int = 720,
-) -> tuple[Any, float]:
-    cv2 = _import_cv2()
-    height, width = frame.shape[:2]
-    scale = min(max_width / width, max_height / height, 1.0)
-    if scale == 1.0:
-        return frame.copy(), 1.0
-
-    preview_width = max(1, int(round(width * scale)))
-    preview_height = max(1, int(round(height * scale)))
-    preview = cv2.resize(frame, (preview_width, preview_height), interpolation=cv2.INTER_AREA)
-    return preview, scale
-
-
-def _format_timestamp(seconds: float) -> str:
-    total_milliseconds = int(round(seconds * 1000))
-    hours, remainder = divmod(total_milliseconds, 3_600_000)
-    minutes, remainder = divmod(remainder, 60_000)
-    secs, millis = divmod(remainder, 1000)
-    if hours:
-        return f"{hours:d}:{minutes:02d}:{secs:02d}.{millis:03d}"
-    return f"{minutes:02d}:{secs:02d}.{millis:03d}"
-
-
-def _draw_overlay(frame: Any, lines: Sequence[str]) -> Any:
-    cv2 = _import_cv2()
-    top = 28
-    for line in lines:
-        cv2.putText(
-            frame,
-            line,
-            (16, top),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 0, 0),
-            3,
-            cv2.LINE_AA,
-        )
-        cv2.putText(
-            frame,
-            line,
-            (16, top),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (255, 255, 255),
-            1,
-            cv2.LINE_AA,
-        )
-        top += 28
-    return frame
-
-
-def _capture_frame(cap: Any, frame_index: int, metadata: VideoMetadata) -> Any:
-    cv2 = _import_cv2()
-    frame_index = max(0, min(frame_index, metadata.frame_count - 1))
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-    ok, frame = cap.read()
-    if not ok or frame is None:
-        raise VideoError(
-            "OpenCV could not read the requested frame. "
-            "Check FFmpeg/OpenCV support and the source file: "
-            f"{metadata.path}"
-        )
-    return frame
-
-
 def _print_annotation_help(session: AnnotationSession) -> None:
     print()
     print("Event definition:")
@@ -721,13 +666,11 @@ def annotate_video(
             cv2.imshow(window_name, shown_frame)
 
             delay_ms = max(1, int(round(1000.0 / session.metadata.fps))) if playing else 30
-            key = wait_key(delay_ms)
-            if key != -1:
-                key &= 0xFF
+            key = _normalize_key(wait_key(delay_ms))
 
             frame_changed = False
 
-            if key in (-1, 255):
+            if key is None:
                 pass
             elif key in (ord("q"), ord("Q")):
                 break

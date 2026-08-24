@@ -81,6 +81,8 @@ from .model import (
 )
 from .review import (
     ReviewQueueError,
+    ReviewSession,
+    ReviewSessionError,
     apply_review_queue,
     build_review_queue,
     review_queue_from_files,
@@ -100,7 +102,7 @@ from .sampling import (
 from .splits import SplitError, VideoSplit, load_split, make_video_split, save_split, video_id
 from .train import TrainingError, TrainingResult, train_from_files, train_model
 from .transforms import ClipTransform, TransformError
-from .video import VideoError, VideoMetadata, read_video_metadata
+from .video import VideoError, VideoMetadata, read_video_metadata, resolve_video_path
 
 
 def _resolve_version() -> str:
@@ -144,6 +146,8 @@ __all__ = [
     "ProbabilitySample",
     "Roi",
     "ReviewQueueError",
+    "ReviewSession",
+    "ReviewSessionError",
     "SamplingError",
     "SplitError",
     "TransformError",
@@ -191,6 +195,7 @@ __all__ = [
     "prepare_videos",
     "resolve_device",
     "read_video_metadata",
+    "resolve_video_path",
     "review_queue_from_files",
     "samples_for_annotation",
     "samples_for_cache",

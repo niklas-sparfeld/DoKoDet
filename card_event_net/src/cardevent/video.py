@@ -9,6 +9,35 @@ class VideoError(RuntimeError):
     pass
 
 
+SUPPORTED_VIDEO_EXTENSIONS = frozenset({".mov", ".m4v", ".mp4"})
+
+
+def resolve_video_path(videos_dir: str | Path, video_name: str) -> Path:
+    """Resolve one queue video by stem and reject missing or ambiguous files."""
+    directory = Path(videos_dir)
+    if not isinstance(video_name, str) or not video_name:
+        raise VideoError("A review item needs a video name.")
+    if Path(video_name).name != video_name:
+        raise VideoError(f"Review item video must be a simple name: {video_name}")
+    if not directory.is_dir():
+        raise VideoError(f"Video directory does not exist: {directory}")
+
+    stem = Path(video_name).stem.casefold()
+    matches = sorted(
+        path
+        for path in directory.iterdir()
+        if path.is_file()
+        and path.suffix.casefold() in SUPPORTED_VIDEO_EXTENSIONS
+        and path.stem.casefold() == stem
+    )
+    if not matches:
+        raise VideoError(f"No source video matches queue item {video_name} in {directory}")
+    if len(matches) > 1:
+        names = ", ".join(path.name for path in matches)
+        raise VideoError(f"Source video {video_name} is ambiguous: {names}")
+    return matches[0].resolve()
+
+
 def _import_cv2() -> Any:
     try:
         import cv2

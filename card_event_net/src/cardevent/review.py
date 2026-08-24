@@ -21,8 +21,16 @@ from .evaluate import load_model_streams
 from .evaluation import ScoredVideo, select_threshold
 from .events import DetectedEvent, match_events, probabilities_to_events
 from .infer import InferenceError, load_checkpoint
+from .review_session import (
+    ReviewSession as _ReviewSession,
+)
+from .review_session import (
+    ReviewSessionError,
+    load_review_queue,
+    validate_review_queue,
+)
 from .splits import SplitError, load_split
-from .video import VideoError, VideoMetadata, read_video_metadata
+from .video import VideoError, VideoMetadata, read_video_metadata, resolve_video_path
 
 REVIEW_QUEUE_FORMAT = "cardevent-review-queue-v1"
 REVIEW_APPLICATION_FORMAT = "cardevent-review-application-v1"
@@ -50,6 +58,9 @@ REVIEW_CATEGORIES = frozenset(
 
 class ReviewQueueError(RuntimeError):
     """Raised when a review queue cannot be built or applied safely."""
+
+
+ReviewSession = _ReviewSession
 
 
 def _finite_non_negative(value: Any, name: str) -> float:
@@ -618,37 +629,18 @@ def review_queue_from_files(
 
 def _load_queue(path: Path) -> dict[str, Any]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ReviewQueueError(f"Could not read review queue {path}: {exc}") from exc
-    if not isinstance(payload, dict) or payload.get("format") != REVIEW_QUEUE_FORMAT:
-        raise ReviewQueueError(f"Unsupported review queue format: {path}")
-    items = payload.get("items")
-    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
-        raise ReviewQueueError("Review queue items must be a list of mappings.")
-    for item in items:
-        if not isinstance(item.get("id"), str) or not item["id"]:
-            raise ReviewQueueError("Each review item needs a non-empty id.")
-        if item.get("status") not in REVIEW_STATUSES:
-            raise ReviewQueueError("Review item status must be unreviewed or reviewed.")
-        if item.get("outcome") not in REVIEW_OUTCOMES:
-            raise ReviewQueueError("Review item outcome is invalid.")
-        if item["status"] == "unreviewed" and item["outcome"] != "unreviewed":
-            raise ReviewQueueError(f"An unreviewed item has an outcome: {item['id']}")
-        if item["status"] == "reviewed" and item["outcome"] == "unreviewed":
-            raise ReviewQueueError(f"Reviewed item has no outcome: {item['id']}")
-        if not isinstance(item.get("video"), str) or not item["video"]:
-            raise ReviewQueueError("Each review item needs a video name.")
-        _finite_non_negative(item.get("timestamp_s"), "review timestamp")
-    return payload
+        return load_review_queue(path)
+    except ReviewSessionError as exc:
+        raise ReviewQueueError(str(exc)) from exc
 
 
 def _video_for_annotation(videos_dir: Path | None, video_name: str) -> Path | None:
     if videos_dir is None or not videos_dir.is_dir():
         return None
-    stem = Path(video_name).stem
-    matches = sorted(path for path in videos_dir.iterdir() if path.is_file() and path.stem == stem)
-    return matches[0] if matches else None
+    try:
+        return resolve_video_path(videos_dir, video_name)
+    except VideoError as exc:
+        raise ReviewQueueError(str(exc)) from exc
 
 
 def _annotation_metadata(
@@ -681,17 +673,45 @@ def apply_review_queue(
     *,
     annotations_dir: str | Path,
     out_dir: str | Path,
-    reviewer: str,
+    reviewer: str | None = None,
     videos_dir: str | Path | None = None,
+    allow_partial: bool = False,
+    dry_run: bool = False,
 ) -> dict[str, Any]:
     """Apply explicit human outcomes into a new annotation directory.
 
     The source directory is read only. The target must be empty or absent.
     """
-    if not reviewer or not reviewer.strip():
-        raise ReviewQueueError("A non-empty reviewer name is required.")
     queue_file = Path(queue_path)
     payload = _load_queue(queue_file)
+    has_provenance = isinstance(payload.get("source_queue_sha256"), str)
+    if has_provenance:
+        try:
+            validate_review_queue(payload, output=True)
+        except ReviewSessionError as exc:
+            raise ReviewQueueError(str(exc)) from exc
+        expected_hash = payload["source_queue_sha256"]
+        if len(expected_hash) != 64 or any(
+            character not in "0123456789abcdef" for character in expected_hash.lower()
+        ):
+            raise ReviewQueueError("source_queue_sha256 must be a SHA-256 hexadecimal digest.")
+        source_queue_value = payload["source_queue"]
+        source_queue = Path(source_queue_value)
+        if not source_queue.is_file():
+            raise ReviewQueueError(
+                f"The source queue for provenance does not exist: {source_queue}"
+            )
+        if _sha256(source_queue) != expected_hash:
+            raise ReviewQueueError("The source queue checksum does not match source_queue_sha256.")
+
+    queue_reviewer = payload.get("reviewer")
+    if reviewer is None:
+        reviewer = queue_reviewer
+    if not reviewer or not reviewer.strip():
+        raise ReviewQueueError("A non-empty reviewer name is required.")
+    if queue_reviewer not in (None, reviewer):
+        raise ReviewQueueError("The queue reviewer does not match --reviewer.")
+
     source_dir = Path(annotations_dir).resolve()
     destination = Path(out_dir).resolve()
     if source_dir == destination:
@@ -700,7 +720,35 @@ def apply_review_queue(
         raise ReviewQueueError(f"Output annotation directory is not empty: {destination}")
 
     items = payload["items"]
-    review_names = sorted({item["video"] for item in items})
+    for item in items:
+        if item["status"] != "reviewed":
+            continue
+        if item["outcome"] == "confirmed_positive":
+            target = item.get("positive_target")
+            if target is None and not has_provenance:
+                target = "new_event"
+            if target == "new_event" and item.get("event_type") not in EVENT_TYPES:
+                raise ReviewQueueError(f"Confirmed positive needs a valid event_type: {item['id']}")
+            if target == "existing_annotation" and item.get("source_annotation_time_s") is None:
+                raise ReviewQueueError(
+                    f"Existing positive needs source_annotation_time_s: {item['id']}"
+                )
+        elif (
+            item["outcome"] == "annotation_timestamp_corrected"
+            and item.get("source_annotation_time_s") is None
+            and has_provenance
+        ):
+            raise ReviewQueueError(
+                f"Timestamp correction needs source_annotation_time_s: {item['id']}"
+            )
+    remaining_items = [item for item in items if item["status"] == "unreviewed"]
+    if remaining_items and not allow_partial:
+        raise ReviewQueueError(
+            f"Review queue has {len(remaining_items)} unreviewed items; "
+            "use --allow-partial to apply it."
+        )
+
+    review_names = sorted({Path(item["video"]).stem for item in items})
     if any(Path(name).name != name for name in review_names):
         raise ReviewQueueError("Review items must use simple video names.")
     source_paths = sorted(source_dir.glob("*.json"))
@@ -739,40 +787,61 @@ def apply_review_queue(
     added_count = 0
     corrected_count = 0
     hard_negatives: list[dict[str, Any]] = []
+    ignored_count = 0
+    affected_videos: set[str] = set()
     for item in items:
         outcome = item["outcome"]
         outcome_counts[outcome] += 1
-        if outcome in {"unreviewed", "ignore", "confirmed_hard_negative"}:
-            if outcome == "confirmed_hard_negative":
-                hard_negatives.append(
-                    {
-                        "video": item["video"],
-                        "time_s": item["timestamp_s"],
-                        "probability": item.get("score"),
-                        "review_item_id": item["id"],
-                        "reviewer": reviewer,
-                    }
-                )
+        if outcome == "unreviewed":
             continue
-        annotation = updated_annotations[item["video"]]
+        if outcome == "ignore":
+            ignored_count += 1
+            continue
+        if outcome == "confirmed_hard_negative":
+            affected_videos.add(item["video"])
+            hard_negatives.append(
+                {
+                    "video": item["video"],
+                    "time_s": item["timestamp_s"],
+                    "probability": item.get("score"),
+                    "review_item_id": item["id"],
+                    "reviewer": reviewer,
+                    "review_notes": item.get("review_notes"),
+                }
+            )
+            continue
+
+        annotation_name = Path(item["video"]).stem
+        annotation = updated_annotations[annotation_name]
         events = list(annotation.events)
         timestamp = float(item["timestamp_s"])
         note = _provenance_note(item["id"], reviewer)
-        nearest = item.get("nearest_annotation")
-        nearest_time = (
-            float(nearest["time_s"])
-            if isinstance(nearest, Mapping) and isinstance(nearest.get("time_s"), (int, float))
+        review_note = item.get("review_notes")
+        if review_note:
+            note = f"{note}; note={review_note}"
+        source_reference = item.get("source_annotation_time_s")
+        if source_reference is None:
+            nearest = item.get("nearest_annotation")
+            source_reference = (
+                nearest.get("time_s")
+                if isinstance(nearest, Mapping) and isinstance(nearest.get("time_s"), (int, float))
+                else None
+            )
+        source_time = (
+            _finite_non_negative(source_reference, "source annotation time")
+            if source_reference is not None
             else None
         )
+
         if outcome == "annotation_timestamp_corrected":
-            if nearest_time is None:
+            if source_time is None:
                 raise ReviewQueueError(
-                    f"Timestamp correction needs nearest_annotation: {item['id']}"
+                    f"Timestamp correction needs source_annotation_time_s: {item['id']}"
                 )
             matches = [
                 index
                 for index, event in enumerate(events)
-                if abs(event.time_s - nearest_time) <= 1e-6
+                if abs(event.time_s - source_time) <= 1e-6
             ]
             if len(matches) != 1:
                 raise ReviewQueueError(
@@ -787,6 +856,7 @@ def apply_review_queue(
                 notes=f"{event.notes}; {note}" if event.notes else note,
             )
             corrected_count += 1
+            affected_videos.add(item["video"])
             changes.append(
                 {
                     "review_item_id": item["id"],
@@ -797,47 +867,90 @@ def apply_review_queue(
                 }
             )
         elif outcome == "confirmed_positive":
-            already_present = any(abs(event.time_s - timestamp) <= 0.01 for event in events)
-            if not already_present:
-                event_type = item.get("event_type")
-                if event_type not in EVENT_TYPES:
+            target = item.get("positive_target")
+            if target is None and not has_provenance:
+                # Keep compatibility with queues created before explicit targets.
+                target = "new_event"
+            if target == "existing_annotation":
+                if source_time is None:
                     raise ReviewQueueError(
-                        f"Confirmed positive needs a valid event_type: {item['id']}"
+                        f"Existing positive needs source_annotation_time_s: {item['id']}"
                     )
-                events.append(
-                    AnnotationEvent(
-                        time_s=timestamp,
-                        type=event_type,
-                        confidence="confirmed",
-                        notes=note,
+                matches = [event for event in events if abs(event.time_s - source_time) <= 1e-6]
+                if len(matches) != 1:
+                    raise ReviewQueueError(
+                        f"Existing positive does not identify one source event: {item['id']}"
                     )
-                )
-                added_count += 1
+                source_event = matches[0]
+                if item.get("event_type") not in (None, source_event.type):
+                    raise ReviewQueueError(
+                        "Existing positive event type does not match its source event: "
+                        f"{item['id']}"
+                    )
+                affected_videos.add(item["video"])
                 changes.append(
                     {
                         "review_item_id": item["id"],
                         "video": item["video"],
-                        "change": "event_added",
-                        "time_s": timestamp,
-                        "type": event_type,
+                        "change": "existing_annotation_confirmed",
+                        "time_s": source_event.time_s,
+                        "type": source_event.type,
                     }
                 )
-        updated_annotations[item["video"]] = VideoAnnotation(
+            elif target == "new_event":
+                event_type = item.get("event_type")
+                if event_type not in EVENT_TYPES:
+                    raise ReviewQueueError(
+                        "Confirmed positive needs positive_target=new_event and a valid "
+                        f"event_type: {item['id']}"
+                    )
+                already_present = any(abs(event.time_s - timestamp) <= 0.01 for event in events)
+                if not already_present:
+                    events.append(
+                        AnnotationEvent(
+                            time_s=timestamp,
+                            type=event_type,
+                            confidence="confirmed",
+                            notes=note,
+                        )
+                    )
+                    added_count += 1
+                    affected_videos.add(item["video"])
+                    changes.append(
+                        {
+                            "review_item_id": item["id"],
+                            "video": item["video"],
+                            "change": "event_added",
+                            "time_s": timestamp,
+                            "type": event_type,
+                        }
+                    )
+            else:
+                raise ReviewQueueError(
+                    f"Confirmed positive needs an explicit positive_target: {item['id']}"
+                )
+        else:
+            raise ReviewQueueError(f"Unsupported reviewed outcome: {outcome}")
+
+        updated_annotations[annotation_name] = VideoAnnotation(
             video=annotation.video,
             events=tuple(events),
             legacy_roi=annotation.legacy_roi,
         )
 
-    destination.mkdir(parents=True, exist_ok=True)
-    for name in names:
-        output_path = destination / f"{name}.json"
-        save_annotation(updated_annotations[name], output_path, metadata=metadata_by_name[name])
-
+    partition = payload.get("partition")
+    hard_negative_scope = "training" if partition == "train" else "validation"
+    scoped_hard_negative_name = (
+        "training-hard-negatives.json"
+        if hard_negative_scope == "training"
+        else "validation-hard-negatives.json"
+    )
     applied_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     summary: dict[str, Any] = {
         "format": REVIEW_APPLICATION_FORMAT,
         "queue": str(queue_file),
         "queue_sha256": _sha256(queue_file),
+        "source_queue_sha256": payload.get("source_queue_sha256"),
         "source_annotations_dir": str(source_dir),
         "output_annotations_dir": str(destination),
         "reviewer": reviewer,
@@ -845,13 +958,29 @@ def apply_review_queue(
         "video_count": len(names),
         "reviewed_video_count": len(review_names),
         "item_count": len(items),
+        "reviewed_count": len(items) - len(remaining_items),
+        "remaining_count": len(remaining_items),
         "outcome_counts": outcome_counts,
+        "positives_to_add": added_count,
+        "timestamps_to_correct": corrected_count,
+        "hard_negative_count": len(hard_negatives),
+        "hard_negative_scope": hard_negative_scope,
+        "hard_negative_file": scoped_hard_negative_name,
+        "ignored_count": ignored_count,
+        "affected_videos": sorted(affected_videos),
         "annotations_added": added_count,
         "timestamps_corrected": corrected_count,
-        "hard_negative_count": len(hard_negatives),
         "source_annotation_sha256": source_hashes,
         "changes": changes,
     }
+    if dry_run:
+        return summary
+
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        output_path = destination / f"{name}.json"
+        save_annotation(updated_annotations[name], output_path, metadata=metadata_by_name[name])
+
     # Keep the exact reviewed input beside the derived annotations. This keeps
     # per-item status, outcome, and any reviewer timestamps auditable.
     (destination / "reviewed-queue.json").write_text(
@@ -866,6 +995,24 @@ def apply_review_queue(
                 "format": "cardevent-review-hard-negatives-v1",
                 "queue": str(queue_file),
                 "reviewer": reviewer,
+                "partition": partition,
+                "training_input": hard_negative_scope == "training",
+                "items": hard_negatives,
+            },
+            indent=2,
+            allow_nan=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (destination / scoped_hard_negative_name).write_text(
+        json.dumps(
+            {
+                "format": "cardevent-review-hard-negatives-v1",
+                "queue": str(queue_file),
+                "reviewer": reviewer,
+                "partition": partition,
+                "training_input": hard_negative_scope == "training",
                 "items": hard_negatives,
             },
             indent=2,

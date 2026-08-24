@@ -19,7 +19,14 @@ from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
 from .manifest import ManifestError, load_dataset_manifest, make_group_split
-from .review import ReviewQueueError, apply_review_queue, review_queue_from_files
+from .review import (
+    ReviewQueueError,
+    ReviewSession,
+    ReviewSessionError,
+    apply_review_queue,
+    review_queue_from_files,
+)
+from .review_ui import review_queue_interactively
 from .splits import SplitError, make_video_split, save_split
 from .train import TrainingError, train_from_files
 from .video import VideoError
@@ -37,6 +44,7 @@ _PLACEHOLDER_COMMANDS = {
     "export-coreml": "Export a checkpoint to Core ML.",
     "extract-evidence": "Extract source-resolution evidence frames.",
     "review-queue": "Build a human review queue from model candidates.",
+    "review": "Review queue items with the source videos.",
     "apply-review": "Apply reviewed outcomes to a new annotation version.",
 }
 
@@ -528,6 +536,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     review_queue_parser.set_defaults(command_name="review-queue")
 
+    review_parser = subparsers.add_parser(
+        "review",
+        help=_PLACEHOLDER_COMMANDS["review"],
+        description=(
+            "Review queue items in source videos. Decisions are autosaved to a separate queue."
+        ),
+    )
+    review_parser.add_argument("--queue", type=Path, required=True, help="Unreviewed review queue.")
+    review_parser.add_argument("--out", type=Path, required=True, help="Reviewed queue output.")
+    review_parser.add_argument(
+        "--videos-dir", type=Path, required=True, help="Source video directory."
+    )
+    review_parser.add_argument(
+        "--annotations-dir", type=Path, required=True, help="Read-only source annotation directory."
+    )
+    review_parser.add_argument("--reviewer", required=True, help="Stable reviewer name.")
+    review_parser.add_argument("--video", default=None, help="Review one video ID or name.")
+    review_parser.add_argument("--category", default=None, help="Review one queue category.")
+    review_parser.add_argument(
+        "--include-reviewed",
+        action="store_true",
+        help="Include completed items when navigating.",
+    )
+    review_parser.add_argument("--start-item", default=None, help="Start at this item ID.")
+    review_parser.set_defaults(command_name="review")
+
     apply_review_parser = subparsers.add_parser(
         "apply-review",
         help=_PLACEHOLDER_COMMANDS["apply-review"],
@@ -541,8 +575,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--annotations-dir", type=Path, default=Path("data/annotations")
     )
     apply_review_parser.add_argument("--out-dir", type=Path, required=True)
-    apply_review_parser.add_argument("--reviewer", required=True)
+    apply_review_parser.add_argument(
+        "--reviewer", default=None, help="Reviewer name (default: the name in the reviewed queue)."
+    )
     apply_review_parser.add_argument("--videos-dir", type=Path, default=Path("data/raw"))
+    apply_review_parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="Apply reviewed items while leaving unreviewed items unchanged.",
+    )
+    apply_review_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the application summary without writing annotations.",
+    )
     apply_review_parser.set_defaults(command_name="apply-review")
 
     export_parser = subparsers.add_parser(
@@ -577,6 +623,7 @@ def build_parser() -> argparse.ArgumentParser:
             "mine-hard-negatives",
             "export-coreml",
             "review-queue",
+            "review",
             "apply-review",
         }:
             continue
@@ -816,6 +863,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Wrote {len(payload['items'])} review items: {args.out}")
         return 0
 
+    if command_name == "review":
+        try:
+            session = ReviewSession.open(
+                args.queue,
+                args.out,
+                videos_dir=args.videos_dir,
+                annotations_dir=args.annotations_dir,
+                reviewer=args.reviewer,
+                video=args.video,
+                category=args.category,
+                include_reviewed=args.include_reviewed,
+                start_item=args.start_item,
+            )
+            review_queue_interactively(session)
+        except (ReviewSessionError, ReviewQueueError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        return 0
+
     if command_name == "apply-review":
         try:
             summary = apply_review_queue(
@@ -824,14 +889,37 @@ def main(argv: Sequence[str] | None = None) -> int:
                 out_dir=args.out_dir,
                 reviewer=args.reviewer,
                 videos_dir=args.videos_dir,
+                allow_partial=args.allow_partial,
+                dry_run=True,
             )
+            print(
+                f"Review summary: {summary['reviewed_count']} reviewed, "
+                f"{summary['remaining_count']} remaining, "
+                f"{summary['positives_to_add']} positives to add, "
+                f"{summary['timestamps_to_correct']} timestamps to correct, "
+                f"{summary['hard_negative_count']} hard negatives, "
+                f"{summary['ignored_count']} ignored; "
+                f"videos: {', '.join(summary['affected_videos']) or 'none'}."
+            )
+            if not args.dry_run:
+                summary = apply_review_queue(
+                    args.queue,
+                    annotations_dir=args.annotations_dir,
+                    out_dir=args.out_dir,
+                    reviewer=args.reviewer,
+                    videos_dir=args.videos_dir,
+                    allow_partial=args.allow_partial,
+                )
         except (ReviewQueueError, AnnotationError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
-        print(
-            f"Wrote annotation version {args.out_dir} "
-            f"({summary['annotations_added']} events added, "
-            f"{summary['timestamps_corrected']} timestamps corrected)"
-        )
+        if args.dry_run:
+            print("Dry run: no files written.")
+        else:
+            print(
+                f"Wrote annotation version {args.out_dir} "
+                f"({summary['annotations_added']} events added, "
+                f"{summary['timestamps_corrected']} timestamps corrected)"
+            )
         return 0
 
     if command_name == "export-coreml":

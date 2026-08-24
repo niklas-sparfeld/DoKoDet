@@ -42,11 +42,29 @@ def test_review_commands_parse_required_inputs() -> None:
             "reviewer",
         ]
     )
+    review_args = build_parser().parse_args(
+        [
+            "review",
+            "--queue",
+            "queue.json",
+            "--out",
+            "reviewed.json",
+            "--videos-dir",
+            "data/raw",
+            "--annotations-dir",
+            "data/annotations",
+            "--reviewer",
+            "reviewer",
+            "--include-reviewed",
+        ]
+    )
 
     assert queue_args.command_name == "review-queue"
     assert queue_args.partition == "val"
     assert apply_args.command_name == "apply-review"
     assert apply_args.reviewer == "reviewer"
+    assert review_args.command_name == "review"
+    assert review_args.include_reviewed is True
 
 
 def scored_video() -> ScoredVideo:
