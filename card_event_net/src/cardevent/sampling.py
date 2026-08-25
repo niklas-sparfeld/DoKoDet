@@ -5,7 +5,7 @@ import warnings
 from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from math import isfinite
-from typing import Sequence
+from typing import Mapping, Sequence
 
 DEFAULT_CLIP_OFFSETS_S: tuple[float, ...] = (
     -1.4,
@@ -93,9 +93,7 @@ def _validate_offsets(offsets_s: Sequence[float]) -> None:
         raise SamplingError("At least one clip offset is required.")
     if any(not isfinite(offset) or offset > 0.0 for offset in offsets_s):
         raise SamplingError("Clip offsets must be finite and must not use future frames.")
-    if any(
-        current < previous for previous, current in zip(offsets_s, offsets_s[1:], strict=False)
-    ):
+    if any(current < previous for previous, current in zip(offsets_s, offsets_s[1:], strict=False)):
         raise SamplingError("Clip offsets must be sorted from low to high.")
 
 
@@ -287,6 +285,94 @@ def build_labeled_times(
         )
         result.append(LabeledTime(time_s=time_s, label=label_for_state(state), label_state=state))
     return tuple(result)
+
+
+def sampling_report(
+    eligible_by_video: Mapping[str, Sequence[LabeledTime]],
+    selected_by_video: Mapping[str, Sequence[LabeledTime]],
+    *,
+    positive_window_s: float,
+    past_exclusion_s: float,
+    future_exclusion_s: float,
+    negative_to_positive_ratio: int,
+    hard_negative_manifest: str | None,
+    raw_hard_negative_counts: Mapping[str, int] | None = None,
+) -> dict[str, object]:
+    """Summarize all label states and the samples selected for training."""
+    raw_counts = raw_hard_negative_counts or {}
+    video_names = tuple(sorted(set(eligible_by_video) | set(selected_by_video)))
+
+    def count_states(samples: Sequence[LabeledTime]) -> dict[str, int]:
+        return {
+            "positive": sum(sample.label_state == LABEL_POSITIVE for sample in samples),
+            "ordinary_negative": sum(sample.label_state == LABEL_NEGATIVE for sample in samples),
+            "ignore": sum(sample.label_state == LABEL_IGNORE for sample in samples),
+            "confirmed_hard_negative": sum(
+                sample.label_state == LABEL_CONFIRMED_HARD_NEGATIVE for sample in samples
+            ),
+        }
+
+    def video_counts(name: str) -> dict[str, object]:
+        available = count_states(eligible_by_video.get(name, ()))
+        selected = count_states(selected_by_video.get(name, ()))
+        selected_total = sum(selected.values())
+        return {
+            "available": {
+                "positive": available["positive"],
+                "ordinary_negative": available["ordinary_negative"],
+                "ignore": available["ignore"],
+                "total": sum(available.values()),
+            },
+            "selected": {
+                "positive": selected["positive"],
+                "ordinary_negative": selected["ordinary_negative"],
+                "raw_confirmed_hard_negative": raw_counts.get(name, 0),
+                "repeated_confirmed_hard_negative": selected["confirmed_hard_negative"],
+                "total": selected_total,
+                "effective_positive_fraction": (
+                    selected["positive"] / selected_total if selected_total else 0.0
+                ),
+            },
+            "requested_ratio_unattainable": (
+                available["ordinary_negative"] < available["positive"] * negative_to_positive_ratio
+            ),
+        }
+
+    videos = {name: video_counts(name) for name in video_names}
+    all_eligible = tuple(sample for samples in eligible_by_video.values() for sample in samples)
+    all_selected = tuple(sample for samples in selected_by_video.values() for sample in samples)
+    available = count_states(all_eligible)
+    selected = count_states(all_selected)
+    selected_total = sum(selected.values())
+    return {
+        "labels": {
+            "positive_window_s": positive_window_s,
+            "negative_past_exclusion_s": past_exclusion_s,
+            "negative_future_exclusion_s": future_exclusion_s,
+            "negative_to_positive_ratio": negative_to_positive_ratio,
+        },
+        "hard_negative_manifest": hard_negative_manifest,
+        "available": {
+            "positive": available["positive"],
+            "ordinary_negative": available["ordinary_negative"],
+            "ignore": available["ignore"],
+            "total": sum(available.values()),
+        },
+        "selected": {
+            "positive": selected["positive"],
+            "ordinary_negative": selected["ordinary_negative"],
+            "raw_confirmed_hard_negative": sum(raw_counts.values()),
+            "repeated_confirmed_hard_negative": selected["confirmed_hard_negative"],
+            "total": selected_total,
+            "effective_positive_fraction": (
+                selected["positive"] / selected_total if selected_total else 0.0
+            ),
+        },
+        "videos": videos,
+        "ratio_unattainable_videos": [
+            name for name, counts in videos.items() if counts["requested_ratio_unattainable"]
+        ],
+    }
 
 
 def build_inference_times(duration_s: float, *, stride_s: float = 0.125) -> tuple[float, ...]:

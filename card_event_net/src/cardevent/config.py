@@ -162,11 +162,17 @@ class LabelConfig:
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "LabelConfig":
         mapping = _require_section(data, "labels")
+        positive_window_s = _require_float(mapping, "positive_window_s", min_value=0.0)
+        negative_past_exclusion_s = _require_float(
+            mapping, "negative_past_exclusion_s", min_value=0.0
+        )
+        if positive_window_s > negative_past_exclusion_s:
+            raise ConfigError(
+                "labels.positive_window_s must not exceed labels.negative_past_exclusion_s."
+            )
         return cls(
-            positive_window_s=_require_float(mapping, "positive_window_s", min_value=0.0),
-            negative_past_exclusion_s=_require_float(
-                mapping, "negative_past_exclusion_s", min_value=0.0
-            ),
+            positive_window_s=positive_window_s,
+            negative_past_exclusion_s=negative_past_exclusion_s,
             negative_future_exclusion_s=_require_float(
                 mapping, "negative_future_exclusion_s", min_value=0.0
             ),
@@ -184,6 +190,7 @@ class ModelConfig:
     temporal_hidden_1: int
     temporal_hidden_2: int
     dropout: float
+    temporal_head: str = "padded_tail_v1"
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "ModelConfig":
@@ -194,6 +201,9 @@ class ModelConfig:
         backbone = _require_string(mapping, "backbone")
         if backbone != "mobilenet_v3_small":
             raise ConfigError("model.backbone must be mobilenet_v3_small in v1.")
+        temporal_head = mapping.get("temporal_head", "padded_tail_v1")
+        if temporal_head not in ("padded_tail_v1", "full_clip_v2"):
+            raise ConfigError("model.temporal_head must be padded_tail_v1 or full_clip_v2.")
         return cls(
             backbone=backbone,
             pretrained=_require_bool(mapping, "pretrained"),
@@ -201,6 +211,7 @@ class ModelConfig:
             temporal_hidden_1=_require_int(mapping, "temporal_hidden_1", min_value=1),
             temporal_hidden_2=_require_int(mapping, "temporal_hidden_2", min_value=1),
             dropout=dropout,
+            temporal_head=temporal_head,
         )
 
 

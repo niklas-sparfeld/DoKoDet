@@ -43,7 +43,7 @@ from .evaluation import (
 from .events import ProbabilitySample
 from .hard_negatives import HardNegativeError, load_hard_negative_times
 from .model import CardEventNet, build_model, freeze_backbone, unfreeze_backbone
-from .sampling import DEFAULT_CLIP_OFFSETS_S
+from .sampling import DEFAULT_CLIP_OFFSETS_S, LabeledTime, build_labeled_times, sampling_report
 from .splits import SplitError, VideoSplit, load_split
 from .transforms import ClipTransform
 
@@ -390,6 +390,62 @@ def _training_samples_for_annotation(
         future_exclusion_s=config.labels.negative_future_exclusion_s,
         negative_to_positive_ratio=config.labels.negative_to_positive_ratio,
         seed=config.seed,
+    )
+
+
+def _sampling_report_for_split(
+    split: VideoSplit,
+    *,
+    cache_dir: Path,
+    annotations_dir: Path,
+    config: Config,
+    selected_samples: Sequence[DatasetSample],
+    hard_negative_manifest: str | Path | None,
+) -> dict[str, object]:
+    """Describe eligible labels and selected samples before training starts."""
+    raw_hard_negative_times: dict[str, tuple[float, ...]] = {}
+    if hard_negative_manifest is not None:
+        try:
+            raw_hard_negative_times = load_hard_negative_times(hard_negative_manifest, split.train)
+        except HardNegativeError as exc:
+            raise TrainingError(str(exc)) from exc
+
+    eligible_by_video: dict[str, tuple[LabeledTime, ...]] = {}
+    for name in split.train:
+        cache_path = _cache_for_video(name, cache_dir, preprocessing=config.input.preprocessing)
+        annotation = _annotation_for_video(name, annotations_dir)
+        event_times_s = tuple(
+            event.time_s for event in annotation.events if event.confidence in {None, "confirmed"}
+        )
+        metadata = load_cache_metadata(cache_path)
+        eligible_by_video[name] = build_labeled_times(
+            metadata.frame_timestamps_s,
+            event_times_s,
+            positive_window_s=config.labels.positive_window_s,
+            past_exclusion_s=config.labels.negative_past_exclusion_s,
+            future_exclusion_s=config.labels.negative_future_exclusion_s,
+        )
+
+    selected_by_video: dict[str, list[LabeledTime]] = {name: [] for name in split.train}
+    for sample in selected_samples:
+        selected_by_video.setdefault(sample.cache_dir.name, []).append(
+            LabeledTime(
+                time_s=sample.decision_time_s,
+                label=sample.label,
+                label_state=sample.label_state,
+            )
+        )
+    return sampling_report(
+        eligible_by_video,
+        selected_by_video,
+        positive_window_s=config.labels.positive_window_s,
+        past_exclusion_s=config.labels.negative_past_exclusion_s,
+        future_exclusion_s=config.labels.negative_future_exclusion_s,
+        negative_to_positive_ratio=config.labels.negative_to_positive_ratio,
+        hard_negative_manifest=(str(hard_negative_manifest) if hard_negative_manifest else None),
+        raw_hard_negative_counts={
+            name: len(times) for name, times in raw_hard_negative_times.items()
+        },
     )
 
 
@@ -1068,6 +1124,7 @@ def train_model(
     num_workers: int | None = None,
     precision: str | None = None,
     resume_path: str | Path | None = None,
+    write_sampling_report: bool = False,
 ) -> TrainingResult:
     """Run the two-stage CardEventNet training schedule."""
     run_path = Path(run_dir)
@@ -1147,6 +1204,20 @@ def train_model(
         hard_negative_manifest=hard_negative_manifest,
     )
     train_samples = _limit_samples(train_samples, max_samples)
+    sampling_data: dict[str, object] | None = None
+    if write_sampling_report:
+        sampling_data = _sampling_report_for_split(
+            split,
+            cache_dir=cache_path,
+            annotations_dir=annotation_path,
+            config=config,
+            selected_samples=train_samples,
+            hard_negative_manifest=hard_negative_manifest,
+        )
+        _atomic_write_text(
+            run_path / "sampling.json",
+            json.dumps(sampling_data, indent=2, allow_nan=False) + "\n",
+        )
     validation_videos = _validation_videos(
         split,
         cache_dir=cache_path,
@@ -1575,9 +1646,15 @@ def train_model(
             state: sum(sample.label_state == state for sample in train_samples)
             for state in ("positive", "negative", "confirmed_hard_negative", "ignore")
         },
+        "selected_sample_counts_by_label_state": {
+            state: sum(sample.label_state == state for sample in train_samples)
+            for state in ("positive", "negative", "confirmed_hard_negative", "ignore")
+        },
         "effective_positive_fraction": (
             sum(sample.label == 1.0 for sample in train_samples) / len(train_samples)
         ),
+        "sample_counts_scope": "selected_training_samples",
+        "effective_positive_fraction_scope": "selected_training_samples",
         "target_recall_status": {
             "target_recall": config.metrics.target_recall,
             "target_recall_met": bool(best_metrics.get("validation_target_recall_met", False)),
@@ -1588,6 +1665,8 @@ def train_model(
         },
         "plots": plot_paths,
     }
+    if sampling_data is not None:
+        summary["sampling_report"] = sampling_data
     _atomic_write_text(
         run_path / "summary.json",
         json.dumps(summary, indent=2, allow_nan=False) + "\n",
@@ -1646,4 +1725,5 @@ def train_from_files(
         num_workers=num_workers,
         precision=precision,
         resume_path=checkpoint_path,
+        write_sampling_report=True,
     )

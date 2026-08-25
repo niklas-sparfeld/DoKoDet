@@ -9,6 +9,7 @@ from cardevent.sampling import (
     is_clean_negative_time,
     is_positive_time,
     label_state_for_time,
+    sampling_report,
     select_frame_indices,
     select_frame_timestamps,
 )
@@ -89,3 +90,65 @@ def test_training_sampler_warns_when_clean_negative_ratio_is_unattainable() -> N
             negative_to_positive_ratio=3,
         )
     assert samples
+
+
+@pytest.mark.parametrize(
+    ("time_s", "expected"),
+    (
+        (9.899, "negative"),
+        (9.9, LABEL_IGNORE),
+        (9.999, LABEL_IGNORE),
+        (10.0, "positive"),
+        (10.25, "positive"),
+        (10.251, LABEL_IGNORE),
+        (10.35, LABEL_IGNORE),
+        (10.351, "negative"),
+    ),
+)
+def test_transition_label_boundaries(time_s: float, expected: str) -> None:
+    assert (
+        label_state_for_time(
+            time_s,
+            (10.0,),
+            positive_window_s=0.25,
+            past_exclusion_s=0.35,
+            future_exclusion_s=0.10,
+        )
+        == expected
+    )
+
+
+def test_transition_labels_make_unchanged_states_negative_and_union_positive_windows() -> None:
+    settings = {
+        "positive_window_s": 0.25,
+        "past_exclusion_s": 0.35,
+        "future_exclusion_s": 0.10,
+    }
+
+    assert label_state_for_time(11.0, (10.0, 12.0), **settings) == "negative"
+    assert label_state_for_time(10.30, (10.0, 10.2), **settings) == "positive"
+    assert label_state_for_time(10.45, (10.0, 10.2), **settings) == "positive"
+
+
+def test_sampling_report_separates_available_and_selected_samples() -> None:
+    eligible = build_training_times(
+        tuple(index / 10 for index in range(20)),
+        (0.5,),
+        positive_window_s=0.1,
+        past_exclusion_s=0.2,
+        future_exclusion_s=0.1,
+        negative_to_positive_ratio=3,
+    )
+    report = sampling_report(
+        {"sample": eligible},
+        {"sample": eligible},
+        positive_window_s=0.1,
+        past_exclusion_s=0.2,
+        future_exclusion_s=0.1,
+        negative_to_positive_ratio=3,
+        hard_negative_manifest=None,
+    )
+
+    assert report["hard_negative_manifest"] is None
+    assert report["available"]["positive"] == report["selected"]["positive"]
+    assert report["selected"]["effective_positive_fraction"] > 0.0
