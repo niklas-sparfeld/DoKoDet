@@ -7,13 +7,20 @@ import pytest
 from cardevent.evaluate import (
     ScoredVideo,
     ThresholdSelection,
+    _transition_diagnostics_path,
     diagnose_checkpoint_from_files,
     evaluate_streams,
     plot_probability_axis,
+    save_validation_stream,
     select_threshold,
 )
 from cardevent.events import ProbabilitySample
 from cardevent.splits import VideoSplit
+from cardevent.transition_diagnostics import (
+    TransitionDiagnosticError,
+    diagnose_saved_validation_stream,
+    transition_diagnostics,
+)
 
 
 def test_probability_axis_helper_draws_shared_event_markers() -> None:
@@ -34,6 +41,15 @@ def test_probability_axis_helper_draws_shared_event_markers() -> None:
     assert len(axis.lines) == 4
     assert axis.get_ylim() == (0.0, 1.0)
     plt.close(figure)
+
+
+def test_transition_diagnostics_path_is_unique_to_its_evaluation_report(tmp_path) -> None:
+    assert _transition_diagnostics_path(tmp_path / "evaluation-val.json") == (
+        tmp_path / "evaluation-val-transition-diagnostics.json"
+    )
+    assert _transition_diagnostics_path(tmp_path / "evaluation-test.json") == (
+        tmp_path / "evaluation-test-transition-diagnostics.json"
+    )
 
 
 def test_evaluate_streams_reports_event_metrics() -> None:
@@ -207,6 +223,76 @@ def test_per_video_metrics_and_failure_details_are_reported() -> None:
         }
     ]
     assert per_video[0]["false_event_details"] == [{"predicted_time_s": 20.0, "probability": 0.8}]
+
+
+def test_transition_diagnostics_measure_tails_and_nearest_review_scores(tmp_path) -> None:
+    manifest = tmp_path / "reviewed-negatives.json"
+    manifest.write_text(
+        """{
+          "format": "cardevent-review-hard-negatives-v1",
+          "partition": "val",
+          "training_input": false,
+          "items": [{"video": "val", "time_s": 10.76}]
+        }""",
+        encoding="utf-8",
+    )
+    video = ScoredVideo(
+        name="val",
+        duration_s=20.0,
+        ground_truth_times_s=(10.0, 10.75),
+        probabilities=(
+            ProbabilitySample(10.5, 0.1),
+            ProbabilitySample(10.625, 0.8),
+            ProbabilitySample(10.7, 0.99),
+            ProbabilitySample(10.75, 0.7),
+            ProbabilitySample(11.0, 0.2),
+            ProbabilitySample(11.25, 0.9),
+            ProbabilitySample(11.75, 0.3),
+        ),
+    )
+
+    report = transition_diagnostics(
+        [video], threshold=0.5, reviewed_hard_negative_manifest=manifest
+    )
+
+    assert report["aggregate"]["post_event_tail"] == {
+        "eligible_sample_count": 6,
+        "threshold_exceedance_count": 3,
+    }
+    assert report["aggregate"]["reviewed_hard_negatives"]["at_or_above_threshold_count"] == 1
+
+
+def test_transition_diagnostics_reject_training_scoped_manifest(tmp_path) -> None:
+    manifest = tmp_path / "training-negatives.json"
+    manifest.write_text(
+        """{
+          "format": "cardevent-review-hard-negatives-v1",
+          "partition": "train",
+          "training_input": true,
+          "items": []
+        }""",
+        encoding="utf-8",
+    )
+    video = ScoredVideo("val", 20.0, (), (ProbabilitySample(1.0, 0.1),))
+
+    with pytest.raises(TransitionDiagnosticError, match="validation-scoped"):
+        transition_diagnostics([video], threshold=0.5, reviewed_hard_negative_manifest=manifest)
+
+
+def test_transition_diagnostics_reads_a_saved_validation_stream(tmp_path) -> None:
+    video = ScoredVideo(
+        name="val",
+        duration_s=20.0,
+        ground_truth_times_s=(10.0,),
+        probabilities=(ProbabilitySample(10.5, 0.2),),
+    )
+    stream_path = save_validation_stream([video], tmp_path / "validation.json.gz")
+    output_path = tmp_path / "transition-diagnostics.json"
+
+    payload = diagnose_saved_validation_stream(stream_path, threshold=0.5, output_path=output_path)
+
+    assert output_path.is_file()
+    assert payload["aggregate"]["post_event_tail"]["eligible_sample_count"] == 1
 
 
 def test_diagnose_selects_from_validation_and_evaluates_train_and_val(

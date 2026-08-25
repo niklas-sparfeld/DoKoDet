@@ -153,6 +153,24 @@ def test_diagnose_command_parses_checkpoint_and_split() -> None:
     assert args.split == Path("data/splits/default.yaml")
 
 
+def test_transition_diagnostics_command_parses_saved_stream() -> None:
+    args = build_parser().parse_args(
+        [
+            "transition-diagnostics",
+            "--validation-stream",
+            "run/validation.json.gz",
+            "--threshold",
+            "0.5",
+            "--out",
+            "run/transition-diagnostics.json",
+        ]
+    )
+
+    assert args.command_name == "transition-diagnostics"
+    assert args.validation_stream == Path("run/validation.json.gz")
+    assert args.threshold == 0.5
+
+
 def test_mine_hard_negatives_command_parses_checkpoint_and_split() -> None:
     args = build_parser().parse_args(
         [

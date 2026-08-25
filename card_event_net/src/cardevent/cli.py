@@ -31,6 +31,7 @@ from .review import (
 from .review_ui import review_queue_interactively
 from .splits import SplitError, make_video_split, save_split
 from .train import TrainingError, train_from_files
+from .transition_diagnostics import TransitionDiagnosticError, diagnose_saved_validation_stream
 from .video import VideoError
 
 _PLACEHOLDER_COMMANDS = {
@@ -95,9 +96,7 @@ class _PrepareProgress:
         bar = "#" * completed + "-" * (self._BAR_WIDTH - completed)
         displayed_current = min(current, total)
         video_number = self._video_positions.get(video_path.resolve(), 1)
-        video_prefix = (
-            f"Video {video_number} / {self._video_count} — " if self._video_count else ""
-        )
+        video_prefix = f"Video {video_number} / {self._video_count} — " if self._video_count else ""
         text = (
             f"{video_prefix}Preparing {video_path.name}: [{bar}] {percent:3d}% "
             f"({displayed_current}/{total} frames)"
@@ -384,7 +383,36 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override the device stored in the checkpoint config.",
     )
+    evaluate_parser.add_argument(
+        "--reviewed-hard-negative-manifest",
+        type=Path,
+        default=None,
+        help="Optional reviewed validation hard-negative manifest for score diagnostics.",
+    )
     evaluate_parser.set_defaults(command_name="evaluate")
+
+    transition_parser = subparsers.add_parser(
+        "transition-diagnostics",
+        help="Diagnose a saved validation probability stream.",
+        description=(
+            "Read a saved validation stream and measure post-event score tails "
+            "without model inference."
+        ),
+    )
+    transition_parser.add_argument(
+        "--validation-stream", type=Path, required=True, help="Saved validation stream (.json.gz)."
+    )
+    transition_parser.add_argument(
+        "--threshold", type=float, required=True, help="Validation-selected probability threshold."
+    )
+    transition_parser.add_argument("--out", type=Path, required=True, help="Diagnostics JSON path.")
+    transition_parser.add_argument(
+        "--reviewed-hard-negative-manifest",
+        type=Path,
+        default=None,
+        help="Reviewed validation hard-negative manifest.",
+    )
+    transition_parser.set_defaults(command_name="transition-diagnostics")
 
     diagnose_parser = subparsers.add_parser(
         "diagnose",
@@ -874,6 +902,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 annotations_dir=args.annotations_dir,
                 output_path=args.out,
                 device_override=args.device,
+                reviewed_hard_negative_manifest=args.reviewed_hard_negative_manifest,
             )
         except (EvaluationError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
@@ -887,6 +916,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         output_path = args.out or args.checkpoint.parent / f"evaluation-{args.partition}.json"
         print(f"Metrics JSON: {output_path}")
+        return 0
+
+    if command_name == "transition-diagnostics":
+        try:
+            payload = diagnose_saved_validation_stream(
+                args.validation_stream,
+                threshold=args.threshold,
+                output_path=args.out,
+                reviewed_hard_negative_manifest=args.reviewed_hard_negative_manifest,
+            )
+        except (TransitionDiagnosticError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        tail = payload["aggregate"]["post_event_tail"]
+        print(
+            "Post-event tail samples at or above threshold: "
+            f"{tail['threshold_exceedance_count']} / {tail['eligible_sample_count']}"
+        )
+        print(f"Transition diagnostics JSON: {args.out}")
         return 0
 
     if command_name == "diagnose":

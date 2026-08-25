@@ -22,6 +22,7 @@ from .evaluation import event_f1 as _event_f1
 from .events import probabilities_to_events
 from .infer import InferenceError, LoadedCheckpoint, infer_cached_video, load_checkpoint
 from .splits import SplitError, VideoSplit, load_split
+from .transition_diagnostics import TransitionDiagnosticError, transition_diagnostics
 
 _save_threshold_selection = save_threshold_selection
 _load_threshold_selection = load_threshold_selection
@@ -473,6 +474,11 @@ def _save_evaluation(payload: Mapping[str, Any], output_path: str | Path) -> Pat
     return path
 
 
+def _transition_diagnostics_path(evaluation_path: Path) -> Path:
+    """Return the diagnostics path unique to one evaluation report."""
+    return evaluation_path.parent / f"{evaluation_path.stem}-transition-diagnostics.json"
+
+
 def format_report(payload: Mapping[str, Any]) -> str:
     overall = payload["overall"]
     timestamp_error_median_s = overall.get(
@@ -519,6 +525,7 @@ def evaluate_checkpoint_from_files(
     annotations_dir: str | Path = "data/annotations",
     output_path: str | Path | None = None,
     device_override: str | None = None,
+    reviewed_hard_negative_manifest: str | Path | None = None,
 ) -> dict[str, Any]:
     """Evaluate a checkpoint and select thresholds from validation data only."""
     try:
@@ -633,12 +640,22 @@ def evaluate_checkpoint_from_files(
     payload["target_recall_met"] = selection.target_recall_met
     payload["maximum_attainable_recall"] = selection.maximum_attainable_recall
     payload["selection_reason"] = selection.selection_reason
-    payload["validation_stream"] = str(
-        save_validation_stream(
-            validation_videos,
-            destination.parent / "validation-streams" / "evaluation.json.gz",
-        )
+    validation_stream_path = save_validation_stream(
+        validation_videos,
+        destination.parent / "validation-streams" / "evaluation.json.gz",
     )
+    payload["validation_stream"] = str(validation_stream_path)
+    try:
+        transition_payload = transition_diagnostics(
+            validation_videos,
+            threshold=selection.threshold,
+            reviewed_hard_negative_manifest=reviewed_hard_negative_manifest,
+        )
+    except TransitionDiagnosticError as exc:
+        raise EvaluationError(f"Could not create transition diagnostics: {exc}") from exc
+    transition_path = _transition_diagnostics_path(destination)
+    _save_evaluation(transition_payload, transition_path)
+    payload["transition_diagnostics"] = str(transition_path)
     _save_evaluation(payload, destination)
     return payload
 

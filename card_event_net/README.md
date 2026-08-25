@@ -170,6 +170,14 @@ Training uses the same label semantics for training and validation. Ignored tran
 not affect BCE loss. It reports label-state counts, effective positive fraction, validation loss,
 event recall, precision, F1, false events per hour, timestamp error, and target-recall status.
 
+`labels.positive_window_s` is the positive interval after an event.
+`labels.negative_past_exclusion_s` ends the post-event exclusion interval.
+`labels.negative_future_exclusion_s` is the pre-event exclusion duration.
+The positive window must not extend past the post-event exclusion interval.
+
+The transition-label experiment uses `configs/transition-label-v1.yaml`. It writes `sampling.json`
+before the first epoch. This file separates all eligible labels from selected training samples.
+
 Training selects a validation threshold for each epoch. It uses the target-recall operating point
 when possible. If target recall is impossible, it selects the maximum-F1 fallback and records the
 failure. The best checkpoint uses this event-level ranking. Early stopping uses the configured
@@ -243,6 +251,19 @@ threshold tradeoff plots. It also writes precision/recall and recall/false-event
 Threshold candidates use unique decoded peak scores, not a fixed probability grid. The report
 includes event recall, precision, F1, false events per hour, latency p50/p95, target-recall
 status, maximum attainable recall, and the selection reason.
+
+Evaluation writes a diagnostics file beside each evaluation report. For example,
+`evaluation-val.json` writes `evaluation-val-transition-diagnostics.json`. It measures
+probabilities from 0.50 through 1.00 seconds after each event, excluding the 0.10 seconds before
+the next event. Supply reviewed validation hard negatives for nearest-stream score diagnostics:
+
+```bash
+uv run cardevent evaluate \
+  --checkpoint data/outputs/run-.../best.pt \
+  --split data/splits/default.yaml \
+  --partition val \
+  --reviewed-hard-negative-manifest data/annotations-val-reviewed/validation-hard-negatives.json
+```
 
 Compare train and validation behavior at a validation-selected threshold:
 
