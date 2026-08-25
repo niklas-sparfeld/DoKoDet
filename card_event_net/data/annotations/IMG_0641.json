@@ -1,11 +1,6 @@
 {
+  "schema_version": "cardevent-annotation/v2",
   "video": "IMG_0641.MOV",
-  "roi": {
-    "x": 0.003125,
-    "y": 0.18611111111111112,
-    "width": 0.9963541666666667,
-    "height": 0.8111111111111111
-  },
   "events": [
     {
       "time_s": 4.504356846473029,
@@ -24,6 +19,16 @@
       "type": "card_played"
     },
     {
+      "time_s": 10.760408022130015,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 11.260892116182573,
+      "type": "anomalous_state_change",
+      "confidence": "confirmed"
+    },
+    {
       "time_s": 14.764280774550485,
       "type": "card_played"
     },
@@ -38,6 +43,11 @@
     {
       "time_s": 18.768153526970956,
       "type": "card_played"
+    },
+    {
+      "time_s": 20.01936376210235,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
     },
     {
       "time_s": 22.772026279391426,
@@ -56,6 +66,11 @@
       "type": "card_played"
     },
     {
+      "time_s": 27.526625172890736,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
+    },
+    {
       "time_s": 31.030013831258646,
       "type": "card_played"
     },
@@ -70,6 +85,11 @@
     {
       "time_s": 34.53340248962656,
       "type": "card_played"
+    },
+    {
+      "time_s": 36.03485477178423,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
     },
     {
       "time_s": 39.53824343015214,
@@ -88,6 +108,11 @@
       "type": "card_played"
     },
     {
+      "time_s": 44.04260027662517,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
+    },
+    {
       "time_s": 46.79526279391425,
       "type": "card_played"
     },
@@ -102,6 +127,11 @@
     {
       "time_s": 50.79913554633472,
       "type": "card_played"
+    },
+    {
+      "time_s": 52.3005878284924,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
     },
     {
       "time_s": 57.55567081604426,
@@ -120,6 +150,11 @@
       "type": "card_played"
     },
     {
+      "time_s": 63.06099585062241,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
+    },
+    {
       "time_s": 67.56535269709543,
       "type": "card_played"
     },
@@ -134,6 +169,11 @@
     {
       "time_s": 71.31898340248964,
       "type": "card_played"
+    },
+    {
+      "time_s": 72.57019363762103,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
     },
     {
       "time_s": 75.3228561549101,
@@ -152,6 +192,11 @@
       "type": "card_played"
     },
     {
+      "time_s": 80.3276970954357,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
+    },
+    {
       "time_s": 84.83205394190871,
       "type": "card_played"
     },
@@ -166,6 +211,11 @@
     {
       "time_s": 88.33544260027664,
       "type": "card_played"
+    },
+    {
+      "time_s": 90.08713692946058,
+      "type": "trick_cleared",
+      "confidence": "confirmed"
     }
   ]
 }
