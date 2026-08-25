@@ -59,9 +59,10 @@ Annotation controls:
 
 ```text
 1-7     select event type
-SPACE   add a confirmed event of the selected type
-W / S   select previous or next saved event
+SPACE   add an event, or change the event type at the same timestamp
+W / S   jump to the previous or next saved event
 , / .   move the selected event one frame backward or forward
+E       set the selected event to the selected type
 T       cycle the selected event type
 U       mark the selected event or selected proposal uncertain
 N / B   jump to next or previous model proposal
@@ -72,6 +73,9 @@ J / L   seek backward or forward about 2 s
 BACKSPACE or X  remove the selected event
 Q       save and exit
 ```
+
+The selected saved event follows the current video timestamp. The overlay shows its timestamp and
+type.
 
 ## Setup
 

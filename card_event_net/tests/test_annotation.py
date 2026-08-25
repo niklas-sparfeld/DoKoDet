@@ -160,6 +160,81 @@ def test_new_annotation_session_saves_without_roi(tmp_path: Path) -> None:
     }
 
 
+def test_record_event_replaces_type_within_duplicate_tolerance(tmp_path: Path) -> None:
+    metadata = sample_metadata()
+    session = AnnotationSession(
+        video_path=metadata.path,
+        metadata=metadata,
+        annotation_path=tmp_path / "IMG_0090.json",
+        events=[
+            AnnotationEvent(
+                time_s=1.0,
+                type="card_played",
+                confidence="uncertain",
+                notes="turned face up",
+            )
+        ],
+    )
+
+    selected_index = session.record_event(1.005, event_type="card_moved")
+
+    assert selected_index == 0
+    assert session.events == [
+        AnnotationEvent(
+            time_s=1.0,
+            type="card_moved",
+            confidence="uncertain",
+            notes="turned face up",
+        )
+    ]
+    assert load_annotation(session.annotation_path).events == tuple(session.events)
+
+
+def test_record_event_adds_new_event_in_time_order(tmp_path: Path) -> None:
+    metadata = sample_metadata()
+    session = AnnotationSession(
+        video_path=metadata.path,
+        metadata=metadata,
+        annotation_path=tmp_path / "IMG_0090.json",
+        events=[AnnotationEvent(time_s=2.0)],
+    )
+
+    selected_index = session.record_event(1.0, event_type="card_played")
+
+    assert selected_index == 0
+    assert [event.time_s for event in session.events] == [1.0, 2.0]
+    assert load_annotation(session.annotation_path).events == tuple(session.events)
+
+
+def test_nearest_event_index_follows_timestamp(tmp_path: Path) -> None:
+    metadata = sample_metadata()
+    session = AnnotationSession(
+        video_path=metadata.path,
+        metadata=metadata,
+        annotation_path=tmp_path / "IMG_0090.json",
+        events=[
+            AnnotationEvent(time_s=1.0),
+            AnnotationEvent(time_s=3.0, type="card_moved"),
+        ],
+    )
+
+    assert session.nearest_event_index(0.0) == 0
+    assert session.nearest_event_index(2.0) == 0
+    assert session.nearest_event_index(2.1) == 1
+    assert session.nearest_event_index(10.0) == 1
+
+
+def test_nearest_event_index_is_none_without_events(tmp_path: Path) -> None:
+    metadata = sample_metadata()
+    session = AnnotationSession(
+        video_path=metadata.path,
+        metadata=metadata,
+        annotation_path=tmp_path / "IMG_0090.json",
+    )
+
+    assert session.nearest_event_index(1.0) is None
+
+
 def test_extended_event_types_and_optional_fields_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "IMG_0090.json"
     annotation = VideoAnnotation(

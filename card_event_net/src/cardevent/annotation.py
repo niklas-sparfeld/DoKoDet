@@ -466,6 +466,15 @@ class AnnotationSession:
     def event_count(self) -> int:
         return len(self.events)
 
+    def nearest_event_index(self, time_s: float) -> int | None:
+        """Return the event nearest to the current video timestamp."""
+        if not self.events:
+            return None
+        return min(
+            range(len(self.events)),
+            key=lambda index: (abs(self.events[index].time_s - time_s), self.events[index].time_s),
+        )
+
     @classmethod
     def open(
         cls, video_path: str | Path, *, annotations_dir: str | Path | None = None
@@ -513,10 +522,53 @@ class AnnotationSession:
         confidence: str | None = "confirmed",
         notes: str | None = None,
     ) -> Path:
-        self.events.append(
-            AnnotationEvent(time_s=time_s, type=event_type, confidence=confidence, notes=notes)
+        event = AnnotationEvent(
+            time_s=time_s,
+            type=event_type,
+            confidence=confidence,
+            notes=notes,
         )
-        return self.save()
+        self.events.append(event)
+        self.events.sort(key=lambda item: item.time_s)
+        try:
+            return self.save()
+        except Exception:
+            self.events[:] = [item for item in self.events if item is not event]
+            raise
+
+    def record_event(
+        self,
+        time_s: float,
+        *,
+        event_type: str = "card_played",
+        confidence: str | None = "confirmed",
+        notes: str | None = None,
+    ) -> int:
+        """Add an event, or change the type of an event at the same time.
+
+        Keep the timestamp, confidence, and notes when an event already exists
+        within the duplicate-event tolerance.
+        """
+        matching_indices = [
+            index
+            for index, event in enumerate(self.events)
+            if abs(event.time_s - time_s) <= DEFAULT_DUPLICATE_TOLERANCE_S
+        ]
+        if matching_indices:
+            index = min(matching_indices, key=lambda item: abs(self.events[item].time_s - time_s))
+            self.update_event(index, event_type=event_type)
+            return index
+
+        self.add_event(
+            time_s,
+            event_type=event_type,
+            confidence=confidence,
+            notes=notes,
+        )
+        return min(
+            range(len(self.events)),
+            key=lambda index: abs(self.events[index].time_s - time_s),
+        )
 
     def update_event(
         self,
@@ -571,9 +623,11 @@ def _print_annotation_help(session: AnnotationSession) -> None:
     print()
     print("Controls:")
     print("  1-7     select event type (card play, clear, move, remove, return, drop, anomaly)")
-    print("  SPACE   add a confirmed event of the selected type")
-    print("  W / S   select previous or next saved event")
+    print("  SPACE   add an event, or change the event type at the same timestamp")
+    print("  W / S   jump to the previous or next saved event")
+    print("            the selected event follows the current timestamp")
     print("  , / .   move the selected event one frame backward or forward")
+    print("  E       set the selected event to the selected type")
     print("  T       cycle the selected event type")
     print("  U       mark the selected event or proposal uncertain")
     print("  N / B   jump to next or previous model proposal")
@@ -633,6 +687,7 @@ def annotate_video(
 
             preview, _ = _resize_preview(current_frame)
             timestamp_s = current_frame_index / session.metadata.fps
+            selected_event_index = session.nearest_event_index(timestamp_s)
             if compare_before_after:
                 before = _capture_frame(
                     capture,
@@ -647,7 +702,14 @@ def annotate_video(
                 before_preview, _ = _resize_preview(before, max_width=620, max_height=600)
                 after_preview, _ = _resize_preview(after, max_width=620, max_height=600)
                 preview = cv2.hconcat((before_preview, after_preview))
-            event_selection = selected_event_index if selected_event_index is not None else "-"
+            if selected_event_index is None:
+                event_selection = "-"
+            else:
+                selected_event = session.events[selected_event_index]
+                event_selection = (
+                    f"{selected_event_index} "
+                    f"{_format_timestamp(selected_event.time_s)} {selected_event.type}"
+                )
             proposal_selection = (
                 selected_proposal_index if selected_proposal_index is not None else "-"
             )
@@ -705,11 +767,33 @@ def annotate_video(
             elif key in (ord("w"), ord("W")):
                 if session.events:
                     selected_event_index = max(0, (selected_event_index or 0) - 1)
+                    current_frame_index = min(
+                        session.metadata.frame_count - 1,
+                        int(
+                            round(
+                                session.events[selected_event_index].time_s * session.metadata.fps
+                            )
+                        ),
+                    )
+                    frame_changed = True
             elif key in (ord("s"), ord("S")):
                 if session.events:
-                    selected_event_index = min(
-                        len(session.events) - 1, (selected_event_index or -1) + 1
+                    current_selection = (
+                        selected_event_index if selected_event_index is not None else -1
                     )
+                    selected_event_index = min(
+                        len(session.events) - 1,
+                        current_selection + 1,
+                    )
+                    current_frame_index = min(
+                        session.metadata.frame_count - 1,
+                        int(
+                            round(
+                                session.events[selected_event_index].time_s * session.metadata.fps
+                            )
+                        ),
+                    )
+                    frame_changed = True
             elif key in (ord("n"), ord("N"), ord("b"), ord("B")):
                 if proposals:
                     direction = 1 if key in (ord("n"), ord("N")) else -1
@@ -744,6 +828,8 @@ def annotate_video(
                         session.events[selected_event_index].time_s + delta / session.metadata.fps,
                     ),
                 )
+            elif key in (ord("e"), ord("E")) and selected_event_index is not None:
+                session.update_event(selected_event_index, event_type=selected_type)
             elif key in (ord("t"), ord("T")) and selected_event_index is not None:
                 types = tuple(sorted(EVENT_TYPES))
                 current_type = session.events[selected_event_index].type
@@ -761,8 +847,10 @@ def annotate_video(
                     )
                     selected_event_index = len(session.events) - 1
             elif key == ord(" "):
-                session.add_event(timestamp_s, event_type=selected_type)
-                selected_event_index = len(session.events) - 1
+                selected_event_index = session.record_event(
+                    timestamp_s,
+                    event_type=selected_type,
+                )
             elif key in (ord("c"), ord("C")):
                 compare_before_after = not compare_before_after
             if playing and not frame_changed:
