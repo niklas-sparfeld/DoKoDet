@@ -1,13 +1,11 @@
-# This is a session-isolated development split. It is not the final full-frame test split.
-# IMG_2781 was evaluated for the ROI pipeline and is deliberately excluded.
+# This is a session- and game-isolated development split.
+# It is not the final full-frame test split. Collect a new game for that purpose.
+# IMG_2781 was evaluated for the ROI pipeline, so it is training data here.
 train:
   - IMG_0090
   - IMG_0091
-  - IMG_0092
   - IMG_0095
   - IMG_0096
-  - IMG_0097
-  - IMG_0635
   - IMG_0636
   - IMG_0637
   - IMG_0638
@@ -16,14 +14,12 @@ train:
   - IMG_0641
   - IMG_0642
   - IMG_0643
-  - IMG_0644
   - IMG_0645
   - IMG_0646
   - IMG_0648
   - IMG_0649
   - IMG_0650
   - IMG_0651
-  - IMG_0652
   - IMG_0653
   - IMG_0654
   - IMG_0655
@@ -32,9 +28,15 @@ train:
   - IMG_0658
   - IMG_0659
   - IMG_0660
-  - IMG_0661
   - IMG_0662
+  - IMG_2781
 val:
+  - IMG_0092
+  - IMG_0097
+  - IMG_0635
+  - IMG_0644
+  - IMG_0652
+  - IMG_0661
   - IMG_2777
   - IMG_2778
   - IMG_2779

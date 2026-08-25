@@ -4,7 +4,7 @@ videos:
     video_id: IMG_0090
     file_name: IMG_0090.mov
     content_type: staged_trick_sequence
-    session_id: capture-20200611-1848-a
+    session_id: capture-img-0090
     game_id: null
     recording_date: "2020-06-11T18:48:37Z"
     device: Apple iPhone SE (2nd generation)
@@ -16,7 +16,7 @@ videos:
     camera_view: high_oblique
     camera_motion: fixed
     camera_framing: table_with_context
-    table_setup: setup-20200611-a
+    table_setup: setup-img-0090
     lighting: [room_light]
     background: null
     card_deck: null
@@ -32,234 +32,288 @@ videos:
     annotation_version: cardevent-annotation/v1
     source_permission: project_use
     notes: >-
-      REVIEW: Confirm provenance, permission, camera description, and visual scenario tags.
-      Capture fields came from ffprobe QuickTime metadata. Session is a capture-time group.
+      Staged trick sequence. Treat this recording as an independent session because its
+      lighting, camera angle, and background differ from the other staged recordings.
   - <<: *s20200611a
     video_id: IMG_0091
     file_name: IMG_0091.mov
+    session_id: capture-img-0091
     recording_date: "2020-06-11T18:49:11Z"
     frame_rate: 29.997
     duration_s: 100.843
+    table_setup: setup-img-0091
   - <<: *s20200611a
     video_id: IMG_0092
     file_name: IMG_0092.mov
+    session_id: capture-img-0092
     recording_date: "2020-06-11T18:48:56Z"
     frame_rate: 29.997
     duration_s: 95.01
     camera_framing: table_fills_frame
+    table_setup: setup-img-0092
   - &s20200611b
     <<: *s20200611a
     video_id: IMG_0095
     file_name: IMG_0095.mov
-    session_id: capture-20200611-1921-b
+    session_id: capture-img-0095
     recording_date: "2020-06-11T19:21:17Z"
     resolution: 2160x3840
     frame_rate: 60.008
     duration_s: 70.69
     orientation: portrait
-    table_setup: setup-20200611-b
+    table_setup: setup-img-0095
   - &s20200612a
     <<: *s20200611a
     video_id: IMG_0096
     file_name: IMG_0096.mov
-    session_id: capture-20200612-1208-a
+    session_id: capture-img-0096
     recording_date: "2020-06-12T12:08:58Z"
     resolution: 3840x2160
     frame_rate: 60.007
     duration_s: 68.125
-    table_setup: setup-20200612-a
+    table_setup: setup-img-0096
   - <<: *s20200612a
     video_id: IMG_0097
     file_name: IMG_0097.mov
+    session_id: capture-img-0097
     recording_date: "2020-06-12T12:10:21Z"
     frame_rate: 60.008
     duration_s: 63.992
+    table_setup: setup-img-0097
   - &s20260820a
     <<: *s20200611a
     video_id: IMG_0635
     file_name: IMG_0635.MOV
-    session_id: capture-20260820-1855-a
+    session_id: capture-img-0635
     recording_date: "2026-08-20T18:55:54Z"
     device: Apple iPhone 14
     frame_rate: 59.962
     duration_s: 100.412
-    table_setup: setup-20260820-a
+    table_setup: setup-img-0635
   - <<: *s20260820a
     video_id: IMG_0636
     file_name: IMG_0636.MOV
+    session_id: capture-img-0636
     recording_date: "2026-08-20T18:58:13Z"
     frame_rate: 59.963
     duration_s: 88.487
+    table_setup: setup-img-0636
   - <<: *s20260820a
     video_id: IMG_0637
     file_name: IMG_0637.MOV
+    session_id: capture-img-0637
     recording_date: "2026-08-20T19:00:17Z"
     frame_rate: 59.942
     duration_s: 77.608
+    table_setup: setup-img-0637
   - <<: *s20260820a
     video_id: IMG_0638
     file_name: IMG_0638.MOV
+    session_id: capture-img-0638
     recording_date: "2026-08-20T19:02:18Z"
     frame_rate: 59.942
     duration_s: 96.792
+    table_setup: setup-img-0638
   - <<: *s20260820a
     video_id: IMG_0639
     file_name: IMG_0639.MOV
+    session_id: capture-img-0639
     recording_date: "2026-08-20T19:04:16Z"
     frame_rate: 59.942
     duration_s: 79.693
+    table_setup: setup-img-0639
   - <<: *s20260820a
     video_id: IMG_0640
     file_name: IMG_0640.MOV
+    session_id: capture-img-0640
     recording_date: "2026-08-20T19:06:01Z"
     frame_rate: 59.942
     duration_s: 88.902
+    table_setup: setup-img-0640
   - <<: *s20260820a
     video_id: IMG_0641
     file_name: IMG_0641.MOV
+    session_id: capture-img-0641
     recording_date: "2026-08-20T19:07:53Z"
     frame_rate: 59.942
     duration_s: 96.492
+    table_setup: setup-img-0641
   - <<: *s20260820a
     video_id: IMG_0642
     file_name: IMG_0642.MOV
+    session_id: capture-img-0642
     recording_date: "2026-08-20T19:09:53Z"
     frame_rate: 59.942
     duration_s: 95.993
+    table_setup: setup-img-0642
   - <<: *s20260820a
     video_id: IMG_0643
     file_name: IMG_0643.MOV
+    session_id: capture-img-0643
     recording_date: "2026-08-20T19:12:15Z"
     frame_rate: 59.943
     duration_s: 97.975
+    table_setup: setup-img-0643
   - <<: *s20260820a
     video_id: IMG_0644
     file_name: IMG_0644.MOV
+    session_id: capture-img-0644
     recording_date: "2026-08-20T19:14:33Z"
     frame_rate: 59.963
     duration_s: 99.36
+    table_setup: setup-img-0644
   - <<: *s20260820a
     video_id: IMG_0645
     file_name: IMG_0645.MOV
+    session_id: capture-img-0645
     recording_date: "2026-08-20T19:16:30Z"
     frame_rate: 59.962
     duration_s: 100.997
+    table_setup: setup-img-0645
   - <<: *s20260820a
     video_id: IMG_0646
     file_name: IMG_0646.MOV
+    session_id: capture-img-0646
     recording_date: "2026-08-20T19:18:48Z"
     frame_rate: 59.963
     duration_s: 105.032
+    table_setup: setup-img-0646
   - &s20260821a
     <<: *s20260820a
     video_id: IMG_0648
     file_name: IMG_0648.MOV
-    session_id: capture-20260821-0833-a
+    session_id: capture-img-0648
     recording_date: "2026-08-21T08:33:26Z"
     frame_rate: 59.942
     duration_s: 103.582
-    table_setup: setup-20260821-a
+    table_setup: setup-img-0648
   - <<: *s20260821a
     video_id: IMG_0649
     file_name: IMG_0649.MOV
+    session_id: capture-img-0649
     recording_date: "2026-08-21T08:40:34Z"
     frame_rate: 59.942
     duration_s: 109.738
+    table_setup: setup-img-0649
   - <<: *s20260821a
     video_id: IMG_0650
     file_name: IMG_0650.MOV
+    session_id: capture-img-0650
     recording_date: "2026-08-21T08:42:39Z"
     frame_rate: 59.942
     duration_s: 76.39
+    table_setup: setup-img-0650
   - <<: *s20260821a
     video_id: IMG_0651
     file_name: IMG_0651.MOV
+    session_id: capture-img-0651
     recording_date: "2026-08-21T08:47:55Z"
     frame_rate: 59.942
     duration_s: 95.492
+    table_setup: setup-img-0651
   - <<: *s20260821a
     video_id: IMG_0652
     file_name: IMG_0652.MOV
+    session_id: capture-img-0652
     recording_date: "2026-08-21T08:50:25Z"
     frame_rate: 59.942
     duration_s: 78.025
+    table_setup: setup-img-0652
   - <<: *s20260821a
     video_id: IMG_0653
     file_name: IMG_0653.MOV
+    session_id: capture-img-0653
     recording_date: "2026-08-21T08:52:57Z"
     frame_rate: 59.942
     duration_s: 98.578
+    table_setup: setup-img-0653
   - <<: *s20260821a
     video_id: IMG_0654
     file_name: IMG_0654.MOV
+    session_id: capture-img-0654
     recording_date: "2026-08-21T08:55:42Z"
     frame_rate: 59.942
     duration_s: 81.277
+    table_setup: setup-img-0654
   - <<: *s20260821a
     video_id: IMG_0655
     file_name: IMG_0655.MOV
+    session_id: capture-img-0655
     recording_date: "2026-08-21T09:01:26Z"
     frame_rate: 59.942
     duration_s: 87.868
+    table_setup: setup-img-0655
   - <<: *s20260821a
     video_id: IMG_0656
     file_name: IMG_0656.MOV
+    session_id: capture-img-0656
     recording_date: "2026-08-21T09:03:11Z"
     frame_rate: 59.943
     duration_s: 85.348
+    table_setup: setup-img-0656
   - <<: *s20260821a
     video_id: IMG_0657
     file_name: IMG_0657.MOV
+    session_id: capture-img-0657
     recording_date: "2026-08-21T09:04:47Z"
     frame_rate: 59.942
     duration_s: 89.42
+    table_setup: setup-img-0657
   - <<: *s20260821a
     video_id: IMG_0658
     file_name: IMG_0658.MOV
+    session_id: capture-img-0658
     recording_date: "2026-08-21T09:06:34Z"
     frame_rate: 59.942
     duration_s: 78.725
+    table_setup: setup-img-0658
   - <<: *s20260821a
     video_id: IMG_0659
     file_name: IMG_0659.MOV
+    session_id: capture-img-0659
     recording_date: "2026-08-21T09:11:01Z"
     frame_rate: 59.942
     duration_s: 82.378
+    table_setup: setup-img-0659
   - <<: *s20260821a
     video_id: IMG_0660
     file_name: IMG_0660.MOV
+    session_id: capture-img-0660
     recording_date: "2026-08-21T09:13:43Z"
     frame_rate: 59.942
     duration_s: 82.728
+    table_setup: setup-img-0660
   - <<: *s20260821a
     video_id: IMG_0661
     file_name: IMG_0661.MOV
+    session_id: capture-img-0661
     recording_date: "2026-08-21T09:15:42Z"
     frame_rate: 59.942
     duration_s: 90.72
+    table_setup: setup-img-0661
   - <<: *s20260821a
     video_id: IMG_0662
     file_name: IMG_0662.MOV
+    session_id: capture-img-0662
     recording_date: "2026-08-21T09:20:23Z"
     frame_rate: 59.942
     duration_s: 94.875
+    table_setup: setup-img-0662
   - &s20180128a
     <<: *s20200611a
     video_id: IMG_2777
     file_name: IMG_2777.m4v
+    content_type: real_game
     session_id: capture-20180128-1337-a
+    game_id: game-20180128-a
     recording_date: "2018-01-28T13:39:18Z"
     device: Apple iPhone X
     frame_rate: 30.006
     duration_s: 317.067
     table_setup: setup-20180128-a
     camera_framing: table_fills_frame
-    known_limitations:
-      - regular_play_cadence
-      - short_inter_trick_pauses
-      - no_overlapping_card_plays
-      - few_mistakes
-      - no_game_decisions
+    known_limitations: []
+    notes: One complete 40-card round with 10 tricks from a real game.
   - <<: *s20180128a
     video_id: IMG_2778
     file_name: IMG_2778.m4v
@@ -280,6 +334,7 @@ videos:
     video_id: IMG_2781
     file_name: IMG_2781.m4v
     session_id: capture-20180124-1937-a
+    game_id: game-20180124-a
     recording_date: "2018-01-24T19:37:21Z"
     duration_s: 184.595
     table_setup: setup-20180124-a
