@@ -30,6 +30,10 @@ uv run cardevent review \
 The reviewed queue is a separate file. The source queue and source annotations stay unchanged.
 The command writes the reviewed file after each decision. Run the same command again to resume.
 
+New queues include one probability timeline per video. The review window shows the model
+probability curve, threshold, predictions, source events, queue candidate, and current video
+position below the video. Old queues still work, but show a hint to regenerate the queue.
+
 Use `--video`, `--category`, or `--start-item` to narrow the first session. Use
 `--include-reviewed` to include completed items when you need to revisit them.
 
@@ -42,8 +46,25 @@ I  ignore                       U  clear the decision
 M  add or edit a note            Q  save and exit
 P  play or pause                A/D and J/L seek
 C  before/after comparison      1-7 select the event type
-N/B next or previous queue item
+N/B next or previous queue item   ,/. previous or next source annotation target
 ```
+
+Near-event decisions:
+
+- `E` means the candidate is the same physical event and the selected existing annotation time
+  is good enough.
+- `R` means the candidate is the same physical event, but correct the selected existing
+  annotation to the current state-change time.
+- `Y` means a distinct real event is missing. Add it as a new event.
+- `H` means no real state change occurs in the model input context. Do not use `H` for a duplicate
+  peak that belongs to a real event or for an uncertain event boundary.
+- `I` means the evidence is unusable or ambiguous. Add a note when useful.
+
+The selected source event is shown in the overlay with its signed and absolute time distance.
+Use `,` and `.` to choose the previous or next source event before pressing `E` or `R`. This
+choice controls which source annotation the decision changes. Use `Y` when the candidate is a
+separate event between two source events; use `,` or `.` first when it is unclear whether it
+belongs to the previous or next event.
 
 ## 3. Apply a complete validation queue
 

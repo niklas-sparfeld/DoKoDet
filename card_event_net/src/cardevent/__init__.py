@@ -42,6 +42,7 @@ from .evaluate import (
     evaluate_checkpoint_from_files,
     evaluate_streams,
     event_f1,
+    plot_probability_axis,
     select_threshold,
 )
 from .events import (
@@ -176,6 +177,7 @@ __all__ = [
     "diagnose_checkpoint_from_files",
     "evaluate_streams",
     "event_f1",
+    "plot_probability_axis",
     "infer_cached_video",
     "infer_from_files",
     "inference_samples_for_cache",

@@ -211,6 +211,111 @@ def test_apply_uses_explicit_existing_target_without_duplicate_event(tmp_path: P
     assert (destination / "validation-hard-negatives.json").is_file()
 
 
+def test_annotation_target_selection_persists_exact_source_for_correction(tmp_path: Path) -> None:
+    queue = queue_payload()
+    queue["items"] = [queue["items"][1]]
+    queue["probability_streams"] = {
+        "game-b.MOV": {
+            "duration_s": 10.0,
+            "probability_times_s": [2.0, 4.0],
+            "probabilities": [0.8, 0.7],
+            "threshold": 0.65,
+            "ground_truth_events": [
+                {"time_s": 2.1, "type": "card_played"},
+                {"time_s": 4.0, "type": "trick_cleared"},
+            ],
+            "predicted_events": [],
+        }
+    }
+    queue_path = tmp_path / "queue.json"
+    queue_path.write_text(json.dumps(queue), encoding="utf-8")
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    video_path = videos_dir / "game-b.MOV"
+    video_path.write_bytes(b"video")
+    annotations_dir = tmp_path / "annotations"
+    metadata = VideoMetadata(
+        path=video_path,
+        width=10,
+        height=10,
+        fps=10.0,
+        frame_count=100,
+        duration_s=10.0,
+    )
+    save_annotation(
+        VideoAnnotation(
+            video="game-b.MOV",
+            events=(
+                AnnotationEvent(time_s=2.1, type="card_played", confidence="confirmed"),
+                AnnotationEvent(time_s=4.0, type="trick_cleared", confidence="confirmed"),
+            ),
+        ),
+        annotations_dir / "game-b.json",
+        metadata=metadata,
+    )
+
+    session = ReviewSession.open(
+        queue_path,
+        tmp_path / "reviewed.json",
+        videos_dir=videos_dir,
+        annotations_dir=annotations_dir,
+        reviewer="niklas",
+    )
+    assert session.selected_annotation_target == {"time_s": 2.1, "type": "card_played"}
+    assert session.next_annotation_target() == {"time_s": 4.0, "type": "trick_cleared"}
+    session.decide(
+        "annotation_timestamp_corrected",
+        current_time_s=3.8,
+        source_annotation_time_s=4.0,
+    )
+    saved = json.loads((tmp_path / "reviewed.json").read_text(encoding="utf-8"))
+    assert saved["items"][0]["source_annotation_time_s"] == 4.0
+    assert saved["items"][0]["timestamp_s"] == 3.8
+
+
+def test_old_queue_selects_targets_from_source_annotations(tmp_path: Path) -> None:
+    queue = queue_payload()
+    queue["items"] = [queue["items"][1]]
+    queue_path = tmp_path / "queue.json"
+    queue_path.write_text(json.dumps(queue), encoding="utf-8")
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    video_path = videos_dir / "game-b.MOV"
+    video_path.write_bytes(b"video")
+    annotations_dir = tmp_path / "annotations"
+    metadata = VideoMetadata(
+        path=video_path,
+        width=10,
+        height=10,
+        fps=10.0,
+        frame_count=100,
+        duration_s=10.0,
+    )
+    save_annotation(
+        VideoAnnotation(
+            video="game-b.MOV",
+            events=(
+                AnnotationEvent(time_s=2.1, type="card_played", confidence="confirmed"),
+                AnnotationEvent(time_s=4.0, type="trick_cleared", confidence="confirmed"),
+            ),
+        ),
+        annotations_dir / "game-b.json",
+        metadata=metadata,
+    )
+
+    session = ReviewSession.open(
+        queue_path,
+        tmp_path / "reviewed.json",
+        videos_dir=videos_dir,
+        annotations_dir=annotations_dir,
+        reviewer="niklas",
+    )
+
+    assert session.probability_stream_for() is None
+    assert session.selected_annotation_target == {"time_s": 2.1, "type": "card_played"}
+    assert session.next_annotation_target() == {"time_s": 4.0, "type": "trick_cleared"}
+
+
 def test_apply_rejects_partial_queue_without_allow_partial(tmp_path: Path) -> None:
     queue_path, videos_dir = write_queue(tmp_path)
     annotations_dir = tmp_path / "annotations"

@@ -184,6 +184,64 @@ def _events_for_review(
     )
 
 
+def _probability_stream(
+    video: ScoredVideo,
+    *,
+    threshold: float,
+    merge_window_s: float,
+    peak_confirmation_s: float,
+    comparison: ScoredVideo | None = None,
+) -> dict[str, Any]:
+    """Serialize one compact, video-level review timeline.
+
+    Streams live at queue level. Review items refer to the video and do not
+    repeat the full probability arrays.
+    """
+    events = _events_for_review(
+        video,
+        threshold=threshold,
+        merge_window_s=merge_window_s,
+        peak_confirmation_s=peak_confirmation_s,
+    )
+    stream: dict[str, Any] = {
+        "duration_s": float(video.duration_s),
+        "probability_times_s": [float(sample.time_s) for sample in video.probabilities],
+        "probabilities": [float(sample.probability) for sample in video.probabilities],
+        "ground_truth_events": [
+            {
+                "time_s": float(time_s),
+                "type": (
+                    video.ground_truth_types[index]
+                    if index < len(video.ground_truth_types)
+                    else "card_played"
+                ),
+            }
+            for index, time_s in enumerate(video.ground_truth_times_s)
+        ],
+        "predicted_events": [event.to_mapping() for event in events],
+        "threshold": float(threshold),
+    }
+    if comparison is not None:
+        comparison_events = _events_for_review(
+            comparison,
+            threshold=threshold,
+            merge_window_s=merge_window_s,
+            peak_confirmation_s=peak_confirmation_s,
+        )
+        stream.update(
+            {
+                "comparison_probability_times_s": [
+                    float(sample.time_s) for sample in comparison.probabilities
+                ],
+                "comparison_probabilities": [
+                    float(sample.probability) for sample in comparison.probabilities
+                ],
+                "comparison_predicted_events": [event.to_mapping() for event in comparison_events],
+            }
+        )
+    return stream
+
+
 def _empty_items(
     video: ScoredVideo,
     *,
@@ -453,7 +511,16 @@ def build_review_queue(
 
     comparison_by_name = {video.name: video for video in (comparison_videos or ())}
     items: list[dict[str, Any]] = []
+    probability_streams: dict[str, dict[str, Any]] = {}
     for video in sorted(videos, key=lambda item: item.name):
+        comparison_video = comparison_by_name.get(video.name)
+        probability_streams[video.name] = _probability_stream(
+            video,
+            threshold=threshold,
+            merge_window_s=merge_window_s,
+            peak_confirmation_s=peak_confirmation_s,
+            comparison=comparison_video,
+        )
         primary_items = _queue_items_for_video(
             video,
             threshold=threshold,
@@ -467,7 +534,6 @@ def build_review_queue(
             seed=seed,
         )
         items.extend(primary_items)
-        comparison_video = comparison_by_name.get(video.name)
         if comparison_video is not None:
             primary_events = _events_for_review(
                 video,
@@ -511,6 +577,7 @@ def build_review_queue(
         "empty_exclusion_s": exclusion_s,
         "preview_half_window_s": preview_half_window_s,
         "selection_seed": seed,
+        "probability_streams": probability_streams,
         "items": items,
         "reviewer": None,
     }

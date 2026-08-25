@@ -121,6 +121,40 @@ def test_review_queue_is_deterministic_and_keeps_outcomes_unreviewed() -> None:
     }
     assert required <= set(first["items"][0])
 
+    stream = first["probability_streams"]["game-a"]
+    assert stream["probability_times_s"] == [float(index) for index in range(16)]
+    assert stream["probabilities"] == [
+        sample.probability for sample in scored_video().probabilities
+    ]
+    assert stream["ground_truth_events"] == [
+        {"time_s": 4.0, "type": "card_played"},
+        {"time_s": 10.0, "type": "trick_cleared"},
+    ]
+    assert all("probabilities" not in item for item in first["items"])
+
+
+def test_probability_stream_serializes_comparison_once() -> None:
+    comparison = ScoredVideo(
+        name="game-a",
+        duration_s=16.0,
+        ground_truth_times_s=(4.0, 10.0),
+        probabilities=tuple(
+            ProbabilitySample(time_s=float(index), probability=0.2) for index in range(16)
+        ),
+    )
+    queue = build_review_queue(
+        [scored_video()],
+        partition="val",
+        threshold=0.65,
+        merge_window_s=0.6,
+        event_match_tolerance_s=0.75,
+        empty_count=0,
+        comparison_videos=[comparison],
+    )
+    stream = queue["probability_streams"]["game-a"]
+    assert stream["comparison_probability_times_s"] == [float(index) for index in range(16)]
+    assert len(stream["comparison_probabilities"]) == 16
+
 
 def test_apply_review_writes_new_version_and_preserves_source(tmp_path: Path) -> None:
     metadata = VideoMetadata(

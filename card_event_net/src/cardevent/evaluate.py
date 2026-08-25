@@ -28,6 +28,9 @@ _load_threshold_selection = load_threshold_selection
 THRESHOLD_GRID = _THRESHOLD_GRID
 event_f1 = _event_f1
 
+SAVED_PLOT_DPI = 280
+REVIEW_TIMELINE_DPI = 220
+
 
 def _partition_names(split: VideoSplit, partition: str) -> tuple[str, ...]:
     if partition not in {"train", "val", "test"}:
@@ -112,6 +115,71 @@ def _safe_plot_name(video_name: str) -> str:
     return Path(video_name).stem.replace("/", "_").replace("\\", "_")
 
 
+def plot_probability_axis(
+    axis: Any,
+    *,
+    times_s: Sequence[float],
+    probabilities: Sequence[float],
+    threshold: float,
+    ground_truth_events: Sequence[Mapping[str, Any]] = (),
+    predicted_events: Sequence[Mapping[str, Any]] = (),
+    comparison_times_s: Sequence[float] = (),
+    comparison_probabilities: Sequence[float] = (),
+    comparison_predicted_events: Sequence[Mapping[str, Any]] = (),
+    title: str | None = None,
+) -> Any:
+    """Draw one probability timeline on a Matplotlib axis.
+
+    Evaluation plots and the interactive review timeline use this helper so
+    their colours and event markers stay consistent.
+    """
+    axis.plot(times_s, probabilities, linewidth=1.0, label="probability")
+    if len(comparison_times_s) and len(comparison_probabilities):
+        axis.plot(
+            comparison_times_s,
+            comparison_probabilities,
+            linewidth=0.9,
+            alpha=0.7,
+            color="tab:purple",
+            label="comparison probability",
+        )
+    axis.axhline(threshold, color="tab:orange", linestyle="--", label="threshold")
+    for index, event in enumerate(ground_truth_events):
+        time_s = float(event["time_s"] if isinstance(event, Mapping) else event)
+        axis.axvline(
+            time_s,
+            color="tab:green",
+            alpha=0.55,
+            label="ground truth" if index == 0 else None,
+        )
+    for index, event in enumerate(predicted_events):
+        time_s = float(event["time_s"] if isinstance(event, Mapping) else event)
+        axis.axvline(
+            time_s,
+            color="tab:red",
+            alpha=0.65,
+            linestyle=":",
+            label="prediction" if index == 0 else None,
+        )
+    for index, event in enumerate(comparison_predicted_events):
+        time_s = float(event["time_s"] if isinstance(event, Mapping) else event)
+        axis.axvline(
+            time_s,
+            color="tab:purple",
+            alpha=0.5,
+            linestyle="-.",
+            label="comparison prediction" if index == 0 else None,
+        )
+    if title:
+        axis.set_title(title)
+    axis.set_xlabel("time (s)")
+    axis.set_ylabel("probability")
+    axis.set_ylim(0.0, 1.0)
+    axis.grid(alpha=0.2)
+    axis.legend(loc="upper right")
+    return axis
+
+
 def save_probability_plots(
     videos: Sequence[ScoredVideo],
     *,
@@ -139,35 +207,31 @@ def save_probability_plots(
             threshold=threshold,
             merge_window_s=merge_window_s,
         )
-        figure, axis = plt.subplots(figsize=(12, 4))
         times = [sample.time_s for sample in video.probabilities]
         probabilities = [sample.probability for sample in video.probabilities]
-        axis.plot(times, probabilities, linewidth=1.0, label="probability")
-        axis.axhline(threshold, color="tab:orange", linestyle="--", label="threshold")
-        for index, time_s in enumerate(video.ground_truth_times_s):
-            axis.axvline(
-                time_s,
-                color="tab:green",
-                alpha=0.55,
-                label="ground truth" if index == 0 else None,
-            )
-        for index, event in enumerate(events):
-            axis.axvline(
-                event.time_s,
-                color="tab:red",
-                alpha=0.65,
-                linestyle=":",
-                label="prediction" if index == 0 else None,
-            )
-        axis.set_title(f"CardEventNet probabilities: {video.name}")
-        axis.set_xlabel("time (s)")
-        axis.set_ylabel("probability")
-        axis.set_ylim(0.0, 1.0)
-        axis.grid(alpha=0.2)
-        axis.legend(loc="upper right")
+        figure, axis = plt.subplots(figsize=(12, 4))
+        plot_probability_axis(
+            axis,
+            times_s=times,
+            probabilities=probabilities,
+            threshold=threshold,
+            ground_truth_events=(
+                {
+                    "time_s": time_s,
+                    "type": (
+                        video.ground_truth_types[index]
+                        if index < len(video.ground_truth_types)
+                        else "card_played"
+                    ),
+                }
+                for index, time_s in enumerate(video.ground_truth_times_s)
+            ),
+            predicted_events=(event.to_mapping() for event in events),
+            title=f"CardEventNet probabilities: {video.name}",
+        )
         figure.tight_layout()
         path = destination / f"{_safe_plot_name(video.name)}-probabilities.png"
-        figure.savefig(path, dpi=140)
+        figure.savefig(path, dpi=SAVED_PLOT_DPI)
         plt.close(figure)
         paths.append(path)
     return paths
@@ -211,7 +275,7 @@ def save_threshold_plot(
     recall_axis.grid(alpha=0.2)
     figure.suptitle("Validation threshold tradeoff")
     figure.tight_layout()
-    figure.savefig(destination, dpi=140)
+    figure.savefig(destination, dpi=SAVED_PLOT_DPI)
     plt.close(figure)
     return destination
 
@@ -269,7 +333,7 @@ def save_operating_plots(
     precision_recall_axis.legend(loc="best")
     precision_recall_figure.tight_layout()
     precision_recall_path = destination / "precision-recall.png"
-    precision_recall_figure.savefig(precision_recall_path, dpi=140)
+    precision_recall_figure.savefig(precision_recall_path, dpi=SAVED_PLOT_DPI)
     plt.close(precision_recall_figure)
 
     recall_false_figure, recall_false_axis = plt.subplots(figsize=(7, 5))
@@ -296,7 +360,7 @@ def save_operating_plots(
     recall_false_axis.legend(loc="best")
     recall_false_figure.tight_layout()
     recall_false_path = destination / "recall-false-events.png"
-    recall_false_figure.savefig(recall_false_path, dpi=140)
+    recall_false_figure.savefig(recall_false_path, dpi=SAVED_PLOT_DPI)
     plt.close(recall_false_figure)
     return {
         "precision_recall": precision_recall_path,
@@ -376,7 +440,7 @@ def save_training_history_plot(
         axis.set_xlabel("epoch")
         axis.grid(alpha=0.2)
     figure.tight_layout()
-    figure.savefig(destination, dpi=140)
+    figure.savefig(destination, dpi=SAVED_PLOT_DPI)
     plt.close(figure)
     return destination
 

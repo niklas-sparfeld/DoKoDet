@@ -40,11 +40,11 @@ def draw_overlay(frame: Any, lines: Sequence[str]) -> Any:
         cv2.putText(
             frame,
             line,
-            (16, top),
+            (16, top + 1),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (0, 0, 0),
-            3,
+            1,
             cv2.LINE_AA,
         )
         cv2.putText(
@@ -123,7 +123,14 @@ class VideoViewer:
     def frame(self, frame_index: int) -> Any:
         return capture_frame(self.capture, frame_index, self.metadata)
 
-    def render(self, frame_index: int, lines: Sequence[str], *, compare: bool = False) -> None:
+    def render(
+        self,
+        frame_index: int,
+        lines: Sequence[str],
+        *,
+        compare: bool = False,
+        timeline: Any | None = None,
+    ) -> None:
         cv2 = _import_cv2()
         frame = (
             before_after_frame(self.capture, frame_index, self.metadata)
@@ -131,7 +138,22 @@ class VideoViewer:
             else self.frame(frame_index)
         )
         preview, _ = resize_preview(frame)
-        cv2.imshow(self.window_name, draw_overlay(preview, lines))
+        video_panel = draw_overlay(preview, lines)
+        if timeline is not None:
+            timeline_preview, _ = resize_preview(
+                timeline,
+                max_width=video_panel.shape[1],
+                max_height=320,
+            )
+            if timeline_preview.shape[1] != video_panel.shape[1]:
+                timeline_preview = cv2.resize(
+                    timeline_preview,
+                    (video_panel.shape[1], timeline_preview.shape[0]),
+                    interpolation=cv2.INTER_AREA,
+                )
+            cv2.imshow(self.window_name, cv2.vconcat((video_panel, timeline_preview)))
+        else:
+            cv2.imshow(self.window_name, video_panel)
 
     def wait_key(self, delay_ms: int) -> int | None:
         cv2 = _import_cv2()

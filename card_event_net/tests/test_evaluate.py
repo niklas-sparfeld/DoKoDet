@@ -9,10 +9,31 @@ from cardevent.evaluate import (
     ThresholdSelection,
     diagnose_checkpoint_from_files,
     evaluate_streams,
+    plot_probability_axis,
     select_threshold,
 )
 from cardevent.events import ProbabilitySample
 from cardevent.splits import VideoSplit
+
+
+def test_probability_axis_helper_draws_shared_event_markers() -> None:
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    figure, axis = plt.subplots()
+    plot_probability_axis(
+        axis,
+        times_s=(0.0, 1.0),
+        probabilities=(0.1, 0.9),
+        threshold=0.5,
+        ground_truth_events=({"time_s": 0.8, "type": "card_played"},),
+        predicted_events=({"time_s": 1.0, "probability": 0.9},),
+    )
+
+    assert len(axis.lines) == 4
+    assert axis.get_ylim() == (0.0, 1.0)
+    plt.close(figure)
 
 
 def test_evaluate_streams_reports_event_metrics() -> None:

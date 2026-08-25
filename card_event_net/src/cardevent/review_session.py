@@ -263,6 +263,8 @@ class ReviewSession:
     current_frame_index: int | None = None
     selected_event_type: str = "card_played"
     video_paths: dict[str, Path] | None = None
+    selected_annotation_time_s: float | None = None
+    annotation_targets_by_video: dict[str, tuple[dict[str, Any], ...]] | None = None
 
     @classmethod
     def open(
@@ -375,6 +377,7 @@ class ReviewSession:
         )
         if current_selection is not None:
             session._set_current_type()
+            session._reset_annotation_target()
         return session
 
     @staticmethod
@@ -445,6 +448,150 @@ class ReviewSession:
             else "card_played"
         )
 
+    def probability_stream_for(
+        self, item: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any] | None:
+        """Return the optional video-level timeline for a queue item."""
+        current = self.current_item if item is None else item
+        streams = self.payload.get("probability_streams")
+        if current is None or not isinstance(streams, Mapping):
+            return None
+        stream = streams.get(current.get("video"))
+        return stream if isinstance(stream, Mapping) else None
+
+    def annotation_targets(
+        self, item: Mapping[str, Any] | None = None
+    ) -> tuple[dict[str, Any], ...]:
+        """Return ordered source annotations, with old-queue fallbacks."""
+        current = self.current_item if item is None else item
+        if current is None:
+            return ()
+        stream = self.probability_stream_for(current)
+        if stream is not None:
+            events = stream.get("ground_truth_events")
+            if isinstance(events, list):
+                valid = tuple(
+                    sorted(
+                        (
+                            {"time_s": float(event["time_s"]), "type": str(event["type"])}
+                            for event in events
+                            if isinstance(event, Mapping)
+                            and isinstance(event.get("time_s"), (int, float))
+                            and not isinstance(event.get("time_s"), bool)
+                            and event.get("type") in EVENT_TYPES
+                        ),
+                        key=lambda event: float(event["time_s"]),
+                    )
+                )
+                if valid:
+                    return valid
+
+        video_name = str(current["video"])
+        if self.annotation_targets_by_video is None:
+            self.annotation_targets_by_video = {}
+        if video_name not in self.annotation_targets_by_video:
+            try:
+                annotation = self.source_annotation_for(current)
+            except ReviewSessionError:
+                source_targets: tuple[dict[str, Any], ...] = ()
+            else:
+                source_targets = tuple(
+                    sorted(
+                        (
+                            {
+                                "time_s": float(event.time_s),
+                                "type": event.type,
+                            }
+                            for event in annotation.events
+                            if event.confidence in {None, "confirmed"}
+                        ),
+                        key=lambda event: float(event["time_s"]),
+                    )
+                )
+            self.annotation_targets_by_video[video_name] = source_targets
+        cached = self.annotation_targets_by_video[video_name]
+        if cached:
+            return cached
+
+        nearest = current.get("nearest_annotation")
+        if isinstance(nearest, Mapping):
+            time_s = nearest.get("time_s")
+            event_type = nearest.get("type")
+            if (
+                isinstance(time_s, (int, float))
+                and not isinstance(time_s, bool)
+                and event_type in EVENT_TYPES
+            ):
+                return ({"time_s": float(time_s), "type": str(event_type)},)
+        return ()
+
+    @property
+    def selected_annotation_target(self) -> dict[str, Any] | None:
+        targets = self.annotation_targets()
+        if not targets:
+            return None
+        selected = self.selected_annotation_time_s
+        if selected is None:
+            nearest = self.current_item.get("nearest_annotation") if self.current_item else None
+            if isinstance(nearest, Mapping):
+                selected = nearest.get("time_s")
+            if not isinstance(selected, (int, float)) or isinstance(selected, bool):
+                return targets[0]
+        return min(targets, key=lambda target: abs(float(target["time_s"]) - selected))
+
+    def _reset_annotation_target(self) -> None:
+        targets = self.annotation_targets()
+        if not targets:
+            self.selected_annotation_time_s = None
+            return
+        nearest = self.current_item.get("nearest_annotation") if self.current_item else None
+        nearest_time = nearest.get("time_s") if isinstance(nearest, Mapping) else None
+        selected = next(
+            (
+                target
+                for target in targets
+                if isinstance(nearest_time, (int, float))
+                and not isinstance(nearest_time, bool)
+                and abs(float(target["time_s"]) - float(nearest_time)) <= 1e-6
+            ),
+            targets[0],
+        )
+        self.selected_annotation_time_s = float(selected["time_s"])
+
+    def set_annotation_target(self, time_s: float) -> dict[str, Any]:
+        value = _finite_non_negative(time_s, "annotation target time")
+        targets = self.annotation_targets()
+        for target in targets:
+            if abs(float(target["time_s"]) - value) <= 1e-6:
+                self.selected_annotation_time_s = float(target["time_s"])
+                return target
+        raise ReviewSessionError("The annotation target is not in this video's source events.")
+
+    def select_annotation_target(self, direction: int) -> dict[str, Any] | None:
+        targets = self.annotation_targets()
+        if not targets:
+            self.selected_annotation_time_s = None
+            return None
+        current = self.selected_annotation_target
+        index = next(
+            (
+                position
+                for position, target in enumerate(targets)
+                if current is not None
+                and abs(float(target["time_s"]) - float(current["time_s"])) <= 1e-6
+            ),
+            0,
+        )
+        index = max(0, min(index + (1 if direction > 0 else -1), len(targets) - 1))
+        self.selected_annotation_time_s = float(targets[index]["time_s"])
+        return targets[index]
+
+    def previous_annotation_target(self) -> dict[str, Any] | None:
+        return self.select_annotation_target(-1)
+
+    def next_annotation_target(self) -> dict[str, Any] | None:
+        return self.select_annotation_target(1)
+
     def set_event_type(self, event_type: str) -> None:
         if event_type not in EVENT_TYPES:
             raise ReviewSessionError(f"Unknown event type: {event_type}")
@@ -457,6 +604,7 @@ class ReviewSession:
         self.current_selection = max(0, min(position, len(self.selected_indices) - 1))
         self.current_frame_index = None
         self._set_current_type()
+        self._reset_annotation_target()
         return self.current_item
 
     def next_item(self, *, unreviewed_only: bool = False) -> dict[str, Any] | None:
@@ -505,8 +653,10 @@ class ReviewSession:
         return selected_note
 
     @staticmethod
-    def _nearest(item: Mapping[str, Any]) -> tuple[float, str]:
-        nearest = item.get("nearest_annotation")
+    def _nearest(
+        item: Mapping[str, Any], target: Mapping[str, Any] | None = None
+    ) -> tuple[float, str]:
+        nearest = item.get("nearest_annotation") if target is None else target
         if not isinstance(nearest, Mapping):
             raise ReviewSessionError("This decision needs exactly one nearest source annotation.")
         time_s = nearest.get("time_s")
@@ -528,6 +678,7 @@ class ReviewSession:
         current_time_s: float | None = None,
         event_type: str | None = None,
         positive_target: str | None = None,
+        source_annotation_time_s: float | None = None,
         note: str | None = None,
         confirm: bool = False,
     ) -> dict[str, Any]:
@@ -544,6 +695,23 @@ class ReviewSession:
             else _finite_non_negative(current_time_s, "current timestamp")
         )
         note_value = self._require_note(item, note)
+        selected_target = self.selected_annotation_target
+        if source_annotation_time_s is not None:
+            source_time_value = _finite_non_negative(
+                source_annotation_time_s, "source annotation time"
+            )
+            selected_target = next(
+                (
+                    target
+                    for target in self.annotation_targets(item)
+                    if abs(float(target["time_s"]) - source_time_value) <= 1e-6
+                ),
+                None,
+            )
+            if selected_target is None:
+                raise ReviewSessionError(
+                    "The source annotation time is not an available annotation target."
+                )
         updates: dict[str, Any] = {
             "original_timestamp_s": original_time,
             "review_notes": note_value,
@@ -568,7 +736,7 @@ class ReviewSession:
                     }
                 )
             elif target == "existing_annotation":
-                source_time, source_type = self._nearest(item)
+                source_time, source_type = self._nearest(item, selected_target)
                 updates.update(
                     {
                         "timestamp_s": source_time,
@@ -580,7 +748,7 @@ class ReviewSession:
             else:
                 raise ReviewSessionError(f"Unknown positive target: {target}")
         elif outcome == "annotation_timestamp_corrected":
-            source_time, source_type = self._nearest(item)
+            source_time, source_type = self._nearest(item, selected_target)
             updates.update(
                 {
                     "timestamp_s": timestamp,
