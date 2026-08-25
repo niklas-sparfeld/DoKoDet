@@ -1,0 +1,45 @@
+seed: 42
+
+input:
+  size: 224
+  preprocessing: full_frame_letterbox_v1
+  cache_fps: 10.0
+  clip_offsets_s: [-1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0]
+  inference_stride_s: 0.125
+
+labels:
+  positive_window_s: 0.25
+  negative_past_exclusion_s: 0.35
+  negative_future_exclusion_s: 0.10
+  negative_to_positive_ratio: 3
+
+model:
+  backbone: mobilenet_v3_small
+  pretrained: true
+  feature_dim: 128
+  temporal_hidden_1: 64
+  temporal_hidden_2: 32
+  dropout: 0.1
+  temporal_head: full_clip_v2
+
+training:
+  batch_size: 16
+  warmup_epochs: 5
+  finetune_epochs: 15
+  warmup_lr: 0.001
+  finetune_lr: 0.0001
+  weight_decay: 0.0001
+  hard_negative_repeat: 3
+  device: auto
+  early_stopping:
+    metric: validation_event_f1
+    patience: 3
+    min_delta: 0.005
+
+inference:
+  peak_confirmation_s: 0.125
+  min_event_gap_s: 0.625
+
+metrics:
+  event_match_tolerance_s: 0.75
+  target_recall: 0.98

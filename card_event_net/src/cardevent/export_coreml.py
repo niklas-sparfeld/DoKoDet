@@ -34,8 +34,7 @@ class CoreMLExportModel(nn.Module):
         frame_features = self.model.pool(frame_features).flatten(1)
         frame_features = frame_features.reshape(1, 8, self.model._backbone_dim)
         projected = self.model.projection(frame_features)
-        temporal = self.model.temporal_head(projected.transpose(1, 2))
-        return self.model.classifier(temporal[:, :, -1]).squeeze(-1)
+        return self.model.classify_projected_features(projected)
 
 
 @dataclass(frozen=True, slots=True)

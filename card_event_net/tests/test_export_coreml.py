@@ -43,6 +43,18 @@ def test_coreml_export_model_uses_only_fixed_reshape_dimensions() -> None:
     assert "aten::Int" not in str(traced.inlined_graph)
 
 
+def test_coreml_export_model_matches_full_clip_v2() -> None:
+    model = CardEventNet(pretrained=False, temporal_head="full_clip_v2").eval()
+    export_model = CoreMLExportModel(model).eval()
+    sample = deterministic_sample(seed=12)
+
+    traced = torch.jit.trace(export_model, sample)
+
+    with torch.inference_mode():
+        assert torch.allclose(export_model(sample), model(sample))
+    assert "aten::Int" not in str(traced.inlined_graph)
+
+
 class _FakeCoreMLModel:
     def __init__(self, output: float) -> None:
         self.output = output
