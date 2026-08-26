@@ -39,6 +39,7 @@ let package = Package(
                 "Core/EvidenceFrameRing.swift",
                 "Core/EvidencePackage.swift",
                 "Core/EvidencePackageCoordinator.swift",
+                "Networking/EvidenceMultipartUpload.swift",
                 "Core/InferenceSamplingPolicy.swift",
                 "Core/ModelPrediction.swift",
                 "Core/ModelPreprocessing.swift",

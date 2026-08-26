@@ -1,0 +1,439 @@
+import Foundation
+import CryptoKit
+
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
+public let evidenceMultipartDefaultBoundary = "CardEventProbeEvidenceV1"
+
+public enum EvidenceMultipartPreparationError: LocalizedError, Equatable {
+    case invalidBoundary(String)
+    case invalidBaseURL(URL)
+    case missingFrame(String)
+    case frameDataMismatch(String)
+    case bodyWriteFailed(URL, String)
+
+    public var errorDescription: String? {
+        switch self {
+        case let .invalidBoundary(boundary):
+            return "The multipart boundary is invalid: \(boundary)."
+        case let .invalidBaseURL(url):
+            return "The upload base URL is invalid: \(url.absoluteString)."
+        case let .missingFrame(partName):
+            return "The evidence package is missing frame \(partName)."
+        case let .frameDataMismatch(partName):
+            return "The evidence package data does not match frame \(partName)'s manifest."
+        case let .bodyWriteFailed(url, message):
+            return "The multipart body could not be written at \(url.path): \(message)"
+        }
+    }
+}
+
+/// A request whose multipart body is stored in a file.
+public struct PreparedEvidenceUpload {
+    public let request: URLRequest
+    public let bodyFileURL: URL
+    public let contentLength: Int64
+
+    public init(request: URLRequest, bodyFileURL: URL, contentLength: Int64) {
+        self.request = request
+        self.bodyFileURL = bodyFileURL
+        self.contentLength = contentLength
+    }
+
+    public func removeBodyFile() {
+        try? FileManager.default.removeItem(at: bodyFileURL)
+    }
+}
+
+/// Writes the V1 multipart envelope without constructing the complete body in memory.
+public struct EvidenceMultipartRequestBuilder: Sendable {
+    private enum FrameSource {
+        case data(Data)
+        case file(URL)
+    }
+
+    public let boundary: String
+    public let bodyDirectory: URL
+
+    public init(
+        boundary: String = evidenceMultipartDefaultBoundary,
+        bodyDirectory: URL = FileManager.default.temporaryDirectory
+    ) throws {
+        guard Self.isValidBoundary(boundary) else {
+            throw EvidenceMultipartPreparationError.invalidBoundary(boundary)
+        }
+        self.boundary = boundary
+        self.bodyDirectory = bodyDirectory
+    }
+
+    public static func isValidBoundary(_ boundary: String) -> Bool {
+        let bytes = Array(boundary.utf8)
+        guard !bytes.isEmpty, bytes.count <= 70 else { return false }
+        return bytes.allSatisfy { byte in
+            (0x30...0x39).contains(byte)
+                || (0x41...0x5A).contains(byte)
+                || (0x61...0x7A).contains(byte)
+                || [0x27, 0x28, 0x29, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x3A, 0x3D, 0x3F].contains(byte)
+        }
+    }
+
+    public func prepare(
+        package: EvidencePackage,
+        baseURL: URL
+    ) throws -> PreparedEvidenceUpload {
+        let framesByPart = Dictionary(uniqueKeysWithValues: package.frames.map { ($0.manifest.partName, $0) })
+        let sources = Dictionary(uniqueKeysWithValues: package.manifest.frames.compactMap { frame -> (String, FrameSource)? in
+            guard let packagedFrame = framesByPart[frame.partName] else { return nil }
+            return (frame.partName, .data(packagedFrame.jpegData))
+        })
+        return try prepare(
+            manifest: package.manifest,
+            manifestData: try package.manifest.encoded(),
+            frameSources: sources,
+            baseURL: baseURL
+        )
+    }
+
+    /// Prepares a request directly from a package written by `EvidencePackageStore`.
+    /// The stored manifest bytes are sent without re-encoding them.
+    public func prepare(
+        packageAt packageURL: URL,
+        baseURL: URL
+    ) throws -> PreparedEvidenceUpload {
+        let manifestURL = packageURL.appendingPathComponent("manifest.json")
+        do {
+            let manifestData = try Data(contentsOf: manifestURL)
+            let manifest = try JSONDecoder().decode(EvidencePackageManifest.self, from: manifestData)
+            let frameSources = Dictionary(
+                uniqueKeysWithValues: manifest.frames.map { frame in
+                    (
+                        frame.partName,
+                        FrameSource.file(
+                            packageURL
+                                .appendingPathComponent("frames", isDirectory: true)
+                                .appendingPathComponent("\(frame.partName).jpg")
+                        )
+                    )
+                }
+            )
+            return try prepare(
+                manifest: manifest,
+                manifestData: manifestData,
+                frameSources: frameSources,
+                baseURL: baseURL
+            )
+        } catch let error as EvidenceMultipartPreparationError {
+            throw error
+        } catch {
+            throw EvidenceMultipartPreparationError.bodyWriteFailed(
+                manifestURL,
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func prepare(
+        manifest: EvidencePackageManifest,
+        manifestData: Data,
+        frameSources: [String: FrameSource],
+        baseURL: URL
+    ) throws -> PreparedEvidenceUpload {
+        guard let components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
+              components.scheme == "http" || components.scheme == "https",
+              components.host != nil,
+              components.user == nil,
+              components.password == nil,
+              components.query == nil,
+              components.fragment == nil else {
+            throw EvidenceMultipartPreparationError.invalidBaseURL(baseURL)
+        }
+
+        let endpoint = baseURL
+            .appendingPathComponent("v1", isDirectory: true)
+            .appendingPathComponent("evidence-packages", isDirectory: true)
+            .appendingPathComponent(manifest.packageID.uuidString.lowercased())
+        let bodyURL = bodyDirectory.appendingPathComponent(
+            "evidence-\(manifest.packageID.uuidString.lowercased())-\(UUID().uuidString).multipart"
+        )
+
+        do {
+            try FileManager.default.createDirectory(
+                at: bodyDirectory,
+                withIntermediateDirectories: true
+            )
+            try writeBody(
+                manifest: manifest,
+                manifestData: manifestData,
+                frameSources: frameSources,
+                to: bodyURL
+            )
+            let contentLength = try fileSize(of: bodyURL)
+
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "PUT"
+            request.setValue(
+                "multipart/form-data; boundary=\(boundary)",
+                forHTTPHeaderField: "Content-Type"
+            )
+            request.setValue(String(contentLength), forHTTPHeaderField: "Content-Length")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.cachePolicy = URLRequest.CachePolicy.reloadIgnoringLocalCacheData
+            return PreparedEvidenceUpload(
+                request: request,
+                bodyFileURL: bodyURL,
+                contentLength: contentLength
+            )
+        } catch let error as EvidenceMultipartPreparationError {
+            try? FileManager.default.removeItem(at: bodyURL)
+            throw error
+        } catch {
+            try? FileManager.default.removeItem(at: bodyURL)
+            throw EvidenceMultipartPreparationError.bodyWriteFailed(
+                bodyURL,
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func writeBody(
+        manifest: EvidencePackageManifest,
+        manifestData: Data,
+        frameSources: [String: FrameSource],
+        to bodyURL: URL
+    ) throws {
+        let fileManager = FileManager.default
+        fileManager.createFile(atPath: bodyURL.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: bodyURL)
+        var closed = false
+        defer {
+            if !closed {
+                try? handle.close()
+            }
+        }
+
+        try writeASCII("--\(boundary)\r\n", to: handle)
+        try writeASCII(
+            "Content-Disposition: form-data; name=\"manifest\"; filename=\"manifest.json\"\r\n",
+            to: handle
+        )
+        try writeASCII("Content-Type: application/json\r\n\r\n", to: handle)
+        try handle.write(contentsOf: manifestData)
+        try writeASCII("\r\n", to: handle)
+
+        for frameManifest in manifest.frames {
+            guard let frameSource = frameSources[frameManifest.partName] else {
+                throw EvidenceMultipartPreparationError.missingFrame(frameManifest.partName)
+            }
+            try writeASCII("--\(boundary)\r\n", to: handle)
+            try writeASCII(
+                "Content-Disposition: form-data; name=\"\(frameManifest.partName)\"; filename=\"\(frameManifest.partName).jpg\"\r\n",
+                to: handle
+            )
+            try writeASCII("Content-Type: image/jpeg\r\n\r\n", to: handle)
+            try writeFrame(
+                frameSource,
+                expected: frameManifest,
+                to: handle
+            )
+            try writeASCII("\r\n", to: handle)
+        }
+
+        try writeASCII("--\(boundary)--\r\n", to: handle)
+        try handle.close()
+        closed = true
+    }
+
+    private func writeFrame(
+        _ source: FrameSource,
+        expected: EvidenceFrameManifest,
+        to output: FileHandle
+    ) throws {
+        switch source {
+        case let .data(data):
+            guard data.count == expected.byteLength,
+                  sha256Hex(data) == expected.sha256 else {
+                throw EvidenceMultipartPreparationError.frameDataMismatch(expected.partName)
+            }
+            try output.write(contentsOf: data)
+        case let .file(url):
+            let input: FileHandle
+            do {
+                input = try FileHandle(forReadingFrom: url)
+            } catch {
+                throw EvidenceMultipartPreparationError.frameDataMismatch(expected.partName)
+            }
+            defer { try? input.close() }
+
+            var hasher = SHA256()
+            var byteLength = 0
+            while let chunk = try input.read(upToCount: 64 * 1024), !chunk.isEmpty {
+                byteLength += chunk.count
+                hasher.update(data: chunk)
+                try output.write(contentsOf: chunk)
+            }
+            let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+            guard byteLength == expected.byteLength, digest == expected.sha256 else {
+                throw EvidenceMultipartPreparationError.frameDataMismatch(expected.partName)
+            }
+        }
+    }
+
+    private func writeASCII(_ value: String, to handle: FileHandle) throws {
+        guard let data = value.data(using: .ascii) else {
+            throw EvidenceMultipartPreparationError.invalidBoundary(boundary)
+        }
+        try handle.write(contentsOf: data)
+    }
+
+    private func fileSize(of url: URL) throws -> Int64 {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey])
+        guard let fileSize = values.fileSize else {
+            throw EvidenceMultipartPreparationError.bodyWriteFailed(
+                url,
+                "the body file has no size"
+            )
+        }
+        return Int64(fileSize)
+    }
+}
+
+private func sha256Hex(_ data: Data) -> String {
+    SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+}
+
+public struct EvidenceUploadResponse: Codable, Equatable, Sendable {
+    public let packageID: UUID
+    public let state: String
+    public let created: Bool
+    public let receivedAt: Date
+
+    public init(packageID: UUID, state: String, created: Bool, receivedAt: Date) {
+        self.packageID = packageID
+        self.state = state
+        self.created = created
+        self.receivedAt = receivedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case packageID = "package_id"
+        case state
+        case created
+        case receivedAt = "received_at"
+    }
+}
+
+public enum EvidenceUploadError: LocalizedError {
+    case nonSuccessResponse(Int, Data)
+    case invalidResponse
+
+    public var errorDescription: String? {
+        switch self {
+        case let .nonSuccessResponse(status, _):
+            return "The evidence upload failed with HTTP status \(status)."
+        case .invalidResponse:
+            return "The evidence upload returned an invalid response."
+        }
+    }
+}
+
+/// Sends one prepared package with a foreground URLSession upload task.
+public final class EvidenceUploadClient: @unchecked Sendable {
+    private let session: URLSession
+    private let builder: EvidenceMultipartRequestBuilder
+
+    public init(
+        session: URLSession? = nil,
+        boundary: String = evidenceMultipartDefaultBoundary,
+        bodyDirectory: URL = FileManager.default.temporaryDirectory
+    ) throws {
+        self.session = session ?? Self.makeSession()
+        builder = try EvidenceMultipartRequestBuilder(
+            boundary: boundary,
+            bodyDirectory: bodyDirectory
+        )
+    }
+
+    public func prepare(
+        package: EvidencePackage,
+        baseURL: URL
+    ) throws -> PreparedEvidenceUpload {
+        try builder.prepare(package: package, baseURL: baseURL)
+    }
+
+    public func prepare(
+        packageAt packageURL: URL,
+        baseURL: URL
+    ) throws -> PreparedEvidenceUpload {
+        try builder.prepare(packageAt: packageURL, baseURL: baseURL)
+    }
+
+    public func upload(
+        package: EvidencePackage,
+        to baseURL: URL
+    ) async throws -> EvidenceUploadResponse {
+        let prepared = try prepare(package: package, baseURL: baseURL)
+        defer { prepared.removeBodyFile() }
+        let (data, response) = try await session.upload(
+            for: prepared.request,
+            fromFile: prepared.bodyFileURL
+        )
+        guard let response = response as? HTTPURLResponse else {
+            throw EvidenceUploadError.invalidResponse
+        }
+        guard (200..<300).contains(response.statusCode) else {
+            throw EvidenceUploadError.nonSuccessResponse(response.statusCode, data)
+        }
+        return try Self.decoder.decode(EvidenceUploadResponse.self, from: data)
+    }
+
+    public func upload(
+        packageAt packageURL: URL,
+        to baseURL: URL
+    ) async throws -> EvidenceUploadResponse {
+        let prepared = try prepare(packageAt: packageURL, baseURL: baseURL)
+        defer { prepared.removeBodyFile() }
+        let (data, response) = try await session.upload(
+            for: prepared.request,
+            fromFile: prepared.bodyFileURL
+        )
+        guard let response = response as? HTTPURLResponse else {
+            throw EvidenceUploadError.invalidResponse
+        }
+        guard (200..<300).contains(response.statusCode) else {
+            throw EvidenceUploadError.nonSuccessResponse(response.statusCode, data)
+        }
+        return try Self.decoder.decode(EvidenceUploadResponse.self, from: data)
+    }
+
+    private static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: value) {
+                return date
+            }
+            formatter.formatOptions = [.withInternetDateTime]
+            guard let date = formatter.date(from: value) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "received_at must be an RFC 3339 timestamp."
+                )
+            }
+            return date
+        }
+        return decoder
+    }()
+
+    private static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.waitsForConnectivity = true
+        configuration.timeoutIntervalForResource = 30
+        return URLSession(configuration: configuration)
+    }
+}
