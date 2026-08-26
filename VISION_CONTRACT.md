@@ -33,6 +33,7 @@ Every result has these fields and no other top-level fields:
 | `candidates` | array | Ranked unique candidates, or empty for an abstention. |
 | `calibration` | string | `fixture`, `uncalibrated`, or `calibrated`. |
 | `detector` | object | Non-empty `name` and `version`. |
+| `diagnostics` | object | Bounded `frames_received` and `frames_decoded` counts. |
 | `observations` | array | Optional bounded diagnostic JSON objects. |
 | `created_at` | UTC timestamp | Serialized in UTC with millisecond precision and a `Z` suffix. |
 
@@ -64,3 +65,10 @@ or game state. Those values belong to orchestration or the game engine.
 Detector adapters must normalize logits, distances, or other internal scores before creating a
 result. An invocation or persistence error is an operational error, not
 `insufficient_evidence`.
+
+## Scripted detector
+
+The local scripted detector is test control code. It reads the checked-in package-ID mapping at
+`fixtures/vision/v1/scripted-results.json` and returns the mapped result template. It does not
+decode JPEG bytes or claim visual recognition. An unmapped package returns `insufficient_evidence`,
+with `calibration: fixture`, detector name `scripted`, and `frames_decoded: 0`.

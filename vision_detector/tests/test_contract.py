@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from vision_detector.cards import CARD_IDENTITIES, load_card_set, load_deck_manifest
 from vision_detector.contract import (
     VisionDetectionResult,
+    VisionDiagnostics,
     VisionEvidence,
     VisionFrame,
     canonical_json_bytes,
@@ -38,6 +39,8 @@ def test_shared_result_fixtures_are_valid_and_canonicalizable() -> None:
     ]
     assert abstained.status == "insufficient_evidence"
     assert abstained.candidates == []
+    assert ranked.diagnostics.frames_received == 6
+    assert abstained.diagnostics.frames_decoded == 0
     assert json.loads(canonical_json_bytes(ranked)) == ranked_payload
     assert json.loads(canonical_json_bytes(abstained)) == abstained_payload
 
@@ -172,3 +175,14 @@ def test_created_at_is_utc_and_serializes_with_milliseconds() -> None:
 
     assert result.created_at.tzinfo == timezone.utc
     assert json.loads(canonical_json_bytes(result))["created_at"] == "2026-08-26T18:12:00.000Z"
+
+
+def test_diagnostics_cannot_report_more_decoded_than_received_frames() -> None:
+    _, payload = load_fixture("example-ranked.json")
+    payload = copy.deepcopy(payload)
+    payload["diagnostics"] = {"frames_received": 1, "frames_decoded": 2}
+
+    with pytest.raises(ValidationError):
+        VisionDiagnostics.model_validate(payload["diagnostics"])
+    with pytest.raises(ValidationError):
+        VisionDetectionResult.model_validate(payload)

@@ -25,6 +25,7 @@ from vision_detector.cards import CARD_IDENTITIES, CardIdentity
 VISION_SCHEMA_VERSION = "vision-detection/v1"
 VISION_PROBABILITY_TOLERANCE = 1e-6
 MAX_CANDIDATES = len(CARD_IDENTITIES)
+MAX_FRAMES = 16
 MAX_OBSERVATIONS = 32
 MAX_OBSERVATION_BYTES = 4096
 
@@ -125,6 +126,19 @@ class VisionDetectorMetadata(VisionContractModel):
     version: str = Field(min_length=1, max_length=256)
 
 
+class VisionDiagnostics(VisionContractModel):
+    """Bounded execution counts recorded with a detector result."""
+
+    frames_received: int = Field(ge=0, le=MAX_FRAMES)
+    frames_decoded: int = Field(ge=0, le=MAX_FRAMES)
+
+    @model_validator(mode="after")
+    def validate_frame_counts(self) -> VisionDiagnostics:
+        if self.frames_decoded > self.frames_received:
+            raise ValueError("decoded frames cannot exceed received frames.")
+        return self
+
+
 class VisionDetectionResult(VisionContractModel):
     """One immutable, ranked V1 vision result."""
 
@@ -137,6 +151,7 @@ class VisionDetectionResult(VisionContractModel):
     candidates: list[VisionCandidate] = Field(max_length=MAX_CANDIDATES)
     calibration: CalibrationState
     detector: VisionDetectorMetadata
+    diagnostics: VisionDiagnostics
     observations: list[JsonObservation] = Field(default_factory=list, max_length=MAX_OBSERVATIONS)
     created_at: datetime
 
@@ -257,6 +272,7 @@ def canonical_json_bytes(result: VisionDetectionResult) -> bytes:
 __all__ = [
     "CALIBRATION_STATES",
     "MAX_CANDIDATES",
+    "MAX_FRAMES",
     "MAX_OBSERVATIONS",
     "VISION_PROBABILITY_TOLERANCE",
     "VISION_SCHEMA_VERSION",
@@ -264,6 +280,7 @@ __all__ = [
     "VisionContractError",
     "VisionDetectionResult",
     "VisionDetectorMetadata",
+    "VisionDiagnostics",
     "VisionEvidence",
     "VisionFrame",
     "VisionSession",

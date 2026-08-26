@@ -17,6 +17,7 @@ from vision_detector.contract import (
     VisionContractError,
     VisionDetectionResult,
     VisionDetectorMetadata,
+    VisionDiagnostics,
     VisionEvidence,
     VisionFrame,
     VisionSession,
@@ -24,6 +25,15 @@ from vision_detector.contract import (
     canonical_json_bytes,
     parse_result_bytes,
     validate_result,
+)
+from vision_detector.detector import VisionDetector
+from vision_detector.scripted import (
+    SCRIPTED_DETECTOR_NAME,
+    SCRIPTED_DETECTOR_VERSION,
+    ScriptedDetector,
+    ScriptedDetectorConfigurationError,
+    ScriptedVisionDetector,
+    default_mapping_path,
 )
 
 __all__ = [
@@ -38,12 +48,20 @@ __all__ = [
     "VisionCandidate",
     "VisionContractError",
     "VisionDetectionResult",
+    "VisionDetector",
     "VisionDetectorMetadata",
+    "VisionDiagnostics",
     "VisionEvidence",
     "VisionFrame",
     "VisionSession",
     "VisionStatus",
+    "SCRIPTED_DETECTOR_NAME",
+    "SCRIPTED_DETECTOR_VERSION",
+    "ScriptedDetector",
+    "ScriptedDetectorConfigurationError",
+    "ScriptedVisionDetector",
     "canonical_json_bytes",
+    "default_mapping_path",
     "load_card_set",
     "load_deck_manifest",
     "parse_result_bytes",
