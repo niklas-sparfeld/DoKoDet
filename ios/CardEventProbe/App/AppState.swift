@@ -46,7 +46,7 @@ final class AppState: ObservableObject {
     @Published private(set) var diagnosticsRecording = false
 
     private(set) var modelRunner: CardEventModelRunner?
-    let eventPostProcessor = EventPostProcessor()
+    let eventDecoder = CausalEventDecoder()
     private var liveCoordinator: FrameInferenceCoordinator?
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
@@ -106,7 +106,7 @@ final class AppState: ObservableObject {
 
         let coordinator = FrameInferenceCoordinator(
             runner: runner,
-            eventPostProcessor: eventPostProcessor
+            eventDecoder: eventDecoder
         ) { [weak self] update in
             self?.apply(update)
         }
@@ -143,7 +143,7 @@ final class AppState: ObservableObject {
         replayRunner.start(
             url: url,
             modelRunner: runner,
-            eventPostProcessor: eventPostProcessor
+            eventDecoder: eventDecoder
         ) { [weak self] progress in
             Task { @MainActor in
                 guard self?.replayRunner === replayRunner else { return }
@@ -157,7 +157,7 @@ final class AppState: ObservableObject {
     }
 
     func resetEvents() {
-        eventPostProcessor.reset()
+        eventDecoder.reset()
         eventCount = 0
         latestPrediction = nil
         inferenceError = nil
@@ -195,27 +195,11 @@ final class AppState: ObservableObject {
         }
     }
 
-    func setHighThreshold(_ value: Double) {
-        let low = eventPostProcessor.configuration.lowThreshold
-        setThresholds(high: max(value, low + 0.01), low: low)
-    }
-
-    func setLowThreshold(_ value: Double) {
-        let high = eventPostProcessor.configuration.highThreshold
-        setThresholds(high: high, low: min(value, high - 0.01))
-    }
-
-    private func setThresholds(high: Double, low: Double) {
-        guard high > low else { return }
-        let current = eventPostProcessor.configuration
-        eventPostProcessor.updateConfiguration(
-            EventPostProcessor.Configuration(
-                highThreshold: high,
-                lowThreshold: low,
-                minimumConsecutiveHighPredictions: current.minimumConsecutiveHighPredictions,
-                cooldown: current.cooldown
-            )
-        )
+    func setThreshold(_ value: Double) {
+        guard (0.0...1.0).contains(value) else { return }
+        var configuration = eventDecoder.configuration
+        configuration.threshold = value
+        eventDecoder.updateConfiguration(configuration)
         objectWillChange.send()
     }
 
@@ -290,7 +274,7 @@ final class AppState: ObservableObject {
         guard diagnosticsRecording, sessionLog == nil else { return }
         do {
             let directory = try diagnosticsDirectory()
-            let configuration = eventPostProcessor.configuration
+            let configuration = eventDecoder.configuration
             let metadata = SessionLogMetadata(
                 source: source,
                 appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
@@ -299,8 +283,9 @@ final class AppState: ObservableObject {
                 modelName: "CardEventNetTransitionV2",
                 modelVersion: modelRunner?.contract.metadata["version"] ?? "unknown",
                 targetInferenceHz: 8.0,
-                highThreshold: configuration.highThreshold,
-                lowThreshold: configuration.lowThreshold
+                threshold: configuration.threshold,
+                peakConfirmationMs: Int((CMTimeGetSeconds(configuration.peakConfirmation) * 1_000.0).rounded()),
+                minimumEventGapMs: Int((CMTimeGetSeconds(configuration.minimumEventGap) * 1_000.0).rounded())
             )
             let log = try SessionLog(directory: directory, metadata: metadata)
             sessionLog = log

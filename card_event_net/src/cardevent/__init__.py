@@ -46,6 +46,7 @@ from .evaluate import (
     select_threshold,
 )
 from .events import (
+    CausalEventDecoder,
     DetectedEvent,
     EventError,
     EventMatch,
@@ -130,6 +131,7 @@ __all__ = [
     "CoreMLExportError",
     "CoreMLExportResult",
     "CausalClipDataset",
+    "CausalEventDecoder",
     "ClipTransform",
     "DatasetSample",
     "DEFAULT_CLIP_OFFSETS_S",

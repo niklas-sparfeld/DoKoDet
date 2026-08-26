@@ -1,0 +1,83 @@
+{
+  "format": "cardevent-causal-decoder-v1",
+  "configuration": {
+    "threshold": 0.5,
+    "peak_confirmation_s": 0.125,
+    "min_event_gap_s": 0.625
+  },
+  "streams": [
+    {
+      "name": "sustained_peak",
+      "samples": [
+        {"time_s": 0.0, "probability": 0.1},
+        {"time_s": 0.125, "probability": 0.8},
+        {"time_s": 0.25, "probability": 0.95},
+        {"time_s": 0.375, "probability": 0.9},
+        {"time_s": 0.5, "probability": 0.1}
+      ],
+      "events": [
+        {"time_s": 0.25, "probability": 0.95, "emitted_at_s": 0.375}
+      ]
+    },
+    {
+      "name": "isolated_peak",
+      "samples": [
+        {"time_s": 0.0, "probability": 0.1},
+        {"time_s": 0.125, "probability": 0.8},
+        {"time_s": 0.25, "probability": 0.1}
+      ],
+      "events": [
+        {"time_s": 0.125, "probability": 0.8, "emitted_at_s": 0.25}
+      ]
+    },
+    {
+      "name": "flat_top",
+      "samples": [
+        {"time_s": 0.0, "probability": 0.1},
+        {"time_s": 0.125, "probability": 0.8},
+        {"time_s": 0.25, "probability": 0.8},
+        {"time_s": 0.375, "probability": 0.1}
+      ],
+      "events": [
+        {"time_s": 0.125, "probability": 0.8, "emitted_at_s": 0.25}
+      ]
+    },
+    {
+      "name": "minimum_gap",
+      "samples": [
+        {"time_s": 0.0, "probability": 0.8},
+        {"time_s": 0.125, "probability": 0.1},
+        {"time_s": 0.625, "probability": 0.8},
+        {"time_s": 0.75, "probability": 0.1},
+        {"time_s": 0.875, "probability": 0.8},
+        {"time_s": 1.0, "probability": 0.1}
+      ],
+      "events": [
+        {"time_s": 0.0, "probability": 0.8, "emitted_at_s": 0.125},
+        {"time_s": 0.875, "probability": 0.8, "emitted_at_s": 1.0}
+      ]
+    },
+    {
+      "name": "end_flush",
+      "samples": [
+        {"time_s": 0.0, "probability": 0.1},
+        {"time_s": 0.125, "probability": 0.8}
+      ],
+      "events": [
+        {"time_s": 0.125, "probability": 0.8, "emitted_at_s": 0.125}
+      ]
+    },
+    {
+      "name": "irregular_gap",
+      "samples": [
+        {"time_s": 0.0, "probability": 0.8},
+        {"time_s": 0.125, "probability": 0.1},
+        {"time_s": 1.0, "probability": 0.8}
+      ],
+      "events": [
+        {"time_s": 0.0, "probability": 0.8, "emitted_at_s": 0.125},
+        {"time_s": 1.0, "probability": 0.8, "emitted_at_s": 1.0}
+      ]
+    }
+  ]
+}

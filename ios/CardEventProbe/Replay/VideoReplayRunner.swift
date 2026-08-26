@@ -11,7 +11,7 @@ final class VideoReplayRunner {
     func start(
         url: URL,
         modelRunner: CardEventModelRunner,
-        eventPostProcessor: EventPostProcessor,
+        eventDecoder: CausalEventDecoder,
         onUpdate: @escaping (ReplayProgress) -> Void
     ) {
         lock.lock()
@@ -32,7 +32,7 @@ final class VideoReplayRunner {
                 try self.run(
                     url: url,
                     modelRunner: modelRunner,
-                    eventPostProcessor: eventPostProcessor,
+                    eventDecoder: eventDecoder,
                     onUpdate: onUpdate
                 )
             } catch {
@@ -68,7 +68,7 @@ final class VideoReplayRunner {
     private func run(
         url: URL,
         modelRunner: CardEventModelRunner,
-        eventPostProcessor: EventPostProcessor,
+        eventDecoder: CausalEventDecoder,
         onUpdate: @escaping (ReplayProgress) -> Void
     ) throws {
         let asset = AVURLAsset(url: url)
@@ -91,7 +91,7 @@ final class VideoReplayRunner {
         }
 
         modelRunner.reset()
-        eventPostProcessor.reset()
+        eventDecoder.reset()
         var samplingPolicy = InferenceSamplingPolicy()
         var framesRead = 0
         var predictionsProduced = 0
@@ -144,7 +144,7 @@ final class VideoReplayRunner {
             latestPrediction = prediction
             predictionsProduced += 1
             totalInferenceDurationMs += prediction.inferenceDurationMs
-            let event = eventPostProcessor.consume(prediction)
+            let event = eventDecoder.consume(prediction)
             if let event {
                 eventCount += 1
                 lastEventTimestampSeconds = CMTimeGetSeconds(event.timestamp)
@@ -177,6 +177,11 @@ final class VideoReplayRunner {
         if reader.status == .failed {
             throw reader.error ?? ReplayError.readerFailed
         }
+        let flushedEvent = eventDecoder.flush()
+        if let flushedEvent {
+            eventCount += 1
+            lastEventTimestampSeconds = CMTimeGetSeconds(flushedEvent.timestamp)
+        }
         publish(
             ReplayProgress(
                 fileName: url.lastPathComponent,
@@ -192,7 +197,7 @@ final class VideoReplayRunner {
                 ),
                 frame: nil,
                 prediction: latestPrediction,
-                event: nil,
+                event: flushedEvent,
                 isComplete: true,
                 isCancelled: false,
                 errorMessage: nil

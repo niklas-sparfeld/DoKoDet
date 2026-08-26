@@ -79,9 +79,9 @@ def test_evaluate_streams_reports_event_metrics() -> None:
     assert overall["false_events_per_hour"] == 1.0
     assert overall["peak_confirmation_s"] == 0.125
     assert overall["timestamp_error_median_s"] == 0.0
-    assert overall["emission_latency_median_s"] == 0.125
+    assert overall["emission_latency_median_s"] == 10.0
     assert overall["timestamp_error_p95_s"] == 0.0
-    assert overall["emission_latency_p95_s"] == 0.125
+    assert overall["emission_latency_p95_s"] == 10.0
     assert per_video[0]["predicted_events"]
 
 
@@ -102,9 +102,9 @@ def test_evaluate_streams_separates_timestamp_error_from_online_emission_delay()
     )
 
     assert overall["timestamp_error_median_s"] == pytest.approx(0.1)
-    assert overall["emission_latency_median_s"] == pytest.approx(0.225)
+    assert overall["emission_latency_median_s"] == pytest.approx(0.1)
     assert per_video[0]["timestamp_error_median_s"] == pytest.approx(0.1)
-    assert per_video[0]["emission_latency_median_s"] == pytest.approx(0.225)
+    assert per_video[0]["emission_latency_median_s"] == pytest.approx(0.1)
     # Keep old names as aliases for timestamp error during migration.
     assert overall["latency_median_s"] == overall["timestamp_error_median_s"]
     assert per_video[0]["latency_p50_s"] == per_video[0]["timestamp_error_median_s"]

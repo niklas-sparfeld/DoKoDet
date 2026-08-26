@@ -18,8 +18,9 @@ final class SessionLogTests: XCTestCase {
                 modelName: "CardEventNet",
                 modelVersion: "test",
                 targetInferenceHz: 8.0,
-                highThreshold: 0.75,
-                lowThreshold: 0.35
+                threshold: 0.3442875146865845,
+                peakConfirmationMs: 125,
+                minimumEventGapMs: 625
             )
         )
         try log.appendPrediction(

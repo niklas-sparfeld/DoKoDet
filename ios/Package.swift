@@ -33,7 +33,7 @@ let package = Package(
             ],
             sources: [
                 "Core/DetectionEvent.swift",
-                "Core/EventPostProcessor.swift",
+                "Core/CausalEventDecoder.swift",
                 "Core/InferenceSamplingPolicy.swift",
                 "Core/ModelPrediction.swift",
                 "Core/ModelPreprocessing.swift",

@@ -76,21 +76,15 @@ struct DiagnosticsPanel: View {
 
             ScoreHistoryView(
                 samples: appState.scoreHistory,
-                highThreshold: appState.eventPostProcessor.configuration.highThreshold,
-                lowThreshold: appState.eventPostProcessor.configuration.lowThreshold
+                threshold: appState.eventDecoder.configuration.threshold
             )
 
             DisclosureGroup("Settings") {
                 VStack(alignment: .leading, spacing: 8) {
                     thresholdSlider(
-                        title: "High threshold",
-                        value: appState.eventPostProcessor.configuration.highThreshold,
-                        onChange: appState.setHighThreshold
-                    )
-                    thresholdSlider(
-                        title: "Low threshold",
-                        value: appState.eventPostProcessor.configuration.lowThreshold,
-                        onChange: appState.setLowThreshold
+                        title: "Threshold",
+                        value: appState.eventDecoder.configuration.threshold,
+                        onChange: appState.setThreshold
                     )
                     Button("Reset events and history") {
                         appState.resetEvents()
@@ -172,16 +166,14 @@ struct DiagnosticsPanel: View {
 
 private struct ScoreHistoryView: View {
     let samples: [ScoreSample]
-    let highThreshold: Double
-    let lowThreshold: Double
+    let threshold: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Score history")
                 .font(.caption.weight(.medium))
             Canvas { context, size in
-                drawThreshold(highThreshold, in: &context, size: size, color: .orange)
-                drawThreshold(lowThreshold, in: &context, size: size, color: .blue)
+                drawThreshold(threshold, in: &context, size: size, color: .orange)
 
                 guard samples.count > 1 else { return }
                 var path = Path()

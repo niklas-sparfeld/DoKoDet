@@ -20,7 +20,7 @@ struct FrameInferenceUpdate {
 /// Connects a camera frame stream to one bounded, serial model execution path.
 final class FrameInferenceCoordinator {
     private let runner: CardEventModelRunner
-    private let eventPostProcessor: EventPostProcessor
+    private let eventDecoder: CausalEventDecoder
     private let inferenceQueue = DispatchQueue(label: "com.dokodetector.CardEventProbe.inference")
     private let lock = NSLock()
     private var samplingPolicy: InferenceSamplingPolicy
@@ -35,13 +35,13 @@ final class FrameInferenceCoordinator {
 
     init(
         runner: CardEventModelRunner,
-        eventPostProcessor: EventPostProcessor,
+        eventDecoder: CausalEventDecoder,
         targetRateHz: Double = 8.0,
         onUpdate: @escaping (FrameInferenceUpdate) -> Void
     ) {
         precondition(targetRateHz > 0.0, "target inference rate must be positive")
         self.runner = runner
-        self.eventPostProcessor = eventPostProcessor
+        self.eventDecoder = eventDecoder
         samplingPolicy = InferenceSamplingPolicy(
             minimumInterval: CMTime(seconds: 1.0 / targetRateHz, preferredTimescale: 600)
         )
@@ -102,7 +102,7 @@ final class FrameInferenceCoordinator {
         do {
             prediction = try runner.consume(frame)
             if let prediction {
-                event = eventPostProcessor.consume(prediction)
+                event = eventDecoder.consume(prediction)
             }
         } catch {
             errorMessage = error.localizedDescription

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from cardevent.config import load_config
 from cardevent.events import (
+    CausalEventDecoder,
     ProbabilitySample,
     candidate_peaks,
     match_events,
@@ -15,6 +17,50 @@ from cardevent.events import (
 
 def sample(time_s: float, probability: float) -> ProbabilitySample:
     return ProbabilitySample(time_s=time_s, probability=probability)
+
+
+def test_causal_decoder_matches_shared_fixture() -> None:
+    fixture_path = (
+        Path(__file__).parents[2]
+        / "ios/CardEventProbeTests/Fixtures/causal_decoder_v1.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    configuration = payload["configuration"]
+
+    for stream in payload["streams"]:
+        decoder = CausalEventDecoder(
+            configuration["threshold"],
+            peak_confirmation_s=configuration["peak_confirmation_s"],
+            min_event_gap_s=configuration["min_event_gap_s"],
+        )
+        events = [
+            event
+            for item in stream["samples"]
+            if (
+                event := decoder.consume(
+                    sample(item["time_s"], item["probability"])
+                )
+            )
+            is not None
+        ]
+        if (event := decoder.flush()) is not None:
+            events.append(event)
+
+        assert [
+            (event.time_s, event.probability, event.emitted_at_s) for event in events
+        ] == [
+            (item["time_s"], item["probability"], item["emitted_at_s"])
+            for item in stream["events"]
+        ], stream["name"]
+
+
+def test_causal_decoder_uses_one_pending_peak() -> None:
+    decoder = CausalEventDecoder(0.5, peak_confirmation_s=0.125, min_event_gap_s=0.625)
+
+    assert decoder.consume(sample(0.0, 0.8)) is None
+    assert decoder.consume(sample(0.125, 0.9)) is None
+    assert decoder.consume(sample(0.25, 0.1)) is not None
+    assert decoder.flush() is None
 
 
 def test_sustained_peak_becomes_one_event_at_maximum() -> None:

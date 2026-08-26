@@ -17,7 +17,7 @@
 		A00000000000000000000008 /* CoreMLCardEventModelRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000008 /* CoreMLCardEventModelRunner.swift */; };
 		A00000000000000000000009 /* ModelPrediction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000009 /* ModelPrediction.swift */; };
 		A0000000000000000000000A /* DetectionEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000A /* DetectionEvent.swift */; };
-		A0000000000000000000000B /* EventPostProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000B /* EventPostProcessor.swift */; };
+		A0000000000000000000000B /* CausalEventDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000B /* CausalEventDecoder.swift */; };
 		A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000C /* DiagnosticsPanel.swift */; };
 		A0000000000000000000000D /* LiveDetectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000D /* LiveDetectionView.swift */; };
 		A0000000000000000000000E /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000E /* ReplayView.swift */; };
@@ -52,7 +52,7 @@
 		B00000000000000000000008 /* CoreMLCardEventModelRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMLCardEventModelRunner.swift; sourceTree = "<group>"; };
 		B00000000000000000000009 /* ModelPrediction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPrediction.swift; sourceTree = "<group>"; };
 		B0000000000000000000000A /* DetectionEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionEvent.swift; sourceTree = "<group>"; };
-		B0000000000000000000000B /* EventPostProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventPostProcessor.swift; sourceTree = "<group>"; };
+		B0000000000000000000000B /* CausalEventDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CausalEventDecoder.swift; sourceTree = "<group>"; };
 		B0000000000000000000000C /* DiagnosticsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsPanel.swift; sourceTree = "<group>"; };
 		B0000000000000000000000D /* LiveDetectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDetectionView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000E /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
@@ -171,7 +171,7 @@
 				B00000000000000000000019 /* InferenceSamplingPolicy.swift */,
 				B00000000000000000000009 /* ModelPrediction.swift */,
 				B0000000000000000000000A /* DetectionEvent.swift */,
-				B0000000000000000000000B /* EventPostProcessor.swift */,
+				B0000000000000000000000B /* CausalEventDecoder.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -297,7 +297,7 @@
 				A00000000000000000000008 /* CoreMLCardEventModelRunner.swift in Sources */,
 				A00000000000000000000009 /* ModelPrediction.swift in Sources */,
 				A0000000000000000000000A /* DetectionEvent.swift in Sources */,
-				A0000000000000000000000B /* EventPostProcessor.swift in Sources */,
+				A0000000000000000000000B /* CausalEventDecoder.swift in Sources */,
 				A00000000000000000000017 /* ModelPreprocessing.swift in Sources */,
 				A00000000000000000000019 /* InferenceSamplingPolicy.swift in Sources */,
 				A00000000000000000000016 /* CardEventTensorBuilder.swift in Sources */,

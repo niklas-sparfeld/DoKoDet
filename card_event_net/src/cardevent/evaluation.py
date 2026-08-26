@@ -70,7 +70,12 @@ def _metrics_from_match(
     latencies_s: Sequence[float] | None = None,
 ) -> dict[str, float]:
     latencies = tuple(match.latencies_s if latencies_s is None else latencies_s)
-    emission_latencies = tuple(latency + peak_confirmation_s for latency in latencies)
+    emission_latencies = tuple(
+        matched.emission_latency_s
+        if matched.emission_latency_s is not None
+        else latency + peak_confirmation_s
+        for latency, matched in zip(latencies, match.matches, strict=True)
+    )
     duration_hours = duration_s / 3600.0
     recall = match.detected_true_events / match.real_events if match.real_events else 0.0
     precision = (
@@ -200,6 +205,7 @@ def evaluate_streams(
     total_missed_events = 0
     total_false_events = 0
     all_latencies: list[float] = []
+    all_emission_latencies: list[float] = []
 
     for video in videos:
         detected_events = probabilities_to_events(
@@ -260,6 +266,12 @@ def evaluate_streams(
         total_missed_events += match.missed_events
         total_false_events += match.false_events
         all_latencies.extend(match.latencies_s)
+        all_emission_latencies.extend(
+            matched.emission_latency_s
+            if matched.emission_latency_s is not None
+            else matched.latency_s + peak_confirmation_s
+            for matched in match.matches
+        )
 
     total_duration_hours = total_duration_s / 3600.0
     recall = total_detected_true_events / total_real_events if total_real_events else 0.0
@@ -270,7 +282,7 @@ def evaluate_streams(
     )
     timestamp_error_median_s = median(all_latencies) if all_latencies else 0.0
     timestamp_error_p95_s = float(np.percentile(all_latencies, 95)) if all_latencies else 0.0
-    emission_latencies = tuple(latency + peak_confirmation_s for latency in all_latencies)
+    emission_latencies = tuple(all_emission_latencies)
     emission_latency_median_s = median(emission_latencies) if emission_latencies else 0.0
     emission_latency_p95_s = (
         float(np.percentile(emission_latencies, 95)) if emission_latencies else 0.0

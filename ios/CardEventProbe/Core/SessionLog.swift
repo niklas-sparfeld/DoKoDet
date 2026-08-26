@@ -13,8 +13,9 @@ public struct SessionLogMetadata: Codable, Equatable {
     public let modelName: String
     public let modelVersion: String
     public let targetInferenceHz: Double
-    public let highThreshold: Double
-    public let lowThreshold: Double
+    public let threshold: Double
+    public let peakConfirmationMs: Int
+    public let minimumEventGapMs: Int
 
     public init(
         source: DiagnosticSource,
@@ -24,8 +25,9 @@ public struct SessionLogMetadata: Codable, Equatable {
         modelName: String,
         modelVersion: String,
         targetInferenceHz: Double,
-        highThreshold: Double,
-        lowThreshold: Double
+        threshold: Double,
+        peakConfirmationMs: Int,
+        minimumEventGapMs: Int
     ) {
         self.source = source
         self.appVersion = appVersion
@@ -34,8 +36,9 @@ public struct SessionLogMetadata: Codable, Equatable {
         self.modelName = modelName
         self.modelVersion = modelVersion
         self.targetInferenceHz = targetInferenceHz
-        self.highThreshold = highThreshold
-        self.lowThreshold = lowThreshold
+        self.threshold = threshold
+        self.peakConfirmationMs = peakConfirmationMs
+        self.minimumEventGapMs = minimumEventGapMs
     }
 }
 
