@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.errors import register_error_handlers
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -11,6 +12,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app_settings = settings or Settings()
     app = FastAPI(title="DokoDetector Backend", version="0.1.0")
     app.state.settings = app_settings
+    register_error_handlers(app)
 
     @app.get("/health/live")
     def liveness() -> dict[str, str]:

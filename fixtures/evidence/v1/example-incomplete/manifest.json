@@ -1,0 +1,78 @@
+{
+  "schema_version": "cardevent-evidence/v1",
+  "package_id": "550e8400-e29b-41d4-a716-446655440001",
+  "session": {
+    "session_id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+    "event_sequence": 2
+  },
+  "event": {
+    "event_time_ms": 18000,
+    "emitted_at_ms": 18125,
+    "evidence_complete": false
+  },
+  "model": {
+    "name": "CardEventNet",
+    "version": "transition-v2-run-20260825-235429",
+    "weights_sha256": "f5eccd8e580d1dccecfa7835b3a0d9d5858cc47fdd0098aa33c3c47f01a38d04",
+    "preprocessing": "full_frame_letterbox_v1"
+  },
+  "event_decoder": {
+    "algorithm": "causal_peak_v1",
+    "threshold": 0.3442875146865845,
+    "peak_confirmation_ms": 125,
+    "minimum_event_gap_ms": 625,
+    "target_inference_hz": 8.0
+  },
+  "evidence_capture": {
+    "sample_hz": 8.0,
+    "jpeg_quality": 0.85,
+    "ring_duration_ms": 3000,
+    "target_offsets_ms": [-800, -400, -100, 150, 400, 700],
+    "maximum_lookup_distance_ms": 175,
+    "finalization_delay_ms": 900
+  },
+  "camera": {
+    "position": "back",
+    "orientation": "landscape_right",
+    "width": 1920,
+    "height": 1080
+  },
+  "frames": [
+    {
+      "part_name": "frame_00",
+      "target_offset_ms": -800,
+      "actual_offset_ms": -799,
+      "session_elapsed_ms": 17200,
+      "captured_at_utc": "2026-08-26T18:11:33.000Z",
+      "width": 1920,
+      "height": 1080,
+      "byte_length": 90001,
+      "content_type": "image/jpeg",
+      "sha256": "1000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "part_name": "frame_03",
+      "target_offset_ms": 150,
+      "actual_offset_ms": 149,
+      "session_elapsed_ms": 18150,
+      "captured_at_utc": "2026-08-26T18:11:33.950Z",
+      "width": 1920,
+      "height": 1080,
+      "byte_length": 90002,
+      "content_type": "image/jpeg",
+      "sha256": "1000000000000000000000000000000000000000000000000000000000000002"
+    }
+  ],
+  "missing_frame_targets_ms": [-400, -100, 400, 700],
+  "score_trace": [
+    {"session_elapsed_ms": 17900, "score": 0.36},
+    {"session_elapsed_ms": 18000, "score": 0.88},
+    {"session_elapsed_ms": 18125, "score": 0.69}
+  ],
+  "client": {
+    "app_version": "0.1.0",
+    "build": "1",
+    "device_model_identifier": "iPhone15,2",
+    "os_version": "18.6"
+  }
+}
