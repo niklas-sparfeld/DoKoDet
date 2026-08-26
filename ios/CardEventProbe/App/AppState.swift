@@ -47,6 +47,8 @@ final class AppState: ObservableObject {
 
     private(set) var modelRunner: CardEventModelRunner?
     let eventDecoder = CausalEventDecoder()
+    private let evidenceCaptureConfiguration = EvidenceCaptureConfiguration()
+    private(set) var evidenceSampler: EvidenceFrameSampler?
     private var liveCoordinator: FrameInferenceCoordinator?
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
@@ -104,9 +106,13 @@ final class AppState: ObservableObject {
         activeDiagnosticSource = .live
         beginDiagnosticsSessionIfNeeded(source: .live)
 
+        let evidenceSampler = EvidenceFrameSampler(configuration: evidenceCaptureConfiguration)
+        self.evidenceSampler = evidenceSampler
         let coordinator = FrameInferenceCoordinator(
             runner: runner,
-            eventDecoder: eventDecoder
+            eventDecoder: eventDecoder,
+            evidenceSampler: evidenceSampler,
+            targetRateHz: 8.0
         ) { [weak self] update in
             self?.apply(update)
         }
@@ -119,6 +125,9 @@ final class AppState: ObservableObject {
     func stopLiveInference() {
         liveCoordinator?.stop()
         liveCoordinator = nil
+        if activeDiagnosticSource == .live {
+            evidenceSampler?.stop()
+        }
         if activeDiagnosticSource == .live {
             finishDiagnosticsSession()
             activeDiagnosticSource = nil
@@ -139,11 +148,14 @@ final class AppState: ObservableObject {
         activeDiagnosticSource = .replay
         beginDiagnosticsSessionIfNeeded(source: .replay)
         let replayRunner = VideoReplayRunner()
+        let evidenceSampler = EvidenceFrameSampler(configuration: evidenceCaptureConfiguration)
+        self.evidenceSampler = evidenceSampler
         self.replayRunner = replayRunner
         replayRunner.start(
             url: url,
             modelRunner: runner,
-            eventDecoder: eventDecoder
+            eventDecoder: eventDecoder,
+            evidenceSampler: evidenceSampler
         ) { [weak self] progress in
             Task { @MainActor in
                 guard self?.replayRunner === replayRunner else { return }
@@ -305,6 +317,7 @@ final class AppState: ObservableObject {
         replayRunner?.cancel()
         replayRunner = nil
         if activeDiagnosticSource == .replay {
+            evidenceSampler?.stop()
             finishDiagnosticsSession()
             activeDiagnosticSource = nil
         }

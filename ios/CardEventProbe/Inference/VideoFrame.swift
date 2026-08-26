@@ -2,7 +2,7 @@ import CoreMedia
 import CoreVideo
 import ImageIO
 
-public struct VideoFrame {
+public struct VideoFrame: @unchecked Sendable {
     public let pixelBuffer: CVPixelBuffer
     public let timestamp: CMTime
     public let orientation: CGImagePropertyOrientation

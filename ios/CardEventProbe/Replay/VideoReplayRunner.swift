@@ -12,6 +12,7 @@ final class VideoReplayRunner {
         url: URL,
         modelRunner: CardEventModelRunner,
         eventDecoder: CausalEventDecoder,
+        evidenceSampler: EvidenceFrameSampler,
         onUpdate: @escaping (ReplayProgress) -> Void
     ) {
         lock.lock()
@@ -33,6 +34,7 @@ final class VideoReplayRunner {
                     url: url,
                     modelRunner: modelRunner,
                     eventDecoder: eventDecoder,
+                    evidenceSampler: evidenceSampler,
                     onUpdate: onUpdate
                 )
             } catch {
@@ -69,6 +71,7 @@ final class VideoReplayRunner {
         url: URL,
         modelRunner: CardEventModelRunner,
         eventDecoder: CausalEventDecoder,
+        evidenceSampler: EvidenceFrameSampler,
         onUpdate: @escaping (ReplayProgress) -> Void
     ) throws {
         let asset = AVURLAsset(url: url)
@@ -130,8 +133,7 @@ final class VideoReplayRunner {
 
             framesRead += 1
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            guard samplingPolicy.accept(timestamp: timestamp, inferenceInFlight: false) == .accepted,
-                  let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                 continue
             }
 
@@ -140,6 +142,10 @@ final class VideoReplayRunner {
                 timestamp: timestamp,
                 orientation: .up
             )
+            evidenceSampler.consume(frame)
+            guard samplingPolicy.accept(timestamp: timestamp, inferenceInFlight: false) == .accepted else {
+                continue
+            }
             guard let prediction = try modelRunner.consume(frame) else { continue }
             latestPrediction = prediction
             predictionsProduced += 1

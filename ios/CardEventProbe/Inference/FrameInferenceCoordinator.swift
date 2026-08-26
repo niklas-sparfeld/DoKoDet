@@ -21,6 +21,7 @@ struct FrameInferenceUpdate {
 final class FrameInferenceCoordinator {
     private let runner: CardEventModelRunner
     private let eventDecoder: CausalEventDecoder
+    private let evidenceSampler: EvidenceFrameSampler
     private let inferenceQueue = DispatchQueue(label: "com.dokodetector.CardEventProbe.inference")
     private let lock = NSLock()
     private var samplingPolicy: InferenceSamplingPolicy
@@ -36,12 +37,14 @@ final class FrameInferenceCoordinator {
     init(
         runner: CardEventModelRunner,
         eventDecoder: CausalEventDecoder,
+        evidenceSampler: EvidenceFrameSampler,
         targetRateHz: Double = 8.0,
         onUpdate: @escaping (FrameInferenceUpdate) -> Void
     ) {
         precondition(targetRateHz > 0.0, "target inference rate must be positive")
         self.runner = runner
         self.eventDecoder = eventDecoder
+        self.evidenceSampler = evidenceSampler
         samplingPolicy = InferenceSamplingPolicy(
             minimumInterval: CMTime(seconds: 1.0 / targetRateHz, preferredTimescale: 600)
         )
@@ -49,6 +52,8 @@ final class FrameInferenceCoordinator {
     }
 
     func consume(_ frame: VideoFrame) {
+        evidenceSampler.consume(frame)
+
         lock.lock()
         guard !stopped else {
             lock.unlock()
@@ -89,6 +94,7 @@ final class FrameInferenceCoordinator {
     }
 
     func stop() {
+        evidenceSampler.stop()
         lock.lock()
         stopped = true
         lock.unlock()

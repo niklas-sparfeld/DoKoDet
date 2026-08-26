@@ -38,6 +38,8 @@
 		A0000000000000000000001D /* SessionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001D /* SessionLog.swift */; };
 		A0000000000000000000001E /* DiagnosticFrameWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001E /* DiagnosticFrameWriter.swift */; };
 		A0000000000000000000001F /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001F /* CoreImage.framework */; };
+		A00000000000000000000020 /* EvidenceCaptureConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */; };
+		A00000000000000000000021 /* EvidenceFrameRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000021 /* EvidenceFrameRing.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +75,8 @@
 		B0000000000000000000001D /* SessionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../Core/SessionLog.swift; sourceTree = "<group>"; };
 		B0000000000000000000001E /* DiagnosticFrameWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticFrameWriter.swift; sourceTree = "<group>"; };
 		B0000000000000000000001F /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
+		B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceCaptureConfiguration.swift; sourceTree = "<group>"; };
+		B00000000000000000000021 /* EvidenceFrameRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceFrameRing.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -172,6 +176,8 @@
 				B00000000000000000000009 /* ModelPrediction.swift */,
 				B0000000000000000000000A /* DetectionEvent.swift */,
 				B0000000000000000000000B /* CausalEventDecoder.swift */,
+				B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */,
+				B00000000000000000000021 /* EvidenceFrameRing.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -298,6 +304,8 @@
 				A00000000000000000000009 /* ModelPrediction.swift in Sources */,
 				A0000000000000000000000A /* DetectionEvent.swift in Sources */,
 				A0000000000000000000000B /* CausalEventDecoder.swift in Sources */,
+				A00000000000000000000020 /* EvidenceCaptureConfiguration.swift in Sources */,
+				A00000000000000000000021 /* EvidenceFrameRing.swift in Sources */,
 				A00000000000000000000017 /* ModelPreprocessing.swift in Sources */,
 				A00000000000000000000019 /* InferenceSamplingPolicy.swift in Sources */,
 				A00000000000000000000016 /* CardEventTensorBuilder.swift in Sources */,

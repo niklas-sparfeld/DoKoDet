@@ -34,6 +34,8 @@ let package = Package(
             sources: [
                 "Core/DetectionEvent.swift",
                 "Core/CausalEventDecoder.swift",
+                "Core/EvidenceCaptureConfiguration.swift",
+                "Core/EvidenceFrameRing.swift",
                 "Core/InferenceSamplingPolicy.swift",
                 "Core/ModelPrediction.swift",
                 "Core/ModelPreprocessing.swift",
