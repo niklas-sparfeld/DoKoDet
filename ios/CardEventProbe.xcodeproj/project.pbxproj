@@ -43,6 +43,8 @@
 		A00000000000000000000022 /* BackendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000022 /* BackendService.swift */; };
 		A00000000000000000000023 /* BackendDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000023 /* BackendDiscovery.swift */; };
 		A00000000000000000000024 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000024 /* Network.framework */; };
+		A00000000000000000000025 /* EvidencePackage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000025 /* EvidencePackage.swift */; };
+		A00000000000000000000026 /* EvidencePackageCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000026 /* EvidencePackageCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -83,6 +85,8 @@
 		B00000000000000000000022 /* BackendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendService.swift; sourceTree = "<group>"; };
 		B00000000000000000000023 /* BackendDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendDiscovery.swift; sourceTree = "<group>"; };
 		B00000000000000000000024 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		B00000000000000000000025 /* EvidencePackage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidencePackage.swift; sourceTree = "<group>"; };
+		B00000000000000000000026 /* EvidencePackageCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidencePackageCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -187,6 +191,8 @@
 				B0000000000000000000000B /* CausalEventDecoder.swift */,
 				B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */,
 				B00000000000000000000021 /* EvidenceFrameRing.swift */,
+				B00000000000000000000025 /* EvidencePackage.swift */,
+				B00000000000000000000026 /* EvidencePackageCoordinator.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -324,6 +330,8 @@
 				A0000000000000000000000B /* CausalEventDecoder.swift in Sources */,
 				A00000000000000000000020 /* EvidenceCaptureConfiguration.swift in Sources */,
 				A00000000000000000000021 /* EvidenceFrameRing.swift in Sources */,
+				A00000000000000000000025 /* EvidencePackage.swift in Sources */,
+				A00000000000000000000026 /* EvidencePackageCoordinator.swift in Sources */,
 				A00000000000000000000022 /* BackendService.swift in Sources */,
 				A00000000000000000000023 /* BackendDiscovery.swift in Sources */,
 				A00000000000000000000017 /* ModelPreprocessing.swift in Sources */,

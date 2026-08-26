@@ -2,7 +2,7 @@ import CoreMedia
 
 /// Decodes one causal event from each confirmed probability peak.
 public final class CausalEventDecoder {
-    public struct Configuration {
+    public struct Configuration: Sendable {
         public var threshold: Double
         public var peakConfirmation: CMTime
         public var minimumEventGap: CMTime

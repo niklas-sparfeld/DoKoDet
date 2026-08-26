@@ -261,6 +261,7 @@ public final class EvidenceFrameSampler: @unchecked Sendable {
     private let configuration: EvidenceCaptureConfiguration
     private let encoder: EvidenceFrameEncoding
     private let encoderQueue = DispatchQueue(label: "com.dokodetector.CardEventProbe.evidence-encoder")
+    public let sessionClock: EvidenceSessionClock
     public let ring: EvidenceFrameRing
     private let lock = NSLock()
     private var lastSampleTimestamp: CMTime?
@@ -275,10 +276,12 @@ public final class EvidenceFrameSampler: @unchecked Sendable {
 
     public init(
         configuration: EvidenceCaptureConfiguration = EvidenceCaptureConfiguration(),
+        sessionClock: EvidenceSessionClock = EvidenceSessionClock(),
         encoder: EvidenceFrameEncoding? = nil
     ) {
         self.configuration = configuration
         self.encoder = encoder ?? JPEGEvidenceFrameEncoder(quality: configuration.jpegQuality)
+        self.sessionClock = sessionClock
         ring = EvidenceFrameRing(configuration: configuration)
     }
 
@@ -307,6 +310,7 @@ public final class EvidenceFrameSampler: @unchecked Sendable {
             lock.unlock()
             return
         }
+        sessionClock.observe(timestamp)
 
         if let lastSampleTimestamp,
            CMTimeCompare(timestamp, lastSampleTimestamp) < 0 {

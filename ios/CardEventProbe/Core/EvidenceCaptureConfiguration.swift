@@ -2,7 +2,7 @@ import CoreMedia
 import Foundation
 
 /// Operating values for the bounded evidence capture path.
-public struct EvidenceCaptureConfiguration: Equatable {
+public struct EvidenceCaptureConfiguration: Equatable, Sendable {
     public let targetHz: Double
     public let jpegQuality: Double
     public let historySeconds: Double

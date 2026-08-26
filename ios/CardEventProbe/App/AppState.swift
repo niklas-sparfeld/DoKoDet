@@ -44,12 +44,15 @@ final class AppState: ObservableObject {
     @Published private(set) var diagnosticsLogURL: URL?
     @Published private(set) var diagnosticsError: String?
     @Published private(set) var diagnosticsRecording = false
+    @Published private(set) var evidencePackageCount = 0
+    @Published private(set) var evidencePackageError: String?
 
     let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
     let eventDecoder = CausalEventDecoder()
     private let evidenceCaptureConfiguration = EvidenceCaptureConfiguration()
     private(set) var evidenceSampler: EvidenceFrameSampler?
+    private var evidencePackageCoordinator: EvidencePackageCoordinator?
     private var liveCoordinator: FrameInferenceCoordinator?
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
@@ -107,12 +110,21 @@ final class AppState: ObservableObject {
     func startLiveInference() -> ((VideoFrame) -> Void)? {
         stopReplayForNewSession()
         stopLiveInference()
+        resetEvents()
         guard let runner = modelRunner else { return nil }
         activeDiagnosticSource = .live
         beginDiagnosticsSessionIfNeeded(source: .live)
 
-        let evidenceSampler = EvidenceFrameSampler(configuration: evidenceCaptureConfiguration)
+        let sessionClock = EvidenceSessionClock()
+        let evidenceSampler = EvidenceFrameSampler(
+            configuration: evidenceCaptureConfiguration,
+            sessionClock: sessionClock
+        )
         self.evidenceSampler = evidenceSampler
+        evidencePackageCoordinator = makeEvidencePackageCoordinator(
+            sessionClock: sessionClock,
+            ring: evidenceSampler.ring
+        )
         let coordinator = FrameInferenceCoordinator(
             runner: runner,
             eventDecoder: eventDecoder,
@@ -128,6 +140,8 @@ final class AppState: ObservableObject {
     }
 
     func stopLiveInference() {
+        evidencePackageCoordinator?.finish()
+        evidencePackageCoordinator = nil
         liveCoordinator?.stop()
         liveCoordinator = nil
         if activeDiagnosticSource == .live {
@@ -153,8 +167,16 @@ final class AppState: ObservableObject {
         activeDiagnosticSource = .replay
         beginDiagnosticsSessionIfNeeded(source: .replay)
         let replayRunner = VideoReplayRunner()
-        let evidenceSampler = EvidenceFrameSampler(configuration: evidenceCaptureConfiguration)
+        let sessionClock = EvidenceSessionClock()
+        let evidenceSampler = EvidenceFrameSampler(
+            configuration: evidenceCaptureConfiguration,
+            sessionClock: sessionClock
+        )
         self.evidenceSampler = evidenceSampler
+        evidencePackageCoordinator = makeEvidencePackageCoordinator(
+            sessionClock: sessionClock,
+            ring: evidenceSampler.ring
+        )
         self.replayRunner = replayRunner
         replayRunner.start(
             url: url,
@@ -225,6 +247,10 @@ final class AppState: ObservableObject {
         inferenceMetrics = update.metrics
         inferenceError = update.errorMessage
         if let prediction = update.prediction {
+            if let frame = update.frame {
+                evidencePackageCoordinator?.observe(frame)
+            }
+            evidencePackageCoordinator?.consume(prediction, event: update.event)
             latestFrame = update.frame
             if appendScore(prediction) {
                 recordPrediction(prediction, event: update.event)
@@ -250,17 +276,26 @@ final class AppState: ObservableObject {
             averageInferenceDurationMs: progress.averageInferenceDurationMs
         )
         if let prediction = progress.prediction {
+            if let frame = progress.frame {
+                evidencePackageCoordinator?.observe(frame)
+            }
+            evidencePackageCoordinator?.consume(prediction, event: progress.event)
             latestPrediction = prediction
             latestFrame = progress.frame ?? latestFrame
             if appendScore(prediction) {
                 recordPrediction(prediction, event: progress.event)
             }
         }
+        if progress.prediction == nil, let event = progress.event {
+            evidencePackageCoordinator?.record(event)
+        }
         eventCount = progress.eventCount
         if let timestamp = progress.lastEventTimestampSeconds {
             lastEventTimestampSeconds = timestamp
         }
         if progress.isComplete {
+            evidencePackageCoordinator?.finish()
+            evidencePackageCoordinator = nil
             replayRunner = nil
             if activeDiagnosticSource == .replay {
                 finishDiagnosticsSession()
@@ -321,6 +356,8 @@ final class AppState: ObservableObject {
     private func stopReplayForNewSession() {
         replayRunner?.cancel()
         replayRunner = nil
+        evidencePackageCoordinator?.finish()
+        evidencePackageCoordinator = nil
         if activeDiagnosticSource == .replay {
             evidenceSampler?.stop()
             finishDiagnosticsSession()
@@ -369,5 +406,65 @@ final class AppState: ObservableObject {
         return documents
             .appendingPathComponent("CardEventProbeDiagnostics", isDirectory: true)
             .appendingPathComponent("session-\(UUID().uuidString)", isDirectory: true)
+    }
+
+    private func makeEvidencePackageCoordinator(
+        sessionClock: EvidenceSessionClock,
+        ring: EvidenceFrameRing
+    ) -> EvidencePackageCoordinator {
+        let decoderConfiguration = eventDecoder.configuration
+        let model = EvidencePackageModelMetadata(
+            name: "CardEventNet",
+            version: modelRunner?.contract.metadata["version"]
+                ?? "transition-v2-run-20260825-235429",
+            weightsSHA256: modelRunner?.contract.metadata["weights_sha256"]
+                ?? "f5eccd8e580d1dccecfa7835b3a0d9d5858cc47fdd0098aa33c3c47f01a38d04",
+            preprocessing: "full_frame_letterbox_v1"
+        )
+        let client = EvidencePackageClientMetadata(
+            appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+                ?? "unknown",
+            build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+                ?? "unknown",
+            deviceModelIdentifier: UIDevice.current.model,
+            osVersion: UIDevice.current.systemVersion
+        )
+        let store = EvidencePackageStore(root: evidencePackageRoot())
+        return EvidencePackageCoordinator(
+            configuration: evidenceCaptureConfiguration,
+            sessionClock: sessionClock,
+            ring: ring,
+            store: store,
+            model: model,
+            decoderConfiguration: decoderConfiguration,
+            client: client,
+            camera: EvidencePackageCameraMetadata(
+                position: "back",
+                orientation: "up",
+                width: 1920,
+                height: 1080
+            )
+        ) { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    self.evidencePackageCount += 1
+                    self.evidencePackageError = nil
+                case let .failure(error):
+                    self.evidencePackageError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func evidencePackageRoot() -> URL {
+        let baseURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return baseURL
+            .appendingPathComponent("CardEventProbe", isDirectory: true)
+            .appendingPathComponent("EvidencePackages", isDirectory: true)
     }
 }

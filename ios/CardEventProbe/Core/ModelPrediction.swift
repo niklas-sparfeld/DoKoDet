@@ -1,6 +1,6 @@
 import CoreMedia
 
-public struct ModelPrediction {
+public struct ModelPrediction: Sendable {
     public let timestamp: CMTime
     public let cardEventProbability: Double
     public let rawOutputs: [String: Double]

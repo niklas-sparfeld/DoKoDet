@@ -1,7 +1,7 @@
 import CoreMedia
 import Foundation
 
-public struct DetectionEvent: Identifiable {
+public struct DetectionEvent: Identifiable, Sendable {
     public let id: UUID
     public let timestamp: CMTime
     public let emittedAt: CMTime
