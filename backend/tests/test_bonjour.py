@@ -5,6 +5,7 @@ from dokodetector_backend.bonjour import (
     BonjourAdvertiser,
     build_service_info,
     discover_local_hostname,
+    discover_local_ipv4_address,
 )
 
 
@@ -23,6 +24,18 @@ def test_service_info_advertises_the_api_endpoint() -> None:
         b"api": b"v1",
         b"url": b"http://test-mac.local:8123",
     }
+
+
+def test_service_info_can_advertise_a_private_ip_endpoint() -> None:
+    info = build_service_info(
+        service_name="DokoDetector Test",
+        hostname="test-mac",
+        port=8123,
+        endpoint_host="192.168.1.42",
+    )
+
+    assert info.server == "test-mac.local."
+    assert info.properties[b"url"] == b"http://192.168.1.42:8123"
 
 
 def test_advertiser_unregisters_and_closes_on_exit() -> None:
@@ -84,3 +97,24 @@ def test_local_hostname_falls_back_to_the_short_socket_hostname() -> None:
     )
 
     assert hostname == "development-mac"
+
+
+def test_local_ipv4_address_uses_the_default_route() -> None:
+    socket = Mock()
+    socket.getsockname.return_value = ("192.168.1.42", 54321)
+
+    address = discover_local_ipv4_address(socket_factory=lambda *args: socket)
+
+    assert address == "192.168.1.42"
+    socket.connect.assert_called_once_with(("192.0.2.1", 9))
+    socket.close.assert_called_once_with()
+
+
+def test_local_ipv4_address_returns_none_without_a_route() -> None:
+    socket = Mock()
+    socket.connect.side_effect = OSError("Network is unreachable")
+
+    address = discover_local_ipv4_address(socket_factory=lambda *args: socket)
+
+    assert address is None
+    socket.close.assert_called_once_with()

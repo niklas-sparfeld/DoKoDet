@@ -176,7 +176,7 @@ private struct BackendStatusView: View {
                 Spacer()
                 Text(discovery.state.title)
             }
-            if let detail = discovery.state.detail {
+            if let detail = discovery.state.detail ?? discovery.diagnosticMessage {
                 Text(detail)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)

@@ -1,5 +1,6 @@
 import CoreMedia
 import Foundation
+import os
 
 struct FrameInferenceMetrics: Equatable {
     let cameraFramesReceived: Int
@@ -19,6 +20,10 @@ struct FrameInferenceUpdate {
 
 /// Connects a camera frame stream to one bounded, serial model execution path.
 final class FrameInferenceCoordinator {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.dokodetector.CardEventProbe",
+        category: "LiveInference"
+    )
     private let runner: CardEventModelRunner
     private let eventDecoder: CausalEventDecoder
     private let evidenceSampler: EvidenceFrameSampler
@@ -49,6 +54,7 @@ final class FrameInferenceCoordinator {
             minimumInterval: CMTime(seconds: 1.0 / targetRateHz, preferredTimescale: 600)
         )
         self.onUpdate = onUpdate
+        Self.logger.info("Started live inference at \(targetRateHz, format: .fixed(precision: 1)) Hz.")
     }
 
     func consume(_ frame: VideoFrame) {
@@ -61,6 +67,7 @@ final class FrameInferenceCoordinator {
         }
 
         cameraFramesReceived += 1
+        let shouldPublishMetrics = cameraFramesReceived == 1 || cameraFramesReceived.isMultiple(of: 30)
         let decision = samplingPolicy.accept(
             timestamp: frame.timestamp,
             inferenceInFlight: inferenceInFlight
@@ -69,13 +76,16 @@ final class FrameInferenceCoordinator {
         case .sampledTooSoon:
             framesSkippedForSampling += 1
             lock.unlock()
+            if shouldPublishMetrics { publishMetrics() }
             return
         case .inferenceBusy:
             framesDroppedWhileBusy += 1
             lock.unlock()
+            if shouldPublishMetrics { publishMetrics() }
             return
         case .invalidTimestamp:
             lock.unlock()
+            Self.logger.error("Dropped a camera frame with an invalid timestamp.")
             publish(
                 prediction: nil,
                 event: nil,
@@ -86,6 +96,7 @@ final class FrameInferenceCoordinator {
         case .accepted:
             inferenceInFlight = true
             lock.unlock()
+            if shouldPublishMetrics { publishMetrics() }
         }
 
         inferenceQueue.async { [weak self] in
@@ -98,6 +109,7 @@ final class FrameInferenceCoordinator {
         lock.lock()
         stopped = true
         lock.unlock()
+        Self.logger.info("Stopped live inference.")
     }
 
     private func runInference(_ frame: VideoFrame) {
@@ -112,6 +124,7 @@ final class FrameInferenceCoordinator {
             }
         } catch {
             errorMessage = error.localizedDescription
+            Self.logger.error("Model inference failed: \(error.localizedDescription, privacy: .public)")
         }
 
         lock.lock()
@@ -157,6 +170,37 @@ final class FrameInferenceCoordinator {
                     prediction: prediction,
                     event: event,
                     errorMessage: errorMessage,
+                    metrics: metrics
+                )
+            )
+        }
+    }
+
+    private func publishMetrics() {
+        lock.lock()
+        let metrics = FrameInferenceMetrics(
+            cameraFramesReceived: cameraFramesReceived,
+            framesSkippedForSampling: framesSkippedForSampling,
+            framesDroppedWhileBusy: framesDroppedWhileBusy,
+            predictionsProduced: predictionsProduced,
+            averageInferenceDurationMs: predictionsProduced == 0
+                ? nil
+                : totalInferenceDurationMs / Double(predictionsProduced)
+        )
+        let shouldPublish = !stopped
+        lock.unlock()
+
+        guard shouldPublish else { return }
+        Self.logger.info(
+            "Live inference metrics: camera=\(metrics.cameraFramesReceived), predictions=\(metrics.predictionsProduced), skipped=\(metrics.framesSkippedForSampling), busy=\(metrics.framesDroppedWhileBusy)."
+        )
+        DispatchQueue.main.async { [onUpdate] in
+            onUpdate(
+                FrameInferenceUpdate(
+                    frame: nil,
+                    prediction: nil,
+                    event: nil,
+                    errorMessage: nil,
                     metrics: metrics
                 )
             )

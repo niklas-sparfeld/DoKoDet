@@ -20,3 +20,4 @@ class Settings(BaseSettings):
     bonjour_enabled: bool = True
     bonjour_name: str = "DokoDetector"
     bonjour_hostname: str | None = None
+    bonjour_address: str | None = None

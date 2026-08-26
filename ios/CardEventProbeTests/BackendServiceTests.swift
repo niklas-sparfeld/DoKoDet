@@ -38,4 +38,28 @@ final class BackendServiceTests: XCTestCase {
             )
         )
     }
+
+    func testAcceptsAPrivateIPAddressEndpoint() {
+        let service = BackendService(
+            name: "Development Mac",
+            txtRecord: [
+                "api": "v1",
+                "url": "http://192.168.1.42:8000",
+            ]
+        )
+
+        XCTAssertEqual(service?.baseURL.absoluteString, "http://192.168.1.42:8000")
+    }
+
+    func testRejectsAPublicIPAddressEndpoint() {
+        XCTAssertNil(
+            BackendService(
+                name: "Unexpected server",
+                txtRecord: [
+                    "api": "v1",
+                    "url": "http://8.8.8.8:8000",
+                ]
+            )
+        )
+    }
 }

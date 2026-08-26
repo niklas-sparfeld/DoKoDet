@@ -1,9 +1,15 @@
 import AVFoundation
 import Combine
 import Foundation
+import os
 
 @MainActor
 final class CameraSession: ObservableObject {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.dokodetector.CardEventProbe",
+        category: "Camera"
+    )
+
     enum State: Equatable {
         case idle
         case requestingPermission
@@ -36,6 +42,7 @@ final class CameraSession: ObservableObject {
 
     func start() {
         guard state != .running, state != .requestingPermission else { return }
+        Self.logger.info("Camera start requested.")
 
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -61,6 +68,7 @@ final class CameraSession: ObservableObject {
 
     func stop() {
         guard state == .running else { return }
+        Self.logger.info("Camera stop requested.")
         sessionQueue.async { [weak self] in
             self?.captureSession.stopRunning()
         }
@@ -77,10 +85,12 @@ final class CameraSession: ObservableObject {
                     self.isConfigured = true
                 }
                 self.captureSession.startRunning()
+                Self.logger.info("Camera session is running.")
                 Task { @MainActor in
                     self.state = .running
                 }
             } catch {
+                Self.logger.error("Camera setup failed: \(error.localizedDescription, privacy: .public)")
                 Task { @MainActor in
                     self.state = .failed(error.localizedDescription)
                 }

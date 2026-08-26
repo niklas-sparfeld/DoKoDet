@@ -245,7 +245,9 @@ final class AppState: ObservableObject {
     private func apply(_ update: FrameInferenceUpdate) {
         latestPrediction = update.prediction ?? latestPrediction
         inferenceMetrics = update.metrics
-        inferenceError = update.errorMessage
+        if update.prediction != nil || update.errorMessage != nil {
+            inferenceError = update.errorMessage
+        }
         if let prediction = update.prediction {
             if let frame = update.frame {
                 evidencePackageCoordinator?.observe(frame)

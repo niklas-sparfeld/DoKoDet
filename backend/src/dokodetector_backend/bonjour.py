@@ -34,16 +34,38 @@ def discover_local_hostname(
     return socket_hostname().split(".", maxsplit=1)[0]
 
 
+def discover_local_ipv4_address(
+    *,
+    socket_factory: Callable[..., socket.socket] = socket.socket,
+) -> str | None:
+    """Get the IPv4 address used for the default network route.
+
+    UDP connect selects a local address without sending network traffic.
+    """
+
+    probe = socket_factory(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("192.0.2.1", 9))
+        address = probe.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        probe.close()
+
+    return address if _is_private_ipv4_address(address) else None
+
+
 def build_service_info(
     *,
     service_name: str,
     hostname: str,
     port: int,
+    endpoint_host: str | None = None,
 ) -> ServiceInfo:
     """Build the DNS-SD records that identify a compatible backend."""
 
     local_hostname = _local_hostname(hostname)
-    base_url_hostname = local_hostname.removesuffix(".")
+    base_url_hostname = endpoint_host or local_hostname.removesuffix(".")
     return ServiceInfo(
         SERVICE_TYPE,
         f"{service_name}.{SERVICE_TYPE}",
@@ -104,3 +126,26 @@ def _local_hostname(hostname: str) -> str:
     if not normalized.lower().endswith(".local"):
         normalized = f"{normalized}.local"
     return f"{normalized}."
+
+
+def _is_private_ipv4_address(address: str) -> bool:
+    parts = address.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        octets = [int(part) for part in parts]
+    except ValueError:
+        return False
+    if any(octet < 0 or octet > 255 for octet in octets):
+        return False
+
+    first, second, _, _ = octets
+    return (
+        first == 10
+        or first == 172
+        and 16 <= second <= 31
+        or first == 192
+        and second == 168
+        or first == 169
+        and second == 254
+    )

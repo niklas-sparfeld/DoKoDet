@@ -1,5 +1,6 @@
 import CoreML
 import CoreMedia
+import CoreVideo
 import Foundation
 
 public final class CoreMLCardEventModelRunner: CardEventModelRunner {
@@ -43,11 +44,12 @@ public final class CoreMLCardEventModelRunner: CardEventModelRunner {
                 "Video frame timestamps must be finite."
             )
         }
+        let ownedFrame = try Self.copyCameraBuffer(frame)
         if let previous = frames.last,
            CMTimeGetSeconds(previous.timestamp) > timestamp + 1e-9 {
             reset()
         }
-        frames.append(frame)
+        frames.append(ownedFrame)
         let cutoff = timestamp - historyDuration
         frames.removeAll { CMTimeGetSeconds($0.timestamp) < cutoff }
 
@@ -134,5 +136,61 @@ public final class CoreMLCardEventModelRunner: CardEventModelRunner {
         }
         let exponent = exp(value)
         return exponent / (1.0 + exponent)
+    }
+
+    /// Copy a camera-owned buffer before retaining it for the temporal model input.
+    ///
+    /// AVCaptureVideoDataOutput has a small buffer pool. Retaining its buffers across several
+    /// inferences prevents the output delegate from receiving new frames while the preview keeps
+    /// running. The model owns this copy instead.
+    private static func copyCameraBuffer(_ frame: VideoFrame) throws -> VideoFrame {
+        let source = frame.pixelBuffer
+        let width = CVPixelBufferGetWidth(source)
+        let height = CVPixelBufferGetHeight(source)
+        let pixelFormat = CVPixelBufferGetPixelFormatType(source)
+        var destination: CVPixelBuffer?
+        let createStatus = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            pixelFormat,
+            [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary,
+            &destination
+        )
+        guard createStatus == kCVReturnSuccess, let destination else {
+            throw CardEventModelRunnerError.cannotCopyCameraBuffer(createStatus)
+        }
+
+        let sourceLockStatus = CVPixelBufferLockBaseAddress(source, .readOnly)
+        guard sourceLockStatus == kCVReturnSuccess else {
+            throw CardEventModelRunnerError.cannotCopyCameraBuffer(sourceLockStatus)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(source, .readOnly) }
+
+        let destinationLockStatus = CVPixelBufferLockBaseAddress(destination, [])
+        guard destinationLockStatus == kCVReturnSuccess else {
+            throw CardEventModelRunnerError.cannotCopyCameraBuffer(destinationLockStatus)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(destination, []) }
+
+        guard let sourceBaseAddress = CVPixelBufferGetBaseAddress(source),
+              let destinationBaseAddress = CVPixelBufferGetBaseAddress(destination) else {
+            throw CardEventModelRunnerError.cannotCopyCameraBuffer(kCVReturnInvalidArgument)
+        }
+
+        let sourceBytesPerRow = CVPixelBufferGetBytesPerRow(source)
+        let destinationBytesPerRow = CVPixelBufferGetBytesPerRow(destination)
+        let rowByteCount = min(sourceBytesPerRow, destinationBytesPerRow)
+        for row in 0..<height {
+            let sourceRow = sourceBaseAddress.advanced(by: row * sourceBytesPerRow)
+            let destinationRow = destinationBaseAddress.advanced(by: row * destinationBytesPerRow)
+            destinationRow.copyMemory(from: sourceRow, byteCount: rowByteCount)
+        }
+
+        return VideoFrame(
+            pixelBuffer: destination,
+            timestamp: frame.timestamp,
+            orientation: frame.orientation
+        )
     }
 }

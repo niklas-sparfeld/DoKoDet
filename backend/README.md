@@ -32,11 +32,12 @@ uv run ruff format --check .
 Start the service from `backend/`:
 
 ```bash
-uv run uvicorn dokodetector_backend.app:create_app --factory
+uv run dokodetector-backend
 ```
 
-The default service listens on port `8000`. The `dokodetector-backend` command also starts the
-service and advertises `_dokodetector._tcp` with Bonjour for iOS local discovery.
+The default service listens on port `8000` and advertises `_dokodetector._tcp` with Bonjour for
+iOS local discovery. The startup log shows the advertised service type and endpoint. Do not use
+the direct `uvicorn` command for device discovery. It starts HTTP but does not advertise Bonjour.
 
 In a second shell, upload the shared complete fixture:
 
@@ -78,10 +79,13 @@ SERVER_PORT=8000
 BONJOUR_ENABLED=true
 BONJOUR_NAME=DokoDetector
 BONJOUR_HOSTNAME=
+BONJOUR_ADDRESS=
 ```
 
 Set `BONJOUR_ENABLED=false` when local discovery is not required. Set `BONJOUR_HOSTNAME` only
-when the automatic macOS local host name is not correct.
+when the automatic macOS local host name is not correct. By default, the backend advertises the
+private IPv4 address of the active network route. Set `BONJOUR_ADDRESS` to use a specific reachable
+private IPv4 address instead.
 
 Stored files use this layout:
 
