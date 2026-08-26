@@ -2,8 +2,8 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-M0 provides the FastAPI service scaffold and placeholder health routes. It does not store
-evidence yet. SQLite, filesystem storage, and upload routes are added in later milestones.
+M2 adds SQLite metadata storage, Alembic migrations, and atomic local evidence storage. The
+upload route is added in M3.
 
 ## Setup
 
@@ -13,6 +13,7 @@ Run these commands from the repository root:
 mise install
 cd backend
 uv sync
+uv run alembic upgrade head
 ```
 
 ## Checks
@@ -45,12 +46,19 @@ environment variables:
 
 ```text
 DATABASE_URL=sqlite:///./.runtime/dokodetector.db
-EVIDENCE_ROOT=.runtime/evidence
+EVIDENCE_ROOT=.runtime
 MAX_MANIFEST_BYTES=1000000
 MAX_FRAME_BYTES=10000000
 MAX_PACKAGE_BYTES=100000000
 ```
 
-The M0 readiness route is a placeholder. The complete SQLite and filesystem checks are part of
-M4. The PoC uses one API process with local SQLite and filesystem state. It does not provide
-multi-process locking or distributed coordination.
+Stored files use this layout:
+
+```text
+.runtime/evidence/<package-id>/manifest.json
+.runtime/evidence/<package-id>/frames/<part-name>.jpg
+```
+
+The health readiness route is still a placeholder. The upload and readiness routes are part of
+later milestones. The PoC uses one API process with local SQLite and filesystem state. It does
+not provide multi-process locking or distributed coordination.
