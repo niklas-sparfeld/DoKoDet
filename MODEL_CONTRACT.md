@@ -6,7 +6,7 @@ The values below come from the Core ML package and the export code in
 
 This package uses the legacy ROI preprocessing contract. The target replacement is full-frame
 letterboxing without manual setup. See
-[plan 0013](docs/plans/0013-CardEventNet_FullFrameInput.md). Keep this document accurate for the
+[plan 0013](docs/plans/5-closed/0013-CardEventNet_FullFrameInput.md). Keep this document accurate for the
 supplied package until a full-frame model replaces it.
 
 ## Model

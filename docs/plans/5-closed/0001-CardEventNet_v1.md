@@ -3,7 +3,8 @@
 ## Plan status
 
 - **Summary:** Train and export CardEventNet
-- **Status:** Done
+- **Status:** Closed
+- **Closure reason:** Complete
 
 ## Purpose
 

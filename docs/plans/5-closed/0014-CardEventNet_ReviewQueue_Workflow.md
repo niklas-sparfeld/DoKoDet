@@ -3,7 +3,8 @@
 ## Plan status
 
 - Summary: Add an interactive workflow for reviewing CardEventNet review queues
-- Status: Implemented
+- Status: Closed
+- Closure reason: Complete
 - Depends on: plans 0008, 0011, and 0013
 
 ## Problem

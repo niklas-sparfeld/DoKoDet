@@ -134,6 +134,9 @@ The project is being built incrementally:
 
 Detailed decisions and component-specific architecture belong in the respective implementation plans rather than this README.
 
+The Kanban epic board is in [`docs/plans/README.md`](docs/plans/README.md). Epic numbers record
+creation order. Status folders record workflow state.
+
 ## Layout
 
 - `card_event_net` will hold the iPhone-local detection model.

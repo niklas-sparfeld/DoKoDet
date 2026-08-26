@@ -3,7 +3,8 @@
 ## Plan status
 
 - Summary: Remove CPU preprocessing bottlenecks and improve GPU utilization
-- Status: Done
+- Status: Closed
+- Closure reason: Complete
 
 ## Purpose
 

@@ -3,7 +3,8 @@
 ## Plan status
 
 - **Summary:** Extend CardEventNet training for reproducible single-GPU cloud execution
-- **Status:** Done
+- **Status:** Closed
+- **Closure reason:** Complete
 
 ## Purpose
 

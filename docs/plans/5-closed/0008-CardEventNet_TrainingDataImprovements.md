@@ -3,7 +3,11 @@
 ## Plan status
 
 - **Summary:** Extend CardEventNet training data
-- **Status:** In progress; Phase 2 tooling implemented, and human consistency gates pending
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** 2026-08-26. Ingestion, metadata, review, split, training, and diagnostic foundations
+  exist. Ongoing sourcing, human annotation review, coverage expansion, and dataset promotion move
+  to [plan 0020](../2-ready/0020-Data_Foundation.md). This document remains the historical design record.
 
 ## Objective
 
@@ -99,7 +103,7 @@ rotation. Also label smaller movement when it changes card identity, overlap, ro
 Do not label smaller taps or jitter when the useful state stays the same.
 
 The complete class and timing rules are in
-[CardEventNet labeling guidelines](../CardEventNet_LabelingGuidelines.md).
+[CardEventNet labeling guidelines](../../CardEventNet_LabelingGuidelines.md).
 
 ## Phase 1: Establish the data contract
 
@@ -117,14 +121,14 @@ The complete class and timing rules are in
 ### Implemented tooling work
 
 - The versioned video metadata contract is defined in
-  [`video-metadata-v1.schema.json`](../../card_event_net/schemas/video-metadata-v1.schema.json).
+  [`video-metadata-v1.schema.json`](../../../card_event_net/schemas/video-metadata-v1.schema.json).
 - A complete staged-video example is in
-  [`dataset-manifest.example.yaml`](../../card_event_net/data/dataset-manifest.example.yaml).
+  [`dataset-manifest.example.yaml`](../../../card_event_net/data/dataset-manifest.example.yaml).
 - Metadata distinguishes a recording session, a real game, and a physical table setup.
 - Metadata records content type, technical capture data, camera geometry, lighting, scenario
   coverage, known limitations, provenance, and usage permission.
 - The current annotation JSON remains backward compatible. Its machine-readable V1 contract is
-  [`annotation-v1.schema.json`](../../card_event_net/schemas/annotation-v1.schema.json).
+  [`annotation-v1.schema.json`](../../../card_event_net/schemas/annotation-v1.schema.json).
 - The V1 ROI is legacy preprocessing data. Plan 0013 will introduce ROI-free V2 annotations and
   keep V1 read compatibility.
 - Events contain `time_s`, `type`, optional `confidence`, and optional `notes`.
@@ -166,12 +170,12 @@ Do not mix an ROI-trained checkpoint or ROI cache with full-frame inference.
 ## Phase 2: Build ingestion and dataset-indexing tooling
 
 **Current state:** Session-aware split creation and validation exist. The populated
-[`dataset-manifest.v1.yaml`](../../card_event_net/data/dataset-manifest.v1.yaml) indexes all 38
+[`dataset-manifest.v1.yaml`](../../../card_event_net/data/dataset-manifest.v1.yaml) indexes all 38
 local raw videos. The
-[`full-frame-development.yaml`](../../card_event_net/data/splits/full-frame-development.yaml)
+[`full-frame-development.yaml`](../../../card_event_net/data/splits/full-frame-development.yaml)
 split is session-isolated against that manifest. The metadata still needs human review, as
 described in the
-[`current dataset index`](../reports/0014-CardEventNet_CurrentDatasetIndex.md). `cardevent ingest`
+[`current dataset index`](../../reports/0014-CardEventNet_CurrentDatasetIndex.md). `cardevent ingest`
 and `cardevent inspect-dataset` now provide the general ingestion and dataset-indexing workflow.
 The next new video batch must pass the completion gate below.
 

@@ -3,7 +3,9 @@
 ## Plan status
 
 - Summary: Train CardEventNet to detect visible table-state changes instead of persistent states
-- Status: Complete; experimental design not promoted to the default configuration
+- Status: Closed
+- Closure reason: Complete
+- Closure note: Experimental design not promoted to the default configuration
 - Depends on: plans 0011, 0013, and 0014
 
 ## Outcome

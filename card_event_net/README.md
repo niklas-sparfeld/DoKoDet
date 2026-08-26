@@ -15,7 +15,7 @@ runs and Python inference require the preprocessing identifier `full_frame_lette
 ROI annotations still load, but their geometry does not control preprocessing.
 
 The checked-in Core ML model and the iOS probe still use the legacy ROI contract. Do not combine
-them with a new full-frame checkpoint. [Plan 0013](../docs/plans/0013-CardEventNet_FullFrameInput.md)
+them with a new full-frame checkpoint. [Plan 0013](../docs/plans/5-closed/0013-CardEventNet_FullFrameInput.md)
 tracks the remaining retraining and iOS migration.
 
 This repo has the model, annotation, inference, evaluation, hard-negative, and Core ML export

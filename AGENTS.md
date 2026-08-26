@@ -21,6 +21,24 @@ Use trunk-based development.
 * Keep commits focused.
 * Do not modify or discard unrelated changes.
 
+## Planning workflow
+
+Use the [epic board](docs/plans/README.md) for project plans. Each numbered Markdown file is one
+epic. The file can contain both the specification and its work items.
+
+When you add or edit an epic:
+
+* use the next unused four-digit epic number for a new file,
+* use only the statuses defined on the epic board,
+* store the file in the folder that matches its `Status` field,
+* record prerequisites in a separate `Depends on` field,
+* use `Blocked` when an unmet dependency prevents work,
+* update the board entry when the epic title, status, dependency, outcome, or closure changes.
+
+When an epic changes status, update its `Status` field and move the file to the matching folder in
+the same change. A closed epic must have a `Closure reason`. Keep all links to and from the moved
+file valid. Check local Markdown links after adding, moving, or renaming an epic.
+
 ## Language
 
 Use [ASD-STE100](https://github.com/danyuchn/asd-ste100-skill) principles for documentation and technical prose.

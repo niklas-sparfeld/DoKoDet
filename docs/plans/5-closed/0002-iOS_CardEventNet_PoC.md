@@ -3,7 +3,11 @@
 ## Plan status
 
 - **Summary:** Test CardEventNet on iPhone
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** 2026-08-26. Camera, bounded inference, replay, causal event decoding, diagnostics,
+  full-frame preprocessing, and evidence capture now exist in the app. Long-run device, thermal,
+  and support validation moved to [plan 0024](../0-to-specify/0024-System_Production_Readiness.md).
 
 ## 0. Mission
 
@@ -1172,6 +1176,10 @@ These belong to later phases.
 ---
 
 ## 20. Definition of Done for the PoC
+
+Closure note: The checklist below is the original PoC gate. The reusable implementation is now
+delivered and later plans use it. The missing long-run physical-device result and support claim move
+to plan 0024 and do not keep this implementation plan open.
 
 The PoC is complete when all of these are true:
 

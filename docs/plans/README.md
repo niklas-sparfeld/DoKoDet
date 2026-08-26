@@ -1,0 +1,95 @@
+# DokoDetector epic board
+
+Each numbered Markdown file is an epic. Its contents can combine the specification and its work
+items. The four-digit epic number records creation order. The folder records the current status.
+
+## Workflow
+
+| Order | Status | Folder | Meaning |
+| --- | --- | --- | --- |
+| 0 | To Specify | [`0-to-specify/`](0-to-specify/) | The direction is useful, but evidence or requirements must define the epic. |
+| 1 | Backlog | [`1-backlog/`](1-backlog/) | The epic is specified, but it is not selected for delivery. |
+| 2 | Ready | [`2-ready/`](2-ready/) | The epic is clear, actionable, and available to start. |
+| 3 | In Progress | [`3-in-progress/`](3-in-progress/) | Work on the epic is active. |
+| 4 | Blocked | [`4-blocked/`](4-blocked/) | Work cannot continue until a named dependency or blocker is resolved. |
+| 5 | Closed | [`5-closed/`](5-closed/) | No more work is planned in this epic. A closure reason is required. |
+
+Use only these values in the `Status` field. Record prerequisites in a separate `Depends on`
+field. A dependency does not replace the status. If an unmet dependency prevents work, use the
+`Blocked` status.
+
+When an epic changes status, update its `Status` field and move its file to the matching folder.
+Update relative links in the same change.
+
+Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`, `Duplicate`, or
+`Invalid`. Add a `Closure note` when the reason needs context.
+
+## Board
+
+### To Specify
+
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| [0022 — VisionDetector recognition development](0-to-specify/0022-VisionDetector_Recognition_Development.md) | 0020, 0021, and reviewed real events | Define measured recognition experiments. |
+| [0023 — Game reconstruction development](0-to-specify/0023-Game_Reconstruction_Development.md) | 0006 search measurements | Define scalable uncertain-game inference. |
+| [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Integration, recognition, and reconstruction measurements | Select production work from measured requirements. |
+
+### Backlog
+
+No epics.
+
+### Ready
+
+| Epic | Outcome |
+| --- | --- |
+| [0005 — VisionDetector local pipeline PoC](2-ready/0005-VisionDetector_v1.md) | Build the scripted vision-result pipeline. |
+| [0006 — Game engine contract and core PoC](2-ready/0006-GameEngine_v1.md) | Freeze the game contract and build the rules core. |
+| [0020 — Data foundation](2-ready/0020-Data_Foundation.md) | Establish the shared data lifecycle. |
+
+### In Progress
+
+No epics.
+
+### Blocked
+
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| [0016 — iOS evidence-upload integration](4-blocked/0016-iOS_EvidenceUpload_Integration.md) | 0005 milestone M2 | Connect the app to the local result pipeline. |
+| [0019 — App training-recording sessions](4-blocked/0019-App_TrainingRecordingSessions.md) | 0016 and the 0020 source-data contract | Add deliberate recording intake. |
+| [0021 — VisionDetector training pipeline](4-blocked/0021-VisionDetector_Training_Pipeline.md) | 0020 milestone M1 | Build the train, evaluate, checkpoint, and export loop. |
+
+### Closed
+
+| Epic | Closure reason | Outcome |
+| --- | --- | --- |
+| [0001 — CardEventNet v1](5-closed/0001-CardEventNet_v1.md) | Complete | Initial CardEventNet pipeline. |
+| [0002 — iOS CardEventNet PoC](5-closed/0002-iOS_CardEventNet_PoC.md) | Complete | iOS inference PoC. |
+| [0003 — iOS evidence upload](5-closed/0003-iOS_EvidenceUpload.md) | Complete | Evidence package and V1 upload contract. |
+| [0004 — Backend evidence upload](5-closed/0004-Backend_EvidenceUpload.md) | Complete | Local evidence-ingestion backend. |
+| [0007 — CardEventNet cloud training](5-closed/0007-CardEventNet_CloudTraining.md) | Complete | Portable single-GPU training. |
+| [0008 — CardEventNet training-data improvements](5-closed/0008-CardEventNet_TrainingDataImprovements.md) | Complete | Historical data tooling. |
+| [0009 — CardEventNet training performance](5-closed/0009-CardEventNet_Training_Performance.md) | Complete | Faster training pipeline. |
+| [0010 — CardEventNet training diagnostics](5-closed/0010-CardEventNet_Training_Diagnostics.md) | Complete | Training diagnostics. |
+| [0011 — CardEventNet corrective work](5-closed/0011-CardEventNet_Corrective.md) | Complete | Annotation and training corrections. |
+| [0012 — CardEventNet improvement loop](5-closed/0012-CardEventNet_Unattended_Improvement_Loop.md) | Complete | Bounded improvement experiment. |
+| [0013 — CardEventNet full-frame input](5-closed/0013-CardEventNet_FullFrameInput.md) | Complete | Full-frame preprocessing migration. |
+| [0014 — CardEventNet review queue](5-closed/0014-CardEventNet_ReviewQueue_Workflow.md) | Complete | Interactive review workflow. |
+| [0015 — CardEventNet transition targets](5-closed/0015-CardEventNet_Transition_Targets.md) | Complete | Transition-target experiment. |
+| [0017 — iOS evidence-upload production readiness](5-closed/0017-iOS_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | iOS hardening reference. |
+| [0018 — Backend evidence-upload production readiness](5-closed/0018-Backend_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | Backend hardening reference. |
+
+## Near-term delivery sequence
+
+1. Start 0005 milestone M0 with 0006 milestone M0. This freezes one shared vision-to-game
+   contract.
+2. Start 0020 milestone M0 in parallel. It establishes the data invariants.
+3. Continue 0005, 0006, and 0020 as independent local foundations.
+4. Move 0021 to `Ready` after 0020 milestone M1. Move 0016 to `Ready` after 0005 milestone M2.
+5. Move 0019 to `Ready` after 0016 and the 0020 source-data contract are complete.
+6. Specify 0022, 0023, and 0024 only when their entry evidence exists.
+
+## Closed-epic policy
+
+Do not reopen a closed epic because later model, data, device, or product evidence reveals more
+work. Add the evidence to the earliest active epic that owns the issue. Create a bounded follow-up
+epic only when no active epic owns it.

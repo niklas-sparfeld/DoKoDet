@@ -3,7 +3,8 @@
 ## Plan status
 
 - Summary: Improve CardEventNet training diagnostics
-- Status: Done
+- Status: Closed
+- Closure reason: Complete
 
 ### Goal
 

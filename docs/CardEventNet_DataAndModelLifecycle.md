@@ -33,7 +33,7 @@ uv run cardevent inspect-dataset \
 
 Check the generated metadata and duplicate findings. Fix operator metadata and run ingestion
 again when necessary. Do not edit technical probe results by guesswork. See
-[plan 0008, phase 2](plans/0008-CardEventNet_TrainingDataImprovements.md#phase-2-build-ingestion-and-dataset-indexing-tooling)
+[plan 0008, phase 2](plans/5-closed/0008-CardEventNet_TrainingDataImprovements.md#phase-2-build-ingestion-and-dataset-indexing-tooling)
 for the ingestion artifact contract.
 
 ## 2. Annotate and prepare the dataset

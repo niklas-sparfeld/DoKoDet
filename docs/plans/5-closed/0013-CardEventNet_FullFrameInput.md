@@ -3,7 +3,12 @@
 ## Plan status
 
 - Summary: Remove the manual CardEventNet ROI and use the complete camera frame
-- Status: In progress; Python Phases 1-3 implemented, first Phase 4 comparison did not pass
+- Status: Closed
+- Closure reason: Complete
+- Closure note: 2026-08-26. The full-frame contract now exists in Python, the transition-model
+  experiment, and iOS. The first paired run did not pass, but plan 0015 supplied the later PoC
+  model. Device-domain validation remains a future
+  [support decision](../0-to-specify/0024-System_Production_Readiness.md), not unfinished migration work.
 
 ## Decision
 
@@ -274,6 +279,8 @@ Phases 1-3 are implemented in Python:
 The populated metadata manifest and provisional session-safe development split are in
 `card_event_net/data/`. The first Phase 4 paired comparison met aggregate recall but increased
 false events/hour by 40.9% and reduced worst-video recall. See the
-[paired comparison report](../reports/0013-CardEventNet_FullFrame_Paired_Comparison.md). Core ML
-model replacement and iOS ROI removal remain blocked until a reviewed full-frame run passes the
-gate.
+[paired comparison report](../../reports/0013-CardEventNet_FullFrame_Paired_Comparison.md).
+
+Later work superseded the original block: plan 0015 produced the full-frame transition V2 model,
+and plan 0003 integrated it as a separate iOS PoC resource while preserving the legacy default
+artifact. The remaining device-domain gap is validation evidence for plan 0024.

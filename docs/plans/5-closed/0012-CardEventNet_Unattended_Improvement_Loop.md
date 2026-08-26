@@ -3,7 +3,9 @@
 ## Plan status
 
 - Summary: Run a small, evidence-led loop to improve CardEventNet
-- Status: Done; stopped for human review after two iterations
+- Status: Closed
+- Closure reason: Complete
+- Closure note: Stopped for human review after two iterations
 - Starting run: `card_event_net/data/outputs/run-20260822-190415`
 - Maximum iterations: 4
 - Hard token limit: 10% of the total weekly token allowance
@@ -24,7 +26,7 @@ The validation result improved materially. The test result did not meet the 0.98
 Do not tune another model from the test failures. Human annotation and session review are the next
 steps.
 
-The committed [final report](../reports/0012-CardEventNet_Unattended_Improvement_Report.md)
+The committed [final report](../../reports/0012-CardEventNet_Unattended_Improvement_Report.md)
 contains the exact commands, per-video test results, and remaining risks.
 
 Codex did not expose the shared weekly token allowance. The user authorized a soft budget for the
