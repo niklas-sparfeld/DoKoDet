@@ -4,13 +4,15 @@ import UIKit
 
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
+    let onOrientationChange: (UIInterfaceOrientation) -> Void
 
     func makeUIView(context: Context) -> PreviewView {
-        PreviewView(session: session)
+        PreviewView(session: session, onOrientationChange: onOrientationChange)
     }
 
     func updateUIView(_ uiView: PreviewView, context: Context) {
         uiView.previewLayer.session = session
+        uiView.onOrientationChange = onOrientationChange
     }
 }
 
@@ -26,7 +28,14 @@ final class PreviewView: UIView {
         return layer
     }
 
-    init(session: AVCaptureSession) {
+    var onOrientationChange: (UIInterfaceOrientation) -> Void
+    private var lastInterfaceOrientation: UIInterfaceOrientation?
+
+    init(
+        session: AVCaptureSession,
+        onOrientationChange: @escaping (UIInterfaceOrientation) -> Void
+    ) {
+        self.onOrientationChange = onOrientationChange
         super.init(frame: .zero)
         previewLayer.session = session
         previewLayer.videoGravity = .resizeAspectFill
@@ -34,11 +43,24 @@ final class PreviewView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let portraitAngle: CGFloat = 90.0
-        if let connection = previewLayer.connection,
-           connection.isVideoRotationAngleSupported(portraitAngle) {
-            connection.videoRotationAngle = portraitAngle
-        }
+        updateVideoOrientation()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateVideoOrientation()
+    }
+
+    private func updateVideoOrientation() {
+        guard let interfaceOrientation = window?.windowScene?.interfaceOrientation,
+              let rotationAngle = CameraOrientation.rotationAngle(for: interfaceOrientation),
+              let connection = previewLayer.connection,
+              connection.isVideoRotationAngleSupported(rotationAngle) else { return }
+
+        connection.videoRotationAngle = rotationAngle
+        guard lastInterfaceOrientation != interfaceOrientation else { return }
+        lastInterfaceOrientation = interfaceOrientation
+        onOrientationChange(interfaceOrientation)
     }
 
     @available(*, unavailable)

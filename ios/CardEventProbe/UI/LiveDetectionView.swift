@@ -12,7 +12,9 @@ struct LiveDetectionView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 ZStack(alignment: .bottomLeading) {
-                    CameraPreview(session: camera.captureSession)
+                    CameraPreview(session: camera.captureSession) { orientation in
+                        camera.updateInterfaceOrientation(orientation)
+                    }
                         .frame(height: 300)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
 

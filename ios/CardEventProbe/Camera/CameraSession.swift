@@ -2,6 +2,24 @@ import AVFoundation
 import Combine
 import Foundation
 import os
+import UIKit
+
+enum CameraOrientation {
+    static func rotationAngle(for interfaceOrientation: UIInterfaceOrientation) -> CGFloat? {
+        switch interfaceOrientation {
+        case .portrait:
+            return 90.0
+        case .portraitUpsideDown:
+            return 270.0
+        case .landscapeLeft:
+            return 180.0
+        case .landscapeRight:
+            return 0.0
+        default:
+            return nil
+        }
+    }
+}
 
 @MainActor
 final class CameraSession: ObservableObject {
@@ -34,10 +52,19 @@ final class CameraSession: ObservableObject {
     private let sessionQueue = DispatchQueue(label: "com.dokodetector.CardEventProbe.camera")
     private let videoOutput = AVCaptureVideoDataOutput()
     private let frameDelegate = CameraFrameDelegate()
+    private var requestedRotationAngle: CGFloat = 90.0
     private var isConfigured = false
 
     func setFrameHandler(_ handler: ((VideoFrame) -> Void)?) {
         frameDelegate.onFrame = handler
+    }
+
+    func updateInterfaceOrientation(_ orientation: UIInterfaceOrientation) {
+        guard let rotationAngle = CameraOrientation.rotationAngle(for: orientation) else { return }
+        requestedRotationAngle = rotationAngle
+        sessionQueue.async { [weak self] in
+            self?.applyRotationAngle(rotationAngle)
+        }
     }
 
     func start() {
@@ -76,12 +103,13 @@ final class CameraSession: ObservableObject {
     }
 
     private func configureAndStart() {
+        let rotationAngle = requestedRotationAngle
         sessionQueue.async { [weak self] in
             guard let self else { return }
 
             do {
                 if !self.isConfigured {
-                    try self.configureSession()
+                    try self.configureSession(rotationAngle: rotationAngle)
                     self.isConfigured = true
                 }
                 self.captureSession.startRunning()
@@ -98,7 +126,7 @@ final class CameraSession: ObservableObject {
         }
     }
 
-    private func configureSession() throws {
+    private func configureSession(rotationAngle: CGFloat) throws {
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
             throw CameraError.unavailable
         }
@@ -121,12 +149,23 @@ final class CameraSession: ObservableObject {
         videoOutput.setSampleBufferDelegate(frameDelegate, queue: sessionQueue)
 
         if let connection = videoOutput.connection(with: .video) {
-            let portraitAngle: CGFloat = 90.0
-            if connection.isVideoRotationAngleSupported(portraitAngle) {
-                connection.videoRotationAngle = portraitAngle
-                frameDelegate.orientation = .up
-            }
+            applyRotationAngle(rotationAngle, to: connection)
         }
+    }
+
+    private func applyRotationAngle(_ rotationAngle: CGFloat) {
+        guard isConfigured,
+              let connection = videoOutput.connection(with: .video) else { return }
+        applyRotationAngle(rotationAngle, to: connection)
+    }
+
+    private func applyRotationAngle(_ rotationAngle: CGFloat, to connection: AVCaptureConnection) {
+        guard connection.isVideoRotationAngleSupported(rotationAngle) else {
+            Self.logger.warning("Camera rotation angle is not supported: \(rotationAngle, privacy: .public)")
+            return
+        }
+        connection.videoRotationAngle = rotationAngle
+        frameDelegate.orientation = .up
     }
 }
 
