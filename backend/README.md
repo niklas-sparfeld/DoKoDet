@@ -87,6 +87,42 @@ when the automatic macOS local host name is not correct. By default, the backend
 private IPv4 address of the active network route. Set `BONJOUR_ADDRESS` to use a specific reachable
 private IPv4 address instead.
 
+## macOS firewall
+
+When the backend is used by a physical iPhone, the phone opens an incoming connection to the Mac.
+The backend listens on `0.0.0.0` and advertises its private LAN address with Bonjour, so the macOS
+Application Firewall may need to allow the Python executable. This is not needed when the client
+and backend use `127.0.0.1` on the same Mac, such as with a simulator.
+
+macOS can show an approval dialog when an unapproved application first accepts an incoming
+connection. A command-line Python process may not show this dialog reliably. For local development,
+find the interpreter used by `uv`:
+
+```bash
+cd backend
+uv run python -c 'import sys; print(sys.executable)'
+```
+
+Use the printed path in these commands:
+
+```bash
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add \
+  /path/to/the/python/executable
+
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp \
+  /path/to/the/python/executable
+```
+
+Homebrew versioned Python paths can change after an upgrade, so check the path again if the backend
+becomes unreachable. Do not make the backend run these commands itself: changing the firewall
+requires administrator authorization and must remain an explicit system security action.
+
+For distribution, package the process that owns the listening socket as a signed and notarized
+macOS application or executable. A signed launcher is not sufficient if it starts an unsigned
+Python process. macOS uses code signing when it makes Application Firewall decisions. See Apple's
+[firewall documentation](https://support.apple.com/en-gb/guide/mac-help/mh34041/mac) and
+[Code Signing Guide](https://developer.apple.com/library/archive/documentation/Security/Conceptual/CodeSigningGuide/AboutCS/AboutCS.html).
+
 Stored files use this layout:
 
 ```text
