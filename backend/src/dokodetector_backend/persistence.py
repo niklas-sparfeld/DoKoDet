@@ -27,6 +27,7 @@ class EvidencePackagePersister:
     ) -> StoredPackage:
         """Persist one package and clean up files if the database insert fails."""
 
+        committed = False
         with self.storage.start_package(package.package_id) as upload:
             upload.write_manifest(manifest_source, max_bytes=max_manifest_bytes)
             stored_frames = {
@@ -38,6 +39,7 @@ class EvidencePackagePersister:
                 for frame in package.frames
             }
             upload.commit()
+            committed = True
 
         package_with_paths = replace(
             package,
@@ -52,7 +54,8 @@ class EvidencePackagePersister:
         try:
             return self.repository.insert_package(package_with_paths)
         except BaseException:
-            self.storage.remove_package(package.package_id)
+            if committed:
+                self.storage.remove_package(package.package_id)
             raise
 
 

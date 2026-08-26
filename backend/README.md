@@ -2,8 +2,8 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-M2 adds SQLite metadata storage, Alembic migrations, and atomic local evidence storage. The
-upload route is added in M3.
+M2 adds SQLite metadata storage, Alembic migrations, and atomic local evidence storage. M3 adds
+the multipart evidence upload route.
 
 ## Setup
 
@@ -70,6 +70,6 @@ Stored files use this layout:
 .runtime/evidence/<package-id>/frames/<part-name>.jpg
 ```
 
-The health readiness route is still a placeholder. The upload and readiness routes are part of
-later milestones. The PoC uses one API process with local SQLite and filesystem state. It does
-not provide multi-process locking or distributed coordination.
+The health readiness route is still a placeholder and is part of M4. The PoC uses one API process
+with local SQLite and filesystem state. It does not provide multi-process locking or distributed
+coordination.
