@@ -34,8 +34,7 @@ struct CardEventTensorBuilder {
     private static let standardDeviations = (red: 0.229, green: 0.224, blue: 0.225)
 
     static func makeInput(
-        frames: [VideoFrame],
-        roi: NormalizedROI
+        frames: [VideoFrame]
     ) throws -> MLMultiArray {
         guard frames.count == frameCount else {
             throw CardEventTensorBuilderError.wrongFrameCount(
@@ -56,8 +55,7 @@ struct CardEventTensorBuilder {
                 output: output,
                 strides: strides,
                 time: time,
-                frame: frame,
-                roi: roi
+                frame: frame
             )
         }
         return input
@@ -67,8 +65,7 @@ struct CardEventTensorBuilder {
         output: UnsafeMutablePointer<Float32>,
         strides: [Int],
         time: Int,
-        frame: VideoFrame,
-        roi: NormalizedROI
+        frame: VideoFrame
     ) throws {
         let pixelBuffer = frame.pixelBuffer
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
@@ -93,13 +90,19 @@ struct CardEventTensorBuilder {
             rawHeight: rawHeight,
             orientation: frame.orientation
         )
-        let crop = try roi.pixelCrop(
-            frameWidth: orientedSize.width,
-            frameHeight: orientedSize.height
+        let geometry = try LetterboxGeometry(
+            sourceWidth: orientedSize.width,
+            sourceHeight: orientedSize.height,
+            targetSize: targetSize
         )
-        let geometry = try LetterboxGeometry(crop: crop, targetSize: targetSize)
-        let xWeights = AxisWeights(sourceCount: crop.width, targetCount: geometry.resizedWidth)
-        let yWeights = AxisWeights(sourceCount: crop.height, targetCount: geometry.resizedHeight)
+        let xWeights = AxisWeights(
+            sourceCount: orientedSize.width,
+            targetCount: geometry.resizedWidth
+        )
+        let yWeights = AxisWeights(
+            sourceCount: orientedSize.height,
+            targetCount: geometry.resizedHeight
+        )
         let reader = BGRAReader(
             baseAddress: baseAddress.assumingMemoryBound(to: UInt8.self),
             bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
@@ -128,8 +131,8 @@ struct CardEventTensorBuilder {
                 for yWeight in sourceY {
                     for xWeight in sourceX {
                         let pixel = reader.rgb(
-                            x: crop.x + xWeight.index,
-                            y: crop.y + yWeight.index
+                            x: xWeight.index,
+                            y: yWeight.index
                         )
                         let weight = xWeight.weight * yWeight.weight
                         red += pixel.red * weight
@@ -139,17 +142,17 @@ struct CardEventTensorBuilder {
                 }
 
                 output[arrayIndex] = normalize(
-                    red,
+                    red.rounded(.toNearestOrEven),
                     mean: means.red,
                     standardDeviation: standardDeviations.red
                 )
                 output[arrayIndex + strides[2]] = normalize(
-                    green,
+                    green.rounded(.toNearestOrEven),
                     mean: means.green,
                     standardDeviation: standardDeviations.green
                 )
                 output[arrayIndex + 2 * strides[2]] = normalize(
-                    blue,
+                    blue.rounded(.toNearestOrEven),
                     mean: means.blue,
                     standardDeviation: standardDeviations.blue
                 )
@@ -180,7 +183,8 @@ struct CardEventTensorBuilder {
         mean: Double,
         standardDeviation: Double
     ) -> Float32 {
-        Float32((value / 255.0 - mean) / standardDeviation)
+        let value = Float32(value) / 255.0
+        return (value - Float32(mean)) / Float32(standardDeviation)
     }
 }
 
@@ -268,20 +272,11 @@ private struct AxisWeights {
     init(sourceCount: Int, targetCount: Int) {
         values = (0..<targetCount).map { targetIndex in
             if targetCount >= sourceCount {
-                let position = (Double(targetIndex) + 0.5)
-                    * Double(sourceCount) / Double(targetCount) - 0.5
-                let lower = Int(floor(position))
-                let fraction = position - Double(lower)
-                if lower < 0 {
-                    return [WeightedIndex(index: 0, weight: 1.0)]
-                }
-                if lower >= sourceCount - 1 {
-                    return [WeightedIndex(index: sourceCount - 1, weight: 1.0)]
-                }
-                return [
-                    WeightedIndex(index: lower, weight: 1.0 - fraction),
-                    WeightedIndex(index: lower + 1, weight: fraction),
-                ]
+                let sourceIndex = min(
+                    sourceCount - 1,
+                    Int(Double(targetIndex) * Double(sourceCount) / Double(targetCount))
+                )
+                return [WeightedIndex(index: sourceIndex, weight: 1.0)]
             }
 
             let start = Double(targetIndex) * Double(sourceCount) / Double(targetCount)

@@ -22,7 +22,7 @@
 		A0000000000000000000000D /* LiveDetectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000D /* LiveDetectionView.swift */; };
 		A0000000000000000000000E /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000E /* ReplayView.swift */; };
 		A0000000000000000000000F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000F /* RootView.swift */; };
-		A00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage */; };
+		A00000000000000000000010 /* CardEventNetTransitionV2.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */; };
 		A00000000000000000000011 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000011 /* AVFoundation.framework */; };
 		A00000000000000000000012 /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000012 /* CoreML.framework */; };
 		A00000000000000000000013 /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000013 /* CoreMedia.framework */; };
@@ -57,7 +57,7 @@
 		B0000000000000000000000D /* LiveDetectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDetectionView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000E /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000F /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		B00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = ../card_event_net/CardEventNet.mlpackage; sourceTree = "<group>"; };
+		B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/CardEventNetTransitionV2.mlpackage; sourceTree = "<group>"; };
 		B00000000000000000000011 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B00000000000000000000012 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		B00000000000000000000013 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
@@ -106,7 +106,7 @@
 				D00000000000000000000002 /* CardEventProbe */,
 				D00000000000000000000003 /* Products */,
 				D00000000000000000000004 /* Frameworks */,
-				B00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage */,
+				B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */,
 				854184EA3037408D009260B8 /* Recovered References */,
 			);
 			sourceTree = "<group>";
@@ -276,7 +276,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A00000000000000000000010 /* ../card_event_net/CardEventNet.mlpackage in Resources */,
+				A00000000000000000000010 /* CardEventNetTransitionV2.mlpackage in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -4,7 +4,6 @@ import Foundation
 
 public final class CoreMLCardEventModelRunner: CardEventModelRunner {
     public let contract: ModelContract
-    public private(set) var roi: NormalizedROI?
 
     private let model: MLModel
     private var frames: [VideoFrame] = []
@@ -13,23 +12,23 @@ public final class CoreMLCardEventModelRunner: CardEventModelRunner {
 
     public convenience init(
         bundle: Bundle = .main,
-        configuration: MLModelConfiguration = MLModelConfiguration(),
-        roi: NormalizedROI? = nil
+        configuration: MLModelConfiguration = MLModelConfiguration()
     ) throws {
-        guard let modelURL = bundle.url(forResource: "CardEventNet", withExtension: "mlmodelc") else {
+        guard let modelURL = bundle.url(
+            forResource: "CardEventNetTransitionV2",
+            withExtension: "mlmodelc"
+        ) else {
             throw CardEventModelRunnerError.modelResourceMissing
         }
-        try self.init(modelURL: modelURL, configuration: configuration, roi: roi)
+        try self.init(modelURL: modelURL, configuration: configuration)
     }
 
     public init(
         modelURL: URL,
-        configuration: MLModelConfiguration = MLModelConfiguration(),
-        roi: NormalizedROI? = nil
+        configuration: MLModelConfiguration = MLModelConfiguration()
     ) throws {
         model = try MLModel(contentsOf: modelURL, configuration: configuration)
         contract = ModelContract(model: model)
-        self.roi = roi
         try Self.validateContract(contract)
     }
 
@@ -37,16 +36,7 @@ public final class CoreMLCardEventModelRunner: CardEventModelRunner {
         frames.removeAll(keepingCapacity: true)
     }
 
-    public func setROI(_ roi: NormalizedROI?) {
-        self.roi = roi
-        reset()
-    }
-
     public func consume(_ frame: VideoFrame) throws -> ModelPrediction? {
-        guard let roi else {
-            throw CardEventModelRunnerError.roiNotConfigured
-        }
-
         let timestamp = CMTimeGetSeconds(frame.timestamp)
         guard timestamp.isFinite else {
             throw CardEventModelRunnerError.modelContractInvalid(
@@ -62,7 +52,7 @@ public final class CoreMLCardEventModelRunner: CardEventModelRunner {
         frames.removeAll { CMTimeGetSeconds($0.timestamp) < cutoff }
 
         let clip = selectClip(endingAt: timestamp)
-        let input = try CardEventTensorBuilder.makeInput(frames: clip, roi: roi)
+        let input = try CardEventTensorBuilder.makeInput(frames: clip)
         let inputName = contract.inputFeatures[0].name
         let outputName = contract.outputFeatures[0].name
         let feature = MLFeatureValue(multiArray: input)

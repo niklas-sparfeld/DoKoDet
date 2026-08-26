@@ -41,7 +41,6 @@ final class AppState: ObservableObject {
     @Published private(set) var lastEventTimestampSeconds: Double?
     @Published private(set) var replayProgress: ReplayProgress?
     @Published private(set) var replayRunning = false
-    @Published private(set) var roiError: String?
     @Published private(set) var diagnosticsLogURL: URL?
     @Published private(set) var diagnosticsError: String?
     @Published private(set) var diagnosticsRecording = false
@@ -53,13 +52,6 @@ final class AppState: ObservableObject {
     private var sessionLog: SessionLog?
     private var activeDiagnosticSource: DiagnosticSource?
     private var latestFrame: VideoFrame?
-
-    var roiStatus: String {
-        guard let runner = modelRunner as? CoreMLCardEventModelRunner else {
-            return "Unavailable"
-        }
-        return runner.roi == nil ? "Not configured" : "Configured"
-    }
 
     var actualPredictionRateHz: Double? {
         guard let first = scoreHistory.first,
@@ -98,7 +90,7 @@ final class AppState: ObservableObject {
             modelRunner = runner
             modelState = .ready(runner.contract)
 #if DEBUG
-            print("CardEventNet model contract:\n\(runner.contract.summary)")
+            print("CardEventNetTransitionV2 model contract:\n\(runner.contract.summary)")
 #endif
         } catch {
             modelState = .failed(error.localizedDescription)
@@ -130,21 +122,6 @@ final class AppState: ObservableObject {
         if activeDiagnosticSource == .live {
             finishDiagnosticsSession()
             activeDiagnosticSource = nil
-        }
-    }
-
-    func setROI(x: Double, y: Double, width: Double, height: Double) {
-        do {
-            let roi = try NormalizedROI(x: x, y: y, width: width, height: height)
-            guard let runner = modelRunner as? CoreMLCardEventModelRunner else {
-                roiError = "The model is not ready."
-                return
-            }
-            runner.setROI(roi)
-            eventPostProcessor.reset()
-            roiError = nil
-        } catch {
-            roiError = error.localizedDescription
         }
     }
 
@@ -319,7 +296,7 @@ final class AppState: ObservableObject {
                 appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
                 device: UIDevice.current.model,
                 osVersion: UIDevice.current.systemVersion,
-                modelName: "CardEventNet",
+                modelName: "CardEventNetTransitionV2",
                 modelVersion: modelRunner?.contract.metadata["version"] ?? "unknown",
                 targetInferenceHz: 8.0,
                 highThreshold: configuration.highThreshold,

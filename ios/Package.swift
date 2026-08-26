@@ -17,12 +17,38 @@ let package = Package(
     targets: [
         .target(
             name: "CardEventProbeCore",
-            path: "CardEventProbe/Core"
+            path: "CardEventProbe",
+            exclude: [
+                "App",
+                "Camera",
+                "Diagnostics",
+                "UI",
+                "Replay",
+                "Info.plist",
+                "CardEventNetTransitionV2.mlpackage",
+                "Inference/CardEventModelRunner.swift",
+                "Inference/CoreMLCardEventModelRunner.swift",
+                "Inference/FrameInferenceCoordinator.swift",
+                "Inference/ModelContract.swift",
+            ],
+            sources: [
+                "Core/DetectionEvent.swift",
+                "Core/EventPostProcessor.swift",
+                "Core/InferenceSamplingPolicy.swift",
+                "Core/ModelPrediction.swift",
+                "Core/ModelPreprocessing.swift",
+                "Core/SessionLog.swift",
+                "Inference/CardEventTensorBuilder.swift",
+                "Inference/VideoFrame.swift",
+            ]
         ),
         .testTarget(
             name: "CardEventProbeCoreTests",
             dependencies: ["CardEventProbeCore"],
-            path: "CardEventProbeTests"
+            path: "CardEventProbeTests",
+            resources: [
+                .copy("Fixtures"),
+            ]
         ),
     ]
 )
