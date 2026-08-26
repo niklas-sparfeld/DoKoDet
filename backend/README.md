@@ -31,8 +31,11 @@ uv run ruff format --check .
 Start the service from `backend/`:
 
 ```bash
-uv run uvicorn dokodetector_backend.app:create_app --factory
+uv run dokodetector-backend
 ```
+
+This command listens on all local interfaces and advertises `_dokodetector._tcp` with Bonjour.
+The iOS app discovers the service and checks `/health/ready` before it uses the backend.
 
 Then check the health routes:
 
@@ -50,7 +53,15 @@ EVIDENCE_ROOT=.runtime
 MAX_MANIFEST_BYTES=1000000
 MAX_FRAME_BYTES=10000000
 MAX_PACKAGE_BYTES=100000000
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8000
+BONJOUR_ENABLED=true
+BONJOUR_NAME=DokoDetector
+BONJOUR_HOSTNAME=
 ```
+
+Set `BONJOUR_ENABLED=false` when local discovery is not required. Set `BONJOUR_HOSTNAME` only
+when the automatic macOS local host name is not correct.
 
 Stored files use this layout:
 

@@ -68,6 +68,8 @@ struct DiagnosticsPanel: View {
                 Text(appState.thermalStateDescription)
             }
 
+            BackendStatusView(discovery: appState.backendDiscovery)
+
             if let timestamp = appState.lastEventTimestampSeconds {
                 Text(String(format: "Card event at %.3f s", timestamp))
                     .font(.caption.weight(.semibold))
@@ -162,6 +164,26 @@ struct DiagnosticsPanel: View {
         }
     }
 
+}
+
+private struct BackendStatusView: View {
+    @ObservedObject var discovery: BackendDiscovery
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Backend")
+                Spacer()
+                Text(discovery.state.title)
+            }
+            if let detail = discovery.state.detail {
+                Text(detail)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+    }
 }
 
 private struct ScoreHistoryView: View {

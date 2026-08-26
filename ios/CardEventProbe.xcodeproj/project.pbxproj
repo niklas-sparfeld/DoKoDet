@@ -40,6 +40,9 @@
 		A0000000000000000000001F /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001F /* CoreImage.framework */; };
 		A00000000000000000000020 /* EvidenceCaptureConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */; };
 		A00000000000000000000021 /* EvidenceFrameRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000021 /* EvidenceFrameRing.swift */; };
+		A00000000000000000000022 /* BackendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000022 /* BackendService.swift */; };
+		A00000000000000000000023 /* BackendDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000023 /* BackendDiscovery.swift */; };
+		A00000000000000000000024 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000024 /* Network.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +80,9 @@
 		B0000000000000000000001F /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
 		B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceCaptureConfiguration.swift; sourceTree = "<group>"; };
 		B00000000000000000000021 /* EvidenceFrameRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceFrameRing.swift; sourceTree = "<group>"; };
+		B00000000000000000000022 /* BackendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendService.swift; sourceTree = "<group>"; };
+		B00000000000000000000023 /* BackendDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendDiscovery.swift; sourceTree = "<group>"; };
+		B00000000000000000000024 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +96,7 @@
 				A00000000000000000000014 /* CoreVideo.framework in Frameworks */,
 				A00000000000000000000015 /* ImageIO.framework in Frameworks */,
 				A0000000000000000000001F /* CoreImage.framework in Frameworks */,
+				A00000000000000000000024 /* Network.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +132,7 @@
 				D00000000000000000000009 /* UI */,
 				D0000000000000000000000A /* Replay */,
 				D0000000000000000000000B /* Diagnostics */,
+				D0000000000000000000000C /* Networking */,
 			);
 			path = CardEventProbe;
 			sourceTree = "<group>";
@@ -145,6 +153,7 @@
 				B00000000000000000000013 /* CoreMedia.framework */,
 				B00000000000000000000014 /* CoreVideo.framework */,
 				B00000000000000000000015 /* ImageIO.framework */,
+				B00000000000000000000024 /* Network.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -222,6 +231,15 @@
 				B0000000000000000000001E /* DiagnosticFrameWriter.swift */,
 			);
 			path = Diagnostics;
+			sourceTree = "<group>";
+		};
+		D0000000000000000000000C /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000022 /* BackendService.swift */,
+				B00000000000000000000023 /* BackendDiscovery.swift */,
+			);
+			path = Networking;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -306,6 +324,8 @@
 				A0000000000000000000000B /* CausalEventDecoder.swift in Sources */,
 				A00000000000000000000020 /* EvidenceCaptureConfiguration.swift in Sources */,
 				A00000000000000000000021 /* EvidenceFrameRing.swift in Sources */,
+				A00000000000000000000022 /* BackendService.swift in Sources */,
+				A00000000000000000000023 /* BackendDiscovery.swift in Sources */,
 				A00000000000000000000017 /* ModelPreprocessing.swift in Sources */,
 				A00000000000000000000019 /* InferenceSamplingPolicy.swift in Sources */,
 				A00000000000000000000016 /* CardEventTensorBuilder.swift in Sources */,

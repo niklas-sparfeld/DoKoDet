@@ -45,6 +45,7 @@ final class AppState: ObservableObject {
     @Published private(set) var diagnosticsError: String?
     @Published private(set) var diagnosticsRecording = false
 
+    let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
     let eventDecoder = CausalEventDecoder()
     private let evidenceCaptureConfiguration = EvidenceCaptureConfiguration()
@@ -78,6 +79,10 @@ final class AppState: ObservableObject {
 
     init() {
         loadModel()
+    }
+
+    func startBackendDiscovery() {
+        backendDiscovery.start()
     }
 
     func loadModel() {

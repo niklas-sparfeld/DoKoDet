@@ -30,6 +30,7 @@ let package = Package(
                 "Inference/CoreMLCardEventModelRunner.swift",
                 "Inference/FrameInferenceCoordinator.swift",
                 "Inference/ModelContract.swift",
+                "Networking/BackendDiscovery.swift",
             ],
             sources: [
                 "Core/DetectionEvent.swift",
@@ -42,6 +43,7 @@ let package = Package(
                 "Core/SessionLog.swift",
                 "Inference/CardEventTensorBuilder.swift",
                 "Inference/VideoFrame.swift",
+                "Networking/BackendService.swift",
             ]
         ),
         .testTarget(

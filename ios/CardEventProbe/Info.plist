@@ -20,6 +20,17 @@
 	<string>1</string>
 	<key>NSCameraUsageDescription</key>
 	<string>CardEventProbe uses the camera to test on-device card event detection.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>CardEventProbe connects to the DokoDetector backend on your local network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dokodetector._tcp</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>
