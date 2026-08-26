@@ -13,6 +13,7 @@ from cardevent.manifest import (
     validate_session_isolation,
 )
 from cardevent.splits import SplitError, VideoSplit, load_split
+from cardevent.video import SUPPORTED_VIDEO_EXTENSIONS
 
 
 def test_group_split_keeps_sessions_together() -> None:
@@ -61,8 +62,14 @@ def test_current_manifest_covers_local_annotations_and_development_split() -> No
     by_video = {record.video_id: record for record in records}
 
     expected_video_ids = {path.stem for path in (data_dir / "annotations").glob("*.json")}
-    assert {record.video_id for record in records} == expected_video_ids
-    assert {path.stem for path in (data_dir / "raw").glob("*.*")} == expected_video_ids
+    manifest_video_ids = {record.video_id for record in records}
+    assert expected_video_ids <= manifest_video_ids
+    raw_video_ids = {
+        path.stem
+        for path in (data_dir / "raw").iterdir()
+        if path.is_file() and path.suffix.casefold() in SUPPORTED_VIDEO_EXTENSIONS
+    }
+    assert raw_video_ids == manifest_video_ids
     assert set(split.train + split.val) == expected_video_ids
     assert split.test == ()
     assert "IMG_2781" in split.train
@@ -87,19 +94,20 @@ def test_current_manifest_describes_recording_groups() -> None:
     records = load_dataset_manifest(path)
 
     old_staged = tuple(record for record in records if record.file_name.endswith(".mov"))
-    target_staged = tuple(record for record in records if record.file_name.endswith(".MOV"))
+    target_videos = tuple(record for record in records if record.file_name.endswith(".MOV"))
     real_games = tuple(record for record in records if record.file_name.endswith(".m4v"))
 
     assert len(old_staged) == 6
-    assert len(target_staged) == 27
+    assert len(target_videos) == 32
     assert len(real_games) == 5
-    assert {record.content_type for record in old_staged + target_staged} == {
-        "staged_trick_sequence"
+    assert {record.content_type for record in old_staged + target_videos} == {
+        "staged_scenario",
+        "staged_trick_sequence",
     }
-    assert all(record.game_id is None for record in old_staged + target_staged)
-    assert len({record.session_id for record in old_staged + target_staged}) == 33
-    assert len({record.table_setup for record in old_staged + target_staged}) == 33
-    assert {record.device for record in target_staged} == {"Apple iPhone 14"}
+    assert all(record.game_id is None for record in old_staged + target_videos)
+    assert len({record.session_id for record in old_staged + target_videos}) == 34
+    assert len({record.table_setup for record in old_staged + target_videos}) == 34
+    assert {record.device for record in target_videos} == {"Apple iPhone 14"}
     assert {record.content_type for record in real_games} == {"real_game"}
     assert {record.device for record in real_games} == {"Apple iPhone X"}
     assert len({record.game_id for record in real_games}) == 2

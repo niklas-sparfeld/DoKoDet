@@ -299,6 +299,51 @@ videos:
     frame_rate: 59.942
     duration_s: 94.875
     table_setup: setup-img-0662
+  - &s20260825weird
+    <<: *s20200611a
+    video_id: IMG_0669
+    file_name: IMG_0669.MOV
+    content_type: staged_scenario
+    session_id: capture-20260825-weird-staged-a
+    recording_date: "2026-08-25T15:17:32Z"
+    device: Apple iPhone 14
+    frame_rate: 59.942
+    duration_s: 425.027
+    camera_framing: table_with_context
+    table_setup: setup-20260825-weird-staged-a
+    lighting: [room_light]
+    background: white kitchen table with food, cookware, bottles, and a laptop
+    scenario_tags: [normal_card_play, long_pause, other_anomaly]
+    known_limitations: [no_game_decisions, single_actor]
+    source: self_recorded
+    annotation_version: null
+    source_permission: training_and_evaluation
+    notes: >-
+      One staged session. The actor cooks at the same table and plays cards between
+      cooking actions. The non-card intervals are hard negatives with kitchen objects
+      and hand motion in the card-play area.
+  - <<: *s20260825weird
+    video_id: IMG_0670
+    file_name: IMG_0670.MOV
+    recording_date: "2026-08-25T15:26:52Z"
+    duration_s: 520.753
+  - <<: *s20260825weird
+    video_id: IMG_0671
+    file_name: IMG_0671.MOV
+    recording_date: "2026-08-25T15:37:37Z"
+    resolution: 3840x2160
+    frame_rate: 30.004
+    duration_s: 215.303
+  - <<: *s20260825weird
+    video_id: IMG_0673
+    file_name: IMG_0673.MOV
+    recording_date: "2026-08-25T15:41:49Z"
+    duration_s: 308.515
+  - <<: *s20260825weird
+    video_id: IMG_0674
+    file_name: IMG_0674.MOV
+    recording_date: "2026-08-25T15:48:04Z"
+    duration_s: 249.408
   - &s20180128a
     <<: *s20200611a
     video_id: IMG_2777
