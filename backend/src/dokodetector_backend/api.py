@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -14,6 +15,8 @@ from starlette.formparsers import MultiPartException
 from dokodetector_backend.config import Settings
 from dokodetector_backend.contract import (
     EvidenceManifest,
+    PackageMetadataResponse,
+    StoredFrameResponse,
     UploadResponse,
     calculate_package_fingerprint,
     parse_manifest_bytes,
@@ -169,6 +172,51 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
         ) from error
 
 
+@router.get(
+    "/v1/evidence-packages/{package_id}",
+    response_model=PackageMetadataResponse,
+)
+def get_evidence_package(package_id: str, request: Request) -> PackageMetadataResponse:
+    """Return metadata for one stored evidence package."""
+
+    requested_package_id = _parse_package_id(package_id)
+    repository: EvidenceRepository = request.app.state.repository
+    package = repository.get_package(requested_package_id)
+    if package is None:
+        raise ContractError(
+            "package_not_found",
+            "The package was not found.",
+            status_code=404,
+        )
+
+    manifest, manifest_payload = _read_stored_manifest(package.manifest_json)
+    return PackageMetadataResponse(
+        package_id=package.package_id,
+        state=package.state,
+        received_at=package.received_at,
+        schema_version=package.schema_version,
+        session=manifest.session,
+        event=manifest.event,
+        manifest_sha256=package.manifest_sha256,
+        manifest=manifest_payload,
+        frames=[
+            StoredFrameResponse(
+                part_name=frame.part_name,
+                target_offset_ms=frame.target_offset_ms,
+                actual_offset_ms=frame.actual_offset_ms,
+                session_elapsed_ms=frame.session_elapsed_ms,
+                captured_at_utc=frame.captured_at_utc,
+                content_type=frame.content_type,
+                byte_length=frame.byte_length,
+                sha256=frame.sha256,
+                relative_path=frame.relative_path,
+            )
+            for frame in package.frames
+        ],
+        missing_frame_targets_ms=manifest.missing_frame_targets_ms,
+    )
+
+
 def _parse_package_id(value: str) -> UUID:
     try:
         return UUID(value)
@@ -177,6 +225,28 @@ def _parse_package_id(value: str) -> UUID:
             "invalid_package_id",
             "The package ID is not a valid UUID.",
         ) from error
+
+
+def _read_stored_manifest(
+    manifest_json: str,
+) -> tuple[EvidenceManifest, dict[str, object]]:
+    try:
+        manifest_bytes = manifest_json.encode("utf-8")
+        manifest = parse_manifest_bytes(manifest_bytes)
+        payload = json.loads(manifest_json)
+    except (ContractError, UnicodeEncodeError, json.JSONDecodeError) as error:
+        raise ContractError(
+            "internal_error",
+            "The stored package metadata is invalid.",
+            status_code=500,
+        ) from error
+    if not isinstance(payload, dict):
+        raise ContractError(
+            "internal_error",
+            "The stored package metadata is invalid.",
+            status_code=500,
+        )
+    return manifest, payload
 
 
 def _collect_uploads(form: FormData) -> tuple[UploadFile, dict[str, UploadFile]]:
@@ -284,4 +354,4 @@ def _resolve_package_conflict(
     )
 
 
-__all__ = ["router", "upload_evidence_package"]
+__all__ = ["get_evidence_package", "router", "upload_evidence_package"]

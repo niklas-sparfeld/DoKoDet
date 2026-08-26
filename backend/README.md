@@ -2,8 +2,9 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-M2 adds SQLite metadata storage, Alembic migrations, and atomic local evidence storage. M3 adds
-the multipart evidence upload route.
+The backend accepts V1 evidence packages, stores their metadata in SQLite, and stores their
+original manifest and frame bytes on the local filesystem. M4 adds metadata read-back, readiness
+checks, and a shared-fixture upload command.
 
 ## Setup
 
@@ -31,17 +32,36 @@ uv run ruff format --check .
 Start the service from `backend/`:
 
 ```bash
-uv run dokodetector-backend
+uv run uvicorn dokodetector_backend.app:create_app --factory
 ```
 
-This command listens on all local interfaces and advertises `_dokodetector._tcp` with Bonjour.
-The iOS app discovers the service and checks `/health/ready` before it uses the backend.
+The default service listens on port `8000`. The `dokodetector-backend` command also starts the
+service and advertises `_dokodetector._tcp` with Bonjour for iOS local discovery.
+
+In a second shell, upload the shared complete fixture:
+
+```bash
+cd backend
+uv run python -m dokodetector_backend.upload_fixture \
+  ../fixtures/evidence/v1/example-complete \
+  --server http://127.0.0.1:8000
+```
+
+The checked-in shared examples contain manifest data but no image files. The command creates
+deterministic local frame bytes and updates their transmitted length and hash fields. A fixture
+with matching `frames/<part-name>.jpg` files uses those files unchanged.
 
 Then check the health routes:
 
 ```bash
 curl http://127.0.0.1:8000/health/live
 curl http://127.0.0.1:8000/health/ready
+```
+
+Read the stored metadata:
+
+```bash
+curl http://127.0.0.1:8000/v1/evidence-packages/550e8400-e29b-41d4-a716-446655440000
 ```
 
 The default local runtime directory is `.runtime/`. It is ignored by Git. Settings use these
@@ -70,6 +90,6 @@ Stored files use this layout:
 .runtime/evidence/<package-id>/frames/<part-name>.jpg
 ```
 
-The health readiness route is still a placeholder and is part of M4. The PoC uses one API process
-with local SQLite and filesystem state. It does not provide multi-process locking or distributed
-coordination.
+Readiness runs a SQLite query and checks that the evidence directory can be read and written. The
+PoC uses one API process with local SQLite and filesystem state. It does not provide multi-process
+locking or distributed coordination.

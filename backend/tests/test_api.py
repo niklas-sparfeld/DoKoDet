@@ -89,6 +89,52 @@ def test_upload_accepts_complete_incomplete_and_metadata_only_packages(backend) 
     assert repository.get_package(payload["package_id"]).frames == ()
 
 
+def test_get_returns_stored_package_metadata(backend) -> None:
+    client, _, storage = backend
+    manifest_bytes, frame_sources, payload = load_upload_fixture("example-complete")
+    package_id = payload["package_id"]
+
+    upload = client.put(
+        f"/v1/evidence-packages/{package_id}",
+        files=multipart_parts(manifest_bytes, frame_sources),
+    )
+    response = client.get(f"/v1/evidence-packages/{package_id}")
+
+    assert upload.status_code == 201
+    assert response.status_code == 200
+    body = response.json()
+    assert body["package_id"] == package_id
+    assert body["state"] == "stored"
+    assert body["schema_version"] == "cardevent-evidence/v1"
+    assert body["session"] == payload["session"]
+    assert body["event"] == payload["event"]
+    assert body["manifest_sha256"] == hashlib.sha256(manifest_bytes).hexdigest()
+    assert body["manifest"] == payload
+    assert body["missing_frame_targets_ms"] == []
+    assert [frame["part_name"] for frame in body["frames"]] == [
+        frame["part_name"] for frame in payload["frames"]
+    ]
+    assert body["frames"][0]["byte_length"] == len(frame_sources["frame_00"])
+    assert body["frames"][0]["sha256"] == hashlib.sha256(frame_sources["frame_00"]).hexdigest()
+    assert body["frames"][0]["relative_path"] == (f"evidence/{package_id}/frames/frame_00.jpg")
+    assert (storage.root / body["frames"][0]["relative_path"]).is_file()
+
+
+def test_get_unknown_package_returns_stable_not_found_error(backend) -> None:
+    client, _, _ = backend
+
+    response = client.get("/v1/evidence-packages/550e8400-e29b-41d4-a716-446655440099")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "package_not_found",
+            "message": "The package was not found.",
+            "details": [],
+        }
+    }
+
+
 def test_identical_replay_returns_original_receipt_without_duplicate_files(backend) -> None:
     client, repository, storage = backend
     manifest_bytes, frame_sources, payload = load_upload_fixture("example-incomplete")

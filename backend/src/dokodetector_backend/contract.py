@@ -223,6 +223,35 @@ class UploadResponse(ContractModel):
     received_at: datetime
 
 
+class StoredFrameResponse(ContractModel):
+    """One frame returned by the package metadata endpoint."""
+
+    part_name: str
+    target_offset_ms: int
+    actual_offset_ms: int
+    session_elapsed_ms: int
+    captured_at_utc: datetime
+    content_type: str
+    byte_length: int = Field(gt=0)
+    sha256: Sha256
+    relative_path: str
+
+
+class PackageMetadataResponse(ContractModel):
+    """Stored package metadata returned by the read endpoint."""
+
+    package_id: UUID
+    state: Literal["stored"]
+    received_at: datetime
+    schema_version: str
+    session: SessionMetadata
+    event: EventMetadata
+    manifest_sha256: Sha256
+    manifest: dict[str, object]
+    frames: list[StoredFrameResponse]
+    missing_frame_targets_ms: list[int]
+
+
 def parse_manifest_bytes(
     manifest_bytes: bytes, *, max_bytes: int | None = None
 ) -> EvidenceManifest:
@@ -349,6 +378,8 @@ __all__ = [
     "ModelMetadata",
     "ScoreTraceEntry",
     "SessionMetadata",
+    "PackageMetadataResponse",
+    "StoredFrameResponse",
     "UploadResponse",
     "calculate_package_fingerprint",
     "package_fingerprint",
