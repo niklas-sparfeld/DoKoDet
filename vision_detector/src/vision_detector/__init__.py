@@ -1,0 +1,51 @@
+"""Shared domain types for the DokoDetector vision boundary."""
+
+from vision_detector.cards import (
+    CARD_IDENTITIES,
+    CARD_SET_ID,
+    CardIdentity,
+    CardSetManifest,
+    DeckCard,
+    DeckManifest,
+    load_card_set,
+    load_deck_manifest,
+)
+from vision_detector.contract import (
+    CALIBRATION_STATES,
+    VISION_SCHEMA_VERSION,
+    VisionCandidate,
+    VisionContractError,
+    VisionDetectionResult,
+    VisionDetectorMetadata,
+    VisionEvidence,
+    VisionFrame,
+    VisionSession,
+    VisionStatus,
+    canonical_json_bytes,
+    parse_result_bytes,
+    validate_result,
+)
+
+__all__ = [
+    "CALIBRATION_STATES",
+    "CARD_IDENTITIES",
+    "CARD_SET_ID",
+    "CardIdentity",
+    "CardSetManifest",
+    "DeckCard",
+    "DeckManifest",
+    "VISION_SCHEMA_VERSION",
+    "VisionCandidate",
+    "VisionContractError",
+    "VisionDetectionResult",
+    "VisionDetectorMetadata",
+    "VisionEvidence",
+    "VisionFrame",
+    "VisionSession",
+    "VisionStatus",
+    "canonical_json_bytes",
+    "load_card_set",
+    "load_deck_manifest",
+    "parse_result_bytes",
+    "validate_result",
+]

@@ -64,7 +64,7 @@ loss, partial storage failure, concurrent retries, unavailable dependencies, and
 
 ### Detector handoff
 
-Integrate with [plan 0005](../2-ready/0005-VisionDetector_v1.md) only after its input and result contracts
+Integrate with [plan 0005](../3-in-progress/0005-VisionDetector_v1.md) only after its input and result contracts
 exist. Decide whether detector work runs in-process, in a separate worker, or in another service
 from measured latency, resource, and retry needs. Do not add a queue or broker by default.
 

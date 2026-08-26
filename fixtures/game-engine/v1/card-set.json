@@ -1,0 +1,12 @@
+{
+  "schema_version": "card-set/v1",
+  "card_set_id": "doko-german-suited-v1",
+  "suits": ["CLUBS", "SPADES", "HEARTS", "DIAMONDS"],
+  "ranks": ["NINE", "JACK", "QUEEN", "KING", "TEN", "ACE"],
+  "visual_identities": [
+    "CLUBS_NINE", "CLUBS_JACK", "CLUBS_QUEEN", "CLUBS_KING", "CLUBS_TEN", "CLUBS_ACE",
+    "SPADES_NINE", "SPADES_JACK", "SPADES_QUEEN", "SPADES_KING", "SPADES_TEN", "SPADES_ACE",
+    "HEARTS_NINE", "HEARTS_JACK", "HEARTS_QUEEN", "HEARTS_KING", "HEARTS_TEN", "HEARTS_ACE",
+    "DIAMONDS_NINE", "DIAMONDS_JACK", "DIAMONDS_QUEEN", "DIAMONDS_KING", "DIAMONDS_TEN", "DIAMONDS_ACE"
+  ]
+}

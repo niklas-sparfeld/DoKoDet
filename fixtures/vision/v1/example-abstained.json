@@ -1,0 +1,19 @@
+{
+  "schema_version": "vision-detection/v1",
+  "result_id": "c648d0b8-f82f-4c50-9505-970907ea1f25",
+  "package_id": "550e8400-e29b-41d4-a716-446655440001",
+  "session": {
+    "session_id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+    "event_sequence": 2
+  },
+  "status": "insufficient_evidence",
+  "selected_card": null,
+  "candidates": [],
+  "calibration": "fixture",
+  "detector": {
+    "name": "scripted",
+    "version": "scripted-v1"
+  },
+  "observations": [],
+  "created_at": "2026-08-26T18:12:01.000Z"
+}

@@ -42,13 +42,14 @@ No epics.
 
 | Epic | Outcome |
 | --- | --- |
-| [0005 — VisionDetector local pipeline PoC](2-ready/0005-VisionDetector_v1.md) | Build the scripted vision-result pipeline. |
 | [0006 — Game engine contract and core PoC](2-ready/0006-GameEngine_v1.md) | Freeze the game contract and build the rules core. |
 | [0020 — Data foundation](2-ready/0020-Data_Foundation.md) | Establish the shared data lifecycle. |
 
 ### In Progress
 
-No epics.
+| Epic | Outcome |
+| --- | --- |
+| [0005 — VisionDetector local pipeline PoC](3-in-progress/0005-VisionDetector_v1.md) | Build the scripted vision-result pipeline. |
 
 ### Blocked
 

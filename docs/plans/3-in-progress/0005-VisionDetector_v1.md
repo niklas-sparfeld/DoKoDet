@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Prove the evidence-to-vision-result handoff with a scripted detector
-- **Status:** Ready
+- **Status:** In Progress
 - **Reviewed:** 2026-08-26 against the V1 evidence contract and the current repository
 - **Depends on:** The local evidence backend from [plan 0004](../5-closed/0004-Backend_EvidenceUpload.md)
 - **Starts with:** [Plan 0006 M0](0006-GameEngine_v1.md) to freeze one shared result contract
