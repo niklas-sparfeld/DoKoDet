@@ -133,6 +133,12 @@ public struct EvidenceSessionMetadata: Codable, Equatable, Sendable {
         self.eventSequence = eventSequence
     }
 
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(sessionID.uuidString.lowercased(), forKey: .sessionID)
+        try container.encode(eventSequence, forKey: .eventSequence)
+    }
+
     private enum CodingKeys: String, CodingKey {
         case sessionID = "session_id"
         case eventSequence = "event_sequence"
@@ -259,6 +265,15 @@ public struct EvidenceFrameManifest: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let capturedAtString = try container.decode(String.self, forKey: .capturedAtUTC)
+        guard capturedAtString.hasSuffix("Z")
+                || capturedAtString.hasSuffix("+00:00")
+                || capturedAtString.hasSuffix("-00:00") else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .capturedAtUTC,
+                in: container,
+                debugDescription: "captured_at_utc must use UTC."
+            )
+        }
         guard let capturedAtUTC = parseISO8601Date(capturedAtString) else {
             throw DecodingError.dataCorruptedError(
                 forKey: .capturedAtUTC,
@@ -351,6 +366,24 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         self.client = client
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+        packageID = try container.decode(UUID.self, forKey: .packageID)
+        session = try container.decode(EvidenceSessionMetadata.self, forKey: .session)
+        event = try container.decode(EvidenceEventMetadata.self, forKey: .event)
+        model = try container.decode(EvidencePackageModelMetadata.self, forKey: .model)
+        eventDecoder = try container.decode(EvidenceEventDecoderMetadata.self, forKey: .eventDecoder)
+        evidenceCapture = try container.decode(EvidenceCaptureMetadata.self, forKey: .evidenceCapture)
+        camera = try container.decode(EvidencePackageCameraMetadata.self, forKey: .camera)
+        frames = try container.decode([EvidenceFrameManifest].self, forKey: .frames)
+        missingFrameTargetsMs = try container.decode([Int].self, forKey: .missingFrameTargetsMs)
+        scoreTrace = try container.decode([EvidenceScoreTraceEntry].self, forKey: .scoreTrace)
+        client = try container.decode(EvidencePackageClientMetadata.self, forKey: .client)
+
+        try Self.validate(self, codingPath: decoder.codingPath)
+    }
+
     public func encoded() throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .custom { date, encoder in
@@ -359,6 +392,22 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         }
         encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(packageID.uuidString.lowercased(), forKey: .packageID)
+        try container.encode(session, forKey: .session)
+        try container.encode(event, forKey: .event)
+        try container.encode(model, forKey: .model)
+        try container.encode(eventDecoder, forKey: .eventDecoder)
+        try container.encode(evidenceCapture, forKey: .evidenceCapture)
+        try container.encode(camera, forKey: .camera)
+        try container.encode(frames, forKey: .frames)
+        try container.encode(missingFrameTargetsMs, forKey: .missingFrameTargetsMs)
+        try container.encode(scoreTrace, forKey: .scoreTrace)
+        try container.encode(client, forKey: .client)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -374,6 +423,139 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         case missingFrameTargetsMs = "missing_frame_targets_ms"
         case scoreTrace = "score_trace"
         case client
+    }
+
+    private static func validate(
+        _ manifest: EvidencePackageManifest,
+        codingPath: [CodingKey]
+    ) throws {
+        func fail(_ message: String) throws -> Never {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: codingPath, debugDescription: message)
+            )
+        }
+
+        guard manifest.schemaVersion == evidencePackageSchemaVersion else {
+            try fail("schema_version is not supported.")
+        }
+        guard manifest.session.eventSequence > 0 else {
+            try fail("session.event_sequence must be positive.")
+        }
+        guard manifest.event.eventTimeMs >= 0,
+              manifest.event.emittedAtMs >= manifest.event.eventTimeMs else {
+            try fail("event times must be non-negative and causal.")
+        }
+
+        guard manifest.model.name.isEmpty == false,
+              manifest.model.version.isEmpty == false,
+              manifest.model.preprocessing.isEmpty == false,
+              Self.isLowercaseSHA256(manifest.model.weightsSHA256),
+              manifest.client.appVersion.isEmpty == false,
+              manifest.client.build.isEmpty == false,
+              manifest.client.deviceModelIdentifier.isEmpty == false,
+              manifest.client.osVersion.isEmpty == false else {
+            try fail("model and client metadata must contain valid values.")
+        }
+
+        let decoder = manifest.eventDecoder
+        guard decoder.algorithm.isEmpty == false,
+              decoder.threshold.isFinite,
+              (0.0...1.0).contains(decoder.threshold),
+              decoder.peakConfirmationMs >= 0,
+              decoder.minimumEventGapMs >= 0,
+              decoder.targetInferenceHz.isFinite,
+              decoder.targetInferenceHz > 0.0 else {
+            try fail("event_decoder contains an invalid value.")
+        }
+
+        let capture = manifest.evidenceCapture
+        guard capture.sampleHz.isFinite,
+              capture.sampleHz > 0.0,
+              capture.jpegQuality.isFinite,
+              capture.jpegQuality > 0.0,
+              capture.jpegQuality <= 1.0,
+              capture.ringDurationMs > 0,
+              capture.maximumLookupDistanceMs >= 0,
+              capture.finalizationDelayMs >= 0,
+              capture.targetOffsetsMs.isEmpty == false,
+              Set(capture.targetOffsetsMs).count == capture.targetOffsetsMs.count else {
+            try fail("evidence_capture contains an invalid value.")
+        }
+
+        guard manifest.camera.position == "back" || manifest.camera.position == "front",
+              manifest.camera.orientation.isEmpty == false,
+              manifest.camera.width > 0,
+              manifest.camera.height > 0 else {
+            try fail("camera contains an invalid value.")
+        }
+
+        var frameParts = Set<String>()
+        var frameTargets = Set<Int>()
+        for frame in manifest.frames {
+            guard Self.isSafePartName(frame.partName),
+                  frameParts.insert(frame.partName).inserted else {
+                try fail("frames.part_name values must be safe and unique.")
+            }
+            guard frameTargets.insert(frame.targetOffsetMs).inserted else {
+                try fail("frames target offsets must be unique.")
+            }
+            guard frame.sessionElapsedMs >= 0,
+                  frame.width > 0,
+                  frame.height > 0,
+                  frame.byteLength > 0,
+                  frame.contentType == "image/jpeg",
+                  Self.isLowercaseSHA256(frame.sha256) else {
+                try fail("frames contains an invalid value.")
+            }
+        }
+
+        let missingTargets = Set(manifest.missingFrameTargetsMs)
+        guard missingTargets.count == manifest.missingFrameTargetsMs.count,
+              frameTargets.isDisjoint(with: missingTargets),
+              frameTargets.union(missingTargets) == Set(capture.targetOffsetsMs),
+              manifest.event.evidenceComplete == missingTargets.isEmpty else {
+            try fail("present and missing frame targets must match the configured target set.")
+        }
+
+        var previousTraceTime: Int?
+        for entry in manifest.scoreTrace {
+            guard entry.sessionElapsedMs >= 0,
+                  entry.score.isFinite,
+                  (0.0...1.0).contains(entry.score),
+                  previousTraceTime.map({ entry.sessionElapsedMs >= $0 }) ?? true else {
+                try fail("score_trace must contain ordered finite scores.")
+            }
+            previousTraceTime = entry.sessionElapsedMs
+        }
+    }
+
+    private static func isLowercaseSHA256(_ value: String) -> Bool {
+        value.count == 64 && value.unicodeScalars.allSatisfy { scalar in
+            (0x30...0x39).contains(scalar.value) || (0x61...0x66).contains(scalar.value)
+        }
+    }
+
+    private static func isSafePartName(_ partName: String) -> Bool {
+        guard partName.count <= 64,
+              let first = partName.unicodeScalars.first,
+              isASCII(first),
+              isLetterOrNumber(first) else {
+            return false
+        }
+        return partName.unicodeScalars.dropFirst().allSatisfy { scalar in
+            isASCII(scalar)
+                && (isLetterOrNumber(scalar) || scalar.value == 0x2E || scalar.value == 0x5F || scalar.value == 0x2D)
+        }
+    }
+
+    private static func isASCII(_ scalar: Unicode.Scalar) -> Bool {
+        scalar.value <= 0x7F
+    }
+
+    private static func isLetterOrNumber(_ scalar: Unicode.Scalar) -> Bool {
+        (0x30...0x39).contains(scalar.value)
+            || (0x41...0x5A).contains(scalar.value)
+            || (0x61...0x7A).contains(scalar.value)
     }
 }
 
