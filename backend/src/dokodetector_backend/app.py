@@ -12,8 +12,11 @@ from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.persistence import EvidencePackagePersister
+from dokodetector_backend.recording_repository import TrainingRecordingRepository
+from dokodetector_backend.recording_storage import TrainingRecordingStorage
 from dokodetector_backend.repository import EvidenceRepository, create_database_engine
 from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.training_recording_api import router as training_recording_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -26,8 +29,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.repository = EvidenceRepository(app.state.engine)
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
     app.state.persister = EvidencePackagePersister(app.state.repository, app.state.storage)
+    app.state.training_repository = TrainingRecordingRepository(app.state.engine)
+    app.state.training_storage = TrainingRecordingStorage(app_settings.evidence_root)
     register_error_handlers(app)
     app.include_router(router)
+    app.include_router(training_recording_router)
 
     @app.get("/health/live")
     def liveness() -> dict[str, str]:

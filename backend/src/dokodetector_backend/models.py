@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -113,4 +113,42 @@ class VisionResult(Base):
     package: Mapped[EvidencePackage] = relationship(back_populates="vision_results")
 
 
-__all__ = ["Base", "EvidenceFrame", "EvidencePackage", "VisionResult"]
+class TrainingRecording(Base):
+    """One immutable training-recording bundle accepted by the backend."""
+
+    __tablename__ = "training_recordings"
+
+    recording_id: Mapped[str] = mapped_column(String(256), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    session_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    video_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    started_at_utc: Mapped[str] = mapped_column(String(64), nullable=False)
+    ended_at_utc: Mapped[str] = mapped_column(String(64), nullable=False)
+    duration_s: Mapped[float] = mapped_column(Float, nullable=False)
+    manifest_json: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    video_byte_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    video_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    video_relative_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    predictions_byte_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    predictions_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    predictions_relative_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    recording_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    derived_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    dataset_record_byte_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    dataset_record_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    dataset_record_relative_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    candidate_queue_byte_length: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    candidate_queue_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    candidate_queue_relative_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+__all__ = [
+    "Base",
+    "EvidenceFrame",
+    "EvidencePackage",
+    "TrainingRecording",
+    "VisionResult",
+]

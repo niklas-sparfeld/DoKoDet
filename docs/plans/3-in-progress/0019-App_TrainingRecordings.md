@@ -6,7 +6,7 @@
 - Status: In Progress
 - Depends on: completed plans 0003, 0004, and 0014; completed plan 0016; and the shared source-data
   contract from plan 0020 (M1, complete). Plan 0020 M3 can proceed in parallel.
-- Current phase: Phase 3 — Add backend ingestion and storage
+- Current phase: Phase 4 — Add CardEventNet import and review entry points
 - Boundary: This plan owns recording capture, upload, and immutable intake. The data-foundation
   [plan](0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
   promotion.
@@ -391,6 +391,14 @@ Acceptance:
 - the read endpoint reports the recording, file hashes, derived-artifact state, and related evidence
   package count;
 - the service streams a large fixture without loading it into one byte string.
+
+Progress (2026-08-27): Added the versioned training-recording `PUT` and `GET` routes, separate
+SQLite recording metadata, streamed video storage, atomic bundle commits, idempotent retries,
+conflict detection, configured manifest/prediction/video/total limits, and rollback after storage
+or database failure. Accepted recordings produce deterministic draft dataset metadata and a
+candidate-only review queue after the immutable bundle is committed. The read endpoint reports
+file hashes, derived-artifact state, and evidence-package count by canonical session ID. Backend
+tests, migration checks, lint, formatting, and the local HTTP pipeline pass.
 
 ### Phase 4: Add CardEventNet import and review entry points
 

@@ -2,8 +2,8 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-The backend accepts V1 evidence packages, stores their metadata in SQLite, and stores their
-original manifest and frame bytes on the local filesystem. M4 adds metadata read-back, readiness
+The backend accepts V1 evidence packages and V1 training recordings. It stores metadata in SQLite
+and stores original source bytes on the local filesystem. M4 adds metadata read-back, readiness
 checks, and a shared-fixture upload command.
 
 The commands and names below describe the current implemented PoC. The target architecture replaces
@@ -73,6 +73,17 @@ Read the stored metadata:
 curl http://127.0.0.1:8000/v1/evidence-packages/550e8400-e29b-41d4-a716-446655440000
 ```
 
+Upload a complete training recording from the shared fixture:
+
+```bash
+cd backend
+curl -X PUT http://127.0.0.1:8000/v1/training-recordings/recording-fixture-001 \
+  -F 'manifest=@../fixtures/training-recording/v1/recording-fixture-001/manifest.json;type=application/json' \
+  -F 'video=@../fixtures/training-recording/v1/recording-fixture-001/video-fixture-001.mov;type=video/quicktime' \
+  -F 'predictions=@../fixtures/training-recording/v1/recording-fixture-001/video-fixture-001.json;type=application/json'
+curl http://127.0.0.1:8000/v1/training-recordings/recording-fixture-001
+```
+
 Run the local scripted detector once for the first pending package:
 
 ```bash
@@ -105,6 +116,10 @@ EVIDENCE_ROOT=.runtime
 MAX_MANIFEST_BYTES=1000000
 MAX_FRAME_BYTES=10000000
 MAX_PACKAGE_BYTES=100000000
+MAX_RECORDING_MANIFEST_BYTES=1000000
+MAX_RECORDING_PREDICTIONS_BYTES=10000000
+MAX_RECORDING_VIDEO_BYTES=1000000000
+MAX_RECORDING_BYTES=1100000000
 VISION_DETECTOR_NAME=scripted
 VISION_DETECTOR_VERSION=scripted-v1
 VISION_DETECTOR_MAPPING_PATH=
@@ -163,6 +178,21 @@ Stored files use this layout:
 .runtime/evidence/<package-id>/manifest.json
 .runtime/evidence/<package-id>/frames/<part-name>.jpg
 .runtime/vision-results/<result-id>/result.json
+.runtime/training-recordings/<recording-id>/manifest.json
+.runtime/training-recordings/<recording-id>/videos/<video-id>.mov
+.runtime/training-recordings/<recording-id>/predictions/<video-id>.json
+.runtime/training-recordings/<recording-id>/intake/dataset-record.yaml
+.runtime/training-recordings/<recording-id>/intake/candidate-review-queue.json
+```
+
+There is no delete API for recordings. To remove local test data, stop the service, delete the
+recording directory, and delete its SQLite row:
+
+```bash
+cd backend
+rm -rf .runtime/training-recordings/<recording-id>
+sqlite3 .runtime/dokodetector.db \
+  "DELETE FROM training_recordings WHERE recording_id = '<recording-id>';"
 ```
 
 Readiness runs a SQLite query and checks that the evidence directory can be read and written. The

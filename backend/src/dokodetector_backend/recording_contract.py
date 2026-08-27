@@ -202,6 +202,63 @@ class DevicePredictions(RecordingContractModel):
         return self
 
 
+class TrainingRecordingUploadResponse(RecordingContractModel):
+    """The response returned after a recording is accepted."""
+
+    recording_id: Identifier
+    state: Literal["stored"]
+    created: bool
+    received_at: datetime
+
+
+class StoredRecordingFileResponse(RecordingContractModel):
+    """One immutable recording file returned by the read endpoint."""
+
+    name: Filename
+    type: str = Field(min_length=1)
+    byte_length: int = Field(gt=0)
+    sha256: Sha256
+    relative_path: str = Field(min_length=1)
+
+
+class DerivedArtifactResponse(RecordingContractModel):
+    """One derived intake file and its current state."""
+
+    state: Literal["ready"]
+    name: Filename
+    byte_length: int = Field(gt=0)
+    sha256: Sha256
+    relative_path: str = Field(min_length=1)
+
+
+class RecordingDerivedArtifactsResponse(RecordingContractModel):
+    """The derived artifacts generated from one immutable recording."""
+
+    state: Literal["ready"]
+    dataset_record: DerivedArtifactResponse
+    candidate_review_queue: DerivedArtifactResponse | None
+
+
+class TrainingRecordingMetadataResponse(RecordingContractModel):
+    """Metadata and derived-artifact state for one accepted recording."""
+
+    recording_id: Identifier
+    session_id: Identifier
+    video_id: Identifier
+    state: Literal["stored"]
+    received_at: datetime
+    schema_version: Literal["cardevent-recording/v1"]
+    started_at_utc: str
+    ended_at_utc: str
+    duration_s: float = Field(gt=0)
+    manifest_sha256: Sha256
+    manifest: dict[str, object]
+    video: StoredRecordingFileResponse
+    predictions: StoredRecordingFileResponse
+    derived_artifacts: RecordingDerivedArtifactsResponse
+    evidence_package_count: int = Field(ge=0)
+
+
 def _parse_utc(value: str, field: str) -> datetime:
     if not value.endswith("Z"):
         raise ValueError(f"{field} must use UTC with a Z suffix.")
@@ -259,6 +316,17 @@ def validate_recording_bundle(
 ) -> tuple[RecordingManifest, DevicePredictions]:
     """Validate both documents, their relationship, and their declared bytes."""
 
+    manifest, predictions = validate_recording_documents(manifest_bytes, predictions_bytes)
+    _verify_bytes(video_bytes, manifest.video, "video")
+    _verify_bytes(predictions_bytes, manifest.predictions, "predictions")
+    return manifest, predictions
+
+
+def validate_recording_documents(
+    manifest_bytes: bytes, predictions_bytes: bytes
+) -> tuple[RecordingManifest, DevicePredictions]:
+    """Validate the JSON documents and their relationship without reading video bytes."""
+
     manifest = parse_recording_manifest_bytes(manifest_bytes)
     predictions = parse_device_predictions_bytes(predictions_bytes)
     if manifest.video.name != predictions.source_video:
@@ -291,8 +359,6 @@ def validate_recording_bundle(
             raise ContractError(
                 "recording_time_mismatch", "An event proposal time is outside the recording."
             )
-    _verify_bytes(video_bytes, manifest.video, "video")
-    _verify_bytes(predictions_bytes, manifest.predictions, "predictions")
     return manifest, predictions
 
 
@@ -306,13 +372,37 @@ def _verify_bytes(value: bytes, descriptor: RecordingFile, name: str) -> None:
         )
 
 
+def calculate_recording_fingerprint(
+    manifest_bytes: bytes, video_sha256: str, predictions_sha256: str
+) -> str:
+    """Return the idempotency fingerprint for one complete recording bundle."""
+
+    digest = hashlib.sha256()
+    for value in (
+        manifest_bytes,
+        b"\0",
+        video_sha256.encode("ascii"),
+        b"\0",
+        predictions_sha256.encode("ascii"),
+    ):
+        digest.update(value)
+    return digest.hexdigest()
+
+
 __all__ = [
     "DEVICE_PREDICTIONS_SCHEMA_VERSION",
     "RECORDING_SCHEMA_VERSION",
     "DevicePredictions",
+    "DerivedArtifactResponse",
+    "RecordingDerivedArtifactsResponse",
     "RecordingContractModel",
     "RecordingManifest",
+    "StoredRecordingFileResponse",
+    "TrainingRecordingMetadataResponse",
+    "TrainingRecordingUploadResponse",
+    "calculate_recording_fingerprint",
     "parse_device_predictions_bytes",
     "parse_recording_manifest_bytes",
+    "validate_recording_documents",
     "validate_recording_bundle",
 ]
