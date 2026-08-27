@@ -4,7 +4,7 @@
 
 - **Summary:** Capture source material once and process it independently for CardEventNet and the
   TableEvidenceAnalyzer
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Plans 0019 and 0020, which are complete
 - **Builds on:** Plan 0025 adds optional video snippets to evidence packages
 - **Reviewed:** 2026-08-28 against repository baseline `e392f929d`, the implemented recording
