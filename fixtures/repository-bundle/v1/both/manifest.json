@@ -1,0 +1,17 @@
+{
+  "schema_version": "repository-bundle/v1",
+  "source_asset_id": "source-both",
+  "recording_id": "recording-both",
+  "video_id": "video-both",
+  "session_id": "session-both",
+  "state": "complete",
+  "source_sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8",
+  "files": {
+    "video": {"relative_path": "videos/video-both.mov", "type": "video/quicktime", "byte_length": 55, "sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8"},
+    "source_record": {"relative_path": "source-record.json", "type": "application/json", "byte_length": 689, "sha256": "5fe9ef923fa42b768a3b37e288a4f3a7222b131958315a6f56eb555bce9d9860"},
+    "task_enrollment": {"relative_path": "initial-task-enrollment.json", "type": "application/json", "byte_length": 680, "sha256": "0b8d4b5a67734b683981226dd70687ea5fd282ddf0e6d5d501f8abea64406f35"},
+    "proposal_generator_runs": [
+      {"proposal_generator_run_id": "proposal-both", "relative_path": "predictions/proposal-both.json", "type": "application/json", "byte_length": 1180, "sha256": "a3214d71705d83cb3e7fc3c0ffdaf5d89670244a62b130f0a8f03a0857743902"}
+    ]
+  }
+}

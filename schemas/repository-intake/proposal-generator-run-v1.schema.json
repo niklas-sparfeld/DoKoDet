@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/proposal-generator-run-v1.schema.json",
+  "title": "DokoDetector proposal generator run lineage v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "proposal_generator_run_id", "purpose", "source_asset_id", "recording_id",
+    "video_id", "source_sha256", "model_bundle_id", "weights_sha256", "decoder", "preprocessing",
+    "sampling", "execution_environment", "probabilities", "event_proposals", "output_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "proposal-generator-run/v1"},
+    "proposal_generator_run_id": {"$ref": "#/$defs/identifier"},
+    "purpose": {"const": "proposal_only"},
+    "source_asset_id": {"$ref": "#/$defs/identifier"},
+    "recording_id": {"$ref": "#/$defs/identifier"},
+    "video_id": {"$ref": "#/$defs/identifier"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "model_bundle_id": {"$ref": "#/$defs/identifier"},
+    "weights_sha256": {"$ref": "#/$defs/sha256"},
+    "decoder": {"$ref": "#/$defs/decoder"},
+    "preprocessing": {"type": "string", "minLength": 1},
+    "sampling": {"$ref": "#/$defs/sampling"},
+    "execution_environment": {"$ref": "#/$defs/environment"},
+    "probabilities": {"type": "array", "items": {"$ref": "#/$defs/probability"}},
+    "event_proposals": {"type": "array", "items": {"$ref": "#/$defs/event_proposal"}},
+    "output_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decoder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "threshold", "peak_confirmation_s", "minimum_event_gap_s"],
+      "properties": {
+        "algorithm": {"type": "string", "minLength": 1},
+        "threshold": {"type": "number", "minimum": 0, "maximum": 1},
+        "peak_confirmation_s": {"type": "number", "minimum": 0},
+        "minimum_event_gap_s": {"type": "number", "minimum": 0}
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "target_hz"],
+      "properties": {
+        "strategy": {"type": "string", "minLength": 1},
+        "target_hz": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "device", "os_version", "runtime_version"],
+      "properties": {
+        "platform": {"enum": ["ios", "macos", "linux"]},
+        "device": {"type": "string", "minLength": 1},
+        "os_version": {"type": "string", "minLength": 1},
+        "runtime_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "probability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time_s", "probability", "inference_ms"],
+      "properties": {
+        "time_s": {"type": "number", "minimum": 0},
+        "probability": {"type": "number", "minimum": 0, "maximum": 1},
+        "inference_ms": {"type": "number", "minimum": 0}
+      }
+    },
+    "event_proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time_s", "emitted_at_s", "probability"],
+      "properties": {
+        "time_s": {"type": "number", "minimum": 0},
+        "emitted_at_s": {"type": "number", "minimum": 0},
+        "probability": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

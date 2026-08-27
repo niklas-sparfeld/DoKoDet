@@ -1,0 +1,17 @@
+{
+  "schema_version": "repository-bundle/v1",
+  "source_asset_id": "source-table-evidence-only",
+  "recording_id": "recording-table-evidence-only",
+  "video_id": "video-table-evidence-only",
+  "session_id": "session-table-evidence-only",
+  "state": "complete",
+  "source_sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8",
+  "files": {
+    "video": {"relative_path": "videos/video-table-evidence-only.mov", "type": "video/quicktime", "byte_length": 55, "sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8"},
+    "source_record": {"relative_path": "source-record.json", "type": "application/json", "byte_length": 796, "sha256": "1b9dd2f7cf9d3540e683df292fe473e047803bda306134ef3bbbcf2840bead44"},
+    "task_enrollment": {"relative_path": "initial-task-enrollment.json", "type": "application/json", "byte_length": 707, "sha256": "7adbf20fa52dc601abeb57df7e6f9fc658a877b87a91433330c377ef1fdbb0e3"},
+    "proposal_generator_runs": [
+      {"proposal_generator_run_id": "proposal-table-evidence-only", "relative_path": "predictions/proposal-table-evidence-only.json", "type": "application/json", "byte_length": 1240, "sha256": "0a22aa656136101f07c384526f42ad9e5ca88f09a25156c54a58bed027decb56"}
+    ]
+  }
+}

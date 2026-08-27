@@ -1,0 +1,17 @@
+{
+  "schema_version": "repository-bundle/v1",
+  "source_asset_id": "source-cardevent-only",
+  "recording_id": "recording-cardevent-only",
+  "video_id": "video-cardevent-only",
+  "session_id": "session-cardevent-only",
+  "state": "complete",
+  "source_sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8",
+  "files": {
+    "video": {"relative_path": "videos/video-cardevent-only.mov", "type": "video/quicktime", "byte_length": 55, "sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8"},
+    "source_record": {"relative_path": "source-record.json", "type": "application/json", "byte_length": 757, "sha256": "5a1b4184e0376620b34308f279233f38f2fd2a858b7d0e6fd9970868da48c098"},
+    "task_enrollment": {"relative_path": "initial-task-enrollment.json", "type": "application/json", "byte_length": 710, "sha256": "11ba198ef629ffb5185ec84eb255fe658697f0f2d29013a0df50908af03ff83a"},
+    "proposal_generator_runs": [
+      {"proposal_generator_run_id": "proposal-cardevent-only", "relative_path": "predictions/proposal-cardevent-only.json", "type": "application/json", "byte_length": 1220, "sha256": "c179a214064561596146ed17036825fc22c3fd4c57dd7b8666377c87bc96385d"}
+    ]
+  }
+}

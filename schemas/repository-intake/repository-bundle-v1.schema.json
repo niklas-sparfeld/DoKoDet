@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/repository-bundle-v1.schema.json",
+  "title": "DokoDetector repository intake bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "source_asset_id", "recording_id", "video_id", "session_id", "state",
+    "source_sha256", "files"
+  ],
+  "properties": {
+    "schema_version": {"const": "repository-bundle/v1"},
+    "source_asset_id": {"$ref": "#/$defs/identifier"},
+    "recording_id": {"$ref": "#/$defs/identifier"},
+    "video_id": {"$ref": "#/$defs/identifier"},
+    "session_id": {"$ref": "#/$defs/identifier"},
+    "state": {"const": "complete"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "files": {"$ref": "#/$defs/files"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"},
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": {"$ref": "#/$defs/path"},
+        "type": {"type": "string", "minLength": 1},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "video": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": {"type": "string", "pattern": "^videos/[A-Za-z0-9][A-Za-z0-9._-]*\\.mov$"},
+        "type": {"const": "video/quicktime"},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": {"$ref": "#/$defs/path"},
+        "type": {"const": "application/json"},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "proposal_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposal_generator_run_id", "relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "proposal_generator_run_id": {"$ref": "#/$defs/identifier"},
+        "relative_path": {"type": "string", "pattern": "^predictions/[A-Za-z0-9][A-Za-z0-9._-]*\\.json$"},
+        "type": {"const": "application/json"},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "source_record_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": {"const": "source-record.json"},
+        "type": {"const": "application/json"},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "task_enrollment_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": {"const": "initial-task-enrollment.json"},
+        "type": {"const": "application/json"},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["video", "source_record", "task_enrollment", "proposal_generator_runs"],
+      "properties": {
+        "video": {"$ref": "#/$defs/video"},
+        "source_record": {"$ref": "#/$defs/source_record_document"},
+        "task_enrollment": {"$ref": "#/$defs/task_enrollment_document"},
+        "proposal_generator_runs": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/proposal_file"}
+        }
+      }
+    }
+  }
+}

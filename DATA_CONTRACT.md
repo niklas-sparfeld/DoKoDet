@@ -3,6 +3,10 @@
 This document defines the shared data contract for source data and dataset versions. The typed
 Python models live in `card_event_net/src/cardevent/data_contract.py`.
 
+The shared repository intake bundle and independent task-enrollment contracts are documented in
+[Repository Intake Contract](docs/Repository_Intake_Contract.md). They are separate from dataset
+eligibility and do not treat proposal generator output as ground truth.
+
 ## Layers
 
 The lifecycle has these layers:

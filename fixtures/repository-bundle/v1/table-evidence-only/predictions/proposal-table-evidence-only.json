@@ -1,0 +1,33 @@
+{
+  "schema_version": "proposal-generator-run/v1",
+  "proposal_generator_run_id": "proposal-table-evidence-only",
+  "purpose": "proposal_only",
+  "source_asset_id": "source-table-evidence-only",
+  "recording_id": "recording-table-evidence-only",
+  "video_id": "video-table-evidence-only",
+  "source_sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8",
+  "model_bundle_id": "cardevent-device-fixture-v1",
+  "weights_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "decoder": {
+    "algorithm": "causal_peak_v1",
+    "threshold": 0.8,
+    "peak_confirmation_s": 0.2,
+    "minimum_event_gap_s": 0.5
+  },
+  "preprocessing": "full_frame_letterbox_v1",
+  "sampling": {"strategy": "fixed_rate", "target_hz": 10.0},
+  "execution_environment": {
+    "platform": "macos",
+    "device": "fixture-mac",
+    "os_version": "15.0",
+    "runtime_version": "python-3.13"
+  },
+  "probabilities": [
+    {"time_s": 0.0, "probability": 0.1, "inference_ms": 2.0},
+    {"time_s": 1.0, "probability": 0.9, "inference_ms": 2.1}
+  ],
+  "event_proposals": [
+    {"time_s": 1.0, "emitted_at_s": 1.2, "probability": 0.9}
+  ],
+  "output_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}

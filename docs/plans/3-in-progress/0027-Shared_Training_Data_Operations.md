@@ -364,6 +364,24 @@ Acceptance:
 - strict round-trip and malformed-fixture tests pass in Swift, the backend, and Python;
 - the replacement contract is frozen before an active producer or consumer switches to it.
 
+#### M0 progress evidence — 2026-08-28
+
+- Frozen `repository-bundle/v1`, `source-record/v1`, `task-enrollment/v1`, and
+  `proposal-generator-run/v1` schemas under `schemas/repository-intake/`.
+- Added typed intake adapters in `card_event_net` and the backend, plus strict Swift models. The
+  adapters keep task enrollment and lifecycle state independent from source bytes and mark
+  proposal output as `proposal_only`.
+- Added three complete replacement fixtures: CardEventNet selected only, TableEvidenceAnalyzer
+  selected only, and both tasks selected. Each fixture records source, recording, video, session,
+  enrollment, proposal-run lineage, and member-file hashes.
+- Python conformance: `mise exec -- uv run --project . pytest tests/test_intake_contract.py` in
+  `card_event_net` (9 passed) and `backend` (5 passed); Ruff checks pass for both adapters and
+  test modules.
+- Swift conformance: `swift test --filter RepositoryIntakeContractTests -Xswiftc -swift-version
+  -Xswiftc 5` (2 passed), and the default Swift core build passes. The default Swift test command
+  remains blocked by pre-existing Swift 6 concurrency diagnostics in
+  `TrainingRecordingUploadQueueTests.swift`; no unrelated test file was changed.
+
 ### M1 — Operations package and read-only inspection
 
 1. Add the `operations/` package and `doko` entry point.

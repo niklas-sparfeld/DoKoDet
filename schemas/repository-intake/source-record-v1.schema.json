@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/source-record-v1.schema.json",
+  "title": "DokoDetector immutable source record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "source_asset_id", "sha256", "byte_length", "media_type",
+    "original_filename", "acquisition_method", "source_permission", "allowed_uses",
+    "session_id", "recording_id", "video_id", "game_id", "round_id", "table_setup",
+    "content_type", "retention_state", "notes"
+  ],
+  "properties": {
+    "schema_version": {"const": "source-record/v1"},
+    "source_asset_id": {"$ref": "#/$defs/identifier"},
+    "sha256": {"$ref": "#/$defs/sha256"},
+    "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+    "media_type": {"type": "string", "minLength": 1},
+    "original_filename": {"$ref": "#/$defs/filename"},
+    "acquisition_method": {"type": "string", "minLength": 1},
+    "source_permission": {
+      "enum": ["training_only", "training_and_evaluation", "project_use", "unrestricted"]
+    },
+    "allowed_uses": {
+      "type": "array",
+      "items": {"enum": ["train", "validation", "test", "evaluation"]},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "session_id": {"$ref": "#/$defs/nullable_identifier"},
+    "recording_id": {"$ref": "#/$defs/nullable_identifier"},
+    "video_id": {"$ref": "#/$defs/nullable_identifier"},
+    "game_id": {"$ref": "#/$defs/nullable_identifier"},
+    "round_id": {"$ref": "#/$defs/nullable_identifier"},
+    "table_setup": {"$ref": "#/$defs/nullable_identifier"},
+    "content_type": {
+      "anyOf": [
+        {"enum": ["real_game", "staged_trick_sequence", "staged_scenario", "synthetic_render", "other"]},
+        {"type": "null"}
+      ]
+    },
+    "retention_state": {"enum": ["active", "deletion_requested", "deleted", "retired"]},
+    "notes": {"type": ["string", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "content_type": {"enum": ["staged_scenario", "staged_trick_sequence"]}
+        }
+      },
+      "then": {
+        "properties": {"game_id": {"type": "null"}, "round_id": {"type": "null"}}
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "nullable_identifier": {
+      "anyOf": [{"$ref": "#/$defs/identifier"}, {"type": "null"}]
+    },
+    "filename": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

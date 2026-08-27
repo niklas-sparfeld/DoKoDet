@@ -1,0 +1,20 @@
+{
+  "schema_version": "source-record/v1",
+  "source_asset_id": "source-table-evidence-only",
+  "sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8",
+  "byte_length": 55,
+  "media_type": "video/quicktime",
+  "original_filename": "video-table-evidence-only.mov",
+  "acquisition_method": "local_fixture",
+  "source_permission": "training_and_evaluation",
+  "allowed_uses": ["train", "validation", "evaluation"],
+  "session_id": "session-table-evidence-only",
+  "recording_id": "recording-table-evidence-only",
+  "video_id": "video-table-evidence-only",
+  "game_id": "game-table-evidence-only",
+  "round_id": null,
+  "table_setup": "table-fixture-v1",
+  "content_type": "real_game",
+  "retention_state": "active",
+  "notes": "TableEvidenceAnalyzer-only enrollment fixture."
+}
