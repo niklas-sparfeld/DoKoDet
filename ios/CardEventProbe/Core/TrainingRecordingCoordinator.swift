@@ -454,21 +454,29 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
             return
         }
         let relativeTime = CMTimeSubtract(prediction.timestamp, sourceTimestamp)
-        let eventRelativeTime = event.map { CMTimeSubtract($0.timestamp, sourceTimestamp) }
-        let emittedRelativeTime = event.map { CMTimeSubtract($0.emittedAt, sourceTimestamp) }
-        guard isNonNegativeFinite(relativeTime),
-              eventRelativeTime.map(isNonNegativeFinite) ?? true,
-              emittedRelativeTime.map(isNonNegativeFinite) ?? true else {
-            let error = TrainingRecordingError.predictionWriteFailed(
-                "prediction times must be on the recording timeline"
-            )
-            setFailureLocked(error)
+        // Inference runs asynchronously. A prediction for a frame captured just before
+        // recording started can arrive after the first recording frame established the
+        // recording timeline. It is outside this recording and must not fail the bundle.
+        guard isNonNegativeFinite(relativeTime) else {
             lock.unlock()
             return
         }
+
+        let eventTiming: (event: DetectionEvent, eventRelativeTime: CMTime, emittedRelativeTime: CMTime)? =
+            event.flatMap { event in
+                let eventRelativeTime = CMTimeSubtract(event.timestamp, sourceTimestamp)
+                let emittedRelativeTime = CMTimeSubtract(event.emittedAt, sourceTimestamp)
+                guard isNonNegativeFinite(eventRelativeTime),
+                      isNonNegativeFinite(emittedRelativeTime) else {
+                    // A pending event can also refer to a frame captured before recording.
+                    // Keep the current prediction, but do not attach that event proposal.
+                    return nil
+                }
+                return (event, eventRelativeTime, emittedRelativeTime)
+            }
         latestTimelineTime = maxTime(latestTimelineTime, relativeTime)
-        if let emittedRelativeTime {
-            latestTimelineTime = maxTime(latestTimelineTime, emittedRelativeTime)
+        if let eventTiming {
+            latestTimelineTime = maxTime(latestTimelineTime, eventTiming.emittedRelativeTime)
         }
         lock.unlock()
 
@@ -476,9 +484,9 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
             self?.writePrediction(
                 prediction,
                 relativeTime: relativeTime,
-                event: event,
-                eventRelativeTime: eventRelativeTime,
-                emittedRelativeTime: emittedRelativeTime
+                event: eventTiming?.event,
+                eventRelativeTime: eventTiming?.eventRelativeTime,
+                emittedRelativeTime: eventTiming?.emittedRelativeTime
             )
         }
     }
@@ -493,11 +501,9 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
         }
         let eventRelativeTime = CMTimeSubtract(event.timestamp, sourceTimestamp)
         let emittedRelativeTime = CMTimeSubtract(event.emittedAt, sourceTimestamp)
+        // A decoder event can be emitted after recording starts even when its peak was
+        // detected before recording started. Such an event is not part of this recording.
         guard isNonNegativeFinite(eventRelativeTime), isNonNegativeFinite(emittedRelativeTime) else {
-            let error = TrainingRecordingError.predictionWriteFailed(
-                "event proposal times must be on the recording timeline"
-            )
-            setFailureLocked(error)
             lock.unlock()
             return
         }

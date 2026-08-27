@@ -63,6 +63,59 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
         XCTAssertEqual(writer.makeCount, 1)
     }
 
+    func testIgnoresResultsCapturedBeforeRecordingStarted() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let writer = FakeVideoWriterFactory()
+        let coordinator = TrainingRecordingCoordinator(
+            configuration: configuration(root: root),
+            writerFactory: writer
+        )
+
+        try coordinator.start()
+        coordinator.consume(frame(at: 100.0))
+        coordinator.drain()
+
+        // A live inference can finish for a frame captured just before recording started.
+        coordinator.consume(
+            ModelPrediction(
+                timestamp: time(99.9),
+                cardEventProbability: 0.8,
+                inferenceDurationMs: 10.0
+            )
+        )
+        coordinator.consume(
+            ModelPrediction(
+                timestamp: time(100.0),
+                cardEventProbability: 0.2,
+                inferenceDurationMs: 11.0
+            ),
+            event: DetectionEvent(
+                timestamp: time(99.9),
+                emittedAt: time(100.0),
+                peakProbability: 0.8
+            )
+        )
+
+        let result = waitForStop(coordinator)
+        let bundleURL = try XCTUnwrap(try result.get())
+        let manifestData = try Data(contentsOf: bundleURL.appendingPathComponent("manifest.json"))
+        let predictionsData = try Data(
+            contentsOf: bundleURL.appendingPathComponent("video-fixture-001.json")
+        )
+        let validated = try validateTrainingRecordingBundle(
+            manifestData: manifestData,
+            predictionsData: predictionsData,
+            videoURL: bundleURL.appendingPathComponent("video-fixture-001.mov")
+        )
+
+        XCTAssertEqual(validated.1.probabilities.count, 1)
+        XCTAssertEqual(validated.1.probabilities[0].timeS, 0.0, accuracy: 0.000001)
+        XCTAssertTrue(validated.1.eventProposals.isEmpty)
+        XCTAssertEqual(coordinator.metrics.predictionSampleCount, 1)
+        XCTAssertEqual(coordinator.metrics.eventProposalCount, 0)
+    }
+
     func testDuplicateStopFinishesWriterOnlyOnce() throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
