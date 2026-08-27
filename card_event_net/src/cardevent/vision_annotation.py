@@ -68,9 +68,12 @@ def _identifier(value: Any, field: str) -> str:
     return result
 
 
-def _strict_fields(data: Mapping[str, Any], expected: set[str], context: str) -> None:
+def _strict_fields(
+    data: Mapping[str, Any], expected: set[str], context: str, *, optional: set[str] | None = None
+) -> None:
+    optional = optional or set()
     missing = expected - set(data)
-    unknown = set(data) - expected
+    unknown = set(data) - expected - optional
     if missing or unknown:
         parts: list[str] = []
         if missing:
@@ -160,12 +163,7 @@ class BoundingBox:
         values = (self.x_min, self.y_min, self.x_max, self.y_max)
         if any(isinstance(value, bool) or not isinstance(value, int) for value in values):
             raise VisionAnnotationError("bbox coordinates must be integers.")
-        if (
-            self.x_min < 0
-            or self.y_min < 0
-            or self.x_max <= self.x_min
-            or self.y_max <= self.y_min
-        ):
+        if self.x_min < 0 or self.y_min < 0 or self.x_max <= self.x_min or self.y_max <= self.y_min:
             raise VisionAnnotationError("bbox must be a positive rectangle within the frame.")
 
     @classmethod
@@ -211,6 +209,7 @@ class FrameObservation:
             mapping,
             {"frame_id", "bbox", "usable_for_identity", "tags"},
             "frame observation",
+            optional={"observation_id"},
         )
         return cls(
             frame_id=_identifier(mapping["frame_id"], "frame_id"),
@@ -226,11 +225,7 @@ class FrameObservation:
             "bbox": self.bbox.to_value() if self.bbox is not None else None,
             "usable_for_identity": self.usable_for_identity,
             "tags": list(self.tags),
-            **(
-                {"observation_id": self.observation_id}
-                if self.observation_id is not None
-                else {}
-            ),
+            **({"observation_id": self.observation_id} if self.observation_id is not None else {}),
         }
 
 
@@ -270,9 +265,7 @@ class ObservedCard:
             if observation.observation_id
         ]
         if len(observation_ids) != len(set(observation_ids)):
-            raise VisionAnnotationError(
-                "observation IDs must be unique within an observed card."
-            )
+            raise VisionAnnotationError("observation IDs must be unique within an observed card.")
         if not isinstance(self.became_newly_visible, bool):
             raise VisionAnnotationError("became_newly_visible must be a boolean.")
         if self.active_area_class is not None and self.active_area_class not in ACTIVE_AREA_CLASSES:
@@ -286,9 +279,7 @@ class ObservedCard:
         if self.visibility == "identifiable":
             if self.visual_card_identity is None:
                 raise VisionAnnotationError("an identifiable observed card needs a card identity.")
-            if not any(
-                observation.usable_for_identity for observation in self.frame_observations
-            ):
+            if not any(observation.usable_for_identity for observation in self.frame_observations):
                 raise VisionAnnotationError(
                     "an identifiable observed card needs an identity-usable frame."
                 )
@@ -327,9 +318,7 @@ class ObservedCard:
             visual_card_identity=identity,
             visibility=_required_string(mapping["visibility"], "visibility"),
             frame_observations=tuple(FrameObservation.from_mapping(item) for item in raw_frames),
-            became_newly_visible=_boolean(
-                mapping["became_newly_visible"], "became_newly_visible"
-            ),
+            became_newly_visible=_boolean(mapping["became_newly_visible"], "became_newly_visible"),
             active_area_class=(
                 None
                 if mapping["active_area_class"] is None
@@ -422,16 +411,12 @@ class TableObservationAnnotation:
         if self.review_state not in VISION_REVIEW_STATES:
             raise VisionAnnotationError(f"Unknown review_state: {self.review_state}.")
         if self.event_review == "confirmed_card_play" and self.review_state != "reviewed":
-            raise VisionAnnotationError(
-                "a confirmed card play must have review_state reviewed."
-            )
+            raise VisionAnnotationError("a confirmed card play must have review_state reviewed.")
         observed_ids = [card.observed_card_id for card in self.observed_cards]
         if len(observed_ids) != len(set(observed_ids)):
             raise VisionAnnotationError("observed card IDs must be unique.")
         tracklet_ids = [
-            card.card_tracklet_id
-            for card in self.observed_cards
-            if card.card_tracklet_id
+            card.card_tracklet_id for card in self.observed_cards if card.card_tracklet_id
         ]
         if len(tracklet_ids) != len(set(tracklet_ids)):
             raise VisionAnnotationError(

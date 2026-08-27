@@ -30,6 +30,25 @@ from .review import (
 )
 from .review_ui import review_queue_interactively
 from .splits import SplitError, make_video_split, save_split
+from .table_dataset import (
+    TableDatasetError,
+    assemble_table_evidence_dataset,
+    assert_valid_dataset_version,
+    build_table_dataset_coverage,
+    load_dataset_split,
+    load_dataset_version,
+    load_lineage_graph,
+    load_source_metadata,
+    load_source_records,
+    load_table_observation_annotations,
+    load_table_observation_reviews,
+    make_dataset_split,
+    save_assembly_result,
+    save_coverage_reports,
+    save_dataset_split,
+    save_dataset_version,
+    save_validation_report,
+)
 from .train import TrainingError, train_from_files
 from .transition_diagnostics import TransitionDiagnosticError, diagnose_saved_validation_stream
 from .video import VideoError
@@ -64,6 +83,10 @@ _PLACEHOLDER_COMMANDS = {
     "vision-import": "Import evidence manifests as visual event proposals.",
     "vision-review": "Review one visual event and its evidence frames.",
     "vision-apply-review": "Apply one visual review to a new annotation version.",
+    "dataset-build": "Build a TableEvidenceAnalyzer dataset from reviewed observations.",
+    "dataset-split": "Create a group-safe split for a frozen table-observation dataset.",
+    "dataset-validate": "Validate a frozen table-observation dataset and its lineage.",
+    "dataset-coverage": "Write machine-readable and human-readable dataset coverage reports.",
 }
 
 
@@ -680,6 +703,76 @@ def build_parser() -> argparse.ArgumentParser:
     vision_apply_parser.add_argument("--dry-run", action="store_true")
     vision_apply_parser.set_defaults(command_name="vision-apply-review")
 
+    dataset_build_parser = subparsers.add_parser(
+        "dataset-build",
+        aliases=("assemble-dataset",),
+        help=_PLACEHOLDER_COMMANDS["dataset-build"],
+        description=(
+            "Build a frozen TableEvidenceAnalyzer identity-crop dataset from reviewed "
+            "table observations."
+        ),
+    )
+    dataset_build_parser.add_argument("--annotations", type=Path, required=True)
+    dataset_build_parser.add_argument("--reviews", type=Path, required=True)
+    dataset_build_parser.add_argument("--sources", type=Path, required=True)
+    dataset_build_parser.add_argument("--lineage", type=Path, required=True)
+    dataset_build_parser.add_argument("--metadata", type=Path, default=None)
+    dataset_build_parser.add_argument("--out", type=Path, required=True)
+    dataset_build_parser.add_argument("--report-dir", type=Path, default=None)
+    dataset_build_parser.add_argument("--dataset-version-id", required=True)
+    dataset_build_parser.add_argument(
+        "--intended-use", choices=("train", "validation", "test", "evaluation"), default=None
+    )
+    dataset_build_parser.add_argument("--allowed-use", action="append", default=None)
+    dataset_build_parser.add_argument("--creation-code-revision", default="working-tree")
+    dataset_build_parser.add_argument(
+        "--clean", action="store_true", help="Mark the code revision clean."
+    )
+    dataset_build_parser.add_argument("--force", action="store_true")
+    dataset_build_parser.set_defaults(command_name="dataset-build")
+
+    dataset_split_parser = subparsers.add_parser(
+        "dataset-split",
+        aliases=("make-dataset-split",),
+        help=_PLACEHOLDER_COMMANDS["dataset-split"],
+        description="Create a deterministic group-safe train/validation/test split.",
+    )
+    dataset_split_parser.add_argument("--dataset", type=Path, required=True)
+    dataset_split_parser.add_argument("--out", type=Path, required=True)
+    dataset_split_parser.add_argument("--split-version-id", required=True)
+    dataset_split_parser.add_argument("--seed", type=int, default=42)
+    dataset_split_parser.add_argument("--force", action="store_true")
+    dataset_split_parser.set_defaults(command_name="dataset-split")
+
+    dataset_validate_parser = subparsers.add_parser(
+        "dataset-validate",
+        aliases=("validate-dataset",),
+        help=_PLACEHOLDER_COMMANDS["dataset-validate"],
+        description="Validate a frozen dataset version, source records, targets, and split.",
+    )
+    dataset_validate_parser.add_argument("--dataset", type=Path, required=True)
+    dataset_validate_parser.add_argument("--sources", type=Path, required=True)
+    dataset_validate_parser.add_argument("--lineage", type=Path, required=True)
+    dataset_validate_parser.add_argument("--annotations", type=Path, default=None)
+    dataset_validate_parser.add_argument("--reviews", type=Path, default=None)
+    dataset_validate_parser.add_argument("--split", type=Path, default=None)
+    dataset_validate_parser.add_argument("--out", type=Path, default=None)
+    dataset_validate_parser.set_defaults(command_name="dataset-validate")
+
+    dataset_coverage_parser = subparsers.add_parser(
+        "dataset-coverage",
+        aliases=("dataset-report",),
+        help=_PLACEHOLDER_COMMANDS["dataset-coverage"],
+        description="Write coverage.json and coverage.md for a frozen dataset version.",
+    )
+    dataset_coverage_parser.add_argument("--dataset", type=Path, required=True)
+    dataset_coverage_parser.add_argument("--annotations", type=Path, required=True)
+    dataset_coverage_parser.add_argument("--sources", type=Path, required=True)
+    dataset_coverage_parser.add_argument("--metadata", type=Path, default=None)
+    dataset_coverage_parser.add_argument("--out-dir", type=Path, required=True)
+    dataset_coverage_parser.add_argument("--force", action="store_true")
+    dataset_coverage_parser.set_defaults(command_name="dataset-coverage")
+
     export_parser = subparsers.add_parser(
         "export-coreml",
         help="Export a checkpoint to Core ML.",
@@ -790,6 +883,10 @@ def build_parser() -> argparse.ArgumentParser:
             "vision-import",
             "vision-review",
             "vision-apply-review",
+            "dataset-build",
+            "dataset-split",
+            "dataset-validate",
+            "dataset-coverage",
         }:
             continue
         command_parser = subparsers.add_parser(name, help=help_text, description=help_text)
@@ -1151,12 +1248,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             annotation_set = import_evidence_packages(
                 args.manifests,
             )
-            if args.out_dir.exists() and (
-                not args.out_dir.is_dir() or any(args.out_dir.iterdir())
-            ):
-                raise VisionAnnotationError(
-                    f"Output directory is not empty: {args.out_dir}"
-                )
+            if args.out_dir.exists() and (not args.out_dir.is_dir() or any(args.out_dir.iterdir())):
+                raise VisionAnnotationError(f"Output directory is not empty: {args.out_dir}")
             args.out_dir.mkdir(parents=True, exist_ok=True)
             for annotation in annotation_set:
                 save_vision_annotation(
@@ -1207,6 +1300,109 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps(receipt, indent=2, sort_keys=True))
         else:
             print(f"Wrote reviewed visual annotation: {args.out_dir}")
+        return 0
+
+    if command_name == "dataset-build":
+        try:
+            sources = load_source_records(args.sources)
+            annotations = load_table_observation_annotations(args.annotations)
+            reviews = load_table_observation_reviews(args.reviews)
+            lineage = load_lineage_graph(args.lineage)
+            source_metadata = (
+                load_source_metadata(args.metadata) if args.metadata is not None else None
+            )
+            result = assemble_table_evidence_dataset(
+                annotations,
+                sources,
+                reviews=reviews,
+                lineage=lineage,
+                dataset_version_id=args.dataset_version_id,
+                allowed_use_filter=tuple(args.allowed_use or ("train", "validation", "test")),
+                intended_use=args.intended_use,
+                creation_code_revision=args.creation_code_revision,
+                dirty_state=not args.clean,
+                source_metadata=source_metadata,
+            )
+            save_dataset_version(result.dataset_version, args.out, overwrite=args.force)
+            report_dir = args.report_dir or args.out.parent / f"{args.out.stem}-reports"
+            save_coverage_reports(result.coverage, report_dir, overwrite=args.force)
+            save_assembly_result(
+                result,
+                report_dir / "assembly.json",
+                overwrite=args.force,
+            )
+        except (TableDatasetError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote dataset version: {args.out}")
+        print(f"Wrote coverage reports: {report_dir}")
+        print(f"Unassigned: {len(result.unassigned)}; excluded: {len(result.excluded)}")
+        return 0
+
+    if command_name == "dataset-split":
+        try:
+            dataset = load_dataset_version(args.dataset)
+            split = make_dataset_split(
+                dataset,
+                split_version_id=args.split_version_id,
+                seed=args.seed,
+            )
+            save_dataset_split(split, args.out, overwrite=args.force)
+        except (TableDatasetError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote dataset split: {args.out}")
+        print(
+            f"  train: {len(split.train)}; validation: {len(split.validation)}; "
+            f"test: {len(split.test)}; unassigned: {len(split.unassigned)}"
+        )
+        return 0
+
+    if command_name == "dataset-validate":
+        try:
+            dataset = load_dataset_version(args.dataset)
+            sources = load_source_records(args.sources)
+            lineage = load_lineage_graph(args.lineage)
+            annotations = (
+                load_table_observation_annotations(args.annotations)
+                if args.annotations is not None
+                else ()
+            )
+            reviews = (
+                load_table_observation_reviews(args.reviews) if args.reviews is not None else None
+            )
+            split = load_dataset_split(args.split) if args.split is not None else None
+            report = assert_valid_dataset_version(
+                dataset,
+                sources=sources,
+                annotations=annotations,
+                reviews=reviews,
+                lineage=lineage,
+                split=split,
+            )
+            if args.out is not None:
+                save_validation_report(report, args.out, overwrite=True)
+        except (TableDatasetError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report.to_mapping(), indent=2, sort_keys=True))
+        return 0
+
+    if command_name == "dataset-coverage":
+        try:
+            dataset = load_dataset_version(args.dataset)
+            annotations = load_table_observation_annotations(args.annotations)
+            sources = load_source_records(args.sources)
+            source_metadata = (
+                load_source_metadata(args.metadata) if args.metadata is not None else None
+            )
+            report = build_table_dataset_coverage(
+                dataset,
+                reviewed_annotations=annotations,
+                sources=sources,
+                source_metadata=source_metadata,
+            )
+            save_coverage_reports(report, args.out_dir, overwrite=args.force)
+        except (TableDatasetError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote coverage reports: {args.out_dir}")
         return 0
 
     if command_name == "export-coreml":

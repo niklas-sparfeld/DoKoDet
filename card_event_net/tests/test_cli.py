@@ -14,6 +14,8 @@ def test_root_help_lists_the_expected_commands() -> None:
     assert "export-coreml" in help_text
     assert "ingest" in help_text
     assert "inspect-dataset" in help_text
+    assert "dataset-build" in help_text
+    assert "dataset-validate" in help_text
 
 
 def test_ingest_and_inspect_commands_parse_paths() -> None:
@@ -96,6 +98,54 @@ def test_vision_commands_parse_contract_paths() -> None:
     assert review_args.snippet == Path("snippet.mp4")
     assert apply_args.command_name == "vision-apply-review"
     assert apply_args.out_dir == Path("applied")
+
+
+def test_table_dataset_commands_parse_contract_paths() -> None:
+    build_args = build_parser().parse_args(
+        [
+            "dataset-build",
+            "--annotations",
+            "annotations",
+            "--reviews",
+            "reviews",
+            "--sources",
+            "sources.json",
+            "--lineage",
+            "lineage.json",
+            "--dataset-version-id",
+            "dataset-001",
+            "--out",
+            "dataset.json",
+        ]
+    )
+    split_args = build_parser().parse_args(
+        [
+            "dataset-split",
+            "--dataset",
+            "dataset.json",
+            "--split-version-id",
+            "split-001",
+            "--out",
+            "split.json",
+        ]
+    )
+    validate_args = build_parser().parse_args(
+        [
+            "dataset-validate",
+            "--dataset",
+            "dataset.json",
+            "--sources",
+            "sources.json",
+            "--lineage",
+            "lineage.json",
+        ]
+    )
+
+    assert build_args.command_name == "dataset-build"
+    assert build_args.annotations == Path("annotations")
+    assert split_args.command_name == "dataset-split"
+    assert split_args.dataset == Path("dataset.json")
+    assert validate_args.command_name == "dataset-validate"
 
 
 def test_vision_import_command_writes_table_observation_files(tmp_path: Path) -> None:

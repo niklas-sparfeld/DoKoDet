@@ -365,8 +365,7 @@ class LineageEdge:
         expected_parent, expected_child = LINEAGE_RELATION_KINDS[self.relation]
         if (self.parent.kind, self.child.kind) != (expected_parent, expected_child):
             raise ContractError(
-                f"Lineage relation {self.relation} requires "
-                f"{expected_parent} -> {expected_child}."
+                f"Lineage relation {self.relation} requires {expected_parent} -> {expected_child}."
             )
         if self.source_frame_id is not None:
             _identifier(self.source_frame_id, "source_frame_id")
@@ -427,6 +426,57 @@ class LineageGraph:
             "schema_version": LINEAGE_SCHEMA_VERSION,
             "edges": [edge.to_mapping() for edge in self.edges],
         }
+
+    def validate(self) -> None:
+        """Validate graph-wide invariants before a dataset consumes the graph."""
+
+        parents: dict[EntityRef, list[EntityRef]] = {}
+        children: dict[EntityRef, list[EntityRef]] = {}
+        for edge in self.edges:
+            parents.setdefault(edge.child, []).append(edge.parent)
+            children.setdefault(edge.parent, []).append(edge.child)
+
+        # These relationships have one owning parent.  A package or recording with
+        # multiple parents would make its source lineage ambiguous.
+        for relation, child_kind in (
+            ("recording_in_session", "recording"),
+            ("source_contains_recording", "recording"),
+            ("evidence_package_from_recording", "evidence_package"),
+        ):
+            for child, child_parents in parents.items():
+                if child.kind != child_kind:
+                    continue
+                matching = [
+                    edge_parent
+                    for edge_parent in child_parents
+                    if any(
+                        edge.parent == edge_parent
+                        and edge.child == child
+                        and edge.relation == relation
+                        for edge in self.edges
+                    )
+                ]
+                if len(matching) > 1:
+                    raise ContractError(f"{child.kind}:{child.id} has multiple {relation} parents.")
+
+        # Validate every connected component, not only entities queried by a caller.
+        # This catches a stale cycle in an otherwise unused branch of the graph.
+        all_entities = set(parents) | set(children)
+        state: dict[EntityRef, int] = {}
+
+        def visit(entity: EntityRef) -> None:
+            current_state = state.get(entity, 0)
+            if current_state == 1:
+                raise ContractError("Lineage graph contains a cycle.")
+            if current_state == 2:
+                return
+            state[entity] = 1
+            for child in children.get(entity, ()):
+                visit(child)
+            state[entity] = 2
+
+        for entity in sorted(all_entities, key=lambda item: (item.kind, item.id)):
+            visit(entity)
 
     def source_assets_for(self, entity: EntityRef) -> tuple[EntityRef, ...]:
         """Return immutable source assets reachable from an entity."""
@@ -557,6 +607,11 @@ class DatasetEntry:
     group_keys: tuple[tuple[str, str], ...]
     inclusion_reason: str
     transform_version: str
+    source_frame_id: str | None = None
+    observed_card_id: str | None = None
+    bbox: tuple[int, int, int, int] | None = None
+    visual_card_identity: str | None = None
+    quality_tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _identifier(self.dataset_item_id, "dataset_item_id")
@@ -583,6 +638,39 @@ class DatasetEntry:
         for key, value in self.group_keys:
             _required_string(key, "group key name")
             _identifier(value, "group key value")
+        for field in ("source_frame_id", "observed_card_id"):
+            value = getattr(self, field)
+            if value is not None:
+                _identifier(value, field)
+        if self.bbox is not None and (
+            len(self.bbox) != 4
+            or any(isinstance(value, bool) or not isinstance(value, int) for value in self.bbox)
+            or self.bbox[0] < 0
+            or self.bbox[1] < 0
+            or self.bbox[2] <= self.bbox[0]
+            or self.bbox[3] <= self.bbox[1]
+        ):
+            raise ContractError("bbox must be a positive integer rectangle.")
+        if self.visual_card_identity is not None:
+            _identifier(self.visual_card_identity, "visual_card_identity")
+        if len(self.quality_tags) != len(set(self.quality_tags)) or any(
+            not isinstance(tag, str) or not tag for tag in self.quality_tags
+        ):
+            raise ContractError("quality_tags must contain unique non-empty strings.")
+        sample_fields = (
+            self.source_frame_id,
+            self.observed_card_id,
+            self.bbox,
+            self.visual_card_identity,
+        )
+        if any(value is not None for value in sample_fields) and not all(
+            value is not None for value in sample_fields
+        ):
+            raise ContractError(
+                "A dataset sample reference needs source frame, observed card, bbox, and identity."
+            )
+        if self.quality_tags and self.source_frame_id is None:
+            raise ContractError("quality_tags require an explicit dataset sample reference.")
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "DatasetEntry":
@@ -598,7 +686,16 @@ class DatasetEntry:
             "inclusion_reason",
             "transform_version",
         }
-        if not isinstance(data, Mapping) or set(data) != fields:
+        optional_fields = {
+            "source_frame_id",
+            "observed_card_id",
+            "bbox",
+            "visual_card_identity",
+            "quality_tags",
+        }
+        if not isinstance(data, Mapping) or not set(data) <= fields | optional_fields:
+            raise ContractError("dataset entry has invalid fields.")
+        if not fields <= set(data):
             raise ContractError("dataset entry has invalid fields.")
         raw_group_keys = data["group_keys"]
         if not isinstance(raw_group_keys, list):
@@ -613,6 +710,16 @@ class DatasetEntry:
                     _identifier(pair[1], "group key value"),
                 )
             )
+        raw_bbox = data.get("bbox")
+        bbox: tuple[int, int, int, int] | None
+        if raw_bbox is None:
+            bbox = None
+        elif isinstance(raw_bbox, list) and len(raw_bbox) == 4:
+            bbox = tuple(raw_bbox)  # type: ignore[assignment]
+        else:
+            raise ContractError("bbox must be null or a four-item list.")
+        raw_quality_tags = data.get("quality_tags", [])
+        quality_tags = _string_tuple(raw_quality_tags, "quality_tags")
         return cls(
             dataset_item_id=_identifier(data["dataset_item_id"], "dataset_item_id"),
             source_asset_id=_identifier(data["source_asset_id"], "source_asset_id"),
@@ -624,10 +731,17 @@ class DatasetEntry:
             group_keys=tuple(group_keys),
             inclusion_reason=_required_string(data["inclusion_reason"], "inclusion_reason"),
             transform_version=_required_string(data["transform_version"], "transform_version"),
+            source_frame_id=_optional_string(data.get("source_frame_id"), "source_frame_id"),
+            observed_card_id=_optional_string(data.get("observed_card_id"), "observed_card_id"),
+            bbox=bbox,
+            visual_card_identity=_optional_string(
+                data.get("visual_card_identity"), "visual_card_identity"
+            ),
+            quality_tags=quality_tags,
         )
 
     def to_mapping(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "dataset_item_id": self.dataset_item_id,
             "source_asset_id": self.source_asset_id,
             "source_sha256": self.source_sha256,
@@ -639,6 +753,17 @@ class DatasetEntry:
             "inclusion_reason": self.inclusion_reason,
             "transform_version": self.transform_version,
         }
+        if self.source_frame_id is not None:
+            result.update(
+                {
+                    "source_frame_id": self.source_frame_id,
+                    "observed_card_id": self.observed_card_id,
+                    "bbox": list(self.bbox) if self.bbox is not None else None,
+                    "visual_card_identity": self.visual_card_identity,
+                    "quality_tags": list(self.quality_tags),
+                }
+            )
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -670,6 +795,8 @@ class DatasetVersion:
             raise ContractError("allowed_use_filter must not contain duplicate values.")
         if not self.group_key_names or len(self.group_key_names) != len(set(self.group_key_names)):
             raise ContractError("group_key_names must contain unique names.")
+        for name in self.group_key_names:
+            _required_string(name, "group key name")
         _required_string(
             self.derived_artifact_transform_version, "derived_artifact_transform_version"
         )
@@ -692,11 +819,15 @@ class DatasetVersion:
                 raise ContractError(
                     f"Dataset entry {entry.dataset_item_id} has a different target schema."
                 )
-            if set(key for key, _ in entry.group_keys) != set(self.group_key_names):
+            entry_group_names = {key for key, _ in entry.group_keys}
+            if not entry_group_names <= set(self.group_key_names):
                 raise ContractError(
                     f"Dataset entry {entry.dataset_item_id} does not contain the "
-                    "declared group keys."
+                    "declared group key names."
                 )
+        used_group_names = {key for entry in self.entries for key, _ in entry.group_keys}
+        if used_group_names != set(self.group_key_names):
+            raise ContractError("group_key_names must declare the group keys used by entries.")
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "DatasetVersion":
@@ -750,9 +881,7 @@ class DatasetVersion:
         def entry_mapping(entry: DatasetEntry) -> dict[str, Any]:
             mapping = entry.to_mapping()
             mapping["group_keys"] = sorted(mapping["group_keys"])
-            mapping["eligibility"]["allowed_uses"] = sorted(
-                mapping["eligibility"]["allowed_uses"]
-            )
+            mapping["eligibility"]["allowed_uses"] = sorted(mapping["eligibility"]["allowed_uses"])
             return mapping
 
         return {

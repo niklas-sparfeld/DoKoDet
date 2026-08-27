@@ -126,3 +126,50 @@ Use vision-review to inspect all frames in a local frame directory. The viewer w
 table-observation-review/v1 artifact. Use vision-apply-review to create a new annotation directory.
 The source annotation, evidence manifest, and review artifact are read only. The apply directory
 contains the reviewed annotation, a copy of the review, and a table-observation-apply-receipt.json.
+
+## M3 dataset assembly
+
+The TableEvidenceAnalyzer identity-crop dataset is assembled from reviewed table-observation
+annotations. One identity-usable frame observation becomes one manifest entry. The entry stores
+the source frame, observed-card identifier, box, visual card identity, quality tags, source digest,
+annotation set, review, transform, and leakage groups.
+
+The assembler accepts only active source assets whose explicit allowed uses match the requested
+filter. Draft annotations, missing reviews, missing source lineage, non-identifiable cards, and
+sources outside the filter stay in explicit `unassigned` or `excluded` output. A false event
+proposal can still contribute a visible-card sample. Its event decision is not a card label.
+
+Build and validate a dataset with these commands:
+
+```bash
+uv run cardevent dataset-build \
+  --annotations data/table-observations \
+  --reviews data/table-observation-reviews \
+  --sources data/sources.json \
+  --lineage data/lineage.json \
+  --dataset-version-id table-evidence-20260827 \
+  --out data/datasets/table-evidence.json
+
+uv run cardevent dataset-split \
+  --dataset data/datasets/table-evidence.json \
+  --split-version-id table-evidence-split-20260827 \
+  --out data/datasets/table-evidence-split.json
+
+uv run cardevent dataset-validate \
+  --dataset data/datasets/table-evidence.json \
+  --sources data/sources.json \
+  --lineage data/lineage.json \
+  --annotations data/table-observations \
+  --reviews data/table-observation-reviews \
+  --split data/datasets/table-evidence-split.json
+```
+
+The split uses connected session, game, table-setup, and source-lineage groups. It uses the
+canonical `validation` partition name. A group cannot cross `train`, `validation`, `test`, or
+`unassigned`. The dataset digest and split digest make later validation independent of local paths.
+
+`dataset-build` writes `coverage.json`, `coverage.md`, and `assembly.json` beside the requested
+report directory. Coverage includes event decisions, visible-card identities, visibility and
+quality tags, crop sizes, selected frames, snippets, tracklets, source metadata, and every
+unassigned or excluded item. These reports guide data collection. They do not rebalance a sealed
+evaluation set.
