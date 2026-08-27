@@ -379,4 +379,9 @@ public final class EvidenceFrameSampler: @unchecked Sendable {
         stopped = true
         lock.unlock()
     }
+
+    /// Wait for frame encoding submitted before this call. Intended for local replay and tests.
+    public func drain() {
+        encoderQueue.sync {}
+    }
 }

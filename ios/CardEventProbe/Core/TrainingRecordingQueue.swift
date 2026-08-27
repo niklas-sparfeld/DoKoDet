@@ -487,12 +487,12 @@ public final class TrainingRecordingStore: @unchecked Sendable {
 
     private func failureURL(for recordingID: String) -> URL {
         root.appendingPathComponent("failures", isDirectory: true)
-            .appendingPathComponent("(recordingID).json")
+            .appendingPathComponent("\(recordingID).json")
     }
 
     private func acknowledgementURL(for recordingID: String) -> URL {
         root.appendingPathComponent("acknowledgements", isDirectory: true)
-            .appendingPathComponent("(recordingID).json")
+            .appendingPathComponent("\(recordingID).json")
     }
 
     private func isDirectory(_ url: URL) -> Bool {

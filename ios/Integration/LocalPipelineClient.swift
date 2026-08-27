@@ -1,6 +1,10 @@
+import AVFoundation
+import CoreMedia
+import CoreVideo
 import CryptoKit
 import Foundation
 import CardEventProbeCore
+import ImageIO
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -28,10 +32,16 @@ struct LocalPipelineClient {
         switch options.action {
         case .create:
             try createPackages(options)
+        case .simulateRecording:
+            try simulateRecording(options)
         case .upload:
             try await uploadPackages(options, retryFailed: false)
         case .retry:
             try await uploadPackages(options, retryFailed: true)
+        case .uploadRecording:
+            try await uploadRecordings(options, retryFailed: false)
+        case .retryRecording:
+            try await uploadRecordings(options, retryFailed: true)
         case .result:
             try await readResult(options)
         }
@@ -72,6 +82,267 @@ struct LocalPipelineClient {
             "attempts": attempts.map(attemptObject),
             "diagnostics": diagnosticsObject(store.diagnostics),
         ])
+    }
+
+    private static func simulateRecording(_ options: Options) throws {
+        let inputURL = try options.requiredInputVideo
+        let root = try options.requiredRoot
+        let recordingID = options.recordingID ?? "recording-simulator-001"
+        let sessionID = options.sessionID ?? "550e8400-e29b-41d4-a716-446655440010"
+        let videoID = options.videoID ?? "video-simulator-001"
+        guard UUID(uuidString: sessionID) != nil else {
+            throw OptionsError.invalidValue("--session-id")
+        }
+
+        let trainingRoot = root.appendingPathComponent("training", isDirectory: true)
+        let evidenceRoot = root.appendingPathComponent("evidence", isDirectory: true)
+        let asset = AVURLAsset(url: inputURL)
+        guard let track = asset.tracks(withMediaType: .video).first else {
+            throw SavedVideoSimulationError.videoTrackMissing(inputURL)
+        }
+
+        let frameRate = track.nominalFrameRate > 0.0 ? Double(track.nominalFrameRate) : 30.0
+        let model = TrainingRecordingModel(
+            name: "CardEventNet",
+            version: "saved-video-simulator-v1",
+            weightsSHA256: String(repeating: "0", count: 64),
+            preprocessing: "full_frame_letterbox_v1"
+        )
+        let decoderConfiguration = CausalEventDecoder.Configuration(
+            threshold: 0.5,
+            peakConfirmation: CMTime(seconds: 1.0 / frameRate, preferredTimescale: 600),
+            minimumEventGap: CMTime(seconds: 0.6, preferredTimescale: 600)
+        )
+        let decoder = TrainingRecordingDecoder(
+            algorithm: "causal_peak_v1",
+            threshold: decoderConfiguration.threshold,
+            peakConfirmationS: CMTimeGetSeconds(decoderConfiguration.peakConfirmation),
+            minimumEventGapS: CMTimeGetSeconds(decoderConfiguration.minimumEventGap)
+        )
+        let client = TrainingRecordingClient(
+            appVersion: "0.1.0",
+            build: "saved-video-simulator",
+            deviceModel: "macOS-simulator",
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString
+        )
+        let startedAtUTC = Date(timeIntervalSince1970: 1_756_000_000)
+        let recordingConfiguration = TrainingRecordingConfiguration(
+            outputRoot: trainingRoot.appendingPathComponent("queued", isDirectory: true),
+            recordingID: recordingID,
+            sessionID: sessionID,
+            videoID: videoID,
+            startedAtUTC: startedAtUTC,
+            model: model,
+            decoder: decoder,
+            client: client,
+            sourcePermission: "training_and_evaluation",
+            frameRate: frameRate
+        )
+        let recordingCoordinator = TrainingRecordingCoordinator(configuration: recordingConfiguration)
+        try recordingCoordinator.start()
+
+        let captureSession = CaptureSession(
+            sessionID: UUID(uuidString: sessionID)!,
+            startedAtUTC: startedAtUTC
+        )
+        let evidenceConfiguration = EvidenceCaptureConfiguration(
+            targetHz: frameRate,
+            jpegQuality: 0.8,
+            historySeconds: 3.0,
+            targetOffsetsMs: [0],
+            maximumLookupDistanceMs: Int((500.0 / frameRate).rounded()),
+            finalizationDelayMs: 0
+        )
+        let evidenceStore = EvidencePackageStore(root: evidenceRoot)
+        let evidenceSampler = EvidenceFrameSampler(
+            configuration: evidenceConfiguration,
+            sessionClock: captureSession.clock
+        )
+        let evidenceCoordinator = EvidencePackageCoordinator(
+            configuration: evidenceConfiguration,
+            captureSession: captureSession,
+            ring: evidenceSampler.ring,
+            store: evidenceStore,
+            model: EvidencePackageModelMetadata(
+                name: model.name,
+                version: model.version,
+                weightsSHA256: model.weightsSHA256,
+                preprocessing: model.preprocessing
+            ),
+            decoderConfiguration: decoderConfiguration,
+            client: EvidencePackageClientMetadata(
+                appVersion: client.appVersion,
+                build: client.build,
+                deviceModelIdentifier: client.deviceModel,
+                osVersion: client.osVersion
+            ),
+            camera: EvidencePackageCameraMetadata(
+                position: "back",
+                orientation: "up",
+                width: 1,
+                height: 1
+            ),
+            recordingID: recordingID
+        )
+
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            ]
+        )
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw SavedVideoSimulationError.cannotAddReaderOutput
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw reader.error ?? SavedVideoSimulationError.readerStartFailed
+        }
+
+        var frameCount = 0
+        var predictionCount = 0
+        var lastTimestamp = CMTime.zero
+        let eventDecoder = CausalEventDecoder(configuration: decoderConfiguration)
+        while let sampleBuffer = output.copyNextSampleBuffer() {
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                continue
+            }
+            let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            let frame = VideoFrame(
+                pixelBuffer: pixelBuffer,
+                timestamp: timestamp,
+                orientation: .up
+            )
+            recordingCoordinator.consume(frame)
+            evidenceSampler.consume(frame)
+            evidenceCoordinator.observe(frame)
+            evidenceSampler.drain()
+
+            let probability = simulatedProbability(frameIndex: frameCount)
+            let prediction = ModelPrediction(
+                timestamp: timestamp,
+                cardEventProbability: probability,
+                rawOutputs: ["card_event": probability],
+                inferenceDurationMs: 1.0
+            )
+            let event = eventDecoder.consume(prediction)
+            recordingCoordinator.consume(prediction, event: event)
+            evidenceCoordinator.consume(prediction, event: event)
+            recordingCoordinator.drain()
+            evidenceCoordinator.drain()
+            frameCount += 1
+            predictionCount += 1
+            lastTimestamp = timestamp
+        }
+
+        guard reader.status == .completed else {
+            throw reader.error ?? SavedVideoSimulationError.readerFailed
+        }
+        if let event = eventDecoder.flush() {
+            recordingCoordinator.record(event)
+            evidenceCoordinator.record(event)
+        }
+        recordingCoordinator.drain()
+        evidenceCoordinator.finish()
+        evidenceCoordinator.drain()
+        guard frameCount > 0, predictionCount > 0 else {
+            throw SavedVideoSimulationError.noFrames
+        }
+        guard let evidenceRecordingCorrelationID = evidenceCoordinator.legacyCaptureSessionID else {
+            throw SavedVideoSimulationError.missingEvidenceRecordingCorrelation
+        }
+
+        let bundleURL = try waitForRecordingStop(recordingCoordinator)
+        let manifestData = try Data(
+            contentsOf: bundleURL.appendingPathComponent("manifest.json")
+        )
+        let predictionsData = try Data(
+            contentsOf: bundleURL.appendingPathComponent("\(videoID).json")
+        )
+        let manifest = try JSONDecoder().decode(TrainingRecordingManifest.self, from: manifestData)
+        _ = try validateTrainingRecordingBundle(
+            manifestData: manifestData,
+            predictionsData: predictionsData,
+            videoURL: bundleURL.appendingPathComponent(manifest.video.name)
+        )
+        let evidenceDiagnostics = try evidenceStore.recover()
+
+        try printJSON([
+            "action": "simulate-recording",
+            "recording_id": recordingID,
+            "session_id": sessionID,
+            "video_id": videoID,
+            "recording_directory": bundleURL.path,
+            "evidence_root": evidenceRoot.path,
+            "evidence_package_count": evidenceDiagnostics.queuedCount,
+            "evidence_recording_correlation_id": evidenceRecordingCorrelationID,
+            "evidence_canonical_session_id": captureSession.sessionID.uuidString.lowercased(),
+            "input_frame_count": frameCount,
+            "prediction_sample_count": manifest.predictions.sampleCount,
+            "event_proposal_count": manifest.predictions.eventProposalCount,
+            "input_duration_s": CMTimeGetSeconds(asset.duration),
+            "recording_duration_s": manifest.durationS,
+            "last_input_timestamp_s": CMTimeGetSeconds(lastTimestamp),
+            "recording_video_sha256": manifest.video.sha256,
+            "recording_predictions_sha256": manifest.predictions.sha256,
+            "recording_metrics": [
+                "received_frame_count": manifest.captureMetrics.receivedFrameCount,
+                "written_frame_count": manifest.captureMetrics.writtenFrameCount,
+                "dropped_frame_count": manifest.captureMetrics.droppedFrameCount,
+            ],
+        ])
+    }
+
+    private static func uploadRecordings(
+        _ options: Options,
+        retryFailed: Bool
+    ) async throws {
+        let root = try options.requiredRoot
+        let server = try options.requiredServer
+        let store = TrainingRecordingStore(root: root)
+        let client = try TrainingRecordingUploadClient(
+            session: makeSession(),
+            bodyDirectory: root
+        )
+        let queue = TrainingRecordingUploadQueue(store: store, client: client)
+        let configuration = try BackendConfiguration(baseURL: server)
+        let attempts = retryFailed
+            ? await queue.retryFailed(using: configuration)
+            : await queue.uploadQueued(using: configuration)
+
+        try printJSON([
+            "action": retryFailed ? "retry-recording" : "upload-recording",
+            "attempts": attempts.map(recordingAttemptObject),
+            "diagnostics": recordingDiagnosticsObject(store.diagnostics),
+        ])
+    }
+
+    private static func waitForRecordingStop(
+        _ coordinator: TrainingRecordingCoordinator
+    ) throws -> URL {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Result<URL, Error>?
+        coordinator.stop { received in
+            result = received
+            semaphore.signal()
+        }
+        guard semaphore.wait(timeout: .now() + 30) == .success else {
+            throw SavedVideoSimulationError.finalizationTimedOut
+        }
+        return try result?.get() ?? {
+            throw SavedVideoSimulationError.finalizationMissing
+        }()
+    }
+
+    private static func simulatedProbability(frameIndex: Int) -> Double {
+        switch frameIndex % 10 {
+        case 2, 3:
+            return 0.9
+        default:
+            return 0.1
+        }
     }
 
     private static func readResult(_ options: Options) async throws {
@@ -222,8 +493,43 @@ struct LocalPipelineClient {
         return object
     }
 
+    private static func recordingAttemptObject(
+        _ attempt: TrainingRecordingUploadAttempt
+    ) -> [String: Any] {
+        var object: [String: Any] = [
+            "recording_id": attempt.recordingID,
+            "disposition": attempt.disposition.rawValue,
+        ]
+        if let response = attempt.response {
+            object["created"] = response.created
+            object["state"] = response.state
+        }
+        if let failure = attempt.failure {
+            object["failure_kind"] = failure.kind.rawValue
+            object["failure_message"] = failure.message
+            if let statusCode = failure.statusCode {
+                object["status_code"] = statusCode
+            }
+        }
+        return object
+    }
+
     private static func diagnosticsObject(
         _ diagnostics: EvidencePackageQueueDiagnostics
+    ) -> [String: Any] {
+        [
+            "staging": diagnostics.stagingCount,
+            "queued": diagnostics.queuedCount,
+            "acknowledged": diagnostics.acknowledgedCount,
+            "failed": diagnostics.failedCount,
+            "corrupt": diagnostics.corruptCount,
+            "retryable_failures": diagnostics.retryableFailureCount,
+            "permanent_failures": diagnostics.permanentFailureCount,
+        ]
+    }
+
+    private static func recordingDiagnosticsObject(
+        _ diagnostics: TrainingRecordingQueueDiagnostics
     ) -> [String: Any] {
         [
             "staging": diagnostics.stagingCount,
@@ -245,8 +551,11 @@ struct LocalPipelineClient {
 private struct Options {
     enum Action: String {
         case create
+        case simulateRecording = "simulate-recording"
         case upload
         case retry
+        case uploadRecording = "upload-recording"
+        case retryRecording = "retry-recording"
         case result
     }
 
@@ -256,6 +565,10 @@ private struct Options {
     let server: URL?
     let variants: [PackageVariant]
     let packageID: UUID?
+    let inputVideo: URL?
+    let recordingID: String?
+    let sessionID: String?
+    let videoID: String?
 
     init(arguments: [String]) throws {
         guard let actionValue = arguments.first, let action = Action(rawValue: actionValue) else {
@@ -267,6 +580,10 @@ private struct Options {
         var server: URL?
         var variants: [PackageVariant] = []
         var packageID: UUID?
+        var inputVideo: URL?
+        var recordingID: String?
+        var sessionID: String?
+        var videoID: String?
         var index = 1
         while index < arguments.count {
             let argument = arguments[index]
@@ -296,6 +613,14 @@ private struct Options {
                     throw OptionsError.invalidValue(argument)
                 }
                 packageID = value
+            case "--input-video":
+                inputVideo = URL(fileURLWithPath: arguments[index + 1]).standardizedFileURL
+            case "--recording-id":
+                recordingID = arguments[index + 1]
+            case "--session-id":
+                sessionID = arguments[index + 1]
+            case "--video-id":
+                videoID = arguments[index + 1]
             default:
                 throw OptionsError.invalidValue(argument)
             }
@@ -305,12 +630,19 @@ private struct Options {
         if action == .create, variants.isEmpty {
             throw OptionsError.missingValue("--variant")
         }
+        if action == .simulateRecording, inputVideo == nil {
+            throw OptionsError.missingValue("--input-video")
+        }
         self.action = action
         self.root = root
         self.fixturesRoot = fixturesRoot
         self.server = server
         self.variants = variants
         self.packageID = packageID
+        self.inputVideo = inputVideo
+        self.recordingID = recordingID
+        self.sessionID = sessionID
+        self.videoID = videoID
     }
 
     var requiredRoot: URL {
@@ -333,6 +665,13 @@ private struct Options {
             return server
         }
     }
+
+    var requiredInputVideo: URL {
+        get throws {
+            guard let inputVideo else { throw OptionsError.missingValue("--input-video") }
+            return inputVideo
+        }
+    }
 }
 
 private enum OptionsError: LocalizedError {
@@ -343,11 +682,43 @@ private enum OptionsError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .usage:
-            return "Usage: create, upload, retry, or result with the required options."
+            return "Usage: create, simulate-recording, upload, retry, upload-recording, retry-recording, or result with the required options."
         case let .missingValue(option):
             return "Missing value for \(option)."
         case let .invalidValue(value):
             return "Invalid command-line value: \(value)."
+        }
+    }
+}
+
+private enum SavedVideoSimulationError: LocalizedError {
+    case videoTrackMissing(URL)
+    case cannotAddReaderOutput
+    case readerStartFailed
+    case readerFailed
+    case noFrames
+    case missingEvidenceRecordingCorrelation
+    case finalizationTimedOut
+    case finalizationMissing
+
+    var errorDescription: String? {
+        switch self {
+        case let .videoTrackMissing(url):
+            return "The saved video has no video track: \(url.path)."
+        case .cannotAddReaderOutput:
+            return "The saved-video reader could not add its pixel-buffer output."
+        case .readerStartFailed:
+            return "The saved-video reader could not start."
+        case .readerFailed:
+            return "The saved-video reader failed while reading frames."
+        case .noFrames:
+            return "The saved video did not produce any frames or predictions."
+        case .missingEvidenceRecordingCorrelation:
+            return "The simulated evidence package has no recording correlation ID."
+        case .finalizationTimedOut:
+            return "The saved-video recording did not finish within 30 seconds."
+        case .finalizationMissing:
+            return "The saved-video recording finished without a result."
         }
     }
 }

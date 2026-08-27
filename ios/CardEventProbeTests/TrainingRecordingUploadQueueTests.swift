@@ -62,6 +62,8 @@ final class TrainingRecordingUploadQueueTests: XCTestCase {
 
         XCTAssertEqual(failed.first?.disposition, .retryableFailure)
         XCTAssertEqual(store.diagnostics.failedCount, 1)
+        XCTAssertNotNil(store.failure(for: "recording-fixture-001"))
+        XCTAssertNil(store.failure(for: "recording-fixture-002"))
         XCTAssertTrue(FileManager.default.fileExists(
             atPath: store.recordingURL(for: "recording-fixture-001", in: .failed).path
         ))

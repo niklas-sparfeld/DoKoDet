@@ -52,9 +52,7 @@ No epics.
 
 ### In Progress
 
-| Epic | Outcome |
-| --- | --- |
-| [0019 — App training recordings](3-in-progress/0019-App_TrainingRecordings.md) | Add deliberate recording intake. |
+No epics.
 
 ### Blocked
 
@@ -81,6 +79,7 @@ No epics.
 | [0016 — iOS evidence-upload integration](5-closed/0016-iOS_EvidenceUpload_Integration.md) | Complete | Local iOS-to-backend-to-detector pipeline. |
 | [0017 — iOS evidence-upload production readiness](5-closed/0017-iOS_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | iOS hardening reference. |
 | [0018 — Backend evidence-upload production readiness](5-closed/0018-Backend_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | Backend hardening reference. |
+| [0019 — App training recordings](5-closed/0019-App_TrainingRecordings.md) | Complete | Deliberate recording intake and local end-to-end workflow. |
 | [0020 — Data foundation](5-closed/0020-Data_Foundation.md) | Complete | Shared source, annotation, review, dataset, split, and lifecycle-receipt foundation. |
 
 ## Near-term delivery sequence
@@ -92,11 +91,10 @@ No epics.
 3. Start 0025 in parallel. It adds bounded video snippets without waiting for tracking research.
 4. Continue 0021 after the 0020 dataset contract is usable. Export identity candidates as the first
    declared TableEvidenceAnalyzer capability.
-5. Continue 0019 Phase 0 now that the 0020 source-data contract and lifecycle are complete.
-6. Specify 0022 after reviewed frames and snippets provide its entry measurements.
-7. Specify 0023 after 0006 records search, ambiguity, and feature-ablation measurements.
-8. Specify 0026 after focused review cases and correction behavior are measured.
-9. Specify 0024 only after end-to-end product and operational measurements exist.
+5. Specify 0022 after reviewed frames and snippets provide its entry measurements.
+6. Specify 0023 after 0006 records search, ambiguity, and feature-ablation measurements.
+7. Specify 0026 after focused review cases and correction behavior are measured.
+8. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 

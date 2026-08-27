@@ -368,9 +368,7 @@ public final class TrainingRecordingUploadClient: @unchecked Sendable {
         let expectedID = recordingURL.lastPathComponent
         let decoded: TrainingRecordingUploadResponse
         do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            decoded = try decoder.decode(TrainingRecordingUploadResponse.self, from: data)
+            decoded = try Self.decoder.decode(TrainingRecordingUploadResponse.self, from: data)
         } catch {
             throw TrainingRecordingUploadError.invalidResponseBody(error.localizedDescription)
         }
@@ -382,6 +380,29 @@ public final class TrainingRecordingUploadClient: @unchecked Sendable {
         }
         return decoded
     }
+
+    private static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: value) {
+                return date
+            }
+            formatter.formatOptions = [.withInternetDateTime]
+            guard let date = formatter.date(from: value) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "received_at must be an RFC 3339 timestamp."
+                )
+            }
+            return date
+        }
+        return decoder
+    }()
 
     public static func failureKind(for error: Error) -> TrainingRecordingFailureKind {
         if let uploadError = error as? TrainingRecordingUploadError {

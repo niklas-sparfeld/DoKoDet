@@ -3,10 +3,13 @@
 ## Plan status
 
 - Summary: Record live video and model predictions, upload them, and import them into CardEventNet
-- Status: In Progress
+- Status: Closed
+- Closure reason: Complete
+- Closure note: The local saved-video workflow passes from capture through retry, backend intake,
+  CardEventNet import, proposal review entry, and frame-cache preparation.
 - Depends on: completed plans 0003, 0004, and 0014; completed plan 0016; and the completed shared
   source-data and lifecycle contract from plan 0020.
-- Current phase: Phase 5 — Prove the local end-to-end workflow
+- Current phase: Complete
 - Boundary: This plan owns recording capture, upload, and immutable intake. The data-foundation
   [plan](../5-closed/0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
   promotion.
@@ -435,6 +438,13 @@ Acceptance:
 - evidence packages from the recording use the same recording ID and canonical session ID;
 - the imported recording passes `cardevent prepare`;
 - no phone, Docker service, or cloud resource is required for the automated gate.
+
+Progress (2026-08-27): Added a saved-video simulator to the Swift local pipeline client. It reads
+decoded frames through the same recorder, prediction, event-decoder, evidence, and upload
+interfaces used by live capture. The end-to-end gate generates a short H.264 fixture, simulates a
+connection failure and retry, checks session and recording identities, verifies hashes after
+backend storage and CardEventNet import, seeds the proposal review path, and runs `cardevent
+prepare` without a phone, Docker service, or cloud resource.
 
 ## 7. Required tests and checks
 

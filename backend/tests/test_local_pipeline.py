@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -14,6 +16,7 @@ from uuid import UUID
 
 import httpx
 import pytest
+import yaml
 
 from dokodetector_backend.repository import upgrade_database
 
@@ -246,6 +249,258 @@ def test_ios_client_reaches_scripted_detector_over_local_http(
     assert result["results"][0]["status"] == "uncertain"
     assert result["results"][0]["candidate_count"] == 2
     assert result["direct_result_status"] == "uncertain"
+
+
+def test_saved_video_recording_runs_through_import_and_prepare(
+    local_backend: LocalBackend,
+    tmp_path: Path,
+) -> None:
+    """Prove a generated saved video uses the live recording and import interfaces."""
+
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        pytest.skip("ffmpeg is required to generate the short local video fixture")
+
+    source_video = tmp_path / "saved-input.mov"
+    subprocess.run(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=160x96:rate=10",
+            "-t",
+            "0.6",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            os.fspath(source_video),
+        ],
+        check=True,
+        cwd=REPOSITORY_ROOT,
+    )
+
+    client_root = tmp_path / "simulator-client"
+    simulation = run_ios(
+        "simulate-recording",
+        "--input-video",
+        source_video,
+        "--root",
+        client_root,
+        "--recording-id",
+        "recording-phase5-sim",
+        "--session-id",
+        "550e8400-e29b-41d4-a716-446655440010",
+        "--video-id",
+        "video-phase5-sim",
+    )
+    assert simulation["input_frame_count"] == simulation["prediction_sample_count"]
+    assert simulation["event_proposal_count"] == 1
+    assert simulation["evidence_package_count"] == 1
+    assert simulation["recording_metrics"]["received_frame_count"] == 6
+    assert abs(simulation["input_duration_s"] - simulation["recording_duration_s"]) <= 0.1 + 1e-6
+
+    local_backend.stop()
+    failed = run_ios(
+        "upload-recording",
+        "--root",
+        client_root / "training",
+        "--server",
+        local_backend.base_url,
+    )
+    assert failed["attempts"][0]["disposition"] == "retryableFailure"
+    assert failed["diagnostics"]["retryable_failures"] == 1
+
+    local_backend.start()
+    uploaded = run_ios(
+        "retry-recording",
+        "--root",
+        client_root / "training",
+        "--server",
+        local_backend.base_url,
+    )
+    assert uploaded["attempts"][0]["disposition"] == "acknowledged", uploaded
+    assert uploaded["diagnostics"]["acknowledged"] == 1
+
+    evidence_uploaded = run_ios(
+        "upload",
+        "--root",
+        client_root / "evidence",
+        "--server",
+        local_backend.base_url,
+    )
+    assert evidence_uploaded["attempts"][0]["disposition"] == "acknowledged"
+
+    recording_id = "recording-phase5-sim"
+    session_id = "550e8400-e29b-41d4-a716-446655440010"
+    with httpx.Client(base_url=local_backend.base_url, timeout=5) as client:
+        recording_response = client.get(f"/v1/training-recordings/{recording_id}")
+    assert recording_response.status_code == 200
+    recording_metadata = recording_response.json()
+    assert recording_metadata["session_id"] == session_id
+    assert recording_metadata["evidence_package_count"] == 1
+    assert recording_metadata["video"]["sha256"] == simulation["recording_video_sha256"]
+    assert recording_metadata["predictions"]["sha256"] == simulation["recording_predictions_sha256"]
+
+    backend_recording = local_backend.evidence_root / "training-recordings" / recording_id
+    backend_manifest_path = backend_recording / "manifest.json"
+    backend_manifest = json.loads(backend_manifest_path.read_text(encoding="utf-8"))
+    backend_video = backend_recording / "videos" / backend_manifest["video"]["name"]
+    backend_predictions = (
+        backend_recording / "predictions" / backend_manifest["predictions"]["name"]
+    )
+    assert (
+        hashlib.sha256(backend_video.read_bytes()).hexdigest()
+        == backend_manifest["video"]["sha256"]
+    )
+    assert (
+        hashlib.sha256(backend_predictions.read_bytes()).hexdigest()
+        == backend_manifest["predictions"]["sha256"]
+    )
+
+    metadata_path = tmp_path / "completed-dataset-record.yaml"
+    metadata_path.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "cardevent-video-metadata/v1",
+                "videos": [
+                    {
+                        "video_id": "video-phase5-sim",
+                        "file_name": "video-phase5-sim.mov",
+                        "content_type": "staged_scenario",
+                        "session_id": session_id,
+                        "game_id": None,
+                        "recording_date": backend_manifest["started_at_utc"],
+                        "device": "macOS-simulator",
+                        "camera": "back",
+                        "resolution": "160x96",
+                        "frame_rate": backend_manifest["video"]["frame_rate"],
+                        "duration_s": backend_manifest["duration_s"],
+                        "orientation": "landscape",
+                        "camera_view": "overhead",
+                        "camera_motion": "fixed",
+                        "camera_framing": "table_fills_frame",
+                        "table_setup": "setup-phase5-sim",
+                        "lighting": [],
+                        "background": "fixture",
+                        "card_deck": None,
+                        "scenario_tags": [],
+                        "known_limitations": ["no_game_decisions"],
+                        "source": "self_recorded",
+                        "annotation_version": None,
+                        "source_permission": "training_and_evaluation",
+                        "notes": "Complete operator-approved simulator metadata.",
+                    }
+                ],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    imported_videos = tmp_path / "cardevent" / "data" / "raw"
+    imported_predictions = tmp_path / "cardevent" / "data" / "device-predictions"
+    imported_manifest = tmp_path / "cardevent" / "data" / "dataset-manifest.yaml"
+    imported_receipt = tmp_path / "cardevent" / "data" / "recording-import-receipt.json"
+    run_cardevent(
+        "import-recording",
+        "--recording-dir",
+        backend_recording,
+        "--videos-dir",
+        imported_videos,
+        "--predictions-dir",
+        imported_predictions,
+        "--metadata",
+        metadata_path,
+        "--manifest",
+        imported_manifest,
+        "--receipt",
+        imported_receipt,
+    )
+    imported_video = imported_videos / "video-phase5-sim.mov"
+    imported_prediction = imported_predictions / "video-phase5-sim.json"
+    assert (
+        hashlib.sha256(imported_video.read_bytes()).hexdigest()
+        == backend_manifest["video"]["sha256"]
+    )
+    assert (
+        hashlib.sha256(imported_prediction.read_bytes()).hexdigest()
+        == backend_manifest["predictions"]["sha256"]
+    )
+
+    prediction_payload = json.loads(imported_prediction.read_text(encoding="utf-8"))
+    annotation_dir = tmp_path / "cardevent" / "data" / "annotations"
+    annotation_dir.mkdir(parents=True)
+    annotation_dir.joinpath("video-phase5-sim.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "cardevent-annotation/v2",
+                "video": "video-phase5-sim.mov",
+                "events": [
+                    {
+                        "time_s": proposal["time_s"],
+                        "type": "card_played",
+                        "confidence": "proposed",
+                        "notes": "Seeded from device proposal for the local gate.",
+                    }
+                    for proposal in prediction_payload["event_proposals"]
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    cache_root = tmp_path / "cardevent" / "data" / "cache"
+    run_cardevent(
+        "prepare",
+        "--videos",
+        imported_video,
+        "--annotations-dir",
+        annotation_dir,
+        "--cache-dir",
+        cache_root,
+        "--cache-fps",
+        "10",
+        "--size",
+        "32",
+    )
+    cache_metadata = json.loads(
+        (cache_root / "video-phase5-sim" / "metadata.json").read_text(encoding="utf-8")
+    )
+    assert cache_metadata["frame_timestamps_s"]
+
+
+def run_cardevent(*arguments: object) -> subprocess.CompletedProcess[str]:
+    """Run the CardEventNet CLI with the repository's managed Python toolchain."""
+
+    command = [
+        "mise",
+        "exec",
+        "--",
+        "uv",
+        "run",
+        "--project",
+        "card_event_net",
+        "cardevent",
+        *(
+            os.fspath(argument) if isinstance(argument, os.PathLike) else str(argument)
+            for argument in arguments
+        ),
+    ]
+    return subprocess.run(
+        command,
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
 
 
 def run_ios(*arguments: object) -> dict[str, Any]:

@@ -826,7 +826,7 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
                 videoURL: videoURL
             )
         } catch {
-            throw TrainingRecordingError.validationFailed(error.localizedDescription)
+            throw TrainingRecordingError.validationFailed(String(describing: error))
         }
 
         guard !fileManager.fileExists(atPath: finalDirectory.path) else {
@@ -919,7 +919,7 @@ private final class StreamingDevicePredictionsWriter {
         self.eventHandle = eventHandle
 
         var prefix = Data(
-            "{\"schema_version\":\"\(devicePredictionsSchemaVersion)\",\"source_video\":\"".utf8
+            "{\"schema_version\":\"\(devicePredictionsSchemaVersion)\",\"source_video\":".utf8
         )
         let sourceVideoData = try encoder.encode(sourceVideo)
         prefix.append(sourceVideoData)

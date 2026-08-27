@@ -145,6 +145,16 @@ uv run cardevent annotate data/raw/<video-id>.mov \
   --proposals data/device-predictions/<video-id>.json
 ```
 
+For the local end-to-end gate, generate a short saved-video recording with the macOS simulator
+client, upload it with the durable recording queue, and then use the import command above:
+
+```bash
+swift run --package-path ../ios CardEventProbeLocalPipeline simulate-recording \
+  --input-video path/to/saved-video.mov --root /tmp/cardevent-recording
+swift run --package-path ../ios CardEventProbeLocalPipeline upload-recording \
+  --root /tmp/cardevent-recording/training --server http://127.0.0.1:8000
+```
+
 ## Cache and split
 
 Prepare the annotated videos from `card_event_net/`:
