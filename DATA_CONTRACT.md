@@ -173,3 +173,16 @@ report directory. Coverage includes event decisions, visible-card identities, vi
 quality tags, crop sizes, selected frames, snippets, tracklets, source metadata, and every
 unassigned or excluded item. These reports guide data collection. They do not rebalance a sealed
 evaluation set.
+
+## Training recording bundle
+
+Plan 0019 uses the versioned schemas in:
+
+- `schemas/training-recording/recording-manifest-v1.schema.json` for the complete recording bundle;
+- `schemas/training-recording/device-predictions-v1.schema.json` for device proposals and raw
+  probability samples.
+
+The small bundle in `fixtures/training-recording/v1/recording-fixture-001/` is the cross-component
+contract fixture. Its video and prediction bytes are immutable inputs. The manifest records their
+lengths and SHA-256 digests. Device predictions are provenance and event proposals, not human
+annotations or training labels.

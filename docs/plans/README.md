@@ -55,12 +55,11 @@ No epics.
 | Epic | Outcome |
 | --- | --- |
 | [0020 — Data foundation](3-in-progress/0020-Data_Foundation.md) | Establish the shared data lifecycle. |
+| [0019 — App training recordings](3-in-progress/0019-App_TrainingRecordings.md) | Add deliberate recording intake. |
 
 ### Blocked
 
-| Epic | Depends on | Outcome |
-| --- | --- | --- |
-| [0019 — App training recordings](4-blocked/0019-App_TrainingRecordings.md) | 0016 and the 0020 source-data contract | Add deliberate recording intake. |
+No epics.
 
 ### Closed
 
@@ -93,7 +92,8 @@ No epics.
 3. Start 0025 in parallel. It adds bounded video snippets without waiting for tracking research.
 4. Continue 0021 after the 0020 dataset contract is usable. Export identity candidates as the first
    declared TableEvidenceAnalyzer capability.
-5. Move 0019 to `Ready` after 0016 and the 0020 source-data contract are complete.
+5. Continue 0019 Phase 0 after the 0020 M1 source-data contract is complete; 0020 M3 can proceed in
+   parallel.
 6. Specify 0022 after reviewed frames and snippets provide its entry measurements.
 7. Specify 0023 after 0006 records search, ambiguity, and feature-ablation measurements.
 8. Specify 0026 after focused review cases and correction behavior are measured.

@@ -49,6 +49,8 @@ let package = Package(
                 "Core/ModelPrediction.swift",
                 "Core/ModelPreprocessing.swift",
                 "Core/SessionLog.swift",
+                "Core/TrainingRecording.swift",
+                "Core/TrainingRecordingCoordinator.swift",
                 "Inference/CardEventTensorBuilder.swift",
                 "Inference/VideoFrame.swift",
                 "Networking/BackendService.swift",

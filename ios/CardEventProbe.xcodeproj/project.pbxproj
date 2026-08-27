@@ -50,6 +50,8 @@
 		A00000000000000000000029 /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000029 /* BackendConfiguration.swift */; };
 		A0000000000000000000002A /* EvidenceResultClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002A /* EvidenceResultClient.swift */; };
 		A0000000000000000000002B /* EvidenceUploadQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002B /* EvidenceUploadQueue.swift */; };
+		A0000000000000000000002C /* TrainingRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002C /* TrainingRecording.swift */; };
+		A0000000000000000000002D /* TrainingRecordingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002D /* TrainingRecordingCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -97,6 +99,8 @@
 		B00000000000000000000029 /* BackendConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendConfiguration.swift; sourceTree = "<group>"; };
 		B0000000000000000000002A /* EvidenceResultClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceResultClient.swift; sourceTree = "<group>"; };
 		B0000000000000000000002B /* EvidenceUploadQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceUploadQueue.swift; sourceTree = "<group>"; };
+		B0000000000000000000002C /* TrainingRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingRecording.swift; sourceTree = "<group>"; };
+		B0000000000000000000002D /* TrainingRecordingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingRecordingCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -194,6 +198,8 @@
 		D00000000000000000000007 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				B0000000000000000000002C /* TrainingRecording.swift */,
+				B0000000000000000000002D /* TrainingRecordingCoordinator.swift */,
 				B00000000000000000000017 /* ModelPreprocessing.swift */,
 				B00000000000000000000019 /* InferenceSamplingPolicy.swift */,
 				B00000000000000000000009 /* ModelPrediction.swift */,
@@ -367,6 +373,8 @@
 				A0000000000000000000000D /* LiveDetectionView.swift in Sources */,
 				A0000000000000000000000E /* ReplayView.swift in Sources */,
 				A0000000000000000000000F /* RootView.swift in Sources */,
+				A0000000000000000000002C /* TrainingRecording.swift in Sources */,
+				A0000000000000000000002D /* TrainingRecordingCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

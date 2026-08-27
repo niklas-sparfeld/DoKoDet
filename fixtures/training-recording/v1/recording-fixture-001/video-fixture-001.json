@@ -1,0 +1,24 @@
+{
+  "schema_version": "cardevent-device-predictions/v1",
+  "source_video": "video-fixture-001.mov",
+  "model": {
+    "name": "CardEventNet",
+    "version": "transition-v2",
+    "weights_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "preprocessing": "full-frame-letterbox-v1"
+  },
+  "decoder": {
+    "algorithm": "causal-peak-v1",
+    "threshold": 0.5,
+    "peak_confirmation_s": 0.125,
+    "minimum_event_gap_s": 0.625
+  },
+  "probabilities": [
+    {"time_s": 0.0, "probability": 0.1, "inference_ms": 10.5},
+    {"time_s": 0.125, "probability": 0.8, "inference_ms": 11.0},
+    {"time_s": 0.25, "probability": 0.2, "inference_ms": 10.8}
+  ],
+  "event_proposals": [
+    {"time_s": 0.125, "emitted_at_s": 0.25, "probability": 0.8}
+  ]
+}

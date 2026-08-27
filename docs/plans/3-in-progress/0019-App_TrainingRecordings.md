@@ -3,11 +3,12 @@
 ## Plan status
 
 - Summary: Record live video and model predictions, upload them, and import them into CardEventNet
-- Status: Blocked
-- Depends on: completed plans 0003, 0004, and 0014; plan 0016; and the source-data contract from
-  [plan 0020](../3-in-progress/0020-Data_Foundation.md)
+- Status: In Progress
+- Depends on: completed plans 0003, 0004, and 0014; completed plan 0016; and the shared source-data
+  contract from plan 0020 (M1, complete). Plan 0020 M3 can proceed in parallel.
+- Current phase: Phase 2 — Add app state, durable queue, and upload
 - Boundary: This plan owns recording capture, upload, and immutable intake. The data-foundation
-  [plan](../3-in-progress/0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
+  [plan](0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
   promotion.
 
 ## 1. Outcome
@@ -303,6 +304,10 @@ uv run cardevent split --manifest data/dataset-manifest.yaml --group-by session_
 Add JSON schemas for the recording manifest and device prediction file. Add one small fixture bundle
 with deterministic hashes. The fixture may use a generated short video.
 
+Progress (2026-08-27): The versioned schemas, deterministic fixture, and contract validators are
+implemented in Swift, the backend, and CardEventNet. The Python contract tests and full suites pass.
+The Swift core package builds; XCTest execution remains pending a toolchain with XCTest support.
+
 Add contract tests in Swift, the backend, and CardEventNet. Each component must accept the same
 fixture and reject the same malformed variants.
 
@@ -330,6 +335,11 @@ Acceptance:
 - a slow or failed recorder cannot block inference;
 - start, stop, duplicate stop, writer failure, dropped frame, and finalization tests pass;
 - the output bundle validates against the shared fixture contract.
+
+Progress (2026-08-27): Added `TrainingRecordingCoordinator` with one bounded frame slot, a serial
+`AVAssetWriter` path, streaming device-prediction JSON, failure metrics, and atomic bundle
+finalization. The writer is injected behind a protocol for local unit tests. The Swift package
+build passes. XCTest execution remains pending a toolchain with XCTest support.
 
 ### Phase 2: Add app state, durable queue, and upload
 

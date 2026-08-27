@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/recording-manifest-v1.schema.json",
+  "title": "DokoDetector training recording manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "recording_id",
+    "session_id",
+    "video_id",
+    "started_at_utc",
+    "ended_at_utc",
+    "duration_s",
+    "state",
+    "video",
+    "predictions",
+    "model",
+    "decoder",
+    "camera",
+    "client",
+    "capture_metrics",
+    "source",
+    "source_permission"
+  ],
+  "properties": {
+    "schema_version": {"const": "cardevent-recording/v1"},
+    "recording_id": {"$ref": "#/$defs/identifier"},
+    "session_id": {"$ref": "#/$defs/identifier"},
+    "video_id": {"$ref": "#/$defs/identifier"},
+    "started_at_utc": {"$ref": "#/$defs/utc_timestamp"},
+    "ended_at_utc": {"$ref": "#/$defs/utc_timestamp"},
+    "duration_s": {"type": "number", "exclusiveMinimum": 0},
+    "state": {"const": "complete"},
+    "video": {"$ref": "#/$defs/video_file"},
+    "predictions": {"$ref": "#/$defs/predictions_file"},
+    "model": {"$ref": "#/$defs/model"},
+    "decoder": {"$ref": "#/$defs/decoder"},
+    "camera": {"$ref": "#/$defs/camera"},
+    "client": {"$ref": "#/$defs/client"},
+    "capture_metrics": {"$ref": "#/$defs/capture_metrics"},
+    "source": {"const": "self_recorded"},
+    "source_permission": {
+      "enum": ["training_only", "training_and_evaluation", "project_use", "unrestricted"]
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "filename": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "utc_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "byte_length", "sha256"],
+      "properties": {
+        "name": {"$ref": "#/$defs/filename"},
+        "type": {"type": "string", "minLength": 1},
+        "byte_length": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "video_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name", "type", "byte_length", "sha256", "codec", "width", "height", "frame_rate"
+      ],
+      "properties": {
+        "name": {"$ref": "#/$defs/filename"},
+        "type": {"const": "video/quicktime"},
+        "byte_length": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "codec": {"const": "h264"},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "frame_rate": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "predictions_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name", "type", "byte_length", "sha256", "sample_count", "event_proposal_count"
+      ],
+      "properties": {
+        "name": {"$ref": "#/$defs/filename"},
+        "type": {"const": "application/json"},
+        "byte_length": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "sample_count": {"type": "integer", "minimum": 0},
+        "event_proposal_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "weights_sha256", "preprocessing"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "weights_sha256": {"$ref": "#/$defs/sha256"},
+        "preprocessing": {"type": "string", "minLength": 1}
+      }
+    },
+    "decoder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "threshold",
+        "peak_confirmation_s",
+        "minimum_event_gap_s"
+      ],
+      "properties": {
+        "algorithm": {"type": "string", "minLength": 1},
+        "threshold": {"type": "number", "minimum": 0, "maximum": 1},
+        "peak_confirmation_s": {"type": "number", "minimum": 0},
+        "minimum_event_gap_s": {"type": "number", "minimum": 0}
+      }
+    },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "orientation", "source_width", "source_height"],
+      "properties": {
+        "position": {"enum": ["back", "front"]},
+        "orientation": {"type": "string", "minLength": 1},
+        "source_width": {"type": "integer", "minimum": 1},
+        "source_height": {"type": "integer", "minimum": 1}
+      }
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app_version", "build", "device_model", "os_version"],
+      "properties": {
+        "app_version": {"type": "string", "minLength": 1},
+        "build": {"type": "string", "minLength": 1},
+        "device_model": {"type": "string", "minLength": 1},
+        "os_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "capture_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["received_frame_count", "written_frame_count", "dropped_frame_count"],
+      "properties": {
+        "received_frame_count": {"type": "integer", "minimum": 0},
+        "written_frame_count": {"type": "integer", "minimum": 0},
+        "dropped_frame_count": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

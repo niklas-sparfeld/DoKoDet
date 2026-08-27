@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/device-predictions-v1.schema.json",
+  "title": "DokoDetector device predictions v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_video",
+    "model",
+    "decoder",
+    "probabilities",
+    "event_proposals"
+  ],
+  "properties": {
+    "schema_version": {"const": "cardevent-device-predictions/v1"},
+    "source_video": {"$ref": "#/$defs/filename"},
+    "model": {"$ref": "#/$defs/model"},
+    "decoder": {"$ref": "#/$defs/decoder"},
+    "probabilities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/probability"}
+    },
+    "event_proposals": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/event_proposal"}
+    }
+  },
+  "$defs": {
+    "filename": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "weights_sha256", "preprocessing"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "weights_sha256": {"$ref": "#/$defs/sha256"},
+        "preprocessing": {"type": "string", "minLength": 1}
+      }
+    },
+    "decoder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "threshold",
+        "peak_confirmation_s",
+        "minimum_event_gap_s"
+      ],
+      "properties": {
+        "algorithm": {"type": "string", "minLength": 1},
+        "threshold": {"type": "number", "minimum": 0, "maximum": 1},
+        "peak_confirmation_s": {"type": "number", "minimum": 0},
+        "minimum_event_gap_s": {"type": "number", "minimum": 0}
+      }
+    },
+    "probability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time_s", "probability", "inference_ms"],
+      "properties": {
+        "time_s": {"type": "number", "minimum": 0},
+        "probability": {"type": "number", "minimum": 0, "maximum": 1},
+        "inference_ms": {"type": "number", "minimum": 0}
+      }
+    },
+    "event_proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time_s", "emitted_at_s", "probability"],
+      "properties": {
+        "time_s": {"type": "number", "minimum": 0},
+        "emitted_at_s": {"type": "number", "minimum": 0},
+        "probability": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

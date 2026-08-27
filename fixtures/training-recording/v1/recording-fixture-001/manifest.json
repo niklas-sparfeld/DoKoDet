@@ -1,0 +1,59 @@
+{
+  "schema_version": "cardevent-recording/v1",
+  "recording_id": "recording-fixture-001",
+  "session_id": "session-fixture-001",
+  "video_id": "video-fixture-001",
+  "started_at_utc": "2026-08-27T10:00:00Z",
+  "ended_at_utc": "2026-08-27T10:00:00.300Z",
+  "duration_s": 0.3,
+  "state": "complete",
+  "video": {
+    "name": "video-fixture-001.mov",
+    "type": "video/quicktime",
+    "byte_length": 43,
+    "sha256": "e7c9c1160837cafcd97edca4f389bfa0c1e5e122cfb49487d110fa33890463d0",
+    "codec": "h264",
+    "width": 640,
+    "height": 360,
+    "frame_rate": 10.0
+  },
+  "predictions": {
+    "name": "video-fixture-001.json",
+    "type": "application/json",
+    "byte_length": 769,
+    "sha256": "2efc7eaff03e81c5e401f4d3a7bf8e804b7dde3120276351805934a9e9f41a8a",
+    "sample_count": 3,
+    "event_proposal_count": 1
+  },
+  "model": {
+    "name": "CardEventNet",
+    "version": "transition-v2",
+    "weights_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "preprocessing": "full-frame-letterbox-v1"
+  },
+  "decoder": {
+    "algorithm": "causal-peak-v1",
+    "threshold": 0.5,
+    "peak_confirmation_s": 0.125,
+    "minimum_event_gap_s": 0.625
+  },
+  "camera": {
+    "position": "back",
+    "orientation": "landscape",
+    "source_width": 640,
+    "source_height": 360
+  },
+  "client": {
+    "app_version": "0.1.0",
+    "build": "1",
+    "device_model": "fixture-mac",
+    "os_version": "macOS 15"
+  },
+  "capture_metrics": {
+    "received_frame_count": 3,
+    "written_frame_count": 3,
+    "dropped_frame_count": 0
+  },
+  "source": "self_recorded",
+  "source_permission": "training_and_evaluation"
+}
