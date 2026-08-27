@@ -7,7 +7,7 @@
 - Closure reason: Complete
 - Closure note: 2026-08-26. The annotation types, temporal labels, decoder, matching, calibration,
   review queue, session-aware splits, and diagnostics exist. Later experiments exercised them.
-  Remaining human review and data expansion move to [plan 0020](../3-in-progress/0020-Data_Foundation.md).
+  Remaining human review and data expansion move to [plan 0020](../5-closed/0020-Data_Foundation.md).
 
 ## Goal
 

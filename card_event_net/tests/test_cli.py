@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from cardevent.cli import build_parser, main
@@ -16,6 +17,8 @@ def test_root_help_lists_the_expected_commands() -> None:
     assert "inspect-dataset" in help_text
     assert "dataset-build" in help_text
     assert "dataset-validate" in help_text
+    assert "training-receipt" in help_text
+    assert "retire-source" in help_text
 
 
 def test_ingest_and_inspect_commands_parse_paths() -> None:
@@ -147,6 +150,36 @@ def test_table_dataset_commands_parse_contract_paths() -> None:
     assert split_args.dataset == Path("dataset.json")
     assert validate_args.command_name == "dataset-validate"
 
+    training_args = build_parser().parse_args(
+        [
+            "training-receipt",
+            "--dataset",
+            "dataset.json",
+            "--training-run-id",
+            "run-001",
+            "--out",
+            "run-receipt.json",
+        ]
+    )
+    retire_args = build_parser().parse_args(
+        [
+            "retire-source",
+            "--sources",
+            "sources.json",
+            "--source-asset-id",
+            "source-001",
+            "--reason",
+            "permission withdrawn",
+            "--out",
+            "sources-retired.json",
+        ]
+    )
+
+    assert training_args.command_name == "training-receipt"
+    assert training_args.training_run_id == "run-001"
+    assert retire_args.command_name == "retire-source"
+    assert retire_args.source_asset_id == ["source-001"]
+
 
 def test_vision_import_command_writes_table_observation_files(tmp_path: Path) -> None:
     evidence_root = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
@@ -163,9 +196,17 @@ def test_vision_import_command_writes_table_observation_files(tmp_path: Path) ->
     )
 
     assert exit_code == 0
-    files = sorted(output_dir.glob("*.json"))
-    assert len(files) == 2
-    assert all("table-observation-annotation/v1" in file.read_text() for file in files)
+    annotation_files = sorted(
+        file
+        for file in output_dir.glob("*.json")
+        if "table-observation-annotation/v1" in file.read_text()
+    )
+    assert len(annotation_files) == 2
+    receipt = json.loads(
+        (output_dir / "table-observation-import-receipt.json").read_text(encoding="utf-8")
+    )
+    assert receipt["schema_version"] == "lifecycle-receipt/v1"
+    assert receipt["receipt_type"] == "evidence_import"
 
 
 def test_train_command_parses_config_and_split() -> None:

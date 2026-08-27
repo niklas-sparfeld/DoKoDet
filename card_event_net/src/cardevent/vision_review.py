@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Sequence
 from uuid import uuid4
 
+from .lifecycle import build_annotation_application_receipt
 from .vision_annotation import (
     TABLE_OBSERVATION_SCHEMA_VERSION,
     TableObservationAnnotation,
@@ -285,25 +286,38 @@ def apply_table_observation_review(
         raise VisionReviewError("The review changes immutable annotation fields.")
 
     destination = Path(out_dir).resolve()
-    if destination.exists() and (
-        not destination.is_dir() or any(destination.iterdir())
-    ):
+    if destination.exists() and (not destination.is_dir() or any(destination.iterdir())):
         raise VisionReviewError(f"Output directory is not empty: {destination}")
     output_annotation = destination / f"{source.annotation_set_id}.json"
+    applied_at = _now()
+    review_sha256 = _sha256_file(review_file)
+    output_annotation_sha256 = _sha256(_annotation_bytes(review.reviewed_annotation))
+    lifecycle_receipt = build_annotation_application_receipt(
+        annotation_set_id=source.annotation_set_id,
+        review_id=review.review_id,
+        source_annotation_digest=canonical_source_hash,
+        output_annotation_digest=output_annotation_sha256,
+        review_digest=review_sha256,
+        event_decision=review.event_decision,
+        operator=review.reviewer,
+        receipt_id=f"receipt-{review.review_id}",
+        occurred_at=applied_at,
+    )
     receipt = {
         "schema_version": TABLE_OBSERVATION_APPLY_SCHEMA_VERSION,
         "apply_id": f"apply-{uuid4().hex}",
         "source_annotation": str(source_path),
         "source_annotation_sha256": source_hash,
         "review": str(review_file),
-        "review_sha256": _sha256_file(review_file),
+        "review_sha256": review_sha256,
         "review_id": review.review_id,
         "annotation_set_id": source.annotation_set_id,
         "event_decision": review.event_decision,
         "output_annotation": str(output_annotation),
         "output_schema_version": TABLE_OBSERVATION_SCHEMA_VERSION,
         "source_unchanged": True,
-        "applied_at": _now(),
+        "applied_at": applied_at,
+        "lifecycle_receipt": lifecycle_receipt.to_mapping(),
     }
     if dry_run:
         return receipt

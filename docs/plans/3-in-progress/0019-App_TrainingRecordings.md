@@ -4,11 +4,11 @@
 
 - Summary: Record live video and model predictions, upload them, and import them into CardEventNet
 - Status: In Progress
-- Depends on: completed plans 0003, 0004, and 0014; completed plan 0016; and the shared source-data
-  contract from plan 0020 (M1, complete). Plan 0020 M3 can proceed in parallel.
+- Depends on: completed plans 0003, 0004, and 0014; completed plan 0016; and the completed shared
+  source-data and lifecycle contract from plan 0020.
 - Current phase: Phase 5 — Prove the local end-to-end workflow
 - Boundary: This plan owns recording capture, upload, and immutable intake. The data-foundation
-  [plan](0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
+  [plan](../5-closed/0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
   promotion.
 
 ## 1. Outcome

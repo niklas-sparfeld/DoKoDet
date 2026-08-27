@@ -3,7 +3,10 @@
 ## Plan status
 
 - **Summary:** Make source, annotation, review, split, and lineage data reliable before analyzer work
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0 through M4 are complete. The shared data lifecycle, reviewed table-observation
+  path, deterministic dataset and split assembly, and lifecycle receipts are implemented and verified.
 - **Depends on:** None
 - **Reviewed:** 2026-08-27 against the glossary, current CardEventNet data tools, and local dataset
 - **Starts now:** In parallel with plans 0006 and 0025

@@ -75,9 +75,7 @@ def test_non_identifiable_observed_card_cannot_have_a_card_label() -> None:
             observed_card_id="observed-card-001",
             visual_card_identity="HEARTS_QUEEN",
             visibility="ambiguous_card",
-            frame_observations=(
-                FrameObservation("frame_04", None, False),
-            ),
+            frame_observations=(FrameObservation("frame_04", None, False),),
             became_newly_visible=False,
             active_area_class="uncertain",
         )
@@ -147,6 +145,7 @@ def test_review_and_apply_write_new_immutable_artifacts(tmp_path: Path) -> None:
     assert applied.review_state == "reviewed"
     assert applied.event_review == "confirmed_card_play"
     assert (tmp_path / "applied" / "table-observation-apply-receipt.json").is_file()
+    assert summary["lifecycle_receipt"]["receipt_type"] == "annotation_application"
 
     with pytest.raises(VisionReviewError, match="not empty"):
         apply_table_observation_review(source_path, review_path, out_dir=tmp_path / "applied")

@@ -7,7 +7,7 @@
 - **Closure reason:** Complete
 - **Closure note:** 2026-08-26. Ingestion, metadata, review, split, training, and diagnostic foundations
   exist. Ongoing sourcing, human annotation review, coverage expansion, and dataset promotion move
-  to [plan 0020](../3-in-progress/0020-Data_Foundation.md). This document remains the historical design record.
+  to [plan 0020](../5-closed/0020-Data_Foundation.md). This document remains the historical design record.
 
 ## Objective
 

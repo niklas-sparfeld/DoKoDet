@@ -186,6 +186,11 @@ inserted card play. A correction constraint does not modify source evidence or t
 A reconstruction result that a person confirmed through the review process. It records the source
 result and all applied correction constraints.
 
+### Lifecycle receipt
+
+An immutable record of one data operation and the source and versioned artifacts that it used or
+created. A lifecycle receipt does not change source bytes or make an annotation ground truth.
+
 ## Relationships
 
 - A game contains rounds. A round belongs to one game.

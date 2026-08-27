@@ -20,8 +20,20 @@ from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
 from .ingestion import IngestionError, ingest_dataset, inspect_dataset
-from .recording_import import RecordingImportError, import_recording
+from .lifecycle import (
+    LifecycleReceiptError,
+    build_dataset_creation_receipt,
+    build_evidence_import_receipt,
+    build_source_import_receipt,
+    build_split_creation_receipt,
+    build_training_run_receipt,
+    load_lifecycle_receipts,
+    retire_source_records,
+    save_lifecycle_receipt,
+    save_source_records,
+)
 from .manifest import ManifestError, load_dataset_manifest, make_group_split
+from .recording_import import RecordingImportError, import_recording
 from .review import (
     ReviewQueueError,
     ReviewSession,
@@ -89,6 +101,10 @@ _PLACEHOLDER_COMMANDS = {
     "dataset-split": "Create a group-safe split for a frozen table-observation dataset.",
     "dataset-validate": "Validate a frozen table-observation dataset and its lineage.",
     "dataset-coverage": "Write machine-readable and human-readable dataset coverage reports.",
+    "training-receipt": (
+        "Record the complete source, annotation, and review provenance of a model run."
+    ),
+    "retire-source": "Retire source assets and report affected derived artifacts and runs.",
 }
 
 
@@ -703,6 +719,13 @@ def build_parser() -> argparse.ArgumentParser:
     vision_import_parser.add_argument(
         "--out-dir", type=Path, required=True, help="New directory for table-observation files."
     )
+    vision_import_parser.add_argument("--operator", default="operator")
+    vision_import_parser.add_argument(
+        "--receipt",
+        type=Path,
+        default=None,
+        help="Lifecycle receipt path (default: inside the output directory).",
+    )
     vision_import_parser.set_defaults(command_name="vision-import")
 
     vision_review_parser = subparsers.add_parser(
@@ -754,6 +777,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dataset_build_parser.add_argument("--allowed-use", action="append", default=None)
     dataset_build_parser.add_argument("--creation-code-revision", default="working-tree")
+    dataset_build_parser.add_argument("--operator", default="operator")
+    dataset_build_parser.add_argument(
+        "--receipt",
+        type=Path,
+        default=None,
+        help="Lifecycle receipt path (default: inside the report directory).",
+    )
     dataset_build_parser.add_argument(
         "--clean", action="store_true", help="Mark the code revision clean."
     )
@@ -770,6 +800,13 @@ def build_parser() -> argparse.ArgumentParser:
     dataset_split_parser.add_argument("--out", type=Path, required=True)
     dataset_split_parser.add_argument("--split-version-id", required=True)
     dataset_split_parser.add_argument("--seed", type=int, default=42)
+    dataset_split_parser.add_argument("--operator", default="operator")
+    dataset_split_parser.add_argument(
+        "--receipt",
+        type=Path,
+        default=None,
+        help="Lifecycle receipt path (default: beside the split).",
+    )
     dataset_split_parser.add_argument("--force", action="store_true")
     dataset_split_parser.set_defaults(command_name="dataset-split")
 
@@ -801,6 +838,49 @@ def build_parser() -> argparse.ArgumentParser:
     dataset_coverage_parser.add_argument("--out-dir", type=Path, required=True)
     dataset_coverage_parser.add_argument("--force", action="store_true")
     dataset_coverage_parser.set_defaults(command_name="dataset-coverage")
+
+    training_receipt_parser = subparsers.add_parser(
+        "training-receipt",
+        aliases=("record-training-run",),
+        help=_PLACEHOLDER_COMMANDS["training-receipt"],
+        description=(
+            "Write model-run provenance with the dataset, split, source, annotation, and review "
+            "versions used."
+        ),
+    )
+    training_receipt_parser.add_argument("--dataset", type=Path, required=True)
+    training_receipt_parser.add_argument("--split", type=Path, default=None)
+    training_receipt_parser.add_argument("--training-run-id", required=True)
+    training_receipt_parser.add_argument("--model-bundle-id", default=None)
+    training_receipt_parser.add_argument("--derived-artifact-id", action="append", default=[])
+    training_receipt_parser.add_argument("--operator", default="operator")
+    training_receipt_parser.add_argument("--out", type=Path, required=True)
+    training_receipt_parser.add_argument("--force", action="store_true")
+    training_receipt_parser.set_defaults(command_name="training-receipt")
+
+    retire_parser = subparsers.add_parser(
+        "retire-source",
+        aliases=("retire-data",),
+        help=_PLACEHOLDER_COMMANDS["retire-source"],
+        description=(
+            "Write a new source-record state and a receipt for permission withdrawal or "
+            "retirement. Source bytes are never changed."
+        ),
+    )
+    retire_parser.add_argument("--sources", type=Path, required=True)
+    retire_parser.add_argument("--source-asset-id", action="append", required=True)
+    retire_parser.add_argument("--receipts-dir", type=Path, default=None)
+    retire_parser.add_argument("--reason", required=True)
+    retire_parser.add_argument(
+        "--retention-state",
+        choices=("deletion_requested", "retired"),
+        default="retired",
+    )
+    retire_parser.add_argument("--operator", default="operator")
+    retire_parser.add_argument("--out", type=Path, required=True)
+    retire_parser.add_argument("--receipt", type=Path, default=None)
+    retire_parser.add_argument("--force", action="store_true")
+    retire_parser.set_defaults(command_name="retire-source")
 
     export_parser = subparsers.add_parser(
         "export-coreml",
@@ -875,6 +955,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.08,
         help="Maximum visual fingerprint distance for near duplicates (default: 0.08).",
     )
+    ingest_parser.add_argument("--operator", default="operator")
+    ingest_parser.add_argument(
+        "--receipt",
+        type=Path,
+        default=None,
+        help="Lifecycle receipt path (default: beside the ingestion index).",
+    )
     ingest_parser.set_defaults(command_name="ingest")
 
     inspect_parser = subparsers.add_parser(
@@ -917,6 +1004,8 @@ def build_parser() -> argparse.ArgumentParser:
             "dataset-split",
             "dataset-validate",
             "dataset-coverage",
+            "training-receipt",
+            "retire-source",
         }:
             continue
         command_parser = subparsers.add_parser(name, help=help_text, description=help_text)
@@ -954,9 +1043,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except (IngestionError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
+        try:
+            receipt = build_source_import_receipt(result, operator=args.operator)
+            receipt_path = args.receipt or args.index_out.with_name(
+                f"{args.index_out.stem}-import-receipt.json"
+            )
+            save_lifecycle_receipt(receipt, receipt_path)
+        except (LifecycleReceiptError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
         print(f"Wrote manifest: {result.manifest_path}")
         print(f"Wrote ingestion index: {result.index_path}")
         print(f"Dataset version: {result.dataset_version_digest}")
+        print(f"Wrote lifecycle receipt: {receipt_path}")
         return 0
 
     if command_name == "import-recording":
@@ -1310,7 +1408,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
         except (VisionAnnotationError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
+        try:
+            receipt = build_evidence_import_receipt(
+                annotation_set,
+                manifests=args.manifests,
+                operator=args.operator,
+            )
+            receipt_path = args.receipt or args.out_dir / "table-observation-import-receipt.json"
+            save_lifecycle_receipt(receipt, receipt_path)
+        except (LifecycleReceiptError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
         print(f"Imported {len(annotation_set)} table observations: {args.out_dir}")
+        print(f"Wrote lifecycle receipt: {receipt_path}")
         return 0
 
     if command_name == "vision-review":
@@ -1383,10 +1492,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                 report_dir / "assembly.json",
                 overwrite=args.force,
             )
+            receipt_path = args.receipt or report_dir / "dataset-creation-receipt.json"
+            save_lifecycle_receipt(
+                build_dataset_creation_receipt(
+                    result,
+                    sources=sources,
+                    reviewed_annotations=tuple(
+                        review.reviewed_annotation for review in reviews.values()
+                    ),
+                    reviews=reviews,
+                    operator=args.operator,
+                ),
+                receipt_path,
+                overwrite=args.force,
+            )
         except (TableDatasetError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Wrote dataset version: {args.out}")
         print(f"Wrote coverage reports: {report_dir}")
+        print(f"Wrote lifecycle receipt: {receipt_path}")
         print(f"Unassigned: {len(result.unassigned)}; excluded: {len(result.excluded)}")
         return 0
 
@@ -1399,9 +1523,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                 seed=args.seed,
             )
             save_dataset_split(split, args.out, overwrite=args.force)
+            receipt_path = args.receipt or args.out.with_name(
+                f"{args.out.stem}-creation-receipt.json"
+            )
+            save_lifecycle_receipt(
+                build_split_creation_receipt(
+                    dataset,
+                    split,
+                    operator=args.operator,
+                ),
+                receipt_path,
+                overwrite=args.force,
+            )
         except (TableDatasetError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Wrote dataset split: {args.out}")
+        print(f"Wrote lifecycle receipt: {receipt_path}")
         print(
             f"  train: {len(split.train)}; validation: {len(split.validation)}; "
             f"test: {len(split.test)}; unassigned: {len(split.unassigned)}"
@@ -1455,6 +1592,52 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (TableDatasetError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Wrote coverage reports: {args.out_dir}")
+        return 0
+
+    if command_name == "training-receipt":
+        try:
+            dataset = load_dataset_version(args.dataset)
+            split = load_dataset_split(args.split) if args.split is not None else None
+            receipt = build_training_run_receipt(
+                dataset,
+                split,
+                training_run_id=args.training_run_id,
+                model_bundle_id=args.model_bundle_id,
+                derived_artifact_ids=args.derived_artifact_id,
+                operator=args.operator,
+            )
+            save_lifecycle_receipt(receipt, args.out, overwrite=args.force)
+        except (LifecycleReceiptError, TableDatasetError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote training lifecycle receipt: {args.out}")
+        print(
+            f"Sources: {receipt.metadata['source_count']}; "
+            f"annotation sets: {receipt.metadata['annotation_set_count']}"
+        )
+        return 0
+
+    if command_name == "retire-source":
+        try:
+            sources = load_source_records(args.sources)
+            receipts = (
+                load_lifecycle_receipts(args.receipts_dir) if args.receipts_dir is not None else ()
+            )
+            result = retire_source_records(
+                sources,
+                source_asset_ids=args.source_asset_id,
+                operator=args.operator,
+                reason=args.reason,
+                retention_state=args.retention_state,
+                receipts=receipts,
+            )
+            save_source_records(result.source_records, args.out, overwrite=args.force)
+            receipt_path = args.receipt or args.out.with_name("source-retirement-receipt.json")
+            save_lifecycle_receipt(result.receipt, receipt_path, overwrite=args.force)
+        except (LifecycleReceiptError, TableDatasetError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote source catalog: {args.out}")
+        print(f"Wrote lifecycle receipt: {receipt_path}")
+        print(json.dumps(result.impact, indent=2, sort_keys=True))
         return 0
 
     if command_name == "export-coreml":

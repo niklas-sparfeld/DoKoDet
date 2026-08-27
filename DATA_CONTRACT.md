@@ -174,6 +174,41 @@ quality tags, crop sizes, selected frames, snippets, tracklets, source metadata,
 unassigned or excluded item. These reports guide data collection. They do not rebalance a sealed
 evaluation set.
 
+## M4 lifecycle receipts
+
+`lifecycle-receipt/v1` records one immutable data operation. It contains semantic references for
+inputs, outputs, and dependencies. A reference has a kind, an operator-owned identifier, and an
+optional content digest. Source references use the source SHA-256. Dataset and split references use
+their version digests.
+
+The supported receipt types are:
+
+```text
+source_import
+evidence_import
+annotation_application
+dataset_creation
+split_creation
+training_run
+retirement
+```
+
+The normal operator flow is documented in [Data_Lifecycle.md](docs/Data_Lifecycle.md). The
+commands write receipts as follows:
+
+- `ingest` writes a source import receipt beside the ingestion index;
+- `vision-import` writes `table-observation-import-receipt.json` in its output directory;
+- `vision-apply-review` keeps the table-observation apply receipt and nests the lifecycle receipt;
+- `dataset-build` writes `dataset-creation-receipt.json` beside its reports;
+- `dataset-split` writes a receipt beside the split file;
+- `training-receipt` expands a dataset and split into all source, annotation, and review versions used;
+- `retire-source` writes a new source-record state and reports affected derived artifacts and runs.
+
+Receipts do not make source bytes mutable. They do not promote draft annotations. A retirement
+operation changes only the source-record version and identifies downstream objects that need review.
+It can use `deletion_requested` for a pending permission withdrawal or `retired` for a completed
+withdrawal.
+
 ## Training recording bundle
 
 Plan 0019 uses the versioned schemas in:

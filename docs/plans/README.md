@@ -54,7 +54,6 @@ No epics.
 
 | Epic | Outcome |
 | --- | --- |
-| [0020 — Data foundation](3-in-progress/0020-Data_Foundation.md) | Establish the shared data lifecycle. |
 | [0019 — App training recordings](3-in-progress/0019-App_TrainingRecordings.md) | Add deliberate recording intake. |
 
 ### Blocked
@@ -82,18 +81,18 @@ No epics.
 | [0016 — iOS evidence-upload integration](5-closed/0016-iOS_EvidenceUpload_Integration.md) | Complete | Local iOS-to-backend-to-detector pipeline. |
 | [0017 — iOS evidence-upload production readiness](5-closed/0017-iOS_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | iOS hardening reference. |
 | [0018 — Backend evidence-upload production readiness](5-closed/0018-Backend_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | Backend hardening reference. |
+| [0020 — Data foundation](5-closed/0020-Data_Foundation.md) | Complete | Shared source, annotation, review, dataset, split, and lifecycle-receipt foundation. |
 
 ## Near-term delivery sequence
 
-1. Continue 0020. It establishes source, annotation, review, and lineage invariants for the new
-   observation data.
+1. Use the completed 0020 data foundation. It establishes source, annotation, review, and lineage
+   invariants for the new observation data.
 2. Start 0006 milestones M0 through M3 with synthetic identity-only observations. This freezes the
    shared boundary and produces the rules and correctness oracle.
 3. Start 0025 in parallel. It adds bounded video snippets without waiting for tracking research.
 4. Continue 0021 after the 0020 dataset contract is usable. Export identity candidates as the first
    declared TableEvidenceAnalyzer capability.
-5. Continue 0019 Phase 0 after the 0020 M1 source-data contract is complete; 0020 M3 can proceed in
-   parallel.
+5. Continue 0019 Phase 0 now that the 0020 source-data contract and lifecycle are complete.
 6. Specify 0022 after reviewed frames and snippets provide its entry measurements.
 7. Specify 0023 after 0006 records search, ambiguity, and feature-ablation measurements.
 8. Specify 0026 after focused review cases and correction behavior are measured.
