@@ -189,6 +189,26 @@ input contains no private physical-card or source-play identifiers.
 Only `input` crosses the analyzer boundary. The private ground truth never appears in a table
 observation.
 
+## M3 identity-only reconstruction oracle
+
+`game_engine/src/game_engine/reconstruction.py` provides a bounded exhaustive oracle for one
+`round-reconstruction-input/v1` value. It treats each observed card as an uncertain proposal. A
+search branch can select one identity candidate, ignore a false or repeated proposal, or insert a
+bounded missing card play when the input has fewer card proposals than the selected deck requires.
+The caller can provide known one-based logical slots for inferred plays.
+
+For each complete branch, the oracle derives the four player hands from the selected card plays and
+checks the result with `doko-normal/v1`. This enforces deck multiplicity, clockwise turns, following
+categories, trick winners, and the manifest play count. It then merges branches with the same
+player-and-card play sequence. Different legal sequences remain `ambiguous`; no surviving sequence
+is `impossible` when the evidence count is complete and `incomplete` when evidence is missing.
+
+The result keeps the best source explanation, identity-candidate log score, ignored observed-card
+IDs, inferred play slots, focused first differences, and bounded search diagnostics. Optional
+capabilities remain declared and preserved. Exact reuse of one declared card tracklet as two card
+plays is rejected as an inconsistent association. The oracle does not use optional score families
+as calibrated probabilities.
+
 ## Ownership
 
 The analyzer-side model is in

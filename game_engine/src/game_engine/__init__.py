@@ -38,6 +38,17 @@ from .contract import (
     validate_observation,
     validate_reconstruction_input,
 )
+from .reconstruction import (
+    FocusedDecision,
+    GameplayResult,
+    ReconstructionDiagnostics,
+    ReconstructionHypothesis,
+    ReconstructionResult,
+    ReconstructionStatus,
+    ScoreBreakdown,
+    reconstruct,
+    reconstruct_round,
+)
 from .replay import ReplayError, RoundReplay, TrickResult, replay_round
 from .rules import CardCategory, CardPlay, DokoNormalRuleset, RulesError, Ruleset
 from .synthetic import (
@@ -91,6 +102,8 @@ __all__ = [
     "EarlyAppearance",
     "EmptyObservation",
     "FalseCardProposal",
+    "FocusedDecision",
+    "GameplayResult",
     "InsufficientEvidenceObservation",
     "IdentityCandidate",
     "MissingIdentityCandidate",
@@ -108,12 +121,17 @@ __all__ = [
     "RECONSTRUCTION_INPUT_SCHEMA_VERSION",
     "ROUND_SCENARIO_SCHEMA_VERSION",
     "ReconstructionInput",
+    "ReconstructionDiagnostics",
+    "ReconstructionHypothesis",
+    "ReconstructionResult",
+    "ReconstructionStatus",
     "ReplayError",
     "RoundReplay",
     "RoundScenario",
     "RetainedSideCard",
     "RulesetReference",
     "ScenarioExpectation",
+    "ScoreBreakdown",
     "RulesError",
     "Ruleset",
     "TableObservation",
@@ -127,6 +145,8 @@ __all__ = [
     "parse_observation_bytes",
     "parse_reconstruction_input_bytes",
     "replay_round",
+    "reconstruct",
+    "reconstruct_round",
     "generate_observations",
     "generate_round",
     "validate_observation",

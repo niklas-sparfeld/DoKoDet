@@ -379,6 +379,15 @@ Acceptance:
 - impossible and incomplete results remain distinct;
 - diagnostics explain rejected fixture branches.
 
+Progress (2026-08-27): M3 is complete. Added a bounded exhaustive identity-only oracle that selects
+ranked candidates, ignores false and repeated proposals, handles empty observations, and infers
+bounded missing plays. Complete branches derive player hands and pass through deterministic replay,
+then merge equivalent gameplay results. Added focused first-difference decisions, identity score
+breakdowns, source provenance, search limits, and rejection diagnostics. Exact card-tracklet reuse
+is rejected when that optional association capability is present. Added tests for all canonical
+scenario statuses, lower-ranked legal identity recovery, a uniquely slotted missing play, tied
+legal alternatives, and the impossible/incomplete distinction.
+
 ### M4 — Additive visual evidence
 
 Add synthetic support and scoring adapters in this order:

@@ -1,7 +1,7 @@
 {
   "schema_version": "round-scenario/v1",
   "scenario_id": "ambiguous-v1",
-  "description": "Two identity candidates remain tied for one observed card.",
+  "description": "Two identity candidates remain tied for two observed cards.",
   "enabled_capabilities": [
     "identity_candidates"
   ],
@@ -1409,7 +1409,11 @@
             "identity_candidates": [
               {
                 "card": "DIAMONDS_QUEEN",
-                "probability": 1.0
+                "probability": 0.5
+              },
+              {
+                "card": "CLUBS_TEN",
+                "probability": 0.5
               }
             ]
           }
@@ -1844,7 +1848,8 @@
       },
       "error_modules": [
         "ambiguous_identity",
-        "old_trick_replay"
+        "old_trick_replay",
+        "ambiguous_identity"
       ],
       "error_configuration": [
         {
@@ -1861,6 +1866,18 @@
         },
         {
           "observation_index": 3
+        },
+        {
+          "observation_index": 40,
+          "candidates": [
+            "DIAMONDS_QUEEN",
+            "CLUBS_TEN"
+          ],
+          "probabilities": [
+            0.5,
+            0.5
+          ],
+          "card_index": 0
         }
       ]
     },
@@ -2116,6 +2133,6 @@
   "expected": {
     "status": "ambiguous",
     "trick_count": 10,
-    "behavior": "Two tied candidate identities remain visible to the later reconstruction oracle."
+    "behavior": "Two tied candidate identities remain visible and produce legal alternatives."
   }
 }
