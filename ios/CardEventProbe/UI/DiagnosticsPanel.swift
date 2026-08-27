@@ -58,6 +58,14 @@ private struct EvidenceVideoStatusView: View {
                     .font(.caption.monospacedDigit())
             }
             HStack {
+                Text("Measured rate")
+                Spacer()
+                Text(
+                    status.rollingFrameRate.map { String(format: "%.2f fps", $0) } ?? "—"
+                )
+                .font(.caption.monospacedDigit())
+            }
+            HStack {
                 Text("Temporary storage")
                 Spacer()
                 Text(
@@ -77,6 +85,13 @@ private struct EvidenceVideoStatusView: View {
                 Text("\(status.completedCaptureCount) / \(status.failedCaptureCount)")
                     .font(.caption.monospacedDigit())
             }
+            Text(
+                "Accepted \(status.acceptedFrameCount) · rate-limited \(status.rateLimitedFrameCount) · "
+                    + "replaced \(status.framesReplacedBeforeConversion) · conversion failures "
+                    + "\(status.conversionFailureCount)"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
             if let failure = status.lastFailureReason {
                 Text(failure)
                     .font(.caption)

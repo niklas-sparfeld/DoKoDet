@@ -6,6 +6,86 @@ import XCTest
 @testable import CardEventProbeCore
 
 final class EvidenceVideoSnippetTests: XCTestCase {
+    func testVideoCadenceSamplerProducesThirtyOneFramesFromTwoSecondsAtThirtyFPS() {
+        var sampler = EvidenceVideoCadenceSampler(targetFrameRate: 15.0)
+        var accepted = 0
+        var rateLimited = 0
+
+        for index in 0...60 {
+            let decision = sampler.sample(
+                timestamp: CMTime(value: Int64(index), timescale: 30)
+            )
+            switch decision {
+            case .accepted:
+                accepted += 1
+            case .rateLimited:
+                rateLimited += 1
+            case .invalidTimestamp:
+                XCTFail("a synthetic camera timestamp must be valid")
+            }
+        }
+
+        XCTAssertEqual(accepted, 31)
+        XCTAssertEqual(rateLimited, 30)
+    }
+
+    func testVideoCadenceSamplerHandlesNTSCRateWithoutAccumulatingDrift() {
+        var sampler = EvidenceVideoCadenceSampler(targetFrameRate: 15.0)
+        var accepted = 0
+
+        for index in 0...59 {
+            let decision = sampler.sample(
+                timestamp: CMTime(value: Int64(index) * 1_001, timescale: 30_000)
+            )
+            if case .accepted = decision {
+                accepted += 1
+            }
+        }
+
+        XCTAssertTrue((30...31).contains(accepted))
+    }
+
+    func testVideoCadenceSamplerHandlesRoundedMillisecondTimestamps() {
+        var sampler = EvidenceVideoCadenceSampler(targetFrameRate: 15.0)
+        var accepted = 0
+
+        for index in 0...60 {
+            let decision = sampler.sample(
+                timestamp: CMTime(value: Int64(index * 33), timescale: 1_000)
+            )
+            if case .accepted = decision {
+                accepted += 1
+            }
+        }
+
+        XCTAssertTrue((30...31).contains(accepted))
+    }
+
+    func testVideoCadenceSamplerResetsOnBackwardTimestampAndDoesNotDuplicateGapFrames() {
+        var sampler = EvidenceVideoCadenceSampler(targetFrameRate: 15.0)
+
+        XCTAssertEqual(
+            sampler.sample(timestamp: CMTime(seconds: 1.0, preferredTimescale: 1_000)),
+            .accepted(missedTargetCount: 0, didReset: false)
+        )
+        XCTAssertEqual(
+            sampler.sample(timestamp: CMTime(seconds: 1.01, preferredTimescale: 1_000)),
+            .rateLimited
+        )
+        XCTAssertEqual(
+            sampler.sample(timestamp: CMTime(seconds: 0.5, preferredTimescale: 1_000)),
+            .accepted(missedTargetCount: 0, didReset: true)
+        )
+
+        let gapDecision = sampler.sample(
+            timestamp: CMTime(seconds: 0.9, preferredTimescale: 1_000)
+        )
+        XCTAssertEqual(
+            gapDecision,
+            .accepted(missedTargetCount: 5, didReset: false)
+        )
+    }
+
     func testLiveCaptureKeepsARealTimeBoundedBufferAndCapturesOneSnippet() throws {
         let configuration = EvidenceVideoCaptureMetadata(
             requestedStartOffsetMs: -250,
@@ -297,6 +377,10 @@ final class EvidenceVideoSnippetTests: XCTestCase {
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    }
+
+    private func time(_ seconds: Double) -> CMTime {
+        CMTime(seconds: seconds, preferredTimescale: 1_000)
     }
 
     private func makePixelBuffer(width: Int, height: Int) throws -> CVPixelBuffer {

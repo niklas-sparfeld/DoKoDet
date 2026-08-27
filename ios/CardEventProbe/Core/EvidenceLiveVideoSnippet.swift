@@ -5,6 +5,72 @@ import CoreVideo
 import CryptoKit
 import Foundation
 
+public enum EvidenceVideoCadenceDecision: Equatable, Sendable {
+    case accepted(missedTargetCount: Int, didReset: Bool)
+    case rateLimited
+    case invalidTimestamp
+}
+
+/// Selects camera frames against fixed target times without accumulating timestamp drift.
+public struct EvidenceVideoCadenceSampler: Sendable {
+    public let targetFrameRate: Double
+
+    private let frameInterval: CMTime
+    private var nextTargetTimestamp: CMTime?
+    private var lastTimestamp: CMTime?
+
+    public init(targetFrameRate: Double) {
+        precondition(
+            targetFrameRate.isFinite && targetFrameRate > 0.0,
+            "video target frame rate must be positive"
+        )
+        self.targetFrameRate = targetFrameRate
+        frameInterval = CMTime(
+            seconds: 1.0 / targetFrameRate,
+            preferredTimescale: 60_000
+        )
+    }
+
+    public mutating func reset() {
+        nextTargetTimestamp = nil
+        lastTimestamp = nil
+    }
+
+    public mutating func sample(timestamp: CMTime) -> EvidenceVideoCadenceDecision {
+        guard CMTimeGetSeconds(timestamp).isFinite else {
+            return .invalidTimestamp
+        }
+
+        var didReset = false
+        if let lastTimestamp,
+           CMTimeCompare(timestamp, lastTimestamp) < 0 {
+            nextTargetTimestamp = nil
+            didReset = true
+        }
+        lastTimestamp = timestamp
+
+        guard let nextTargetTimestamp else {
+            self.nextTargetTimestamp = CMTimeAdd(timestamp, frameInterval)
+            return .accepted(missedTargetCount: 0, didReset: didReset)
+        }
+        guard CMTimeCompare(timestamp, nextTargetTimestamp) >= 0 else {
+            return .rateLimited
+        }
+
+        var missedTargetCount = 0
+        var nextTarget = nextTargetTimestamp
+        while CMTimeCompare(timestamp, nextTarget) >= 0 {
+            nextTarget = CMTimeAdd(nextTarget, frameInterval)
+            missedTargetCount += 1
+        }
+        self.nextTargetTimestamp = nextTarget
+        return .accepted(
+            missedTargetCount: max(0, missedTargetCount - 1),
+            didReset: didReset
+        )
+    }
+}
+
 public enum EvidenceVideoCaptureState: String, Sendable {
     case idle
     case rolling
@@ -23,6 +89,12 @@ public struct EvidenceVideoCaptureStatus: Equatable, Sendable {
     public let completedCaptureCount: Int
     public let failedCaptureCount: Int
     public let framesDropped: Int
+    public let acceptedFrameCount: Int
+    public let rateLimitedFrameCount: Int
+    public let missedTargetTimeCount: Int
+    public let framesReplacedBeforeConversion: Int
+    public let conversionFailureCount: Int
+    public let rollingFrameRate: Double?
     public let lastFailureReason: String?
 
     public init(
@@ -35,6 +107,12 @@ public struct EvidenceVideoCaptureStatus: Equatable, Sendable {
         completedCaptureCount: Int,
         failedCaptureCount: Int,
         framesDropped: Int,
+        acceptedFrameCount: Int = 0,
+        rateLimitedFrameCount: Int = 0,
+        missedTargetTimeCount: Int = 0,
+        framesReplacedBeforeConversion: Int = 0,
+        conversionFailureCount: Int = 0,
+        rollingFrameRate: Double? = nil,
         lastFailureReason: String? = nil
     ) {
         self.state = state
@@ -46,6 +124,12 @@ public struct EvidenceVideoCaptureStatus: Equatable, Sendable {
         self.completedCaptureCount = completedCaptureCount
         self.failedCaptureCount = failedCaptureCount
         self.framesDropped = framesDropped
+        self.acceptedFrameCount = acceptedFrameCount
+        self.rateLimitedFrameCount = rateLimitedFrameCount
+        self.missedTargetTimeCount = missedTargetTimeCount
+        self.framesReplacedBeforeConversion = framesReplacedBeforeConversion
+        self.conversionFailureCount = conversionFailureCount
+        self.rollingFrameRate = rollingFrameRate
         self.lastFailureReason = lastFailureReason
     }
 
@@ -80,9 +164,11 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
     private let configuration: EvidenceVideoCaptureMetadata
     private let minimumCoverageStartOffsetMs: Int
     private let maximumCoverageEndOffsetMs: Int
-    private let frameInterval: CMTime
+    private var cadenceSampler: EvidenceVideoCadenceSampler
     private let temporaryByteCapacity: Int
     private let maximumBufferedFrameCount: Int
+    private let maximumPendingConversionCount: Int
+    private let outputPixelBufferPool: CVPixelBufferPool?
     private let conversionQueue = DispatchQueue(
         label: "com.dokodetector.CardEventProbe.live-video-conversion",
         qos: .userInitiated
@@ -90,40 +176,50 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
     private let condition = NSCondition()
     private let context = CIContext()
     private var frames: [BufferedFrame] = []
-    private var lastAcceptedTimestamp: CMTime?
+    private var pendingConversions: [VideoFrame] = []
+    private var conversionWorkerRunning = false
     private var latestTimestamp: CMTime?
-    private var conversionInFlight = false
     private var activeEventTimestamps: [CMTime] = []
     private var encodingInFlight = 0
     private var stopped = false
     private var completedCaptureCount = 0
     private var failedCaptureCount = 0
-    private var framesDropped = 0
+    private var acceptedFrameCount = 0
+    private var rateLimitedFrameCount = 0
+    private var missedTargetCount = 0
+    private var framesReplacedBeforeConversion = 0
+    private var conversionFailureCount = 0
     private var lastFailureReason: String?
 
     public init(
         configuration: EvidenceVideoCaptureMetadata = .standard,
         minimumCoverageStartOffsetMs: Int = -800,
         maximumCoverageEndOffsetMs: Int = 700,
-        temporaryByteCapacity: Int = 40 * 1024 * 1024
+        temporaryByteCapacity: Int = 40 * 1024 * 1024,
+        maximumPendingConversionCount: Int = 4
     ) {
         precondition(
             minimumCoverageStartOffsetMs < maximumCoverageEndOffsetMs,
             "live video coverage must be an ordered range"
         )
         precondition(temporaryByteCapacity > 0, "temporary video capacity must be positive")
+        precondition(maximumPendingConversionCount > 0, "pending conversion capacity must be positive")
         self.configuration = configuration
         self.minimumCoverageStartOffsetMs = minimumCoverageStartOffsetMs
         self.maximumCoverageEndOffsetMs = maximumCoverageEndOffsetMs
-        frameInterval = CMTime(
-            seconds: 1.0 / configuration.maxNominalFrameRate,
-            preferredTimescale: 6_000
+        cadenceSampler = EvidenceVideoCadenceSampler(
+            targetFrameRate: configuration.maxNominalFrameRate
         )
         self.temporaryByteCapacity = temporaryByteCapacity
+        self.maximumPendingConversionCount = maximumPendingConversionCount
         let bytesPerFrame = max(1, configuration.maxWidth * configuration.maxHeight * 4)
         maximumBufferedFrameCount = min(
             max(1, Int(ceil(Double(configuration.maxDurationMs) / 1_000.0 * configuration.maxNominalFrameRate)) + 1),
-            max(1, temporaryByteCapacity / bytesPerFrame)
+            max(1, temporaryByteCapacity / bytesPerFrame - maximumPendingConversionCount)
+        )
+        outputPixelBufferPool = Self.makePixelBufferPool(
+            width: configuration.maxWidth,
+            height: configuration.maxHeight
         )
     }
 
@@ -141,36 +237,30 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
             return
         }
         guard CMTimeGetSeconds(timestamp).isFinite else {
-            framesDropped += 1
             condition.unlock()
             return
         }
-        if let lastAcceptedTimestamp,
-           CMTimeCompare(CMTimeSubtract(timestamp, lastAcceptedTimestamp), frameInterval) < 0 {
+        let decision = cadenceSampler.sample(timestamp: timestamp)
+        guard case let .accepted(missedTargetCount, _) = decision else {
+            if case .rateLimited = decision {
+                rateLimitedFrameCount += 1
+            }
             condition.unlock()
             return
         }
-        guard !conversionInFlight else {
-            framesDropped += 1
-            condition.unlock()
-            return
+        self.missedTargetCount += missedTargetCount
+        if pendingConversions.count >= maximumPendingConversionCount {
+            pendingConversions.removeFirst()
+            framesReplacedBeforeConversion += 1
         }
-        self.lastAcceptedTimestamp = timestamp
-        conversionInFlight = true
+        pendingConversions.append(frame)
+        let shouldStartWorker = !conversionWorkerRunning
+        conversionWorkerRunning = true
         condition.unlock()
 
-        conversionQueue.async { [weak self] in
-            guard let self else { return }
-            do {
-                let pixelBuffer = try self.makeOutputPixelBuffer(from: frame.pixelBuffer)
-                self.append(pixelBuffer: pixelBuffer, timestamp: timestamp)
-            } catch {
-                self.condition.lock()
-                self.conversionInFlight = false
-                self.framesDropped += 1
-                self.lastFailureReason = error.localizedDescription
-                self.condition.broadcast()
-                self.condition.unlock()
+        if shouldStartWorker {
+            conversionQueue.async { [weak self] in
+                self?.drainConversionQueue()
             }
         }
     }
@@ -252,33 +342,27 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
         }
 
         do {
-            let data = try encode(selectedFrames)
-            guard data.count <= configuration.maxByteLength else {
+            let encodedMedia = try encode(selectedFrames)
+            guard encodedMedia.data.count <= configuration.maxByteLength else {
                 throw EvidenceVideoSnippetCaptureError.outputTooLarge
             }
-            let durationMs = max(
-                1,
-                Int(
-                    ((CMTimeGetSeconds(CMTimeSubtract(last.timestamp, first.timestamp))
-                        + CMTimeGetSeconds(frameInterval)) * 1_000.0).rounded()
-                )
-            )
             let startOffsetMs = Int(
                 (CMTimeGetSeconds(CMTimeSubtract(first.timestamp, eventTimestamp)) * 1_000.0).rounded()
             )
+            let durationMs = encodedMedia.durationMs
             let manifest = EvidenceVideoSnippetManifest(
                 partName: "snippet_00",
                 startOffsetMs: startOffsetMs,
                 endOffsetMs: startOffsetMs + durationMs,
                 durationMs: durationMs,
-                width: configuration.maxWidth,
-                height: configuration.maxHeight,
-                nominalFrameRate: configuration.maxNominalFrameRate,
-                byteLength: data.count,
-                sha256: Self.sha256Hex(data)
+                width: encodedMedia.width,
+                height: encodedMedia.height,
+                nominalFrameRate: encodedMedia.frameRate,
+                byteLength: encodedMedia.data.count,
+                sha256: Self.sha256Hex(encodedMedia.data)
             )
             didComplete = true
-            return PackagedEvidenceVideo(manifest: manifest, mp4Data: data)
+            return PackagedEvidenceVideo(manifest: manifest, mp4Data: encodedMedia.data)
         } catch let error as EvidenceVideoSnippetCaptureError {
             recordFailure(error)
             throw error
@@ -292,6 +376,7 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
     public func stop() {
         condition.lock()
         stopped = true
+        pendingConversions.removeAll(keepingCapacity: false)
         frames.removeAll(keepingCapacity: false)
         condition.broadcast()
         condition.unlock()
@@ -299,7 +384,6 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
 
     private func append(pixelBuffer: CVPixelBuffer, timestamp: CMTime) {
         condition.lock()
-        conversionInFlight = false
         guard !stopped else {
             condition.broadcast()
             condition.unlock()
@@ -309,6 +393,7 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
             frames.removeAll(keepingCapacity: true)
         }
         frames.append(BufferedFrame(timestamp: timestamp, pixelBuffer: pixelBuffer))
+        acceptedFrameCount += 1
         latestTimestamp = timestamp
         let retentionStart = activeEventTimestamps.map {
             CMTimeAdd($0, CMTime(value: Int64(configuration.requestedStartOffsetMs), timescale: 1_000))
@@ -319,6 +404,31 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
         }
         condition.broadcast()
         condition.unlock()
+    }
+
+    private func drainConversionQueue() {
+        while true {
+            condition.lock()
+            guard !stopped, !pendingConversions.isEmpty else {
+                conversionWorkerRunning = false
+                condition.broadcast()
+                condition.unlock()
+                return
+            }
+            let frame = pendingConversions.removeFirst()
+            condition.unlock()
+
+            do {
+                let pixelBuffer = try makeOutputPixelBuffer(from: frame.pixelBuffer)
+                append(pixelBuffer: pixelBuffer, timestamp: frame.timestamp)
+            } catch {
+                condition.lock()
+                conversionFailureCount += 1
+                lastFailureReason = error.localizedDescription
+                condition.broadcast()
+                condition.unlock()
+            }
+        }
     }
 
     private func hasFrameThrough(_ timestamp: CMTime) -> Bool {
@@ -354,16 +464,34 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
             durationMs = 0
         }
         let bytesPerFrame = configuration.maxWidth * configuration.maxHeight * 4
+        let rollingFrameRate: Double?
+        if let first = frames.first,
+           let last = frames.last,
+           frames.count > 1 {
+            let duration = CMTimeGetSeconds(CMTimeSubtract(last.timestamp, first.timestamp))
+            rollingFrameRate = duration > 0.0 ? Double(frames.count - 1) / duration : nil
+        } else {
+            rollingFrameRate = nil
+        }
+        let framesDropped = rateLimitedFrameCount
+            + framesReplacedBeforeConversion
+            + conversionFailureCount
         return EvidenceVideoCaptureStatus(
             state: state,
             bufferedFrameCount: frames.count,
             bufferedDurationMs: durationMs,
-            temporaryBytes: frames.count * bytesPerFrame,
+            temporaryBytes: (frames.count + pendingConversions.count) * bytesPerFrame,
             temporaryByteCapacity: temporaryByteCapacity,
             activeCaptureCount: activeEventTimestamps.count,
             completedCaptureCount: completedCaptureCount,
             failedCaptureCount: failedCaptureCount,
             framesDropped: framesDropped,
+            acceptedFrameCount: acceptedFrameCount,
+            rateLimitedFrameCount: rateLimitedFrameCount,
+            missedTargetTimeCount: missedTargetCount,
+            framesReplacedBeforeConversion: framesReplacedBeforeConversion,
+            conversionFailureCount: conversionFailureCount,
+            rollingFrameRate: rollingFrameRate,
             lastFailureReason: lastFailureReason
         )
     }
@@ -378,15 +506,9 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
 
     private func makeOutputPixelBuffer(from source: CVPixelBuffer) throws -> CVPixelBuffer {
         var output: CVPixelBuffer?
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault,
-            configuration.maxWidth,
-            configuration.maxHeight,
-            kCVPixelFormatType_32BGRA,
-            nil,
-            &output
-        )
-        guard status == kCVReturnSuccess, let output else {
+        guard let outputPixelBufferPool,
+              CVPixelBufferPoolCreatePixelBuffer(nil, outputPixelBufferPool, &output) == kCVReturnSuccess,
+              let output else {
             throw EvidenceVideoSnippetCaptureError.temporaryStorageUnavailable
         }
         let image = CIImage(cvPixelBuffer: source)
@@ -402,7 +524,29 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
         return output
     }
 
-    private func encode(_ frames: [BufferedFrame]) throws -> Data {
+    private static func makePixelBufferPool(width: Int, height: Int) -> CVPixelBufferPool? {
+        let attributes: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
+            kCVPixelBufferWidthKey as String: width,
+            kCVPixelBufferHeightKey as String: height,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+        ]
+        var pool: CVPixelBufferPool?
+        guard CVPixelBufferPoolCreate(nil, nil, attributes as CFDictionary, &pool) == kCVReturnSuccess else {
+            return nil
+        }
+        return pool
+    }
+
+    private struct EncodedMedia {
+        let data: Data
+        let width: Int
+        let height: Int
+        let frameRate: Double
+        let durationMs: Int
+    }
+
+    private func encode(_ frames: [BufferedFrame]) throws -> EncodedMedia {
         let outputDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("live-evidence-\(UUID().uuidString)", isDirectory: true)
         let outputURL = outputDirectory.appendingPathComponent("snippet.mp4", isDirectory: false)
@@ -465,8 +609,28 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
               writer.status == .completed else {
             throw EvidenceVideoSnippetCaptureError.writerFailed
         }
+        let asset = AVURLAsset(url: outputURL)
+        guard let track = asset.tracks(withMediaType: .video).first else {
+            throw EvidenceVideoSnippetCaptureError.writerFailed
+        }
+        let duration = asset.duration.seconds
+        guard duration.isFinite, duration > 0.0 else {
+            throw EvidenceVideoSnippetCaptureError.writerFailed
+        }
+        let frameRate = track.nominalFrameRate > 0.0
+            ? Double(track.nominalFrameRate)
+            : Double(frames.count) / duration
+        guard frameRate.isFinite, frameRate > 0.0 else {
+            throw EvidenceVideoSnippetCaptureError.writerFailed
+        }
         do {
-            return try Data(contentsOf: outputURL)
+            return EncodedMedia(
+                data: try Data(contentsOf: outputURL),
+                width: max(1, Int(abs(track.naturalSize.width.rounded()))),
+                height: max(1, Int(abs(track.naturalSize.height.rounded()))),
+                frameRate: frameRate,
+                durationMs: max(1, Int((duration * 1_000.0).rounded()))
+            )
         } catch {
             throw EvidenceVideoSnippetCaptureError.writerFailed
         }

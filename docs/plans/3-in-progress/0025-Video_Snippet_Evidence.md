@@ -2,7 +2,8 @@
 
 ## Plan status
 
-- **Summary:** Add bounded event-relative video snippets to iOS evidence packages and backend storage
+- **Summary:** Add bounded and accurately timed iOS-to-backend video snippets at a useful
+  exploratory resolution
 - **Status:** In Progress
 - **Depends on:** None
 - **Builds on:** Plans 0003, 0004, and 0016 provide the completed frame-only baseline
@@ -13,7 +14,9 @@
 ## 1. Outcome
 
 Extend the local evidence pipeline with one optional bounded video snippet around a CardEventNet event
-proposal. Preserve selected JPEG frames as part of the new contract.
+proposal. Preserve selected JPEG frames as part of the new contract. Record enough spatial and
+temporal detail for later analyzer experiments, and make the manifest describe the encoded media
+instead of the requested capture limit.
 
 At the end of this plan, a developer can run:
 
@@ -94,6 +97,48 @@ configuration in the manifest. Do not transcode accepted bytes during ingestion.
 If a future derived proxy is needed, store it as a derived artifact with lineage to the accepted
 snippet.
 
+### 2.5 Keep exploratory motion evidence useful
+
+Use 960×540 at a target rate of 15 frames per second for new exploratory video snippets. Keep the
+six selected 1920×1080 JPEG frames. Do not use 1920×1080 video snippets unless analyzer experiments
+show that 960×540 loses required card detail.
+
+Treat the accepted 960×540 snippet as source evidence. Derive smaller model inputs or review proxies
+from it. Do not replace the accepted bytes with a derived proxy. This approach permits controlled
+640×360 and lower-resolution comparisons without losing the original motion detail.
+
+The exploratory profile starts with these bounds:
+
+```text
+max_width: 960
+max_height: 540
+max_nominal_frame_rate: 15.0
+encoder_average_bit_rate: 1200000
+max_byte_length: 750000
+temporary_byte_capacity: 83886080
+queued_byte_capacity: 10485760
+```
+
+These are measurement targets, not production limits. Confirm them on a supported iPhone before
+closing this epic. A 10 MiB video queue holds at least 13 maximum-size snippets. Record total
+evidence-package storage separately because the six selected JPEG frames can be larger than the
+video snippet.
+
+### 2.6 Distinguish requested and actual frame rate
+
+`video_capture.max_nominal_frame_rate` is a limit. It is not the actual encoded rate.
+`video_snippet.nominal_frame_rate` must describe the encoded stream when it is present. The snippet
+duration and end offset must agree with the encoded media within a documented tolerance.
+
+Use a target-time sampling schedule that does not accumulate drift. Select one camera frame for each
+15 fps target time. Account for common 30 fps and 29.97 fps source rates and timestamp rounding. Do
+not duplicate frames to claim a higher rate when capture or conversion cannot supply distinct
+frames.
+
+Configure a stable camera source rate of at least 30 fps when the selected device format supports
+it. Preserve the measured source rate when the device uses a fallback. The encoder frame-rate
+setting remains a compression hint and must not be the source of manifest metadata.
+
 ## 3. Local fixture
 
 Add one small, redistributable video fixture that shows a simple card entering and leaving a table
@@ -159,6 +204,8 @@ A failed upload must not leave accepted partial media or database rows.
 
 The measured selection is recorded in
 [the M0 media report](../../reports/0025-Video_Snippet_M0_Media_Selection.md).
+M5 revisits the 640×360 transport choice after live evidence showed that collection must retain
+more motion detail for later analyzer experiments.
 
 Acceptance:
 
@@ -223,18 +270,84 @@ Acceptance:
 - [x] cancellation and low-storage paths release temporary resources;
 - [x] no unbounded sample buffer exists.
 
-### M4 — Local end-to-end measurement
+### M4 — Live cadence and media-metadata correction
 
-1. Capture at least one real V2 package on a supported iPhone.
-2. Upload it to the local backend.
-3. Verify selected frames and snippet decode.
-4. Record actual size, duration, timing coverage, encode latency, upload latency, and storage use.
-5. Replay the snippet in a minimal human-review view.
+Evidence package `da5a9fc7-2c9c-4e8e-a741-5bc0c0bb2165` exposed a live-path defect. Its manifest
+declares 15 fps, but its MP4 contains 21 distinct frames at 100 ms intervals. The encoded stream is
+10 fps. Its six selected frames remain 1920×1080.
+
+1. [x] Add a deterministic 30 fps input test that reproduces the 10 fps output.
+2. [x] Replace elapsed-time threshold sampling with a 15 fps target-time schedule.
+3. [x] Add 29.97 fps, timestamp-rounding, backward-timestamp, and short-gap tests.
+4. [x] Replace the single in-flight conversion gate with a bounded serial conversion pipeline.
+5. [x] Allocate converted buffers from a reusable pool and release them after the rolling window and
+   all active captures no longer need them.
+6. [x] Record separate counts for rate-limited frames, frames replaced before conversion, conversion
+   failures, and accepted frames.
+7. [x] Calculate actual rate, duration, start offset, and end offset from the samples and completed
+   media. Do not copy the configured maximum rate into the snippet manifest.
+8. [ ] Make backend probing reject material disagreements between declared and encoded dimensions,
+   duration, and frame rate.
+9. [x] Show the measured rolling-buffer rate and frame-drop counts in iOS diagnostics.
+10. [ ] Configure the camera for a stable supported source rate and report the selected or fallback
+    rate.
+
+Progress (2026-08-27): Added fixed target-time cadence selection with deterministic tests for 30 fps,
+29.97 fps, rounded timestamps, backward timestamps, and short gaps. Live conversion now uses a
+bounded serial queue, a reusable pixel-buffer pool, separate cadence counters, and encoded-media
+metadata for the V2 snippet manifest. The iOS diagnostics show the measured rolling rate and the
+separate frame counters. Camera source-rate selection and backend disagreement tests remain.
+
+Acceptance:
+
+- a two-second synthetic 30 fps input produces 30 or 31 distinct output frames near 15 fps;
+- a 29.97 fps input remains within one output frame of the expected count;
+- the manifest rate and duration agree with the encoded MP4 within the tested tolerance;
+- a slow converter causes a measured lower actual rate, not a false 15 fps declaration;
+- capture queues and raw buffers remain bounded under concurrent event proposals;
+- the 8 Hz inference sampler does not limit video-snippet cadence.
+
+### M5 — Exploratory resolution profile
+
+1. [ ] Add a configurable encoder bitrate instead of the fixed 400 kbit/s setting.
+2. [ ] Change the exploratory live profile to 960×540, 15 fps, and the bounds in section 2.5.
+3. [ ] Update Swift and Python contracts, fixtures, and tests in the same change.
+4. [ ] Verify that the raw rolling-buffer capacity can hold the required pre-event and post-event
+   samples at 960×540 before live capture starts.
+5. [ ] Fail explicitly when a configured profile cannot satisfy required coverage within its memory
+   bound.
+6. [ ] Create 640×360 and 960×540 derivatives from the same representative source snippets.
+7. [ ] Record encoded size, peak temporary memory, encode latency, decode latency, and visible card
+   detail for both profiles.
+8. [ ] Keep 960×540 as the accepted source profile unless measurements show no useful difference or
+   unacceptable device cost.
+
+Acceptance:
+
+- a supported iPhone holds the complete rolling window at 960×540 without an unbounded allocation;
+- one event proposal produces a complete snippet within the 750,000-byte bound;
+- the accepted snippet keeps enough visible corner and card detail for plan 0022 experiments;
+- the comparison uses the same source times and does not infer quality from unrelated packages;
+- any change back to 640×360 or up to 1920×1080 records measured analyzer or device evidence.
+
+### M6 — Local end-to-end measurement
+
+1. [x] Capture and upload an initial real V2 package on a supported iPhone.
+2. [x] Verify its selected frames and snippet decode.
+3. [ ] Capture at least three corrected 960×540 packages with different card transitions.
+4. [ ] Verify each package through byte-identical iOS-to-backend read-back.
+5. [ ] Record actual size, frame count, frame rate, duration, timing coverage, peak memory, encode
+   latency, upload latency, and storage use.
+6. [ ] Replay each snippet in a minimal human-review view.
+7. [ ] Record whether 960×540 reveals useful card detail that is absent from a derived 640×360
+   version.
 
 Acceptance:
 
 - the real package survives byte-identical iOS-to-backend transport;
 - the snippet shows the transition covered by the selected frames;
+- the manifest agrees with the encoded media;
+- device measurements confirm or revise the exploratory capture bounds;
 - measured limitations are recorded for plan 0022 and plan 0024;
 - the result does not claim recognition or tracking quality.
 
@@ -261,7 +374,10 @@ app build, device class, operating-system version, backend revision, and resulti
 - V2 replaces V1 and adds one optional bounded video snippet;
 - one canonical fixture crosses Swift and Python unchanged;
 - replay-based iOS capture is deterministic enough for contract tests;
+- live sampling produces the intended cadence without timestamp aliasing;
+- snippet metadata describes the encoded media rather than only configured limits;
+- new exploratory snippets use the measured 960×540 profile within bounded memory and storage;
 - backend ingestion verifies bytes and supported media before atomic commit;
 - selected frames remain available beside the snippet;
-- one real device package completes the local round trip;
+- corrected real-device packages complete the local round trip;
 - plan 0022 has measured evidence for transition and tracking experiments.
