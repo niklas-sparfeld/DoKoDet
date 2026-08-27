@@ -12,6 +12,8 @@ public enum EvidenceMultipartPreparationError: LocalizedError, Equatable {
     case invalidBaseURL(URL)
     case missingFrame(String)
     case frameDataMismatch(String)
+    case missingVideo(String)
+    case videoDataMismatch(String)
     case bodyWriteFailed(URL, String)
 
     public var errorDescription: String? {
@@ -24,6 +26,10 @@ public enum EvidenceMultipartPreparationError: LocalizedError, Equatable {
             return "The evidence package is missing frame \(partName)."
         case let .frameDataMismatch(partName):
             return "The evidence package data does not match frame \(partName)'s manifest."
+        case let .missingVideo(partName):
+            return "The evidence package is missing video \(partName)."
+        case let .videoDataMismatch(partName):
+            return "The evidence package data does not match video \(partName)'s manifest."
         case let .bodyWriteFailed(url, message):
             return "The multipart body could not be written at \(url.path): \(message)"
         }
@@ -88,10 +94,12 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
             guard let packagedFrame = framesByPart[frame.partName] else { return nil }
             return (frame.partName, .data(packagedFrame.jpegData))
         })
+        let videoSource = package.videoSnippet.map { FrameSource.data($0.mp4Data) }
         return try prepare(
             manifest: package.manifest,
             manifestData: try package.manifest.encoded(),
             frameSources: sources,
+            videoSource: videoSource,
             baseURL: baseURL
         )
     }
@@ -125,10 +133,24 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
                     )
                 }
             )
+            let videoSource: FrameSource?
+            if let videoManifest = manifest.videoSnippet, videoManifest.captureComplete {
+                guard let partName = videoManifest.partName else {
+                    throw EvidenceMultipartPreparationError.missingVideo("unknown")
+                }
+                videoSource = .file(
+                    packageURL
+                        .appendingPathComponent("video", isDirectory: true)
+                        .appendingPathComponent("\(partName).mp4", isDirectory: false)
+                )
+            } else {
+                videoSource = nil
+            }
             return try prepare(
                 manifest: manifest,
                 manifestData: manifestData,
                 frameSources: frameSources,
+                videoSource: videoSource,
                 baseURL: baseURL
             )
         } catch let error as EvidenceMultipartPreparationError {
@@ -152,6 +174,7 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
         manifest: EvidencePackageManifest,
         manifestData: Data,
         frameSources: [String: FrameSource],
+        videoSource: FrameSource?,
         baseURL: URL
     ) throws -> PreparedEvidenceUpload {
         guard let components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
@@ -181,6 +204,7 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
                 manifest: manifest,
                 manifestData: manifestData,
                 frameSources: frameSources,
+                videoSource: videoSource,
                 to: bodyURL
             )
             let contentLength = try fileSize(of: bodyURL)
@@ -215,6 +239,7 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
         manifest: EvidencePackageManifest,
         manifestData: Data,
         frameSources: [String: FrameSource],
+        videoSource: FrameSource?,
         to bodyURL: URL
     ) throws {
         let fileManager = FileManager.default
@@ -254,6 +279,23 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
             try writeASCII("\r\n", to: handle)
         }
 
+        if let videoManifest = manifest.videoSnippet, videoManifest.captureComplete {
+            guard let videoSource else {
+                throw EvidenceMultipartPreparationError.missingVideo(videoManifest.partName ?? "unknown")
+            }
+            guard let partName = videoManifest.partName else {
+                throw EvidenceMultipartPreparationError.missingVideo("unknown")
+            }
+            try writeASCII("--\(boundary)\r\n", to: handle)
+            try writeASCII(
+                "Content-Disposition: form-data; name=\"\(partName)\"; filename=\"\(partName).mp4\"\r\n",
+                to: handle
+            )
+            try writeASCII("Content-Type: video/mp4\r\n\r\n", to: handle)
+            try writeVideo(videoSource, expected: videoManifest, to: handle)
+            try writeASCII("\r\n", to: handle)
+        }
+
         try writeASCII("--\(boundary)--\r\n", to: handle)
         try handle.close()
         closed = true
@@ -290,6 +332,41 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
             let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
             guard byteLength == expected.byteLength, digest == expected.sha256 else {
                 throw EvidenceMultipartPreparationError.frameDataMismatch(expected.partName)
+            }
+        }
+    }
+
+    private func writeVideo(
+        _ source: FrameSource,
+        expected: EvidenceVideoSnippetManifest,
+        to output: FileHandle
+    ) throws {
+        switch source {
+        case let .data(data):
+            guard data.count == expected.byteLength,
+                  sha256Hex(data) == expected.sha256 else {
+                throw EvidenceMultipartPreparationError.videoDataMismatch(expected.partName ?? "unknown")
+            }
+            try output.write(contentsOf: data)
+        case let .file(url):
+            let input: FileHandle
+            do {
+                input = try FileHandle(forReadingFrom: url)
+            } catch {
+                throw EvidenceMultipartPreparationError.videoDataMismatch(expected.partName ?? "unknown")
+            }
+            defer { try? input.close() }
+
+            var hasher = SHA256()
+            var byteLength = 0
+            while let chunk = try input.read(upToCount: 64 * 1024), !chunk.isEmpty {
+                byteLength += chunk.count
+                hasher.update(data: chunk)
+                try output.write(contentsOf: chunk)
+            }
+            let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+            guard byteLength == expected.byteLength, digest == expected.sha256 else {
+                throw EvidenceMultipartPreparationError.videoDataMismatch(expected.partName ?? "unknown")
             }
         }
     }

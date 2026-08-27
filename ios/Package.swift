@@ -43,6 +43,7 @@ let package = Package(
                 "Core/EvidenceFrameRing.swift",
                 "Core/CaptureSession.swift",
                 "Core/EvidencePackage.swift",
+                "Core/EvidenceVideoSnippet.swift",
                 "Core/EvidencePackageCoordinator.swift",
                 "Networking/EvidenceMultipartUpload.swift",
                 "Core/InferenceSamplingPolicy.swift",

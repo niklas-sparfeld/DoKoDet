@@ -454,7 +454,8 @@ final class AppState: ObservableObject {
         self.evidenceSampler = evidenceSampler
         evidencePackageCoordinator = makeEvidencePackageCoordinator(
             captureSession: captureSession,
-            ring: evidenceSampler.ring
+            ring: evidenceSampler.ring,
+            videoSnippetProvider: AVAssetVideoSnippetProvider(sourceURL: url)
         )
         let coordinator = FrameInferenceCoordinator(
             runner: runner,
@@ -749,7 +750,8 @@ final class AppState: ObservableObject {
 
     private func makeEvidencePackageCoordinator(
         captureSession: CaptureSession,
-        ring: EvidenceFrameRing
+        ring: EvidenceFrameRing,
+        videoSnippetProvider: (any EvidenceVideoSnippetProviding)? = nil
     ) -> EvidencePackageCoordinator {
         let decoderConfiguration = eventDecoder.configuration
         let model = EvidencePackageModelMetadata(
@@ -781,7 +783,8 @@ final class AppState: ObservableObject {
                 orientation: "up",
                 width: 1920,
                 height: 1080
-            )
+            ),
+            videoSnippetProvider: videoSnippetProvider
         ) { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }

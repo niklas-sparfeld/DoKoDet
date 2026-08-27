@@ -125,7 +125,8 @@ snippet_00 video/mp4
 ```
 
 Multipart filenames are not trusted and are not part of the contract fingerprint. The server stores
-each accepted frame as `<part_name>.jpg` below the package directory.
+each accepted frame as `<part_name>.jpg` and a complete snippet as `<part_name>.mp4` below the
+package directory.
 
 The server validates the complete package before it stores or exposes it:
 

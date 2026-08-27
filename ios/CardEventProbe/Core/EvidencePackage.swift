@@ -871,6 +871,7 @@ public enum EvidencePackageError: LocalizedError, Equatable {
     case invalidFramePart(String)
     case frameTargetSetMismatch
     case frameDataMismatch(String)
+    case videoDataMismatch(String)
     case invalidSessionTime
 
     public var errorDescription: String? {
@@ -887,6 +888,8 @@ public enum EvidencePackageError: LocalizedError, Equatable {
             return "The evidence package present and missing targets do not match its configuration."
         case let .frameDataMismatch(part):
             return "The evidence package data does not match frame \(part)'s manifest."
+        case let .videoDataMismatch(part):
+            return "The evidence package data does not match video \(part)'s manifest."
         case .invalidSessionTime:
             return "The evidence package contains a timestamp outside the session timeline."
         }
@@ -897,8 +900,13 @@ public enum EvidencePackageError: LocalizedError, Equatable {
 public struct EvidencePackage: Sendable {
     public let manifest: EvidencePackageManifest
     public let frames: [PackagedEvidenceFrame]
+    public let videoSnippet: PackagedEvidenceVideo?
 
-    public init(manifest: EvidencePackageManifest, frames: [PackagedEvidenceFrame]) throws {
+    public init(
+        manifest: EvidencePackageManifest,
+        frames: [PackagedEvidenceFrame],
+        videoSnippet: PackagedEvidenceVideo? = nil
+    ) throws {
         guard frames.count == manifest.frames.count else {
             throw EvidencePackageError.invalidFrameCount
         }
@@ -936,8 +944,24 @@ public struct EvidencePackage: Sendable {
             throw EvidencePackageError.frameTargetSetMismatch
         }
 
+        if let declaredVideo = manifest.videoSnippet, declaredVideo.captureComplete {
+            guard let partName = declaredVideo.partName,
+                  Self.isSafePartName(partName),
+                  let videoSnippet,
+                  videoSnippet.manifest == declaredVideo,
+                  videoSnippet.mp4Data.count == declaredVideo.byteLength,
+                  sha256Hex(videoSnippet.mp4Data) == declaredVideo.sha256 else {
+                throw EvidencePackageError.videoDataMismatch(declaredVideo.partName ?? "unknown")
+            }
+        } else {
+            guard videoSnippet == nil else {
+                throw EvidencePackageError.videoDataMismatch("unexpected")
+            }
+        }
+
         self.manifest = manifest
         self.frames = frames
+        self.videoSnippet = videoSnippet
     }
 
     private static func isSafePartName(_ partName: String) -> Bool {
@@ -998,8 +1022,13 @@ public struct EvidencePackageAssembler: Sendable {
         packageID: UUID = UUID(),
         ring: EvidenceFrameRing,
         camera: EvidencePackageCameraMetadata,
-        scoreTrace: [ModelPrediction] = []
+        scoreTrace: [ModelPrediction] = [],
+        videoSnippet: PackagedEvidenceVideo? = nil,
+        videoSnippetFailureReason: String? = nil
     ) throws -> EvidencePackage {
+        guard videoSnippet == nil || videoSnippetFailureReason == nil else {
+            throw EvidencePackageError.videoDataMismatch("multiple video results")
+        }
         if sessionClock.elapsedTime(for: event.timestamp) == nil {
             sessionClock.observe(event.timestamp)
         }
@@ -1072,11 +1101,17 @@ public struct EvidencePackageAssembler: Sendable {
             evidenceCapture: EvidenceCaptureMetadata(configuration: configuration),
             camera: camera,
             frames: packagedFrames.map(\.manifest),
+            videoSnippet: videoSnippet?.manifest
+                ?? videoSnippetFailureReason.map(EvidenceVideoSnippetManifest.init(failureReason:)),
             missingFrameTargetsMs: missingTargets,
             scoreTrace: trace.sorted { $0.sessionElapsedMs < $1.sessionElapsedMs },
             client: client
         )
-        return try EvidencePackage(manifest: manifest, frames: packagedFrames)
+        return try EvidencePackage(
+            manifest: manifest,
+            frames: packagedFrames,
+            videoSnippet: videoSnippet
+        )
     }
 
     private func milliseconds(_ time: CMTime) -> Int {
@@ -1360,6 +1395,24 @@ public final class EvidencePackageStore: @unchecked Sendable {
                 at: stagingURL.appendingPathComponent("frames", isDirectory: true),
                 withIntermediateDirectories: false
             )
+            if let videoSnippet = package.videoSnippet {
+                guard let partName = videoSnippet.manifest.partName else {
+                    throw EvidencePackageStoreError.invalidPackage(
+                        stagingURL,
+                        "a complete video snippet has no part name"
+                    )
+                }
+                try fileManager.createDirectory(
+                    at: stagingURL.appendingPathComponent("video", isDirectory: true),
+                    withIntermediateDirectories: false
+                )
+                try videoSnippet.mp4Data.write(
+                    to: stagingURL
+                        .appendingPathComponent("video", isDirectory: true)
+                        .appendingPathComponent("\(partName).mp4"),
+                    options: .atomic
+                )
+            }
             try manifestData.write(
                 to: stagingURL.appendingPathComponent("manifest.json"),
                 options: .atomic
@@ -1503,6 +1556,7 @@ public final class EvidencePackageStore: @unchecked Sendable {
 
         let manifestURL = packageURL.appendingPathComponent("manifest.json", isDirectory: false)
         let framesURL = packageURL.appendingPathComponent("frames", isDirectory: true)
+        let videoURL = packageURL.appendingPathComponent("video", isDirectory: true)
         guard isRegularFile(manifestURL), isDirectory(framesURL) else {
             throw EvidencePackageStoreError.invalidPackage(
                 packageURL,
@@ -1520,13 +1574,6 @@ public final class EvidencePackageStore: @unchecked Sendable {
         } catch {
             throw EvidencePackageStoreError.invalidPackage(packageURL, error.localizedDescription)
         }
-        guard Set(packageEntries.map(\.lastPathComponent)) == Set(["manifest.json", "frames"]) else {
-            throw EvidencePackageStoreError.invalidPackage(
-                packageURL,
-                "package contains an unexpected top-level entry"
-            )
-        }
-
         let manifestData: Data
         do {
             manifestData = try Data(contentsOf: manifestURL)
@@ -1542,6 +1589,25 @@ public final class EvidencePackageStore: @unchecked Sendable {
                 manifestURL,
                 error.localizedDescription
             )
+        }
+
+        let hasCompleteVideo = manifest.videoSnippet?.captureComplete == true
+        let expectedEntries = hasCompleteVideo
+            ? Set(["manifest.json", "frames", "video"])
+            : Set(["manifest.json", "frames"])
+        guard Set(packageEntries.map(\.lastPathComponent)) == expectedEntries else {
+            throw EvidencePackageStoreError.invalidPackage(
+                packageURL,
+                "package contains an unexpected top-level entry"
+            )
+        }
+        if hasCompleteVideo {
+            guard isDirectory(videoURL) else {
+                throw EvidencePackageStoreError.invalidPackage(
+                    videoURL,
+                    "a complete video snippet requires a video directory"
+                )
+            }
         }
 
         let frameEntries: [URL]
@@ -1598,8 +1664,57 @@ public final class EvidencePackageStore: @unchecked Sendable {
             )
         }
 
+        var packagedVideo: PackagedEvidenceVideo?
+        if let videoManifest = manifest.videoSnippet, videoManifest.captureComplete {
+            guard let partName = videoManifest.partName else {
+                throw EvidencePackageStoreError.invalidPackage(
+                    videoURL,
+                    "a complete video snippet has no part name"
+                )
+            }
+            let videoEntries: [URL]
+            do {
+                videoEntries = try fileManager.contentsOfDirectory(
+                    at: videoURL,
+                    includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
+                    options: []
+                )
+            } catch {
+                throw EvidencePackageStoreError.invalidPackage(videoURL, error.localizedDescription)
+            }
+            guard videoEntries.allSatisfy({ isRegularFile($0) }),
+                  Set(videoEntries.map(\.lastPathComponent)) == Set(["\(partName).mp4"]) else {
+                throw EvidencePackageStoreError.invalidPackage(
+                    videoURL,
+                    "video files do not match manifest.video_snippet"
+                )
+            }
+            let videoFileURL = videoURL.appendingPathComponent("\(partName).mp4", isDirectory: false)
+            let data: Data
+            do {
+                data = try Data(contentsOf: videoFileURL)
+            } catch {
+                throw EvidencePackageStoreError.invalidPackage(
+                    videoFileURL,
+                    error.localizedDescription
+                )
+            }
+            guard data.count == videoManifest.byteLength,
+                  sha256Hex(data) == videoManifest.sha256 else {
+                throw EvidencePackageStoreError.invalidPackage(
+                    videoFileURL,
+                    "video byte length or SHA-256 does not match the manifest"
+                )
+            }
+            packagedVideo = PackagedEvidenceVideo(manifest: videoManifest, mp4Data: data)
+        }
+
         do {
-            return try EvidencePackage(manifest: manifest, frames: packagedFrames)
+            return try EvidencePackage(
+                manifest: manifest,
+                frames: packagedFrames,
+                videoSnippet: packagedVideo
+            )
         } catch {
             throw EvidencePackageStoreError.invalidPackage(
                 packageURL,

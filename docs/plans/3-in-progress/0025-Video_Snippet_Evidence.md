@@ -186,19 +186,23 @@ Acceptance:
 - migrated frame-only V2 backend tests pass;
 - tests need no external service.
 
-### M2 — Deterministic iOS replay capture
+### M2 — Deterministic iOS replay capture — Complete
 
-1. Feed the checked-in source through the replay path.
-2. Create the bounded snippet around a scripted event proposal.
-3. Create the selected frames and one V2 manifest.
-4. Verify timing, hashes, technical metadata, and queue recovery.
+1. [x] Feed the checked-in source through the replay path.
+2. [x] Create the bounded snippet around a scripted event proposal.
+3. [x] Create the selected frames and one V2 manifest.
+4. [x] Verify timing, hashes, technical metadata, and queue recovery.
+
+Progress (2026-08-27): Added deterministic midpoint replay capture with a bounded H.264/MP4
+writer, explicit frame-only fallback on capture failure, durable video storage, multipart upload,
+and local backend byte-identical read-back verification.
 
 Acceptance:
 
-- repeated replay produces equivalent semantic metadata;
-- encoded bytes pass the backend probe and upload fixture tests;
-- capture and encoding do not block the main thread;
-- a failed snippet still produces an explicit frame-only V2 package when frames are usable.
+- [x] repeated replay produces equivalent semantic metadata;
+- [x] encoded bytes pass the backend probe and upload fixture tests;
+- [x] capture and encoding do not block the main thread;
+- [x] a failed snippet still produces an explicit frame-only V2 package when frames are usable.
 
 ### M3 — Live capture integration
 

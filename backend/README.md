@@ -184,6 +184,7 @@ Stored files use this layout:
 ```text
 .runtime/evidence/<package-id>/manifest.json
 .runtime/evidence/<package-id>/frames/<part-name>.jpg
+.runtime/evidence/<package-id>/video/<part-name>.mp4
 .runtime/vision-results/<result-id>/result.json
 .runtime/training-recordings/<recording-id>/manifest.json
 .runtime/training-recordings/<recording-id>/videos/<video-id>.mov

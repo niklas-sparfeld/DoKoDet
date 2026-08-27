@@ -11,11 +11,27 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         let eventSequence: Int
     }
 
+    private enum VideoSnippetCaptureResult {
+        case complete(PackagedEvidenceVideo)
+        case failed
+
+        var completeVideo: PackagedEvidenceVideo? {
+            guard case let .complete(video) = self else { return nil }
+            return video
+        }
+
+        var failureReason: String? {
+            guard case .failed = self else { return nil }
+            return "capture_failed"
+        }
+    }
+
     private let configuration: EvidenceCaptureConfiguration
     private let captureSession: CaptureSession
     private let ring: EvidenceFrameRing
     private let store: EvidencePackageStore
     private let assembler: EvidencePackageAssembler
+    private let videoSnippetProvider: (any EvidenceVideoSnippetProviding)?
     private let queue = DispatchQueue(label: "com.dokodetector.CardEventProbe.package")
     private let onPackagePersisted: (Result<URL, EvidencePackageStoreError>) -> Void
     private let onEventSequenceReserved: (UUID, Int) -> Void
@@ -36,6 +52,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         client: EvidencePackageClientMetadata,
         camera: EvidencePackageCameraMetadata,
         recordingID: String? = nil,
+        videoSnippetProvider: (any EvidenceVideoSnippetProviding)? = nil,
         onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in },
         onEventSequenceReserved: @escaping (UUID, Int) -> Void = { _, _ in }
     ) {
@@ -55,6 +72,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         self.onEventSequenceReserved = onEventSequenceReserved
         self.camera = camera
         self.recordingID = recordingID
+        self.videoSnippetProvider = videoSnippetProvider
     }
 
     /// Compatibility initializer for package-only callers that do not need persistence.
@@ -69,6 +87,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         client: EvidencePackageClientMetadata,
         camera: EvidencePackageCameraMetadata,
         recordingID: String? = nil,
+        videoSnippetProvider: (any EvidenceVideoSnippetProviding)? = nil,
         onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in },
         onEventSequenceReserved: @escaping (UUID, Int) -> Void = { _, _ in }
     ) {
@@ -86,6 +105,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
             client: client,
             camera: camera,
             recordingID: recordingID,
+            videoSnippetProvider: videoSnippetProvider,
             onPackagePersisted: onPackagePersisted,
             onEventSequenceReserved: onEventSequenceReserved
         )
@@ -232,13 +252,16 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     private func persist(_ events: [PendingEvent]) {
         for pending in events {
             do {
+                let videoResult = captureVideoSnippet(for: pending.event)
                 let package = try assembler.assemble(
                     event: pending.event,
                     eventSequence: pending.eventSequence,
                     packageID: pending.packageID,
                     ring: ring,
                     camera: camera,
-                    scoreTrace: scoreTrace
+                    scoreTrace: scoreTrace,
+                    videoSnippet: videoResult?.completeVideo,
+                    videoSnippetFailureReason: videoResult?.failureReason
                 )
                 let url = try store.persist(package)
                 onPackagePersisted(.success(url))
@@ -249,6 +272,15 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
                     .failure(.writeFailed(store.packageURL(for: pending.packageID), error.localizedDescription))
                 )
             }
+        }
+    }
+
+    private func captureVideoSnippet(for event: DetectionEvent) -> VideoSnippetCaptureResult? {
+        guard let videoSnippetProvider else { return nil }
+        do {
+            return .complete(try videoSnippetProvider.capture(eventTimestamp: event.timestamp))
+        } catch {
+            return .failed
         }
     }
 

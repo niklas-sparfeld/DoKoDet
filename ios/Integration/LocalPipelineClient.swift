@@ -182,7 +182,8 @@ struct LocalPipelineClient {
                 width: 1,
                 height: 1
             ),
-            recordingID: recordingID
+            recordingID: recordingID,
+            videoSnippetProvider: AVAssetVideoSnippetProvider(sourceURL: inputURL)
         )
 
         let reader = try AVAssetReader(asset: asset)
@@ -205,6 +206,7 @@ struct LocalPipelineClient {
         var predictionCount = 0
         var lastTimestamp = CMTime.zero
         let eventDecoder = CausalEventDecoder(configuration: decoderConfiguration)
+        let eventCenterFrame = max(1, Int((asset.duration.seconds * frameRate / 2.0).rounded()))
         while let sampleBuffer = output.copyNextSampleBuffer() {
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                 continue
@@ -220,7 +222,10 @@ struct LocalPipelineClient {
             evidenceCoordinator.observe(frame)
             evidenceSampler.drain()
 
-            let probability = simulatedProbability(frameIndex: frameCount)
+            let probability = simulatedProbability(
+                frameIndex: frameCount,
+                eventCenterFrame: eventCenterFrame
+            )
             let prediction = ModelPrediction(
                 timestamp: timestamp,
                 cardEventProbability: probability,
@@ -336,13 +341,9 @@ struct LocalPipelineClient {
         }()
     }
 
-    private static func simulatedProbability(frameIndex: Int) -> Double {
-        switch frameIndex % 10 {
-        case 2, 3:
-            return 0.9
-        default:
-            return 0.1
-        }
+    private static func simulatedProbability(frameIndex: Int, eventCenterFrame: Int) -> Double {
+        // Keep the local replay deterministic and produce one causal peak at the source midpoint.
+        abs(frameIndex - eventCenterFrame) <= 1 ? 0.9 : 0.1
     }
 
     private static func readResult(_ options: Options) async throws {
@@ -429,6 +430,20 @@ struct LocalPipelineClient {
             }
         }
         let frameManifests = packagedFrames.map(\.manifest)
+        let packagedVideo: PackagedEvidenceVideo?
+        if let videoManifest = baseManifest.videoSnippet, videoManifest.captureComplete {
+            guard videoManifest.partName != nil else {
+                throw OptionsError.invalidValue("video_snippet.part_name")
+            }
+            let videoURL = manifestURL.deletingLastPathComponent()
+                .appendingPathComponent("snippet.mp4")
+            packagedVideo = PackagedEvidenceVideo(
+                manifest: videoManifest,
+                mp4Data: try Data(contentsOf: videoURL)
+            )
+        } else {
+            packagedVideo = nil
+        }
         let missingTargets = variant == .metadata
             ? baseManifest.evidenceCapture.targetOffsetsMs
             : baseManifest.missingFrameTargetsMs
@@ -448,6 +463,7 @@ struct LocalPipelineClient {
             evidenceCapture: baseManifest.evidenceCapture,
             camera: baseManifest.camera,
             frames: frameManifests,
+            videoSnippet: packagedVideo?.manifest,
             missingFrameTargetsMs: missingTargets,
             scoreTrace: baseManifest.scoreTrace,
             client: EvidencePackageClientMetadata(
@@ -459,7 +475,11 @@ struct LocalPipelineClient {
             schemaVersion: baseManifest.schemaVersion
         )
 
-        return try EvidencePackage(manifest: manifest, frames: packagedFrames)
+        return try EvidencePackage(
+            manifest: manifest,
+            frames: packagedFrames,
+            videoSnippet: packagedVideo
+        )
     }
 
     private static func readFrame(
