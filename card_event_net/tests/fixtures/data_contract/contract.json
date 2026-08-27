@@ -1,0 +1,141 @@
+{
+  "schema_version": "data-contract/v1",
+  "source": {
+    "schema_version": "source-record/v1",
+    "source_asset_id": "source-fixture-001",
+    "sha256": "4b546b680285945a814bb3f23a4bc44c922c735e6dc143a8f5970d2ef7a7cca7",
+    "byte_length": 32,
+    "media_type": "video/quicktime",
+    "original_filename": "fixture.mov",
+    "acquisition_method": "fixture",
+    "source_permission": "training_and_evaluation",
+    "allowed_uses": ["train", "validation", "test"],
+    "session_id": "session-fixture-001",
+    "recording_id": "recording-fixture-001",
+    "video_id": "fixture-video-001",
+    "game_id": "game-fixture-001",
+    "round_id": "round-fixture-001",
+    "table_setup": "setup-fixture-001",
+    "content_type": "real_game",
+    "retention_state": "active",
+    "notes": "Small local contract fixture."
+  },
+  "lineage": {
+    "schema_version": "lineage/v1",
+    "edges": [
+      {
+        "schema_version": "lineage/v1",
+        "parent": {"kind": "session", "id": "session-fixture-001"},
+        "child": {"kind": "recording", "id": "recording-fixture-001"},
+        "relation": "recording_in_session",
+        "source_frame_id": null,
+        "transform": null
+      },
+      {
+        "schema_version": "lineage/v1",
+        "parent": {"kind": "source_asset", "id": "source-fixture-001"},
+        "child": {"kind": "recording", "id": "recording-fixture-001"},
+        "relation": "source_contains_recording",
+        "source_frame_id": null,
+        "transform": null
+      },
+      {
+        "schema_version": "lineage/v1",
+        "parent": {"kind": "recording", "id": "recording-fixture-001"},
+        "child": {"kind": "evidence_package", "id": "package-fixture-001"},
+        "relation": "evidence_package_from_recording",
+        "source_frame_id": null,
+        "transform": null
+      },
+      {
+        "schema_version": "lineage/v1",
+        "parent": {"kind": "evidence_package", "id": "package-fixture-001"},
+        "child": {"kind": "frame", "id": "frame-fixture-001"},
+        "relation": "frame_from_evidence_package",
+        "source_frame_id": null,
+        "transform": null
+      },
+      {
+        "schema_version": "lineage/v1",
+        "parent": {"kind": "evidence_package", "id": "package-fixture-001"},
+        "child": {"kind": "annotation_set", "id": "annotation-fixture-001"},
+        "relation": "annotation_for_evidence_package",
+        "source_frame_id": null,
+        "transform": null
+      },
+      {
+        "schema_version": "lineage/v1",
+        "parent": {"kind": "frame", "id": "frame-fixture-001"},
+        "child": {"kind": "crop", "id": "crop-fixture-001"},
+        "relation": "crop_from_frame",
+        "source_frame_id": "frame-fixture-001",
+        "transform": "crop-v1:x=10,y=20,w=30,h=40"
+      },
+      {
+        "schema_version": "lineage/v1",
+        "parent": {"kind": "annotation_set", "id": "annotation-fixture-001"},
+        "child": {"kind": "crop", "id": "crop-fixture-001"},
+        "relation": "crop_target_from_annotation",
+        "source_frame_id": null,
+        "transform": "crop-v1"
+      }
+    ]
+  },
+  "eligibility": {
+    "schema_version": "eligibility/v1",
+    "source_asset_id": "source-fixture-001",
+    "state": "eligible",
+    "source_permission": "training_and_evaluation",
+    "allowed_uses": ["train", "validation", "test"],
+    "review_state": "reviewed",
+    "annotation_set_id": "annotation-fixture-001",
+    "review_id": "review-fixture-001",
+    "intended_use": "train",
+    "reason": null
+  },
+  "dataset_version": {
+    "schema_version": "dataset-version/v1",
+    "dataset_version_id": "dataset-fixture-001",
+    "task": "vision_detector_oracle_crop",
+    "target_schema": "vision-annotation/v1",
+    "entries": [
+      {
+        "dataset_item_id": "crop-fixture-001",
+        "source_asset_id": "source-fixture-001",
+        "source_sha256": "4b546b680285945a814bb3f23a4bc44c922c735e6dc143a8f5970d2ef7a7cca7",
+        "annotation_set_id": "annotation-fixture-001",
+        "review_id": "review-fixture-001",
+        "eligibility": {
+          "schema_version": "eligibility/v1",
+          "source_asset_id": "source-fixture-001",
+          "state": "eligible",
+          "source_permission": "training_and_evaluation",
+          "allowed_uses": ["train", "validation", "test"],
+          "review_state": "reviewed",
+          "annotation_set_id": "annotation-fixture-001",
+          "review_id": "review-fixture-001",
+          "intended_use": "train",
+          "reason": null
+        },
+        "target_schema": "vision-annotation/v1",
+        "group_keys": [
+          ["session_id", "session-fixture-001"],
+          ["game_id", "game-fixture-001"],
+          ["table_setup", "setup-fixture-001"],
+          ["source_lineage", "source-fixture-001"]
+        ],
+        "inclusion_reason": "Reviewed card-play crop from the contract fixture.",
+        "transform_version": "crop-v1"
+      }
+    ],
+    "allowed_use_filter": ["train"],
+    "group_key_names": ["session_id", "game_id", "table_setup", "source_lineage"],
+    "derived_artifact_transform_version": "crop-v1",
+    "creation_code_revision": "fixture",
+    "dirty_state": false,
+    "deck_design_version": "deck-design-fixture-v1",
+    "card_set_version": "card-set-fixture-v1",
+    "created_at": "2026-08-27T00:00:00Z",
+    "dataset_version_digest": "eda19fca747d9c59aad6ae7fccf285589dc1deb069b7279752a8f210bdb4ed09"
+  }
+}

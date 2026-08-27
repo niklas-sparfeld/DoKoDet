@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Build a reproducible VisionDetector train/evaluate/export loop before model research
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** Plan 0020 milestone M1
 - **Reviewed:** 2026-08-27 against the glossary and current CardEventNet training pipeline
 - **Starts early:** Use tiny generated fixtures before enough real VisionDetector data exists

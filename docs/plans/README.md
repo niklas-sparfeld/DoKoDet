@@ -43,6 +43,7 @@ No epics.
 | Epic | Outcome |
 | --- | --- |
 | [0006 — Game engine contract and core PoC](2-ready/0006-GameEngine_v1.md) | Freeze the round-reconstruction contract and build the rules core. |
+| [0021 — VisionDetector training pipeline](2-ready/0021-VisionDetector_Training_Pipeline.md) | Build the train, evaluate, checkpoint, and export loop. |
 
 ### In Progress
 
@@ -55,7 +56,6 @@ No epics.
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0019 — App training recordings](4-blocked/0019-App_TrainingRecordings.md) | 0016 and the 0020 source-data contract | Add deliberate recording intake. |
-| [0021 — VisionDetector training pipeline](4-blocked/0021-VisionDetector_Training_Pipeline.md) | 0020 milestone M1 | Build the train, evaluate, checkpoint, and export loop. |
 
 ### Closed
 
