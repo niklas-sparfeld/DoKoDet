@@ -47,9 +47,7 @@ No epics.
 
 ### In Progress
 
-| Epic | Outcome |
-| --- | --- |
-| [0016 — iOS evidence-upload integration](3-in-progress/0016-iOS_EvidenceUpload_Integration.md) | Connect the app to the local result pipeline. |
+No epics.
 
 ### Blocked
 
@@ -76,6 +74,7 @@ No epics.
 | [0013 — CardEventNet full-frame input](5-closed/0013-CardEventNet_FullFrameInput.md) | Complete | Full-frame preprocessing migration. |
 | [0014 — CardEventNet review queue](5-closed/0014-CardEventNet_ReviewQueue_Workflow.md) | Complete | Interactive review workflow. |
 | [0015 — CardEventNet transition targets](5-closed/0015-CardEventNet_Transition_Targets.md) | Complete | Transition-target experiment. |
+| [0016 — iOS evidence-upload integration](5-closed/0016-iOS_EvidenceUpload_Integration.md) | Complete | Local iOS-to-backend-to-detector pipeline. |
 | [0017 — iOS evidence-upload production readiness](5-closed/0017-iOS_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | iOS hardening reference. |
 | [0018 — Backend evidence-upload production readiness](5-closed/0018-Backend_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | Backend hardening reference. |
 
@@ -85,7 +84,7 @@ No epics.
    contract.
 2. Start 0020 milestone M0 in parallel. It establishes the data invariants.
 3. Continue 0005, 0006, and 0020 as independent local foundations.
-4. Continue 0016 in `In Progress`; move 0021 to `Ready` after 0020 milestone M1.
+4. Move 0021 to `Ready` after 0020 milestone M1.
 5. Move 0019 to `Ready` after 0016 and the 0020 source-data contract are complete.
 6. Specify 0022, 0023, and 0024 only when their entry evidence exists.
 

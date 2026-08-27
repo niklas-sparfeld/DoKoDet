@@ -13,6 +13,10 @@ let package = Package(
             name: "CardEventProbeCore",
             targets: ["CardEventProbeCore"]
         ),
+        .executable(
+            name: "CardEventProbeLocalPipeline",
+            targets: ["CardEventProbeLocalPipeline"]
+        ),
     ],
     targets: [
         .target(
@@ -52,6 +56,11 @@ let package = Package(
                 "Networking/EvidenceResultClient.swift",
                 "Networking/EvidenceUploadQueue.swift",
             ]
+        ),
+        .executableTarget(
+            name: "CardEventProbeLocalPipeline",
+            dependencies: ["CardEventProbeCore"],
+            path: "Integration"
         ),
         .testTarget(
             name: "CardEventProbeCoreTests",

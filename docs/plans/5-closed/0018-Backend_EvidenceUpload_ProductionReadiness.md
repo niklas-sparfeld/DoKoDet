@@ -6,7 +6,7 @@
 - **Status:** Closed
 - **Closure reason:** Superseded by [plan 0024](../0-to-specify/0024-System_Production_Readiness.md)
 - **Starts after:** [Plan 0004](0004-Backend_EvidenceUpload.md) and the iOS/backend local integration
-  in [plan 0016](../3-in-progress/0016-iOS_EvidenceUpload_Integration.md)
+  in [plan 0016](0016-iOS_EvidenceUpload_Integration.md)
 - **Disposition:** Keep this document as a backend hardening reference. Select concrete work only
   after local pipeline and recognition measurements exist.
 

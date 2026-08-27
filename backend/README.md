@@ -76,6 +76,18 @@ Use `--package-id <uuid>` to select a package, or add `--all` to process all pen
 Read results at `/v1/vision-results/<result-id>` or
 `/v1/evidence-packages/<package-id>/vision-results`.
 
+Run the complete M4 local pipeline gate from `backend/`:
+
+```bash
+uv run pytest tests/test_local_pipeline.py
+```
+
+The gate starts the real local HTTP API with temporary SQLite and filesystem stores. It uses the
+Swift `CardEventProbeLocalPipeline` replay client to upload complete, incomplete, and metadata-only
+packages, then checks idempotent replay, conflict retention, transport retry, queue recovery after
+an app restart, scripted detection, and result read-back. It does not require Docker, a phone, or
+cloud services.
+
 The default local runtime directory is `.runtime/`. It is ignored by Git. Settings use these
 environment variables:
 
