@@ -65,6 +65,17 @@ Read the stored metadata:
 curl http://127.0.0.1:8000/v1/evidence-packages/550e8400-e29b-41d4-a716-446655440000
 ```
 
+Run the local scripted detector once for the first pending package:
+
+```bash
+cd backend
+uv run python -m dokodetector_backend.run_vision --once
+```
+
+Use `--package-id <uuid>` to select a package, or add `--all` to process all pending packages.
+Read results at `/v1/vision-results/<result-id>` or
+`/v1/evidence-packages/<package-id>/vision-results`.
+
 The default local runtime directory is `.runtime/`. It is ignored by Git. Settings use these
 environment variables:
 
@@ -74,6 +85,9 @@ EVIDENCE_ROOT=.runtime
 MAX_MANIFEST_BYTES=1000000
 MAX_FRAME_BYTES=10000000
 MAX_PACKAGE_BYTES=100000000
+VISION_DETECTOR_NAME=scripted
+VISION_DETECTOR_VERSION=scripted-v1
+VISION_DETECTOR_MAPPING_PATH=
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8000
 BONJOUR_ENABLED=true
@@ -128,6 +142,7 @@ Stored files use this layout:
 ```text
 .runtime/evidence/<package-id>/manifest.json
 .runtime/evidence/<package-id>/frames/<part-name>.jpg
+.runtime/vision-results/<result-id>/result.json
 ```
 
 Readiness runs a SQLite query and checks that the evidence directory can be read and written. The

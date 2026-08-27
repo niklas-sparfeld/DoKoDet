@@ -47,6 +47,7 @@ class ScriptedVisionDetector:
             version=version,
         )
         self.version = detector_metadata.version
+        self.name = detector_metadata.name
         self.mapping_path = (
             Path(mapping_path) if mapping_path is not None else default_mapping_path()
         )

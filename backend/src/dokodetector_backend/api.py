@@ -11,6 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException
+from vision_detector import VisionContractError, VisionDetectionResult, parse_result_bytes
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.contract import (
@@ -217,6 +218,46 @@ def get_evidence_package(package_id: str, request: Request) -> PackageMetadataRe
     )
 
 
+@router.get(
+    "/v1/evidence-packages/{package_id}/vision-results",
+    response_model=list[VisionDetectionResult],
+)
+def get_package_vision_results(package_id: str, request: Request) -> list[VisionDetectionResult]:
+    """Return immutable detector results for one stored package."""
+
+    requested_package_id = _parse_package_id(package_id)
+    repository: EvidenceRepository = request.app.state.repository
+    if repository.get_package(requested_package_id) is None:
+        raise ContractError(
+            "package_not_found",
+            "The package was not found.",
+            status_code=404,
+        )
+    return [
+        _parse_stored_result(row.result_json)
+        for row in repository.list_vision_results(requested_package_id)
+    ]
+
+
+@router.get(
+    "/v1/vision-results/{result_id}",
+    response_model=VisionDetectionResult,
+)
+def get_vision_result(result_id: str, request: Request) -> VisionDetectionResult:
+    """Return one immutable detector result."""
+
+    requested_result_id = _parse_result_id(result_id)
+    repository: EvidenceRepository = request.app.state.repository
+    stored_result = repository.get_vision_result(requested_result_id)
+    if stored_result is None:
+        raise ContractError(
+            "vision_result_not_found",
+            "The vision result was not found.",
+            status_code=404,
+        )
+    return _parse_stored_result(stored_result.result_json)
+
+
 def _parse_package_id(value: str) -> UUID:
     try:
         return UUID(value)
@@ -224,6 +265,27 @@ def _parse_package_id(value: str) -> UUID:
         raise ContractError(
             "invalid_package_id",
             "The package ID is not a valid UUID.",
+        ) from error
+
+
+def _parse_result_id(value: str) -> UUID:
+    try:
+        return UUID(value)
+    except (AttributeError, TypeError, ValueError) as error:
+        raise ContractError(
+            "invalid_result_id",
+            "The result ID is not a valid UUID.",
+        ) from error
+
+
+def _parse_stored_result(result_json: str) -> VisionDetectionResult:
+    try:
+        return parse_result_bytes(result_json.encode("utf-8"))
+    except (UnicodeEncodeError, VisionContractError) as error:
+        raise ContractError(
+            "internal_error",
+            "The stored vision result is invalid.",
+            status_code=500,
         ) from error
 
 

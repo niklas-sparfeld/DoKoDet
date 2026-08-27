@@ -59,6 +59,32 @@ class EvidenceStorage:
 
         return self.evidence_root / str(UUID(str(package_id)))
 
+    @property
+    def vision_results_root(self) -> Path:
+        """Return the sibling directory that contains immutable vision results."""
+
+        return self.root / "vision-results"
+
+    def vision_result_path(self, result_id: UUID | str) -> Path:
+        """Return the final path for one validated vision result."""
+
+        return self.vision_results_root / str(UUID(str(result_id)))
+
+    def start_vision_result(self, result_id: UUID | str) -> TemporaryVisionResult:
+        """Create a temporary directory for one result file."""
+
+        result_uuid = UUID(str(result_id))
+        self.vision_results_root.mkdir(parents=True, exist_ok=True)
+        temporary_path = Path(tempfile.mkdtemp(prefix=".result-", dir=self.vision_results_root))
+        return TemporaryVisionResult(self, result_uuid, temporary_path)
+
+    def remove_vision_result(self, result_id: UUID | str) -> None:
+        """Remove one result directory during persistence compensation."""
+
+        result_path = self.vision_result_path(result_id)
+        if result_path.exists():
+            shutil.rmtree(result_path)
+
     def remove_package(self, package_id: UUID | str) -> None:
         """Remove a package directory after a failed database insert."""
 
@@ -180,6 +206,75 @@ class TemporaryEvidencePackage:
         )
 
 
+class TemporaryVisionResult:
+    """Build one result file and atomically rename its directory."""
+
+    def __init__(self, storage: EvidenceStorage, result_id: UUID, temporary_path: Path) -> None:
+        self.storage = storage
+        self.result_id = result_id
+        self.temporary_path = temporary_path
+        self._result: StoredFile | None = None
+        self._committed = False
+
+    def __enter__(self) -> TemporaryVisionResult:
+        return self
+
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        if not self._committed:
+            self.abort()
+
+    def write_result(self, source: bytes | BinaryIO) -> StoredFile:
+        """Copy the canonical result bytes into the temporary directory."""
+
+        if self._result is not None:
+            raise FileExistsError("The result was already written.")
+        source_stream: BinaryIO = BytesIO(source) if isinstance(source, bytes) else source
+        result_path = self.temporary_path / "result.json"
+        digest = hashlib.sha256()
+        byte_length = 0
+        try:
+            with result_path.open("xb") as destination:
+                while chunk := source_stream.read(COPY_CHUNK_BYTES):
+                    if not isinstance(chunk, bytes):
+                        raise TypeError("Result sources must return bytes.")
+                    byte_length += len(chunk)
+                    digest.update(chunk)
+                    destination.write(chunk)
+        except BaseException:
+            result_path.unlink(missing_ok=True)
+            raise
+
+        self._result = StoredFile(
+            relative_path="result.json",
+            byte_length=byte_length,
+            sha256=digest.hexdigest(),
+        )
+        return self._result
+
+    def commit(self) -> StoredFile:
+        """Rename the complete temporary directory to its final path."""
+
+        if self._result is None:
+            raise ValueError("The result must be written before commit.")
+        final_path = self.storage.vision_result_path(self.result_id)
+        if final_path.exists():
+            raise FileExistsError("The result directory already exists.")
+
+        self.temporary_path.rename(final_path)
+        self._committed = True
+        return StoredFile(
+            relative_path=f"vision-results/{self.result_id}/result.json",
+            byte_length=self._result.byte_length,
+            sha256=self._result.sha256,
+        )
+
+    def abort(self) -> None:
+        """Remove an uncommitted temporary result directory."""
+
+        if self.temporary_path.exists():
+            shutil.rmtree(self.temporary_path)
+
+
 class StorageLimitError(ValueError):
     """A file exceeded its configured storage limit."""
 
@@ -199,4 +294,5 @@ __all__ = [
     "StoredEvidencePackage",
     "StoredFile",
     "TemporaryEvidencePackage",
+    "TemporaryVisionResult",
 ]
