@@ -342,13 +342,21 @@ Acceptance:
 
 1. [x] Capture and upload an initial real V2 package on a supported iPhone.
 2. [x] Verify its selected frames and snippet decode.
-3. [ ] Capture at least three corrected 960×540 packages with different card transitions.
-4. [ ] Verify each package through byte-identical iOS-to-backend read-back.
+3. [x] Capture at least three corrected 960×540 packages with different card transitions.
+4. [x] Verify each package through byte-identical iOS-to-backend read-back.
 5. [ ] Record actual size, frame count, frame rate, duration, timing coverage, peak memory, encode
    latency, upload latency, and storage use.
-6. [ ] Replay each snippet in a minimal human-review view.
-7. [ ] Record whether 960×540 reveals useful card detail that is absent from a derived 640×360
+6. [x] Replay each snippet in a minimal human-review view.
+7. [x] Record whether 960×540 reveals useful card detail that is absent from a derived 640×360
    version.
+
+Progress (2026-08-27): The reviewed recording session produced 20 complete 960×540 packages. Three
+widely spaced packages were checked through the backend store, backend media probe, and selected
+JPEG hashes. Temporary 640×360 derivatives show less card-edge and corner detail than the accepted
+960×540 source snippets. The end-to-end measurement is recorded in
+[the M6 measurement report](../../reports/0025-Video_Snippet_M6_End_to_End_Measurement.md). The
+current package contract does not persist observed peak temporary bytes or per-package encode and
+upload latency, so item 5 remains open until the app records those values.
 
 Acceptance:
 
