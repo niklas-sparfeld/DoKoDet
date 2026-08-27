@@ -57,6 +57,67 @@ def test_annotate_command_parses_model_proposals() -> None:
     assert args.proposals == Path("predictions.json")
 
 
+def test_vision_commands_parse_contract_paths() -> None:
+    import_args = build_parser().parse_args(
+        ["vision-import", "package/manifest.json", "--out-dir", "annotations"]
+    )
+    review_args = build_parser().parse_args(
+        [
+            "vision-review",
+            "--annotation",
+            "event.json",
+            "--frames-dir",
+            "frames",
+            "--out",
+            "review.json",
+            "--reviewer",
+            "niklas",
+            "--snippet",
+            "snippet.mp4",
+        ]
+    )
+    apply_args = build_parser().parse_args(
+        [
+            "vision-apply-review",
+            "--annotation",
+            "event.json",
+            "--review",
+            "review.json",
+            "--out-dir",
+            "applied",
+        ]
+    )
+
+    assert import_args.command_name == "vision-import"
+    assert import_args.manifests == [Path("package/manifest.json")]
+    assert import_args.out_dir == Path("annotations")
+    assert review_args.command_name == "vision-review"
+    assert review_args.frames_dir == Path("frames")
+    assert review_args.snippet == Path("snippet.mp4")
+    assert apply_args.command_name == "vision-apply-review"
+    assert apply_args.out_dir == Path("applied")
+
+
+def test_vision_import_command_writes_table_observation_files(tmp_path: Path) -> None:
+    evidence_root = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
+    output_dir = tmp_path / "table-observations"
+
+    exit_code = main(
+        [
+            "vision-import",
+            str(evidence_root / "example-complete"),
+            str(evidence_root / "example-incomplete"),
+            "--out-dir",
+            str(output_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    files = sorted(output_dir.glob("*.json"))
+    assert len(files) == 2
+    assert all("table-observation-annotation/v1" in file.read_text() for file in files)
+
+
 def test_train_command_parses_config_and_split() -> None:
     args = build_parser().parse_args(
         ["train", "--config", "configs/base.yaml", "--split", "data/splits/default.yaml"]

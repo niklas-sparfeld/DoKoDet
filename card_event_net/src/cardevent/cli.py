@@ -33,6 +33,16 @@ from .splits import SplitError, make_video_split, save_split
 from .train import TrainingError, train_from_files
 from .transition_diagnostics import TransitionDiagnosticError, diagnose_saved_validation_stream
 from .video import VideoError
+from .vision_annotation import (
+    VisionAnnotationError,
+    import_evidence_packages,
+    save_vision_annotation,
+)
+from .vision_review import (
+    VisionReviewError,
+    apply_vision_review,
+)
+from .vision_viewer import VisionViewerError, review_vision_annotation
 
 _PLACEHOLDER_COMMANDS = {
     "annotate": "Annotate a source video.",
@@ -51,6 +61,9 @@ _PLACEHOLDER_COMMANDS = {
     "review-queue": "Build a human review queue from model candidates.",
     "review": "Review queue items with the source videos.",
     "apply-review": "Apply reviewed outcomes to a new annotation version.",
+    "vision-import": "Import evidence manifests as visual event proposals.",
+    "vision-review": "Review one visual event and its evidence frames.",
+    "vision-apply-review": "Apply one visual review to a new annotation version.",
 }
 
 
@@ -623,6 +636,50 @@ def build_parser() -> argparse.ArgumentParser:
     )
     apply_review_parser.set_defaults(command_name="apply-review")
 
+    vision_import_parser = subparsers.add_parser(
+        "vision-import",
+        aliases=("import-vision", "import-vision-annotations"),
+        help=_PLACEHOLDER_COMMANDS["vision-import"],
+        description=(
+            "Import accepted evidence-package manifests as draft visual event annotations. "
+            "Source manifests are never modified."
+        ),
+    )
+    vision_import_parser.add_argument(
+        "manifests", nargs="+", type=Path, help="Evidence manifest or package directory."
+    )
+    vision_import_parser.add_argument(
+        "--out-dir", type=Path, required=True, help="New directory for table-observation files."
+    )
+    vision_import_parser.set_defaults(command_name="vision-import")
+
+    vision_review_parser = subparsers.add_parser(
+        "vision-review",
+        help=_PLACEHOLDER_COMMANDS["vision-review"],
+        description="Review one visual event and all supplied evidence frames.",
+    )
+    vision_review_parser.add_argument("--annotation", type=Path, required=True)
+    vision_review_parser.add_argument("--frames-dir", type=Path, required=True)
+    vision_review_parser.add_argument("--out", type=Path, required=True)
+    vision_review_parser.add_argument("--reviewer", required=True)
+    vision_review_parser.add_argument("--review-id", default=None)
+    vision_review_parser.add_argument("--snippet", type=Path, default=None)
+    vision_review_parser.set_defaults(command_name="vision-review")
+
+    vision_apply_parser = subparsers.add_parser(
+        "vision-apply-review",
+        help=_PLACEHOLDER_COMMANDS["vision-apply-review"],
+        description=(
+            "Apply one immutable visual review to a new annotation directory. "
+            "The source annotation is never modified."
+        ),
+    )
+    vision_apply_parser.add_argument("--annotation", type=Path, required=True)
+    vision_apply_parser.add_argument("--review", type=Path, required=True)
+    vision_apply_parser.add_argument("--out-dir", type=Path, required=True)
+    vision_apply_parser.add_argument("--dry-run", action="store_true")
+    vision_apply_parser.set_defaults(command_name="vision-apply-review")
+
     export_parser = subparsers.add_parser(
         "export-coreml",
         help="Export a checkpoint to Core ML.",
@@ -730,6 +787,9 @@ def build_parser() -> argparse.ArgumentParser:
             "review-queue",
             "review",
             "apply-review",
+            "vision-import",
+            "vision-review",
+            "vision-apply-review",
         }:
             continue
         command_parser = subparsers.add_parser(name, help=help_text, description=help_text)
@@ -1084,6 +1144,69 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"({summary['annotations_added']} events added, "
                 f"{summary['timestamps_corrected']} timestamps corrected)"
             )
+        return 0
+
+    if command_name == "vision-import":
+        try:
+            annotation_set = import_evidence_packages(
+                args.manifests,
+            )
+            if args.out_dir.exists() and (
+                not args.out_dir.is_dir() or any(args.out_dir.iterdir())
+            ):
+                raise VisionAnnotationError(
+                    f"Output directory is not empty: {args.out_dir}"
+                )
+            args.out_dir.mkdir(parents=True, exist_ok=True)
+            for annotation in annotation_set:
+                save_vision_annotation(
+                    annotation,
+                    args.out_dir / f"{annotation.annotation_set_id}.json",
+                )
+        except (VisionAnnotationError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Imported {len(annotation_set)} table observations: {args.out_dir}")
+        return 0
+
+    if command_name == "vision-review":
+        try:
+            review = review_vision_annotation(
+                args.annotation,
+                frames_dir=args.frames_dir,
+                review_path=args.out,
+                reviewer=args.reviewer,
+                review_id=args.review_id,
+                snippet_path=args.snippet,
+            )
+        except (
+            VisionAnnotationError,
+            VisionReviewError,
+            VisionViewerError,
+            RuntimeError,
+            OSError,
+            ValueError,
+        ) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        if review is None:
+            print("Review cancelled; no artifact was written.")
+        else:
+            print(f"Wrote visual review {args.out}: {review.decision}")
+        return 0
+
+    if command_name == "vision-apply-review":
+        try:
+            receipt = apply_vision_review(
+                args.annotation,
+                args.review,
+                out_dir=args.out_dir,
+                dry_run=args.dry_run,
+            )
+        except (VisionReviewError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        if args.dry_run:
+            print(json.dumps(receipt, indent=2, sort_keys=True))
+        else:
+            print(f"Wrote reviewed visual annotation: {args.out_dir}")
         return 0
 
     if command_name == "export-coreml":

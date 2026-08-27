@@ -1,0 +1,9 @@
+{
+  "schema_version": "table-observation-annotation/v1",
+  "annotation_set_id": "annotation-set-001",
+  "source": {"package_id": "package-001"},
+  "observed_cards": [],
+  "event_review": "no_visible_cards",
+  "review_state": "draft",
+  "unexpected": true
+}

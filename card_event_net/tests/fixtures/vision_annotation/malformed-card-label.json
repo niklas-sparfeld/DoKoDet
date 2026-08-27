@@ -1,0 +1,24 @@
+{
+  "schema_version": "table-observation-annotation/v1",
+  "annotation_set_id": "annotation-set-002",
+  "source": {"package_id": "package-002"},
+  "observed_cards": [
+    {
+      "observed_card_id": "observed-card-002",
+      "visual_card_identity": "HEARTS_QUEEN",
+      "visibility": "card_not_visible",
+      "frame_observations": [
+        {
+          "frame_id": "frame_04",
+          "bbox": null,
+          "usable_for_identity": false,
+          "tags": []
+        }
+      ],
+      "became_newly_visible": false,
+      "active_area_class": "not_applicable"
+    }
+  ],
+  "event_review": "unreviewed",
+  "review_state": "draft"
+}

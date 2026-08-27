@@ -1,0 +1,32 @@
+{
+  "schema_version": "table-observation-annotation/v1",
+  "annotation_set_id": "annotation-set-fixture-001",
+  "source": {"package_id": "package-fixture-001"},
+  "observed_cards": [
+    {
+      "observed_card_id": "observed-card-fixture-001",
+      "visual_card_identity": "HEARTS_QUEEN",
+      "visibility": "identifiable",
+      "frame_observations": [
+        {
+          "frame_id": "frame_04",
+          "bbox": [412, 280, 611, 527],
+          "usable_for_identity": true,
+          "tags": ["glare", "partial_occlusion"]
+        }
+      ],
+      "became_newly_visible": true,
+      "active_area_class": "inside",
+      "card_tracklet_id": "tracklet-fixture-001",
+      "movement": "moving",
+      "occlusion": "short"
+    }
+  ],
+  "event_review": "false_event_proposal",
+  "review_state": "draft",
+  "video_snippet": {
+    "video_snippet_id": "snippet-fixture-001",
+    "start_ms": 11000,
+    "end_ms": 13000
+  }
+}

@@ -106,3 +106,23 @@ remain valid through their existing loader and the explicit adapter.
 `card_event_net/tests/fixtures/data_contract/contract.json` links one session, recording, evidence
 package, frame, annotation set, and crop to `source-video.bin`. Its test checks the source bytes,
 lineage trace, permission, review state, export round trip, and deterministic dataset digest.
+
+## Table-observation review
+
+M2 adds table-observation-annotation/v1 for one annotation set. An annotation set keeps the human
+event review separate from visual card evidence. It can contain several observed cards, each with
+frame boxes, visibility, quality tags, newly-visible, active-area, movement, occlusion, and optional
+card-tracklet fields. A visible card does not assert that a card was played.
+
+Import accepted local evidence manifests as draft table observations:
+
+```bash
+uv run cardevent vision-import \
+  ../fixtures/evidence/v1/example-complete/manifest.json \
+  --out-dir data/table-observations
+```
+
+Use vision-review to inspect all frames in a local frame directory. The viewer writes a separate
+table-observation-review/v1 artifact. Use vision-apply-review to create a new annotation directory.
+The source annotation, evidence manifest, and review artifact are read only. The apply directory
+contains the reviewed annotation, a copy of the review, and a table-observation-apply-receipt.json.

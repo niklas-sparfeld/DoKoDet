@@ -97,7 +97,7 @@
     "schema_version": "dataset-version/v1",
     "dataset_version_id": "dataset-fixture-001",
     "task": "vision_detector_oracle_crop",
-    "target_schema": "vision-annotation/v1",
+    "target_schema": "table-observation-annotation/v1",
     "entries": [
       {
         "dataset_item_id": "crop-fixture-001",
@@ -117,7 +117,7 @@
           "intended_use": "train",
           "reason": null
         },
-        "target_schema": "vision-annotation/v1",
+        "target_schema": "table-observation-annotation/v1",
         "group_keys": [
           ["session_id", "session-fixture-001"],
           ["game_id", "game-fixture-001"],
@@ -136,6 +136,6 @@
     "deck_design_version": "deck-design-fixture-v1",
     "card_set_version": "card-set-fixture-v1",
     "created_at": "2026-08-27T00:00:00Z",
-    "dataset_version_digest": "eda19fca747d9c59aad6ae7fccf285589dc1deb069b7279752a8f210bdb4ed09"
+    "dataset_version_digest": "080cface92d88f65364d923516c3515ee0c4c67a145dfa7bc1e36dcb7aed23db"
   }
 }
