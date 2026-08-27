@@ -228,6 +228,7 @@ final class EvidencePackageTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
 
         var packageURLs: [URL] = []
+        var reservedSequences: [(UUID, Int)] = []
         let coordinator = EvidencePackageCoordinator(
             configuration: configuration,
             captureSession: captureSession,
@@ -241,6 +242,8 @@ final class EvidencePackageTests: XCTestCase {
             if case let .success(url) = result {
                 packageURLs.append(url)
             }
+        } onEventSequenceReserved: { sessionID, sequence in
+            reservedSequences.append((sessionID, sequence))
         }
 
         coordinator.consume(
@@ -273,6 +276,8 @@ final class EvidencePackageTests: XCTestCase {
         XCTAssertEqual(manifests.map(\.session.eventSequence), [1, 2])
         XCTAssertEqual(Set(manifests.map(\.packageID)).count, 2)
         XCTAssertEqual(captureSession.nextEventSequence, 3)
+        XCTAssertEqual(reservedSequences.map(\.1), [1, 2])
+        XCTAssertEqual(Set(reservedSequences.map(\.0)), Set([captureSession.sessionID]))
     }
 
     private func completePackage(packageID: UUID) throws -> EvidencePackage {

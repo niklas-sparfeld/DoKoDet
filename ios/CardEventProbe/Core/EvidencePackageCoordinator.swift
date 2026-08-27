@@ -18,6 +18,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     private let assembler: EvidencePackageAssembler
     private let queue = DispatchQueue(label: "com.dokodetector.CardEventProbe.package")
     private let onPackagePersisted: (Result<URL, EvidencePackageStoreError>) -> Void
+    private let onEventSequenceReserved: (UUID, Int) -> Void
     private var pendingEvents: [PendingEvent] = []
     private var processedEventIDs = Set<UUID>()
     private var scoreTrace: [ModelPrediction] = []
@@ -33,7 +34,8 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         decoderConfiguration: CausalEventDecoder.Configuration,
         client: EvidencePackageClientMetadata,
         camera: EvidencePackageCameraMetadata,
-        onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in }
+        onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in },
+        onEventSequenceReserved: @escaping (UUID, Int) -> Void = { _, _ in }
     ) {
         self.configuration = configuration
         self.captureSession = captureSession
@@ -48,6 +50,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
             client: client
         )
         self.onPackagePersisted = onPackagePersisted
+        self.onEventSequenceReserved = onEventSequenceReserved
         self.camera = camera
     }
 
@@ -62,7 +65,8 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         decoderConfiguration: CausalEventDecoder.Configuration,
         client: EvidencePackageClientMetadata,
         camera: EvidencePackageCameraMetadata,
-        onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in }
+        onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in },
+        onEventSequenceReserved: @escaping (UUID, Int) -> Void = { _, _ in }
     ) {
         self.init(
             configuration: configuration,
@@ -77,7 +81,8 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
             decoderConfiguration: decoderConfiguration,
             client: client,
             camera: camera,
-            onPackagePersisted: onPackagePersisted
+            onPackagePersisted: onPackagePersisted,
+            onEventSequenceReserved: onEventSequenceReserved
         )
     }
 
@@ -164,6 +169,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
             return
         }
         processedEventIDs.insert(event.id)
+        onEventSequenceReserved(captureSession.sessionID, eventSequence)
         let pending = PendingEvent(
             event: event,
             packageID: UUID(),

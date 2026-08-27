@@ -24,6 +24,23 @@ struct ScoreSample: Identifiable {
     let probability: Double
 }
 
+enum CaptureActivity: Equatable {
+    case idle
+    case live
+    case replay
+
+    var title: String {
+        switch self {
+        case .idle:
+            return "Idle"
+        case .live:
+            return "Live capture"
+        case .replay:
+            return "Replay"
+        }
+    }
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published private(set) var modelState: ModelLoadState = .loading
@@ -48,9 +65,13 @@ final class AppState: ObservableObject {
     @Published private(set) var evidencePackageError: String?
     @Published private(set) var evidenceQueueDiagnostics: EvidencePackageQueueDiagnostics?
     @Published private(set) var evidenceUploadError: String?
+    @Published private(set) var evidenceUploadRunning = false
     @Published private(set) var latestEvidencePackageID: UUID?
     @Published private(set) var latestEvidenceResults: [EvidenceVisionResult] = []
     @Published private(set) var evidenceResultError: String?
+    @Published private(set) var captureActivity: CaptureActivity = .idle
+    @Published private(set) var captureSessionID: UUID?
+    @Published private(set) var latestEventSequence: Int?
 
     let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
@@ -113,10 +134,12 @@ final class AppState: ObservableObject {
         }
         guard evidenceUploadTask == nil else { return }
 
+        evidenceUploadRunning = true
         evidenceUploadTask = Task { [weak self] in
             let attempts = await evidenceUploadQueue.uploadQueued(using: configuration)
             guard !Task.isCancelled else { return }
             self?.evidenceUploadTask = nil
+            self?.evidenceUploadRunning = false
             self?.applyEvidenceUploadAttempts(attempts)
             if self?.evidenceQueueDiagnostics?.queuedCount ?? 0 > 0 {
                 self?.uploadQueuedEvidence()
@@ -125,17 +148,23 @@ final class AppState: ObservableObject {
     }
 
     func retryFailedEvidence() {
-        guard case let .connected(service) = backendDiscovery.state,
-              let configuration = try? BackendConfiguration(baseURL: service.baseURL),
+        guard case let .connected(service) = backendDiscovery.state else {
+            evidenceUploadError = "Connect to a backend before retrying evidence uploads."
+            return
+        }
+        guard let configuration = try? BackendConfiguration(baseURL: service.baseURL),
               let evidenceUploadQueue else {
+            evidenceUploadError = "The evidence upload queue is not available."
             return
         }
         guard evidenceUploadTask == nil else { return }
 
+        evidenceUploadRunning = true
         evidenceUploadTask = Task { [weak self] in
             let attempts = await evidenceUploadQueue.retryFailed(using: configuration)
             guard !Task.isCancelled else { return }
             self?.evidenceUploadTask = nil
+            self?.evidenceUploadRunning = false
             self?.applyEvidenceUploadAttempts(attempts)
             if self?.evidenceQueueDiagnostics?.queuedCount ?? 0 > 0 {
                 self?.uploadQueuedEvidence()
@@ -192,6 +221,7 @@ final class AppState: ObservableObject {
         guard let runner = modelRunner else { return nil }
         guard let captureSession = beginCaptureSession() else { return nil }
         activeDiagnosticSource = .live
+        captureActivity = .live
         beginDiagnosticsSessionIfNeeded(source: .live)
 
         let evidenceSampler = EvidenceFrameSampler(
@@ -218,6 +248,7 @@ final class AppState: ObservableObject {
     }
 
     func stopLiveInference() {
+        guard activeDiagnosticSource == .live || liveCoordinator != nil else { return }
         finishEvidencePackageCoordinator()
         liveCoordinator?.stop()
         liveCoordinator = nil
@@ -247,6 +278,7 @@ final class AppState: ObservableObject {
             return
         }
         activeDiagnosticSource = .replay
+        captureActivity = .replay
         beginDiagnosticsSessionIfNeeded(source: .replay)
         let replayRunner = VideoReplayRunner()
         let evidenceSampler = EvidenceFrameSampler(
@@ -540,6 +572,14 @@ final class AppState: ObservableObject {
                     self.evidenceQueueDiagnostics = self.evidencePackageStore.diagnostics
                 }
             }
+        } onEventSequenceReserved: { [weak self] sessionID, sequence in
+            Task { @MainActor in
+                guard let self,
+                      self.captureSessionID == sessionID || self.captureSessionID == nil else {
+                    return
+                }
+                self.latestEventSequence = sequence
+            }
         }
     }
 
@@ -548,6 +588,8 @@ final class AppState: ObservableObject {
             let session = try captureSessionIdentityStore.resumeSession()
                 ?? captureSessionIdentityStore.startSession()
             captureSession = session
+            captureSessionID = session.sessionID
+            latestEventSequence = nil
             return session
         } catch {
             inferenceError = "The capture session could not be started: \(error.localizedDescription)"
@@ -579,6 +621,8 @@ final class AppState: ObservableObject {
             inferenceError = "The capture session could not be closed: \(error.localizedDescription)"
         }
         self.captureSession = nil
+        captureSessionID = nil
+        captureActivity = .idle
     }
 
     private func finishEvidencePackageCoordinator() {

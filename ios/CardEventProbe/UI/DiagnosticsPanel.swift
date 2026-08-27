@@ -6,12 +6,164 @@ struct DiagnosticsPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            CaptureStatusView(appState: appState)
+            EvidenceQueueStatusView(appState: appState)
+            BackendStatusView(discovery: appState.backendDiscovery)
+
             HStack {
                 Text("Model")
                 Spacer()
                 Text(appState.modelState.title)
             }
 
+#if DEBUG
+            DeveloperDiagnosticsView(appState: appState)
+#endif
+
+            if let packageError = appState.evidencePackageError {
+                OperatorErrorView(title: "Package", message: packageError)
+            }
+
+            if let uploadError = appState.evidenceUploadError {
+                OperatorErrorView(title: "Upload", message: uploadError)
+            }
+
+            if let inferenceError = appState.inferenceError {
+                OperatorErrorView(title: "Capture", message: inferenceError)
+            }
+        }
+        .padding()
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+}
+
+private struct CaptureStatusView: View {
+    @ObservedObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Capture")
+                Spacer()
+                Text(appState.captureActivity.title)
+                    .fontWeight(.medium)
+            }
+            HStack {
+                Text("Session")
+                Spacer()
+                Text(sessionIDText)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+            }
+            HStack {
+                Text("Latest event sequence")
+                Spacer()
+                Text(appState.latestEventSequence.map(String.init) ?? "—")
+                    .monospacedDigit()
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
+    private var sessionIDText: String {
+        guard let sessionID = appState.captureSessionID else { return "—" }
+        return sessionID.uuidString.lowercased()
+    }
+}
+
+private struct EvidenceQueueStatusView: View {
+    @ObservedObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Evidence queue")
+                    .fontWeight(.medium)
+                Spacer()
+                if appState.evidenceUploadRunning {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Uploading")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let diagnostics = appState.evidenceQueueDiagnostics {
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    alignment: .leading,
+                    spacing: 4
+                ) {
+                    QueueCountView(title: "Queued", count: diagnostics.queuedCount)
+                    QueueCountView(title: "Acknowledged", count: diagnostics.acknowledgedCount)
+                    QueueCountView(title: "Retryable failures", count: diagnostics.retryableFailureCount)
+                    QueueCountView(title: "Permanent failures", count: diagnostics.permanentFailureCount)
+                }
+
+                if diagnostics.stagingCount > 0 || diagnostics.corruptCount > 0 {
+                    Text(
+                        "Staging \(diagnostics.stagingCount) · corrupt \(diagnostics.corruptCount)"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                if diagnostics.retryableFailureCount > 0 {
+                    Button("Retry retryable packages") {
+                        appState.retryFailedEvidence()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(appState.evidenceUploadRunning)
+                }
+            } else {
+                Text("Queue status is not available.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.bottom, 4)
+    }
+}
+
+private struct QueueCountView: View {
+    let title: String
+    let count: Int
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.caption)
+            Spacer()
+            Text("\(count)")
+                .font(.caption.monospacedDigit())
+        }
+    }
+}
+
+private struct OperatorErrorView: View {
+    let title: String
+    let message: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(title) error")
+                .font(.caption.weight(.semibold))
+            Text(message)
+                .font(.caption)
+                .textSelection(.enabled)
+        }
+        .foregroundStyle(.red)
+    }
+}
+
+#if DEBUG
+private struct DeveloperDiagnosticsView: View {
+    @ObservedObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
             switch appState.modelState {
             case let .ready(contract):
                 Text(contract.summary)
@@ -67,8 +219,6 @@ struct DiagnosticsPanel: View {
                 Spacer()
                 Text(appState.thermalStateDescription)
             }
-
-            BackendStatusView(discovery: appState.backendDiscovery)
 
             if let packageID = appState.latestEvidencePackageID {
                 DisclosureGroup("Vision result (developer)") {
@@ -159,15 +309,7 @@ struct DiagnosticsPanel: View {
                 }
                 .padding(.top, 4)
             }
-
-            if let inferenceError = appState.inferenceError {
-                Text(inferenceError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
         }
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var rateAndLatency: String {
@@ -192,8 +334,8 @@ struct DiagnosticsPanel: View {
             Slider(value: Binding(get: { value }, set: onChange), in: 0.0...1.0)
         }
     }
-
 }
+#endif
 
 private struct BackendStatusView: View {
     @ObservedObject var discovery: BackendDiscovery

@@ -10,12 +10,14 @@ struct RootView: View {
                 Label("Live", systemImage: "camera")
             }
 
+#if DEBUG
             NavigationStack {
                 ReplayView()
             }
             .tabItem {
                 Label("Replay", systemImage: "film")
             }
+#endif
         }
         .onAppear {
             appState.startBackendDiscovery()

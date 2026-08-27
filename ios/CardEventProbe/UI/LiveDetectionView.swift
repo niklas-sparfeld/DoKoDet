@@ -26,19 +26,51 @@ struct LiveDetectionView: View {
                         .padding(12)
                 }
 
+                HStack {
+                    Label(
+                        appState.captureActivity == .live ? "Capture session active" : "Capture session stopped",
+                        systemImage: appState.captureActivity == .live ? "record.circle.fill" : "stop.circle"
+                    )
+                    .foregroundStyle(appState.captureActivity == .live ? .red : .secondary)
+
+                    Spacer()
+
+                    Button(
+                        appState.captureActivity == .live ? "End capture" : "Start capture"
+                    ) {
+                        if appState.captureActivity == .live {
+                            endCapture()
+                        } else {
+                            startCapture()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(appState.captureActivity == .replay)
+                }
+
                 DiagnosticsPanel()
             }
             .padding()
         }
         .navigationTitle("Live")
         .onAppear {
-            camera.setFrameHandler(appState.startLiveInference())
-            camera.start()
+            if appState.captureActivity == .idle {
+                startCapture()
+            }
         }
         .onDisappear {
-            camera.setFrameHandler(nil)
-            camera.stop()
-            appState.stopLiveInference()
+            endCapture()
         }
+    }
+
+    private func startCapture() {
+        camera.setFrameHandler(appState.startLiveInference())
+        camera.start()
+    }
+
+    private func endCapture() {
+        camera.setFrameHandler(nil)
+        camera.stop()
+        appState.stopLiveInference()
     }
 }
