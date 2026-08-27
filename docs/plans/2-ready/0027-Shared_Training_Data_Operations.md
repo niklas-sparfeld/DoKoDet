@@ -7,8 +7,9 @@
 - **Status:** Ready
 - **Depends on:** Plans 0019 and 0020, which are complete
 - **Builds on:** Plan 0025 adds optional video snippets to evidence packages
-- **Reviewed:** 2026-08-27 against the implemented recording upload, CardEventNet review workflow,
-  table-observation data foundation, and project glossary
+- **Reviewed:** 2026-08-28 against repository baseline `e392f929d`, the implemented recording
+  upload and CardEventNet review workflow, the plan 0020 data foundation, the completed plan 0025
+  evidence path, and active plans 0021, 0022, and 0028
 - **Does not depend on:** Plan 0021 model training; data operations can proceed with existing model
   proposals and fixtures
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
@@ -45,6 +46,30 @@ At the end of this plan, an operator can:
 
 The workflow does not commit or push Git changes.
 
+### 1.1 Current repository baseline
+
+The repository already contains these parts of the workflow:
+
+- the app records immutable `cardevent-recording/v1` bundles, queues uploads, retries failures, and
+  keeps live inference and evidence-package capture active;
+- the backend streams each recording into atomic local storage and stores searchable recording
+  metadata in SQLite, but it cannot rebuild that metadata from the accepted bundle;
+- `cardevent import-recording` copies accepted recording bytes into a component-specific raw-data
+  directory and needs separate operator metadata;
+- CardEventNet provides video-wide annotation, proposal queues, immutable review application,
+  cache preparation, and its existing dataset tools;
+- plan 0020 provides shared source, lineage, eligibility, table-observation review, dataset, split,
+  coverage, and lifecycle-receipt contracts;
+- the app has Live and Replay tabs. Training-recording controls are part of Live and do not have a
+  reusable collection profile;
+- no repository-operations package, task enrollment, repository intake root, system holdout, or
+  cross-task review-run state exists.
+
+Replace the component-specific writable recording intake with the shared repository bundle. Update
+the app, backend, and cross-component fixture together. Do not keep two writable upload paths.
+Historical source records can continue to resolve their current immutable artifact locations. Do
+not copy or move their bytes only to match the new layout.
+
 ## 2. Fixed architecture decisions
 
 ### 2.1 Share intake, not datasets
@@ -74,7 +99,8 @@ Changing one task's enrollment or review state must not change the other task.
 
 ### 2.2 Select processing explicitly
 
-Add one task enrollment record for each source asset. Support these initial data tasks:
+Add one task enrollment record for each source asset and data task. Support these initial data
+tasks:
 
 ```text
 cardevent_event_detection
@@ -132,8 +158,8 @@ another selection source.
 
 ### 2.5 Use task-specific state
 
-Do not add one universal `done` flag. Record the implemented plan 0020 lifecycle state separately
-for each data task:
+Do not add one universal `done` flag. Keep task enrollment disposition separate from the plan 0020
+lifecycle state. Record lifecycle state separately for each selected data task:
 
 ```text
 intake
@@ -145,8 +171,9 @@ excluded
 retired
 ```
 
-A source asset can be `eligible` for CardEventNet and `deferred` for the TableEvidenceAnalyzer. A
-shared permission withdrawal or source retirement affects both tasks and every derived artifact.
+A source asset can be `eligible` for CardEventNet while its TableEvidenceAnalyzer enrollment is
+`deferred`. A shared permission withdrawal or source retirement affects both tasks and every
+derived artifact.
 
 ### 2.6 Keep component splits separate and reserve a system holdout
 
@@ -166,6 +193,20 @@ as a side effect of review.
 Add a small repository-operations Python package with one `doko` entry point. It composes existing
 data contracts and component commands. It must not create a second source, annotation, dataset, or
 split contract.
+
+Use this initial project shape:
+
+```text
+operations/
+  pyproject.toml
+  uv.lock
+  src/doko_operations/
+  tests/
+```
+
+Declare its Python and uv versions through the root `mise.toml`. Keep component adapters behind
+typed Python interfaces so deterministic state changes have direct tests. A subprocess adapter can
+call an interactive component UI, but subprocess output is not the workflow state contract.
 
 The intended commands are:
 
@@ -287,6 +328,9 @@ Each review invocation creates or resumes one versioned review-run state file. I
 inputs, current item, completed human decisions, produced versions, validation results, and
 remaining work.
 
+Publication is atomic for each data task. With `--task all`, a failure in one task does not roll
+back an already completed task. Never publish only one part of a task's dataset-and-split result.
+
 The command must:
 
 - save after every human decision;
@@ -307,120 +351,216 @@ only summaries and actionable failures in Markdown.
 
 1. Freeze task identifiers, dispositions, strict schemas, and typed models.
 2. Define the repository bundle and proposal generator run lineage contracts.
-3. Add the system holdout registry contract and cross-task leakage checks.
-4. Add one fixture selected only for CardEventNet, one selected only for table evidence, and one
+3. Add one fixture selected only for CardEventNet, one selected only for table evidence, and one
    selected for both.
-5. Add read-only `doko data status` over the fixtures.
+4. Add replacement-fixture conformance tests in Swift, the backend, and Python. Do not add optional
+   aliases for fields from the old bundle.
 
 Acceptance:
 
-- one source asset can have independent state for both tasks;
+- one source asset has independent enrollment and lifecycle state for both tasks;
 - changing task enrollment does not change source bytes or their digest;
 - a proposal generator run does not imply CardEventNet dataset membership;
-- a system holdout group is rejected from every component training split;
-- status output is deterministic and requires no model, camera, or network.
+- strict round-trip and malformed-fixture tests pass in Swift, the backend, and Python;
+- the replacement contract is frozen before an active producer or consumer switches to it.
 
-### M1 — Record tab and complete collection profiles
+### M1 — Operations package and read-only inspection
+
+1. Add the `operations/` package and `doko` entry point.
+2. Add explicit repository-root configuration and deterministic fixture discovery.
+3. Implement read-only `doko data status` and `doko data validate`.
+4. Report bundle completeness, task state, pending work, failures, unassigned eligible groups, and
+   stale derived artifacts.
+
+Acceptance:
+
+- status output is stable in human and JSON forms;
+- status and validation do not change repository artifacts or SQLite state;
+- complete, incomplete, invalid, deferred, and independently selected fixture cases are covered;
+- the commands require no model, camera, display, or network.
+
+### M2 — Record tab and collection profiles
 
 1. Add the dedicated app tab and collection-profile editor.
 2. Persist profiles and reuse session-level defaults across recordings.
 3. Add per-recording task-disposition overrides.
-4. Populate complete operator-owned metadata before upload.
-5. Preserve the current durable capture, finalization, retry, and upload behavior.
+4. Populate complete operator-owned metadata and task enrollments before finalization.
+5. Preserve the current bounded capture, live inference, evidence capture, durable queue, retry, and
+   upload behavior.
 
 Acceptance:
 
-- several recordings can reuse one session without re-entering shared metadata;
-- incomplete required metadata prevents final upload with a clear field-level message;
-- measured technical fields come from capture and media probing;
-- deferred tasks do not create review work;
-- Swift unit and UI state tests cover profile reuse and task overrides.
+- several recordings reuse one session without re-entering shared metadata;
+- incomplete required metadata prevents final upload with a field-level message;
+- measured technical fields come only from capture and media probing;
+- a per-recording override changes the emitted enrollment without changing the saved profile;
+- Swift core tests cover profile persistence and overrides, and app UI-state tests cover Record-tab
+  navigation and validation.
 
-### M2 — Atomic repository intake
+### M3 — Atomic repository bundle storage
 
 1. Add the configured repository intake root.
-2. Store one complete fixture bundle atomically in it.
-3. Remove the manual metadata-completion and `import-recording` step for new app recordings.
-4. Rebuild backend search metadata from accepted bundle files.
-5. Add Git LFS coverage for nested recording media.
+2. Switch the app and backend to the replacement bundle in one change. Remove the superseded active
+   upload contract and fixture.
+3. Stream all upload parts into a temporary directory below the configured root.
+4. Validate media, source, collection metadata, proposal lineage, and initial task enrollments before
+   one atomic rename.
+5. Make identical retries idempotent and reject conflicting identifiers without changing the
+   accepted bundle.
+6. Keep SQLite writes outside canonical bundle identity and prevent partial central metadata.
 
 Acceptance:
 
-- a successful upload leaves one commit-ready bundle and no authoritative duplicate;
-- interruption or validation failure leaves no visible final bundle;
-- an identical retry succeeds and a conflicting retry fails;
-- deleting the rebuildable SQLite database does not lose canonical metadata;
-- existing historical source records still resolve without moving their bytes.
+- a successful upload leaves one complete, commit-ready bundle;
+- interruption or validation failure leaves no visible final bundle or database row;
+- an identical retry succeeds and a conflicting retry leaves the accepted bytes unchanged;
+- the accepted source, manifest, proposal, source record, and enrollment hashes validate;
+- no active upload producer, consumer, or fixture uses the superseded bundle contract;
+- the current upload, restart, size-limit, and retry behavior remains covered.
 
-### M3 — One-command CardEventNet review
+### M4 — Rebuildable intake index and component access
 
-1. Discover selected unreviewed recordings.
-2. Create or resume video-wide annotation with proposal seeding.
-3. Run required queue review and immutable review application.
-4. Refresh affected cache entries and dataset reports.
-5. Write a split proposal, validation result, receipts, and review-run report.
-
-Acceptance:
-
-- one command takes a fixture from selected intake to reviewed CardEventNet data;
-- quitting and rerunning resumes at the next incomplete decision;
-- candidate-only review cannot mark the video-wide pass complete;
-- no TableEvidenceAnalyzer enrollment or state changes;
-- the resulting source, annotation, dataset, and split lineage validates.
-
-### M4 — One-command TableEvidenceAnalyzer review
-
-1. Discover selected unreviewed recordings and evidence packages.
-2. Combine device, Mac, reviewed-event, and deterministic coverage candidates.
-3. open or resume table-observation review for each selected item;
-4. apply reviewed annotations and assemble dataset coverage;
-5. write a split proposal, validation result, receipts, and review-run report.
+1. Rebuild backend search metadata only from accepted bundle files.
+2. Resolve CardEventNet source and proposal inputs directly from repository intake.
+3. Remove the manual metadata-completion and `cardevent import-recording` path for new app
+   recordings. Do not retain it as a second writable intake path.
+4. Add Git LFS coverage for recording media at every nested intake depth.
+5. Resolve historical source records at their declared artifact locations without moving or copying
+   their bytes.
 
 Acceptance:
 
-- one command takes fixtures from selected intake to a reviewed table-evidence dataset version;
-- every sample names its selection source and proposal generator run lineage when applicable;
+- deleting and rebuilding SQLite does not lose or change canonical metadata;
+- CardEventNet opens the accepted source and proposals without a component-specific source copy;
+- a new app recording needs no metadata-completion or import command;
+- Git LFS checks cover nested `.mov`, `.mp4`, and `.m4v` recording media;
+- historical source-record fixtures still resolve without a legacy upload path.
+
+### M5 — Resumable review-run orchestration
+
+1. Define the strict review-run state and report contracts.
+2. Implement `doko data review` task selection, discovery, dispatch, and atomic state updates.
+3. Save after every human decision and resume at the first incomplete decision.
+4. Stage task outputs until validation and any required split approval complete.
+5. Print the exact next human action and the final commit-ready file list.
+
+Acceptance:
+
+- deterministic Python tests cover new, interrupted, resumed, complete, and failed runs;
+- a completed rerun is idempotent and does not repeat decisions or overwrite immutable artifacts;
+- failure before publication leaves no partial dataset or split version;
+- `--task all` retains separate progress and failure state for both tasks;
+- component log volume stays in run logs while the Markdown report stays concise.
+
+### M6 — CardEventNet review adapter
+
+1. Discover selected, unreviewed recordings from task enrollment.
+2. Create or resume video-wide annotation with device or Mac proposal seeding.
+3. Run required ambiguity and hard-negative queues, then apply a complete immutable review.
+4. Refresh only affected cache entries and stage dataset, split-proposal, validation, receipt, and
+   report artifacts for publication.
+
+Acceptance:
+
+- one command takes a selected fixture to staged, reviewed CardEventNet data;
+- quitting and rerunning resumes at the next incomplete human decision;
+- candidate-only review cannot satisfy the video-wide pass;
+- deferred or excluded CardEventNet enrollment creates no review work;
+- no TableEvidenceAnalyzer enrollment, lifecycle state, or artifact changes.
+
+### M7 — Table-evidence candidate selection
+
+1. Discover selected recordings and evidence packages.
+2. Gather declared device, Mac, and reviewed-event proposal sources.
+3. Add deterministic coverage, negative, and explicit operator-selected intervals.
+4. Materialize immutable evidence references for frames, optional snippets, and recording ranges.
+5. Write selection-source coverage and proposal generator run lineage.
+
+Acceptance:
+
+- every selected item names its selection source;
+- proposal-selected items name the complete generator run when applicable;
 - deterministic coverage finds an item absent from CardEventNet proposals;
-- no CardEventNet dataset enrollment or state changes;
-- false event proposals can retain reviewed visible-card evidence.
+- missing optional snippets do not invalidate selected frames;
+- repeated selection with the same inputs has the same order and digest.
 
-### M5 — Independent dataset publication and shared holdout
+### M8 — Table-observation review adapter
 
-1. Publish separate frozen dataset and split versions for both tasks.
-2. Add reviewed approval for proposed split changes.
-3. Enforce the shared system holdout in both split validators.
-4. Report unassigned eligible groups without failing unrelated intake.
-5. Add cross-task source and permission impact reporting.
+1. Open or resume review for each selected table-evidence item.
+2. Apply human decisions into new immutable table-observation annotation versions.
+3. Stage dataset, coverage, split-proposal, validation, receipt, and report artifacts for
+   publication.
+4. Keep review progress independent from CardEventNet progress.
+
+Acceptance:
+
+- one command takes selected fixtures to staged, reviewed table-evidence data;
+- false event proposals can retain reviewed visible-card evidence;
+- incomplete review never receives `reviewed` or `eligible` lifecycle state;
+- deferred or excluded table-evidence enrollment creates no review work;
+- no CardEventNet dataset membership, review state, or artifact changes.
+
+### M9 — Independent publication and system holdout
+
+1. Define the shared system holdout registry and reviewed seal operation.
+2. Validate the registry in both component split validators.
+3. Publish separate frozen dataset and split versions only after explicit split approval.
+4. Keep new eligible groups `unassigned` unless the approved proposal names a partition.
+5. Publish both tasks independently when `--task all` has one task still incomplete or invalid.
 
 Acceptance:
 
 - the two datasets can include different source assets and samples;
-- the same session cannot cross partitions within one task;
-- a system holdout group cannot enter any component's training or validation partition;
-- source retirement reports affected artifacts in both tasks;
-- split approval never changes source or review artifacts.
+- the same session, game, table setup, or source-lineage group cannot cross partitions within one
+  task;
+- a system holdout group cannot enter any component training or validation partition;
+- sealing a group is explicit, reviewed, versioned, and never a review side effect;
+- split approval changes no source, enrollment, annotation, or review artifact.
 
-### M6 — Clean-room operator exercise
+### M10 — Cross-task permission and retirement impact
+
+1. Extend source permission and retirement impact analysis across both data tasks.
+2. Report affected annotations, datasets, splits, caches, runs, and model bundles.
+3. Mark derived artifacts stale through new versioned state or receipts. Do not edit immutable
+   artifacts in place.
+4. Include cross-task failures and stale artifacts in status and validation output.
+
+Acceptance:
+
+- permission withdrawal or source retirement reports affected artifacts in both tasks;
+- changing one task enrollment does not change the other task;
+- source retirement does not modify source bytes or historical artifacts;
+- unrelated valid intake and unassigned groups remain usable;
+- repeated impact analysis is deterministic.
+
+### M11 — Clean-room workflow and operator exercise
 
 Run a saved-video fixture through:
 
 ```text
 collection profile
   -> recording and retryable upload
-  -> repository intake
+  -> repository intake and rebuilt index
   -> independent task enrollment
   -> CardEventNet review
   -> TableEvidenceAnalyzer review
-  -> two dataset versions and splits
+  -> approved independent dataset versions and splits
   -> complete validation and commit-ready report
 ```
 
+Use a scripted decision provider only in the automated test. It exercises resumption and
+publication but does not create ground truth for non-fixture input. Then run the same saved source
+through the app and interactive review interfaces as the required human exercise. Record the human
+result in `docs/reports/0027-Shared_Training_Data_Operations_Exercise.md`.
+
 Acceptance:
 
-- the exercise starts from one source asset copy;
+- both exercises start from one source asset copy;
 - every derived artifact traces to the same source digest;
 - each task can be selected, deferred, resumed, or completed independently;
-- ordinary automated gates need no phone, camera, external network, GPU, or cloud service;
+- the automated gate needs no phone, camera, display, external network, GPU, or cloud service;
+- the human exercise needs only the local app or simulator, local backend, saved fixture, and review
+  interfaces;
 - the operator invokes no manual import, cache, apply-review, dataset-build, or split command.
 
 ## 10. Out of scope
@@ -435,16 +575,29 @@ Acceptance:
 
 ## 11. Verification
 
-Use contract fixtures and temporary repository roots for ordinary tests. Run:
+### Automated verification
 
-- operations-package unit and integration tests;
-- affected CardEventNet tests and static checks;
-- backend upload, restart, idempotency, and rebuild tests;
+Use contract fixtures and temporary repository roots. Run:
+
+- `mise install` after toolchain or package setup changes;
+- operations-package unit, integration, formatting, lint, and type or static checks;
+- affected CardEventNet tests, formatting, lint, and static checks;
+- backend upload, restart, idempotency, rebuild, formatting, lint, and migration checks;
 - Swift package tests for collection profiles, state, capture, queue, and upload;
-- table-observation review, dataset, split, coverage, and lifecycle tests;
-- one local clean-room pipeline test.
+- app UI-state tests for Record-tab navigation, validation, and task overrides;
+- table-observation selection, review, dataset, split, coverage, and lifecycle tests;
+- one headless local clean-room pipeline test with the fixture-only decision provider.
 
 Check all local Markdown links after adding or moving plan files.
+
+### Required human verification
+
+Use a saved video in the local app or simulator. Reuse one collection profile for two recordings,
+change one task override, confirm the field-level validation, retry one upload, and resume one
+decision in each interactive review path. The exercise passes when `doko data validate` succeeds
+and the generated report lists only commit-ready artifacts. Record the app and command versions,
+actions, observations, and result in
+`docs/reports/0027-Shared_Training_Data_Operations_Exercise.md`.
 
 ## 12. Definition of done
 
