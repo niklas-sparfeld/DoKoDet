@@ -147,8 +147,15 @@ def test_persister_links_existing_files_to_database_rows(tmp_path) -> None:
             for frame in package.frames
         ),
     )
+    video_source = (FIXTURE_ROOT / "example-complete" / "snippet.mp4").read_bytes()
 
-    stored = persister.persist(package, raw, frame_sources)
+    stored = persister.persist(
+        package,
+        raw,
+        frame_sources,
+        video_source=video_source,
+        video_part_name=manifest.video_snippet.part_name,
+    )
     reloaded = repository.get_package(package.package_id)
 
     assert reloaded == stored
@@ -161,6 +168,10 @@ def test_persister_links_existing_files_to_database_rows(tmp_path) -> None:
         stored.frames[0].sha256
         == hashlib.sha256(frame_sources[stored.frames[0].part_name]).hexdigest()
     )
+    assert (
+        storage.video_path(PACKAGE_ID, manifest.video_snippet.part_name).read_bytes()
+        == video_source
+    )
 
 
 def test_failed_database_insert_removes_renamed_files(tmp_path) -> None:
@@ -172,10 +183,13 @@ def test_failed_database_insert_removes_renamed_files(tmp_path) -> None:
     persister = EvidencePackagePersister(repository, storage)
 
     first_package = package_record(raw, manifest)
+    video_source = (FIXTURE_ROOT / "example-complete" / "snippet.mp4").read_bytes()
     persister.persist(
         first_package,
         raw,
         {frame.part_name: b"first-frame" for frame in manifest.frames},
+        video_source=video_source,
+        video_part_name=manifest.video_snippet.part_name,
     )
 
     second_package = package_record(
@@ -188,6 +202,8 @@ def test_failed_database_insert_removes_renamed_files(tmp_path) -> None:
             second_package,
             raw,
             {frame.part_name: b"second-frame" for frame in manifest.frames},
+            video_source=video_source,
+            video_part_name=manifest.video_snippet.part_name,
         )
 
     assert repository.get_package(second_package.package_id) is None

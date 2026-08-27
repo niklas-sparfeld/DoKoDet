@@ -174,6 +174,26 @@ content returns `409 Conflict` and is not overwritten.
 
 `state` is `stored` for every successful V2 response. `received_at` is an RFC 3339 UTC timestamp.
 
+## Stored package reads
+
+Read package metadata with:
+
+```http
+GET /v1/evidence-packages/{package_id}
+```
+
+The response includes the validated manifest, selected-frame metadata, and the optional
+`video_snippet` metadata. For a complete snippet, `video_relative_path` reports its local relative
+storage path. Clients must use the safe read endpoint instead of constructing a filesystem path:
+
+```http
+GET /v1/evidence-packages/{package_id}/video-snippet
+```
+
+The endpoint returns the original `video/mp4` bytes with an ETag equal to the declared SHA-256.
+It returns `404` when the package has no complete snippet. The endpoint never accepts a path or
+part name from the client.
+
 ## Fingerprint
 
 The package fingerprint is the SHA-256 of canonical JSON with this shape:
@@ -220,7 +240,7 @@ Validation errors use this stable shape. The server does not return stack traces
 | 409 | `logical_event_conflict` | The session ID and event sequence already identify another package. |
 | 413 | `manifest_too_large`, `frame_too_large`, `video_too_large`, or `package_too_large` | A configured byte limit is exceeded. |
 | 415 | `unsupported_media_type` | The request or a part has an unsupported content type. |
-| 422 | `invalid_package_id`, `package_id_mismatch`, `invalid_manifest`, or `hash_mismatch` | A declared identity, manifest, or byte digest is invalid. |
+| 422 | `invalid_package_id`, `package_id_mismatch`, `invalid_manifest`, `hash_mismatch`, or `invalid_video` | A declared identity, manifest, byte digest, or video stream is invalid. |
 | 500 | `internal_error` | The server failed after receiving a valid request. |
 
 Every error uses the JSON shape above. The server does not return stack traces, local paths, or

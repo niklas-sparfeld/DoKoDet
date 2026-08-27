@@ -3,8 +3,8 @@
 This is the local backend for the evidence upload proof of concept.
 
 The backend accepts V2 evidence packages and V1 training recordings. It stores metadata in SQLite
-and stores original source bytes on the local filesystem. M4 adds metadata read-back, readiness
-checks, and a shared-fixture upload command.
+and stores original source bytes on the local filesystem. Local HTTP routes provide metadata and
+byte-identical source read-back.
 
 The commands and names below describe the current implemented PoC. The target architecture replaces
 the scripted VisionDetector result with a `TableEvidenceAnalyzer` table observation and adds an
@@ -70,6 +70,13 @@ Read the stored metadata:
 
 ```bash
 curl http://127.0.0.1:8000/v1/evidence-packages/550e8400-e29b-41d4-a716-446655440000
+```
+
+Read the original bounded snippet bytes:
+
+```bash
+curl http://127.0.0.1:8000/v1/evidence-packages/550e8400-e29b-41d4-a716-446655440000/video-snippet \
+  --output snippet.mp4
 ```
 
 Upload a complete training recording from the shared fixture:

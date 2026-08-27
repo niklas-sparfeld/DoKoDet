@@ -4,21 +4,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException
 from vision_detector import VisionContractError, VisionDetectionResult, parse_result_bytes
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.contract import (
+    SUPPORTED_VIDEO_CONTENT_TYPE,
     EvidenceManifest,
     PackageMetadataResponse,
     StoredFrameResponse,
     UploadResponse,
+    VideoSnippetManifest,
     calculate_package_fingerprint,
     parse_manifest_bytes,
     validate_package_id,
@@ -33,6 +36,12 @@ from dokodetector_backend.repository import (
     StoredPackage,
 )
 from dokodetector_backend.storage import StorageLimitError
+from dokodetector_backend.video_probe import (
+    UnsupportedVideoError,
+    VideoProbeError,
+    VideoProbeUnavailable,
+    probe_video_bytes,
+)
 
 FRAME_COPY_CHUNK_BYTES = 1024 * 1024
 MANIFEST_MEDIA_TYPE = "application/json"
@@ -116,9 +125,10 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
 
             if manifest.video_snippet is not None and manifest.video_snippet.capture_complete:
                 assert video_upload is not None
-                _require_media_type(video_upload, "video/mp4")
+                _require_media_type(video_upload, SUPPORTED_VIDEO_CONTENT_TYPE)
                 video_length, video_digest = await _inspect_video(
                     video_upload,
+                    manifest.video_snippet,
                     max_video_bytes=settings.max_video_bytes,
                 )
                 package_bytes += video_length
@@ -261,7 +271,53 @@ def get_evidence_package(package_id: str, request: Request) -> PackageMetadataRe
             )
             for frame in package.frames
         ],
+        video_snippet=manifest.video_snippet,
+        video_relative_path=(
+            f"evidence/{package.package_id}/video/{manifest.video_snippet.part_name}.mp4"
+            if manifest.video_snippet is not None and manifest.video_snippet.capture_complete
+            else None
+        ),
         missing_frame_targets_ms=manifest.missing_frame_targets_ms,
+    )
+
+
+@router.get(
+    "/v1/evidence-packages/{package_id}/video-snippet",
+    response_model=None,
+)
+def get_evidence_video_snippet(package_id: str, request: Request) -> FileResponse:
+    """Return the original bytes for one stored complete video snippet."""
+
+    requested_package_id = _parse_package_id(package_id)
+    repository: EvidenceRepository = request.app.state.repository
+    package = repository.get_package(requested_package_id)
+    if package is None:
+        raise ContractError(
+            "package_not_found",
+            "The package was not found.",
+            status_code=404,
+        )
+
+    manifest, _ = _read_stored_manifest(package.manifest_json)
+    snippet = manifest.video_snippet
+    if snippet is None or not snippet.capture_complete or snippet.part_name is None:
+        raise ContractError(
+            "video_snippet_not_found",
+            "The package has no complete video snippet.",
+            status_code=404,
+        )
+
+    video_path = request.app.state.storage.video_path(package.package_id, snippet.part_name)
+    if not video_path.is_file():
+        raise ContractError(
+            "internal_error",
+            "The stored video snippet is unavailable.",
+            status_code=500,
+        )
+    return FileResponse(
+        video_path,
+        media_type=SUPPORTED_VIDEO_CONTENT_TYPE,
+        headers={"ETag": f'"{snippet.sha256}"'},
     )
 
 
@@ -435,10 +491,16 @@ async def _inspect_frame(upload: UploadFile, *, max_frame_bytes: int) -> tuple[i
     return byte_length, digest.hexdigest()
 
 
-async def _inspect_video(upload: UploadFile, *, max_video_bytes: int) -> tuple[int, str]:
+async def _inspect_video(
+    upload: UploadFile,
+    snippet: VideoSnippetManifest,
+    *,
+    max_video_bytes: int,
+) -> tuple[int, str]:
     await upload.seek(0)
     digest = hashlib.sha256()
     byte_length = 0
+    video_bytes = bytearray()
     while chunk := await upload.read(FRAME_COPY_CHUNK_BYTES):
         byte_length += len(chunk)
         if byte_length > max_video_bytes:
@@ -448,8 +510,53 @@ async def _inspect_video(upload: UploadFile, *, max_video_bytes: int) -> tuple[i
                 status_code=413,
             )
         digest.update(chunk)
+        video_bytes.extend(chunk)
     await upload.seek(0)
-    return byte_length, digest.hexdigest()
+
+    digest_hex = digest.hexdigest()
+    if byte_length != snippet.byte_length or digest_hex != snippet.sha256:
+        raise ContractError(
+            "hash_mismatch",
+            "The video snippet bytes do not match the manifest.",
+            details=[],
+        )
+
+    try:
+        probe = probe_video_bytes(bytes(video_bytes))
+    except UnsupportedVideoError as error:
+        raise ContractError(
+            "unsupported_media_type",
+            "The video snippet uses unsupported media.",
+            status_code=415,
+        ) from error
+    except VideoProbeError as error:
+        raise ContractError(
+            "invalid_video",
+            "The video snippet could not be decoded.",
+            status_code=422,
+        ) from error
+    except VideoProbeUnavailable as error:
+        raise ContractError(
+            "internal_error",
+            "The video probe is not available.",
+            status_code=500,
+        ) from error
+
+    if (
+        probe.container != snippet.container
+        or probe.video_codec != snippet.video_codec
+        or probe.width != snippet.width
+        or probe.height != snippet.height
+        or snippet.nominal_frame_rate is None
+        or not math.isclose(probe.nominal_frame_rate, snippet.nominal_frame_rate, abs_tol=0.05)
+        or abs(probe.duration_ms - snippet.duration_ms) > 50
+    ):
+        raise ContractError(
+            "invalid_video",
+            "The video stream metadata does not match the manifest.",
+            status_code=422,
+        )
+    return byte_length, digest_hex
 
 
 def _upload_response(package: StoredPackage, *, created: bool) -> JSONResponse:

@@ -381,6 +381,8 @@ class PackageMetadataResponse(ContractModel):
     manifest_sha256: Sha256
     manifest: dict[str, object]
     frames: list[StoredFrameResponse]
+    video_snippet: VideoSnippetManifest | None
+    video_relative_path: str | None
     missing_frame_targets_ms: list[int]
 
 

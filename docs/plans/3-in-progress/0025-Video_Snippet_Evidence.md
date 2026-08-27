@@ -168,12 +168,16 @@ Acceptance:
 - no dual V1/V2 runtime path remains;
 - missing optional snippet evidence remains distinct from a corrupt declared snippet.
 
-### M1 — Backend round trip
+### M1 — Backend round trip — Complete
 
-1. Accept and validate the V2 multipart fixture.
-2. Persist snippet bytes atomically with the manifest and frames.
-3. Return metadata and byte-identical media.
-4. Add idempotency, size-limit, hash, unsupported-media, truncation, and rollback tests.
+1. [x] Accept and validate the V2 multipart fixture.
+2. [x] Persist snippet bytes atomically with the manifest and frames.
+3. [x] Return metadata and byte-identical media.
+4. [x] Add idempotency, size-limit, hash, unsupported-media, truncation, and rollback tests.
+
+Progress (2026-08-27): Added local FFmpeg probing with decoded-frame checks, atomic snippet
+read-back, safe metadata and media routes, and backend regression coverage for accepted and
+rejected video packages.
 
 Acceptance:
 

@@ -61,6 +61,13 @@ class EvidenceStorage:
 
         return self.evidence_root / str(UUID(str(package_id)))
 
+    def video_path(self, package_id: UUID | str, part_name: str) -> Path:
+        """Return the safe final path for one validated package video part."""
+
+        if not SAFE_PART_NAME.fullmatch(part_name) or len(part_name) > 64:
+            raise ValueError("Video part names must use a safe part name.")
+        return self.package_path(package_id) / "video" / f"{part_name}.mp4"
+
     @property
     def vision_results_root(self) -> Path:
         """Return the sibling directory that contains immutable vision results."""
