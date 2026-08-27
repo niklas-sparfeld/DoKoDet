@@ -58,9 +58,9 @@ live camera frames
 The normal development loop must work with a short checked-in or generated video fixture. It must
 not require a phone, a cloud service, or a real game. The fixture can show staged activity.
 
-This plan is not a prerequisite for the first VisionDetector dataset work. Existing local videos
-and evidence packages can establish the data and training contracts first. Implement recording
-intake after the local app-to-backend path in plan 0016 is proven.
+This plan is not a prerequisite for the first TableEvidenceAnalyzer dataset work. Existing local
+videos and evidence packages can establish the data and training contracts first. Implement
+recording intake after the local app-to-backend path in plan 0016 is proven.
 
 ## 2. Fixed decisions
 

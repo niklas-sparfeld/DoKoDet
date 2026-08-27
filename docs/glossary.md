@@ -139,6 +139,53 @@ The shared visible design of cards. Several physical decks can have the same dec
 The visible suit-and-rank identity of a card, such as `HEARTS_QUEEN`. Two physical cards can have
 the same visual card identity.
 
+### Table observation
+
+An uncertain visual report of cards that were visible during a bounded time interval. A table
+observation is evidence. It is not the true table state and does not assert that a card was played.
+
+### Table evidence analyzer
+
+The bounded component that analyzes a supplied evidence package and produces a table observation.
+The `TableEvidenceAnalyzer` can combine models and classical algorithms. It does not capture
+evidence, apply game rules, or imply a deployment location.
+
+### Observed card
+
+One proposed card instance within one table observation. An observed card can have several visual
+card identity candidates. It is not a physical card and can be a false detection.
+
+### Card tracklet
+
+A short-term visual association of observed cards within one video snippet or overlapping snippets.
+A card tracklet is uncertain evidence. It is not a persistent physical-card identity.
+
+### Active table area
+
+The visually estimated table region where cards for the current trick normally appear. It is visual
+evidence and can move between table setups. It does not determine whether a card belongs to a trick.
+
+### Video snippet
+
+A bounded media segment around an event proposal in an evidence package. A video snippet is not a
+recording and can be incomplete or absent.
+
+### Reconstruction hypothesis
+
+One possible sequence of card plays and trick transitions that is compatible with selected table
+observations, correction constraints, and round rules. Several reconstruction hypotheses can remain
+valid.
+
+### Correction constraint
+
+An immutable human assertion that limits game reconstruction, such as a selected card identity or an
+inserted card play. A correction constraint does not modify source evidence or table observations.
+
+### Reviewed reconstruction
+
+A reconstruction result that a person confirmed through the review process. It records the source
+result and all applied correction constraints.
+
 ## Relationships
 
 - A game contains rounds. A round belongs to one game.

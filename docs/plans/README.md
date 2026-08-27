@@ -26,13 +26,17 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Board
 
+The shared target architecture is
+[Table Observation and Game Reconstruction](../TableObservationReconstruction.md).
+
 ### To Specify
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0022 — VisionDetector recognition development](0-to-specify/0022-VisionDetector_Recognition_Development.md) | 0020, 0021, and reviewed events from real recordings | Define measured recognition experiments. |
-| [0023 — Game reconstruction development](0-to-specify/0023-Game_Reconstruction_Development.md) | 0006 search measurements | Define scalable uncertain-round and complete-game inference. |
-| [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Integration, recognition, and reconstruction measurements | Select production work from measured requirements. |
+| [0022 — TableEvidenceAnalyzer capability development](0-to-specify/0022-Table_Evidence_Analyzer_Development.md) | 0020, 0021, and reviewed real evidence; tracking also needs 0025 | Select measured visible-card, transition, spatial, and tracking methods. |
+| [0023 — Scalable game reconstruction](0-to-specify/0023-Game_Reconstruction_Development.md) | 0006 search measurements | Scale observation inference to uncertain rounds and complete games. |
+| [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Integration, snippet, observation, reconstruction, and review measurements | Select production work from measured requirements. |
+| [0026 — Reconstruction review workflow](0-to-specify/0026-Reconstruction_Review_Workflow.md) | 0006 and 0023 review contracts and measured cases | Build focused review and complete human correction. |
 
 ### Backlog
 
@@ -42,8 +46,9 @@ No epics.
 
 | Epic | Outcome |
 | --- | --- |
-| [0006 — Game engine contract and core PoC](2-ready/0006-GameEngine_v1.md) | Freeze the round-reconstruction contract and build the rules core. |
-| [0021 — VisionDetector training pipeline](2-ready/0021-VisionDetector_Training_Pipeline.md) | Build the train, evaluate, checkpoint, and export loop. |
+| [0006 — Table observation reconstruction PoC](2-ready/0006-GameEngine_v1.md) | Freeze the observation boundary and build the rules and reconstruction oracle. |
+| [0021 — TableEvidenceAnalyzer model training](2-ready/0021-Table_Evidence_Analyzer_Training_Pipeline.md) | Build the train, evaluate, checkpoint, and export loop for analyzer model components. |
+| [0025 — Video snippet evidence](2-ready/0025-Video_Snippet_Evidence.md) | Add bounded iOS-to-backend video snippets beside selected frames. |
 
 ### In Progress
 
@@ -81,13 +86,18 @@ No epics.
 
 ## Near-term delivery sequence
 
-1. Start 0005 milestone M0 with 0006 milestone M0. This freezes one shared vision-to-round
-   reconstruction contract.
-2. Start 0020 milestone M0 in parallel. It establishes the data invariants.
-3. Continue 0005, 0006, and 0020 as independent local foundations.
-4. Move 0021 to `Ready` after 0020 milestone M1.
+1. Continue 0020. It establishes source, annotation, review, and lineage invariants for the new
+   observation data.
+2. Start 0006 milestones M0 through M3 with synthetic identity-only observations. This freezes the
+   shared boundary and produces the rules and correctness oracle.
+3. Start 0025 in parallel. It adds bounded video snippets without waiting for tracking research.
+4. Continue 0021 after the 0020 dataset contract is usable. Export identity candidates as the first
+   declared TableEvidenceAnalyzer capability.
 5. Move 0019 to `Ready` after 0016 and the 0020 source-data contract are complete.
-6. Specify 0022, 0023, and 0024 only when their entry evidence exists.
+6. Specify 0022 after reviewed frames and snippets provide its entry measurements.
+7. Specify 0023 after 0006 records search, ambiguity, and feature-ablation measurements.
+8. Specify 0026 after focused review cases and correction behavior are measured.
+9. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 

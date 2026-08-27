@@ -6,6 +6,14 @@ The backend accepts V1 evidence packages, stores their metadata in SQLite, and s
 original manifest and frame bytes on the local filesystem. M4 adds metadata read-back, readiness
 checks, and a shared-fixture upload command.
 
+The commands and names below describe the current implemented PoC. The target architecture replaces
+the scripted VisionDetector result with a `TableEvidenceAnalyzer` table observation and adds an
+optional bounded video snippet. See
+[Table Observation and Game Reconstruction](../docs/TableObservationReconstruction.md),
+[plan 0006](../docs/plans/2-ready/0006-GameEngine_v1.md), and
+[plan 0025](../docs/plans/2-ready/0025-Video_Snippet_Evidence.md). The implementation plans rename
+the runtime interfaces; this README must continue to match the code until those plans land.
+
 ## Setup
 
 Run these commands from the repository root:

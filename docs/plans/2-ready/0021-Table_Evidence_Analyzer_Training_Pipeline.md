@@ -1,18 +1,19 @@
-# DokoDetector VisionDetector — Training Pipeline Foundation
+# DokoDetector TableEvidenceAnalyzer — Model Training Foundation
 
 ## Plan status
 
-- **Summary:** Build a reproducible VisionDetector train/evaluate/export loop before model research
+- **Summary:** Build reproducible train, evaluate, and export mechanics for analyzer model components
 - **Status:** Ready
 - **Depends on:** Plan 0020 milestone M1
 - **Reviewed:** 2026-08-27 against the glossary and current CardEventNet training pipeline
-- **Starts early:** Use tiny generated fixtures before enough real VisionDetector data exists
-- **Unblocks:** The future recognition-development plan
+- **Starts early:** Use tiny generated fixtures before enough real analyzer data exists
+- **Unblocks:** The future TableEvidenceAnalyzer capability-development plan
+- **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## 1. Outcome
 
-Build the reusable mechanics for VisionDetector experiments without selecting the final recognition
-architecture.
+Build reusable mechanics for TableEvidenceAnalyzer model experiments without selecting its final
+internal components.
 
 At the end of this plan, one local command sequence can:
 
@@ -23,8 +24,8 @@ frozen tiny dataset manifest
   -> checkpoint and resume
   -> held-out evaluation
   -> machine-readable run report
-  -> versioned detector bundle
-  -> inference through the plan 0005 interface
+  -> versioned analyzer capability bundle
+  -> declared capability output in a plan 0006 observed-card fixture
 ```
 
 The first model may be intentionally weak. This plan proves reproducibility, lineage, and tooling.
@@ -44,28 +45,30 @@ Reuse proven CardEventNet patterns where the concepts match:
 - CPU smoke tests and optional CUDA or MPS execution;
 - separate model-heavy evaluation.
 
-Do not import CardEventNet temporal-event code into VisionDetector. The tasks, inputs, labels, and
-metrics differ. Share small general utilities only after two real consumers justify extraction.
+Do not import CardEventNet temporal-event code into the TableEvidenceAnalyzer. The tasks, inputs,
+labels, and metrics differ. Share small general utilities only after two real consumers justify
+extraction.
 
 Plan 0020 owns source, annotation, review, lineage, and dataset eligibility. This plan consumes a
 frozen dataset manifest. It must not scan raw directories and decide which labels are trustworthy.
 
-Plan 0005 owns the production-facing detector input and result contract. Training code may expose
-additional diagnostics, but exported inference must use that boundary.
+Plan 0006 supersedes the plan 0005 runtime boundary with `table-observation/v1`. Training code
+exports small measured capabilities that a TableEvidenceAnalyzer can combine. It must not force
+every model bundle to implement the complete table-observation pipeline.
 
 ## 3. Initial project shape
 
-Extend the lightweight `vision_detector/` package from plan 0005:
+Replace the lightweight `vision_detector/` package from plan 0005 with:
 
 ```text
-vision_detector/
+table_evidence_analyzer/
 ├── pyproject.toml
 ├── uv.lock
 ├── README.md
 ├── configs/
 │   ├── smoke.yaml
 │   └── baseline.yaml
-├── src/vision_detector/
+├── src/table_evidence_analyzer/
 │   ├── domain/
 │   ├── data/
 │   ├── models/
@@ -82,11 +85,11 @@ vision_detector/
 Use commands such as:
 
 ```bash
-visiondet data validate --dataset <manifest>
-visiondet train --config <config>
-visiondet evaluate --run <run-dir> --split validation
-visiondet export --run <run-dir> --output <bundle-dir>
-visiondet infer --bundle <bundle-dir> --evidence <package-dir>
+table-analyzer data validate --dataset <manifest>
+table-analyzer train --config <config>
+table-analyzer evaluate --run <run-dir> --split validation
+table-analyzer export --run <run-dir> --output <bundle-dir>
+table-analyzer analyze --bundle <bundle-dir> --evidence <package-dir>
 ```
 
 Keep command names stable only after their first contract tests exist. Do not add `mise` tasks that
@@ -159,7 +162,7 @@ configuration, and seed must define the same semantic experiment.
 Define a small task interface rather than coupling training to one library model:
 
 ```python
-class TrainableVisionTask(Protocol):
+class TrainableAnalyzerTask(Protocol):
     def build_model(self, config: ModelConfig): ...
     def compute_loss(self, batch: Batch, outputs: Outputs): ...
     def decode(self, outputs: Outputs) -> Predictions: ...
@@ -169,8 +172,9 @@ class TrainableVisionTask(Protocol):
 The first adapter is a small 24-class or deck-manifest-sized crop classifier. Its purpose is to
 exercise the pipeline. Do not present it as the chosen production architecture.
 
-Later localization and multi-frame tasks may add adapters. They must retain the same run,
-checkpoint, dataset, and evaluation contracts.
+Later visible-card detection, localization, transition, spatial, and tracking tasks can add
+adapters. They must retain the same run, checkpoint, dataset, and evaluation contracts. Each bundle
+declares the table-observation capabilities it can help produce.
 
 ## 7. Checkpoints and resume
 
@@ -207,10 +211,11 @@ Evaluation consumes a frozen run or exported bundle and one named split. It writ
 The smoke fixture only proves expected overfitting and serialization. It does not produce a product
 metric.
 
-Model calibration, played-card localization for reviewed events, and complete evidence-package
-evaluation belong to the recognition-development plan, but they should reuse this report envelope.
+Model calibration, visible-card localization, transition and active-area evidence, card tracking,
+and complete evidence-package evaluation belong to the capability-development plan. They should
+reuse this report envelope and include feature ablations.
 
-## 9. Detector bundle contract
+## 9. Analyzer capability bundle contract
 
 Export a self-contained versioned bundle with:
 
@@ -231,22 +236,26 @@ content hashes
 An exported bundle loads without the training dataset. Loading validates every content hash and
 format version.
 
-The bundle adapter implements the plan 0005 `VisionDetector` interface. For the oracle-crop smoke
-task, a test-only evidence adapter may use annotated crops. Do not claim that this is end-to-end
-reviewed event recognition.
+The first bundle exposes identity candidates for a supplied crop. A test-only adapter can place
+those candidates into an observed-card fixture from plan 0006. Remove the obsolete plan 0005 result
+adapter when the new boundary lands. Do not claim that the oracle-crop bundle performs visible-card
+detection, tracking, or end-to-end table observation.
 
 ## 10. Small implementation milestones
 
 ### M0 — Project and smoke dataset
 
-1. Add the Python project and CLI skeleton.
-2. Add a tiny generated image dataset through the plan 0020 manifest adapter.
-3. Validate split, lineage, target, and digest rules.
-4. Add one fast data-loader integration test.
+1. Rename the current `vision_detector/` project and Python package to
+   `table_evidence_analyzer/`. Update imports, commands, and fixtures in the same change.
+2. Add the CLI skeleton.
+3. Add a tiny generated image dataset through the plan 0020 manifest adapter.
+4. Validate split, lineage, target, and digest rules.
+5. Add one fast data-loader integration test.
 
 Acceptance:
 
 - `mise install` and `uv sync` reproduce the environment;
+- no active module, command, or fixture uses the obsolete component name;
 - tests do not download weights or data;
 - invalid lineage and split leakage fail clearly.
 
@@ -276,17 +285,18 @@ Acceptance:
 - best-checkpoint selection uses validation only;
 - corrupt checkpoints fail without damaging prior artifacts.
 
-### M3 — Export and plan 0005 inference
+### M3 — Export and table-observation capability
 
 1. Export the smoke model bundle.
 2. Validate bundle hashes and compatibility.
-3. Load it through the detector adapter.
-4. Produce a schema-valid plan 0005 result from a real-image integration fixture.
+3. Load it through the component adapter.
+4. Produce identity candidates inside a schema-valid plan 0006 observed-card fixture.
 
 Acceptance:
 
 - the backend does not import training internals;
 - model output becomes normalized candidate probabilities;
+- the bundle declares `identity_candidates` and does not claim other capabilities;
 - calibration is declared `uncalibrated` until measured;
 - repeated inference is deterministic for the fixture.
 
@@ -305,7 +315,7 @@ Acceptance:
 
 ## 11. Out of scope
 
-- selecting the final detector, classifier, tracker, or video architecture;
+- selecting the final visible-card detector, classifier, tracker, or video architecture;
 - sourcing or accepting unreviewed labels;
 - production accuracy targets;
 - automatic hyperparameter sweeps;
@@ -319,22 +329,23 @@ Acceptance:
 Run:
 
 ```bash
-cd vision_detector
+cd table_evidence_analyzer
 uv sync
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 ```
 
-Run the CPU overfit, checkpoint-resume, export, and plan 0005 inference integration tests. Run one
-optional CUDA smoke test before relying on remote training.
+Run the CPU overfit, checkpoint-resume, export, and plan 0006 observation-fixture integration tests.
+Run one optional CUDA smoke test before relying on remote training.
 
 ## 13. Definition of done
 
 - a frozen dataset manifest drives every sample;
+- the project and package use the `table_evidence_analyzer` name;
 - a tiny CPU run proves train, evaluate, checkpoint, resume, and export;
 - run metadata captures code, data, environment, seed, and failures;
 - bundle loading verifies hashes and compatibility;
-- exported inference implements the plan 0005 contract;
+- exported inference declares and implements one plan 0006 table-observation capability;
 - ordinary tests remain local, fast, offline, and accelerator-independent;
 - the next plan can compare recognition ideas without rebuilding experiment mechanics.

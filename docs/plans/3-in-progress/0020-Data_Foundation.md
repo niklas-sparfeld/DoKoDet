@@ -2,11 +2,13 @@
 
 ## Plan status
 
-- **Summary:** Make source, annotation, review, split, and lineage data reliable before vision work
+- **Summary:** Make source, annotation, review, split, and lineage data reliable before analyzer work
 - **Status:** In Progress
+- **Depends on:** None
 - **Reviewed:** 2026-08-27 against the glossary, current CardEventNet data tools, and local dataset
-- **Starts now:** In parallel with plans 0005 and 0006
-- **Unblocks:** The VisionDetector training pipeline and later recognition experiments
+- **Starts now:** In parallel with plans 0006 and 0025
+- **Unblocks:** The TableEvidenceAnalyzer training pipeline and later capability experiments
+- **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## 1. Outcome
 
@@ -26,8 +28,8 @@ Which derived frames and crops came from it?
 Which training run consumed it?
 ```
 
-This foundation starts before a useful VisionDetector exists. Do not postpone data design until
-model training produces failures.
+This foundation starts before a useful TableEvidenceAnalyzer exists. Do not postpone data design
+until model training produces failures.
 
 ## 2. Current baseline
 
@@ -47,14 +49,18 @@ The current worktree also shows why a formal intake state is needed: five new an
 indexed but are not in `full-frame-development.yaml`, so the manifest test fails. New source data
 must be allowed to exist as reviewed or unreviewed intake before a human promotes it into a split.
 
+The current worktree also contains the first strict `vision-annotation/v1` frame-only event schema,
+review artifacts, and contract tests. Its validation and review mechanics are reusable, but its
+event-shaped schema follows the superseded boundary.
+
 The repository does not yet contain:
 
-- a VisionDetector annotation schema;
+- a table-observation annotation schema;
 - a shared identity and lineage model across sessions, recordings, evidence packages, frames, and
   crops;
 - explicit dataset eligibility and promotion states;
 - one coverage report for cards, devices, decks, environments, and failure conditions;
-- a stable handoff from reviewed visual events to VisionDetector datasets;
+- a stable handoff from reviewed table observations to TableEvidenceAnalyzer datasets;
 - one policy for source permission, retention, deletion, and derived artifacts.
 
 Do not replace the working CardEventNet formats without a migration need. Add shared identity and
@@ -104,8 +110,12 @@ round_id, when known
 recording_id
 video_id
 evidence_package_id
+video_snippet_id, when present
 event_id
 frame_id
+observation_id
+observed_card_id
+card_tracklet_id, when present
 annotation_set_id
 review_id
 dataset_version
@@ -115,11 +125,17 @@ training_run_id
 model_bundle_id
 ```
 
+Add the video-snippet, observation, observed-card, and card-tracklet identifiers when their owning
+contracts exist. They are additive lineage extensions and do not block the current M1 source and
+dataset contract.
+
 Rules:
 
 - derive content identity from SHA-256 where practical;
 - keep operator-owned semantic identity separate from a content hash;
 - preserve the session and recording identities across a recording and its evidence packages;
+- preserve video-snippet identity as one immutable part of its evidence package;
+- record which snippet and time range produced each decoded tracking frame;
 - let one session contain several recordings and parts of several games;
 - let one game span several sessions;
 - associate a recording with games and rounds through explicit time spans instead of one scalar
@@ -166,49 +182,68 @@ and permission model. They do not create a parallel dataset lifecycle.
 Continue to use typed temporal point events and separate hard negatives. Preserve event proposals
 as unconfirmed provenance. Keep complete-video review as the gate for detecting proposal misses.
 
-### VisionDetector annotations
+### TableEvidenceAnalyzer annotations
 
-Add a versioned visual-event schema. One record refers to one accepted evidence package or to frames
-derived from an accepted recording. The record remains an annotation until review confirms a
-reviewed event:
+The current worktree establishes `vision-annotation/v1` for one visual event, its selected frames,
+and an optional reviewed played-card identity. That implementation follows the old event-result
+boundary. Replace it with the table-observation annotation shape before other work depends on it.
+Reuse internal validation and review code where it fits, but do not maintain both undeployed schemas.
+
+Add a versioned table-observation annotation schema. One annotation set refers to an accepted
+evidence package or to equivalent evidence derived from an accepted recording. It can label several
+visible cards across selected frames and a video snippet.
+
+Keep event review and visual review separate. An event proposal can be false while its frames still
+contain visible cards. A visible card is not automatically a card play.
 
 ```json
 {
-  "schema_version": "vision-annotation/v1",
-  "event_id": "...",
+  "schema_version": "table-observation-annotation/v1",
+  "annotation_set_id": "...",
   "source": {"package_id": "..."},
-  "card": "HEARTS_QUEEN",
-  "event_kind": "card_play",
-  "visibility": "identifiable",
-  "observations": [
+  "observed_cards": [
     {
-      "frame_id": "...",
-      "part_name": "frame_04",
-      "bbox": [412, 280, 611, 527],
-      "usable_for_identity": true,
-      "tags": ["glare", "partial_occlusion"]
+      "observed_card_id": "...",
+      "visual_card_identity": "HEARTS_QUEEN",
+      "visibility": "identifiable",
+      "frame_observations": [
+        {
+          "frame_id": "...",
+          "bbox": [412, 280, 611, 527],
+          "usable_for_identity": true,
+          "tags": ["glare", "partial_occlusion"]
+        }
+      ],
+      "became_newly_visible": true,
+      "active_area_class": "inside"
     }
   ],
-  "review_state": "draft",
-  "proposal_id": "..."
+  "event_review": "false_event_proposal",
+  "review_state": "draft"
 }
 ```
 
-Support explicit non-card and unusable cases:
+The exact schema is part of milestone M2. Support explicit non-card, empty, and unusable cases:
 
 ```text
 false_event_proposal
+no_visible_cards
 card_not_visible
 visible_but_not_identifiable
 ambiguous_card
+insufficient_visual_evidence
 ```
 
-Do not invent a card label for them. Keep played-card boxes separate from optional boxes for other
-visible cards. A detector-training export may use both, but event evaluation must identify which
-physical card was played.
+Do not invent a card label for them. Keep the human claim that a card was played separate from the
+visual claim that a card was visible. Preserve uncertain associations across frames instead of
+assigning a false persistent identity.
 
 Record deck design and visual card identity as data. A physical-copy identifier may exist in
 controlled source-deck references, but it is not a model target.
+
+Tracking annotations can associate visible instances over a bounded snippet. They produce card
+tracklets, not physical-card identities. Record newly-visible, active-area, movement, and occlusion
+labels only when a reviewer can determine them from the evidence.
 
 ## 7. Review and promotion states
 
@@ -275,7 +310,7 @@ For CardEventNet, group by:
 - lighting, camera, background, and scenario tags;
 - event spacing and known difficult transitions.
 
-For VisionDetector, also group by:
+For the TableEvidenceAnalyzer, also group by:
 
 - visual card identity and physical copy coverage;
 - deck design;
@@ -283,6 +318,9 @@ For VisionDetector, also group by:
 - visibility, blur, glare, perspective, occlusion, and frame boundary;
 - complete versus incomplete evidence;
 - false event proposals and not-visible reviewed events.
+- available selected frames versus video snippets;
+- visible-card count, newly-visible labels, active-area labels, and reviewed card tracklets;
+- movement, reappearance, short occlusion, and complete-occlusion cases.
 
 Coverage reports guide collection. They do not create arbitrary minimum counts or silently rebalance
 sealed evaluation data.
@@ -319,25 +357,30 @@ Acceptance:
 - permissions and review state survive export;
 - identical inputs produce the same dataset-version digest.
 
-### M2 — Vision annotation and review path
+### M2 — Table-observation annotation and review path
 
-1. Add `vision-annotation/v1` and malformed contract fixtures.
-2. Add a minimal event-frame viewer that can confirm or reject an event proposal and assign the
-   played card, visibility, box, and tags.
-3. Add immutable review and apply artifacts.
-4. Import a small set of real evidence packages or recording-derived events.
+1. Replace the current `vision-annotation/v1` draft with `table-observation-annotation/v1`.
+2. Reuse the strict source, box, review, and receipt code where its meaning still matches.
+3. Extend the evidence viewer so that it can confirm or reject an event proposal and annotate all
+   visible cards, identity, visibility, boxes, and quality tags.
+4. Allow optional newly-visible, active-area, occlusion, and tracklet annotations when the evidence
+   supports them.
+5. Keep immutable review and apply artifacts for the table-observation path.
+6. Import a small set of real evidence packages or recording-derived events.
 
 Acceptance:
 
 - false event proposals and invisible, ambiguous, and identifiable reviewed events remain
   distinct;
-- a reviewer can inspect all frames around one event;
+- all annotation fixtures and review receipts use the table-observation schema;
+- a reviewer can inspect all frames and the optional snippet around one event proposal;
+- visible-card evidence remains distinct from a reviewed card-play claim;
 - source evidence is unchanged;
 - event proposals never become labels without review.
 
 ### M3 — Dataset assembly and group-safe splits
 
-1. Build a VisionDetector dataset manifest from reviewed annotations.
+1. Build a TableEvidenceAnalyzer dataset manifest from reviewed annotations.
 2. Add deterministic eligibility filtering and split creation.
 3. Add leakage, duplicate, and lineage validation.
 4. Add coverage reports and explicit unassigned output.
@@ -362,8 +405,9 @@ Acceptance:
 ## 11. Out of scope
 
 - recording capture and upload implementation from plan 0019;
+- video-snippet capture and transport implementation from plan 0025;
 - model architecture selection;
-- VisionDetector training loops;
+- TableEvidenceAnalyzer training loops;
 - automatic training after annotation;
 - cloud object storage or a hosted labeling platform;
 - automatic labels accepted without human review;
@@ -371,8 +415,8 @@ Acceptance:
 
 ## 12. Verification
 
-Run the existing CardEventNet tests plus the new data-contract and VisionDetector-data tests. Keep
-fixtures small and local. Tests must not require a camera, network, display server, or GPU.
+Run the existing CardEventNet tests plus the new data-contract and TableEvidenceAnalyzer-data tests.
+Keep fixtures small and local. Tests must not require a camera, network, display server, or GPU.
 
 Before this plan closes, run one clean-room exercise:
 
@@ -390,7 +434,7 @@ new source asset
 - current intake and split invariants are correct and tests pass;
 - shared source identity, permission, lineage, and eligibility contracts exist;
 - CardEventNet keeps its working annotation and review workflow;
-- VisionDetector has a reviewed visual-event annotation path;
+- TableEvidenceAnalyzer has one reviewed table-observation annotation path;
 - dataset versions and splits are deterministic and leakage-safe;
 - unassigned and excluded data remain explicit;
 - coverage reports guide the next sourcing work;

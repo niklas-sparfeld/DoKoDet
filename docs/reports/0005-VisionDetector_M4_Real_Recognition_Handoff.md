@@ -94,4 +94,4 @@ decodable JPEG bytes. Keep the raw bytes and manifest hash unchanged when adding
 Collect at least one real game event with the iOS app. Export the complete V1 package, verify all
 present frames decode as complete JPEGs, record the observed sizes and offsets, and label each event
 with card identity, deck variant, and physical-copy information. Only then start the recognition
-experiments in [plan 0022](../plans/0-to-specify/0022-VisionDetector_Recognition_Development.md).
+experiments in [plan 0022](../plans/0-to-specify/0022-Table_Evidence_Analyzer_Development.md).

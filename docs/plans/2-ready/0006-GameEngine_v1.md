@@ -1,59 +1,126 @@
-# DokoDetector Game Engine — Contract and Core PoC
+# DokoDetector Table Observation Reconstruction — Contract and Core PoC
 
 ## Plan status
 
-- **Summary:** Freeze the vision-to-round contract and build the rules core with synthetic inputs
+- **Summary:** Freeze the table-observation boundary and build the deterministic reconstruction core
 - **Status:** Ready
-- **Reviewed:** 2026-08-27 against the glossary, plan 0005, and the current repository
-- **Starts with:** Plan 0005 M0. Neither plan waits for a useful vision model.
-- **Next:** [Plan 0023](../0-to-specify/0023-Game_Reconstruction_Development.md) covers scalable
-  uncertain-sequence inference.
+- **Depends on:** None
+- **Reviewed:** 2026-08-27 against the target architecture, glossary, active plans, and current
+  repository
+- **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
+- **Next:** [Plan 0023](../0-to-specify/0023-Game_Reconstruction_Development.md) scales proven
+  reconstruction to uncertain rounds and complete games
 
 ## 1. Outcome
 
-Build the game-engine boundary and deterministic round core early enough that game reconstruction
-can develop independently from card recognition.
+Build a game-reconstruction contract and deterministic core that do not require the
+TableEvidenceAnalyzer to produce authoritative card-play events.
 
 At the end of this plan, a developer can run:
 
 ```text
 legal synthetic round
-  -> deterministic vision-error generator
-  -> versioned sequence of ranked card candidates
+  -> deterministic table-observation generator
+  -> versioned stream of anonymous observed cards and optional visual evidence
   -> shared contract parser
-  -> deterministic rules replay or small exhaustive solver
-  -> resolved, ambiguous, or impossible result
+  -> deterministic rules core and small exhaustive reconstruction oracle
+  -> resolved, ambiguous, impossible, or incomplete hypotheses
+  -> optional human correction constraints
+  -> recomputed result
 ```
 
-This plan must not depend on trained VisionDetector weights or real detector quality.
+This plan must not depend on trained weights, real recognition quality, video tracking, a phone,
+HTTP orchestration, or a GPU.
 
-## 2. First contract decisions
+## 2. Boundary decisions
 
-### 2.1 Name the deck variant
+### 2.1 Replace the event-result contract
 
-The old plans disagree about the number of cards in one card-play sequence:
+Replace `vision-detection/v1` in active code and fixtures with `table-observation/v1`. Plan 0005
+remains an immutable historical record. The local PoC contract is not deployed, so do not maintain a
+dual compatibility path.
 
-- the VisionDetector card list contains 24 visual identities and 48 physical cards;
-- the canonical round has 10 tricks and therefore 40 card plays.
+A table observation is uncertain visual evidence. It is not the true table state and does not assert
+that any observed card was played. One ordered observation contains zero or more anonymous observed
+cards. Each observed card can contain ranked visual card identity candidates.
 
-Do not use an ambiguous value such as `standard`. Define the first explicit deck manifest:
+The minimal V1 capability is:
+
+```text
+identity_candidates
+```
+
+Later producers can add these optional capabilities without changing the reconstruction input
+shape:
+
+```text
+presence_score
+newly_visible_score
+active_area_score
+association_candidates
+card_tracklets
+```
+
+Every result declares its capabilities. A missing optional field means that the producer did not
+provide that evidence. It never means zero.
+
+### 2.2 Keep visual and game claims separate
+
+The TableEvidenceAnalyzer can report that a card became newly visible or appears inside the active
+table area. It must not report a player, turn, legal move, trick number, deck-count decision, or final
+card play.
+
+The reconstruction engine infers:
+
+- persistent cards across observations;
+- false and repeated observations;
+- card plays and their active players;
+- trick clearing and trick boundaries;
+- missing card plays;
+- alternative round hypotheses.
+
+The engine consumes derived visual scores. It does not consume frames, video, boxes, corners,
+optical flow, or model tensors.
+
+### 2.3 Name the deck variant
+
+The shared card set contains 24 visual identities. A canonical round contains 40 card plays and 10
+tricks. Use the explicit manifest:
 
 ```text
 doko-40-v1   ranks J Q K 10 A, two physical copies, 40 card plays, 10 tricks
 ```
 
-The first shared fixture must declare this variant. The rules and generator derive the card
-identities and multiplicity from the manifest. They also validate the canonical 40-play and
-10-trick round invariants. VisionDetector can recognize cards that are not in this round's deck,
-but the game engine rejects them for this ruleset.
+The rules and generator load
+`fixtures/game-engine/v1/decks/doko-40-v1.json`. They derive deck membership, multiplicity, player
+hand size, and trick count from the manifest.
 
-Do not describe a 48-card, 12-trick structure as a round. Supporting that structure requires a
-separate canonical term and an explicit glossary decision.
+The TableEvidenceAnalyzer can report an identity that is outside this round's deck. Reconstruction
+rejects it for this ruleset. Do not describe the 48-card structure as a canonical round without a
+separate glossary decision.
 
-### 2.2 Give the engine normalized candidate probabilities
+### 2.4 Preserve visual identity and physical-card count
 
-At the VisionDetector boundary, every ranked candidate set uses positive, finite probabilities that
-sum to one within a documented tolerance. The result also declares its calibration state:
+The TableEvidenceAnalyzer predicts a visual card identity such as `HEARTS_QUEEN`. It does not
+distinguish the two physical copies.
+
+An observed-card identifier and a card-tracklet identifier refer only to derived visual evidence.
+They are not physical-card identifiers. Reconstruction enforces physical multiplicity from the deck
+manifest.
+
+Synthetic ground truth can use private physical-copy identifiers to create player hands. Those
+identifiers must not appear in the table-observation contract.
+
+### 2.5 Keep score meaning explicit
+
+Identity candidates use positive finite values that sum to one within a documented tolerance. They
+are conditional on the observed-card proposal representing a card.
+
+`presence_score` is separate evidence that the proposal represents a card. Transition, spatial, and
+association scores are also separate evidence families. Do not normalize unrelated score families
+together.
+
+Every result declares one of:
 
 ```text
 fixture
@@ -61,88 +128,60 @@ uncalibrated
 calibrated
 ```
 
-An internal model may produce logits, distances, or arbitrary scores. Its VisionDetector adapter
-must convert them to normalized candidate probabilities before serialization. `uncalibrated` means
-that the numeric distribution is useful for ranking but is not an empirical confidence claim.
+The engine can rank hypotheses with configured feature weights. It must not multiply correlated
+scores as if they were independent calibrated probabilities. It must preserve calibration labels
+and must not present an uncalibrated result as round confidence.
 
-The game engine may add log probabilities after applying a configured floor. It must preserve the
-calibration label and must not present an uncalibrated result as calibrated round confidence.
+### 2.6 Keep acquisition failures explicit
 
-### 2.3 Preserve visual identity and physical-card count
-
-VisionDetector predicts a visual identity such as `HEARTS_QUEEN`. It does not distinguish the two
-physical copies. The game engine enforces the maximum count within a round from the deck manifest.
-
-Synthetic ground truth may use a private physical-copy identifier to generate player hands. That
-identifier must not appear as a VisionDetector candidate.
-
-### 2.4 Keep acquisition failures explicit
-
-The sequence contract keeps these vision outcomes distinct:
+The observation contract keeps these outcomes distinct:
 
 ```text
-confident
-uncertain
-no_card_found
+observed
 insufficient_evidence
 ```
 
-The engine must not silently replace an empty candidate set with every card in the deck. A caller
-may choose an explicit missing-observation policy, but that policy is round reconstruction logic and
-must be visible in diagnostics.
+For `observed`, an empty observed-card list means that no card was detected. It does not prove that
+the table was empty. `insufficient_evidence` means that the producer could not make an observation.
+
+Missing event proposals, missing observations, false proposals, and false observed cards are
+reconstruction concerns. They must remain visible in diagnostics.
 
 ## 3. Shared contracts and fixtures
-
-Plan 0005 creates the single-event `vision-detection/v1` contract. This plan adds a round sequence
-envelope, for example:
-
-```json
-{
-  "schema_version": "round-reconstruction-input/v1",
-  "game_id": "synthetic-game-001",
-  "round_id": "synthetic-game-001-round-01",
-  "ruleset": {"name": "doko-normal", "version": "v1"},
-  "deck_variant": "doko-40-v1",
-  "game_players": ["player-01", "player-02", "player-03", "player-04", "player-05"],
-  "active_players": ["player-01", "player-02", "player-03", "player-04"],
-  "dealer": "player-05",
-  "first_trick_leader": "player-01",
-  "vision_results": []
-}
-```
-
-The sequence contract owns round setup and ordering. `game_players` lists the players in the game;
-`active_players` lists the four players in this round. The dealer is a player and can be outside
-`active_players`. The single-event VisionDetector result remains
-free of player, turn, legal-move, and game-state context.
 
 Create canonical artifacts:
 
 ```text
-GAME_ENGINE_CONTRACT.md
-fixtures/game-engine/v1/decks/doko-40.json
-fixtures/game-engine/v1/unambiguous-round.json
-fixtures/game-engine/v1/late-resolution-round.json
-fixtures/game-engine/v1/ambiguous-round.json
-fixtures/game-engine/v1/impossible-round.json
-fixtures/game-engine/v1/incomplete-observations.json
+GAME_RECONSTRUCTION_CONTRACT.md
+fixtures/game-engine/v1/card-set.json
+fixtures/game-engine/v1/decks/doko-40-v1.json
+fixtures/game-engine/v1/observations/minimal.json
+fixtures/game-engine/v1/rounds/unambiguous.json
+fixtures/game-engine/v1/rounds/late-resolution.json
+fixtures/game-engine/v1/rounds/ambiguous.json
+fixtures/game-engine/v1/rounds/impossible.json
+fixtures/game-engine/v1/rounds/incomplete.json
+fixtures/game-engine/v1/rounds/occlusion.json
+fixtures/game-engine/v1/rounds/side-card.json
+fixtures/game-engine/v1/rounds/human-corrected.json
 ```
 
-Each scenario contains:
+Each round scenario contains:
 
-- the game-engine input;
+- the reconstruction input;
 - private ground truth for tests;
+- enabled observation capabilities;
 - the expected result status;
-- expected trick winners or invariant checks;
+- expected card plays, trick winners, focused alternatives, or invariant checks;
 - a short statement of the behavior it proves.
 
-Swift, backend, VisionDetector, and game-engine code must not copy these fixtures into
-component-only formats.
+Swift, backend, TableEvidenceAnalyzer, and game-reconstruction code must use the same canonical
+contracts. Do not copy fixtures into component-only result formats.
 
 ## 4. Synthetic round and observation generator
 
-Build a seeded generator as a first-class test tool. It starts from rules, not from random candidate
-lists.
+Build a seeded generator as a first-class test tool. It starts from legal rounds, not random
+candidate lists.
 
 ### Ground-truth generation
 
@@ -150,33 +189,37 @@ For one selected deck and ruleset:
 
 1. Create each physical card exactly once.
 2. Shuffle with a supplied seed.
-3. Select four active players and one dealer from the game's players.
+3. Select four active players and a dealer.
 4. Give each active player an equal-size player hand.
 5. Select only legal card plays for each trick.
-6. Record the active player, visual card identity, physical copy, trick, and winner.
-7. Assert that replaying the generated round reproduces every winner.
+6. Record every player, visual card identity, private physical copy, trick, and winner.
+7. Assert that deterministic replay reproduces every winner.
 
-### Vision-error generation
+### Observation generation
 
-Convert ground truth to `vision-detection/v1` results with configured, deterministic errors:
+Convert the latent round into a sequence of table observations. Support independent, deterministic
+error modules:
 
-- correct and confident;
-- correct but ambiguous;
-- wrong top candidate with the true card lower in the list;
-- tied candidates;
+- repeated observations from false event proposals;
+- empty observations during occlusion;
+- missing observations and missing card plays;
+- a card that disappears and reappears;
+- several identity candidates, wrong top candidates, and ties;
+- false observed-card proposals and duplicate detections;
+- cards retained outside the active table area;
+- an old trick shown again;
+- early physical appearance before the expected turn;
+- trick clearing;
 - repeated visual identities from the two physical copies;
-- `no_card_found`;
-- `insufficient_evidence`;
-- a missing true card, used to test impossible outcomes;
-- a candidate that exceeds the deck count;
-- probability distributions labeled `fixture`.
+- a true identity absent from the candidate list;
+- a candidate that exceeds deck multiplicity;
+- optional presence, transition, spatial, association, and tracklet evidence.
 
-The generator writes its seed and configuration into the fixture. The same inputs must produce
-byte-stable semantic content. Timestamps and UUIDs must be derived deterministically or omitted from
-the comparison.
+Each evidence family can be enabled or disabled. The generator writes its seed, configuration, and
+capability set into the fixture. The same input must produce byte-stable semantic content.
 
-Do not use synthetic sequences as evidence of real VisionDetector accuracy. They test contracts,
-rules, search, and failure handling.
+Synthetic scenarios test contracts, rules, search, and failure handling. They do not measure real
+TableEvidenceAnalyzer quality.
 
 ## 5. Ruleset v1
 
@@ -189,126 +232,180 @@ Implement normal round card-play rules behind a `Ruleset` interface:
 - trick winner;
 - clockwise turn order among active players;
 - next-trick leader;
-- expected player-hand and card-play counts from the deck manifest;
+- player-hand and card-play counts from the deck manifest;
 - the canonical count of 10 tricks per round.
 
-Record disputed or table-specific Doppelkopf rules in the ruleset configuration. Do not hide them
-in solver branches.
+Record disputed or table-specific Doppelkopf rules in ruleset configuration. Do not hide them in
+search branches.
 
 The PoC does not need Hochzeit, solos, announcements, round scoring, game scoring, or tournament
 variants.
 
-## 6. Result contract
+## 6. Reconstruction oracle
 
-Return enough information to distinguish rules from visual evidence:
+Implement a deliberately small exhaustive solver. It treats these values as latent:
+
+- association between observed cards across observations;
+- whether an observed card is false;
+- whether a card persisted while not detected;
+- which visual card identity was present;
+- whether and when a card play occurred;
+- active-player attribution and logical card-play order;
+- trick clearing;
+- a bounded number of missing card plays.
+
+First support partial rounds and constrained scenarios. Use the deterministic rules core to reject
+illegal branches. Use configured visual evidence weights only to rank legal branches.
+
+Merge branches that produce the same gameplay result. Return ambiguity when retained branches differ
+in a card play, player attribution, order, trick boundary, or winner.
+
+This solver is the correctness oracle for plan 0023. It is not required to scale to a complete noisy
+round.
+
+## 7. Result and correction contracts
+
+Return enough information to distinguish observations, visual ranking, rules, and human decisions:
 
 ```text
 status: resolved | ambiguous | impossible | incomplete
-card_plays[]:
-  reviewed_event_id or vision_result_id
-  attributed active player
-  selected card, if resolved
-  source vision probability
-  rejected alternatives with reasons
-tricks[]:
-  trick leader
-  card plays
-  trick winner
+hypotheses[]:
+  gameplay result
+  source observations
+  visual evidence score breakdown
+  applied constraints
+focused_decisions[]:
+  smallest difference between retained hypotheses
+  alternatives and source evidence references
 diagnostics:
   ruleset and deck versions
-  explored and rejected hypotheses
-  missing observations
-  calibration labels seen
+  capabilities and calibration labels seen
+  missing and rejected observations
+  merged and rejected hypotheses
+  search limits
 ```
 
-Preserve the raw VisionDetector result unchanged. Do not overwrite it when round rules select a
-lower-ranked card.
+Preserve every raw table observation unchanged.
 
-## 7. Small implementation milestones
+Define immutable correction constraints for:
 
-### M0 — Freeze the boundary
+- selecting a card identity;
+- assigning an active player;
+- inserting or deleting a card play;
+- changing card-play order;
+- marking an observation irrelevant;
+- associating or separating observed cards;
+- setting a trick boundary;
+- supplying a complete card-play sequence.
 
-1. Reconcile plan 0005 with the normalized candidate-probability rule.
-2. Add the deck manifests and shared schemas.
-3. Add one single-event fixture and one complete unambiguous round fixture.
-4. Add contract tests in the VisionDetector and game-engine packages.
+Re-run reconstruction after applying constraints. Report rules or deck conflicts. The PoC needs
+contract and command-line tests, not a graphical editor.
+
+## 8. Small implementation milestones
+
+### M0 — Freeze the minimal boundary
+
+1. Write `GAME_RECONSTRUCTION_CONTRACT.md` and strict schema models.
+2. Freeze identity-only `table-observation/v1` and capability extension rules.
+3. Add the deck manifest and minimal observation fixture.
+4. Add one complete exact-observation round fixture.
+5. Add contract tests on both the TableEvidenceAnalyzer and reconstruction sides.
 
 Acceptance:
 
-- one canonical fixture crosses the component boundary unchanged;
-- the 40-card deck content comes from data and produces exactly 10 tricks;
-- the engine never takes the logarithm of an arbitrary score;
-- VisionDetector results contain no player or rule context.
+- one canonical observation fixture crosses the boundary unchanged;
+- the contract contains no player, turn, legal-move, or game-state claims from the
+  TableEvidenceAnalyzer;
+- an absent optional feature is distinct from a zero score;
+- the 40-card manifest produces exactly 10 tricks.
 
 ### M1 — Rules and deterministic replay
 
 1. Scaffold `game_engine/` with the root Python 3.13 toolchain.
 2. Implement cards, deck manifests, normal round rules, and trick comparison.
-3. Replay an already resolved round and derive active-player attribution and trick winners.
-4. Add exhaustive rule tests for every card ordering and following category.
+3. Replay an already resolved round and derive trick winners.
+4. Add exhaustive rule tests for card ordering and following categories.
 
 Acceptance:
 
-- every generated round replays without contradiction;
-- physical-card and card-play-count violations fail clearly;
+- every generated clean round replays without contradiction;
+- deck-count and card-play-count violations fail clearly;
 - ordinary tests need no model, video, network, or GPU.
 
-### M2 — Synthetic generator and scenario corpus
+### M2 — Synthetic observation generator
 
 1. Generate legal rounds from a seed.
-2. Add deterministic vision-error injection.
-3. Commit the canonical scenarios from section 3.
-4. Add property tests across many seeds without committing every generated round.
+2. Generate identity-only table observations.
+3. Add independent observation-error modules from section 4.
+4. Commit the canonical scenarios from section 3.
+5. Add property tests across many seeds.
 
 Acceptance:
 
-- every candidate probability vector validates;
-- every clean scenario resolves to its source round;
+- every generated observation validates;
+- every clean scenario reconstructs to its source round;
 - each error scenario exercises its documented branch.
 
-### M3 — Small exhaustive inference oracle
+### M3 — Identity-only exhaustive oracle
 
-Implement a deliberately simple exhaustive solver for partial rounds and constrained scenario
-fixtures. It branches over supplied candidates, rejects deck-count and local trick-rule violations,
-and sums log probabilities.
-
-This solver is a correctness oracle. It is not required to scale to a complete ambiguous round.
-
-Acceptance:
-
-- a lower-ranked visual candidate can be selected when the top candidate is illegal;
-- genuinely tied legal solutions return `ambiguous`;
-- a missing true candidate can return `impossible`;
-- diagnostics explain every rejected fixture branch.
-
-### M4 — Local integration handoff
-
-1. Read stored plan 0005 results through the shared schema.
-2. Assemble ordered reviewed events for one round from recording timelines and explicit round spans
-   outside VisionDetector.
-3. Run one scripted complete round through deterministic replay.
-4. Keep the integration usable with checked-in files before HTTP orchestration exists.
+1. Infer card plays from anonymous identity candidate lists.
+2. Support repeated, empty, missing, false, and ambiguous observations.
+3. Merge equivalent gameplay hypotheses.
+4. Produce focused differences and diagnostics.
 
 Acceptance:
 
-- game-engine development remains independent from real recognition;
-- the backend and engine use one result schema;
-- no round rule leaks into the detector input.
+- a lower-ranked identity can win when the top candidate is illegal;
+- a bounded missed play can be inferred when only one legal card remains;
+- tied legal results remain ambiguous;
+- impossible and incomplete results remain distinct;
+- diagnostics explain rejected fixture branches.
 
-## 8. Out of scope
+### M4 — Additive visual evidence
 
-Move these to [plan 0023](../0-to-specify/0023-Game_Reconstruction_Development.md):
+Add synthetic support and scoring adapters in this order:
 
-- scalable full-round search and complete-game reconstruction;
-- initial player-hand feasibility through CSP, SAT, or another solver;
-- hypothesis merging and performance tuning;
-- confidence calibration for resolved rounds and games;
-- automatic recovery from missing card-play events;
-- session, game, round, player, and dealer setup UI;
-- Hochzeit, solos, announcements, round scoring, and final game scoring;
-- production persistence and APIs.
+1. presence evidence;
+2. newly-visible and predecessor evidence;
+3. active-area evidence;
+4. card-tracklet evidence.
 
-## 9. Verification
+Acceptance for each addition:
+
+- the identity-only baseline still passes unchanged;
+- the field is optional and capability-declared;
+- one scenario proves that the evidence helps;
+- one scenario proves that the engine can resist misleading evidence;
+- an ablation records the result with and without the evidence family.
+
+### M5 — Human constraints and local handoff
+
+1. Add the correction-constraint contract.
+2. Apply focused and full-sequence corrections to fixtures.
+3. Re-run reconstruction and preserve the earlier result.
+4. Read checked-in table observations through the shared schema.
+5. Keep integration file-based before HTTP orchestration exists.
+
+Acceptance:
+
+- a focused correction resolves the ambiguous fixture;
+- a conflicting correction reports the exact rule or deck conflict;
+- a complete manual sequence can produce a reviewed reconstruction;
+- no correction mutates source observations.
+
+## 9. Out of scope
+
+Move these to later plans:
+
+- real video-snippet capture and backend transport: plan 0025;
+- real card detection, identity recognition, spatial scoring, and tracking: plan 0022;
+- scalable complete-round and complete-game search: plan 0023;
+- graphical focused-review and complete-editor workflows: plan 0026;
+- session and game setup UI;
+- Hochzeit, solos, announcements, scoring, and final game scoring;
+- production persistence, APIs, deployment, and operations: plan 0024.
+
+## 10. Verification
 
 Run:
 
@@ -320,16 +417,18 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-Also run the VisionDetector contract tests against the exact same fixtures. Ordinary CI must remain
-CPU-only and offline.
+Run TableEvidenceAnalyzer contract tests against the exact same observation fixtures. Ordinary CI
+must remain CPU-only and offline.
 
-## 10. Definition of done
+## 11. Definition of done
 
-- the vision-to-round reconstruction contract is frozen and tested on both sides;
-- deck size and card multiplicity are explicit data;
-- a seeded generator creates legal rounds and controlled vision errors;
-- canonical resolved, ambiguous, impossible, and incomplete fixtures exist;
+- the table-observation and reconstruction contracts are frozen and tested on both sides;
+- deck size and physical multiplicity are explicit data;
+- a seeded generator creates legal rounds and controlled observation failures;
+- canonical resolved, ambiguous, impossible, incomplete, occlusion, side-card, and corrected
+  fixtures exist;
 - deterministic rules replay passes exhaustive card-order tests;
-- a small exhaustive solver acts as a correctness oracle;
-- game-engine work no longer waits for useful VisionDetector output;
-- later scalable inference has a tested contract and oracle to build on.
+- an identity-only exhaustive solver acts as a correctness oracle;
+- optional evidence families can be added and ablated independently;
+- human corrections are immutable constraints that trigger recomputation;
+- later recognition, tracking, scalable search, and review UI have a tested boundary to build on.
