@@ -84,7 +84,8 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
     private let temporaryByteCapacity: Int
     private let maximumBufferedFrameCount: Int
     private let conversionQueue = DispatchQueue(
-        label: "com.dokodetector.CardEventProbe.live-video-conversion"
+        label: "com.dokodetector.CardEventProbe.live-video-conversion",
+        qos: .userInitiated
     )
     private let condition = NSCondition()
     private let context = CIContext()

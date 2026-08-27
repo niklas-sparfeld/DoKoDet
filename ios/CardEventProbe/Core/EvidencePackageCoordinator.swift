@@ -32,7 +32,10 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     private let store: EvidencePackageStore
     private let assembler: EvidencePackageAssembler
     private let videoSnippetProvider: (any EvidenceVideoSnippetProviding)?
-    private let queue = DispatchQueue(label: "com.dokodetector.CardEventProbe.package")
+    private let queue = DispatchQueue(
+        label: "com.dokodetector.CardEventProbe.package",
+        qos: .userInitiated
+    )
     private let onPackagePersisted: (Result<URL, EvidencePackageStoreError>) -> Void
     private let onEventSequenceReserved: (UUID, Int) -> Void
     private var pendingEvents: [PendingEvent] = []

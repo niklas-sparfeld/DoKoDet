@@ -423,6 +423,8 @@ public final class TrainingRecordingUploadClient: @unchecked Sendable {
     private static func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.default
         configuration.waitsForConnectivity = false
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 120
         return URLSession(configuration: configuration)
     }
 }

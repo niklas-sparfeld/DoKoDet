@@ -168,9 +168,9 @@ final class AppState: ObservableObject {
         evidenceUploadRunning = true
         evidenceUploadTask = Task { [weak self] in
             let attempts = await evidenceUploadQueue.uploadQueued(using: configuration)
-            guard !Task.isCancelled else { return }
             self?.evidenceUploadTask = nil
             self?.evidenceUploadRunning = false
+            guard !Task.isCancelled else { return }
             self?.applyEvidenceUploadAttempts(attempts)
             if self?.evidenceQueueDiagnostics?.queuedCount ?? 0 > 0 {
                 self?.uploadQueuedEvidence()
@@ -193,9 +193,9 @@ final class AppState: ObservableObject {
         evidenceUploadRunning = true
         evidenceUploadTask = Task { [weak self] in
             let attempts = await evidenceUploadQueue.retryFailed(using: configuration)
-            guard !Task.isCancelled else { return }
             self?.evidenceUploadTask = nil
             self?.evidenceUploadRunning = false
+            guard !Task.isCancelled else { return }
             self?.applyEvidenceUploadAttempts(attempts)
             if self?.evidenceQueueDiagnostics?.queuedCount ?? 0 > 0 {
                 self?.uploadQueuedEvidence()
@@ -233,11 +233,11 @@ final class AppState: ObservableObject {
         trainingRecordingUploadError = nil
         trainingRecordingUploadTask = Task { [weak self] in
             let attempts = await trainingRecordingUploadQueue.uploadQueued(using: configuration)
-            guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self else { return }
                 self.trainingRecordingUploadTask = nil
                 self.trainingRecordingUploadRunning = false
+                guard !Task.isCancelled else { return }
                 self.applyTrainingRecordingUploadAttempts(attempts)
                 if self.trainingRecordingQueueDiagnostics?.queuedCount ?? 0 > 0 {
                     self.uploadQueuedTrainingRecordings()
@@ -263,11 +263,11 @@ final class AppState: ObservableObject {
         trainingRecordingUploadError = nil
         trainingRecordingUploadTask = Task { [weak self] in
             let attempts = await trainingRecordingUploadQueue.retryFailed(using: configuration)
-            guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self else { return }
                 self.trainingRecordingUploadTask = nil
                 self.trainingRecordingUploadRunning = false
+                guard !Task.isCancelled else { return }
                 self.applyTrainingRecordingUploadAttempts(attempts)
             }
         }
