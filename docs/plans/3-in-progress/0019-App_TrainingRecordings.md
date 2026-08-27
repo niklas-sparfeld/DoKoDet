@@ -6,7 +6,7 @@
 - Status: In Progress
 - Depends on: completed plans 0003, 0004, and 0014; completed plan 0016; and the shared source-data
   contract from plan 0020 (M1, complete). Plan 0020 M3 can proceed in parallel.
-- Current phase: Phase 4 — Add CardEventNet import and review entry points
+- Current phase: Phase 5 — Prove the local end-to-end workflow
 - Boundary: This plan owns recording capture, upload, and immutable intake. The data-foundation
   [plan](0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
   promotion.
@@ -413,6 +413,14 @@ Acceptance:
 - conflicting content and incomplete metadata stop before partial writes;
 - the imported video opens in `cardevent annotate` at each device proposal;
 - source asset bytes remain unchanged.
+
+Progress (2026-08-27): Added `cardevent import-recording` for backend recording intake. The
+command validates the versioned manifest, prediction document, streamed video hash, complete
+operator metadata, and optional candidate-only review queue before writing. It copies the source
+video and prediction bytes, merges the approved record into the dataset manifest, preserves
+session grouping without assigning a split, writes an import receipt, and safely handles repeated
+imports and collisions. Versioned device predictions now load as annotation proposals, and the
+candidate queue passes the existing review-queue validator.
 
 ### Phase 5: Prove the local end-to-end workflow
 

@@ -495,6 +495,22 @@ def validate_recording_bundle(
 ) -> tuple[RecordingManifest, DevicePredictions]:
     """Validate both JSON documents, their relationship, and their declared file bytes."""
 
+    manifest, predictions = validate_recording_documents(manifest_bytes, predictions_bytes)
+    _verify_bytes(video_bytes, manifest.video.byte_length, manifest.video.sha256, "video")
+    _verify_bytes(
+        predictions_bytes,
+        manifest.predictions.byte_length,
+        manifest.predictions.sha256,
+        "predictions",
+    )
+    return manifest, predictions
+
+
+def validate_recording_documents(
+    manifest_bytes: bytes, predictions_bytes: bytes
+) -> tuple[RecordingManifest, DevicePredictions]:
+    """Validate the recording JSON documents without reading video bytes."""
+
     manifest = parse_recording_manifest_bytes(manifest_bytes)
     predictions = parse_device_predictions_bytes(predictions_bytes)
     if manifest.video.name != predictions.source_video:
@@ -511,13 +527,6 @@ def validate_recording_bundle(
     for proposal in predictions.event_proposals:
         if proposal.emitted_at_s > manifest.duration_s:
             raise RecordingContractError("event proposal time is outside the recording duration.")
-    _verify_bytes(video_bytes, manifest.video.byte_length, manifest.video.sha256, "video")
-    _verify_bytes(
-        predictions_bytes,
-        manifest.predictions.byte_length,
-        manifest.predictions.sha256,
-        "predictions",
-    )
     return manifest, predictions
 
 
@@ -544,6 +553,7 @@ __all__ = [
     "RecordingManifest",
     "parse_device_predictions_bytes",
     "parse_recording_manifest_bytes",
+    "validate_recording_documents",
     "validate_recording_bundle",
     "validate_recording_directory",
 ]

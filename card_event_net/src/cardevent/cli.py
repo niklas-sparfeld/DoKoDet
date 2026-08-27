@@ -20,6 +20,7 @@ from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
 from .ingestion import IngestionError, ingest_dataset, inspect_dataset
+from .recording_import import RecordingImportError, import_recording
 from .manifest import ManifestError, load_dataset_manifest, make_group_split
 from .review import (
     ReviewQueueError,
@@ -65,6 +66,7 @@ from .vision_viewer import VisionViewerError, review_vision_annotation
 
 _PLACEHOLDER_COMMANDS = {
     "annotate": "Annotate a source video.",
+    "import-recording": "Import a validated backend training recording.",
     "prepare": "Build the low-resolution frame cache.",
     "make-split": "Create a video-level split file.",
     "train": "Train the CardEventNet model.",
@@ -195,6 +197,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inference or review JSON with model candidates to review.",
     )
     annotate_parser.set_defaults(command_name="annotate")
+
+    import_recording_parser = subparsers.add_parser(
+        "import-recording",
+        help=_PLACEHOLDER_COMMANDS["import-recording"],
+        description=(
+            "Validate one immutable backend training recording and import its video, device "
+            "predictions, complete metadata, and optional candidate review queue."
+        ),
+    )
+    import_recording_parser.add_argument("--recording-dir", type=Path, required=True)
+    import_recording_parser.add_argument("--videos-dir", type=Path, required=True)
+    import_recording_parser.add_argument("--predictions-dir", type=Path, required=True)
+    import_recording_parser.add_argument(
+        "--metadata", type=Path, required=True, help="Complete operator-approved metadata YAML."
+    )
+    import_recording_parser.add_argument("--manifest", type=Path, required=True)
+    import_recording_parser.add_argument(
+        "--review-dir",
+        type=Path,
+        default=None,
+        help="Candidate review intake directory (default: beside the dataset manifest).",
+    )
+    import_recording_parser.add_argument(
+        "--receipt", type=Path, default=None, help="Import receipt output path."
+    )
+    import_recording_parser.add_argument("--operator", default="operator")
+    import_recording_parser.set_defaults(command_name="import-recording")
 
     prepare_parser = subparsers.add_parser(
         "prepare",
@@ -866,6 +895,7 @@ def build_parser() -> argparse.ArgumentParser:
     for name, help_text in _PLACEHOLDER_COMMANDS.items():
         if name in {
             "annotate",
+            "import-recording",
             "prepare",
             "make-split",
             "train",
@@ -927,6 +957,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Wrote manifest: {result.manifest_path}")
         print(f"Wrote ingestion index: {result.index_path}")
         print(f"Dataset version: {result.dataset_version_digest}")
+        return 0
+
+    if command_name == "import-recording":
+        try:
+            result = import_recording(
+                args.recording_dir,
+                videos_dir=args.videos_dir,
+                predictions_dir=args.predictions_dir,
+                metadata=args.metadata,
+                manifest=args.manifest,
+                review_dir=args.review_dir,
+                receipt=args.receipt,
+                operator=args.operator,
+            )
+        except (RecordingImportError, RuntimeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Imported recording {result.recording_id}: {result.video_path}")
+        print(f"Copied device predictions: {result.predictions_path}")
+        print(f"Updated dataset manifest: {result.manifest_path}")
+        if result.review_queue_path is not None:
+            print(f"Copied candidate review queue: {result.review_queue_path}")
+        print(f"Wrote import receipt: {result.receipt_path}")
         return 0
 
     if command_name == "inspect-dataset":

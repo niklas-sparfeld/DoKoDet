@@ -122,6 +122,29 @@ For queue-based visual review, use `cardevent review`. See the
 [CardEventNet review workflow](../docs/CardEventNet_ReviewWorkflow.md) for the full validation
 and training process.
 
+## Import a training recording
+
+Import a complete backend recording after an operator fills the draft metadata record:
+
+```bash
+uv run cardevent import-recording \
+  --recording-dir ../backend/.runtime/training-recordings/<recording-id> \
+  --videos-dir data/raw \
+  --predictions-dir data/device-predictions \
+  --metadata completed-dataset-record.yaml \
+  --manifest data/dataset-manifest.yaml
+```
+
+The command validates the recording manifest and all declared hashes before it writes the video,
+device predictions, dataset metadata, or import receipt. It does not assign a dataset split or
+change the source recording. If the backend contains a candidate-only review queue, the command
+copies it to `data/review-intake/` by default. Review imported proposals with:
+
+```bash
+uv run cardevent annotate data/raw/<video-id>.mov \
+  --proposals data/device-predictions/<video-id>.json
+```
+
 ## Cache and split
 
 Prepare the annotated videos from `card_event_net/`:

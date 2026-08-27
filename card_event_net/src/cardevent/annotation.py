@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .recording_contract import RecordingContractError, parse_device_predictions_bytes
 from .video import VideoError, VideoMetadata, _import_cv2, read_video_metadata
 from .viewer import (
     capture_frame as _capture_frame,
@@ -272,12 +273,23 @@ class AnnotationProposal:
 
 def load_annotation_proposals(path: str | Path) -> tuple[AnnotationProposal, ...]:
     """Load event candidates from an inference or review-manifest JSON file."""
+    proposal_path = Path(path)
     try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        raw = proposal_path.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise AnnotationError(f"Could not read model proposals: {exc}") from exc
     if not isinstance(payload, Mapping):
         raise AnnotationError("Model proposals must contain a JSON object.")
+    if payload.get("schema_version") == "cardevent-device-predictions/v1":
+        try:
+            predictions = parse_device_predictions_bytes(raw)
+        except RecordingContractError as exc:
+            raise AnnotationError(f"Could not read device predictions: {exc}") from exc
+        return tuple(
+            AnnotationProposal(proposal.time_s, proposal.probability)
+            for proposal in predictions.event_proposals
+        )
     candidates = payload.get("events", payload.get("proposals", ()))
     if not isinstance(candidates, list):
         raise AnnotationError("Model proposals must contain an events list.")
