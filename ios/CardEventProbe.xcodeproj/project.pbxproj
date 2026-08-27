@@ -40,6 +40,7 @@
 		A0000000000000000000001F /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001F /* CoreImage.framework */; };
 		A00000000000000000000020 /* EvidenceCaptureConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */; };
 		A00000000000000000000021 /* EvidenceFrameRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000021 /* EvidenceFrameRing.swift */; };
+		A00000000000000000000028 /* CaptureSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000028 /* CaptureSession.swift */; };
 		A00000000000000000000022 /* BackendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000022 /* BackendService.swift */; };
 		A00000000000000000000023 /* BackendDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000023 /* BackendDiscovery.swift */; };
 		A00000000000000000000024 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000024 /* Network.framework */; };
@@ -83,6 +84,7 @@
 		B0000000000000000000001F /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
 		B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceCaptureConfiguration.swift; sourceTree = "<group>"; };
 		B00000000000000000000021 /* EvidenceFrameRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceFrameRing.swift; sourceTree = "<group>"; };
+		B00000000000000000000028 /* CaptureSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSession.swift; sourceTree = "<group>"; };
 		B00000000000000000000022 /* BackendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendService.swift; sourceTree = "<group>"; };
 		B00000000000000000000023 /* BackendDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendDiscovery.swift; sourceTree = "<group>"; };
 		B00000000000000000000024 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
@@ -193,6 +195,7 @@
 				B0000000000000000000000B /* CausalEventDecoder.swift */,
 				B00000000000000000000020 /* EvidenceCaptureConfiguration.swift */,
 				B00000000000000000000021 /* EvidenceFrameRing.swift */,
+				B00000000000000000000028 /* CaptureSession.swift */,
 				B00000000000000000000025 /* EvidencePackage.swift */,
 				B00000000000000000000026 /* EvidencePackageCoordinator.swift */,
 			);
@@ -333,6 +336,7 @@
 				A0000000000000000000000B /* CausalEventDecoder.swift in Sources */,
 				A00000000000000000000020 /* EvidenceCaptureConfiguration.swift in Sources */,
 				A00000000000000000000021 /* EvidenceFrameRing.swift in Sources */,
+				A00000000000000000000028 /* CaptureSession.swift in Sources */,
 				A00000000000000000000025 /* EvidencePackage.swift in Sources */,
 				A00000000000000000000026 /* EvidencePackageCoordinator.swift in Sources */,
 				A00000000000000000000027 /* EvidenceMultipartUpload.swift in Sources */,

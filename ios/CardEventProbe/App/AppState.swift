@@ -53,6 +53,10 @@ final class AppState: ObservableObject {
     private let evidenceCaptureConfiguration = EvidenceCaptureConfiguration()
     private(set) var evidenceSampler: EvidenceFrameSampler?
     private var evidencePackageCoordinator: EvidencePackageCoordinator?
+    private lazy var captureSessionIdentityStore = CaptureSessionIdentityStore(
+        directory: evidenceSessionRoot()
+    )
+    private var captureSession: CaptureSession?
     private var liveCoordinator: FrameInferenceCoordinator?
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
@@ -112,17 +116,17 @@ final class AppState: ObservableObject {
         stopLiveInference()
         resetEvents()
         guard let runner = modelRunner else { return nil }
+        guard let captureSession = beginCaptureSession() else { return nil }
         activeDiagnosticSource = .live
         beginDiagnosticsSessionIfNeeded(source: .live)
 
-        let sessionClock = EvidenceSessionClock()
         let evidenceSampler = EvidenceFrameSampler(
             configuration: evidenceCaptureConfiguration,
-            sessionClock: sessionClock
+            sessionClock: captureSession.clock
         )
         self.evidenceSampler = evidenceSampler
         evidencePackageCoordinator = makeEvidencePackageCoordinator(
-            sessionClock: sessionClock,
+            captureSession: captureSession,
             ring: evidenceSampler.ring
         )
         let coordinator = FrameInferenceCoordinator(
@@ -140,8 +144,7 @@ final class AppState: ObservableObject {
     }
 
     func stopLiveInference() {
-        evidencePackageCoordinator?.finish()
-        evidencePackageCoordinator = nil
+        finishEvidencePackageCoordinator()
         liveCoordinator?.stop()
         liveCoordinator = nil
         if activeDiagnosticSource == .live {
@@ -151,6 +154,7 @@ final class AppState: ObservableObject {
             finishDiagnosticsSession()
             activeDiagnosticSource = nil
         }
+        finishCaptureSession()
     }
 
     func startReplay(url: URL) {
@@ -164,17 +168,20 @@ final class AppState: ObservableObject {
         resetEvents()
         replayProgress = nil
         replayRunning = true
+        guard let captureSession = beginCaptureSession() else {
+            replayRunning = false
+            return
+        }
         activeDiagnosticSource = .replay
         beginDiagnosticsSessionIfNeeded(source: .replay)
         let replayRunner = VideoReplayRunner()
-        let sessionClock = EvidenceSessionClock()
         let evidenceSampler = EvidenceFrameSampler(
             configuration: evidenceCaptureConfiguration,
-            sessionClock: sessionClock
+            sessionClock: captureSession.clock
         )
         self.evidenceSampler = evidenceSampler
         evidencePackageCoordinator = makeEvidencePackageCoordinator(
-            sessionClock: sessionClock,
+            captureSession: captureSession,
             ring: evidenceSampler.ring
         )
         self.replayRunner = replayRunner
@@ -296,9 +303,9 @@ final class AppState: ObservableObject {
             lastEventTimestampSeconds = timestamp
         }
         if progress.isComplete {
-            evidencePackageCoordinator?.finish()
-            evidencePackageCoordinator = nil
+            finishEvidencePackageCoordinator()
             replayRunner = nil
+            finishCaptureSession()
             if activeDiagnosticSource == .replay {
                 finishDiagnosticsSession()
                 activeDiagnosticSource = nil
@@ -358,8 +365,8 @@ final class AppState: ObservableObject {
     private func stopReplayForNewSession() {
         replayRunner?.cancel()
         replayRunner = nil
-        evidencePackageCoordinator?.finish()
-        evidencePackageCoordinator = nil
+        finishEvidencePackageCoordinator()
+        finishCaptureSession()
         if activeDiagnosticSource == .replay {
             evidenceSampler?.stop()
             finishDiagnosticsSession()
@@ -411,7 +418,7 @@ final class AppState: ObservableObject {
     }
 
     private func makeEvidencePackageCoordinator(
-        sessionClock: EvidenceSessionClock,
+        captureSession: CaptureSession,
         ring: EvidenceFrameRing
     ) -> EvidencePackageCoordinator {
         let decoderConfiguration = eventDecoder.configuration
@@ -434,7 +441,7 @@ final class AppState: ObservableObject {
         let store = EvidencePackageStore(root: evidencePackageRoot())
         return EvidencePackageCoordinator(
             configuration: evidenceCaptureConfiguration,
-            sessionClock: sessionClock,
+            captureSession: captureSession,
             ring: ring,
             store: store,
             model: model,
@@ -460,6 +467,36 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func beginCaptureSession() -> CaptureSession? {
+        do {
+            let session = try captureSessionIdentityStore.resumeSession()
+                ?? captureSessionIdentityStore.startSession()
+            captureSession = session
+            return session
+        } catch {
+            inferenceError = "The capture session could not be started: \(error.localizedDescription)"
+            activeDiagnosticSource = nil
+            return nil
+        }
+    }
+
+    private func finishCaptureSession() {
+        guard let captureSession else { return }
+        do {
+            try captureSessionIdentityStore.endSession(sessionID: captureSession.sessionID)
+        } catch {
+            inferenceError = "The capture session could not be closed: \(error.localizedDescription)"
+        }
+        self.captureSession = nil
+    }
+
+    private func finishEvidencePackageCoordinator() {
+        guard let evidencePackageCoordinator else { return }
+        evidencePackageCoordinator.finish()
+        evidencePackageCoordinator.drain()
+        self.evidencePackageCoordinator = nil
+    }
+
     private func evidencePackageRoot() -> URL {
         let baseURL = FileManager.default.urls(
             for: .applicationSupportDirectory,
@@ -468,5 +505,15 @@ final class AppState: ObservableObject {
         return baseURL
             .appendingPathComponent("CardEventProbe", isDirectory: true)
             .appendingPathComponent("EvidencePackages", isDirectory: true)
+    }
+
+    private func evidenceSessionRoot() -> URL {
+        let baseURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return baseURL
+            .appendingPathComponent("CardEventProbe", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
     }
 }

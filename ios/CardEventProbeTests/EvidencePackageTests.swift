@@ -134,9 +134,14 @@ final class EvidencePackageTests: XCTestCase {
         )
     }
 
-    func testCoordinatorFinalizesMultipleEventsIndependently() {
+    func testCoordinatorFinalizesMultipleEventsIndependently() throws {
         let configuration = configuration(targetOffsetsMs: [0], finalizationDelayMs: 100)
         let clock = clock()
+        let sessionRoot = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: sessionRoot) }
+        let captureSession = try CaptureSessionIdentityStore(directory: sessionRoot)
+            .startSession(startedAtUTC: clock.startedAtUTC)
+        captureSession.clock.observe(time(0.0))
         let ring = EvidenceFrameRing(configuration: configuration)
         ring.append(encodedFrame(at: 0.0, value: 1))
         ring.append(encodedFrame(at: 0.1, value: 2))
@@ -146,8 +151,7 @@ final class EvidencePackageTests: XCTestCase {
         var packageURLs: [URL] = []
         let coordinator = EvidencePackageCoordinator(
             configuration: configuration,
-            sessionClock: clock,
-            sessionID: packageID(10),
+            captureSession: captureSession,
             ring: ring,
             store: EvidencePackageStore(root: root),
             model: model(),
@@ -189,6 +193,7 @@ final class EvidencePackageTests: XCTestCase {
         }
         XCTAssertEqual(manifests.map(\.session.eventSequence), [1, 2])
         XCTAssertEqual(Set(manifests.map(\.packageID)).count, 2)
+        XCTAssertEqual(captureSession.nextEventSequence, 3)
     }
 
     private func assembler(

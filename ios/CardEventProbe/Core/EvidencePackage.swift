@@ -6,7 +6,10 @@ import ImageIO
 
 public let evidencePackageSchemaVersion = "cardevent-evidence/v1"
 
-/// Maps media timestamps to one session-relative timeline and UTC dates.
+/// Maps one monotonic media timeline to session-relative times and UTC dates.
+///
+/// The first valid media timestamp is the immutable zero point. The UTC anchor is only
+/// descriptive metadata and never participates in event/frame alignment.
 public final class EvidenceSessionClock: @unchecked Sendable {
     public let startedAtUTC: Date
 

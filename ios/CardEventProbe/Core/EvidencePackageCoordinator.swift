@@ -12,8 +12,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     }
 
     private let configuration: EvidenceCaptureConfiguration
-    private let sessionClock: EvidenceSessionClock
-    private let sessionID: UUID
+    private let captureSession: CaptureSession
     private let ring: EvidenceFrameRing
     private let store: EvidencePackageStore
     private let assembler: EvidencePackageAssembler
@@ -22,11 +21,38 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     private var pendingEvents: [PendingEvent] = []
     private var processedEventIDs = Set<UUID>()
     private var scoreTrace: [ModelPrediction] = []
-    private var nextEventSequence = 1
     private var camera: EvidencePackageCameraMetadata
     private var stopped = false
 
     public init(
+        configuration: EvidenceCaptureConfiguration,
+        captureSession: CaptureSession,
+        ring: EvidenceFrameRing,
+        store: EvidencePackageStore,
+        model: EvidencePackageModelMetadata,
+        decoderConfiguration: CausalEventDecoder.Configuration,
+        client: EvidencePackageClientMetadata,
+        camera: EvidencePackageCameraMetadata,
+        onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in }
+    ) {
+        self.configuration = configuration
+        self.captureSession = captureSession
+        self.ring = ring
+        self.store = store
+        assembler = EvidencePackageAssembler(
+            configuration: configuration,
+            sessionClock: captureSession.clock,
+            sessionID: captureSession.sessionID,
+            model: model,
+            decoderConfiguration: decoderConfiguration,
+            client: client
+        )
+        self.onPackagePersisted = onPackagePersisted
+        self.camera = camera
+    }
+
+    /// Compatibility initializer for package-only callers that do not need persistence.
+    public convenience init(
         configuration: EvidenceCaptureConfiguration,
         sessionClock: EvidenceSessionClock,
         sessionID: UUID = UUID(),
@@ -38,24 +64,24 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         camera: EvidencePackageCameraMetadata,
         onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in }
     ) {
-        self.configuration = configuration
-        self.sessionClock = sessionClock
-        self.sessionID = sessionID
-        self.ring = ring
-        self.store = store
-        assembler = EvidencePackageAssembler(
+        self.init(
             configuration: configuration,
-            sessionClock: sessionClock,
-            sessionID: sessionID,
+            captureSession: CaptureSession(
+                sessionID: sessionID,
+                startedAtUTC: sessionClock.startedAtUTC,
+                clock: sessionClock
+            ),
+            ring: ring,
+            store: store,
             model: model,
             decoderConfiguration: decoderConfiguration,
-            client: client
+            client: client,
+            camera: camera,
+            onPackagePersisted: onPackagePersisted
         )
-        self.onPackagePersisted = onPackagePersisted
-        self.camera = camera
     }
 
-    public var captureSessionID: UUID { sessionID }
+    public var captureSessionID: UUID { captureSession.sessionID }
 
     public var pendingEventCount: Int {
         queue.sync { pendingEvents.count }
@@ -65,7 +91,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     public func observe(_ frame: VideoFrame) {
         queue.async {
             guard !self.stopped else { return }
-            self.sessionClock.observe(frame.timestamp)
+            self.captureSession.clock.observe(frame.timestamp)
             self.camera = EvidencePackageCameraMetadata(
                 position: self.camera.position,
                 orientation: Self.orientationName(frame.orientation),
@@ -79,7 +105,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     public func consume(_ prediction: ModelPrediction, event: DetectionEvent? = nil) {
         queue.async {
             guard !self.stopped else { return }
-            self.sessionClock.observe(prediction.timestamp)
+            self.captureSession.clock.observe(prediction.timestamp)
             self.scoreTrace.append(prediction)
             self.trimScoreTrace(through: prediction.timestamp)
             if let event {
@@ -93,7 +119,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     public func record(_ event: DetectionEvent) {
         queue.async {
             guard !self.stopped else { return }
-            self.sessionClock.observe(event.timestamp)
+            self.captureSession.clock.observe(event.timestamp)
             self.addPending(event)
         }
     }
@@ -117,19 +143,32 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
             pendingEvents.removeAll(keepingCapacity: true)
             processedEventIDs.removeAll(keepingCapacity: true)
             scoreTrace.removeAll(keepingCapacity: true)
-            nextEventSequence = 1
             stopped = false
         }
     }
 
     private func addPending(_ event: DetectionEvent) {
-        guard processedEventIDs.insert(event.id).inserted else { return }
+        guard !processedEventIDs.contains(event.id) else { return }
+        let eventSequence: Int
+        do {
+            eventSequence = try captureSession.reserveEventSequence()
+        } catch {
+            onPackagePersisted(
+                .failure(
+                    .writeFailed(
+                        store.root,
+                        "The event sequence could not be reserved: \(error.localizedDescription)"
+                    )
+                )
+            )
+            return
+        }
+        processedEventIDs.insert(event.id)
         let pending = PendingEvent(
             event: event,
             packageID: UUID(),
-            eventSequence: nextEventSequence
+            eventSequence: eventSequence
         )
-        nextEventSequence += 1
         pendingEvents.append(pending)
         pendingEvents.sort {
             CMTimeCompare($0.event.timestamp, $1.event.timestamp) < 0

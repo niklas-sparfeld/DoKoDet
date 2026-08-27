@@ -37,6 +37,7 @@ let package = Package(
                 "Core/CausalEventDecoder.swift",
                 "Core/EvidenceCaptureConfiguration.swift",
                 "Core/EvidenceFrameRing.swift",
+                "Core/CaptureSession.swift",
                 "Core/EvidencePackage.swift",
                 "Core/EvidencePackageCoordinator.swift",
                 "Networking/EvidenceMultipartUpload.swift",
