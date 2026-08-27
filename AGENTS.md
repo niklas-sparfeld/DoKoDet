@@ -39,11 +39,25 @@ When an epic changes status, update its `Status` field and move the file to the 
 the same change. A closed epic must have a `Closure reason`. Keep all links to and from the moved
 file valid. Check local Markdown links after adding, moving, or renaming an epic.
 
+Treat closed epic files as immutable historical records. Do not update them to match current
+terminology, architecture, or planning policy. Change a closed epic only when:
+
+* the user explicitly requests a correction to that closed epic,
+* secrets, personal data, or legally restricted content must be removed, or
+* a strictly mechanical link repair is required after an authorized file move or rename.
+
+Keep each exception as small as possible. Do not reopen or rewrite the plan through an exception.
+Record new work and changed decisions in an active epic or a new epic.
+
 ## Language
 
 Use [ASD-STE100](https://github.com/danyuchn/asd-ste100-skill) principles for documentation and technical prose.
 
 Use simple English, short sentences, active voice, and consistent terminology.
+
+Use the canonical domain terms in the [project glossary](docs/glossary.md). Read the glossary before
+you add or change domain terminology. Do not use a glossary term with a different meaning. Define a
+new term in the glossary before you use it when its meaning could overlap with an existing term.
 
 ## Local development
 

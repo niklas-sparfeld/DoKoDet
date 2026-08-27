@@ -16,12 +16,12 @@ requirements. Do not implement a technology checklist before those inputs exist.
 
 Record:
 
-- supported game and deck variants;
+- supported game structures, round rulesets, player counts, and deck variants;
 - supported iPhone and operating-system classes;
 - inference, capture, upload, recognition, and reconstruction latency distributions;
 - package volume, storage growth, retry rate, and duplicate rate;
 - model memory, accelerator, and throughput needs;
-- expected concurrent games and reprocessing volume;
+- expected concurrent games, recordings, and reprocessing volume;
 - acceptable data-loss and recovery objectives;
 - privacy, consent, retention, deletion, and regional requirements;
 - deployment environment and operator responsibilities;
@@ -59,8 +59,8 @@ contributed training data, derived artifacts, backups, and external processors.
 ### End-to-end reliability
 
 Test process loss, app backgrounding, network loss, partial storage failure, corrupt evidence,
-unavailable inference, model rollback, missing events, low storage, and restore from backup. Define
-service objectives before choosing acceptance thresholds.
+unavailable inference, model rollback, missing event proposals, low storage, and restore from
+backup. Define service objectives before choosing acceptance thresholds.
 
 ## 4. Planning rule
 

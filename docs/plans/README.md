@@ -30,8 +30,8 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0022 — VisionDetector recognition development](0-to-specify/0022-VisionDetector_Recognition_Development.md) | 0020, 0021, and reviewed real events | Define measured recognition experiments. |
-| [0023 — Game reconstruction development](0-to-specify/0023-Game_Reconstruction_Development.md) | 0006 search measurements | Define scalable uncertain-game inference. |
+| [0022 — VisionDetector recognition development](0-to-specify/0022-VisionDetector_Recognition_Development.md) | 0020, 0021, and reviewed events from real recordings | Define measured recognition experiments. |
+| [0023 — Game reconstruction development](0-to-specify/0023-Game_Reconstruction_Development.md) | 0006 search measurements | Define scalable uncertain-round and complete-game inference. |
 | [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Integration, recognition, and reconstruction measurements | Select production work from measured requirements. |
 
 ### Backlog
@@ -42,7 +42,7 @@ No epics.
 
 | Epic | Outcome |
 | --- | --- |
-| [0006 — Game engine contract and core PoC](2-ready/0006-GameEngine_v1.md) | Freeze the game contract and build the rules core. |
+| [0006 — Game engine contract and core PoC](2-ready/0006-GameEngine_v1.md) | Freeze the round-reconstruction contract and build the rules core. |
 | [0020 — Data foundation](2-ready/0020-Data_Foundation.md) | Establish the shared data lifecycle. |
 
 ### In Progress
@@ -53,7 +53,7 @@ No epics.
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0019 — App training-recording sessions](4-blocked/0019-App_TrainingRecordingSessions.md) | 0016 and the 0020 source-data contract | Add deliberate recording intake. |
+| [0019 — App training recordings](4-blocked/0019-App_TrainingRecordings.md) | 0016 and the 0020 source-data contract | Add deliberate recording intake. |
 | [0021 — VisionDetector training pipeline](4-blocked/0021-VisionDetector_Training_Pipeline.md) | 0020 milestone M1 | Build the train, evaluate, checkpoint, and export loop. |
 
 ### Closed
@@ -80,8 +80,8 @@ No epics.
 
 ## Near-term delivery sequence
 
-1. Start 0005 milestone M0 with 0006 milestone M0. This freezes one shared vision-to-game
-   contract.
+1. Start 0005 milestone M0 with 0006 milestone M0. This freezes one shared vision-to-round
+   reconstruction contract.
 2. Start 0020 milestone M0 in parallel. It establishes the data invariants.
 3. Continue 0005, 0006, and 0020 as independent local foundations.
 4. Move 0021 to `Ready` after 0020 milestone M1.
@@ -90,6 +90,10 @@ No epics.
 
 ## Closed-epic policy
 
-Do not reopen a closed epic because later model, data, device, or product evidence reveals more
-work. Add the evidence to the earliest active epic that owns the issue. Create a bounded follow-up
-epic only when no active epic owns it.
+Closed epic files are immutable historical records. Do not update them for new terminology,
+architecture, or planning policy. Add later evidence to the earliest active epic that owns the
+issue. Create a bounded follow-up epic only when no active epic owns it.
+
+Change a closed epic only after an explicit user request, to remove restricted information, or to
+repair a link after an authorized move or rename. Keep the exception mechanical and minimal. Do not
+reopen or rewrite the closed plan through an exception.

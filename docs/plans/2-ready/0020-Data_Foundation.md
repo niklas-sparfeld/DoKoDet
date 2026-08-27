@@ -4,7 +4,7 @@
 
 - **Summary:** Make source, annotation, review, split, and lineage data reliable before vision work
 - **Status:** Ready
-- **Reviewed:** 2026-08-26 against the current CardEventNet data tools and local dataset
+- **Reviewed:** 2026-08-27 against the glossary, current CardEventNet data tools, and local dataset
 - **Starts now:** In parallel with plans 0005 and 0006
 - **Unblocks:** The VisionDetector training pipeline and later recognition experiments
 
@@ -18,7 +18,8 @@ At the end of this plan, a developer can answer:
 ```text
 Where did this source asset come from?
 May we use it for this purpose?
-Which capture session and game does it belong to?
+Which recording, if any, did it come from, and which session contains that recording?
+Which games and rounds does the recording show, if any?
 Which annotation and review version applies?
 Is it eligible for training, validation, or test?
 Which derived frames and crops came from it?
@@ -49,7 +50,8 @@ must be allowed to exist as reviewed or unreviewed intake before a human promote
 The repository does not yet contain:
 
 - a VisionDetector annotation schema;
-- a shared identity and lineage model across recordings, evidence packages, frames, and crops;
+- a shared identity and lineage model across sessions, recordings, evidence packages, frames, and
+  crops;
 - explicit dataset eligibility and promotion states;
 - one coverage report for cards, devices, decks, environments, and failure conditions;
 - a stable handoff from reviewed visual events to VisionDetector datasets;
@@ -96,9 +98,10 @@ Define stable identifiers for:
 
 ```text
 source_asset_id
-recording_id
-capture_session_id
+session_id
 game_id, when known
+round_id, when known
+recording_id
 video_id
 evidence_package_id
 event_id
@@ -116,15 +119,21 @@ Rules:
 
 - derive content identity from SHA-256 where practical;
 - keep operator-owned semantic identity separate from a content hash;
-- preserve the capture session across a recording and its evidence packages;
-- group all assets from one session and game for leakage checks;
+- preserve the session and recording identities across a recording and its evidence packages;
+- let one session contain several recordings and parts of several games;
+- let one game span several sessions;
+- associate a recording with games and rounds through explicit time spans instead of one scalar
+  `game_id`;
+- keep staged activity associated with its session and recording, with no invented game or round;
+- group all assets from one session, game, table setup, or shared source lineage for leakage checks;
 - record the source frame and transform for every crop;
 - record the annotation and review version used to create every target;
 - never reuse an identifier for different bytes or meaning;
 - do not use an absolute local path as identity.
 
-Use explicit nullable fields when a game or session fact is not known. Do not invent grouping data
-to make a manifest validate.
+Session identity is operator-owned semantic data. Do not derive it from a recording UUID, file
+name, timestamp, or dataset partition. Use explicit nullable fields when a game, round, or session
+fact is not known. Do not invent grouping data to make a manifest validate.
 
 ## 5. Source and permission model
 
@@ -133,7 +142,9 @@ Each source asset records:
 - byte length and SHA-256;
 - media type and technical probe data;
 - acquisition method and original filename;
-- capture session and game grouping, when known;
+- session identity and table setup, when known;
+- referenced game and round time spans, when known;
+- staged-activity classification when the recording is not part of a game;
 - camera/device class and orientation, when known;
 - deck design and physical-deck identifier, when known;
 - environment and scenario tags confirmed by a human;
@@ -152,13 +163,14 @@ and permission model. They do not create a parallel dataset lifecycle.
 
 ### CardEventNet annotations
 
-Continue to use typed temporal point events and separate hard negatives. Preserve model proposals as
-unconfirmed provenance. Keep complete-video review as the gate for detecting proposal misses.
+Continue to use typed temporal point events and separate hard negatives. Preserve event proposals
+as unconfirmed provenance. Keep complete-video review as the gate for detecting proposal misses.
 
 ### VisionDetector annotations
 
 Add a versioned visual-event schema. One record refers to one accepted evidence package or to frames
-derived from an accepted recording:
+derived from an accepted recording. The record remains an annotation until review confirms a
+reviewed event:
 
 ```json
 {
@@ -177,20 +189,21 @@ derived from an accepted recording:
       "tags": ["glare", "partial_occlusion"]
     }
   ],
-  "review_state": "draft"
+  "review_state": "draft",
+  "proposal_id": "..."
 }
 ```
 
 Support explicit non-card and unusable cases:
 
 ```text
-false_event
+false_event_proposal
 card_not_visible
 visible_but_not_identifiable
 ambiguous_card
 ```
 
-Do not invent a card label for them. Keep event-card boxes separate from optional boxes for other
+Do not invent a card label for them. Keep played-card boxes separate from optional boxes for other
 visible cards. A detector-training export may use both, but event evaluation must identify which
 physical card was played.
 
@@ -238,8 +251,9 @@ A dataset version is a frozen manifest of eligible records plus content digests.
 - derived-artifact transform versions;
 - creation code revision and dirty-state marker.
 
-Create splits from a dataset version. Enforce isolation by capture session and game. Report, rather
-than hide, unassigned eligible records.
+Create splits from a dataset version. Enforce isolation by session, game, table setup, and shared
+source lineage. A game that spans sessions remains in one partition. Report, rather than hide,
+unassigned eligible records.
 
 Do not require every indexed or annotated intake item to belong to the current development split.
 Tests should distinguish:
@@ -256,8 +270,8 @@ Generate one machine-readable and one human-readable report for each dataset ver
 
 For CardEventNet, group by:
 
-- event type and hard-negative type;
-- session, game, device class, and content type;
+- reviewed event type, event proposal type, and hard-negative type;
+- session, game, round, table setup, device class, and content type;
 - lighting, camera, background, and scenario tags;
 - event spacing and known difficult transitions.
 
@@ -268,7 +282,7 @@ For VisionDetector, also group by:
 - candidate crop size;
 - visibility, blur, glare, perspective, occlusion, and frame boundary;
 - complete versus incomplete evidence;
-- false event proposals and not-visible events.
+- false event proposals and not-visible reviewed events.
 
 Coverage reports guide collection. They do not create arbitrary minimum counts or silently rebalance
 sealed evaluation data.
@@ -278,7 +292,8 @@ sealed evaluation data.
 ### M0 — Reconcile current intake and restore invariants
 
 1. Inspect the five new videos that are outside `full-frame-development.yaml`.
-2. Confirm their session, content, permission, and intended state.
+2. Confirm their session, recording, game or round spans, staged-activity classification,
+   permission, and intended state.
 3. Keep them explicitly unassigned or promote them through a reviewed split change.
 4. Update manifest tests so indexed intake is not confused with split membership.
 5. Refresh the dataset index report after the human decisions.
@@ -288,13 +303,14 @@ Acceptance:
 - all current raw videos and annotations are indexed;
 - unassigned assets are visible and valid;
 - the CardEventNet test suite passes without forcing intake into a split;
-- no session or game crosses partitions.
+- no session, game, table setup, or shared source-lineage group crosses partitions.
 
 ### M1 — Shared identity, lineage, and eligibility contract
 
 1. Write `DATA_CONTRACT.md` with the layers and identifiers from this plan.
 2. Add schemas or typed models for source records, lineage edges, eligibility, and dataset versions.
-3. Add a small fixture that links one recording, evidence package, frame, annotation, and crop.
+3. Add a small fixture that links one session, recording, evidence package, frame, annotation, and
+   crop. Include either a game and round span or an explicit staged-activity classification.
 4. Preserve adapters for the existing CardEventNet V1 manifests.
 
 Acceptance:
@@ -306,16 +322,18 @@ Acceptance:
 ### M2 — Vision annotation and review path
 
 1. Add `vision-annotation/v1` and malformed contract fixtures.
-2. Add a minimal event-frame viewer that can assign the played card, visibility, box, and tags.
+2. Add a minimal event-frame viewer that can confirm or reject an event proposal and assign the
+   played card, visibility, box, and tags.
 3. Add immutable review and apply artifacts.
 4. Import a small set of real evidence packages or recording-derived events.
 
 Acceptance:
 
-- false, invisible, ambiguous, and identifiable events remain distinct;
+- false event proposals and invisible, ambiguous, and identifiable reviewed events remain
+  distinct;
 - a reviewer can inspect all frames around one event;
 - source evidence is unchanged;
-- model proposals never become labels without review.
+- event proposals never become labels without review.
 
 ### M3 — Dataset assembly and group-safe splits
 

@@ -5,7 +5,7 @@
 - **Summary:** Build a reproducible VisionDetector train/evaluate/export loop before model research
 - **Status:** Blocked
 - **Depends on:** Plan 0020 milestone M1
-- **Reviewed:** 2026-08-26 against the current CardEventNet training pipeline
+- **Reviewed:** 2026-08-27 against the glossary and current CardEventNet training pipeline
 - **Starts early:** Use tiny generated fixtures before enough real VisionDetector data exists
 - **Unblocks:** The future recognition-development plan
 
@@ -102,7 +102,7 @@ The loader accepts an explicit dataset and split version from plan 0020. Every s
 - annotation and review version;
 - deck and card-set version;
 - transform lineage;
-- session and game leakage groups;
+- session, game, table-setup, recording-lineage, and source-lineage leakage groups;
 - allowed-use state.
 
 The first training task is oracle-crop card identity because it isolates identity recognition from
@@ -207,8 +207,8 @@ Evaluation consumes a frozen run or exported bundle and one named split. It writ
 The smoke fixture only proves expected overfitting and serialization. It does not produce a product
 metric.
 
-Model calibration, event-card localization, and complete evidence-package evaluation belong to the
-recognition-development plan, but they should reuse this report envelope.
+Model calibration, played-card localization for reviewed events, and complete evidence-package
+evaluation belong to the recognition-development plan, but they should reuse this report envelope.
 
 ## 9. Detector bundle contract
 
@@ -233,7 +233,7 @@ format version.
 
 The bundle adapter implements the plan 0005 `VisionDetector` interface. For the oracle-crop smoke
 task, a test-only evidence adapter may use annotated crops. Do not claim that this is end-to-end
-event recognition.
+reviewed event recognition.
 
 ## 10. Small implementation milestones
 
@@ -312,7 +312,7 @@ Acceptance:
 - a hosted experiment platform or model registry;
 - distributed training;
 - automatic deployment after export;
-- game-engine rules or posterior correction.
+- round or game reconstruction rules, or posterior correction.
 
 ## 12. Verification
 

@@ -1,4 +1,4 @@
-# DokoDetector app training recording sessions
+# DokoDetector app training recordings
 
 ## Plan status
 
@@ -20,8 +20,8 @@ records:
 
 - the complete oriented camera video, without audio;
 - every model probability produced by the live inference path;
-- every event emitted by the causal decoder;
-- the model, decoder, camera, app, device, and timing metadata needed to reproduce the session.
+- every event proposal emitted by the causal decoder;
+- the model, decoder, camera, app, device, and timing metadata needed to reproduce the recording.
 
 After the operator stops the recording, the app finalizes an immutable local bundle and uploads it
 to the backend. The backend validates the bundle and stores it in a local CardEventNet intake area.
@@ -41,7 +41,7 @@ live camera frames
     finalized recording bundle
           |
           v
-    recording-session API
+    training-recording API
           |
           v
     immutable backend intake bundle
@@ -56,7 +56,7 @@ live camera frames
 ```
 
 The normal development loop must work with a short checked-in or generated video fixture. It must
-not require a phone, a cloud service, or a real game.
+not require a phone, a cloud service, or a real game. The fixture can show staged activity.
 
 This plan is not a prerequisite for the first VisionDetector dataset work. Existing local videos
 and evidence packages can establish the data and training contracts first. Implement recording
@@ -64,19 +64,23 @@ intake after the local app-to-backend path in plan 0016 is proven.
 
 ## 2. Fixed decisions
 
-### 2.1 Keep evidence and recording contracts separate
+### 2.1 Keep session, recording, and evidence identities separate
 
-Do not add a full video to each evidence package. Evidence packages remain small, event-centered,
-and independently retryable.
+Do not add a full video to each evidence package. Evidence packages remain small, centered on one
+event proposal, and independently retryable.
 
-Add a versioned `cardevent-recording/v1` contract for one complete recording. Use the same capture
-session UUID in the recording manifest and in evidence packages produced during that recording.
-This allows later correlation without coupling the upload lifecycles.
+Add a versioned `cardevent-recording/v1` contract for one complete recording. Give it separate
+`session_id` and `recording_id` fields. The operator starts a new session or selects an existing
+session independently from starting a recording. Several recordings from the same occasion reuse
+the session ID.
 
-For V1, use the recording UUID as the capture session UUID. Do not create two unrelated identities
-for one live capture.
+Correlate evidence packages with both identities. Do not use the recording UUID as the session ID.
+The closed V1 evidence contract calls its recording-level correlation value `capture_session_id`.
+Preserve that field only as a compatibility value equal to `recording_id`; do not interpret it as a
+canonical session. Add canonical `session_id` and `recording_id` fields in the next evidence
+contract version before this plan is implemented.
 
-### 2.2 Record only explicit live sessions
+### 2.2 Record only explicit live recordings
 
 The operator must press **Start training recording**. Starting the camera or inference does not
 start a recording. The first version records the live camera only. Replaying an existing video does
@@ -88,11 +92,13 @@ delete data. Finalize the recording locally and queue it for retry.
 Show a persistent recording indicator, elapsed time, estimated stored size, and final upload state.
 Do not record audio.
 
-### 2.3 Use one session-relative timeline
+### 2.3 Use one recording-relative timeline
 
-Use the same `EvidenceSessionClock` for video, predictions, decoder events, and evidence packages.
-Normalize the first accepted video frame to `0` seconds. Preserve monotonic presentation times in
-the video. Store probability and event times as seconds relative to the same zero point.
+Use one recording clock for video, predictions, decoder event proposals, and evidence packages.
+Adapt or replace the existing `EvidenceSessionClock` name when this plan changes that code; it
+measures a recording timeline, not a canonical session. Normalize the first accepted video frame
+to `0` seconds. Preserve monotonic presentation times in the video. Store probability and event
+proposal times as seconds relative to the same zero point.
 
 Do not align data by wall-clock timestamps. Record the UTC start time only as metadata.
 
@@ -101,9 +107,9 @@ Do not align data by wall-clock timestamps. Record the UTC start time only as me
 Device predictions are proposals. They are not annotations and must not enter training as positive
 labels without human review.
 
-Store every produced probability sample. Store the device-decoded events as a derived list. Include
-the model version, weights SHA-256, preprocessing identifier, inference rate, threshold, peak
-confirmation, and minimum event gap.
+Store every produced probability sample. Store the device-decoded event proposals as a derived
+list. Include the model version, weights SHA-256, preprocessing identifier, inference rate,
+threshold, peak confirmation, and minimum event gap.
 
 The final `predictions.json` should use the useful parts of the existing `cardevent infer` output:
 
@@ -116,7 +122,7 @@ The final `predictions.json` should use the useful parts of the existing `cardev
   "probabilities": [
     {"time_s": 0.125, "probability": 0.23, "inference_ms": 14.2}
   ],
-  "events": [
+  "event_proposals": [
     {"time_s": 12.375, "emitted_at_s": 12.5, "probability": 0.83}
   ]
 }
@@ -136,12 +142,12 @@ Reuse of the UUID with different content returns a conflict.
 
 ### 2.6 Require human annotation before training
 
-The backend may create a review queue from device-decoded event candidates. Such a queue helps find
-false triggers and classify candidate events. It cannot reveal model misses outside those
-candidates. Therefore, it is not proof of complete ground truth.
+The backend may create a review queue from device-decoded event proposals. Such a queue helps find
+false triggers and classify proposals. It cannot reveal model misses outside those proposals.
+Therefore, it is not proof of complete ground truth.
 
 Before a new video becomes training or evaluation input, a reviewer must complete a video-wide
-annotation pass. Start that pass with the device events as proposals:
+annotation pass. Start that pass with the device event proposals:
 
 ```bash
 cardevent annotate <video> --proposals <predictions.json>
@@ -170,14 +176,14 @@ The manifest must contain:
 ```text
 schema_version              cardevent-recording/v1
 recording_id
-capture_session_id
+session_id
 video_id
 started_at_utc
 ended_at_utc
 duration_s
 state                       complete
 video                       name, type, byte length, SHA-256, codec, size, frame rate
-predictions                 name, type, byte length, SHA-256, sample and event counts
+predictions                 name, type, byte length, SHA-256, sample and event-proposal counts
 model                       name, version, weights SHA-256, preprocessing
 decoder                     threshold, peak confirmation, minimum event gap
 camera                      position, orientation, source size
@@ -195,7 +201,7 @@ closes the prediction writer, validates both artifacts, writes the manifest, and
 the directory to a queued state. Never upload a staging directory.
 
 If the app terminates during capture, retain the incomplete directory for diagnostics. Do not
-upload it as a complete session. A later recovery command may salvage it in a separate plan.
+upload it as a complete recording. A later recovery command may salvage it in a separate plan.
 
 ## 4. HTTP and backend contract
 
@@ -273,8 +279,9 @@ The command must:
 8. Write an import receipt with the source recording ID and hashes.
 
 The command must stop before writing if required dataset metadata is incomplete. Require an
-operator-approved metadata YAML file when the backend draft is incomplete. Keep all videos from
-one capture session in one `session_id` leakage group.
+operator-approved metadata YAML file when the backend draft is incomplete. Keep all recordings
+from one session in one `session_id` leakage group. Record explicit game and round time spans when
+known. Use staged activity when the recording does not show part of a game.
 
 Do not assign the video to train, validation, or test automatically. Split selection is a separate,
 reviewed dataset decision. Do not run training automatically.
@@ -339,8 +346,9 @@ Persist queued bundles in Application Support. Reconstruct the queue on launch. 
 `URLSessionUploadTask`. Preserve failed bundles and allow retry. Check free disk space before start
 and enforce a configurable maximum duration or size.
 
-Pass the recording UUID into the evidence coordinator as its capture session UUID. Evidence
-packages continue to use their existing endpoint and retry behavior.
+Pass both the recording ID and session ID into the evidence coordinator. Until the versioned
+evidence-contract update is complete, map its legacy `capture_session_id` compatibility field to
+the recording ID. Evidence packages continue to use their existing endpoint and retry behavior.
 
 Acceptance:
 
@@ -378,7 +386,7 @@ Acceptance:
 - repeated identical import is safe;
 - conflicting content and incomplete metadata stop before partial writes;
 - the imported video opens in `cardevent annotate` at each device proposal;
-- source recording bytes remain unchanged.
+- source asset bytes remain unchanged.
 
 ### Phase 5: Prove the local end-to-end workflow
 
@@ -390,7 +398,7 @@ Acceptance:
 
 - the recording video duration and prediction timeline agree within one source-frame interval;
 - every uploaded and imported hash matches the app manifest;
-- evidence packages from the session use the same capture session UUID;
+- evidence packages from the recording use the same recording ID and canonical session ID;
 - the imported recording passes `cardevent prepare`;
 - no phone, Docker service, or cloud resource is required for the automated gate.
 
@@ -409,7 +417,7 @@ Add tests for:
 - deterministic draft metadata and candidate-queue generation;
 - CardEventNet import idempotency and collision handling;
 - proposal loading from device predictions;
-- session grouping and prevention of automatic split assignment;
+- session grouping across several recordings and prevention of automatic split assignment;
 - an end-to-end local fixture flow.
 
 Run:
@@ -439,7 +447,7 @@ This plan does not:
 - record audio;
 - record without an explicit operator action;
 - upload video continuously while capture is active;
-- replace event-centered evidence packages;
+- replace evidence packages centered on one event proposal;
 - treat device predictions as labels;
 - guarantee that a candidate-only review queue finds missed events;
 - assign a dataset split or start training automatically;
@@ -452,14 +460,15 @@ This plan does not:
 The plan is complete when a developer can:
 
 1. Start the local backend.
-2. Start one explicit training recording in the app or saved-video simulator.
-3. Continue to receive normal evidence packages during the recording.
-4. Stop and finalize the recording without losing video or prediction data.
-5. Retry the upload after a simulated connection failure.
-6. Verify the immutable video and predictions on the backend.
-7. Import the bundle with one CardEventNet command.
-8. Open the imported video with device predictions as proposals.
-9. Complete a video-wide annotation pass before adding the video to a dataset split.
-10. Prepare the imported video with the existing CardEventNet pipeline.
+2. Start a new session or select an existing session.
+3. Start one explicit training recording in the app or saved-video simulator.
+4. Continue to receive normal evidence packages during the recording.
+5. Stop and finalize the recording without losing video or prediction data.
+6. Retry the upload after a simulated connection failure.
+7. Verify the immutable video and predictions on the backend.
+8. Import the bundle with one CardEventNet command.
+9. Open the imported video with device predictions as event proposals.
+10. Complete a video-wide annotation pass before adding the video to a dataset split.
+11. Prepare the imported video with the existing CardEventNet pipeline.
 
 No manual JSON conversion, file renaming, or timestamp alignment is required.
