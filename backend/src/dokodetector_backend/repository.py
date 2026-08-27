@@ -12,11 +12,17 @@ from alembic.config import Config
 from sqlalchemy import Engine, and_, create_engine, event, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
-from vision_detector import VisionDetectionResult
+from vision_detector import TableObservation
 
 from alembic import command
 from dokodetector_backend.contract import EvidenceManifest, FrameManifest
-from dokodetector_backend.models import EvidenceFrame, EvidencePackage, VisionResult
+from dokodetector_backend.models import (
+    EvidenceFrame,
+    EvidencePackage,
+)
+from dokodetector_backend.models import (
+    TableObservation as TableObservationRow,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,28 +100,27 @@ class StoredPackage:
 
 
 @dataclass(frozen=True, slots=True)
-class StoredVisionResult:
-    """Immutable detector result metadata stored in SQLite."""
+class StoredTableObservation:
+    """Immutable table-observation metadata stored in SQLite."""
 
-    result_id: UUID
+    observation_id: str
     package_id: UUID
     schema_version: str
-    detector_name: str
-    detector_version: str
+    analyzer_name: str
+    analyzer_version: str
     status: str
-    selected_card: str | None
     calibration: str
-    result_json: str
-    result_sha256: str
+    observation_json: str
+    observation_sha256: str
     relative_path: str
     created_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
-class VisionResultInsert:
-    """The result of an idempotent vision-result insert."""
+class TableObservationInsert:
+    """The result of an idempotent table-observation insert."""
 
-    result: StoredVisionResult
+    observation: StoredTableObservation
     created: bool
 
 
@@ -135,8 +140,8 @@ class LogicalEventConflict(RepositoryConflict):
     """The session and event sequence are already stored."""
 
 
-class VisionResultConflict(RepositoryConflict):
-    """A detector result key is already used by different content."""
+class TableObservationConflict(RepositoryConflict):
+    """An analyzer observation key is already used by different content."""
 
 
 def create_database_engine(database_url: str) -> Engine:
@@ -244,25 +249,25 @@ class EvidenceRepository:
             return True
 
     def get_pending_package(
-        self, detector_name: str, detector_version: str
+        self, analyzer_name: str, analyzer_version: str
     ) -> StoredPackage | None:
-        """Return the first stored package without this detector result."""
+        """Return the first stored package without this analyzer observation."""
 
         with self._session_factory() as session:
             row = session.scalar(
                 select(EvidencePackage)
                 .options(selectinload(EvidencePackage.frames))
                 .outerjoin(
-                    VisionResult,
+                    TableObservationRow,
                     and_(
-                        VisionResult.package_id == EvidencePackage.package_id,
-                        VisionResult.detector_name == detector_name,
-                        VisionResult.detector_version == detector_version,
+                        TableObservationRow.package_id == EvidencePackage.package_id,
+                        TableObservationRow.analyzer_name == analyzer_name,
+                        TableObservationRow.analyzer_version == analyzer_version,
                     ),
                 )
                 .where(
                     EvidencePackage.state == "stored",
-                    VisionResult.result_id.is_(None),
+                    TableObservationRow.observation_id.is_(None),
                 )
                 .order_by(EvidencePackage.received_at, EvidencePackage.package_id)
                 .limit(1)
@@ -270,132 +275,133 @@ class EvidenceRepository:
             return _package_from_model(row) if row is not None else None
 
     def list_pending_packages(
-        self, detector_name: str, detector_version: str
+        self, analyzer_name: str, analyzer_version: str
     ) -> tuple[StoredPackage, ...]:
-        """Return all stored packages without this detector result."""
+        """Return all stored packages without this analyzer observation."""
 
         with self._session_factory() as session:
             rows = session.scalars(
                 select(EvidencePackage)
                 .options(selectinload(EvidencePackage.frames))
                 .outerjoin(
-                    VisionResult,
+                    TableObservationRow,
                     and_(
-                        VisionResult.package_id == EvidencePackage.package_id,
-                        VisionResult.detector_name == detector_name,
-                        VisionResult.detector_version == detector_version,
+                        TableObservationRow.package_id == EvidencePackage.package_id,
+                        TableObservationRow.analyzer_name == analyzer_name,
+                        TableObservationRow.analyzer_version == analyzer_version,
                     ),
                 )
                 .where(
                     EvidencePackage.state == "stored",
-                    VisionResult.result_id.is_(None),
+                    TableObservationRow.observation_id.is_(None),
                 )
                 .order_by(EvidencePackage.received_at, EvidencePackage.package_id)
             )
             return tuple(_package_from_model(row) for row in rows)
 
-    def get_vision_result(self, result_id: UUID | str) -> StoredVisionResult | None:
-        """Read one stored detector result."""
+    def get_table_observation(self, observation_id: str) -> StoredTableObservation | None:
+        """Read one stored table observation."""
 
         with self._session_factory() as session:
-            row = session.get(VisionResult, str(result_id))
-            return _vision_result_from_model(row) if row is not None else None
+            row = session.get(TableObservationRow, observation_id)
+            return _table_observation_from_model(row) if row is not None else None
 
-    def get_vision_result_for_detector(
+    def get_table_observation_for_analyzer(
         self,
         package_id: UUID | str,
-        detector_name: str,
-        detector_version: str,
-    ) -> StoredVisionResult | None:
-        """Read the result for one package and detector version."""
+        analyzer_name: str,
+        analyzer_version: str,
+    ) -> StoredTableObservation | None:
+        """Read the observation for one package and analyzer version."""
 
         with self._session_factory() as session:
             row = session.scalar(
-                select(VisionResult).where(
-                    VisionResult.package_id == str(package_id),
-                    VisionResult.detector_name == detector_name,
-                    VisionResult.detector_version == detector_version,
+                select(TableObservationRow).where(
+                    TableObservationRow.package_id == str(package_id),
+                    TableObservationRow.analyzer_name == analyzer_name,
+                    TableObservationRow.analyzer_version == analyzer_version,
                 )
             )
-            return _vision_result_from_model(row) if row is not None else None
+            return _table_observation_from_model(row) if row is not None else None
 
-    def list_vision_results(self, package_id: UUID | str) -> tuple[StoredVisionResult, ...]:
-        """Read all results in deterministic creation order."""
+    def list_table_observations(self, package_id: UUID | str) -> tuple[StoredTableObservation, ...]:
+        """Read all observations in deterministic creation order."""
 
         with self._session_factory() as session:
             rows = session.scalars(
-                select(VisionResult)
-                .where(VisionResult.package_id == str(package_id))
-                .order_by(VisionResult.created_at, VisionResult.result_id)
+                select(TableObservationRow)
+                .where(TableObservationRow.package_id == str(package_id))
+                .order_by(TableObservationRow.created_at, TableObservationRow.observation_id)
             )
-            return tuple(_vision_result_from_model(row) for row in rows)
+            return tuple(_table_observation_from_model(row) for row in rows)
 
-    def insert_vision_result(
+    def insert_table_observation(
         self,
-        result: VisionDetectionResult,
-        result_bytes: bytes,
+        observation: TableObservation,
+        observation_bytes: bytes,
         relative_path: str,
-    ) -> VisionResultInsert:
-        """Insert one result, or return an exact existing replay."""
+    ) -> TableObservationInsert:
+        """Insert one observation, or return an exact existing replay."""
 
-        if not isinstance(result_bytes, bytes):
-            raise TypeError("result_bytes must be bytes.")
+        if not isinstance(observation_bytes, bytes):
+            raise TypeError("observation_bytes must be bytes.")
         try:
-            result_json = result_bytes.decode("utf-8")
+            observation_json = observation_bytes.decode("utf-8")
         except UnicodeDecodeError as error:
-            raise ValueError("result_bytes must be UTF-8 JSON.") from error
+            raise ValueError("observation_bytes must be UTF-8 JSON.") from error
 
-        existing = self.get_vision_result(result.result_id)
+        existing = self.get_table_observation(observation.observation_id)
         if existing is not None:
-            return _resolve_vision_result_replay(existing, result, result_json)
-        existing = self.get_vision_result_for_detector(
-            result.package_id,
-            result.detector.name,
-            result.detector.version,
+            return _resolve_table_observation_replay(existing, observation, observation_json)
+        existing = self.get_table_observation_for_analyzer(
+            observation.source.package_id,
+            observation.analyzer.name,
+            observation.analyzer.version,
         )
         if existing is not None:
-            return _resolve_vision_result_replay(existing, result, result_json)
+            return _resolve_table_observation_replay(existing, observation, observation_json)
 
-        row = VisionResult(
-            result_id=str(result.result_id),
-            package_id=str(result.package_id),
-            schema_version=result.schema_version,
-            detector_name=result.detector.name,
-            detector_version=result.detector.version,
-            status=result.status,
-            selected_card=result.selected_card,
-            calibration=result.calibration,
-            result_json=result_json,
-            result_sha256=_sha256(result_bytes),
+        row = TableObservationRow(
+            observation_id=observation.observation_id,
+            package_id=observation.source.package_id,
+            schema_version=observation.schema_version,
+            analyzer_name=observation.analyzer.name,
+            analyzer_version=observation.analyzer.version,
+            status=observation.status,
+            calibration=observation.calibration,
+            observation_json=observation_json,
+            observation_sha256=_sha256(observation_bytes),
             relative_path=relative_path,
-            created_at=result.created_at,
+            created_at=datetime.now(timezone.utc),
         )
         try:
             with self._session_factory.begin() as session:
                 session.add(row)
                 session.flush()
-                stored = _vision_result_from_model(row)
+                stored = _table_observation_from_model(row)
         except IntegrityError as error:
-            existing = self.get_vision_result(result.result_id) or (
-                self.get_vision_result_for_detector(
-                    result.package_id,
-                    result.detector.name,
-                    result.detector.version,
+            existing = self.get_table_observation(observation.observation_id) or (
+                self.get_table_observation_for_analyzer(
+                    observation.source.package_id,
+                    observation.analyzer.name,
+                    observation.analyzer.version,
                 )
             )
             if existing is not None:
-                return _resolve_vision_result_replay(existing, result, result_json)
-            raise RepositoryError("The vision result could not be stored.") from error
-        return VisionResultInsert(result=stored, created=True)
+                return _resolve_table_observation_replay(existing, observation, observation_json)
+            raise RepositoryError("The table observation could not be stored.") from error
+        return TableObservationInsert(observation=stored, created=True)
 
-    def delete_vision_result(
-        self, result_id: UUID | str, *, result_sha256: str | None = None
+    def delete_table_observation(
+        self, observation_id: str, *, observation_sha256: str | None = None
     ) -> bool:
-        """Delete one result during persistence compensation."""
+        """Delete one observation during persistence compensation."""
 
         with self._session_factory.begin() as session:
-            row = session.get(VisionResult, str(result_id))
-            if row is None or (result_sha256 is not None and row.result_sha256 != result_sha256):
+            row = session.get(TableObservationRow, observation_id)
+            if row is None or (
+                observation_sha256 is not None and row.observation_sha256 != observation_sha256
+            ):
                 return False
             session.delete(row)
             return True
@@ -460,37 +466,38 @@ def _package_from_model(row: EvidencePackage) -> StoredPackage:
     )
 
 
-def _vision_result_from_model(row: VisionResult) -> StoredVisionResult:
-    return StoredVisionResult(
-        result_id=UUID(row.result_id),
+def _table_observation_from_model(row: TableObservationRow) -> StoredTableObservation:
+    return StoredTableObservation(
+        observation_id=row.observation_id,
         package_id=UUID(row.package_id),
         schema_version=row.schema_version,
-        detector_name=row.detector_name,
-        detector_version=row.detector_version,
+        analyzer_name=row.analyzer_name,
+        analyzer_version=row.analyzer_version,
         status=row.status,
-        selected_card=row.selected_card,
         calibration=row.calibration,
-        result_json=row.result_json,
-        result_sha256=row.result_sha256,
+        observation_json=row.observation_json,
+        observation_sha256=row.observation_sha256,
         relative_path=row.relative_path,
         created_at=_as_utc(row.created_at),
     )
 
 
-def _resolve_vision_result_replay(
-    existing: StoredVisionResult,
-    result: VisionDetectionResult,
-    result_json: str,
-) -> VisionResultInsert:
+def _resolve_table_observation_replay(
+    existing: StoredTableObservation,
+    observation: TableObservation,
+    observation_json: str,
+) -> TableObservationInsert:
     if (
-        existing.package_id == result.package_id
-        and existing.detector_name == result.detector.name
-        and existing.detector_version == result.detector.version
-        and existing.result_id == result.result_id
-        and existing.result_json == result_json
+        str(existing.package_id) == observation.source.package_id
+        and existing.analyzer_name == observation.analyzer.name
+        and existing.analyzer_version == observation.analyzer.version
+        and existing.observation_id == observation.observation_id
+        and existing.observation_json == observation_json
     ):
-        return VisionResultInsert(result=existing, created=False)
-    raise VisionResultConflict("The detector result key is already stored with different content.")
+        return TableObservationInsert(observation=existing, created=False)
+    raise TableObservationConflict(
+        "The table observation key is already stored with different content."
+    )
 
 
 def _sha256(value: bytes) -> str:
@@ -520,9 +527,9 @@ __all__ = [
     "RepositoryError",
     "StoredFrame",
     "StoredPackage",
-    "StoredVisionResult",
-    "VisionResultConflict",
-    "VisionResultInsert",
+    "StoredTableObservation",
+    "TableObservationConflict",
+    "TableObservationInsert",
     "create_database_engine",
     "upgrade_database",
 ]

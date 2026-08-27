@@ -322,27 +322,27 @@ private struct DeveloperDiagnosticsView: View {
             }
 
             if let packageID = appState.latestEvidencePackageID {
-                DisclosureGroup("Vision result (developer)") {
-                    Button("Read backend result") {
-                        appState.loadEvidenceResults(for: packageID)
+                DisclosureGroup("Table observation (developer)") {
+                    Button("Read backend observation") {
+                        appState.loadTableObservations(for: packageID)
                     }
-                    if appState.latestEvidenceResults.isEmpty {
-                        Text("No stored result loaded.")
+                    if appState.latestTableObservations.isEmpty {
+                        Text("No stored observation loaded.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(appState.latestEvidenceResults, id: \.resultID) { result in
+                        ForEach(appState.latestTableObservations, id: \.observationID) { observation in
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Status: \(result.status)")
-                                Text("Detector: \(result.detector.name) \(result.detector.version)")
-                                ForEach(result.candidates, id: \.card) { candidate in
+                                Text("Status: \(observation.status)")
+                                Text("Analyzer: \(observation.analyzer.name) \(observation.analyzer.version)")
+                                ForEach(observation.cards.flatMap { $0.identityCandidates }, id: \.card) { candidate in
                                     Text(String(format: "%@ %.3f", candidate.card, candidate.probability))
                                 }
                             }
                             .font(.caption.monospaced())
                         }
                     }
-                    if let error = appState.evidenceResultError {
+                    if let error = appState.tableObservationError {
                         Text(error)
                             .font(.caption)
                             .foregroundStyle(.red)

@@ -140,25 +140,25 @@ final class EvidenceUploadQueueTests: XCTestCase {
         XCTAssertEqual(store.diagnostics.acknowledgedCount, 1)
     }
 
-    func testResultClientReadsTheDeveloperResultContract() async throws {
+    func testTableObservationClientReadsTheCanonicalContract() async throws {
         M2URLProtocol.handler = { request, _ in
             XCTAssertEqual(request.httpMethod, "GET")
-            XCTAssertTrue(request.url?.path.hasSuffix("/vision-results") == true)
+            XCTAssertTrue(request.url?.path.hasSuffix("/table-observations") == true)
             return (200, Data("[\(Self.resultJSON)]".utf8))
         }
         defer { M2URLProtocol.handler = nil }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [M2URLProtocol.self]
-        let client = EvidenceResultClient(session: URLSession(configuration: configuration))
+        let client = TableObservationClient(session: URLSession(configuration: configuration))
         let backend = try BackendConfiguration(baseURL: URL(string: "http://backend.local:8000")!)
         let packageID = UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000")!
 
-        let results = try await client.results(for: packageID, using: backend)
+        let observations = try await client.observations(for: packageID, using: backend)
 
-        XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results[0].status, "uncertain")
-        XCTAssertEqual(results[0].candidates.map(\.card), ["HEARTS_QUEEN", "DIAMONDS_QUEEN"])
-        XCTAssertEqual(results[0].packageID, packageID)
+        XCTAssertEqual(observations.count, 1)
+        XCTAssertEqual(observations[0].status, "observed")
+        XCTAssertEqual(observations[0].cards[0].identityCandidates.map(\.card), ["HEARTS_TEN"])
+        XCTAssertEqual(observations[0].source.packageID, packageID.uuidString.lowercased())
     }
 
     func testResponseStatusMappingMatchesTheM2Contract() {
@@ -183,21 +183,17 @@ final class EvidenceUploadQueueTests: XCTestCase {
 
     private static let resultJSON = """
     {
-      "schema_version": "vision-detection/v1",
-      "result_id": "c648d0b8-f82f-4c50-9505-970907ea1f24",
-      "package_id": "550e8400-e29b-41d4-a716-446655440000",
+      "schema_version": "table-observation/v1",
+      "observation_id": "observation-001",
+      "source": {"package_id": "550e8400-e29b-41d4-a716-446655440000"},
       "session": {"session_id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8", "event_sequence": 1},
-      "status": "uncertain",
-      "selected_card": null,
-      "candidates": [
-        {"card": "HEARTS_QUEEN", "probability": 0.58},
-        {"card": "DIAMONDS_QUEEN", "probability": 0.42}
-      ],
+      "observed_at_ms": 12000,
+      "status": "observed",
+      "capabilities": ["identity_candidates"],
+      "cards": [{"observed_card_id": "observation-001-card-01", "identity_candidates": [{"card": "HEARTS_TEN", "probability": 1.0}]}],
       "calibration": "fixture",
-      "detector": {"name": "scripted", "version": "scripted-v1"},
-      "diagnostics": {"frames_received": 6, "frames_decoded": 0},
-      "observations": [],
-      "created_at": "2026-08-26T18:12:00.000Z"
+      "analyzer": {"name": "fixture", "version": "fixture-v1"},
+      "diagnostics": {}
     }
     """
 
@@ -280,7 +276,7 @@ private final class M2URLProtocol: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
-        let result = Self.handler?(request, requestBody()) ?? (500, Data())
+        let result = Self.handler?(request, requestBody()) ?? (statusCode: 500, body: Data())
         guard let response = HTTPURLResponse(
             url: request.url!,
             statusCode: result.statusCode,

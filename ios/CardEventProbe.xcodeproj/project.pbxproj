@@ -48,7 +48,7 @@
 		A00000000000000000000026 /* EvidencePackageCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000026 /* EvidencePackageCoordinator.swift */; };
 		A00000000000000000000027 /* EvidenceMultipartUpload.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000027 /* EvidenceMultipartUpload.swift */; };
 		A00000000000000000000029 /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000029 /* BackendConfiguration.swift */; };
-		A0000000000000000000002A /* EvidenceResultClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002A /* EvidenceResultClient.swift */; };
+		A0000000000000000000002A /* TableObservationClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002A /* TableObservationClient.swift */; };
 		A0000000000000000000002B /* EvidenceUploadQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002B /* EvidenceUploadQueue.swift */; };
 		A0000000000000000000002C /* TrainingRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002C /* TrainingRecording.swift */; };
 		A0000000000000000000002D /* TrainingRecordingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002D /* TrainingRecordingCoordinator.swift */; };
@@ -102,7 +102,7 @@
 		B00000000000000000000026 /* EvidencePackageCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidencePackageCoordinator.swift; sourceTree = "<group>"; };
 		B00000000000000000000027 /* EvidenceMultipartUpload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceMultipartUpload.swift; sourceTree = "<group>"; };
 		B00000000000000000000029 /* BackendConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendConfiguration.swift; sourceTree = "<group>"; };
-		B0000000000000000000002A /* EvidenceResultClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceResultClient.swift; sourceTree = "<group>"; };
+		B0000000000000000000002A /* TableObservationClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableObservationClient.swift; sourceTree = "<group>"; };
 		B0000000000000000000002B /* EvidenceUploadQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceUploadQueue.swift; sourceTree = "<group>"; };
 		B0000000000000000000002C /* TrainingRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingRecording.swift; sourceTree = "<group>"; };
 		B0000000000000000000002D /* TrainingRecordingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingRecordingCoordinator.swift; sourceTree = "<group>"; };
@@ -277,7 +277,7 @@
 				B00000000000000000000023 /* BackendDiscovery.swift */,
 				B00000000000000000000027 /* EvidenceMultipartUpload.swift */,
 				B00000000000000000000029 /* BackendConfiguration.swift */,
-				B0000000000000000000002A /* EvidenceResultClient.swift */,
+				B0000000000000000000002A /* TableObservationClient.swift */,
 				B0000000000000000000002B /* EvidenceUploadQueue.swift */,
 				B0000000000000000000002F /* TrainingRecordingUpload.swift */,
 			);
@@ -373,7 +373,7 @@
 				A00000000000000000000026 /* EvidencePackageCoordinator.swift in Sources */,
 				A00000000000000000000027 /* EvidenceMultipartUpload.swift in Sources */,
 				A00000000000000000000029 /* BackendConfiguration.swift in Sources */,
-				A0000000000000000000002A /* EvidenceResultClient.swift in Sources */,
+				A0000000000000000000002A /* TableObservationClient.swift in Sources */,
 				A0000000000000000000002B /* EvidenceUploadQueue.swift in Sources */,
 				A0000000000000000000002F /* TrainingRecordingUpload.swift in Sources */,
 				A00000000000000000000022 /* BackendService.swift in Sources */,

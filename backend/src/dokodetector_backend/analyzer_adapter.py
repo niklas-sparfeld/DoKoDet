@@ -1,4 +1,4 @@
-"""Adapt an accepted evidence package to the visual-only detector boundary."""
+"""Adapt an accepted evidence package to the analyzer runtime boundary."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 from uuid import UUID
 
-from vision_detector import VisionEvidence, VisionFrame
+from vision_detector import AnalyzerEvidence, AnalyzerFrame
 
 from dokodetector_backend.contract import (
     EvidenceManifest,
@@ -22,7 +22,7 @@ class EvidenceIntegrityError(RuntimeError):
     """Stored evidence does not match its accepted database metadata."""
 
 
-def load_vision_evidence(package: StoredPackage, storage: EvidenceStorage) -> VisionEvidence:
+def load_analyzer_evidence(package: StoredPackage, storage: EvidenceStorage) -> AnalyzerEvidence:
     """Verify one accepted package and expose only its visual evidence."""
 
     if package.state != "stored":
@@ -47,7 +47,7 @@ def load_vision_evidence(package: StoredPackage, storage: EvidenceStorage) -> Vi
     if set(manifest_frames) != set(stored_frames):
         raise EvidenceIntegrityError("The stored frame rows do not match the manifest.")
 
-    frames: list[VisionFrame] = []
+    frames: list[AnalyzerFrame] = []
     for frame in manifest.frames:
         stored_frame = stored_frames[frame.part_name]
         _verify_frame_metadata(frame, stored_frame, package.package_id)
@@ -59,7 +59,7 @@ def load_vision_evidence(package: StoredPackage, storage: EvidenceStorage) -> Vi
         ):
             raise EvidenceIntegrityError("A stored frame hash does not match the database row.")
         frames.append(
-            VisionFrame(
+            AnalyzerFrame(
                 part_name=frame.part_name,
                 actual_offset_ms=frame.actual_offset_ms,
                 width=frame.width,
@@ -69,14 +69,14 @@ def load_vision_evidence(package: StoredPackage, storage: EvidenceStorage) -> Vi
         )
 
     try:
-        return VisionEvidence(
+        return AnalyzerEvidence(
             package_id=package.package_id,
             event_time_ms=manifest.event.event_time_ms,
             frames=frames,
         )
     except ValueError as error:
         raise EvidenceIntegrityError(
-            "The stored evidence cannot be used by the detector."
+            "The stored evidence cannot be used by the analyzer."
         ) from error
 
 
@@ -143,4 +143,4 @@ def _sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-__all__ = ["EvidenceIntegrityError", "load_vision_evidence"]
+__all__ = ["EvidenceIntegrityError", "load_analyzer_evidence"]

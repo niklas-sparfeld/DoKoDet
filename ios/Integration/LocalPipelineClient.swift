@@ -352,8 +352,8 @@ struct LocalPipelineClient {
             throw OptionsError.missingValue("--package-id")
         }
         let configuration = try BackendConfiguration(baseURL: server)
-        let client = EvidenceResultClient()
-        let results = try await client.results(
+        let client = TableObservationClient()
+        let observations = try await client.observations(
             for: packageID,
             using: configuration
         )
@@ -361,21 +361,21 @@ struct LocalPipelineClient {
         var output: [String: Any] = [
             "action": "result",
             "package_id": packageID.uuidString.lowercased(),
-            "results": results.map { result in
+            "observations": observations.map { observation in
                 [
-                    "result_id": result.resultID.uuidString.lowercased(),
-                    "package_id": result.packageID.uuidString.lowercased(),
-                    "status": result.status,
-                    "candidate_count": result.candidates.count,
+                    "observation_id": observation.observationID,
+                    "package_id": observation.source.packageID,
+                    "status": observation.status,
+                    "candidate_count": observation.cards.flatMap(\.identityCandidates).count,
                 ]
             },
         ]
-        if let firstResult = results.first {
-            let directResult = try await client.result(
-                for: firstResult.resultID,
+        if let firstObservation = observations.first {
+            let directObservation = try await client.observation(
+                for: firstObservation.observationID,
                 using: configuration
             )
-            output["direct_result_status"] = directResult.status
+            output["direct_observation_status"] = directObservation.status
         }
         try printJSON(output)
     }

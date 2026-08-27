@@ -14,7 +14,7 @@ public enum BackendConfigurationError: LocalizedError, Equatable {
     }
 }
 
-/// The local HTTP endpoint used by the evidence and result clients.
+/// The local HTTP endpoint used by the evidence and table-observation clients.
 public struct BackendConfiguration: Equatable, Sendable {
     public let baseURL: URL
 
@@ -40,16 +40,16 @@ public struct BackendConfiguration: Equatable, Sendable {
             .appendingPathComponent(packageID.uuidString.lowercased())
     }
 
-    public func visionResultsURL(for packageID: UUID) -> URL {
+    public func tableObservationsURL(for packageID: UUID) -> URL {
         evidencePackageURL(for: packageID)
-            .appendingPathComponent("vision-results", isDirectory: true)
+            .appendingPathComponent("table-observations", isDirectory: true)
     }
 
-    public func visionResultURL(for resultID: UUID) -> URL {
+    public func tableObservationURL(for observationID: String) -> URL {
         baseURL
             .appendingPathComponent("v1", isDirectory: true)
-            .appendingPathComponent("vision-results", isDirectory: true)
-            .appendingPathComponent(resultID.uuidString.lowercased())
+            .appendingPathComponent("table-observations", isDirectory: true)
+            .appendingPathComponent(observationID)
     }
 
     public func trainingRecordingURL(for recordingID: String) -> URL {

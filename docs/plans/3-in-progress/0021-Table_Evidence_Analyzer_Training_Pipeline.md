@@ -72,7 +72,7 @@ The repository now contains more foundation than this plan originally assumed:
   split, validation, coverage, and lifecycle-receipt commands;
 - `vision_detector` contains the canonical `table-observation/v1` result models and contract tests;
 - `game_engine` consumes the same canonical observation fixtures;
-- the backend still runs the obsolete `vision-detection/v1` scripted result path;
+- the backend still runs the obsolete scripted result path;
 - the current dataset entry identifies a source frame, observed card, box, target, source asset, and
   transform, but a training loader still needs a deterministic way to resolve and verify the frame
   bytes that it crops.
@@ -289,7 +289,7 @@ performs visible-card detection, tracking, or end-to-end table observation.
 
 1. Define the stable analyzer runtime interface around the existing canonical
    `table-observation/v1` models.
-2. Replace the backend's `vision-detection/v1` result storage and scripted runner with this
+2. Replace the backend's legacy result storage and scripted runner with this
    table-observation boundary. Update persistence and tests in the same change.
 3. Remove the obsolete plan 0005 result contract, detector protocol, scripted adapter, fixtures,
    configuration names, migrations, and active documentation. Do not keep a dual runtime path.
@@ -302,8 +302,20 @@ Acceptance:
   boundary without a schema translation;
 - the backend persists a schema-valid table observation without importing training internals;
 - no active code, command, fixture, database field, or documentation uses
-  `vision-detection/v1`;
+  legacy result schema;
 - the backend and analyzer contract tests remain local and do not download weights or data.
+
+Progress (2026-08-28): M0 is complete. Added the stable `TableEvidenceAnalyzer` runtime protocol
+and analyzer input models around `table-observation/v1`. Replaced backend result persistence,
+storage, routes, and orchestration with table-observation records. Removed the obsolete result
+contract, scripted adapter, fixtures, configuration, migration, and active documentation. Updated
+the iOS read client to the canonical observation shape. The shared plan 0006 fixture is parsed by
+the analyzer-side models, persisted by the backend, and parsed by the reconstruction-side models
+with identical canonical bytes. Verification: analyzer 11 tests, backend 89 tests, game-engine 69
+tests, and backend/analyzer Ruff checks pass. The Swift package check reached compilation but
+remains red on pre-existing concurrency-safety errors in
+`ios/CardEventProbeTests/TrainingRecordingUploadQueueTests.swift`; the updated observation client
+test has no compile errors.
 
 ### M1 — Package rename and CLI skeleton
 

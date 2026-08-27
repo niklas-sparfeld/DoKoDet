@@ -92,7 +92,7 @@ No epics.
    telemetry until performance becomes a problem.
 2. Start 0021 as the next full implementation epic. Use the completed 0020 data contracts and the
    completed 0006 observation boundary. Do not wait for more snippets or recognition data.
-3. In 0021, first remove the active `vision-detection/v1` path. Then prove deterministic sample-byte
+3. In 0021, first remove the active legacy result path. Then prove deterministic sample-byte
    resolution before adding the train, evaluate, checkpoint, and export loop.
 4. Implement 0027 shared intake and independent task enrollment before the next large collection
    batch. Start its contract and operator work without waiting for 0021 model training.

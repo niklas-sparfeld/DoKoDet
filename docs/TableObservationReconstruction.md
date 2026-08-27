@@ -111,9 +111,9 @@ snippet unless its declared capability requires it.
 
 ## 4. Table-observation contract target
 
-Use a new schema such as `table-observation/v1`. It replaces `vision-detection/v1` in active code and
-fixtures. The closed plan 0005 remains the historical record. Do not maintain two runtime paths for
-these undeployed local contracts.
+Use the canonical `table-observation/v1` schema in active code and fixtures. The closed plan 0005
+remains the historical record. Do not maintain two runtime paths for these undeployed local
+contracts.
 
 An illustrative result is:
 

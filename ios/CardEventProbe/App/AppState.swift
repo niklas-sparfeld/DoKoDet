@@ -69,8 +69,8 @@ final class AppState: ObservableObject {
     @Published private(set) var evidenceUploadError: String?
     @Published private(set) var evidenceUploadRunning = false
     @Published private(set) var latestEvidencePackageID: UUID?
-    @Published private(set) var latestEvidenceResults: [EvidenceVisionResult] = []
-    @Published private(set) var evidenceResultError: String?
+    @Published private(set) var latestTableObservations: [EvidenceTableObservation] = []
+    @Published private(set) var tableObservationError: String?
     @Published private(set) var captureActivity: CaptureActivity = .idle
     @Published private(set) var captureSessionID: UUID?
     @Published private(set) var latestEventSequence: Int?
@@ -104,7 +104,7 @@ final class AppState: ObservableObject {
         guard let client = try? TrainingRecordingUploadClient() else { return nil }
         return TrainingRecordingUploadQueue(store: trainingRecordingStore, client: client)
     }()
-    private let evidenceResultClient = EvidenceResultClient()
+    private let tableObservationClient = TableObservationClient()
     private var evidenceUploadTask: Task<Void, Never>?
     private var trainingRecordingUploadTask: Task<Void, Never>?
     private var captureSession: CaptureSession?
@@ -398,25 +398,25 @@ final class AppState: ObservableObject {
         }
     }
 
-    func loadEvidenceResults(for packageID: UUID) {
+    func loadTableObservations(for packageID: UUID) {
         guard case let .connected(service) = backendDiscovery.state,
               let configuration = try? BackendConfiguration(baseURL: service.baseURL) else {
-            evidenceResultError = "Connect to a backend before reading vision results."
+            tableObservationError = "Connect to a backend before reading table observations."
             return
         }
 
-        evidenceResultError = nil
+        tableObservationError = nil
         Task { [weak self] in
             do {
-                let results = try await evidenceResultClient.results(
+                let observations = try await tableObservationClient.observations(
                     for: packageID,
                     using: configuration
                 )
                 guard !Task.isCancelled else { return }
-                self?.latestEvidenceResults = results
+                self?.latestTableObservations = observations
             } catch {
                 guard !Task.isCancelled else { return }
-                self?.evidenceResultError = error.localizedDescription
+                self?.tableObservationError = error.localizedDescription
             }
         }
     }

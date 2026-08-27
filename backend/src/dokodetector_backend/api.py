@@ -12,7 +12,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException
-from vision_detector import VisionContractError, VisionDetectionResult, parse_result_bytes
+from vision_detector import ContractError as TableObservationContractError
+from vision_detector import TableObservation, parse_observation_bytes
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.contract import (
@@ -324,11 +325,11 @@ def get_evidence_video_snippet(package_id: str, request: Request) -> FileRespons
 
 
 @router.get(
-    "/v1/evidence-packages/{package_id}/vision-results",
-    response_model=list[VisionDetectionResult],
+    "/v1/evidence-packages/{package_id}/table-observations",
+    response_model=list[TableObservation],
 )
-def get_package_vision_results(package_id: str, request: Request) -> list[VisionDetectionResult]:
-    """Return immutable detector results for one stored package."""
+def get_package_table_observations(package_id: str, request: Request) -> list[TableObservation]:
+    """Return immutable table observations for one stored package."""
 
     requested_package_id = _parse_package_id(package_id)
     repository: EvidenceRepository = request.app.state.repository
@@ -339,28 +340,27 @@ def get_package_vision_results(package_id: str, request: Request) -> list[Vision
             status_code=404,
         )
     return [
-        _parse_stored_result(row.result_json)
-        for row in repository.list_vision_results(requested_package_id)
+        _parse_stored_observation(row.observation_json)
+        for row in repository.list_table_observations(requested_package_id)
     ]
 
 
 @router.get(
-    "/v1/vision-results/{result_id}",
-    response_model=VisionDetectionResult,
+    "/v1/table-observations/{observation_id}",
+    response_model=TableObservation,
 )
-def get_vision_result(result_id: str, request: Request) -> VisionDetectionResult:
-    """Return one immutable detector result."""
+def get_table_observation(observation_id: str, request: Request) -> TableObservation:
+    """Return one immutable table observation."""
 
-    requested_result_id = _parse_result_id(result_id)
     repository: EvidenceRepository = request.app.state.repository
-    stored_result = repository.get_vision_result(requested_result_id)
-    if stored_result is None:
+    stored_observation = repository.get_table_observation(observation_id)
+    if stored_observation is None:
         raise ContractError(
-            "vision_result_not_found",
-            "The vision result was not found.",
+            "table_observation_not_found",
+            "The table observation was not found.",
             status_code=404,
         )
-    return _parse_stored_result(stored_result.result_json)
+    return _parse_stored_observation(stored_observation.observation_json)
 
 
 def _parse_package_id(value: str) -> UUID:
@@ -373,23 +373,13 @@ def _parse_package_id(value: str) -> UUID:
         ) from error
 
 
-def _parse_result_id(value: str) -> UUID:
+def _parse_stored_observation(observation_json: str) -> TableObservation:
     try:
-        return UUID(value)
-    except (AttributeError, TypeError, ValueError) as error:
-        raise ContractError(
-            "invalid_result_id",
-            "The result ID is not a valid UUID.",
-        ) from error
-
-
-def _parse_stored_result(result_json: str) -> VisionDetectionResult:
-    try:
-        return parse_result_bytes(result_json.encode("utf-8"))
-    except (UnicodeEncodeError, VisionContractError) as error:
+        return parse_observation_bytes(observation_json.encode("utf-8"))
+    except (UnicodeEncodeError, TableObservationContractError) as error:
         raise ContractError(
             "internal_error",
-            "The stored vision result is invalid.",
+            "The stored table observation is invalid.",
             status_code=500,
         ) from error
 

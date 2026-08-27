@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0003_training_recordings"
-down_revision = "0002_vision_results"
+down_revision = "0002_table_observations"
 branch_labels = None
 depends_on = None
 

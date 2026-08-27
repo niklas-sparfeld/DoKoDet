@@ -69,30 +69,31 @@ class EvidenceStorage:
         return self.package_path(package_id) / "video" / f"{part_name}.mp4"
 
     @property
-    def vision_results_root(self) -> Path:
-        """Return the sibling directory that contains immutable vision results."""
+    def table_observations_root(self) -> Path:
+        """Return the sibling directory that contains immutable observations."""
 
-        return self.root / "vision-results"
+        return self.root / "table-observations"
 
-    def vision_result_path(self, result_id: UUID | str) -> Path:
-        """Return the final path for one validated vision result."""
+    def table_observation_path(self, observation_id: str) -> Path:
+        """Return the final path for one validated table observation."""
 
-        return self.vision_results_root / str(UUID(str(result_id)))
+        return self.table_observations_root / observation_id
 
-    def start_vision_result(self, result_id: UUID | str) -> TemporaryVisionResult:
-        """Create a temporary directory for one result file."""
+    def start_table_observation(self, observation_id: str) -> TemporaryTableObservation:
+        """Create a temporary directory for one observation file."""
 
-        result_uuid = UUID(str(result_id))
-        self.vision_results_root.mkdir(parents=True, exist_ok=True)
-        temporary_path = Path(tempfile.mkdtemp(prefix=".result-", dir=self.vision_results_root))
-        return TemporaryVisionResult(self, result_uuid, temporary_path)
+        self.table_observations_root.mkdir(parents=True, exist_ok=True)
+        temporary_path = Path(
+            tempfile.mkdtemp(prefix=".observation-", dir=self.table_observations_root)
+        )
+        return TemporaryTableObservation(self, observation_id, temporary_path)
 
-    def remove_vision_result(self, result_id: UUID | str) -> None:
-        """Remove one result directory during persistence compensation."""
+    def remove_table_observation(self, observation_id: str) -> None:
+        """Remove one observation directory during persistence compensation."""
 
-        result_path = self.vision_result_path(result_id)
-        if result_path.exists():
-            shutil.rmtree(result_path)
+        observation_path = self.table_observation_path(observation_id)
+        if observation_path.exists():
+            shutil.rmtree(observation_path)
 
     def remove_package(self, package_id: UUID | str) -> None:
         """Remove a package directory after a failed database insert."""
@@ -239,34 +240,34 @@ class TemporaryEvidencePackage:
         )
 
 
-class TemporaryVisionResult:
-    """Build one result file and atomically rename its directory."""
+class TemporaryTableObservation:
+    """Build one observation file and atomically rename its directory."""
 
-    def __init__(self, storage: EvidenceStorage, result_id: UUID, temporary_path: Path) -> None:
+    def __init__(self, storage: EvidenceStorage, observation_id: str, temporary_path: Path) -> None:
         self.storage = storage
-        self.result_id = result_id
+        self.observation_id = observation_id
         self.temporary_path = temporary_path
-        self._result: StoredFile | None = None
+        self._observation: StoredFile | None = None
         self._committed = False
 
-    def __enter__(self) -> TemporaryVisionResult:
+    def __enter__(self) -> TemporaryTableObservation:
         return self
 
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         if not self._committed:
             self.abort()
 
-    def write_result(self, source: bytes | BinaryIO) -> StoredFile:
-        """Copy the canonical result bytes into the temporary directory."""
+    def write_observation(self, source: bytes | BinaryIO) -> StoredFile:
+        """Copy canonical observation bytes into the temporary directory."""
 
-        if self._result is not None:
-            raise FileExistsError("The result was already written.")
+        if self._observation is not None:
+            raise FileExistsError("The observation was already written.")
         source_stream: BinaryIO = BytesIO(source) if isinstance(source, bytes) else source
-        result_path = self.temporary_path / "result.json"
+        observation_path = self.temporary_path / "observation.json"
         digest = hashlib.sha256()
         byte_length = 0
         try:
-            with result_path.open("xb") as destination:
+            with observation_path.open("xb") as destination:
                 while chunk := source_stream.read(COPY_CHUNK_BYTES):
                     if not isinstance(chunk, bytes):
                         raise TypeError("Result sources must return bytes.")
@@ -274,35 +275,35 @@ class TemporaryVisionResult:
                     digest.update(chunk)
                     destination.write(chunk)
         except BaseException:
-            result_path.unlink(missing_ok=True)
+            observation_path.unlink(missing_ok=True)
             raise
 
-        self._result = StoredFile(
-            relative_path="result.json",
+        self._observation = StoredFile(
+            relative_path="observation.json",
             byte_length=byte_length,
             sha256=digest.hexdigest(),
         )
-        return self._result
+        return self._observation
 
     def commit(self) -> StoredFile:
         """Rename the complete temporary directory to its final path."""
 
-        if self._result is None:
-            raise ValueError("The result must be written before commit.")
-        final_path = self.storage.vision_result_path(self.result_id)
+        if self._observation is None:
+            raise ValueError("The observation must be written before commit.")
+        final_path = self.storage.table_observation_path(self.observation_id)
         if final_path.exists():
-            raise FileExistsError("The result directory already exists.")
+            raise FileExistsError("The observation directory already exists.")
 
         self.temporary_path.rename(final_path)
         self._committed = True
         return StoredFile(
-            relative_path=f"vision-results/{self.result_id}/result.json",
-            byte_length=self._result.byte_length,
-            sha256=self._result.sha256,
+            relative_path=f"table-observations/{self.observation_id}/observation.json",
+            byte_length=self._observation.byte_length,
+            sha256=self._observation.sha256,
         )
 
     def abort(self) -> None:
-        """Remove an uncommitted temporary result directory."""
+        """Remove an uncommitted temporary observation directory."""
 
         if self.temporary_path.exists():
             shutil.rmtree(self.temporary_path)
@@ -327,5 +328,5 @@ __all__ = [
     "StoredEvidencePackage",
     "StoredFile",
     "TemporaryEvidencePackage",
-    "TemporaryVisionResult",
+    "TemporaryTableObservation",
 ]

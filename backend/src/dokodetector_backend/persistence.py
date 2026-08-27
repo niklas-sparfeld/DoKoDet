@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, BinaryIO
 from dokodetector_backend.repository import (
     EvidenceRepository,
     StoredPackage,
-    StoredVisionResult,
-    VisionResultInsert,
+    StoredTableObservation,
+    TableObservationInsert,
 )
 from dokodetector_backend.storage import EvidenceStorage
 
 if TYPE_CHECKING:
-    from vision_detector import VisionDetectionResult
+    from vision_detector import TableObservation
 
 
 class EvidencePackagePersister:
@@ -78,36 +78,38 @@ class EvidencePackagePersister:
             raise
 
 
-class VisionResultPersister:
-    """Store canonical vision result bytes and database metadata together."""
+class TableObservationPersister:
+    """Store canonical table-observation bytes and database metadata together."""
 
     def __init__(self, repository: EvidenceRepository, storage: EvidenceStorage) -> None:
         self.repository = repository
         self.storage = storage
 
-    def persist(self, result: VisionDetectionResult, result_bytes: bytes) -> StoredVisionResult:
-        """Stage the result, insert metadata, and remove staged files on failure."""
+    def persist(
+        self, observation: TableObservation, observation_bytes: bytes
+    ) -> StoredTableObservation:
+        """Stage the observation, insert metadata, and clean up on failure."""
 
-        relative_path = f"vision-results/{result.result_id}/result.json"
-        database_insert: VisionResultInsert | None = None
-        with self.storage.start_vision_result(result.result_id) as staged:
-            staged.write_result(result_bytes)
-            database_insert = self.repository.insert_vision_result(
-                result,
-                result_bytes,
+        relative_path = f"table-observations/{observation.observation_id}/observation.json"
+        database_insert: TableObservationInsert | None = None
+        with self.storage.start_table_observation(observation.observation_id) as staged:
+            staged.write_observation(observation_bytes)
+            database_insert = self.repository.insert_table_observation(
+                observation,
+                observation_bytes,
                 relative_path,
             )
             if not database_insert.created:
-                return database_insert.result
+                return database_insert.observation
             try:
                 staged.commit()
             except BaseException:
-                self.repository.delete_vision_result(
-                    result.result_id,
-                    result_sha256=database_insert.result.result_sha256,
+                self.repository.delete_table_observation(
+                    observation.observation_id,
+                    observation_sha256=database_insert.observation.observation_sha256,
                 )
                 raise
-        return database_insert.result
+        return database_insert.observation
 
 
-__all__ = ["EvidencePackagePersister", "VisionResultPersister"]
+__all__ = ["EvidencePackagePersister", "TableObservationPersister"]

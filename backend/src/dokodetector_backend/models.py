@@ -41,11 +41,11 @@ class EvidencePackage(Base):
         passive_deletes=True,
         order_by="EvidenceFrame.id",
     )
-    vision_results: Mapped[list[VisionResult]] = relationship(
+    table_observations: Mapped[list[TableObservation]] = relationship(
         back_populates="package",
         cascade="all, delete-orphan",
         passive_deletes=True,
-        order_by="VisionResult.created_at",
+        order_by="TableObservation.created_at",
     )
 
 
@@ -80,37 +80,36 @@ class EvidenceFrame(Base):
     package: Mapped[EvidencePackage] = relationship(back_populates="frames")
 
 
-class VisionResult(Base):
-    """One immutable detector result for an accepted evidence package."""
+class TableObservation(Base):
+    """One immutable table observation for an accepted evidence package."""
 
-    __tablename__ = "vision_results"
+    __tablename__ = "table_observations"
     __table_args__ = (
         UniqueConstraint(
             "package_id",
-            "detector_name",
-            "detector_version",
-            name="uq_vision_results_package_detector",
+            "analyzer_name",
+            "analyzer_version",
+            name="uq_table_observations_package_analyzer",
         ),
     )
 
-    result_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    observation_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     package_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("evidence_packages.package_id", ondelete="CASCADE"),
         nullable=False,
     )
     schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
-    detector_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    detector_version: Mapped[str] = mapped_column(String(256), nullable=False)
+    analyzer_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    analyzer_version: Mapped[str] = mapped_column(String(256), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
-    selected_card: Mapped[str | None] = mapped_column(String(32), nullable=True)
     calibration: Mapped[str] = mapped_column(String(32), nullable=False)
-    result_json: Mapped[str] = mapped_column(Text, nullable=False)
-    result_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    observation_json: Mapped[str] = mapped_column(Text, nullable=False)
+    observation_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     relative_path: Mapped[str] = mapped_column(String(512), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    package: Mapped[EvidencePackage] = relationship(back_populates="vision_results")
+    package: Mapped[EvidencePackage] = relationship(back_populates="table_observations")
 
 
 class TrainingRecording(Base):
@@ -150,5 +149,5 @@ __all__ = [
     "EvidenceFrame",
     "EvidencePackage",
     "TrainingRecording",
-    "VisionResult",
+    "TableObservation",
 ]

@@ -41,8 +41,6 @@ class LocalBackend:
             "SERVER_HOST": "127.0.0.1",
             "SERVER_PORT": str(self.port),
             "BONJOUR_ENABLED": "false",
-            "VISION_DETECTOR_NAME": "scripted",
-            "VISION_DETECTOR_VERSION": "scripted-v1",
         }
         self.process: subprocess.Popen[bytes] | None = None
 
@@ -104,11 +102,11 @@ def local_backend(tmp_path: Path) -> LocalBackend:
         backend.stop()
 
 
-def test_ios_client_reaches_scripted_detector_over_local_http(
+def test_ios_client_reaches_backend_over_local_http(
     local_backend: LocalBackend,
     tmp_path: Path,
 ) -> None:
-    """Prove all M4 package, queue, retry, restart, and result paths."""
+    """Prove all M4 package, queue, retry, and restart paths."""
 
     initial_root = tmp_path / "initial-queue"
     created = run_ios(
@@ -217,38 +215,6 @@ def test_ios_client_reaches_scripted_detector_over_local_http(
     restarted = run_ios("upload", "--root", restart_root, "--server", local_backend.base_url)
     assert restarted["attempts"][0]["disposition"] == "acknowledged"
     assert restarted["diagnostics"]["queued"] == 0
-
-    detector = subprocess.run(
-        [sys.executable, "-m", "dokodetector_backend.run_vision", "--once", "--all"],
-        cwd=BACKEND_ROOT,
-        env=local_backend.environment,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    detector_results = json.loads(detector.stdout)
-    result_by_package = {result["package_id"]: result for result in detector_results}
-    assert result_by_package[str(COMPLETE_PACKAGE_ID)]["status"] == "uncertain"
-    assert (
-        result_by_package["550e8400-e29b-41d4-a716-446655440001"]["status"]
-        == "insufficient_evidence"
-    )
-    assert (
-        result_by_package["550e8400-e29b-41d4-a716-446655440002"]["status"]
-        == "insufficient_evidence"
-    )
-
-    result = run_ios(
-        "result",
-        "--server",
-        local_backend.base_url,
-        "--package-id",
-        COMPLETE_PACKAGE_ID,
-    )
-    assert result["package_id"] == str(COMPLETE_PACKAGE_ID)
-    assert result["results"][0]["status"] == "uncertain"
-    assert result["results"][0]["candidate_count"] == 2
-    assert result["direct_result_status"] == "uncertain"
 
 
 def test_saved_video_recording_runs_through_import_and_prepare(

@@ -6,9 +6,8 @@ The backend accepts V2 evidence packages and V1 training recordings. It stores m
 and stores original source bytes on the local filesystem. Local HTTP routes provide metadata and
 byte-identical source read-back.
 
-The commands and names below describe the current implemented PoC. The target architecture replaces
-the scripted VisionDetector result with a `TableEvidenceAnalyzer` table observation and adds an
-optional bounded video snippet. See
+The backend stores table observations produced by a `TableEvidenceAnalyzer` and adds an optional
+bounded video snippet. See
 [Table Observation and Game Reconstruction](../docs/TableObservationReconstruction.md),
 [plan 0006](../docs/plans/5-closed/0006-GameEngine_v1.md), and
 [plan 0025](../docs/plans/3-in-progress/0025-Video_Snippet_Evidence.md). The implementation plans rename
@@ -90,17 +89,6 @@ curl -X PUT http://127.0.0.1:8000/v1/training-recordings/recording-fixture-001 \
 curl http://127.0.0.1:8000/v1/training-recordings/recording-fixture-001
 ```
 
-Run the local scripted detector once for the first pending package:
-
-```bash
-cd backend
-uv run python -m dokodetector_backend.run_vision --once
-```
-
-Use `--package-id <uuid>` to select a package, or add `--all` to process all pending packages.
-Read results at `/v1/vision-results/<result-id>` or
-`/v1/evidence-packages/<package-id>/vision-results`.
-
 Run the complete local pipeline gates from `backend/`:
 
 ```bash
@@ -109,8 +97,8 @@ uv run pytest tests/test_local_pipeline.py
 
 The gate starts the real local HTTP API with temporary SQLite and filesystem stores. It uses the
 Swift `CardEventProbeLocalPipeline` client to upload complete, incomplete, and metadata-only
-packages, then checks idempotent replay, conflict retention, transport retry, queue recovery after
-an app restart, scripted detection, and result read-back. The same test module also runs a saved
+packages, then checks idempotent replay, conflict retention, transport retry, and queue recovery
+after an app restart. The same test module also runs a saved
 H.264 video through recording, outage retry, backend intake, CardEventNet import, proposal review
 entry, and `cardevent prepare`. It does not require Docker, a phone, or cloud services.
 
@@ -127,9 +115,6 @@ MAX_RECORDING_MANIFEST_BYTES=1000000
 MAX_RECORDING_PREDICTIONS_BYTES=10000000
 MAX_RECORDING_VIDEO_BYTES=1000000000
 MAX_RECORDING_BYTES=1100000000
-VISION_DETECTOR_NAME=scripted
-VISION_DETECTOR_VERSION=scripted-v1
-VISION_DETECTOR_MAPPING_PATH=
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8000
 BONJOUR_ENABLED=true
@@ -185,7 +170,7 @@ Stored files use this layout:
 .runtime/evidence/<package-id>/manifest.json
 .runtime/evidence/<package-id>/frames/<part-name>.jpg
 .runtime/evidence/<package-id>/video/<part-name>.mp4
-.runtime/vision-results/<result-id>/result.json
+.runtime/table-observations/<observation-id>/observation.json
 .runtime/training-recordings/<recording-id>/manifest.json
 .runtime/training-recordings/<recording-id>/videos/<video-id>.mov
 .runtime/training-recordings/<recording-id>/predictions/<video-id>.json
