@@ -3,7 +3,8 @@
 ## Plan status
 
 - **Summary:** Prove the complete local iOS-to-backend pipeline
-- **Status:** Blocked
+- **Status:** In Progress
+- **Reviewed:** 2026-08-27 after plan 0005 reached M4 and the current iOS integration work
 - **Depends on:** Completed plans 0003 and 0004, plus the result API from plan 0005
 - **Next:** Plan 0019 can add deliberate training-recording intake after this local path works
 

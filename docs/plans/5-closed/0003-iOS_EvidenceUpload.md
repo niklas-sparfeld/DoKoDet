@@ -432,7 +432,7 @@ Plan 0003 is complete when:
 
 ## 9. Follow-on plans
 
-- [`0016-iOS_EvidenceUpload_Integration.md`](../4-blocked/0016-iOS_EvidenceUpload_Integration.md) connects the
+- [`0016-iOS_EvidenceUpload_Integration.md`](../3-in-progress/0016-iOS_EvidenceUpload_Integration.md) connects the
   client to the local plan 0004 backend and makes the queue durable.
 - [`0024-System_Production_Readiness.md`](../0-to-specify/0024-System_Production_Readiness.md) will select required
   iOS hardening after local and field measurements. Plan 0017 remains a reference checklist.

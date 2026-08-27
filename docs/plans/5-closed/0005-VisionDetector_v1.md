@@ -3,15 +3,19 @@
 ## Plan status
 
 - **Summary:** Prove the evidence-to-vision-result handoff with a scripted detector
-- **Status:** In Progress
-- **Reviewed:** 2026-08-26 against the V1 evidence contract and the current repository
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M3 prove the local scripted pipeline. M4 records the real-recognition handoff
+  and keeps recognition work gated because no real, human-labeled V1 event package exists.
+- **Reviewed:** 2026-08-27 against the V1 evidence contract, the M3 pipeline proof, and the current repository
 - **Depends on:** The local evidence backend from [plan 0004](../5-closed/0004-Backend_EvidenceUpload.md)
-- **Starts with:** [Plan 0006 M0](0006-GameEngine_v1.md) to freeze one shared result contract
-- **Unblocks:** The fake-detector integration in [plan 0016](../4-blocked/0016-iOS_EvidenceUpload_Integration.md)
-- **Parallel with:** [Plan 0020](0020-Data_Foundation.md) and
+- **Starts with:** [Plan 0006 M0](../2-ready/0006-GameEngine_v1.md) to freeze one shared result contract
+- **Unblocks:** The fake-detector integration in [plan 0016](../3-in-progress/0016-iOS_EvidenceUpload_Integration.md)
+- **Parallel with:** [Plan 0020](../2-ready/0020-Data_Foundation.md) and
   [plan 0021](../4-blocked/0021-VisionDetector_Training_Pipeline.md)
 - **Next:** [Plan 0022](../0-to-specify/0022-VisionDetector_Recognition_Development.md) replaces the scripted
   detector with measured models
+- **Handoff report:** [M4 real-recognition handoff](../../reports/0005-VisionDetector_M4_Real_Recognition_Handoff.md)
 
 ## 1. Outcome
 

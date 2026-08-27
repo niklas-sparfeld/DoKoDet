@@ -49,13 +49,12 @@ No epics.
 
 | Epic | Outcome |
 | --- | --- |
-| [0005 — VisionDetector local pipeline PoC](3-in-progress/0005-VisionDetector_v1.md) | Build the scripted vision-result pipeline. |
+| [0016 — iOS evidence-upload integration](3-in-progress/0016-iOS_EvidenceUpload_Integration.md) | Connect the app to the local result pipeline. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0016 — iOS evidence-upload integration](4-blocked/0016-iOS_EvidenceUpload_Integration.md) | 0005 milestone M2 | Connect the app to the local result pipeline. |
 | [0019 — App training-recording sessions](4-blocked/0019-App_TrainingRecordingSessions.md) | 0016 and the 0020 source-data contract | Add deliberate recording intake. |
 | [0021 — VisionDetector training pipeline](4-blocked/0021-VisionDetector_Training_Pipeline.md) | 0020 milestone M1 | Build the train, evaluate, checkpoint, and export loop. |
 
@@ -67,6 +66,7 @@ No epics.
 | [0002 — iOS CardEventNet PoC](5-closed/0002-iOS_CardEventNet_PoC.md) | Complete | iOS inference PoC. |
 | [0003 — iOS evidence upload](5-closed/0003-iOS_EvidenceUpload.md) | Complete | Evidence package and V1 upload contract. |
 | [0004 — Backend evidence upload](5-closed/0004-Backend_EvidenceUpload.md) | Complete | Local evidence-ingestion backend. |
+| [0005 — VisionDetector local pipeline PoC](5-closed/0005-VisionDetector_v1.md) | Complete | Scripted vision-result pipeline and real-recognition handoff. |
 | [0007 — CardEventNet cloud training](5-closed/0007-CardEventNet_CloudTraining.md) | Complete | Portable single-GPU training. |
 | [0008 — CardEventNet training-data improvements](5-closed/0008-CardEventNet_TrainingDataImprovements.md) | Complete | Historical data tooling. |
 | [0009 — CardEventNet training performance](5-closed/0009-CardEventNet_Training_Performance.md) | Complete | Faster training pipeline. |
@@ -85,7 +85,7 @@ No epics.
    contract.
 2. Start 0020 milestone M0 in parallel. It establishes the data invariants.
 3. Continue 0005, 0006, and 0020 as independent local foundations.
-4. Move 0021 to `Ready` after 0020 milestone M1. Move 0016 to `Ready` after 0005 milestone M2.
+4. Continue 0016 in `In Progress`; move 0021 to `Ready` after 0020 milestone M1.
 5. Move 0019 to `Ready` after 0016 and the 0020 source-data contract are complete.
 6. Specify 0022, 0023, and 0024 only when their entry evidence exists.
 
