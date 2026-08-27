@@ -4,6 +4,31 @@ import XCTest
 @testable import CardEventProbeCore
 
 final class CaptureSessionTests: XCTestCase {
+    func testCameraSourceRateSelectsThirtyFramesPerSecondWhenSupported() throws {
+        let status = try XCTUnwrap(
+            CameraSourceRateStatus.select(supportedMaximumFrameRate: 60.0)
+        )
+
+        XCTAssertEqual(status.requestedFrameRate, 30.0)
+        XCTAssertEqual(status.selectedFrameRate, 30.0)
+        XCTAssertFalse(status.isFallback)
+        XCTAssertTrue(status.summary.contains("selected"))
+    }
+
+    func testCameraSourceRateReportsFallbackWhenThirtyFramesPerSecondIsUnavailable() throws {
+        let status = try XCTUnwrap(
+            CameraSourceRateStatus.select(supportedMaximumFrameRate: 29.97)
+        )
+
+        XCTAssertEqual(status.selectedFrameRate, 29.97, accuracy: 0.000001)
+        XCTAssertTrue(status.isFallback)
+        XCTAssertTrue(status.summary.contains("fallback"))
+    }
+
+    func testCameraSourceRateRejectsAnInvalidSupportedRate() {
+        XCTAssertNil(CameraSourceRateStatus.select(supportedMaximumFrameRate: 0.0))
+    }
+
     func testIdentityAndNextSequenceSurviveStoreRestart() throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

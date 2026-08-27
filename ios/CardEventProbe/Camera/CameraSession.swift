@@ -47,6 +47,7 @@ final class CameraSession: ObservableObject {
     }
 
     @Published private(set) var state: State = .idle
+    @Published private(set) var sourceRateStatus: CameraSourceRateStatus?
     let captureSession = AVCaptureSession()
 
     private let sessionQueue = DispatchQueue(label: "com.dokodetector.CardEventProbe.camera")
@@ -104,18 +105,25 @@ final class CameraSession: ObservableObject {
 
     private func configureAndStart() {
         let rotationAngle = requestedRotationAngle
+        let existingSourceRateStatus = sourceRateStatus
         sessionQueue.async { [weak self] in
             guard let self else { return }
 
             do {
+                let sourceRateStatus: CameraSourceRateStatus
                 if !self.isConfigured {
-                    try self.configureSession(rotationAngle: rotationAngle)
+                    sourceRateStatus = try self.configureSession(rotationAngle: rotationAngle)
                     self.isConfigured = true
+                } else if let existingSourceRateStatus {
+                    sourceRateStatus = existingSourceRateStatus
+                } else {
+                    throw CameraError.sourceFrameRateUnavailable
                 }
                 self.captureSession.startRunning()
                 Self.logger.info("Camera session is running.")
                 Task { @MainActor in
                     self.state = .running
+                    self.sourceRateStatus = sourceRateStatus
                 }
             } catch {
                 Self.logger.error("Camera setup failed: \(error.localizedDescription, privacy: .public)")
@@ -126,7 +134,7 @@ final class CameraSession: ObservableObject {
         }
     }
 
-    private func configureSession(rotationAngle: CGFloat) throws {
+    private func configureSession(rotationAngle: CGFloat) throws -> CameraSourceRateStatus {
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
             throw CameraError.unavailable
         }
@@ -140,6 +148,8 @@ final class CameraSession: ObservableObject {
         guard captureSession.canAddInput(input) else { throw CameraError.cannotAddInput }
         captureSession.addInput(input)
 
+        let sourceRateStatus = try configureSourceRate(for: camera)
+
         videoOutput.alwaysDiscardsLateVideoFrames = true
         videoOutput.videoSettings = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
@@ -151,6 +161,41 @@ final class CameraSession: ObservableObject {
         if let connection = videoOutput.connection(with: .video) {
             applyRotationAngle(rotationAngle, to: connection)
         }
+        return sourceRateStatus
+    }
+
+    private func configureSourceRate(for camera: AVCaptureDevice) throws -> CameraSourceRateStatus {
+        let ranges = camera.activeFormat.videoSupportedFrameRateRanges
+        guard let maximumRange = ranges.max(by: { $0.maxFrameRate < $1.maxFrameRate }),
+              let sourceRateStatus = CameraSourceRateStatus.select(
+                  supportedMaximumFrameRate: maximumRange.maxFrameRate
+              ),
+              let selectedRange = ranges.first(where: {
+                  $0.minFrameRate <= sourceRateStatus.selectedFrameRate
+                      && $0.maxFrameRate >= sourceRateStatus.selectedFrameRate
+              }) else {
+            throw CameraError.sourceFrameRateUnavailable
+        }
+
+        let frameDuration = sourceRateStatus.isFallback
+            ? selectedRange.minFrameDuration
+            : CMTime(value: 1, timescale: 30)
+        guard frameDuration.isValid, CMTimeGetSeconds(frameDuration).isFinite else {
+            throw CameraError.sourceFrameRateUnavailable
+        }
+
+        do {
+            try camera.lockForConfiguration()
+            camera.activeVideoMinFrameDuration = frameDuration
+            camera.activeVideoMaxFrameDuration = frameDuration
+            camera.unlockForConfiguration()
+        } catch {
+            throw CameraError.sourceRateConfigurationFailed(error.localizedDescription)
+        }
+        Self.logger.info(
+            "Camera source rate configured at \(sourceRateStatus.selectedFrameRate, privacy: .public) fps."
+        )
+        return sourceRateStatus
     }
 
     private func applyRotationAngle(_ rotationAngle: CGFloat) {
@@ -173,12 +218,18 @@ private enum CameraError: LocalizedError {
     case unavailable
     case cannotAddInput
     case cannotAddOutput
+    case sourceFrameRateUnavailable
+    case sourceRateConfigurationFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .unavailable: return "No rear camera is available on this device."
         case .cannotAddInput: return "The camera input could not be added."
         case .cannotAddOutput: return "The camera video output could not be added."
+        case .sourceFrameRateUnavailable:
+            return "The camera does not report a supported source frame rate."
+        case let .sourceRateConfigurationFailed(message):
+            return "The camera source frame rate could not be configured: \(message)"
         }
     }
 }

@@ -106,12 +106,9 @@ configured capacity: 83,886,080 B
 ```
 
 Do not use backend receipt timestamps as upload latency. They do not contain the client upload
-start time. The device performance part of M6 remains open until a build records these three
-values per package:
-
-- peak raw temporary bytes;
-- encode start and end time;
-- upload start and successful backend receipt time.
+start time. By explicit operator decision on 2026-08-27, these performance measurements are Won't
+Do for this PoC. Defer them until performance becomes a problem. This is a scope decision, not a
+performance result.
 
 ## Result
 
@@ -120,5 +117,5 @@ backend preserved and decoded the snippets, and the selected JPEG path remained 
 available evidence supports the 960×540 exploratory source profile and does not revise the M5
 bounds.
 
-M6 is not fully closed. Device latency and observed peak-memory telemetry are still required. M4
-also retains its separate camera source-rate and backend disagreement work items.
+M6 is closed by the explicit decision to defer performance telemetry. M4 is complete. No further
+performance work is planned in 0025.

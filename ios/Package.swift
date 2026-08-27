@@ -38,6 +38,7 @@ let package = Package(
             ],
             sources: [
                 "Core/DetectionEvent.swift",
+                "Core/CameraSourceRate.swift",
                 "Core/CausalEventDecoder.swift",
                 "Core/EvidenceCaptureConfiguration.swift",
                 "Core/EvidenceFrameRing.swift",

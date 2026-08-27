@@ -51,7 +51,7 @@ struct LiveDetectionView: View {
 
                 trainingRecordingPanel
 
-                DiagnosticsPanel()
+                DiagnosticsPanel(cameraSourceRate: camera.sourceRateStatus)
             }
             .padding()
         }

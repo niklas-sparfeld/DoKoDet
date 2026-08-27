@@ -334,6 +334,37 @@ def test_truncated_video_is_rejected_after_hash_matches(backend) -> None:
     assert list(storage.evidence_root.glob(".upload-*")) == []
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("width", 641),
+        ("height", 359),
+        ("duration_ms", 2233),
+        ("nominal_frame_rate", 10.0),
+    ),
+)
+def test_video_probe_rejects_material_manifest_disagreements(backend, field, value) -> None:
+    client, repository, storage = backend
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
+    assert video_source is not None
+    snippet = payload["video_snippet"]
+    snippet[field] = value
+    if field == "duration_ms":
+        snippet["end_offset_ms"] = snippet["start_offset_ms"] + value
+    manifest_bytes = json.dumps(payload, separators=(",", ":")).encode()
+
+    response = client.put(
+        f"/v1/evidence-packages/{payload['package_id']}",
+        files=multipart_parts(manifest_bytes, frame_sources, video_source),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_video"
+    assert repository.get_package(payload["package_id"]) is None
+    assert not storage.package_path(payload["package_id"]).exists()
+    assert list(storage.evidence_root.glob(".upload-*")) == []
+
+
 def test_video_files_are_removed_when_database_insert_conflicts(backend) -> None:
     client, repository, storage = backend
     manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")

@@ -52,9 +52,7 @@ No epics.
 
 ### In Progress
 
-| Epic | Outcome |
-| --- | --- |
-| [0025 — Video snippet evidence](3-in-progress/0025-Video_Snippet_Evidence.md) | Add bounded, accurately timed iOS-to-backend video snippets with useful exploratory resolution. |
+No epics.
 
 ### Blocked
 
@@ -84,25 +82,31 @@ No epics.
 | [0018 — Backend evidence-upload production readiness](5-closed/0018-Backend_EvidenceUpload_ProductionReadiness.md) | Superseded by 0024 | Backend hardening reference. |
 | [0019 — App training recordings](5-closed/0019-App_TrainingRecordings.md) | Complete | Deliberate recording intake and local end-to-end workflow. |
 | [0020 — Data foundation](5-closed/0020-Data_Foundation.md) | Complete | Shared source, annotation, review, dataset, split, and lifecycle-receipt foundation. |
+| [0025 — Video snippet evidence](5-closed/0025-Video_Snippet_Evidence.md) | Complete | Bounded V2 video snippets with reviewed 960×540 exploratory evidence. |
 
 ## Near-term delivery sequence
 
-1. Finish 0025 milestones M4 through M6. Close it only after corrected real packages confirm the
-   media contract and exploratory capture bounds.
+1. Use the reviewed 0025 packages and M6 report as input to 0027 and 0022. Defer 0025 performance
+   telemetry until performance becomes a problem.
 2. Start 0021 as the next full implementation epic. Use the completed 0020 data contracts and the
    completed 0006 observation boundary. Do not wait for more snippets or recognition data.
 3. In 0021, first remove the active `vision-detection/v1` path. Then prove deterministic sample-byte
    resolution before adding the train, evaluate, checkpoint, and export loop.
-4. Put corrected 0025 packages through the 0020 annotation, review, dataset, and split path. Use the
-   resulting coverage and failure measurements to specify 0022. Do not treat the three 0025 M6
-   packages as a sufficient recognition dataset by themselves.
-5. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+4. Implement 0027 shared intake and independent task enrollment before the next large collection
+   batch. Start its contract and operator work without waiting for 0021 model training.
+5. Put corrected 0025 packages through the 0027 table-evidence review path. Use the resulting
+   coverage and failure measurements to specify 0022. Do not treat the three 0025 M6 packages as a
+   sufficient recognition dataset by themselves.
+6. Start 0028 with the existing CardEventNet loop. Add its TableEvidenceAnalyzer adapter after 0021
+   provides stable run and capability-bundle artifacts. Do not use test or system holdout results
+   for candidate selection.
+7. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
    to specify 0023. This measurement pass can proceed without blocking 0021.
-6. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-7. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+8. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+9. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
    without replacing the identity-only oracle baseline.
-8. Specify 0026 after focused review cases and correction behavior are measured.
-9. Specify 0024 only after end-to-end product and operational measurements exist.
+10. Specify 0026 after focused review cases and correction behavior are measured.
+11. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 

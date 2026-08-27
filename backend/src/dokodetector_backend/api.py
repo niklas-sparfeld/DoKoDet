@@ -47,6 +47,8 @@ FRAME_COPY_CHUNK_BYTES = 1024 * 1024
 MANIFEST_MEDIA_TYPE = "application/json"
 MULTIPART_MEDIA_TYPE = "multipart/form-data"
 SUPPORTED_FRAME_MEDIA_TYPE = "image/jpeg"
+VIDEO_FRAME_RATE_TOLERANCE_FPS = 0.05
+VIDEO_DURATION_TOLERANCE_MS = 50
 
 router = APIRouter()
 
@@ -548,8 +550,12 @@ async def _inspect_video(
         or probe.width != snippet.width
         or probe.height != snippet.height
         or snippet.nominal_frame_rate is None
-        or not math.isclose(probe.nominal_frame_rate, snippet.nominal_frame_rate, abs_tol=0.05)
-        or abs(probe.duration_ms - snippet.duration_ms) > 50
+        or not math.isclose(
+            probe.nominal_frame_rate,
+            snippet.nominal_frame_rate,
+            abs_tol=VIDEO_FRAME_RATE_TOLERANCE_FPS,
+        )
+        or abs(probe.duration_ms - snippet.duration_ms) > VIDEO_DURATION_TOLERANCE_MS
     ):
         raise ContractError(
             "invalid_video",

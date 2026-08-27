@@ -4,7 +4,11 @@
 
 - **Summary:** Add bounded and accurately timed iOS-to-backend video snippets at a useful
   exploratory resolution
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** Closed on 2026-08-28 after M4 completion. The reviewed M6 package set supports
+  the 960×540 exploratory profile. Performance telemetry was explicitly marked Won't Do on
+  2026-08-27. Defer it until performance becomes a problem.
 - **Depends on:** None
 - **Builds on:** Plans 0003, 0004, and 0016 provide the completed frame-only baseline
 - **Reviewed:** 2026-08-27 against the current iOS and backend evidence pipeline
@@ -286,17 +290,20 @@ declares 15 fps, but its MP4 contains 21 distinct frames at 100 ms intervals. Th
    failures, and accepted frames.
 7. [x] Calculate actual rate, duration, start offset, and end offset from the samples and completed
    media. Do not copy the configured maximum rate into the snippet manifest.
-8. [ ] Make backend probing reject material disagreements between declared and encoded dimensions,
+8. [x] Make backend probing reject material disagreements between declared and encoded dimensions,
    duration, and frame rate.
 9. [x] Show the measured rolling-buffer rate and frame-drop counts in iOS diagnostics.
-10. [ ] Configure the camera for a stable supported source rate and report the selected or fallback
+10. [x] Configure the camera for a stable supported source rate and report the selected or fallback
     rate.
 
-Progress (2026-08-27): Added fixed target-time cadence selection with deterministic tests for 30 fps,
+Progress (2026-08-28): Added fixed target-time cadence selection with deterministic tests for 30 fps,
 29.97 fps, rounded timestamps, backward timestamps, and short gaps. Live conversion now uses a
 bounded serial queue, a reusable pixel-buffer pool, separate cadence counters, and encoded-media
 metadata for the V2 snippet manifest. The iOS diagnostics show the measured rolling rate and the
-separate frame counters. Camera source-rate selection and backend disagreement tests remain.
+separate frame counters. Backend upload probing rejects material declared-versus-encoded dimension,
+duration, and frame-rate disagreements with focused tests. Camera setup requests a stable 30 fps
+source rate when the active format supports it and reports the selected or fallback rate in live
+diagnostics.
 
 Acceptance:
 
@@ -344,8 +351,8 @@ Acceptance:
 2. [x] Verify its selected frames and snippet decode.
 3. [x] Capture at least three corrected 960×540 packages with different card transitions.
 4. [x] Verify each package through byte-identical iOS-to-backend read-back.
-5. [ ] Record actual size, frame count, frame rate, duration, timing coverage, peak memory, encode
-   latency, upload latency, and storage use.
+5. [x] Record actual size, frame count, frame rate, duration, timing coverage, and storage use.
+   Peak memory, encode latency, and upload latency are Won't Do for this PoC.
 6. [x] Replay each snippet in a minimal human-review view.
 7. [x] Record whether 960×540 reveals useful card detail that is absent from a derived 640×360
    version.
@@ -356,7 +363,8 @@ JPEG hashes. Temporary 640×360 derivatives show less card-edge and corner detai
 960×540 source snippets. The end-to-end measurement is recorded in
 [the M6 measurement report](../../reports/0025-Video_Snippet_M6_End_to_End_Measurement.md). The
 current package contract does not persist observed peak temporary bytes or per-package encode and
-upload latency, so item 5 remains open until the app records those values.
+upload latency. By explicit operator decision, those performance measurements are Won't Do for this
+PoC. Defer them until performance becomes a problem.
 
 Acceptance:
 

@@ -3,10 +3,18 @@ import SwiftUI
 
 struct DiagnosticsPanel: View {
     @EnvironmentObject private var appState: AppState
+    let cameraSourceRate: CameraSourceRateStatus?
+
+    init(cameraSourceRate: CameraSourceRateStatus? = nil) {
+        self.cameraSourceRate = cameraSourceRate
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             CaptureStatusView(appState: appState)
+            if let cameraSourceRate {
+                CameraSourceRateView(status: cameraSourceRate)
+            }
             EvidenceVideoStatusView(appState: appState)
             EvidenceQueueStatusView(appState: appState)
             BackendStatusView(discovery: appState.backendDiscovery)
@@ -41,6 +49,19 @@ struct DiagnosticsPanel: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 
+}
+
+private struct CameraSourceRateView: View {
+    let status: CameraSourceRateStatus
+
+    var body: some View {
+        HStack {
+            Text("Camera source rate")
+            Spacer()
+            Text(status.summary)
+                .font(.caption.monospacedDigit())
+        }
+    }
 }
 
 private struct EvidenceVideoStatusView: View {
