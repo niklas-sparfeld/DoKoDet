@@ -48,6 +48,9 @@ let package = Package(
                 "Inference/CardEventTensorBuilder.swift",
                 "Inference/VideoFrame.swift",
                 "Networking/BackendService.swift",
+                "Networking/BackendConfiguration.swift",
+                "Networking/EvidenceResultClient.swift",
+                "Networking/EvidenceUploadQueue.swift",
             ]
         ),
         .testTarget(

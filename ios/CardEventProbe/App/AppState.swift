@@ -47,6 +47,10 @@ final class AppState: ObservableObject {
     @Published private(set) var evidencePackageCount = 0
     @Published private(set) var evidencePackageError: String?
     @Published private(set) var evidenceQueueDiagnostics: EvidencePackageQueueDiagnostics?
+    @Published private(set) var evidenceUploadError: String?
+    @Published private(set) var latestEvidencePackageID: UUID?
+    @Published private(set) var latestEvidenceResults: [EvidenceVisionResult] = []
+    @Published private(set) var evidenceResultError: String?
 
     let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
@@ -58,6 +62,12 @@ final class AppState: ObservableObject {
         directory: evidenceSessionRoot()
     )
     private lazy var evidencePackageStore = EvidencePackageStore(root: evidencePackageRoot())
+    private lazy var evidenceUploadQueue: EvidenceUploadQueue? = {
+        guard let client = try? EvidenceUploadClient() else { return nil }
+        return EvidenceUploadQueue(store: evidencePackageStore, client: client)
+    }()
+    private let evidenceResultClient = EvidenceResultClient()
+    private var evidenceUploadTask: Task<Void, Never>?
     private var captureSession: CaptureSession?
     private var liveCoordinator: FrameInferenceCoordinator?
     private var replayRunner: VideoReplayRunner?
@@ -93,6 +103,67 @@ final class AppState: ObservableObject {
 
     func startBackendDiscovery() {
         backendDiscovery.start()
+    }
+
+    func uploadQueuedEvidence() {
+        guard case let .connected(service) = backendDiscovery.state,
+              let configuration = try? BackendConfiguration(baseURL: service.baseURL),
+              let evidenceUploadQueue else {
+            return
+        }
+        guard evidenceUploadTask == nil else { return }
+
+        evidenceUploadTask = Task { [weak self] in
+            let attempts = await evidenceUploadQueue.uploadQueued(using: configuration)
+            guard !Task.isCancelled else { return }
+            self?.evidenceUploadTask = nil
+            self?.applyEvidenceUploadAttempts(attempts)
+            if self?.evidenceQueueDiagnostics?.queuedCount ?? 0 > 0 {
+                self?.uploadQueuedEvidence()
+            }
+        }
+    }
+
+    func retryFailedEvidence() {
+        guard case let .connected(service) = backendDiscovery.state,
+              let configuration = try? BackendConfiguration(baseURL: service.baseURL),
+              let evidenceUploadQueue else {
+            return
+        }
+        guard evidenceUploadTask == nil else { return }
+
+        evidenceUploadTask = Task { [weak self] in
+            let attempts = await evidenceUploadQueue.retryFailed(using: configuration)
+            guard !Task.isCancelled else { return }
+            self?.evidenceUploadTask = nil
+            self?.applyEvidenceUploadAttempts(attempts)
+            if self?.evidenceQueueDiagnostics?.queuedCount ?? 0 > 0 {
+                self?.uploadQueuedEvidence()
+            }
+        }
+    }
+
+    func loadEvidenceResults(for packageID: UUID) {
+        guard case let .connected(service) = backendDiscovery.state,
+              let configuration = try? BackendConfiguration(baseURL: service.baseURL) else {
+            evidenceResultError = "Connect to a backend before reading vision results."
+            return
+        }
+
+        evidenceResultError = nil
+        Task { [weak self] in
+            do {
+                let results = try await evidenceResultClient.results(
+                    for: packageID,
+                    using: configuration
+                )
+                guard !Task.isCancelled else { return }
+                self?.latestEvidenceResults = results
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.evidenceResultError = error.localizedDescription
+            }
+        }
     }
 
     func loadModel() {
@@ -463,6 +534,7 @@ final class AppState: ObservableObject {
                     self.evidencePackageCount += 1
                     self.evidencePackageError = nil
                     self.evidenceQueueDiagnostics = self.evidencePackageStore.diagnostics
+                    self.uploadQueuedEvidence()
                 case let .failure(error):
                     self.evidencePackageError = error.localizedDescription
                     self.evidenceQueueDiagnostics = self.evidencePackageStore.diagnostics
@@ -491,6 +563,12 @@ final class AppState: ObservableObject {
         } catch {
             evidencePackageError = error.localizedDescription
         }
+    }
+
+    private func applyEvidenceUploadAttempts(_ attempts: [EvidenceUploadAttempt]) {
+        evidenceQueueDiagnostics = evidencePackageStore.diagnostics
+        evidenceUploadError = attempts.compactMap { $0.failure?.message }.first
+        latestEvidencePackageID = attempts.compactMap { $0.response?.packageID }.last
     }
 
     private func finishCaptureSession() {

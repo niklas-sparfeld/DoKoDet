@@ -47,6 +47,9 @@
 		A00000000000000000000025 /* EvidencePackage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000025 /* EvidencePackage.swift */; };
 		A00000000000000000000026 /* EvidencePackageCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000026 /* EvidencePackageCoordinator.swift */; };
 		A00000000000000000000027 /* EvidenceMultipartUpload.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000027 /* EvidenceMultipartUpload.swift */; };
+		A00000000000000000000029 /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000029 /* BackendConfiguration.swift */; };
+		A0000000000000000000002A /* EvidenceResultClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002A /* EvidenceResultClient.swift */; };
+		A0000000000000000000002B /* EvidenceUploadQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000002B /* EvidenceUploadQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -91,6 +94,9 @@
 		B00000000000000000000025 /* EvidencePackage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidencePackage.swift; sourceTree = "<group>"; };
 		B00000000000000000000026 /* EvidencePackageCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidencePackageCoordinator.swift; sourceTree = "<group>"; };
 		B00000000000000000000027 /* EvidenceMultipartUpload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceMultipartUpload.swift; sourceTree = "<group>"; };
+		B00000000000000000000029 /* BackendConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendConfiguration.swift; sourceTree = "<group>"; };
+		B0000000000000000000002A /* EvidenceResultClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceResultClient.swift; sourceTree = "<group>"; };
+		B0000000000000000000002B /* EvidenceUploadQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceUploadQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -250,6 +256,9 @@
 				B00000000000000000000022 /* BackendService.swift */,
 				B00000000000000000000023 /* BackendDiscovery.swift */,
 				B00000000000000000000027 /* EvidenceMultipartUpload.swift */,
+				B00000000000000000000029 /* BackendConfiguration.swift */,
+				B0000000000000000000002A /* EvidenceResultClient.swift */,
+				B0000000000000000000002B /* EvidenceUploadQueue.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -340,6 +349,9 @@
 				A00000000000000000000025 /* EvidencePackage.swift in Sources */,
 				A00000000000000000000026 /* EvidencePackageCoordinator.swift in Sources */,
 				A00000000000000000000027 /* EvidenceMultipartUpload.swift in Sources */,
+				A00000000000000000000029 /* BackendConfiguration.swift in Sources */,
+				A0000000000000000000002A /* EvidenceResultClient.swift in Sources */,
+				A0000000000000000000002B /* EvidenceUploadQueue.swift in Sources */,
 				A00000000000000000000022 /* BackendService.swift in Sources */,
 				A00000000000000000000023 /* BackendDiscovery.swift in Sources */,
 				A00000000000000000000017 /* ModelPreprocessing.swift in Sources */,

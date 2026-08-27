@@ -800,12 +800,38 @@ public enum EvidencePackageQueueState: String, CaseIterable, Codable, Sendable {
     case corrupt
 }
 
+public enum EvidencePackageFailureKind: String, Codable, Sendable {
+    case retryable
+    case permanent
+}
+
+public struct EvidencePackageFailure: Codable, Equatable, Sendable {
+    public let kind: EvidencePackageFailureKind
+    public let statusCode: Int?
+    public let message: String
+    public let recordedAt: Date
+
+    public init(
+        kind: EvidencePackageFailureKind,
+        statusCode: Int? = nil,
+        message: String,
+        recordedAt: Date = Date()
+    ) {
+        self.kind = kind
+        self.statusCode = statusCode
+        self.message = message
+        self.recordedAt = recordedAt
+    }
+}
+
 public struct EvidencePackageQueueDiagnostics: Equatable, Sendable {
     public let stagingCount: Int
     public let queuedCount: Int
     public let acknowledgedCount: Int
     public let failedCount: Int
     public let corruptCount: Int
+    public let retryableFailureCount: Int
+    public let permanentFailureCount: Int
     public let recoveredPackageIDs: [UUID]
     public let corruptPaths: [String]
     public let errors: [String]
@@ -816,6 +842,8 @@ public struct EvidencePackageQueueDiagnostics: Equatable, Sendable {
         acknowledgedCount: Int,
         failedCount: Int,
         corruptCount: Int,
+        retryableFailureCount: Int = 0,
+        permanentFailureCount: Int = 0,
         recoveredPackageIDs: [UUID] = [],
         corruptPaths: [String] = [],
         errors: [String] = []
@@ -825,6 +853,8 @@ public struct EvidencePackageQueueDiagnostics: Equatable, Sendable {
         self.acknowledgedCount = acknowledgedCount
         self.failedCount = failedCount
         self.corruptCount = corruptCount
+        self.retryableFailureCount = retryableFailureCount
+        self.permanentFailureCount = permanentFailureCount
         self.recoveredPackageIDs = recoveredPackageIDs
         self.corruptPaths = corruptPaths
         self.errors = errors
@@ -868,6 +898,145 @@ public final class EvidencePackageStore: @unchecked Sendable {
     ) -> URL {
         directoryURL(for: state)
             .appendingPathComponent(packageID.uuidString.lowercased(), isDirectory: true)
+    }
+
+    /// Returns package directories in a deterministic order.
+    public func packageURLs(in state: EvidencePackageQueueState) throws -> [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+        try ensureLayoutLocked()
+        return try entriesLocked(in: state)
+            .filter { isDirectory($0) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    public func failure(for packageID: UUID) -> EvidencePackageFailure? {
+        lock.lock()
+        defer { lock.unlock() }
+        return failureLocked(for: packageID)
+    }
+
+    public func acknowledgementData(for packageID: UUID) -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
+        return try? Data(contentsOf: acknowledgementMetadataURL(for: packageID))
+    }
+
+    /// Moves a package between durable queue states.
+    ///
+    /// Failure and acknowledgement records are stored beside the package directory. They do not
+    /// change the immutable package contents.
+    @discardableResult
+    public func movePackage(
+        for packageID: UUID,
+        from sourceState: EvidencePackageQueueState,
+        to destinationState: EvidencePackageQueueState,
+        failure: EvidencePackageFailure? = nil,
+        acknowledgementData: Data? = nil
+    ) throws -> URL {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard sourceState != destinationState else {
+            throw EvidencePackageStoreError.invalidTransition(
+                sourceState,
+                destinationState
+            )
+        }
+        try ensureLayoutLocked()
+
+        let sourceURL = packageURL(for: packageID, in: sourceState)
+        let destinationURL = packageURL(for: packageID, in: destinationState)
+        guard fileManager.fileExists(atPath: sourceURL.path) else {
+            throw EvidencePackageStoreError.packageNotFound(sourceURL)
+        }
+        guard !fileManager.fileExists(atPath: destinationURL.path) else {
+            throw EvidencePackageStoreError.packageAlreadyExists(destinationURL)
+        }
+        guard let sourceID = UUID(uuidString: sourceURL.lastPathComponent), sourceID == packageID else {
+            throw EvidencePackageStoreError.invalidPackage(
+                sourceURL,
+                "package directory name is not the requested package_id"
+            )
+        }
+
+        let failureURL = failureMetadataURL(for: packageID)
+        let acknowledgementURL = acknowledgementMetadataURL(for: packageID)
+        do {
+            switch destinationState {
+            case .failed:
+                guard let failure else {
+                    throw EvidencePackageStoreError.invalidTransition(
+                        sourceState,
+                        destinationState
+                    )
+                }
+                try encodeFailure(failure, to: failureURL)
+            case .acknowledged:
+                if let acknowledgementData {
+                    try acknowledgementData.write(to: acknowledgementURL, options: .atomic)
+                }
+            case .staging, .queued, .corrupt:
+                break
+            }
+
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+            if destinationState != .failed {
+                try? fileManager.removeItem(at: failureURL)
+            }
+            if destinationState != .acknowledged {
+                try? fileManager.removeItem(at: acknowledgementURL)
+            }
+            storedDiagnostics = makeDiagnosticsLocked()
+            return destinationURL
+        } catch let error as EvidencePackageStoreError {
+            throw error
+        } catch {
+            if destinationState == .failed {
+                try? fileManager.removeItem(at: failureURL)
+            }
+            if destinationState == .acknowledged {
+                try? fileManager.removeItem(at: acknowledgementURL)
+            }
+            throw EvidencePackageStoreError.writeFailed(
+                destinationURL,
+                error.localizedDescription
+            )
+        }
+    }
+
+    @discardableResult
+    public func retryableFailedPackageURLs() throws -> [URL] {
+        try packageURLs(in: .failed).filter { url in
+            guard let packageID = UUID(uuidString: url.lastPathComponent) else { return false }
+            return failure(for: packageID)?.kind == .retryable
+        }
+    }
+
+    @discardableResult
+    public func requeueFailedPackage(for packageID: UUID) throws -> URL {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard failureLocked(for: packageID)?.kind == .retryable else {
+            throw EvidencePackageStoreError.invalidTransition(.failed, .queued)
+        }
+        let sourceURL = packageURL(for: packageID, in: .failed)
+        let destinationURL = packageURL(for: packageID, in: .queued)
+        guard !fileManager.fileExists(atPath: destinationURL.path) else {
+            throw EvidencePackageStoreError.packageAlreadyExists(destinationURL)
+        }
+        do {
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+            try? fileManager.removeItem(at: failureMetadataURL(for: packageID))
+            storedDiagnostics = makeDiagnosticsLocked()
+            return destinationURL
+        } catch {
+            throw EvidencePackageStoreError.writeFailed(
+                destinationURL,
+                error.localizedDescription
+            )
+        }
     }
 
     /// Writes a package below staging, validates it from disk, then atomically queues it.
@@ -1174,12 +1343,22 @@ public final class EvidencePackageStore: @unchecked Sendable {
         corruptPaths: [String] = [],
         errors: [String] = []
     ) -> EvidencePackageQueueDiagnostics {
-        EvidencePackageQueueDiagnostics(
+        let failedPackages = (try? entriesLocked(in: .failed).filter { isDirectory($0) }) ?? []
+        let retryableFailureCount = failedPackages.reduce(into: 0) { count, url in
+            guard let packageID = UUID(uuidString: url.lastPathComponent),
+                  failureLocked(for: packageID)?.kind == .retryable else {
+                return
+            }
+            count += 1
+        }
+        return EvidencePackageQueueDiagnostics(
             stagingCount: entryCountLocked(in: .staging),
             queuedCount: entryCountLocked(in: .queued),
             acknowledgedCount: entryCountLocked(in: .acknowledged),
-            failedCount: entryCountLocked(in: .failed),
+            failedCount: failedPackages.count,
             corruptCount: entryCountLocked(in: .corrupt),
+            retryableFailureCount: retryableFailureCount,
+            permanentFailureCount: failedPackages.count - retryableFailureCount,
             recoveredPackageIDs: recoveredPackageIDs,
             corruptPaths: corruptPaths,
             errors: errors
@@ -1191,7 +1370,31 @@ public final class EvidencePackageStore: @unchecked Sendable {
             at: directoryURL(for: state),
             includingPropertiesForKeys: nil,
             options: []
-        ).count) ?? 0
+        ).filter { isDirectory($0) }.count) ?? 0
+    }
+
+    private func failureMetadataURL(for packageID: UUID) -> URL {
+        directoryURL(for: .failed)
+            .appendingPathComponent("\(packageID.uuidString.lowercased()).failure.json")
+    }
+
+    private func acknowledgementMetadataURL(for packageID: UUID) -> URL {
+        directoryURL(for: .acknowledged)
+            .appendingPathComponent("\(packageID.uuidString.lowercased()).acknowledgement.json")
+    }
+
+    private func failureLocked(for packageID: UUID) -> EvidencePackageFailure? {
+        let url = failureMetadataURL(for: packageID)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(EvidencePackageFailure.self, from: data)
+    }
+
+    private func encodeFailure(_ failure: EvidencePackageFailure, to url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(failure).write(to: url, options: .atomic)
     }
 
     private func isDirectory(_ url: URL) -> Bool {
@@ -1205,6 +1408,8 @@ public final class EvidencePackageStore: @unchecked Sendable {
 
 public enum EvidencePackageStoreError: LocalizedError, Equatable {
     case packageAlreadyExists(URL)
+    case packageNotFound(URL)
+    case invalidTransition(EvidencePackageQueueState, EvidencePackageQueueState)
     case writeFailed(URL, String)
     case invalidPackage(URL, String)
 
@@ -1212,6 +1417,10 @@ public enum EvidencePackageStoreError: LocalizedError, Equatable {
         switch self {
         case let .packageAlreadyExists(url):
             return "The evidence package already exists at \(url.path)."
+        case let .packageNotFound(url):
+            return "The evidence package was not found at \(url.path)."
+        case let .invalidTransition(source, destination):
+            return "The evidence package cannot move from \(source.rawValue) to \(destination.rawValue)."
         case let .writeFailed(url, message):
             return "The evidence package could not be written at \(url.path): \(message)"
         case let .invalidPackage(url, message):

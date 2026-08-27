@@ -70,6 +70,35 @@ struct DiagnosticsPanel: View {
 
             BackendStatusView(discovery: appState.backendDiscovery)
 
+            if let packageID = appState.latestEvidencePackageID {
+                DisclosureGroup("Vision result (developer)") {
+                    Button("Read backend result") {
+                        appState.loadEvidenceResults(for: packageID)
+                    }
+                    if appState.latestEvidenceResults.isEmpty {
+                        Text("No stored result loaded.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(appState.latestEvidenceResults, id: \.resultID) { result in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Status: \(result.status)")
+                                Text("Detector: \(result.detector.name) \(result.detector.version)")
+                                ForEach(result.candidates, id: \.card) { candidate in
+                                    Text(String(format: "%@ %.3f", candidate.card, candidate.probability))
+                                }
+                            }
+                            .font(.caption.monospaced())
+                        }
+                    }
+                    if let error = appState.evidenceResultError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+
             if let timestamp = appState.lastEventTimestampSeconds {
                 Text(String(format: "Card event at %.3f s", timestamp))
                     .font(.caption.weight(.semibold))
