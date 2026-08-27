@@ -37,12 +37,16 @@ from .contract import (
     validate_observation,
     validate_reconstruction_input,
 )
+from .replay import ReplayError, RoundReplay, TrickResult, replay_round
+from .rules import CardCategory, CardPlay, DokoNormalRuleset, RulesError, Ruleset
 
 __all__ = [
     "ANALYZER_CAPABILITIES",
     "AssociationCandidate",
     "AnalyzerMetadata",
     "CALIBRATION_STATES",
+    "CardCategory",
+    "CardPlay",
     "CARD_IDENTITIES",
     "CARD_SET_ID",
     "CARD_SET_SCHEMA_VERSION",
@@ -52,6 +56,7 @@ __all__ = [
     "DECK_MANIFEST_SCHEMA_VERSION",
     "DeckCard",
     "DeckManifest",
+    "DokoNormalRuleset",
     "IdentityCandidate",
     "OBSERVATION_SCHEMA_VERSION",
     "ObservationSession",
@@ -60,16 +65,22 @@ __all__ = [
     "RECONSTRUCTION_INPUT_SCHEMA_VERSION",
     "ROUND_SCENARIO_SCHEMA_VERSION",
     "ReconstructionInput",
+    "ReplayError",
+    "RoundReplay",
     "RoundScenario",
     "RulesetReference",
     "ScenarioExpectation",
+    "RulesError",
+    "Ruleset",
     "TableObservation",
+    "TrickResult",
     "canonical_json_bytes",
     "load_card_set",
     "load_deck_manifest",
     "load_round_scenario",
     "parse_observation_bytes",
     "parse_reconstruction_input_bytes",
+    "replay_round",
     "validate_observation",
     "validate_reconstruction_input",
 ]

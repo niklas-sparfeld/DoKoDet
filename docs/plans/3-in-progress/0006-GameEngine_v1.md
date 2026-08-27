@@ -337,6 +337,11 @@ Acceptance:
 - deck-count and card-play-count violations fail clearly;
 - ordinary tests need no model, video, network, or GPU.
 
+Progress (2026-08-27): M1 is complete. Added the manifest-backed `Ruleset` interface and normal
+round rules for trump, plain-suit following, clockwise turns, and trick comparison. Added complete
+round replay with clear deck-count, card-play-count, hand, turn, and following-category failures.
+The exact scenario now contains a legal 40-play sequence and replay derives all 10 trick winners.
+
 ### M2 — Synthetic observation generator
 
 1. Generate legal rounds from a seed.

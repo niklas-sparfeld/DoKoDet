@@ -127,6 +127,28 @@ The M0 contract freezes only `doko-40-v1` and `doko-normal/v1`. Reconstruction d
 size, play count, and trick count from the deck manifest. It must not hard-code a 40-card count in
 place of the manifest.
 
+## `doko-normal/v1` ruleset
+
+The first ruleset implementation uses the selected deck manifest and keeps card-play rules outside
+the TableEvidenceAnalyzer.
+
+- The Heart Ten is the highest trump.
+- Queens are trump in suit order Clubs, Spades, Hearts, Diamonds.
+- Jacks are trump in the same suit order.
+- Diamond Ace, Ten, King, and Nine, when present in the manifest, follow the Jacks in that order.
+- Diamonds, the Heart Ten, Queens, and Jacks are trump. Other cards follow their plain suit.
+- Plain-suit order is Ace, Ten, King, Nine, from high to low. A rank is used only when the selected
+  manifest contains it.
+- A player must follow the led category when that category is in the player's hand. The led
+  category is trump for a trump lead and the plain suit for a plain-suit lead.
+- Active players are supplied in clockwise order. The trick winner leads the next trick.
+
+`game_engine/src/game_engine/rules.py` provides the `Ruleset` interface and the deterministic
+`DokoNormalRuleset` implementation. `game_engine/src/game_engine/replay.py` validates a complete
+resolved card-play sequence against initial visual-identity hands, deck multiplicity, following
+categories, clockwise turns, and derived trick winners. Physical-copy identifiers remain test-only
+data and are not required by the replay API.
+
 ## Scenario fixture
 
 [`fixtures/game-engine/v1/rounds/unambiguous.json`](fixtures/game-engine/v1/rounds/unambiguous.json)

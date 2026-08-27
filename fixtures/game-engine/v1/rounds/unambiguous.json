@@ -1,7 +1,7 @@
 {
   "schema_version": "round-scenario/v1",
   "scenario_id": "unambiguous-exact-observations-v1",
-  "description": "A complete 40-play round with one exact identity candidate per observation.",
+  "description": "A complete legal 40-play round with one exact identity candidate per observation.",
   "enabled_capabilities": [
     "identity_candidates"
   ],
@@ -112,7 +112,7 @@
             "observed_card_id": "observation-003-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_QUEEN",
+                "card": "HEARTS_JACK",
                 "probability": 1
               }
             ]
@@ -146,7 +146,7 @@
             "observed_card_id": "observation-004-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_QUEEN",
+                "card": "SPADES_JACK",
                 "probability": 1
               }
             ]
@@ -214,7 +214,7 @@
             "observed_card_id": "observation-006-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_TEN",
+                "card": "SPADES_QUEEN",
                 "probability": 1
               }
             ]
@@ -248,7 +248,7 @@
             "observed_card_id": "observation-007-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_ACE",
+                "card": "HEARTS_QUEEN",
                 "probability": 1
               }
             ]
@@ -282,7 +282,7 @@
             "observed_card_id": "observation-008-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_TEN",
+                "card": "DIAMONDS_QUEEN",
                 "probability": 1
               }
             ]
@@ -316,7 +316,7 @@
             "observed_card_id": "observation-009-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_JACK",
+                "card": "SPADES_TEN",
                 "probability": 1
               }
             ]
@@ -350,7 +350,7 @@
             "observed_card_id": "observation-010-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_ACE",
+                "card": "SPADES_TEN",
                 "probability": 1
               }
             ]
@@ -418,7 +418,7 @@
             "observed_card_id": "observation-012-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_TEN",
+                "card": "SPADES_ACE",
                 "probability": 1
               }
             ]
@@ -452,7 +452,7 @@
             "observed_card_id": "observation-013-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_QUEEN",
+                "card": "HEARTS_TEN",
                 "probability": 1
               }
             ]
@@ -588,7 +588,7 @@
             "observed_card_id": "observation-017-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_TEN",
+                "card": "SPADES_JACK",
                 "probability": 1
               }
             ]
@@ -656,7 +656,7 @@
             "observed_card_id": "observation-019-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_KING",
+                "card": "DIAMONDS_KING",
                 "probability": 1
               }
             ]
@@ -690,7 +690,7 @@
             "observed_card_id": "observation-020-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_QUEEN",
+                "card": "CLUBS_JACK",
                 "probability": 1
               }
             ]
@@ -724,7 +724,7 @@
             "observed_card_id": "observation-021-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_JACK",
+                "card": "DIAMONDS_KING",
                 "probability": 1
               }
             ]
@@ -758,7 +758,7 @@
             "observed_card_id": "observation-022-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_KING",
+                "card": "CLUBS_TEN",
                 "probability": 1
               }
             ]
@@ -792,7 +792,7 @@
             "observed_card_id": "observation-023-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_JACK",
+                "card": "CLUBS_QUEEN",
                 "probability": 1
               }
             ]
@@ -826,7 +826,7 @@
             "observed_card_id": "observation-024-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_TEN",
+                "card": "DIAMONDS_QUEEN",
                 "probability": 1
               }
             ]
@@ -860,7 +860,7 @@
             "observed_card_id": "observation-025-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_TEN",
+                "card": "CLUBS_ACE",
                 "probability": 1
               }
             ]
@@ -894,7 +894,7 @@
             "observed_card_id": "observation-026-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_KING",
+                "card": "CLUBS_TEN",
                 "probability": 1
               }
             ]
@@ -928,7 +928,7 @@
             "observed_card_id": "observation-027-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_JACK",
+                "card": "HEARTS_TEN",
                 "probability": 1
               }
             ]
@@ -962,7 +962,7 @@
             "observed_card_id": "observation-028-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_QUEEN",
+                "card": "CLUBS_ACE",
                 "probability": 1
               }
             ]
@@ -1030,7 +1030,7 @@
             "observed_card_id": "observation-030-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_ACE",
+                "card": "HEARTS_KING",
                 "probability": 1
               }
             ]
@@ -1064,7 +1064,7 @@
             "observed_card_id": "observation-031-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_JACK",
+                "card": "DIAMONDS_JACK",
                 "probability": 1
               }
             ]
@@ -1132,7 +1132,7 @@
             "observed_card_id": "observation-033-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_KING",
+                "card": "HEARTS_ACE",
                 "probability": 1
               }
             ]
@@ -1166,7 +1166,7 @@
             "observed_card_id": "observation-034-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_KING",
+                "card": "HEARTS_KING",
                 "probability": 1
               }
             ]
@@ -1234,7 +1234,7 @@
             "observed_card_id": "observation-036-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_QUEEN",
+                "card": "CLUBS_KING",
                 "probability": 1
               }
             ]
@@ -1268,7 +1268,7 @@
             "observed_card_id": "observation-037-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_ACE",
+                "card": "CLUBS_QUEEN",
                 "probability": 1
               }
             ]
@@ -1302,7 +1302,7 @@
             "observed_card_id": "observation-038-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_KING",
+                "card": "SPADES_KING",
                 "probability": 1
               }
             ]
@@ -1456,15 +1456,15 @@
         "play_index": 3,
         "trick": 1,
         "player": "player-03",
-        "card": "SPADES_QUEEN",
-        "physical_card": "SPADES_QUEEN-copy-2"
+        "card": "HEARTS_JACK",
+        "physical_card": "HEARTS_JACK-copy-2"
       },
       {
         "play_index": 4,
         "trick": 1,
         "player": "player-04",
-        "card": "HEARTS_QUEEN",
-        "physical_card": "HEARTS_QUEEN-copy-2"
+        "card": "SPADES_JACK",
+        "physical_card": "SPADES_JACK-copy-1"
       },
       {
         "play_index": 5,
@@ -1477,57 +1477,57 @@
         "play_index": 6,
         "trick": 2,
         "player": "player-03",
-        "card": "CLUBS_TEN",
-        "physical_card": "CLUBS_TEN-copy-1"
+        "card": "SPADES_QUEEN",
+        "physical_card": "SPADES_QUEEN-copy-2"
       },
       {
         "play_index": 7,
         "trick": 2,
         "player": "player-04",
-        "card": "CLUBS_ACE",
-        "physical_card": "CLUBS_ACE-copy-2"
+        "card": "HEARTS_QUEEN",
+        "physical_card": "HEARTS_QUEEN-copy-2"
       },
       {
         "play_index": 8,
         "trick": 2,
         "player": "player-01",
-        "card": "CLUBS_TEN",
-        "physical_card": "CLUBS_TEN-copy-2"
+        "card": "DIAMONDS_QUEEN",
+        "physical_card": "DIAMONDS_QUEEN-copy-2"
       },
       {
         "play_index": 9,
-        "trick": 3,
-        "player": "player-04",
-        "card": "SPADES_JACK",
-        "physical_card": "SPADES_JACK-copy-1"
-      },
-      {
-        "play_index": 10,
-        "trick": 3,
-        "player": "player-01",
-        "card": "SPADES_ACE",
-        "physical_card": "SPADES_ACE-copy-2"
-      },
-      {
-        "play_index": 11,
-        "trick": 3,
-        "player": "player-02",
-        "card": "SPADES_ACE",
-        "physical_card": "SPADES_ACE-copy-1"
-      },
-      {
-        "play_index": 12,
         "trick": 3,
         "player": "player-03",
         "card": "SPADES_TEN",
         "physical_card": "SPADES_TEN-copy-2"
       },
       {
+        "play_index": 10,
+        "trick": 3,
+        "player": "player-04",
+        "card": "SPADES_TEN",
+        "physical_card": "SPADES_TEN-copy-1"
+      },
+      {
+        "play_index": 11,
+        "trick": 3,
+        "player": "player-01",
+        "card": "SPADES_ACE",
+        "physical_card": "SPADES_ACE-copy-2"
+      },
+      {
+        "play_index": 12,
+        "trick": 3,
+        "player": "player-02",
+        "card": "SPADES_ACE",
+        "physical_card": "SPADES_ACE-copy-1"
+      },
+      {
         "play_index": 13,
         "trick": 4,
         "player": "player-01",
-        "card": "DIAMONDS_QUEEN",
-        "physical_card": "DIAMONDS_QUEEN-copy-2"
+        "card": "HEARTS_TEN",
+        "physical_card": "HEARTS_TEN-copy-1"
       },
       {
         "play_index": 14,
@@ -1554,8 +1554,8 @@
         "play_index": 17,
         "trick": 5,
         "player": "player-01",
-        "card": "HEARTS_TEN",
-        "physical_card": "HEARTS_TEN-copy-1"
+        "card": "SPADES_JACK",
+        "physical_card": "SPADES_JACK-copy-2"
       },
       {
         "play_index": 18,
@@ -1568,71 +1568,71 @@
         "play_index": 19,
         "trick": 5,
         "player": "player-03",
-        "card": "HEARTS_KING",
-        "physical_card": "HEARTS_KING-copy-2"
+        "card": "DIAMONDS_KING",
+        "physical_card": "DIAMONDS_KING-copy-1"
       },
       {
         "play_index": 20,
         "trick": 5,
         "player": "player-04",
-        "card": "CLUBS_QUEEN",
-        "physical_card": "CLUBS_QUEEN-copy-1"
+        "card": "CLUBS_JACK",
+        "physical_card": "CLUBS_JACK-copy-1"
       },
       {
         "play_index": 21,
-        "trick": 6,
-        "player": "player-01",
-        "card": "SPADES_JACK",
-        "physical_card": "SPADES_JACK-copy-2"
-      },
-      {
-        "play_index": 22,
         "trick": 6,
         "player": "player-02",
         "card": "DIAMONDS_KING",
         "physical_card": "DIAMONDS_KING-copy-2"
       },
       {
-        "play_index": 23,
+        "play_index": 22,
         "trick": 6,
         "player": "player-03",
-        "card": "HEARTS_JACK",
-        "physical_card": "HEARTS_JACK-copy-2"
+        "card": "CLUBS_TEN",
+        "physical_card": "CLUBS_TEN-copy-1"
+      },
+      {
+        "play_index": 23,
+        "trick": 6,
+        "player": "player-04",
+        "card": "CLUBS_QUEEN",
+        "physical_card": "CLUBS_QUEEN-copy-1"
       },
       {
         "play_index": 24,
         "trick": 6,
-        "player": "player-04",
-        "card": "SPADES_TEN",
-        "physical_card": "SPADES_TEN-copy-1"
+        "player": "player-01",
+        "card": "DIAMONDS_QUEEN",
+        "physical_card": "DIAMONDS_QUEEN-copy-1"
       },
       {
         "play_index": 25,
+        "trick": 7,
+        "player": "player-04",
+        "card": "CLUBS_ACE",
+        "physical_card": "CLUBS_ACE-copy-2"
+      },
+      {
+        "play_index": 26,
+        "trick": 7,
+        "player": "player-01",
+        "card": "CLUBS_TEN",
+        "physical_card": "CLUBS_TEN-copy-2"
+      },
+      {
+        "play_index": 27,
         "trick": 7,
         "player": "player-02",
         "card": "HEARTS_TEN",
         "physical_card": "HEARTS_TEN-copy-2"
       },
       {
-        "play_index": 26,
-        "trick": 7,
-        "player": "player-03",
-        "card": "SPADES_KING",
-        "physical_card": "SPADES_KING-copy-2"
-      },
-      {
-        "play_index": 27,
-        "trick": 7,
-        "player": "player-04",
-        "card": "DIAMONDS_JACK",
-        "physical_card": "DIAMONDS_JACK-copy-2"
-      },
-      {
         "play_index": 28,
         "trick": 7,
-        "player": "player-01",
-        "card": "DIAMONDS_QUEEN",
-        "physical_card": "DIAMONDS_QUEEN-copy-1"
+        "player": "player-03",
+        "card": "CLUBS_ACE",
+        "physical_card": "CLUBS_ACE-copy-1"
       },
       {
         "play_index": 29,
@@ -1645,15 +1645,15 @@
         "play_index": 30,
         "trick": 8,
         "player": "player-03",
-        "card": "CLUBS_ACE",
-        "physical_card": "CLUBS_ACE-copy-1"
+        "card": "HEARTS_KING",
+        "physical_card": "HEARTS_KING-copy-2"
       },
       {
         "play_index": 31,
         "trick": 8,
         "player": "player-04",
-        "card": "CLUBS_JACK",
-        "physical_card": "CLUBS_JACK-copy-1"
+        "card": "DIAMONDS_JACK",
+        "physical_card": "DIAMONDS_JACK-copy-2"
       },
       {
         "play_index": 32,
@@ -1665,44 +1665,44 @@
       {
         "play_index": 33,
         "trick": 9,
-        "player": "player-03",
-        "card": "DIAMONDS_KING",
-        "physical_card": "DIAMONDS_KING-copy-1"
+        "player": "player-02",
+        "card": "HEARTS_ACE",
+        "physical_card": "HEARTS_ACE-copy-2"
       },
       {
         "play_index": 34,
+        "trick": 9,
+        "player": "player-03",
+        "card": "HEARTS_KING",
+        "physical_card": "HEARTS_KING-copy-1"
+      },
+      {
+        "play_index": 35,
         "trick": 9,
         "player": "player-04",
         "card": "CLUBS_KING",
         "physical_card": "CLUBS_KING-copy-2"
       },
       {
-        "play_index": 35,
+        "play_index": 36,
         "trick": 9,
         "player": "player-01",
         "card": "CLUBS_KING",
         "physical_card": "CLUBS_KING-copy-1"
       },
       {
-        "play_index": 36,
-        "trick": 9,
+        "play_index": 37,
+        "trick": 10,
         "player": "player-02",
         "card": "CLUBS_QUEEN",
         "physical_card": "CLUBS_QUEEN-copy-2"
       },
       {
-        "play_index": 37,
-        "trick": 10,
-        "player": "player-02",
-        "card": "HEARTS_ACE",
-        "physical_card": "HEARTS_ACE-copy-2"
-      },
-      {
         "play_index": 38,
         "trick": 10,
         "player": "player-03",
-        "card": "HEARTS_KING",
-        "physical_card": "HEARTS_KING-copy-1"
+        "card": "SPADES_KING",
+        "physical_card": "SPADES_KING-copy-2"
       },
       {
         "play_index": 39,
@@ -1726,7 +1726,7 @@
       },
       {
         "trick": 2,
-        "player": "player-04"
+        "player": "player-03"
       },
       {
         "trick": 3,
@@ -1738,11 +1738,11 @@
       },
       {
         "trick": 5,
-        "player": "player-01"
+        "player": "player-02"
       },
       {
         "trick": 6,
-        "player": "player-02"
+        "player": "player-04"
       },
       {
         "trick": 7,
@@ -1750,7 +1750,7 @@
       },
       {
         "trick": 8,
-        "player": "player-03"
+        "player": "player-02"
       },
       {
         "trick": 9,
@@ -1758,7 +1758,7 @@
       },
       {
         "trick": 10,
-        "player": "player-01"
+        "player": "player-02"
       }
     ]
   },
