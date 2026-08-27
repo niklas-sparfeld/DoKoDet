@@ -12,6 +12,15 @@ Use a lightweight test-driven workflow when it makes sense:
 
 Prefer automated verification over repeated manual testing.
 
+## Backward compatibility
+
+Do not preserve backward compatibility unless the user explicitly requests it.
+
+Move fast and accept breaking changes to models, data contracts, APIs, file formats, and other
+revisions that are not deployed or in active use. Remove obsolete revisions instead of adding
+compatibility layers or migrations. The user will explicitly state when compatibility or
+preservation requirements begin.
+
 ## Git
 
 Use trunk-based development.
