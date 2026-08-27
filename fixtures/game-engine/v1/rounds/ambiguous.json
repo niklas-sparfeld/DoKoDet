@@ -1,7 +1,7 @@
 {
   "schema_version": "round-scenario/v1",
-  "scenario_id": "unambiguous-exact-observations-v1",
-  "description": "A complete legal 40-play round with one exact identity candidate per observation.",
+  "scenario_id": "ambiguous-v1",
+  "description": "Two identity candidates remain tied for one observed card.",
   "enabled_capabilities": [
     "identity_candidates"
   ],
@@ -45,7 +45,11 @@
             "identity_candidates": [
               {
                 "card": "DIAMONDS_JACK",
-                "probability": 1.0
+                "probability": 0.5
+              },
+              {
+                "card": "CLUBS_NINE",
+                "probability": 0.5
               }
             ]
           }
@@ -1382,6 +1386,40 @@
           "version": "synthetic-v1"
         },
         "diagnostics": {}
+      },
+      {
+        "schema_version": "table-observation/v1",
+        "observation_id": "observation-041",
+        "source": {
+          "package_id": "synthetic-package-0006",
+          "snippet_part_name": "event_snippet"
+        },
+        "session": {
+          "session_id": "synthetic-session-0006",
+          "event_sequence": 41
+        },
+        "observed_at_ms": 41000,
+        "status": "observed",
+        "capabilities": [
+          "identity_candidates"
+        ],
+        "cards": [
+          {
+            "observed_card_id": "observation-041-card-01",
+            "identity_candidates": [
+              {
+                "card": "DIAMONDS_QUEEN",
+                "probability": 1.0
+              }
+            ]
+          }
+        ],
+        "calibration": "fixture",
+        "analyzer": {
+          "name": "synthetic",
+          "version": "synthetic-v1"
+        },
+        "diagnostics": {}
       }
     ]
   },
@@ -1804,8 +1842,27 @@
         "analyzer_version": "synthetic-v1",
         "calibration": "fixture"
       },
-      "error_modules": [],
-      "error_configuration": []
+      "error_modules": [
+        "ambiguous_identity",
+        "old_trick_replay"
+      ],
+      "error_configuration": [
+        {
+          "observation_index": 0,
+          "candidates": [
+            "DIAMONDS_JACK",
+            "CLUBS_NINE"
+          ],
+          "probabilities": [
+            0.5,
+            0.5
+          ],
+          "card_index": 0
+        },
+        {
+          "observation_index": 3
+        }
+      ]
     },
     "observation_sources": [
       {
@@ -2047,12 +2104,18 @@
         "source_play_indices": [
           40
         ]
+      },
+      {
+        "observation_index": 41,
+        "source_play_indices": [
+          4
+        ]
       }
     ]
   },
   "expected": {
-    "status": "resolved",
+    "status": "ambiguous",
     "trick_count": 10,
-    "behavior": "Exact identity observations preserve one complete round and its two-copy deck multiplicity."
+    "behavior": "Two tied candidate identities remain visible to the later reconstruction oracle."
   }
 }

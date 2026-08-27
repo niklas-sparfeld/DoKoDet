@@ -356,6 +356,14 @@ Acceptance:
 - every clean scenario reconstructs to its source round;
 - each error scenario exercises its documented branch.
 
+Progress (2026-08-27): M2 is complete. Added a seeded legal-round generator with private physical
+copies and deterministic replay verification. Added composable observation-error modules for
+repetition, empty and insufficient evidence, missing observations, candidate confusion, false and
+duplicate proposals, retained side cards, old-trick replay, early appearance, trick clearing,
+occlusion reappearance, missing identities, and candidate multiplicity conflicts. Optional evidence
+capabilities are emitted only when enabled. Added property tests across 20 seeds and the eight
+canonical scenario fixtures from section 3.
+
 ### M3 — Identity-only exhaustive oracle
 
 1. Infer card plays from anonymous identity candidate lists.

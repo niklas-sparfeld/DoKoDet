@@ -52,29 +52,12 @@ def test_exact_fixture_replays_and_derives_each_trick_winner() -> None:
 
     assert len(replay.plays) == 40
     assert len(replay.tricks) == 10
+    expected_tricks = payload["ground_truth"]["trick_winners"]
     assert [trick.leader for trick in replay.tricks] == [
-        "player-01",
-        "player-02",
-        "player-03",
-        "player-01",
-        "player-01",
-        "player-02",
-        "player-04",
-        "player-02",
-        "player-02",
-        "player-02",
+        trick["leader"] for trick in expected_tricks
     ]
     assert [(trick.index, trick.winner) for trick in replay.tricks] == [
-        (1, "player-02"),
-        (2, "player-03"),
-        (3, "player-01"),
-        (4, "player-01"),
-        (5, "player-02"),
-        (6, "player-04"),
-        (7, "player-02"),
-        (8, "player-02"),
-        (9, "player-02"),
-        (10, "player-02"),
+        (trick["trick"], trick["winner"]) for trick in expected_tricks
     ]
 
 
@@ -107,7 +90,7 @@ def test_replay_rejects_a_deck_count_violation() -> None:
 def test_replay_rejects_a_card_that_breaks_the_following_category() -> None:
     plays, hands = fixture_round()
     invalid_plays = copy.deepcopy(plays)
-    invalid_plays[5] = CardPlay(player="player-03", card="HEARTS_KING")
+    invalid_plays[4] = CardPlay(player=invalid_plays[4].player, card="CLUBS_ACE")
 
     with pytest.raises(ReplayError, match="following category"):
         replay_round(

@@ -149,19 +149,45 @@ resolved card-play sequence against initial visual-identity hands, deck multipli
 categories, clockwise turns, and derived trick winners. Physical-copy identifiers remain test-only
 data and are not required by the replay API.
 
-## Scenario fixture
+## Scenario fixtures and synthetic generator
 
-[`fixtures/game-engine/v1/rounds/unambiguous.json`](fixtures/game-engine/v1/rounds/unambiguous.json)
-uses `round-scenario/v1`. It contains:
+The canonical `round-scenario/v1` fixtures are:
 
-- `input`: one reconstruction input with 40 exact identity-only observations;
+- [`unambiguous.json`](fixtures/game-engine/v1/rounds/unambiguous.json) — exact observations;
+- [`late-resolution.json`](fixtures/game-engine/v1/rounds/late-resolution.json) — an early
+  appearance and a lower-ranked candidate;
+- [`ambiguous.json`](fixtures/game-engine/v1/rounds/ambiguous.json) — tied candidates and an old
+  trick replay;
+- [`impossible.json`](fixtures/game-engine/v1/rounds/impossible.json) — a candidate multiplicity
+  conflict;
+- [`incomplete.json`](fixtures/game-engine/v1/rounds/incomplete.json) — missing observations;
+- [`occlusion.json`](fixtures/game-engine/v1/rounds/occlusion.json) — empty, reappearing, and
+  clearing observations;
+- [`side-card.json`](fixtures/game-engine/v1/rounds/side-card.json) — false and retained side-card
+  proposals;
+- [`human-corrected.json`](fixtures/game-engine/v1/rounds/human-corrected.json) — a focused
+  identity correction recorded as private test metadata.
+
+Each fixture contains:
+
+- `input`: one reconstruction input with generated observations; the clean scenario has 40 exact
+  identity-only observations;
 - `enabled_capabilities`: the capabilities used by the input;
 - `ground_truth`: private synthetic physical-copy assignments for tests only;
-- `expected`: the expected result status and manifest-derived trick count.
+- `expected`: the expected result status, behavior, and manifest-derived trick count.
+
+The seeded generator is in
+[`game_engine/src/game_engine/synthetic.py`](game_engine/src/game_engine/synthetic.py). It first
+deals every physical card, selects legal plays with a seeded random source, and verifies the result
+with deterministic replay. It then applies independent observation modules. Modules can repeat,
+drop, empty, or duplicate observations; add false or retained cards; change identity candidates;
+insert early or old observations; model occlusion and trick clearing; or create candidate
+multiplicity conflicts. Optional evidence fields are added only when their capability is enabled.
+The generator assigns fresh observation identifiers and times after all modules run, so the public
+input contains no private physical-card or source-play identifiers.
 
 Only `input` crosses the analyzer boundary. The private ground truth never appears in a table
-observation. Later milestones add the ambiguous, impossible, incomplete, occlusion, side-card, and
-human-corrected scenarios without changing these contracts.
+observation.
 
 ## Ownership
 

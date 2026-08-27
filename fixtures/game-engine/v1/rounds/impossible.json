@@ -1,7 +1,7 @@
 {
   "schema_version": "round-scenario/v1",
-  "scenario_id": "unambiguous-exact-observations-v1",
-  "description": "A complete legal 40-play round with one exact identity candidate per observation.",
+  "scenario_id": "impossible-v1",
+  "description": "A visual identity candidate exceeds the selected round deck.",
   "enabled_capabilities": [
     "identity_candidates"
   ],
@@ -44,7 +44,7 @@
             "observed_card_id": "observation-001-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_JACK",
+                "card": "HEARTS_NINE",
                 "probability": 1.0
               }
             ]
@@ -78,7 +78,7 @@
             "observed_card_id": "observation-002-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_TEN",
+                "card": "HEARTS_NINE",
                 "probability": 1.0
               }
             ]
@@ -112,7 +112,7 @@
             "observed_card_id": "observation-003-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_JACK",
+                "card": "HEARTS_NINE",
                 "probability": 1.0
               }
             ]
@@ -1804,8 +1804,15 @@
         "analyzer_version": "synthetic-v1",
         "calibration": "fixture"
       },
-      "error_modules": [],
-      "error_configuration": []
+      "error_modules": [
+        "candidate_multiplicity_violation"
+      ],
+      "error_configuration": [
+        {
+          "card": "HEARTS_NINE",
+          "count": 3
+        }
+      ]
     },
     "observation_sources": [
       {
@@ -2051,8 +2058,8 @@
     ]
   },
   "expected": {
-    "status": "resolved",
+    "status": "impossible",
     "trick_count": 10,
-    "behavior": "Exact identity observations preserve one complete round and its two-copy deck multiplicity."
+    "behavior": "Three candidate observations for a card outside doko-40-v1 expose a deck conflict."
   }
 }

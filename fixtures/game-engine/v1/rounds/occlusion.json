@@ -1,9 +1,14 @@
 {
   "schema_version": "round-scenario/v1",
-  "scenario_id": "unambiguous-exact-observations-v1",
-  "description": "A complete legal 40-play round with one exact identity candidate per observation.",
+  "scenario_id": "occlusion-v1",
+  "description": "A card disappears during an empty observation and then reappears.",
   "enabled_capabilities": [
-    "identity_candidates"
+    "identity_candidates",
+    "presence_score",
+    "newly_visible_score",
+    "active_area_score",
+    "association_candidates",
+    "card_tracklets"
   ],
   "input": {
     "schema_version": "round-reconstruction-input/v1",
@@ -37,7 +42,12 @@
         "observed_at_ms": 1000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
@@ -47,7 +57,12 @@
                 "card": "DIAMONDS_JACK",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-1"
           }
         ],
         "calibration": "fixture",
@@ -71,7 +86,12 @@
         "observed_at_ms": 2000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
@@ -81,7 +101,12 @@
                 "card": "DIAMONDS_TEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-2"
           }
         ],
         "calibration": "fixture",
@@ -105,7 +130,12 @@
         "observed_at_ms": 3000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
@@ -115,7 +145,12 @@
                 "card": "CLUBS_JACK",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-3"
           }
         ],
         "calibration": "fixture",
@@ -139,7 +174,12 @@
         "observed_at_ms": 4000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
@@ -149,7 +189,12 @@
                 "card": "DIAMONDS_QUEEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-4"
           }
         ],
         "calibration": "fixture",
@@ -173,19 +218,14 @@
         "observed_at_ms": 5000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
-        "cards": [
-          {
-            "observed_card_id": "observation-005-card-01",
-            "identity_candidates": [
-              {
-                "card": "SPADES_KING",
-                "probability": 1.0
-              }
-            ]
-          }
-        ],
+        "cards": [],
         "calibration": "fixture",
         "analyzer": {
           "name": "synthetic",
@@ -207,17 +247,27 @@
         "observed_at_ms": 6000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-006-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_ACE",
+                "card": "SPADES_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-5"
           }
         ],
         "calibration": "fixture",
@@ -241,17 +291,27 @@
         "observed_at_ms": 7000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-007-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_TEN",
+                "card": "SPADES_ACE",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-6"
           }
         ],
         "calibration": "fixture",
@@ -275,7 +335,12 @@
         "observed_at_ms": 8000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
@@ -285,7 +350,12 @@
                 "card": "SPADES_TEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-7"
           }
         ],
         "calibration": "fixture",
@@ -309,17 +379,27 @@
         "observed_at_ms": 9000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-009-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_KING",
+                "card": "SPADES_TEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-8"
           }
         ],
         "calibration": "fixture",
@@ -343,19 +423,14 @@
         "observed_at_ms": 10000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
-        "cards": [
-          {
-            "observed_card_id": "observation-010-card-01",
-            "identity_candidates": [
-              {
-                "card": "CLUBS_TEN",
-                "probability": 1.0
-              }
-            ]
-          }
-        ],
+        "cards": [],
         "calibration": "fixture",
         "analyzer": {
           "name": "synthetic",
@@ -377,7 +452,12 @@
         "observed_at_ms": 11000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
@@ -387,7 +467,12 @@
                 "card": "CLUBS_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-9"
           }
         ],
         "calibration": "fixture",
@@ -411,17 +496,27 @@
         "observed_at_ms": 12000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-012-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_ACE",
+                "card": "CLUBS_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-9"
           }
         ],
         "calibration": "fixture",
@@ -445,17 +540,27 @@
         "observed_at_ms": 13000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-013-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_TEN",
+                "card": "CLUBS_TEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-10"
           }
         ],
         "calibration": "fixture",
@@ -479,17 +584,27 @@
         "observed_at_ms": 14000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-014-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_ACE",
+                "card": "CLUBS_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-11"
           }
         ],
         "calibration": "fixture",
@@ -513,17 +628,27 @@
         "observed_at_ms": 15000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-015-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_JACK",
+                "card": "CLUBS_ACE",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-12"
           }
         ],
         "calibration": "fixture",
@@ -547,17 +672,27 @@
         "observed_at_ms": 16000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-016-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_JACK",
+                "card": "HEARTS_TEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-13"
           }
         ],
         "calibration": "fixture",
@@ -581,17 +716,27 @@
         "observed_at_ms": 17000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-017-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_TEN",
+                "card": "DIAMONDS_ACE",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-14"
           }
         ],
         "calibration": "fixture",
@@ -615,17 +760,27 @@
         "observed_at_ms": 18000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-018-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_QUEEN",
+                "card": "SPADES_JACK",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-15"
           }
         ],
         "calibration": "fixture",
@@ -649,17 +804,27 @@
         "observed_at_ms": 19000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-019-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_QUEEN",
+                "card": "HEARTS_JACK",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-16"
           }
         ],
         "calibration": "fixture",
@@ -683,17 +848,27 @@
         "observed_at_ms": 20000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-020-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_QUEEN",
+                "card": "DIAMONDS_TEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-17"
           }
         ],
         "calibration": "fixture",
@@ -717,17 +892,27 @@
         "observed_at_ms": 21000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-021-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_ACE",
+                "card": "HEARTS_QUEEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-18"
           }
         ],
         "calibration": "fixture",
@@ -751,17 +936,27 @@
         "observed_at_ms": 22000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-022-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_KING",
+                "card": "SPADES_QUEEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-19"
           }
         ],
         "calibration": "fixture",
@@ -785,17 +980,27 @@
         "observed_at_ms": 23000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-023-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_KING",
+                "card": "HEARTS_QUEEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-20"
           }
         ],
         "calibration": "fixture",
@@ -819,17 +1024,27 @@
         "observed_at_ms": 24000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-024-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_JACK",
+                "card": "HEARTS_ACE",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-21"
           }
         ],
         "calibration": "fixture",
@@ -853,17 +1068,27 @@
         "observed_at_ms": 25000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-025-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_QUEEN",
+                "card": "HEARTS_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-22"
           }
         ],
         "calibration": "fixture",
@@ -887,17 +1112,27 @@
         "observed_at_ms": 26000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-026-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_TEN",
+                "card": "HEARTS_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-23"
           }
         ],
         "calibration": "fixture",
@@ -921,17 +1156,27 @@
         "observed_at_ms": 27000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-027-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_KING",
+                "card": "SPADES_JACK",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-24"
           }
         ],
         "calibration": "fixture",
@@ -955,17 +1200,27 @@
         "observed_at_ms": 28000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-028-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_QUEEN",
+                "card": "CLUBS_QUEEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-25"
           }
         ],
         "calibration": "fixture",
@@ -989,17 +1244,27 @@
         "observed_at_ms": 29000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-029-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_ACE",
+                "card": "HEARTS_TEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-26"
           }
         ],
         "calibration": "fixture",
@@ -1023,17 +1288,27 @@
         "observed_at_ms": 30000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-030-card-01",
             "identity_candidates": [
               {
-                "card": "HEARTS_JACK",
+                "card": "DIAMONDS_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-27"
           }
         ],
         "calibration": "fixture",
@@ -1057,17 +1332,27 @@
         "observed_at_ms": 31000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-031-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_QUEEN",
+                "card": "SPADES_QUEEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-28"
           }
         ],
         "calibration": "fixture",
@@ -1091,17 +1376,27 @@
         "observed_at_ms": 32000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-032-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_KING",
+                "card": "HEARTS_ACE",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-29"
           }
         ],
         "calibration": "fixture",
@@ -1125,17 +1420,27 @@
         "observed_at_ms": 33000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-033-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_JACK",
+                "card": "HEARTS_JACK",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-30"
           }
         ],
         "calibration": "fixture",
@@ -1159,17 +1464,27 @@
         "observed_at_ms": 34000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-034-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_ACE",
+                "card": "DIAMONDS_QUEEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-31"
           }
         ],
         "calibration": "fixture",
@@ -1193,17 +1508,27 @@
         "observed_at_ms": 35000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-035-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_KING",
+                "card": "DIAMONDS_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-32"
           }
         ],
         "calibration": "fixture",
@@ -1227,17 +1552,27 @@
         "observed_at_ms": 36000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-036-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_TEN",
+                "card": "CLUBS_JACK",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-33"
           }
         ],
         "calibration": "fixture",
@@ -1261,17 +1596,27 @@
         "observed_at_ms": 37000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-037-card-01",
             "identity_candidates": [
               {
-                "card": "CLUBS_QUEEN",
+                "card": "DIAMONDS_ACE",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-34"
           }
         ],
         "calibration": "fixture",
@@ -1295,17 +1640,27 @@
         "observed_at_ms": 38000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-038-card-01",
             "identity_candidates": [
               {
-                "card": "DIAMONDS_JACK",
+                "card": "SPADES_KING",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-35"
           }
         ],
         "calibration": "fixture",
@@ -1329,17 +1684,27 @@
         "observed_at_ms": 39000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-039-card-01",
             "identity_candidates": [
               {
-                "card": "SPADES_ACE",
+                "card": "CLUBS_TEN",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-36"
           }
         ],
         "calibration": "fixture",
@@ -1363,17 +1728,159 @@
         "observed_at_ms": 40000,
         "status": "observed",
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "cards": [
           {
             "observed_card_id": "observation-040-card-01",
             "identity_candidates": [
               {
+                "card": "CLUBS_QUEEN",
+                "probability": 1.0
+              }
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-37"
+          }
+        ],
+        "calibration": "fixture",
+        "analyzer": {
+          "name": "synthetic",
+          "version": "synthetic-v1"
+        },
+        "diagnostics": {}
+      },
+      {
+        "schema_version": "table-observation/v1",
+        "observation_id": "observation-041",
+        "source": {
+          "package_id": "synthetic-package-0006",
+          "snippet_part_name": "event_snippet"
+        },
+        "session": {
+          "session_id": "synthetic-session-0006",
+          "event_sequence": 41
+        },
+        "observed_at_ms": 41000,
+        "status": "observed",
+        "capabilities": [
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
+        ],
+        "cards": [
+          {
+            "observed_card_id": "observation-041-card-01",
+            "identity_candidates": [
+              {
+                "card": "DIAMONDS_JACK",
+                "probability": 1.0
+              }
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-38"
+          }
+        ],
+        "calibration": "fixture",
+        "analyzer": {
+          "name": "synthetic",
+          "version": "synthetic-v1"
+        },
+        "diagnostics": {}
+      },
+      {
+        "schema_version": "table-observation/v1",
+        "observation_id": "observation-042",
+        "source": {
+          "package_id": "synthetic-package-0006",
+          "snippet_part_name": "event_snippet"
+        },
+        "session": {
+          "session_id": "synthetic-session-0006",
+          "event_sequence": 42
+        },
+        "observed_at_ms": 42000,
+        "status": "observed",
+        "capabilities": [
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
+        ],
+        "cards": [
+          {
+            "observed_card_id": "observation-042-card-01",
+            "identity_candidates": [
+              {
+                "card": "SPADES_ACE",
+                "probability": 1.0
+              }
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-39"
+          }
+        ],
+        "calibration": "fixture",
+        "analyzer": {
+          "name": "synthetic",
+          "version": "synthetic-v1"
+        },
+        "diagnostics": {}
+      },
+      {
+        "schema_version": "table-observation/v1",
+        "observation_id": "observation-043",
+        "source": {
+          "package_id": "synthetic-package-0006",
+          "snippet_part_name": "event_snippet"
+        },
+        "session": {
+          "session_id": "synthetic-session-0006",
+          "event_sequence": 43
+        },
+        "observed_at_ms": 43000,
+        "status": "observed",
+        "capabilities": [
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
+        ],
+        "cards": [
+          {
+            "observed_card_id": "observation-043-card-01",
+            "identity_candidates": [
+              {
                 "card": "CLUBS_ACE",
                 "probability": 1.0
               }
-            ]
+            ],
+            "presence_score": 1.0,
+            "newly_visible_score": 1.0,
+            "active_area_score": 1.0,
+            "association_candidates": [],
+            "card_tracklet_id": "play-40"
           }
         ],
         "calibration": "fixture",
@@ -1794,7 +2301,12 @@
       "version": "synthetic-v1",
       "configuration": {
         "capabilities": [
-          "identity_candidates"
+          "identity_candidates",
+          "presence_score",
+          "newly_visible_score",
+          "active_area_score",
+          "association_candidates",
+          "card_tracklets"
         ],
         "package_id": "synthetic-package-0006",
         "session_id": "synthetic-session-0006",
@@ -1804,8 +2316,18 @@
         "analyzer_version": "synthetic-v1",
         "calibration": "fixture"
       },
-      "error_modules": [],
-      "error_configuration": []
+      "error_modules": [
+        "occlusion_reappearance",
+        "trick_clearing"
+      ],
+      "error_configuration": [
+        {
+          "observation_index": 8
+        },
+        {
+          "trick_index": 1
+        }
+      ]
     },
     "observation_sources": [
       {
@@ -1834,216 +2356,230 @@
       },
       {
         "observation_index": 5,
+        "source_play_indices": []
+      },
+      {
+        "observation_index": 6,
         "source_play_indices": [
           5
         ]
       },
       {
-        "observation_index": 6,
+        "observation_index": 7,
         "source_play_indices": [
           6
         ]
       },
       {
-        "observation_index": 7,
+        "observation_index": 8,
         "source_play_indices": [
           7
         ]
       },
       {
-        "observation_index": 8,
+        "observation_index": 9,
         "source_play_indices": [
           8
         ]
       },
       {
-        "observation_index": 9,
+        "observation_index": 10,
+        "source_play_indices": []
+      },
+      {
+        "observation_index": 11,
         "source_play_indices": [
           9
         ]
       },
       {
-        "observation_index": 10,
-        "source_play_indices": [
-          10
-        ]
-      },
-      {
-        "observation_index": 11,
-        "source_play_indices": [
-          11
-        ]
-      },
-      {
         "observation_index": 12,
         "source_play_indices": [
-          12
+          9
         ]
       },
       {
         "observation_index": 13,
         "source_play_indices": [
-          13
+          10
         ]
       },
       {
         "observation_index": 14,
         "source_play_indices": [
-          14
+          11
         ]
       },
       {
         "observation_index": 15,
         "source_play_indices": [
-          15
+          12
         ]
       },
       {
         "observation_index": 16,
         "source_play_indices": [
-          16
+          13
         ]
       },
       {
         "observation_index": 17,
         "source_play_indices": [
-          17
+          14
         ]
       },
       {
         "observation_index": 18,
         "source_play_indices": [
-          18
+          15
         ]
       },
       {
         "observation_index": 19,
         "source_play_indices": [
-          19
+          16
         ]
       },
       {
         "observation_index": 20,
         "source_play_indices": [
-          20
+          17
         ]
       },
       {
         "observation_index": 21,
         "source_play_indices": [
-          21
+          18
         ]
       },
       {
         "observation_index": 22,
         "source_play_indices": [
-          22
+          19
         ]
       },
       {
         "observation_index": 23,
         "source_play_indices": [
-          23
+          20
         ]
       },
       {
         "observation_index": 24,
         "source_play_indices": [
-          24
+          21
         ]
       },
       {
         "observation_index": 25,
         "source_play_indices": [
-          25
+          22
         ]
       },
       {
         "observation_index": 26,
         "source_play_indices": [
-          26
+          23
         ]
       },
       {
         "observation_index": 27,
         "source_play_indices": [
-          27
+          24
         ]
       },
       {
         "observation_index": 28,
         "source_play_indices": [
-          28
+          25
         ]
       },
       {
         "observation_index": 29,
         "source_play_indices": [
-          29
+          26
         ]
       },
       {
         "observation_index": 30,
         "source_play_indices": [
-          30
+          27
         ]
       },
       {
         "observation_index": 31,
         "source_play_indices": [
-          31
+          28
         ]
       },
       {
         "observation_index": 32,
         "source_play_indices": [
-          32
+          29
         ]
       },
       {
         "observation_index": 33,
         "source_play_indices": [
-          33
+          30
         ]
       },
       {
         "observation_index": 34,
         "source_play_indices": [
-          34
+          31
         ]
       },
       {
         "observation_index": 35,
         "source_play_indices": [
-          35
+          32
         ]
       },
       {
         "observation_index": 36,
         "source_play_indices": [
-          36
+          33
         ]
       },
       {
         "observation_index": 37,
         "source_play_indices": [
-          37
+          34
         ]
       },
       {
         "observation_index": 38,
         "source_play_indices": [
-          38
+          35
         ]
       },
       {
         "observation_index": 39,
         "source_play_indices": [
-          39
+          36
         ]
       },
       {
         "observation_index": 40,
+        "source_play_indices": [
+          37
+        ]
+      },
+      {
+        "observation_index": 41,
+        "source_play_indices": [
+          38
+        ]
+      },
+      {
+        "observation_index": 42,
+        "source_play_indices": [
+          39
+        ]
+      },
+      {
+        "observation_index": 43,
         "source_play_indices": [
           40
         ]
@@ -2053,6 +2589,6 @@
   "expected": {
     "status": "resolved",
     "trick_count": 10,
-    "behavior": "Exact identity observations preserve one complete round and its two-copy deck multiplicity."
+    "behavior": "Empty observations, reappearance, and trick clearing remain separate visual evidence events."
   }
 }
