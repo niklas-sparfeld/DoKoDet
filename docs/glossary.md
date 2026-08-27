@@ -197,6 +197,40 @@ result and all applied correction constraints.
 An immutable record of one data operation and the source and versioned artifacts that it used or
 created. A lifecycle receipt does not change source bytes or make an annotation ground truth.
 
+### Data task
+
+One declared purpose for annotation, dataset assembly, training, or evaluation. CardEventNet event
+detection and TableEvidenceAnalyzer table-observation analysis are different data tasks even when
+they use the same source asset.
+
+### Task enrollment
+
+A versioned operator decision that selects, defers, or excludes a source asset for one data task.
+Task enrollment does not change the source asset, grant usage permission, complete review, or make
+the source eligible for a dataset.
+
+### Proposal generator
+
+A versioned model and configuration that produces event proposals or other candidates used to
+select source evidence for review. A proposal generator does not produce ground truth. Its output
+records full lineage to the source asset and generator version.
+
+### System holdout
+
+A sealed set of source-lineage groups that no component can use for training or model selection.
+Use the system holdout only for locked end-to-end evaluation.
+
+### Champion model bundle
+
+The versioned model bundle currently selected as the comparison and deployment candidate for one
+component. Each component has its own champion model bundle.
+
+### Model promotion
+
+The explicit operation that replaces one component's champion model bundle after a locked candidate
+passes its declared gates. Model promotion records the decision and artifacts in a lifecycle
+receipt. It does not deploy the bundle to a production environment by itself.
+
 ## Relationships
 
 - A game contains rounds. A round belongs to one game.
@@ -205,6 +239,10 @@ created. A lifecycle receipt does not change source bytes or make an annotation 
 - One recording can contain parts of multiple games or staged activity.
 - Staged activity belongs to a session but not to a game or round.
 - A source asset can contain data from a recording. It is not interchangeable with that recording.
+- One source asset can have separate task enrollments, annotations, review states, eligibility, and
+  dataset membership for several data tasks.
+- A proposal generator can select evidence for a data task without enrolling the source asset in
+  the proposal generator's own training dataset.
 
 ## Terminology rules
 

@@ -47,6 +47,8 @@ No epics.
 | Epic | Outcome |
 | --- | --- |
 | [0021 — TableEvidenceAnalyzer model training](2-ready/0021-Table_Evidence_Analyzer_Training_Pipeline.md) | Build the train, evaluate, checkpoint, and export loop for analyzer model components. |
+| [0027 — Shared training data operations](2-ready/0027-Shared_Training_Data_Operations.md) | Capture source material once and process it independently for CardEventNet and the TableEvidenceAnalyzer. |
+| [0028 — Model improvement and promotion](2-ready/0028-Model_Improvement_and_Promotion.md) | Run bounded component experiments and explicitly promote a new champion model bundle. |
 
 ### In Progress
 
@@ -85,17 +87,22 @@ No epics.
 
 ## Near-term delivery sequence
 
-1. Use the completed 0020 data foundation. It establishes source, annotation, review, and lineage
-   invariants for the new observation data.
-2. Use the completed 0006 contract, rules, reconstruction oracle, and correction handoff as the
-   baseline for later reconstruction work.
-3. Start 0025 in parallel. It adds bounded video snippets without waiting for tracking research.
-4. Continue 0021 after the 0020 dataset contract is usable. Export identity candidates as the first
-   declared TableEvidenceAnalyzer capability.
-5. Specify 0022 after reviewed frames and snippets provide its entry measurements.
-6. Specify 0023 after 0006 records search, ambiguity, and feature-ablation measurements.
-7. Specify 0026 after focused review cases and correction behavior are measured.
-8. Specify 0024 only after end-to-end product and operational measurements exist.
+1. Finish 0025 milestones M4 through M6. Close it only after corrected real packages confirm the
+   media contract and exploratory capture bounds.
+2. Start 0021 as the next full implementation epic. Use the completed 0020 data contracts and the
+   completed 0006 observation boundary. Do not wait for more snippets or recognition data.
+3. In 0021, first remove the active `vision-detection/v1` path. Then prove deterministic sample-byte
+   resolution before adding the train, evaluate, checkpoint, and export loop.
+4. Put corrected 0025 packages through the 0020 annotation, review, dataset, and split path. Use the
+   resulting coverage and failure measurements to specify 0022. Do not treat the three 0025 M6
+   packages as a sufficient recognition dataset by themselves.
+5. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+   to specify 0023. This measurement pass can proceed without blocking 0021.
+6. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+7. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+   without replacing the identity-only oracle baseline.
+8. Specify 0026 after focused review cases and correction behavior are measured.
+9. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 
