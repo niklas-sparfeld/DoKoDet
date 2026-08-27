@@ -310,7 +310,7 @@ and tracking improve independently.
   contract, rules core, synthetic generator, and exhaustive oracle.
 - [Plan 0020](plans/5-closed/0020-Data_Foundation.md) owns source lineage and reviewed annotation
   data for observed cards, snippets, and tracklets.
-- [Plan 0021](plans/2-ready/0021-Table_Evidence_Analyzer_Training_Pipeline.md) owns reusable model
+- [Plan 0021](plans/3-in-progress/0021-Table_Evidence_Analyzer_Training_Pipeline.md) owns reusable model
   training, evaluation, export, and capability metadata.
 - [Plan 0025](plans/3-in-progress/0025-Video_Snippet_Evidence.md) owns iOS and backend video-snippet
   evidence transport.

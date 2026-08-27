@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Build reproducible train, evaluate, and export mechanics for analyzer model components
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Plan 0020, which is complete
 - **Builds on:** Plan 0006 provides the table-observation contract and canonical fixtures
 - **Reviewed:** 2026-08-28 against repository baseline `e771072f9`, completed plans 0006, 0020,

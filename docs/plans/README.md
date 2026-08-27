@@ -46,13 +46,14 @@ No epics.
 
 | Epic | Outcome |
 | --- | --- |
-| [0021 — TableEvidenceAnalyzer model training](2-ready/0021-Table_Evidence_Analyzer_Training_Pipeline.md) | Build the train, evaluate, checkpoint, and export loop for analyzer model components. |
 | [0027 — Shared training data operations](2-ready/0027-Shared_Training_Data_Operations.md) | Capture source material once and process it independently for CardEventNet and the TableEvidenceAnalyzer. |
 | [0028 — Model improvement and promotion](2-ready/0028-Model_Improvement_and_Promotion.md) | Run bounded component experiments and explicitly promote a new champion model bundle. |
 
 ### In Progress
 
-No epics.
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| [0021 — TableEvidenceAnalyzer model training](3-in-progress/0021-Table_Evidence_Analyzer_Training_Pipeline.md) | 0020 | Build the train, evaluate, checkpoint, and export loop for analyzer model components. |
 
 ### Blocked
 
