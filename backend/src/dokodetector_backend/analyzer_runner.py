@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import ValidationError
-from vision_detector import (
+from table_evidence_analyzer import (
     TableEvidenceAnalyzer,
     TableObservation,
     canonical_json_bytes,

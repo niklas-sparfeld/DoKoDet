@@ -1,7 +1,7 @@
 """Shared domain types for the DokoDetector table-evidence boundary."""
 
-from vision_detector.analyzer import AnalyzerEvidence, AnalyzerFrame, TableEvidenceAnalyzer
-from vision_detector.cards import (
+from table_evidence_analyzer.analyzer import AnalyzerEvidence, AnalyzerFrame, TableEvidenceAnalyzer
+from table_evidence_analyzer.cards import (
     CARD_IDENTITIES,
     CARD_SET_ID,
     CardIdentity,
@@ -11,7 +11,7 @@ from vision_detector.cards import (
     load_card_set,
     load_deck_manifest,
 )
-from vision_detector.table_observation import (
+from table_evidence_analyzer.table_observation import (
     ANALYZER_CAPABILITIES,
     CALIBRATION_STATES,
     OBSERVATION_SCHEMA_VERSION,

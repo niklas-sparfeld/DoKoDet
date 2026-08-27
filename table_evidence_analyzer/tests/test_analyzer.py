@@ -3,7 +3,12 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from vision_detector import AnalyzerEvidence, AnalyzerFrame, TableEvidenceAnalyzer, TableObservation
+from table_evidence_analyzer import (
+    AnalyzerEvidence,
+    AnalyzerFrame,
+    TableEvidenceAnalyzer,
+    TableObservation,
+)
 
 
 def test_analyzer_input_is_visual_only_and_has_one_read_only_frame_source() -> None:

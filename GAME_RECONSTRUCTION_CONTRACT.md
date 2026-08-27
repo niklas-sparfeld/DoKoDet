@@ -258,7 +258,7 @@ same input from a checked-in `round-scenario/v1` fixture. No HTTP orchestration 
 ## Ownership
 
 The analyzer-side model is in
-[`vision_detector/src/vision_detector/table_observation.py`](vision_detector/src/vision_detector/table_observation.py).
+[`table_evidence_analyzer/src/table_evidence_analyzer/table_observation.py`](table_evidence_analyzer/src/table_evidence_analyzer/table_observation.py).
 The reconstruction-side model is in
 [`game_engine/src/game_engine/contract.py`](game_engine/src/game_engine/contract.py).
 Both sides parse the exact shared fixture and compare canonical semantic JSON. Neither side imports

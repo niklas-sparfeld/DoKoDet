@@ -6,7 +6,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from vision_detector import (
+from table_evidence_analyzer import (
     AnalyzerEvidence,
     TableObservation,
     canonical_json_bytes,

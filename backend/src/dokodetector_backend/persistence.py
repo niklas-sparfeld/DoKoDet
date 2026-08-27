@@ -14,7 +14,7 @@ from dokodetector_backend.repository import (
 from dokodetector_backend.storage import EvidenceStorage
 
 if TYPE_CHECKING:
-    from vision_detector import TableObservation
+    from table_evidence_analyzer import TableObservation
 
 
 class EvidencePackagePersister:

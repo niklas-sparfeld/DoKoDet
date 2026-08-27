@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 from uuid import UUID
 
-from vision_detector import AnalyzerEvidence, AnalyzerFrame
+from table_evidence_analyzer import AnalyzerEvidence, AnalyzerFrame
 
 from dokodetector_backend.contract import (
     EvidenceManifest,

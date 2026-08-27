@@ -70,9 +70,9 @@ The repository now contains more foundation than this plan originally assumed:
 
 - `card_event_net` implements table-observation annotation, review, dataset assembly, group-safe
   split, validation, coverage, and lifecycle-receipt commands;
-- `vision_detector` contains the canonical `table-observation/v1` result models and contract tests;
+- `table_evidence_analyzer` contains the canonical `table-observation/v1` models and contract tests;
 - `game_engine` consumes the same canonical observation fixtures;
-- the backend still runs the obsolete scripted result path;
+- the backend stores canonical observations through the stable analyzer boundary;
 - the current dataset entry identifies a source frame, observed card, box, target, source asset, and
   transform, but a training loader still needs a deterministic way to resolve and verify the frame
   bytes that it crops.
@@ -84,7 +84,7 @@ resolution contract before training code depends on local directory conventions.
 
 ## 4. Initial project shape
 
-Replace the lightweight `vision_detector/` package from plan 0005 with:
+The lightweight analyzer package now has this shape:
 
 ```text
 table_evidence_analyzer/
@@ -311,7 +311,7 @@ storage, routes, and orchestration with table-observation records. Removed the o
 contract, scripted adapter, fixtures, configuration, migration, and active documentation. Updated
 the iOS read client to the canonical observation shape. The shared plan 0006 fixture is parsed by
 the analyzer-side models, persisted by the backend, and parsed by the reconstruction-side models
-with identical canonical bytes. Verification: analyzer 11 tests, backend 89 tests, game-engine 69
+with identical canonical bytes. Verification: analyzer 11 tests, backend 94 tests, game-engine 69
 tests, and backend/analyzer Ruff checks pass. The Swift package check reached compilation but
 remains red on pre-existing concurrency-safety errors in
 `ios/CardEventProbeTests/TrainingRecordingUploadQueueTests.swift`; the updated observation client
@@ -319,8 +319,8 @@ test has no compile errors.
 
 ### M1 — Package rename and CLI skeleton
 
-1. Rename the current `vision_detector/` project and Python package to
-   `table_evidence_analyzer/`. Update its project metadata and dependency names in the same change.
+1. Use `table_evidence_analyzer/` as the project and Python package name. Update its project metadata
+   and dependency names in the same change.
 2. Update active imports, commands, dataset task identifiers, fixtures, lock files, and
    documentation. Do not retain the old package as an alias.
 3. Keep the canonical `table-observation/v1` models and plan 0006 fixture tests in the renamed
@@ -335,6 +335,17 @@ Acceptance:
 - no active module, command, fixture, dependency, or data-task identifier uses the obsolete
   component name;
 - tests do not download weights or data.
+
+Progress (2026-08-28): M1 is complete. Renamed the project and import package to
+`table_evidence_analyzer`, updated backend dependencies and active contract imports, and changed
+the table-evidence data-task fixture to `table_evidence_analyzer_identity_crop` with its refreshed
+dataset digest. Added the offline `table-analyzer` parser with `data validate`, `train`, `evaluate`,
+`export`, and `classify-crop` command skeletons; no `analyze` command or training behavior is
+implemented. Verification: `mise install`; package `uv sync`; backend `uv sync`; analyzer tests
+(13 passed), backend tests (94 passed, 1 existing warning), CardEventNet data-contract tests (6
+passed), Ruff checks and format checks, and `table-analyzer --help` pass. The backend full suite
+required loopback socket access for its two local-pipeline tests; no weights or data were
+downloaded.
 
 ### M2 — Materialized smoke dataset
 

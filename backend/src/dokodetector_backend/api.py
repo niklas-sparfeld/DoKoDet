@@ -12,8 +12,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException
-from vision_detector import ContractError as TableObservationContractError
-from vision_detector import TableObservation, parse_observation_bytes
+from table_evidence_analyzer import ContractError as TableObservationContractError
+from table_evidence_analyzer import TableObservation, parse_observation_bytes
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.contract import (

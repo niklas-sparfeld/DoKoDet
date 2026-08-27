@@ -87,8 +87,8 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-multipart" },
     { name = "sqlalchemy" },
+    { name = "table-evidence-analyzer" },
     { name = "uvicorn", extra = ["standard"] },
-    { name = "vision-detector" },
     { name = "zeroconf" },
 ]
 
@@ -106,8 +106,8 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.6,<3" },
     { name = "python-multipart", specifier = ">=0.0.18,<1" },
     { name = "sqlalchemy", specifier = ">=2.0,<3" },
+    { name = "table-evidence-analyzer", editable = "../table_evidence_analyzer" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<1" },
-    { name = "vision-detector", editable = "../vision_detector" },
     { name = "zeroconf", specifier = ">=0.150,<1" },
 ]
 
@@ -462,6 +462,23 @@ wheels = [
 ]
 
 [[package]]
+name = "table-evidence-analyzer"
+version = "0.1.0"
+source = { editable = "../table_evidence_analyzer" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.9,<3" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0,<9" },
+    { name = "ruff", specifier = ">=0.6,<1" },
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -517,23 +534,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/15/c0/0be24758891ef825f2065cd5db8741aaddabe3e248ee6acc5e8a80f04005/uvloop-0.22.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0530a5fbad9c9e4ee3f2b33b148c6a64d47bbad8000ea63704fa8260f4cf728e", size = 4366890, upload-time = "2025-10-16T22:16:40.547Z" },
     { url = "https://files.pythonhosted.org/packages/d2/53/8369e5219a5855869bcee5f4d317f6da0e2c669aecf0ef7d371e3d084449/uvloop-0.22.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:bc5ef13bbc10b5335792360623cc378d52d7e62c2de64660616478c32cd0598e", size = 4119472, upload-time = "2025-10-16T22:16:41.694Z" },
     { url = "https://files.pythonhosted.org/packages/f8/ba/d69adbe699b768f6b29a5eec7b47dd610bd17a69de51b251126a801369ea/uvloop-0.22.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:1f38ec5e3f18c8a10ded09742f7fb8de0108796eb673f30ce7762ce1b8550cad", size = 4239051, upload-time = "2025-10-16T22:16:43.224Z" },
-]
-
-[[package]]
-name = "vision-detector"
-version = "0.1.0"
-source = { editable = "../vision_detector" }
-dependencies = [
-    { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.9,<3" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.0,<9" },
-    { name = "ruff", specifier = ">=0.6,<1" },
 ]
 
 [[package]]

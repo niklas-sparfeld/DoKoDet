@@ -123,7 +123,7 @@ doko_detector/
 ├── card_event_net/          # on-device event-proposal model and data tools
 ├── ios/                     # iOS capture and evidence upload
 ├── backend/                 # evidence ingestion and local orchestration
-├── vision_detector/         # current PoC package; plan 0021 replaces this name
+├── table_evidence_analyzer/ # analyzer contracts and model-training foundation
 ├── fixtures/                # shared contract and scenario fixtures
 ├── docs/                    # architecture, reports, and plans
 ├── mise.toml
@@ -131,8 +131,9 @@ doko_detector/
 └── README.md
 ```
 
-Plan 0021 replaces `vision_detector/` with the target `table_evidence_analyzer/` package. The package
-contains model-based and classical analyzer components. It is not tied to backend deployment.
+The `table_evidence_analyzer/` package contains the analyzer contracts and model-training
+foundation. It contains model-based and classical analyzer components and is not tied to backend
+deployment.
 
 ## Git LFS
 

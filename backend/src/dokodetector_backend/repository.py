@@ -12,7 +12,7 @@ from alembic.config import Config
 from sqlalchemy import Engine, and_, create_engine, event, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
-from vision_detector import TableObservation
+from table_evidence_analyzer import TableObservation
 
 from alembic import command
 from dokodetector_backend.contract import EvidenceManifest, FrameManifest

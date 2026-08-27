@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from vision_detector.table_observation import (
+from table_evidence_analyzer.table_observation import (
     TableObservation,
     canonical_json_bytes,
     parse_observation_bytes,
