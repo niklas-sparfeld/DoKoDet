@@ -405,6 +405,16 @@ Acceptance for each addition:
 - one scenario proves that the engine can resist misleading evidence;
 - an ablation records the result with and without the evidence family.
 
+Progress (2026-08-27): M4 is complete. Added capability-aware scoring adapters for presence,
+newly-visible and predecessor, active-area, and card-tracklet evidence. Optional fields remain
+neutral when unavailable. Legal branches keep ruleset rejection separate from visual ranking.
+Results now expose the visual score breakdown and declared evidence families. Added a deterministic
+ablation helper that records runs with one family enabled and disabled. Synthetic tests prove that
+low presence, predecessor, and active-area scores rank false, repeated, and retained side-card
+proposals below the source round, while tracklet reuse removes the duplicate branch. A high but
+misleading presence score cannot override rejection of a card outside the selected deck. The
+identity-only scenarios remain unchanged.
+
 ### M5 — Human constraints and local handoff
 
 1. Add the correction-constraint contract.

@@ -18,6 +18,7 @@ from game_engine.synthetic import (
     MissingIdentityCandidate,
     ObservationConfig,
     ReappearAfterOcclusion,
+    RepeatObservation,
     RetainedSideCard,
     generate_observations,
     generate_round,
@@ -84,6 +85,28 @@ def test_clean_observations_preserve_the_source_round() -> None:
 
     assert observed_cards == tuple(play.card for play in synthetic_round.card_plays)
     assert all(observation.status == "observed" for observation in observations)
+
+
+def test_repeated_observation_emits_transition_predecessor_evidence() -> None:
+    synthetic_round = generate_round(0)
+    observations = generate_observations(
+        synthetic_round,
+        config=ObservationConfig(
+            capabilities=(
+                "identity_candidates",
+                "newly_visible_score",
+                "association_candidates",
+            )
+        ),
+        errors=(RepeatObservation(8),),
+    )
+
+    repeated_card = observations[9].cards[0]
+
+    assert repeated_card.newly_visible_score == 0.0
+    assert repeated_card.association_candidates is not None
+    assert repeated_card.association_candidates[0].observed_card_id == ("observation-009-card-01")
+    assert repeated_card.association_candidates[0].score == 1.0
 
 
 def test_error_modules_are_composable_and_keep_contracts_valid() -> None:

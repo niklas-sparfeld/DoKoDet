@@ -209,6 +209,29 @@ capabilities remain declared and preserved. Exact reuse of one declared card tra
 plays is rejected as an inconsistent association. The oracle does not use optional score families
 as calibrated probabilities.
 
+## M4 additive visual evidence
+
+`game_engine/src/game_engine/evidence.py` provides capability-aware scoring adapters. They add
+ranking evidence to legal branches. They do not reject a branch that passes the deck and ruleset.
+An absent optional field contributes zero. The calibration label remains part of the input
+diagnostics.
+
+The score transforms are:
+
+- `presence_score`: select `score - 0.5`, or ignore `0.5 - score`;
+- `newly_visible_score`: use the same select and ignore transform;
+- `association_candidates`: favor ignoring a card when a selected predecessor has the highest
+  association score, and penalize selecting that card;
+- `active_area_score`: use the same select and ignore transform;
+- `card_tracklets`: reject reuse of one tracklet for two selected card plays and reward ignoring a
+  repeated tracklet.
+
+`VisualEvidenceWeights` applies explicit non-negative weights. These values rank legal
+reconstruction hypotheses. They are not calibrated probabilities and are not multiplied as
+independent evidence. `run_ablation` records the same reconstruction with one evidence family
+enabled and disabled. The supported ablation families are `presence`, `transition`,
+`active_area`, and `tracklet`.
+
 ## Ownership
 
 The analyzer-side model is in

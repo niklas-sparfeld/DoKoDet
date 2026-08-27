@@ -38,9 +38,17 @@ from .contract import (
     validate_observation,
     validate_reconstruction_input,
 )
+from .evidence import (
+    EVIDENCE_FAMILIES,
+    EvidenceFamily,
+    VisualEvidenceScore,
+    VisualEvidenceWeights,
+    score_observed_card,
+)
 from .reconstruction import (
     FocusedDecision,
     GameplayResult,
+    ReconstructionAblation,
     ReconstructionDiagnostics,
     ReconstructionHypothesis,
     ReconstructionResult,
@@ -48,6 +56,7 @@ from .reconstruction import (
     ScoreBreakdown,
     reconstruct,
     reconstruct_round,
+    run_ablation,
 )
 from .replay import ReplayError, RoundReplay, TrickResult, replay_round
 from .rules import CardCategory, CardPlay, DokoNormalRuleset, RulesError, Ruleset
@@ -101,6 +110,8 @@ __all__ = [
     "DuplicateDetection",
     "EarlyAppearance",
     "EmptyObservation",
+    "EVIDENCE_FAMILIES",
+    "EvidenceFamily",
     "FalseCardProposal",
     "FocusedDecision",
     "GameplayResult",
@@ -121,6 +132,7 @@ __all__ = [
     "RECONSTRUCTION_INPUT_SCHEMA_VERSION",
     "ROUND_SCENARIO_SCHEMA_VERSION",
     "ReconstructionInput",
+    "ReconstructionAblation",
     "ReconstructionDiagnostics",
     "ReconstructionHypothesis",
     "ReconstructionResult",
@@ -137,6 +149,8 @@ __all__ = [
     "TableObservation",
     "TrickResult",
     "SyntheticRound",
+    "VisualEvidenceScore",
+    "VisualEvidenceWeights",
     "build_scenario",
     "canonical_json_bytes",
     "load_card_set",
@@ -147,6 +161,8 @@ __all__ = [
     "replay_round",
     "reconstruct",
     "reconstruct_round",
+    "run_ablation",
+    "score_observed_card",
     "generate_observations",
     "generate_round",
     "validate_observation",

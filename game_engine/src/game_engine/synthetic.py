@@ -156,9 +156,21 @@ class RepeatObservation:
         if self.count < 1:
             raise ValueError("repeat count must be positive.")
         result = list(observations)
-        result[self.observation_index + 1 : self.observation_index + 1] = [
-            observations[self.observation_index]
-        ] * self.count
+        repeated = replace(
+            observations[self.observation_index],
+            cards=tuple(
+                replace(
+                    card,
+                    newly_visible_score=0.0,
+                    association_source_play_indices=tuple(
+                        (source_index, 1.0)
+                        for source_index in observations[self.observation_index].source_play_indices
+                    ),
+                )
+                for card in observations[self.observation_index].cards
+            ),
+        )
+        result[self.observation_index + 1 : self.observation_index + 1] = [repeated] * self.count
         return result
 
 
@@ -326,6 +338,10 @@ class DuplicateDetection:
             observation.cards[self.card_index],
             source_play_index=None,
             presence_score=0.2,
+            newly_visible_score=0.0,
+            association_source_play_indices=tuple(
+                (source_index, 1.0) for source_index in observation.source_play_indices
+            ),
         )
         result = list(observations)
         result[self.observation_index] = replace(
@@ -383,7 +399,21 @@ class OldTrickReplay:
         rng: random.Random,
     ) -> list[ObservationDraft]:
         _require_index(observations, self.observation_index)
-        return list(observations) + [observations[self.observation_index]]
+        source = observations[self.observation_index]
+        replay = replace(
+            source,
+            cards=tuple(
+                replace(
+                    card,
+                    newly_visible_score=0.0,
+                    association_source_play_indices=tuple(
+                        (source_index, 1.0) for source_index in source.source_play_indices
+                    ),
+                )
+                for card in source.cards
+            ),
+        )
+        return list(observations) + [replay]
 
 
 @dataclass(frozen=True, slots=True)
@@ -447,11 +477,25 @@ class ReappearAfterOcclusion:
     ) -> list[ObservationDraft]:
         _require_index(observations, self.observation_index)
         result = list(observations)
+        source = observations[self.observation_index]
+        reappeared = replace(
+            source,
+            cards=tuple(
+                replace(
+                    card,
+                    newly_visible_score=0.0,
+                    association_source_play_indices=tuple(
+                        (source_index, 1.0) for source_index in source.source_play_indices
+                    ),
+                )
+                for card in source.cards
+            ),
+        )
         result.insert(
             self.observation_index,
             ObservationDraft(source_play_indices=(), cards=()),
         )
-        result.insert(self.observation_index + 2, observations[self.observation_index])
+        result.insert(self.observation_index + 2, reappeared)
         return result
 
 
@@ -647,7 +691,7 @@ def generate_observations(
     for error in errors:
         drafts = error.apply(drafts, rng=rng)
     return tuple(
-        _materialize_observation(draft, index, selected_config)
+        _materialize_observation(draft, index, selected_config, drafts)
         for index, draft in enumerate(drafts, start=1)
     )
 
@@ -748,20 +792,30 @@ def _materialize_observation(
     draft: ObservationDraft,
     index: int,
     config: ObservationConfig,
+    all_drafts: Sequence[ObservationDraft],
 ) -> TableObservation:
     observed_card_id_prefix = f"observation-{index:03d}"
     observed_cards = []
     for card_index, draft_card in enumerate(draft.cards, start=1):
         candidates = draft_card.candidates or ((draft_card.card, 1.0),)
         card_id = f"{observed_card_id_prefix}-card-{card_index:02d}"
-        associations = [
-            {
-                "observed_card_id": f"observation-{source_index:03d}-card-01",
-                "score": score,
-            }
-            for source_index, score in draft_card.association_source_play_indices
-            if source_index < index
-        ]
+        associations = []
+        for source_index, score in draft_card.association_source_play_indices:
+            predecessor_index = next(
+                (
+                    output_index
+                    for output_index, predecessor in enumerate(all_drafts[: index - 1], start=1)
+                    if source_index in predecessor.source_play_indices and predecessor.cards
+                ),
+                None,
+            )
+            if predecessor_index is not None:
+                associations.append(
+                    {
+                        "observed_card_id": (f"observation-{predecessor_index:03d}-card-01"),
+                        "score": score,
+                    }
+                )
         observed_card: dict[str, object] = {
             "observed_card_id": card_id,
             "identity_candidates": [

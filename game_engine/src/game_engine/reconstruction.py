@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Literal
 
-from .contract import ReconstructionInput, TableObservation
+from .contract import ObservedCard, ReconstructionInput, TableObservation
+from .evidence import (
+    EVIDENCE_FAMILIES,
+    EvidenceFamily,
+    VisualEvidenceScore,
+    VisualEvidenceWeights,
+    score_observed_card,
+)
 from .replay import ReplayError, TrickResult, replay_round
 from .rules import CardPlay, Ruleset
 
@@ -37,6 +44,7 @@ class ScoreBreakdown:
     identity_candidate_log_score: float
     ignored_observed_card_count: int
     inferred_missing_play_count: int
+    visual_evidence_score: VisualEvidenceScore = field(default_factory=VisualEvidenceScore)
 
     @property
     def total_score(self) -> float:
@@ -46,6 +54,7 @@ class ScoreBreakdown:
             self.identity_candidate_log_score
             - 0.35 * self.ignored_observed_card_count
             - 0.75 * self.inferred_missing_play_count
+            + self.visual_evidence_score.total
         )
 
 
@@ -109,6 +118,8 @@ class ReconstructionDiagnostics:
     incomplete_observations: tuple[str, ...]
     search_limits: Mapping[str, int]
     truncated: bool
+    evidence_families: tuple[str, ...]
+    ablated_evidence: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,9 +139,19 @@ class ReconstructionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ReconstructionAblation:
+    """Results recorded with one optional visual evidence family enabled and disabled."""
+
+    family: EvidenceFamily
+    without_evidence: ReconstructionResult
+    with_evidence: ReconstructionResult
+
+
+@dataclass(frozen=True, slots=True)
 class _ObservedCardToken:
     observation_id: str
     observed_card_id: str
+    observed_card: ObservedCard
     candidates: tuple[tuple[str, float], ...]
     tracklet_id: str | None
 
@@ -143,6 +164,8 @@ def reconstruct_round(
     missing_play_slots: Sequence[int] | None = None,
     max_hypotheses: int = 256,
     max_search_nodes: int = 250_000,
+    evidence_weights: VisualEvidenceWeights | None = None,
+    ablated_evidence: Collection[EvidenceFamily] = (),
 ) -> ReconstructionResult:
     """Exhaustively reconstruct a bounded identity-only round.
 
@@ -159,6 +182,11 @@ def reconstruct_round(
         raise ValueError("max_hypotheses must be positive.")
     if max_search_nodes < 1:
         raise ValueError("max_search_nodes must be positive.")
+    requested_ablations = tuple(ablated_evidence)
+    if any(family not in EVIDENCE_FAMILIES for family in requested_ablations):
+        raise ValueError("ablated_evidence contains an unknown evidence family.")
+    if len(set(requested_ablations)) != len(requested_ablations):
+        raise ValueError("ablated_evidence must contain unique evidence families.")
 
     selected_ruleset = ruleset or _default_ruleset()
     if selected_ruleset.manifest.deck_variant != reconstruction_input.deck_variant:
@@ -167,15 +195,24 @@ def reconstruct_round(
     if missing_play_slots is None:
         allowed_missing_slots: frozenset[int] | None = None
     else:
-        allowed_missing_slots = frozenset(missing_play_slots)
+        requested_missing_slots = tuple(missing_play_slots)
+        allowed_missing_slots = frozenset(requested_missing_slots)
         if any(slot < 1 or slot > expected_plays for slot in allowed_missing_slots):
             raise ValueError("missing play slots must be within the manifest play count.")
-        if len(allowed_missing_slots) != len(tuple(missing_play_slots)):
+        if len(allowed_missing_slots) != len(requested_missing_slots):
             raise ValueError("missing play slots must be unique.")
 
     tokens, incomplete_observations = _flatten_observations(reconstruction_input.observations)
     missing_budget = min(max_missing_plays, max(0, expected_plays - len(tokens)))
     players = tuple(reconstruction_input.active_players)
+    selected_evidence_weights = evidence_weights or VisualEvidenceWeights()
+    for family in requested_ablations:
+        selected_evidence_weights = selected_evidence_weights.without(family)
+    ablated_families = tuple(
+        family for family in EVIDENCE_FAMILIES if family in set(requested_ablations)
+    )
+    tracklets_enabled = "card_tracklets" in _capabilities(reconstruction_input.observations)
+    tracklets_enabled = tracklets_enabled and "tracklet" not in ablated_families
 
     hypotheses: dict[tuple[tuple[str, str], ...], ReconstructionHypothesis] = {}
     rejection_counts: Counter[str] = Counter()
@@ -200,6 +237,7 @@ def reconstruct_round(
         missing_play_indices: tuple[int, ...],
         used_tracklet_ids: frozenset[str],
         identity_log_score: float,
+        visual_evidence_score: VisualEvidenceScore,
     ) -> None:
         nonlocal search_nodes, complete_branches, merged_branches, truncated
         if search_nodes >= max_search_nodes:
@@ -226,6 +264,7 @@ def reconstruct_round(
                 ignored_card_ids=all_ignored_card_ids,
                 missing_play_indices=missing_play_indices,
                 identity_log_score=identity_log_score,
+                visual_evidence_score=visual_evidence_score,
                 active_players=players,
                 first_trick_leader=reconstruction_input.first_trick_leader,
                 ruleset=selected_ruleset,
@@ -244,7 +283,11 @@ def reconstruct_round(
                 if card_counts[card] >= selected_ruleset.card_copy_count(card):
                     reject(f"replay rejected branch: card multiplicity for {card} exceeds the deck")
                     continue
-                if token.tracklet_id is not None and token.tracklet_id in used_tracklet_ids:
+                if (
+                    tracklets_enabled
+                    and token.tracklet_id is not None
+                    and token.tracklet_id in used_tracklet_ids
+                ):
                     reject(
                         "association rejected branch: one card tracklet cannot represent "
                         "two card plays"
@@ -261,8 +304,15 @@ def reconstruct_round(
                 next_counts[card] += 1
                 next_tracklet_ids = (
                     used_tracklet_ids | {token.tracklet_id}
-                    if token.tracklet_id is not None
+                    if tracklets_enabled and token.tracklet_id is not None
                     else used_tracklet_ids
+                )
+                selected_card_evidence = score_observed_card(
+                    token.observed_card,
+                    action="select",
+                    selected_observed_card_ids=frozenset(source_card_ids),
+                    selected_tracklet_ids=used_tracklet_ids,
+                    weights=selected_evidence_weights,
                 )
                 search(
                     token_index + 1,
@@ -276,9 +326,17 @@ def reconstruct_round(
                     missing_play_indices,
                     next_tracklet_ids,
                     identity_log_score + math.log(probability),
+                    visual_evidence_score.add(selected_card_evidence),
                 )
 
             ignored_observation_ids.add(token.observation_id)
+            ignored_card_evidence = score_observed_card(
+                token.observed_card,
+                action="ignore",
+                selected_observed_card_ids=frozenset(source_card_ids),
+                selected_tracklet_ids=used_tracklet_ids,
+                weights=selected_evidence_weights,
+            )
             search(
                 token_index + 1,
                 plays,
@@ -291,6 +349,7 @@ def reconstruct_round(
                 missing_play_indices,
                 used_tracklet_ids,
                 identity_log_score,
+                visual_evidence_score.add(ignored_card_evidence),
             )
 
         next_missing_slot = len(plays) + 1
@@ -321,6 +380,7 @@ def reconstruct_round(
                     missing_play_indices + (len(plays) + 1,),
                     used_tracklet_ids,
                     identity_log_score,
+                    visual_evidence_score,
                 )
 
     merged_counter = [0]
@@ -341,6 +401,7 @@ def reconstruct_round(
         (),
         frozenset(),
         0.0,
+        VisualEvidenceScore(),
     )
     merged_branches = merged_counter[0]
 
@@ -367,15 +428,7 @@ def reconstruct_round(
     diagnostics = ReconstructionDiagnostics(
         ruleset=f"{reconstruction_input.ruleset.name}/{reconstruction_input.ruleset.version}",
         deck_variant=reconstruction_input.deck_variant,
-        capabilities=tuple(
-            sorted(
-                {
-                    capability
-                    for observation in reconstruction_input.observations
-                    for capability in observation.capabilities
-                }
-            )
-        ),
+        capabilities=_capabilities(reconstruction_input.observations),
         calibration_states=tuple(
             sorted({observation.calibration for observation in reconstruction_input.observations})
         ),
@@ -399,12 +452,50 @@ def reconstruct_round(
             "max_search_nodes": max_search_nodes,
         },
         truncated=truncated,
+        evidence_families=_evidence_families(reconstruction_input.observations),
+        ablated_evidence=ablated_families,
     )
     return ReconstructionResult(
         status=status,
         hypotheses=ordered_hypotheses,
         focused_decisions=focused_decisions,
         diagnostics=diagnostics,
+    )
+
+
+def run_ablation(
+    reconstruction_input: ReconstructionInput,
+    *,
+    family: EvidenceFamily,
+    ruleset: Ruleset | None = None,
+    max_missing_plays: int = 1,
+    missing_play_slots: Sequence[int] | None = None,
+    max_hypotheses: int = 256,
+    max_search_nodes: int = 250_000,
+    evidence_weights: VisualEvidenceWeights | None = None,
+) -> ReconstructionAblation:
+    """Run the same input with one optional evidence family enabled and disabled."""
+
+    if family not in EVIDENCE_FAMILIES:
+        raise ValueError(f"unknown evidence family: {family}")
+    common = {
+        "ruleset": ruleset,
+        "max_missing_plays": max_missing_plays,
+        "missing_play_slots": missing_play_slots,
+        "max_hypotheses": max_hypotheses,
+        "max_search_nodes": max_search_nodes,
+        "evidence_weights": evidence_weights,
+    }
+    with_evidence = reconstruct_round(reconstruction_input, **common)
+    without_evidence = reconstruct_round(
+        reconstruction_input,
+        **common,
+        ablated_evidence=(family,),
+    )
+    return ReconstructionAblation(
+        family=family,
+        without_evidence=without_evidence,
+        with_evidence=with_evidence,
     )
 
 
@@ -432,6 +523,7 @@ def _flatten_observations(
                 _ObservedCardToken(
                     observation_id=observation.observation_id,
                     observed_card_id=card.observed_card_id,
+                    observed_card=card,
                     candidates=tuple(
                         (candidate.card, candidate.probability)
                         for candidate in card.identity_candidates
@@ -468,6 +560,7 @@ def _retain_complete_branch(
     ignored_card_ids: tuple[str, ...],
     missing_play_indices: tuple[int, ...],
     identity_log_score: float,
+    visual_evidence_score: VisualEvidenceScore,
     active_players: Sequence[str],
     first_trick_leader: str,
     ruleset: Ruleset,
@@ -503,6 +596,7 @@ def _retain_complete_branch(
         identity_candidate_log_score=identity_log_score,
         ignored_observed_card_count=len(ignored_card_ids),
         inferred_missing_play_count=len(missing_play_indices),
+        visual_evidence_score=visual_evidence_score,
     )
     hypothesis = ReconstructionHypothesis(
         gameplay=gameplay,
@@ -595,6 +689,33 @@ def _focused_decisions(
     return ()
 
 
+def _capabilities(observations: Sequence[TableObservation]) -> tuple[str, ...]:
+    """Return declared capabilities in their contract order."""
+
+    capabilities = {
+        capability for observation in observations for capability in observation.capabilities
+    }
+    from .contract import ANALYZER_CAPABILITIES
+
+    return tuple(capability for capability in ANALYZER_CAPABILITIES if capability in capabilities)
+
+
+def _evidence_families(observations: Sequence[TableObservation]) -> tuple[EvidenceFamily, ...]:
+    """Return optional evidence families available in the input."""
+
+    capabilities = set(_capabilities(observations))
+    available: list[EvidenceFamily] = []
+    if "presence_score" in capabilities:
+        available.append("presence")
+    if {"newly_visible_score", "association_candidates"} & capabilities:
+        available.append("transition")
+    if "active_area_score" in capabilities:
+        available.append("active_area")
+    if "card_tracklets" in capabilities:
+        available.append("tracklet")
+    return tuple(available)
+
+
 def _default_ruleset() -> Ruleset:
     from .rules import DokoNormalRuleset
 
@@ -604,6 +725,7 @@ def _default_ruleset() -> Ruleset:
 __all__ = [
     "FocusedDecision",
     "GameplayResult",
+    "ReconstructionAblation",
     "ReconstructionDiagnostics",
     "ReconstructionHypothesis",
     "ReconstructionResult",
