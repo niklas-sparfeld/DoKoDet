@@ -52,8 +52,7 @@ No epics.
 
 | Epic | Outcome |
 | --- | --- |
-| [0006 — Table observation reconstruction PoC](3-in-progress/0006-GameEngine_v1.md) | Freeze the observation boundary and build the rules and reconstruction oracle. |
-| [0025 — Video snippet evidence](3-in-progress/0025-Video_Snippet_Evidence.md) | Add bounded iOS-to-backend video snippets beside selected frames. |
+| [0025 — Video snippet evidence](3-in-progress/0025-Video_Snippet_Evidence.md) | Add bounded, accurately timed iOS-to-backend video snippets with useful exploratory resolution. |
 
 ### Blocked
 
@@ -68,6 +67,7 @@ No epics.
 | [0003 — iOS evidence upload](5-closed/0003-iOS_EvidenceUpload.md) | Complete | Evidence package and V1 upload contract. |
 | [0004 — Backend evidence upload](5-closed/0004-Backend_EvidenceUpload.md) | Complete | Local evidence-ingestion backend. |
 | [0005 — VisionDetector local pipeline PoC](5-closed/0005-VisionDetector_v1.md) | Complete | Scripted vision-result pipeline and real-recognition handoff. |
+| [0006 — Table observation reconstruction PoC](5-closed/0006-GameEngine_v1.md) | Complete | Freeze the observation boundary and build the rules and reconstruction oracle. |
 | [0007 — CardEventNet cloud training](5-closed/0007-CardEventNet_CloudTraining.md) | Complete | Portable single-GPU training. |
 | [0008 — CardEventNet training-data improvements](5-closed/0008-CardEventNet_TrainingDataImprovements.md) | Complete | Historical data tooling. |
 | [0009 — CardEventNet training performance](5-closed/0009-CardEventNet_Training_Performance.md) | Complete | Faster training pipeline. |
@@ -87,8 +87,8 @@ No epics.
 
 1. Use the completed 0020 data foundation. It establishes source, annotation, review, and lineage
    invariants for the new observation data.
-2. Start 0006 milestones M0 through M3 with synthetic identity-only observations. This freezes the
-   shared boundary and produces the rules and correctness oracle.
+2. Use the completed 0006 contract, rules, reconstruction oracle, and correction handoff as the
+   baseline for later reconstruction work.
 3. Start 0025 in parallel. It adds bounded video snippets without waiting for tracking research.
 4. Continue 0021 after the 0020 dataset contract is usable. Export identity candidates as the first
    declared TableEvidenceAnalyzer capability.

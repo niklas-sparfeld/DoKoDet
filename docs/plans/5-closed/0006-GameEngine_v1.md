@@ -3,7 +3,8 @@
 ## Plan status
 
 - **Summary:** Freeze the table-observation boundary and build the deterministic reconstruction core
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** None
 - **Reviewed:** 2026-08-27 against the target architecture, glossary, active plans, and current
   repository

@@ -3,7 +3,7 @@
 This document defines the boundary between visual evidence and later game reconstruction.
 
 > **Transition status:** This contract documents the current local PoC from closed plan 0005. It is
-> not the target architecture. [Plan 0006](docs/plans/3-in-progress/0006-GameEngine_v1.md) replaces it with
+> not the target architecture. [Plan 0006](docs/plans/5-closed/0006-GameEngine_v1.md) replaces it with
 > `table-observation/v1`, produced by the deployment-neutral `TableEvidenceAnalyzer`. Do not extend
 > this contract or maintain both undeployed runtime paths. See
 > [Table Observation and Game Reconstruction](docs/TableObservationReconstruction.md).
