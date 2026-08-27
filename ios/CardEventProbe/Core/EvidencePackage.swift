@@ -792,20 +792,90 @@ public struct EvidencePackageAssembler: Sendable {
     }
 }
 
+public enum EvidencePackageQueueState: String, CaseIterable, Codable, Sendable {
+    case staging
+    case queued
+    case acknowledged
+    case failed
+    case corrupt
+}
+
+public struct EvidencePackageQueueDiagnostics: Equatable, Sendable {
+    public let stagingCount: Int
+    public let queuedCount: Int
+    public let acknowledgedCount: Int
+    public let failedCount: Int
+    public let corruptCount: Int
+    public let recoveredPackageIDs: [UUID]
+    public let corruptPaths: [String]
+    public let errors: [String]
+
+    public init(
+        stagingCount: Int,
+        queuedCount: Int,
+        acknowledgedCount: Int,
+        failedCount: Int,
+        corruptCount: Int,
+        recoveredPackageIDs: [UUID] = [],
+        corruptPaths: [String] = [],
+        errors: [String] = []
+    ) {
+        self.stagingCount = stagingCount
+        self.queuedCount = queuedCount
+        self.acknowledgedCount = acknowledgedCount
+        self.failedCount = failedCount
+        self.corruptCount = corruptCount
+        self.recoveredPackageIDs = recoveredPackageIDs
+        self.corruptPaths = corruptPaths
+        self.errors = errors
+    }
+}
+
 public final class EvidencePackageStore: @unchecked Sendable {
     public let root: URL
+
+    private let fileManager = FileManager.default
+    private let lock = NSLock()
+    private var storedDiagnostics = EvidencePackageQueueDiagnostics(
+        stagingCount: 0,
+        queuedCount: 0,
+        acknowledgedCount: 0,
+        failedCount: 0,
+        corruptCount: 0
+    )
 
     public init(root: URL) {
         self.root = root
     }
 
-    public func packageURL(for packageID: UUID) -> URL {
-        root.appendingPathComponent(packageID.uuidString, isDirectory: true)
+    public var diagnostics: EvidencePackageQueueDiagnostics {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedDiagnostics
     }
 
-    /// Writes a package below a staging directory, then renames it into place.
+    public func directoryURL(for state: EvidencePackageQueueState) -> URL {
+        root.appendingPathComponent(state.rawValue, isDirectory: true)
+    }
+
+    public func packageURL(for packageID: UUID) -> URL {
+        packageURL(for: packageID, in: .queued)
+    }
+
+    public func packageURL(
+        for packageID: UUID,
+        in state: EvidencePackageQueueState
+    ) -> URL {
+        directoryURL(for: state)
+            .appendingPathComponent(packageID.uuidString.lowercased(), isDirectory: true)
+    }
+
+    /// Writes a package below staging, validates it from disk, then atomically queues it.
     @discardableResult
     public func persist(_ package: EvidencePackage) throws -> URL {
+        lock.lock()
+        defer { lock.unlock() }
+
         let manifestData: Data
         do {
             manifestData = try package.manifest.encoded()
@@ -813,18 +883,17 @@ public final class EvidencePackageStore: @unchecked Sendable {
             throw EvidencePackageStoreError.writeFailed(root, error.localizedDescription)
         }
 
-        let fileManager = FileManager.default
+        try ensureLayoutLocked()
         let finalURL = packageURL(for: package.manifest.packageID)
         if fileManager.fileExists(atPath: finalURL.path) {
             throw EvidencePackageStoreError.packageAlreadyExists(finalURL)
         }
 
-        let stagingURL = root.appendingPathComponent(
-            ".staging-\(package.manifest.packageID.uuidString)-\(UUID().uuidString)",
+        let stagingURL = directoryURL(for: .staging).appendingPathComponent(
+            "\(package.manifest.packageID.uuidString.lowercased())-\(UUID().uuidString.lowercased())",
             isDirectory: true
         )
         do {
-            try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: stagingURL, withIntermediateDirectories: false)
             try fileManager.createDirectory(
                 at: stagingURL.appendingPathComponent("frames", isDirectory: true),
@@ -842,24 +911,302 @@ public final class EvidencePackageStore: @unchecked Sendable {
                     options: .atomic
                 )
             }
+
+            _ = try loadPackageLocked(at: stagingURL)
             try fileManager.moveItem(at: stagingURL, to: finalURL)
+            storedDiagnostics = makeDiagnosticsLocked()
             return finalURL
         } catch let error as EvidencePackageStoreError {
-            try? fileManager.removeItem(at: stagingURL)
             throw error
         } catch {
-            try? fileManager.removeItem(at: stagingURL)
             if fileManager.fileExists(atPath: finalURL.path) {
                 throw EvidencePackageStoreError.packageAlreadyExists(finalURL)
             }
-            throw EvidencePackageStoreError.writeFailed(finalURL, error.localizedDescription)
+            throw EvidencePackageStoreError.writeFailed(stagingURL, error.localizedDescription)
         }
+    }
+
+    /// Rebuilds queue state from package files and retains invalid entries for inspection.
+    @discardableResult
+    public func recover() throws -> EvidencePackageQueueDiagnostics {
+        lock.lock()
+        defer { lock.unlock() }
+
+        try ensureLayoutLocked()
+        var recoveredPackageIDs: [UUID] = []
+        var corruptPaths: [String] = []
+        var errors: [String] = []
+
+        for sourceURL in try entriesLocked(in: .staging) {
+            do {
+                let package = try loadPackageLocked(at: sourceURL)
+                let destinationURL = packageURL(for: package.manifest.packageID)
+                guard !fileManager.fileExists(atPath: destinationURL.path) else {
+                    throw EvidencePackageStoreError.invalidPackage(
+                        sourceURL,
+                        "a queued package with the same package_id already exists"
+                    )
+                }
+                try fileManager.moveItem(at: sourceURL, to: destinationURL)
+                recoveredPackageIDs.append(package.manifest.packageID)
+            } catch {
+                retainCorruptLocked(
+                    sourceURL,
+                    error: error,
+                    paths: &corruptPaths,
+                    errors: &errors
+                )
+            }
+        }
+
+        for sourceURL in try entriesLocked(in: .queued) {
+            do {
+                _ = try loadQueuedPackageLocked(at: sourceURL)
+            } catch {
+                retainCorruptLocked(
+                    sourceURL,
+                    error: error,
+                    paths: &corruptPaths,
+                    errors: &errors
+                )
+            }
+        }
+
+        storedDiagnostics = makeDiagnosticsLocked(
+            recoveredPackageIDs: recoveredPackageIDs,
+            corruptPaths: corruptPaths,
+            errors: errors
+        )
+        return storedDiagnostics
+    }
+
+    /// Reads and validates one package directory without changing queue state.
+    public func loadPackage(at packageURL: URL) throws -> EvidencePackage {
+        lock.lock()
+        defer { lock.unlock() }
+        return try loadPackageLocked(at: packageURL)
+    }
+
+    private func ensureLayoutLocked() throws {
+        do {
+            for state in EvidencePackageQueueState.allCases {
+                try fileManager.createDirectory(
+                    at: directoryURL(for: state),
+                    withIntermediateDirectories: true
+                )
+            }
+        } catch {
+            throw EvidencePackageStoreError.writeFailed(root, error.localizedDescription)
+        }
+    }
+
+    private func entriesLocked(in state: EvidencePackageQueueState) throws -> [URL] {
+        do {
+            return try fileManager.contentsOfDirectory(
+                at: directoryURL(for: state),
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
+                options: []
+            )
+        } catch {
+            throw EvidencePackageStoreError.writeFailed(
+                directoryURL(for: state),
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func loadQueuedPackageLocked(at packageURL: URL) throws -> EvidencePackage {
+        guard let packageID = UUID(uuidString: packageURL.lastPathComponent) else {
+            throw EvidencePackageStoreError.invalidPackage(
+                packageURL,
+                "queued package directory name is not a UUID"
+            )
+        }
+        let package = try loadPackageLocked(at: packageURL)
+        guard package.manifest.packageID == packageID else {
+            throw EvidencePackageStoreError.invalidPackage(
+                packageURL,
+                "package directory name does not match manifest.package_id"
+            )
+        }
+        return package
+    }
+
+    private func loadPackageLocked(at packageURL: URL) throws -> EvidencePackage {
+        guard isDirectory(packageURL) else {
+            throw EvidencePackageStoreError.invalidPackage(
+                packageURL,
+                "package entry is not a directory"
+            )
+        }
+
+        let manifestURL = packageURL.appendingPathComponent("manifest.json", isDirectory: false)
+        let framesURL = packageURL.appendingPathComponent("frames", isDirectory: true)
+        guard isRegularFile(manifestURL), isDirectory(framesURL) else {
+            throw EvidencePackageStoreError.invalidPackage(
+                packageURL,
+                "package must contain manifest.json and a frames directory"
+            )
+        }
+
+        let packageEntries: [URL]
+        do {
+            packageEntries = try fileManager.contentsOfDirectory(
+                at: packageURL,
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
+                options: []
+            )
+        } catch {
+            throw EvidencePackageStoreError.invalidPackage(packageURL, error.localizedDescription)
+        }
+        guard Set(packageEntries.map(\.lastPathComponent)) == Set(["manifest.json", "frames"]) else {
+            throw EvidencePackageStoreError.invalidPackage(
+                packageURL,
+                "package contains an unexpected top-level entry"
+            )
+        }
+
+        let manifestData: Data
+        do {
+            manifestData = try Data(contentsOf: manifestURL)
+        } catch {
+            throw EvidencePackageStoreError.invalidPackage(packageURL, error.localizedDescription)
+        }
+
+        let manifest: EvidencePackageManifest
+        do {
+            manifest = try JSONDecoder().decode(EvidencePackageManifest.self, from: manifestData)
+        } catch {
+            throw EvidencePackageStoreError.invalidPackage(
+                manifestURL,
+                error.localizedDescription
+            )
+        }
+
+        let frameEntries: [URL]
+        do {
+            frameEntries = try fileManager.contentsOfDirectory(
+                at: framesURL,
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
+                options: []
+            )
+        } catch {
+            throw EvidencePackageStoreError.invalidPackage(framesURL, error.localizedDescription)
+        }
+        guard frameEntries.allSatisfy({ isRegularFile($0) }) else {
+            throw EvidencePackageStoreError.invalidPackage(
+                framesURL,
+                "frames contains a non-file entry"
+            )
+        }
+
+        let expectedFrameNames = Set(manifest.frames.map { "\($0.partName).jpg" })
+        let actualFrameNames = Set(frameEntries.map(\.lastPathComponent))
+        guard expectedFrameNames == actualFrameNames else {
+            throw EvidencePackageStoreError.invalidPackage(
+                framesURL,
+                "frame files do not match manifest.frames"
+            )
+        }
+
+        var packagedFrames: [PackagedEvidenceFrame] = []
+        packagedFrames.reserveCapacity(manifest.frames.count)
+        for frameManifest in manifest.frames {
+            let frameURL = framesURL.appendingPathComponent(
+                "\(frameManifest.partName).jpg",
+                isDirectory: false
+            )
+            let data: Data
+            do {
+                data = try Data(contentsOf: frameURL)
+            } catch {
+                throw EvidencePackageStoreError.invalidPackage(
+                    frameURL,
+                    error.localizedDescription
+                )
+            }
+            guard data.count == frameManifest.byteLength,
+                  sha256Hex(data) == frameManifest.sha256 else {
+                throw EvidencePackageStoreError.invalidPackage(
+                    frameURL,
+                    "frame byte length or SHA-256 does not match the manifest"
+                )
+            }
+            packagedFrames.append(
+                PackagedEvidenceFrame(manifest: frameManifest, jpegData: data)
+            )
+        }
+
+        do {
+            return try EvidencePackage(manifest: manifest, frames: packagedFrames)
+        } catch {
+            throw EvidencePackageStoreError.invalidPackage(
+                packageURL,
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func retainCorruptLocked(
+        _ sourceURL: URL,
+        error: Error,
+        paths: inout [String],
+        errors: inout [String]
+    ) {
+        let message = "\(sourceURL.path): \(error.localizedDescription)"
+        errors.append(message)
+        let destinationURL = directoryURL(for: .corrupt).appendingPathComponent(
+            "\(sourceURL.lastPathComponent)-\(UUID().uuidString.lowercased())",
+            isDirectory: isDirectory(sourceURL)
+        )
+        do {
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+            paths.append(destinationURL.path)
+        } catch {
+            errors.append(
+                "\(sourceURL.path): could not move invalid content to corrupt: \(error.localizedDescription)"
+            )
+        }
+    }
+
+    private func makeDiagnosticsLocked(
+        recoveredPackageIDs: [UUID] = [],
+        corruptPaths: [String] = [],
+        errors: [String] = []
+    ) -> EvidencePackageQueueDiagnostics {
+        EvidencePackageQueueDiagnostics(
+            stagingCount: entryCountLocked(in: .staging),
+            queuedCount: entryCountLocked(in: .queued),
+            acknowledgedCount: entryCountLocked(in: .acknowledged),
+            failedCount: entryCountLocked(in: .failed),
+            corruptCount: entryCountLocked(in: .corrupt),
+            recoveredPackageIDs: recoveredPackageIDs,
+            corruptPaths: corruptPaths,
+            errors: errors
+        )
+    }
+
+    private func entryCountLocked(in state: EvidencePackageQueueState) -> Int {
+        (try? fileManager.contentsOfDirectory(
+            at: directoryURL(for: state),
+            includingPropertiesForKeys: nil,
+            options: []
+        ).count) ?? 0
+    }
+
+    private func isDirectory(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+    }
+
+    private func isRegularFile(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
     }
 }
 
 public enum EvidencePackageStoreError: LocalizedError, Equatable {
     case packageAlreadyExists(URL)
     case writeFailed(URL, String)
+    case invalidPackage(URL, String)
 
     public var errorDescription: String? {
         switch self {
@@ -867,6 +1214,8 @@ public enum EvidencePackageStoreError: LocalizedError, Equatable {
             return "The evidence package already exists at \(url.path)."
         case let .writeFailed(url, message):
             return "The evidence package could not be written at \(url.path): \(message)"
+        case let .invalidPackage(url, message):
+            return "The evidence package at \(url.path) is invalid: \(message)"
         }
     }
 }

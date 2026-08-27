@@ -134,6 +134,85 @@ final class EvidencePackageTests: XCTestCase {
         )
     }
 
+    func testStoreCreatesQueueLayoutAndQueuesValidatedPackage() throws {
+        let package = try completePackage(packageID: packageID(3))
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let store = EvidencePackageStore(root: root)
+        let packageURL = try store.persist(package)
+
+        XCTAssertEqual(packageURL, store.packageURL(for: package.manifest.packageID))
+        XCTAssertTrue(packageURL.path.contains("/queued/"))
+        XCTAssertEqual(try store.loadPackage(at: packageURL).manifest, package.manifest)
+        for state in EvidencePackageQueueState.allCases {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: store.directoryURL(for: state).path))
+        }
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(
+                at: store.directoryURL(for: .staging),
+                includingPropertiesForKeys: nil
+            ).count,
+            0
+        )
+    }
+
+    func testRecoveryQueuesCompleteStagingAndRetainsCorruptContent() throws {
+        let package = try completePackage(packageID: packageID(4))
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let store = EvidencePackageStore(root: root)
+        let queuedURL = try store.persist(package)
+        let stagedURL = store.directoryURL(for: .staging)
+            .appendingPathComponent("interrupted-package", isDirectory: true)
+        try FileManager.default.moveItem(at: queuedURL, to: stagedURL)
+
+        let corruptURL = store.directoryURL(for: .staging)
+            .appendingPathComponent("partial-package", isDirectory: true)
+        try FileManager.default.createDirectory(at: corruptURL, withIntermediateDirectories: true)
+        try Data("not a manifest".utf8).write(
+            to: corruptURL.appendingPathComponent("manifest.json")
+        )
+
+        let diagnostics = try store.recover()
+
+        XCTAssertEqual(diagnostics.recoveredPackageIDs, [package.manifest.packageID])
+        XCTAssertEqual(diagnostics.stagingCount, 0)
+        XCTAssertEqual(diagnostics.queuedCount, 1)
+        XCTAssertEqual(diagnostics.corruptCount, 1)
+        XCTAssertEqual(diagnostics.corruptPaths.count, 1)
+        XCTAssertEqual(diagnostics.errors.count, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.packageURL(for: package.manifest.packageID).path))
+
+        let retainedURL = URL(fileURLWithPath: try XCTUnwrap(diagnostics.corruptPaths.first))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: retainedURL.appendingPathComponent("manifest.json").path
+            )
+        )
+    }
+
+    func testRecoveryQuarantinesQueuedHashMismatch() throws {
+        let package = try completePackage(packageID: packageID(5))
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let store = EvidencePackageStore(root: root)
+        let packageURL = try store.persist(package)
+        let frameURL = packageURL
+            .appendingPathComponent("frames", isDirectory: true)
+            .appendingPathComponent("frame_01.jpg", isDirectory: false)
+        try Data([0xFF]).write(to: frameURL)
+
+        let diagnostics = try store.recover()
+
+        XCTAssertEqual(diagnostics.queuedCount, 0)
+        XCTAssertEqual(diagnostics.corruptCount, 1)
+        XCTAssertEqual(diagnostics.corruptPaths.count, 1)
+        XCTAssertTrue(diagnostics.errors.first?.contains("SHA-256") == true)
+    }
+
     func testCoordinatorFinalizesMultipleEventsIndependently() throws {
         let configuration = configuration(targetOffsetsMs: [0], finalizationDelayMs: 100)
         let clock = clock()
@@ -194,6 +273,22 @@ final class EvidencePackageTests: XCTestCase {
         XCTAssertEqual(manifests.map(\.session.eventSequence), [1, 2])
         XCTAssertEqual(Set(manifests.map(\.packageID)).count, 2)
         XCTAssertEqual(captureSession.nextEventSequence, 3)
+    }
+
+    private func completePackage(packageID: UUID) throws -> EvidencePackage {
+        let configuration = configuration(targetOffsetsMs: [-100, 0, 100])
+        let clock = clock()
+        let ring = EvidenceFrameRing(configuration: configuration)
+        ring.append(encodedFrame(at: 0.9, value: 1))
+        ring.append(encodedFrame(at: 1.0, value: 2))
+        ring.append(encodedFrame(at: 1.1, value: 3))
+        return try assembler(configuration: configuration, clock: clock).assemble(
+            event: event(at: 1.0, emittedAt: 1.125),
+            eventSequence: 1,
+            packageID: packageID,
+            ring: ring,
+            camera: camera()
+        )
     }
 
     private func assembler(

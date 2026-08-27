@@ -46,6 +46,7 @@ final class AppState: ObservableObject {
     @Published private(set) var diagnosticsRecording = false
     @Published private(set) var evidencePackageCount = 0
     @Published private(set) var evidencePackageError: String?
+    @Published private(set) var evidenceQueueDiagnostics: EvidencePackageQueueDiagnostics?
 
     let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
@@ -56,6 +57,7 @@ final class AppState: ObservableObject {
     private lazy var captureSessionIdentityStore = CaptureSessionIdentityStore(
         directory: evidenceSessionRoot()
     )
+    private lazy var evidencePackageStore = EvidencePackageStore(root: evidencePackageRoot())
     private var captureSession: CaptureSession?
     private var liveCoordinator: FrameInferenceCoordinator?
     private var replayRunner: VideoReplayRunner?
@@ -85,6 +87,7 @@ final class AppState: ObservableObject {
     }
 
     init() {
+        recoverEvidencePackages()
         loadModel()
     }
 
@@ -438,12 +441,11 @@ final class AppState: ObservableObject {
             deviceModelIdentifier: UIDevice.current.model,
             osVersion: UIDevice.current.systemVersion
         )
-        let store = EvidencePackageStore(root: evidencePackageRoot())
         return EvidencePackageCoordinator(
             configuration: evidenceCaptureConfiguration,
             captureSession: captureSession,
             ring: ring,
-            store: store,
+            store: evidencePackageStore,
             model: model,
             decoderConfiguration: decoderConfiguration,
             client: client,
@@ -460,8 +462,10 @@ final class AppState: ObservableObject {
                 case .success:
                     self.evidencePackageCount += 1
                     self.evidencePackageError = nil
+                    self.evidenceQueueDiagnostics = self.evidencePackageStore.diagnostics
                 case let .failure(error):
                     self.evidencePackageError = error.localizedDescription
+                    self.evidenceQueueDiagnostics = self.evidencePackageStore.diagnostics
                 }
             }
         }
@@ -477,6 +481,15 @@ final class AppState: ObservableObject {
             inferenceError = "The capture session could not be started: \(error.localizedDescription)"
             activeDiagnosticSource = nil
             return nil
+        }
+    }
+
+    private func recoverEvidencePackages() {
+        do {
+            evidenceQueueDiagnostics = try evidencePackageStore.recover()
+            evidencePackageError = evidenceQueueDiagnostics?.errors.first
+        } catch {
+            evidencePackageError = error.localizedDescription
         }
     }
 
@@ -503,8 +516,8 @@ final class AppState: ObservableObject {
             in: .userDomainMask
         ).first ?? FileManager.default.temporaryDirectory
         return baseURL
-            .appendingPathComponent("CardEventProbe", isDirectory: true)
-            .appendingPathComponent("EvidencePackages", isDirectory: true)
+            .appendingPathComponent("DokoDetector", isDirectory: true)
+            .appendingPathComponent("packages", isDirectory: true)
     }
 
     private func evidenceSessionRoot() -> URL {
@@ -513,7 +526,7 @@ final class AppState: ObservableObject {
             in: .userDomainMask
         ).first ?? FileManager.default.temporaryDirectory
         return baseURL
-            .appendingPathComponent("CardEventProbe", isDirectory: true)
+            .appendingPathComponent("DokoDetector", isDirectory: true)
             .appendingPathComponent("sessions", isDirectory: true)
     }
 }
