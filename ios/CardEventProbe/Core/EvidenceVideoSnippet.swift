@@ -25,6 +25,8 @@ public enum EvidenceVideoSnippetCaptureError: LocalizedError, Equatable {
     case videoTrackMissing
     case invalidSourceDuration
     case requestedRangeUnavailable
+    case captureStopped
+    case temporaryStorageUnavailable
     case readerFailed
     case writerFailed
     case noFrames
@@ -40,6 +42,10 @@ public enum EvidenceVideoSnippetCaptureError: LocalizedError, Equatable {
             return "The replay source has no valid duration."
         case .requestedRangeUnavailable:
             return "The replay source does not cover the requested evidence range."
+        case .captureStopped:
+            return "Live video capture stopped before the evidence snippet was complete."
+        case .temporaryStorageUnavailable:
+            return "Live video capture has no space for its bounded rolling buffer."
         case .readerFailed:
             return "The replay source could not be decoded."
         case .writerFailed:

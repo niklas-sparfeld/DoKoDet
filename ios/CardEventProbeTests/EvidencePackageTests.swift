@@ -157,6 +157,22 @@ final class EvidencePackageTests: XCTestCase {
         )
     }
 
+    func testStoreRejectsPackagesAboveTheQueuedByteCapacityBeforeStaging() throws {
+        let package = try completePackage(packageID: packageID(30))
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let store = EvidencePackageStore(root: root, queuedByteCapacity: 1)
+        XCTAssertThrowsError(try store.persist(package)) { error in
+            guard case let EvidencePackageStoreError.queuedByteCapacityExceeded(required, capacity) = error else {
+                return XCTFail("unexpected error: \(error)")
+            }
+            XCTAssertGreaterThan(required, capacity)
+        }
+        XCTAssertEqual(try store.packageURLs(in: .staging).count, 0)
+        XCTAssertEqual(try store.packageURLs(in: .queued).count, 0)
+    }
+
     func testRecoveryQueuesCompleteStagingAndRetainsCorruptContent() throws {
         let package = try completePackage(packageID: packageID(4))
         let root = temporaryDirectory()

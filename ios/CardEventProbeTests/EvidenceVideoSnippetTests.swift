@@ -6,6 +6,81 @@ import XCTest
 @testable import CardEventProbeCore
 
 final class EvidenceVideoSnippetTests: XCTestCase {
+    func testLiveCaptureKeepsARealTimeBoundedBufferAndCapturesOneSnippet() throws {
+        let configuration = EvidenceVideoCaptureMetadata(
+            requestedStartOffsetMs: -250,
+            requestedEndOffsetMs: 250,
+            maxDurationMs: 1_000,
+            maxWidth: 320,
+            maxHeight: 180,
+            maxNominalFrameRate: 10.0,
+            maxByteLength: 250_000,
+            queuedByteCapacity: 1_000_000
+        )
+        let provider = LiveEvidenceVideoSnippetProvider(
+            configuration: configuration,
+            minimumCoverageStartOffsetMs: -100,
+            maximumCoverageEndOffsetMs: 100,
+            temporaryByteCapacity: 320 * 180 * 4 * 20
+        )
+
+        for index in 0...10 {
+            provider.consume(
+                VideoFrame(
+                    pixelBuffer: try makePixelBuffer(width: 640, height: 360),
+                    timestamp: time(Double(index) / 10.0),
+                    orientation: .up
+                )
+            )
+        }
+
+        let snippet = try provider.capture(eventTimestamp: time(0.5))
+
+        XCTAssertEqual(snippet.manifest.container, "mp4")
+        XCTAssertEqual(snippet.manifest.videoCodec, "h264")
+        XCTAssertEqual(snippet.manifest.width, 320)
+        XCTAssertEqual(snippet.manifest.height, 180)
+        XCTAssertLessThanOrEqual(snippet.manifest.byteLength, configuration.maxByteLength)
+        XCTAssertLessThanOrEqual(provider.status.bufferedFrameCount, 11)
+        XCTAssertEqual(provider.status.completedCaptureCount, 1)
+        XCTAssertEqual(provider.status.failedCaptureCount, 0)
+    }
+
+    func testLiveCaptureStopReleasesTheRollingBufferAndCancelsPendingCapture() throws {
+        let provider = LiveEvidenceVideoSnippetProvider(
+            configuration: EvidenceVideoCaptureMetadata(
+                requestedStartOffsetMs: -250,
+                requestedEndOffsetMs: 1_000,
+                maxDurationMs: 1_500,
+                maxWidth: 320,
+                maxHeight: 180,
+                maxNominalFrameRate: 10.0,
+                maxByteLength: 250_000,
+                queuedByteCapacity: 1_000_000
+            ),
+            minimumCoverageStartOffsetMs: -100,
+            maximumCoverageEndOffsetMs: 100,
+            temporaryByteCapacity: 320 * 180 * 4 * 20
+        )
+        let completed = expectation(description: "pending capture stops")
+        DispatchQueue.global().async {
+            do {
+                _ = try provider.capture(eventTimestamp: self.time(0.5))
+                XCTFail("capture should stop before the post-event range is available")
+            } catch EvidenceVideoSnippetCaptureError.captureStopped {
+                completed.fulfill()
+            } catch {
+                XCTFail("unexpected capture error: \(error)")
+            }
+        }
+
+        Thread.sleep(forTimeInterval: 0.05)
+        provider.stop()
+        wait(for: [completed], timeout: 2.0)
+        XCTAssertEqual(provider.status.state, .stopped)
+        XCTAssertEqual(provider.status.bufferedFrameCount, 0)
+    }
+
     func testReplaySourceProducesBoundedH264Snippet() throws {
         let provider = AVAssetVideoSnippetProvider(sourceURL: fixtureURL())
         let snippet = try provider.capture(
@@ -222,5 +297,25 @@ final class EvidenceVideoSnippetTests: XCTestCase {
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    }
+
+    private func makePixelBuffer(width: Int, height: Int) throws -> CVPixelBuffer {
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            kCVPixelFormatType_32BGRA,
+            nil,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let pixelBuffer else {
+            throw PixelBufferError.creation(status)
+        }
+        return pixelBuffer
+    }
+
+    private enum PixelBufferError: Error {
+        case creation(CVReturn)
     }
 }

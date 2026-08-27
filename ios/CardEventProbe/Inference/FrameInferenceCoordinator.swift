@@ -27,6 +27,7 @@ final class FrameInferenceCoordinator {
     private let runner: CardEventModelRunner
     private let eventDecoder: CausalEventDecoder
     private let evidenceSampler: EvidenceFrameSampler
+    private let videoCapture: (any EvidenceVideoFrameConsumer)?
     private let inferenceQueue = DispatchQueue(label: "com.dokodetector.CardEventProbe.inference")
     private let lock = NSLock()
     private var samplingPolicy: InferenceSamplingPolicy
@@ -44,6 +45,7 @@ final class FrameInferenceCoordinator {
         runner: CardEventModelRunner,
         eventDecoder: CausalEventDecoder,
         evidenceSampler: EvidenceFrameSampler,
+        videoCapture: (any EvidenceVideoFrameConsumer)? = nil,
         targetRateHz: Double = 8.0,
         onUpdate: @escaping (FrameInferenceUpdate) -> Void
     ) {
@@ -51,6 +53,7 @@ final class FrameInferenceCoordinator {
         self.runner = runner
         self.eventDecoder = eventDecoder
         self.evidenceSampler = evidenceSampler
+        self.videoCapture = videoCapture
         samplingPolicy = InferenceSamplingPolicy(
             minimumInterval: CMTime(seconds: 1.0 / targetRateHz, preferredTimescale: 600)
         )
@@ -66,6 +69,7 @@ final class FrameInferenceCoordinator {
 
     func consume(_ frame: VideoFrame) {
         evidenceSampler.consume(frame)
+        videoCapture?.consume(frame)
 
         lock.lock()
         guard !stopped else {
@@ -115,6 +119,7 @@ final class FrameInferenceCoordinator {
 
     func stop() {
         evidenceSampler.stop()
+        videoCapture?.stop()
         lock.lock()
         stopped = true
         lock.unlock()

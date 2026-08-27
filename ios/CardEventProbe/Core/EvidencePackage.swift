@@ -1159,6 +1159,8 @@ public struct EvidencePackageQueueDiagnostics: Equatable, Sendable {
     public let corruptCount: Int
     public let retryableFailureCount: Int
     public let permanentFailureCount: Int
+    public let queuedByteCount: Int
+    public let queuedByteCapacity: Int
     public let recoveredPackageIDs: [UUID]
     public let corruptPaths: [String]
     public let errors: [String]
@@ -1171,6 +1173,8 @@ public struct EvidencePackageQueueDiagnostics: Equatable, Sendable {
         corruptCount: Int,
         retryableFailureCount: Int = 0,
         permanentFailureCount: Int = 0,
+        queuedByteCount: Int = 0,
+        queuedByteCapacity: Int = EvidenceVideoCaptureMetadata.standard.queuedByteCapacity,
         recoveredPackageIDs: [UUID] = [],
         corruptPaths: [String] = [],
         errors: [String] = []
@@ -1182,6 +1186,8 @@ public struct EvidencePackageQueueDiagnostics: Equatable, Sendable {
         self.corruptCount = corruptCount
         self.retryableFailureCount = retryableFailureCount
         self.permanentFailureCount = permanentFailureCount
+        self.queuedByteCount = queuedByteCount
+        self.queuedByteCapacity = queuedByteCapacity
         self.recoveredPackageIDs = recoveredPackageIDs
         self.corruptPaths = corruptPaths
         self.errors = errors
@@ -1190,6 +1196,7 @@ public struct EvidencePackageQueueDiagnostics: Equatable, Sendable {
 
 public final class EvidencePackageStore: @unchecked Sendable {
     public let root: URL
+    public let queuedByteCapacity: Int
 
     private let fileManager = FileManager.default
     private let lock = NSLock()
@@ -1201,8 +1208,13 @@ public final class EvidencePackageStore: @unchecked Sendable {
         corruptCount: 0
     )
 
-    public init(root: URL) {
+    public init(
+        root: URL,
+        queuedByteCapacity: Int = EvidenceVideoCaptureMetadata.standard.queuedByteCapacity
+    ) {
+        precondition(queuedByteCapacity > 0, "queued byte capacity must be positive")
         self.root = root
+        self.queuedByteCapacity = queuedByteCapacity
     }
 
     public var diagnostics: EvidencePackageQueueDiagnostics {
@@ -1383,6 +1395,17 @@ public final class EvidencePackageStore: @unchecked Sendable {
         let finalURL = packageURL(for: package.manifest.packageID)
         if fileManager.fileExists(atPath: finalURL.path) {
             throw EvidencePackageStoreError.packageAlreadyExists(finalURL)
+        }
+        let packageByteCount = manifestData.count
+            + package.frames.reduce(0) { $0 + $1.jpegData.count }
+            + (package.videoSnippet?.mp4Data.count ?? 0)
+        let queuedByteCount = directoryByteCountLocked(directoryURL(for: .queued))
+        guard queuedByteCount <= queuedByteCapacity,
+              packageByteCount <= queuedByteCapacity - queuedByteCount else {
+            throw EvidencePackageStoreError.queuedByteCapacityExceeded(
+                queuedByteCount + packageByteCount,
+                queuedByteCapacity
+            )
         }
 
         let stagingURL = directoryURL(for: .staging).appendingPathComponent(
@@ -1766,6 +1789,8 @@ public final class EvidencePackageStore: @unchecked Sendable {
             corruptCount: entryCountLocked(in: .corrupt),
             retryableFailureCount: retryableFailureCount,
             permanentFailureCount: failedPackages.count - retryableFailureCount,
+            queuedByteCount: directoryByteCountLocked(directoryURL(for: .queued)),
+            queuedByteCapacity: queuedByteCapacity,
             recoveredPackageIDs: recoveredPackageIDs,
             corruptPaths: corruptPaths,
             errors: errors
@@ -1778,6 +1803,24 @@ public final class EvidencePackageStore: @unchecked Sendable {
             includingPropertiesForKeys: nil,
             options: []
         ).filter { isDirectory($0) }.count) ?? 0
+    }
+
+    private func directoryByteCountLocked(_ directory: URL) -> Int {
+        guard let enumerator = fileManager.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return 0
+        }
+        return enumerator.reduce(into: 0) { total, item in
+            guard let url = item as? URL,
+                  (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true,
+                  let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+                return
+            }
+            total += size
+        }
     }
 
     private func failureMetadataURL(for packageID: UUID) -> URL {
@@ -1819,6 +1862,7 @@ public enum EvidencePackageStoreError: LocalizedError, Equatable {
     case invalidTransition(EvidencePackageQueueState, EvidencePackageQueueState)
     case writeFailed(URL, String)
     case invalidPackage(URL, String)
+    case queuedByteCapacityExceeded(Int, Int)
 
     public var errorDescription: String? {
         switch self {
@@ -1832,6 +1876,8 @@ public enum EvidencePackageStoreError: LocalizedError, Equatable {
             return "The evidence package could not be written at \(url.path): \(message)"
         case let .invalidPackage(url, message):
             return "The evidence package at \(url.path) is invalid: \(message)"
+        case let .queuedByteCapacityExceeded(required, capacity):
+            return "The evidence queue needs \(required) bytes, above its \(capacity)-byte limit."
         }
     }
 }

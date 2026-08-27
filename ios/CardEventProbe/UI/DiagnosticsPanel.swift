@@ -7,6 +7,7 @@ struct DiagnosticsPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             CaptureStatusView(appState: appState)
+            EvidenceVideoStatusView(appState: appState)
             EvidenceQueueStatusView(appState: appState)
             BackendStatusView(discovery: appState.backendDiscovery)
 
@@ -36,6 +37,54 @@ struct DiagnosticsPanel: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 
+}
+
+private struct EvidenceVideoStatusView: View {
+    @ObservedObject var appState: AppState
+
+    var body: some View {
+        let status = appState.evidenceVideoCaptureStatus
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Video snippet")
+                    .fontWeight(.medium)
+                Spacer()
+                Text(status.state.rawValue)
+            }
+            HStack {
+                Text("Rolling buffer")
+                Spacer()
+                Text("\(status.bufferedFrameCount) frames · \(status.bufferedDurationMs) ms")
+                    .font(.caption.monospacedDigit())
+            }
+            HStack {
+                Text("Temporary storage")
+                Spacer()
+                Text(
+                    ByteCountFormatter.string(
+                        fromByteCount: Int64(status.temporaryBytes),
+                        countStyle: .file
+                    ) + " / " + ByteCountFormatter.string(
+                        fromByteCount: Int64(status.temporaryByteCapacity),
+                        countStyle: .file
+                    )
+                )
+                .font(.caption.monospacedDigit())
+            }
+            HStack {
+                Text("Completed / failed")
+                Spacer()
+                Text("\(status.completedCaptureCount) / \(status.failedCaptureCount)")
+                    .font(.caption.monospacedDigit())
+            }
+            if let failure = status.lastFailureReason {
+                Text(failure)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.bottom, 4)
+    }
 }
 
 private struct CaptureStatusView: View {
@@ -109,6 +158,18 @@ private struct EvidenceQueueStatusView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
+
+                Text(
+                    "Queued bytes " + ByteCountFormatter.string(
+                        fromByteCount: Int64(diagnostics.queuedByteCount),
+                        countStyle: .file
+                    ) + " / " + ByteCountFormatter.string(
+                        fromByteCount: Int64(diagnostics.queuedByteCapacity),
+                        countStyle: .file
+                    )
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
                 if diagnostics.retryableFailureCount > 0 {
                     Button("Retry retryable packages") {

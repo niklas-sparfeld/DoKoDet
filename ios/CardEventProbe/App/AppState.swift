@@ -64,6 +64,7 @@ final class AppState: ObservableObject {
     @Published private(set) var evidencePackageCount = 0
     @Published private(set) var evidencePackageError: String?
     @Published private(set) var evidenceQueueDiagnostics: EvidencePackageQueueDiagnostics?
+    @Published private(set) var evidenceVideoCaptureStatus = EvidenceVideoCaptureStatus.idle
     @Published private(set) var evidenceUploadError: String?
     @Published private(set) var evidenceUploadRunning = false
     @Published private(set) var latestEvidencePackageID: UUID?
@@ -107,6 +108,7 @@ final class AppState: ObservableObject {
     private var trainingRecordingUploadTask: Task<Void, Never>?
     private var captureSession: CaptureSession?
     private var liveCoordinator: FrameInferenceCoordinator?
+    private var liveVideoCapture: LiveEvidenceVideoSnippetProvider?
     private var trainingRecordingCoordinator: TrainingRecordingCoordinator?
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
@@ -452,15 +454,23 @@ final class AppState: ObservableObject {
             sessionClock: captureSession.clock
         )
         self.evidenceSampler = evidenceSampler
+        let liveVideoCapture = LiveEvidenceVideoSnippetProvider(
+            configuration: EvidenceVideoCaptureMetadata.standard,
+            minimumCoverageStartOffsetMs: evidenceCaptureConfiguration.targetOffsetsMs.min() ?? -800,
+            maximumCoverageEndOffsetMs: evidenceCaptureConfiguration.targetOffsetsMs.max() ?? 700
+        )
+        self.liveVideoCapture = liveVideoCapture
+        evidenceVideoCaptureStatus = liveVideoCapture.status
         evidencePackageCoordinator = makeEvidencePackageCoordinator(
             captureSession: captureSession,
             ring: evidenceSampler.ring,
-            videoSnippetProvider: AVAssetVideoSnippetProvider(sourceURL: url)
+            videoSnippetProvider: liveVideoCapture
         )
         let coordinator = FrameInferenceCoordinator(
             runner: runner,
             eventDecoder: eventDecoder,
             evidenceSampler: evidenceSampler,
+            videoCapture: liveVideoCapture,
             targetRateHz: 8.0
         ) { [weak self] update in
             self?.apply(update)
@@ -474,11 +484,14 @@ final class AppState: ObservableObject {
     func stopLiveInference() {
         guard activeDiagnosticSource == .live || liveCoordinator != nil else { return }
         stopTrainingRecordingForSession()
-        finishEvidencePackageCoordinator()
         liveCoordinator?.stop()
+        evidenceVideoCaptureStatus = liveVideoCapture?.status ?? .idle
+        finishEvidencePackageCoordinator()
         liveCoordinator = nil
         if activeDiagnosticSource == .live {
             evidenceSampler?.stop()
+            evidenceVideoCaptureStatus = liveVideoCapture?.status ?? evidenceVideoCaptureStatus
+            liveVideoCapture = nil
         }
         if activeDiagnosticSource == .live {
             finishDiagnosticsSession()
@@ -513,7 +526,8 @@ final class AppState: ObservableObject {
         self.evidenceSampler = evidenceSampler
         evidencePackageCoordinator = makeEvidencePackageCoordinator(
             captureSession: captureSession,
-            ring: evidenceSampler.ring
+            ring: evidenceSampler.ring,
+            videoSnippetProvider: AVAssetVideoSnippetProvider(sourceURL: url)
         )
         self.replayRunner = replayRunner
         replayRunner.start(
@@ -602,6 +616,7 @@ final class AppState: ObservableObject {
                 lastEventTimestampSeconds = CMTimeGetSeconds(event.timestamp)
             }
         }
+        evidenceVideoCaptureStatus = liveVideoCapture?.status ?? evidenceVideoCaptureStatus
     }
 
     private func applyReplay(_ progress: ReplayProgress) {

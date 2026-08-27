@@ -37,6 +37,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     private let onEventSequenceReserved: (UUID, Int) -> Void
     private var pendingEvents: [PendingEvent] = []
     private var processedEventIDs = Set<UUID>()
+    private var preparedVideoResults: [UUID: VideoSnippetCaptureResult] = [:]
     private var scoreTrace: [ModelPrediction] = []
     private var camera: EvidencePackageCameraMetadata
     private var recordingID: String?
@@ -191,6 +192,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         queue.sync {
             pendingEvents.removeAll(keepingCapacity: true)
             processedEventIDs.removeAll(keepingCapacity: true)
+            preparedVideoResults.removeAll(keepingCapacity: true)
             scoreTrace.removeAll(keepingCapacity: true)
             stopped = false
         }
@@ -219,6 +221,9 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
             packageID: UUID(),
             eventSequence: eventSequence
         )
+        if videoSnippetProvider != nil {
+            preparedVideoResults[pending.packageID] = captureVideoSnippet(for: event)
+        }
         pendingEvents.append(pending)
         pendingEvents.sort {
             CMTimeCompare($0.event.timestamp, $1.event.timestamp) < 0
@@ -252,7 +257,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     private func persist(_ events: [PendingEvent]) {
         for pending in events {
             do {
-                let videoResult = captureVideoSnippet(for: pending.event)
+                let videoResult = preparedVideoResults.removeValue(forKey: pending.packageID)
                 let package = try assembler.assemble(
                     event: pending.event,
                     eventSequence: pending.eventSequence,

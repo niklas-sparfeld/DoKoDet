@@ -206,17 +206,22 @@ Acceptance:
 
 ### M3 — Live capture integration
 
-1. Add the bounded rolling capture path to the camera session.
-2. Finalize snippets for confirmed causal event proposals.
-3. Enforce queued-byte and temporary-storage limits.
-4. Show snippet status in diagnostics.
+1. [x] Add the bounded rolling capture path to the camera session.
+2. [x] Finalize snippets for confirmed causal event proposals.
+3. [x] Enforce queued-byte and temporary-storage limits.
+4. [x] Show snippet status in diagnostics.
+
+Progress (2026-08-27): Added a resized H.264/MP4 rolling buffer fed by every live camera frame,
+event-time capture requests with bounded post-event waiting, explicit stop and storage failures,
+queued-byte enforcement, and live diagnostics for buffer, temporary storage, and package outcomes.
+The frame-only path remains active beside the optional snippet path.
 
 Acceptance:
 
-- the existing frame-only UI and uploads still work;
-- one live proposal creates one bounded package;
-- cancellation and low-storage paths release temporary resources;
-- no unbounded sample buffer exists.
+- [x] the existing frame-only UI and uploads still work;
+- [x] one live proposal creates one bounded package;
+- [x] cancellation and low-storage paths release temporary resources;
+- [x] no unbounded sample buffer exists.
 
 ### M4 — Local end-to-end measurement
 

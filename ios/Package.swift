@@ -44,6 +44,7 @@ let package = Package(
                 "Core/CaptureSession.swift",
                 "Core/EvidencePackage.swift",
                 "Core/EvidenceVideoSnippet.swift",
+                "Core/EvidenceLiveVideoSnippet.swift",
                 "Core/EvidencePackageCoordinator.swift",
                 "Networking/EvidenceMultipartUpload.swift",
                 "Core/InferenceSamplingPolicy.swift",
