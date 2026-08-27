@@ -35,9 +35,30 @@ from vision_detector.scripted import (
     ScriptedVisionDetector,
     default_mapping_path,
 )
+from vision_detector.table_observation import (
+    ANALYZER_CAPABILITIES,
+    OBSERVATION_SCHEMA_VERSION,
+    IdentityCandidate,
+    ObservationSession,
+    ObservationSource,
+    ObservedCard,
+    TableObservation,
+    parse_observation_bytes,
+    validate_observation,
+)
+from vision_detector.table_observation import (
+    CALIBRATION_STATES as TABLE_OBSERVATION_CALIBRATION_STATES,
+)
+from vision_detector.table_observation import (
+    ContractError as TableObservationContractError,
+)
+from vision_detector.table_observation import (
+    canonical_json_bytes as canonical_table_observation_json_bytes,
+)
 
 __all__ = [
     "CALIBRATION_STATES",
+    "ANALYZER_CAPABILITIES",
     "CARD_IDENTITIES",
     "CARD_SET_ID",
     "CardIdentity",
@@ -55,15 +76,26 @@ __all__ = [
     "VisionFrame",
     "VisionSession",
     "VisionStatus",
+    "TABLE_OBSERVATION_CALIBRATION_STATES",
+    "TableObservationContractError",
+    "IdentityCandidate",
+    "OBSERVATION_SCHEMA_VERSION",
+    "ObservationSession",
+    "ObservationSource",
+    "ObservedCard",
+    "TableObservation",
     "SCRIPTED_DETECTOR_NAME",
     "SCRIPTED_DETECTOR_VERSION",
     "ScriptedDetector",
     "ScriptedDetectorConfigurationError",
     "ScriptedVisionDetector",
     "canonical_json_bytes",
+    "canonical_table_observation_json_bytes",
     "default_mapping_path",
     "load_card_set",
     "load_deck_manifest",
     "parse_result_bytes",
+    "parse_observation_bytes",
     "validate_result",
+    "validate_observation",
 ]

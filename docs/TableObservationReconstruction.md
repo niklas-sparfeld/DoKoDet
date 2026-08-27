@@ -306,7 +306,7 @@ and tracking improve independently.
 
 ## 9. Plan ownership
 
-- [Plan 0006](plans/2-ready/0006-GameEngine_v1.md) owns the shared observation-to-reconstruction
+- [Plan 0006](plans/3-in-progress/0006-GameEngine_v1.md) owns the shared observation-to-reconstruction
   contract, rules core, synthetic generator, and exhaustive oracle.
 - [Plan 0020](plans/5-closed/0020-Data_Foundation.md) owns source lineage and reviewed annotation
   data for observed cards, snippets, and tracklets.

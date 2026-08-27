@@ -1,0 +1,34 @@
+{
+  "schema_version": "table-observation/v1",
+  "observation_id": "observation-001",
+  "source": {
+    "package_id": "package-001",
+    "snippet_part_name": "event_snippet"
+  },
+  "session": {
+    "session_id": "session-001",
+    "event_sequence": 1
+  },
+  "observed_at_ms": 42125,
+  "status": "observed",
+  "capabilities": [
+    "identity_candidates"
+  ],
+  "cards": [
+    {
+      "observed_card_id": "observation-001-card-01",
+      "identity_candidates": [
+        {
+          "card": "HEARTS_TEN",
+          "probability": 1.0
+        }
+      ]
+    }
+  ],
+  "calibration": "fixture",
+  "analyzer": {
+    "name": "synthetic",
+    "version": "synthetic-v1"
+  },
+  "diagnostics": {}
+}

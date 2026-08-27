@@ -144,6 +144,12 @@ the same visual card identity.
 An uncertain visual report of cards that were visible during a bounded time interval. A table
 observation is evidence. It is not the true table state and does not assert that a card was played.
 
+### Analyzer capability
+
+One declared evidence family that a TableEvidenceAnalyzer provides in a table observation. A
+capability can be required or optional. An absent optional capability means that the evidence is
+unavailable, not that its score is zero.
+
 ### Table evidence analyzer
 
 The bounded component that analyzes a supplied evidence package and produces a table observation.

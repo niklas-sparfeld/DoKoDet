@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Freeze the table-observation boundary and build the deterministic reconstruction core
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** None
 - **Reviewed:** 2026-08-27 against the target architecture, glossary, active plans, and current
   repository
@@ -318,6 +318,11 @@ Acceptance:
   TableEvidenceAnalyzer;
 - an absent optional feature is distinct from a zero score;
 - the 40-card manifest produces exactly 10 tricks.
+
+Progress (2026-08-27): M0 is complete. Added the strict `table-observation/v1` and
+`round-reconstruction-input/v1` models, the shared game-reconstruction contract document, and an
+exact 40-observation scenario with private physical-copy ground truth. The analyzer-side and
+reconstruction-side tests parse the same observation fixture and compare canonical semantic JSON.
 
 ### M1 — Rules and deterministic replay
 
