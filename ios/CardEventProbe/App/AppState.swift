@@ -72,6 +72,16 @@ final class AppState: ObservableObject {
     @Published private(set) var captureActivity: CaptureActivity = .idle
     @Published private(set) var captureSessionID: UUID?
     @Published private(set) var latestEventSequence: Int?
+    @Published private(set) var trainingRecordingState: TrainingRecordingWorkflowState = .idle
+    @Published private(set) var trainingRecordingMetrics = TrainingRecordingMetrics()
+    @Published private(set) var trainingRecordingQueueDiagnostics: TrainingRecordingQueueDiagnostics?
+    @Published private(set) var trainingRecordingError: String?
+    @Published private(set) var trainingRecordingUploadError: String?
+    @Published private(set) var trainingRecordingUploadRunning = false
+    @Published private(set) var latestTrainingRecordingID: String?
+    @Published private(set) var trainingRecordingStartedAt: Date?
+    @Published private(set) var trainingRecordingElapsedSeconds = 0.0
+    @Published private(set) var trainingRecordingEstimatedSizeBytes: Int64 = 0
 
     let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
@@ -87,14 +97,25 @@ final class AppState: ObservableObject {
         guard let client = try? EvidenceUploadClient() else { return nil }
         return EvidenceUploadQueue(store: evidencePackageStore, client: client)
     }()
+    private lazy var trainingRecordingStore = TrainingRecordingStore(root: trainingRecordingRoot())
+    private lazy var trainingRecordingUploadQueue: TrainingRecordingUploadQueue? = {
+        guard let client = try? TrainingRecordingUploadClient() else { return nil }
+        return TrainingRecordingUploadQueue(store: trainingRecordingStore, client: client)
+    }()
     private let evidenceResultClient = EvidenceResultClient()
     private var evidenceUploadTask: Task<Void, Never>?
+    private var trainingRecordingUploadTask: Task<Void, Never>?
     private var captureSession: CaptureSession?
     private var liveCoordinator: FrameInferenceCoordinator?
+    private var trainingRecordingCoordinator: TrainingRecordingCoordinator?
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
     private var activeDiagnosticSource: DiagnosticSource?
     private var latestFrame: VideoFrame?
+
+    private let trainingRecordingMaximumDurationSeconds: Double
+    private let trainingRecordingMaximumSizeBytes: Int64
+    private let trainingRecordingMinimumFreeBytes: Int64
 
     var actualPredictionRateHz: Double? {
         guard let first = scoreHistory.first,
@@ -117,8 +138,16 @@ final class AppState: ObservableObject {
         }
     }
 
-    init() {
+    init(
+        maximumTrainingRecordingDurationSeconds: Double = 15.0 * 60.0,
+        maximumTrainingRecordingSizeBytes: Int64 = 2 * 1024 * 1024 * 1024,
+        minimumTrainingRecordingFreeBytes: Int64 = 256 * 1024 * 1024
+    ) {
+        trainingRecordingMaximumDurationSeconds = maximumTrainingRecordingDurationSeconds
+        trainingRecordingMaximumSizeBytes = maximumTrainingRecordingSizeBytes
+        trainingRecordingMinimumFreeBytes = minimumTrainingRecordingFreeBytes
         recoverEvidencePackages()
+        recoverTrainingRecordings()
         loadModel()
     }
 
@@ -169,6 +198,200 @@ final class AppState: ObservableObject {
             if self?.evidenceQueueDiagnostics?.queuedCount ?? 0 > 0 {
                 self?.uploadQueuedEvidence()
             }
+        }
+    }
+
+    var canStartTrainingRecording: Bool {
+        guard captureActivity == .live,
+              captureSessionID != nil,
+              case .ready = modelState,
+              case .connected = backendDiscovery.state else {
+            return false
+        }
+        switch trainingRecordingState {
+        case .idle, .acknowledged, .failed:
+            return trainingRecordingCoordinator == nil
+        case .recording, .finalizing, .queued, .uploading:
+            return false
+        }
+    }
+
+    func uploadQueuedTrainingRecordings() {
+        guard case let .connected(service) = backendDiscovery.state,
+              let configuration = try? BackendConfiguration(baseURL: service.baseURL),
+              let trainingRecordingUploadQueue else {
+            return
+        }
+        guard trainingRecordingUploadTask == nil else { return }
+
+        if trainingRecordingState == .queued {
+            trainingRecordingState = .uploading
+        }
+        trainingRecordingUploadRunning = true
+        trainingRecordingUploadError = nil
+        trainingRecordingUploadTask = Task { [weak self] in
+            let attempts = await trainingRecordingUploadQueue.uploadQueued(using: configuration)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.trainingRecordingUploadTask = nil
+                self.trainingRecordingUploadRunning = false
+                self.applyTrainingRecordingUploadAttempts(attempts)
+                if self.trainingRecordingQueueDiagnostics?.queuedCount ?? 0 > 0 {
+                    self.uploadQueuedTrainingRecordings()
+                }
+            }
+        }
+    }
+
+    func retryFailedTrainingRecordings() {
+        guard case let .connected(service) = backendDiscovery.state else {
+            trainingRecordingUploadError = "Connect to a backend before retrying training recording uploads."
+            return
+        }
+        guard let configuration = try? BackendConfiguration(baseURL: service.baseURL),
+              let trainingRecordingUploadQueue else {
+            trainingRecordingUploadError = "The training recording upload queue is not available."
+            return
+        }
+        guard trainingRecordingUploadTask == nil else { return }
+
+        trainingRecordingState = .uploading
+        trainingRecordingUploadRunning = true
+        trainingRecordingUploadError = nil
+        trainingRecordingUploadTask = Task { [weak self] in
+            let attempts = await trainingRecordingUploadQueue.retryFailed(using: configuration)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.trainingRecordingUploadTask = nil
+                self.trainingRecordingUploadRunning = false
+                self.applyTrainingRecordingUploadAttempts(attempts)
+            }
+        }
+    }
+
+    func startTrainingRecording(sourcePermission: String) {
+        guard sourcePermission == "training_and_evaluation" || sourcePermission == "training_only" else {
+            trainingRecordingError = "Choose an explicit source permission before recording."
+            return
+        }
+        guard canStartTrainingRecording, let sessionID = captureSessionID else {
+            trainingRecordingError = "Start a live capture with a ready backend before recording."
+            return
+        }
+        guard hasEnoughFreeDiskSpace() else {
+            trainingRecordingError = "There is not enough free space for a training recording."
+            return
+        }
+
+        let recordingID = UUID().uuidString.lowercased()
+        let model = TrainingRecordingModel(
+            name: "CardEventNet",
+            version: modelRunner?.contract.metadata["version"] ?? "transition-v2-run-20260825-235429",
+            weightsSHA256: modelRunner?.contract.metadata["weights_sha256"]
+                ?? "f5eccd8e580d1dccecfa7835b3a0d9d5858cc47fdd0098aa33c3c47f01a38d04",
+            preprocessing: "full_frame_letterbox_v1"
+        )
+        let decoderConfiguration = eventDecoder.configuration
+        let decoder = TrainingRecordingDecoder(
+            algorithm: "causal_peak_v1",
+            threshold: decoderConfiguration.threshold,
+            peakConfirmationS: CMTimeGetSeconds(decoderConfiguration.peakConfirmation),
+            minimumEventGapS: CMTimeGetSeconds(decoderConfiguration.minimumEventGap)
+        )
+        let client = TrainingRecordingClient(
+            appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+                ?? "unknown",
+            build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+                ?? "unknown",
+            deviceModel: UIDevice.current.model,
+            osVersion: UIDevice.current.systemVersion
+        )
+        let configuration = TrainingRecordingConfiguration(
+            outputRoot: trainingRecordingStore.directoryURL(for: .queued),
+            recordingID: recordingID,
+            sessionID: sessionID.uuidString.lowercased(),
+            videoID: "video-\(recordingID)",
+            model: model,
+            decoder: decoder,
+            client: client,
+            sourcePermission: sourcePermission,
+            frameRate: 30.0,
+            maximumDurationSeconds: trainingRecordingMaximumDurationSeconds,
+            maximumSizeBytes: trainingRecordingMaximumSizeBytes
+        )
+        let coordinator = TrainingRecordingCoordinator(configuration: configuration)
+        do {
+            try coordinator.start()
+        } catch {
+            trainingRecordingError = error.localizedDescription
+            return
+        }
+
+        trainingRecordingCoordinator = coordinator
+        liveCoordinator?.attachTrainingRecording(coordinator)
+        latestTrainingRecordingID = recordingID
+        trainingRecordingStartedAt = Date()
+        trainingRecordingElapsedSeconds = 0.0
+        trainingRecordingEstimatedSizeBytes = 0
+        trainingRecordingMetrics = coordinator.metrics
+        trainingRecordingError = nil
+        trainingRecordingUploadError = nil
+        trainingRecordingState = .recording
+        evidencePackageCoordinator?.setRecordingID(recordingID)
+    }
+
+    func stopTrainingRecording() {
+        guard trainingRecordingState == .recording else { return }
+        guard let coordinator = trainingRecordingCoordinator else {
+            trainingRecordingState = .failed("The training recording coordinator is not available.")
+            trainingRecordingError = "The training recording coordinator is not available."
+            return
+        }
+        liveCoordinator?.attachTrainingRecording(nil)
+        trainingRecordingState = .finalizing
+        trainingRecordingMetrics = coordinator.metrics
+        coordinator.stop { [weak self, weak coordinator] result in
+            Task { @MainActor in
+                guard let self else { return }
+                self.trainingRecordingMetrics = coordinator?.metrics ?? self.trainingRecordingMetrics
+                self.trainingRecordingStartedAt = nil
+                self.trainingRecordingElapsedSeconds = 0.0
+                self.trainingRecordingEstimatedSizeBytes = coordinator?.estimatedStoredSizeBytes ?? 0
+                self.trainingRecordingCoordinator = nil
+                switch result {
+                case let .success(url):
+                    self.trainingRecordingError = nil
+                    self.trainingRecordingQueueDiagnostics = self.trainingRecordingStore.diagnostics
+                    self.trainingRecordingState = .queued
+                    self.uploadQueuedTrainingRecordings()
+                    _ = url
+                case let .failure(error):
+                    self.trainingRecordingError = error.localizedDescription
+                    self.trainingRecordingState = .failed(error.localizedDescription)
+                    self.trainingRecordingQueueDiagnostics = self.trainingRecordingStore.diagnostics
+                }
+            }
+        }
+    }
+
+    func updateTrainingRecordingClock(now: Date = Date()) {
+        guard trainingRecordingState == .recording,
+              let startedAt = trainingRecordingStartedAt else {
+            return
+        }
+        trainingRecordingElapsedSeconds = max(0.0, now.timeIntervalSince(startedAt))
+        if let coordinator = trainingRecordingCoordinator {
+            trainingRecordingMetrics = coordinator.metrics
+            trainingRecordingEstimatedSizeBytes = coordinator.estimatedStoredSizeBytes
+        }
+        if trainingRecordingElapsedSeconds >= trainingRecordingMaximumDurationSeconds
+            || trainingRecordingEstimatedSizeBytes >= trainingRecordingMaximumSizeBytes {
+            trainingRecordingError = trainingRecordingElapsedSeconds >= trainingRecordingMaximumDurationSeconds
+                ? "The maximum training recording duration was reached."
+                : "The maximum training recording size was reached."
+            stopTrainingRecording()
         }
     }
 
@@ -249,6 +472,7 @@ final class AppState: ObservableObject {
 
     func stopLiveInference() {
         guard activeDiagnosticSource == .live || liveCoordinator != nil else { return }
+        stopTrainingRecordingForSession()
         finishEvidencePackageCoordinator()
         liveCoordinator?.stop()
         liveCoordinator = nil
@@ -607,10 +831,86 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func recoverTrainingRecordings() {
+        do {
+            trainingRecordingQueueDiagnostics = try trainingRecordingStore.recover()
+            trainingRecordingError = trainingRecordingQueueDiagnostics?.errors.first
+            if trainingRecordingQueueDiagnostics?.queuedCount ?? 0 > 0 {
+                trainingRecordingState = .queued
+                latestTrainingRecordingID = trainingRecordingQueueDiagnostics?.recoveredRecordingIDs.last
+            } else if trainingRecordingQueueDiagnostics?.failedCount ?? 0 > 0 {
+                let failedURLs = try? trainingRecordingStore.recordingURLs(in: .failed)
+                if let failedURL = failedURLs?.last {
+                    latestTrainingRecordingID = failedURL.lastPathComponent
+                    let message = trainingRecordingStore.failure(for: failedURL.lastPathComponent)?.message
+                        ?? "A training recording upload failed."
+                    trainingRecordingState = .failed(message)
+                    trainingRecordingError = message
+                }
+            }
+        } catch {
+            trainingRecordingError = error.localizedDescription
+        }
+    }
+
     private func applyEvidenceUploadAttempts(_ attempts: [EvidenceUploadAttempt]) {
         evidenceQueueDiagnostics = evidencePackageStore.diagnostics
         evidenceUploadError = attempts.compactMap { $0.failure?.message }.first
         latestEvidencePackageID = attempts.compactMap { $0.response?.packageID }.last
+    }
+
+    private func applyTrainingRecordingUploadAttempts(
+        _ attempts: [TrainingRecordingUploadAttempt]
+    ) {
+        trainingRecordingQueueDiagnostics = trainingRecordingStore.diagnostics
+        trainingRecordingUploadError = attempts.compactMap { $0.failure?.message }.first
+            ?? trainingRecordingQueueDiagnostics?.errors.first
+        guard let recordingID = latestTrainingRecordingID,
+              let attempt = attempts.last(where: { $0.recordingID == recordingID }) else {
+            if trainingRecordingState == .uploading,
+               let recordingID = latestTrainingRecordingID,
+               let failure = trainingRecordingStore.failure(for: recordingID) {
+                trainingRecordingState = .failed(failure.message)
+                trainingRecordingError = failure.message
+            } else if trainingRecordingState == .uploading {
+                trainingRecordingState = trainingRecordingQueueDiagnostics?.queuedCount ?? 0 > 0
+                    ? .queued
+                    : .idle
+            }
+            return
+        }
+        switch attempt.disposition {
+        case .acknowledged:
+            trainingRecordingState = .acknowledged
+            trainingRecordingError = nil
+        case .retryableFailure, .permanentFailure:
+            let message = attempt.failure?.message ?? "The training recording upload failed."
+            trainingRecordingState = .failed(message)
+            trainingRecordingError = message
+        }
+    }
+
+    private func stopTrainingRecordingForSession() {
+        guard trainingRecordingState == .recording else { return }
+        stopTrainingRecording()
+    }
+
+    private func hasEnoughFreeDiskSpace() -> Bool {
+        do {
+            try FileManager.default.createDirectory(
+                at: trainingRecordingStore.root,
+                withIntermediateDirectories: true
+            )
+            let attributes = try FileManager.default.attributesOfFileSystem(
+                forPath: trainingRecordingStore.root.path
+            )
+            guard let freeBytes = attributes[.systemFreeSize] as? NSNumber else {
+                return false
+            }
+            return freeBytes.int64Value >= trainingRecordingMinimumFreeBytes
+        } catch {
+            return false
+        }
     }
 
     private func finishCaptureSession() {
@@ -650,5 +950,15 @@ final class AppState: ObservableObject {
         return baseURL
             .appendingPathComponent("DokoDetector", isDirectory: true)
             .appendingPathComponent("sessions", isDirectory: true)
+    }
+
+    private func trainingRecordingRoot() -> URL {
+        let baseURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return baseURL
+            .appendingPathComponent("DokoDetector", isDirectory: true)
+            .appendingPathComponent("training-recordings", isDirectory: true)
     }
 }

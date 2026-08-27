@@ -213,6 +213,30 @@ final class EvidencePackageTests: XCTestCase {
         XCTAssertTrue(diagnostics.errors.first?.contains("SHA-256") == true)
     }
 
+    func testCoordinatorKeepsSessionAndRecordingCorrelationSeparate() throws {
+        let sessionID = UUID()
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let coordinator = EvidencePackageCoordinator(
+            configuration: configuration(targetOffsetsMs: [0]),
+            sessionClock: clock(),
+            sessionID: sessionID,
+            ring: EvidenceFrameRing(configuration: configuration(targetOffsetsMs: [0])),
+            store: EvidencePackageStore(root: root),
+            model: model(),
+            decoderConfiguration: decoderConfiguration(),
+            client: client(),
+            camera: camera(),
+            recordingID: "recording-fixture-001"
+        )
+
+        XCTAssertEqual(coordinator.canonicalSessionID, sessionID)
+        XCTAssertEqual(coordinator.recordingCorrelationID, "recording-fixture-001")
+        XCTAssertEqual(coordinator.legacyCaptureSessionID, "recording-fixture-001")
+        coordinator.setRecordingID("recording-fixture-002")
+        XCTAssertEqual(coordinator.legacyCaptureSessionID, "recording-fixture-002")
+    }
+
     func testCoordinatorFinalizesMultipleEventsIndependently() throws {
         let configuration = configuration(targetOffsetsMs: [0], finalizationDelayMs: 100)
         let clock = clock()

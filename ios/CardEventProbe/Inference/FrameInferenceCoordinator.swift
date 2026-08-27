@@ -37,6 +37,7 @@ final class FrameInferenceCoordinator {
     private var framesDroppedWhileBusy = 0
     private var predictionsProduced = 0
     private var totalInferenceDurationMs = 0.0
+    private var trainingRecordingCoordinator: TrainingRecordingCoordinator?
     private let onUpdate: (FrameInferenceUpdate) -> Void
 
     init(
@@ -57,6 +58,12 @@ final class FrameInferenceCoordinator {
         Self.logger.info("Started live inference at \(targetRateHz, format: .fixed(precision: 1)) Hz.")
     }
 
+    func attachTrainingRecording(_ coordinator: TrainingRecordingCoordinator?) {
+        lock.lock()
+        trainingRecordingCoordinator = coordinator
+        lock.unlock()
+    }
+
     func consume(_ frame: VideoFrame) {
         evidenceSampler.consume(frame)
 
@@ -66,12 +73,14 @@ final class FrameInferenceCoordinator {
             return
         }
 
+        let trainingRecordingCoordinator = self.trainingRecordingCoordinator
         cameraFramesReceived += 1
         let shouldPublishMetrics = cameraFramesReceived == 1 || cameraFramesReceived.isMultiple(of: 30)
         let decision = samplingPolicy.accept(
             timestamp: frame.timestamp,
             inferenceInFlight: inferenceInFlight
         )
+        trainingRecordingCoordinator?.consume(frame)
         switch decision {
         case .sampledTooSoon:
             framesSkippedForSampling += 1
@@ -129,12 +138,16 @@ final class FrameInferenceCoordinator {
 
         lock.lock()
         inferenceInFlight = false
+        let trainingRecordingCoordinator = self.trainingRecordingCoordinator
         if let prediction {
             predictionsProduced += 1
             totalInferenceDurationMs += prediction.inferenceDurationMs
         }
         lock.unlock()
 
+        if let prediction {
+            trainingRecordingCoordinator?.consume(prediction, event: event)
+        }
         publish(
             prediction: prediction,
             event: event,

@@ -51,12 +51,14 @@ let package = Package(
                 "Core/SessionLog.swift",
                 "Core/TrainingRecording.swift",
                 "Core/TrainingRecordingCoordinator.swift",
+                "Core/TrainingRecordingQueue.swift",
                 "Inference/CardEventTensorBuilder.swift",
                 "Inference/VideoFrame.swift",
                 "Networking/BackendService.swift",
                 "Networking/BackendConfiguration.swift",
                 "Networking/EvidenceResultClient.swift",
                 "Networking/EvidenceUploadQueue.swift",
+                "Networking/TrainingRecordingUpload.swift",
             ]
         ),
         .executableTarget(

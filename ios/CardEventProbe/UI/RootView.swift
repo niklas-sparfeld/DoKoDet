@@ -22,9 +22,11 @@ struct RootView: View {
         .onAppear {
             appState.startBackendDiscovery()
             appState.uploadQueuedEvidence()
+            appState.uploadQueuedTrainingRecordings()
         }
         .onChange(of: appState.backendDiscovery.state) { _, _ in
             appState.uploadQueuedEvidence()
+            appState.uploadQueuedTrainingRecordings()
         }
     }
 

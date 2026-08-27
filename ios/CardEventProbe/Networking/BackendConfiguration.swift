@@ -52,6 +52,13 @@ public struct BackendConfiguration: Equatable, Sendable {
             .appendingPathComponent(resultID.uuidString.lowercased())
     }
 
+    public func trainingRecordingURL(for recordingID: String) -> URL {
+        baseURL
+            .appendingPathComponent("v1", isDirectory: true)
+            .appendingPathComponent("training-recordings", isDirectory: true)
+            .appendingPathComponent(recordingID)
+    }
+
     private static func isValidBaseURL(_ url: URL) -> Bool {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme == "http" || components.scheme == "https",

@@ -6,7 +6,7 @@
 - Status: In Progress
 - Depends on: completed plans 0003, 0004, and 0014; completed plan 0016; and the shared source-data
   contract from plan 0020 (M1, complete). Plan 0020 M3 can proceed in parallel.
-- Current phase: Phase 2 — Add app state, durable queue, and upload
+- Current phase: Phase 3 — Add backend ingestion and storage
 - Boundary: This plan owns recording capture, upload, and immutable intake. The data-foundation
   [plan](0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
   promotion.
@@ -366,6 +366,14 @@ Acceptance:
 - network loss during recording does not lose the finalized bundle;
 - an acknowledged bundle is not uploaded again;
 - UI tests cover invalid state transitions and operator-visible failures.
+
+Progress (2026-08-27): Added durable Application Support queue recovery, immutable bundle
+validation, file-backed multipart upload, retry and failure preservation, explicit live-recording
+consent, recording limits, free-space checks, operator-visible workflow states, and automatic
+upload recovery. Live inference now sends the same frames and predictions to the recorder. Evidence
+coordination keeps the canonical session ID separate and maps the recording ID to the legacy
+capture_session_id compatibility value. XCTest execution remains pending a toolchain with XCTest
+support; the Swift package build and source parsing pass.
 
 ### Phase 3: Add backend ingestion and storage
 

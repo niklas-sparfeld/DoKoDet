@@ -23,6 +23,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     private var processedEventIDs = Set<UUID>()
     private var scoreTrace: [ModelPrediction] = []
     private var camera: EvidencePackageCameraMetadata
+    private var recordingID: String?
     private var stopped = false
 
     public init(
@@ -34,6 +35,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         decoderConfiguration: CausalEventDecoder.Configuration,
         client: EvidencePackageClientMetadata,
         camera: EvidencePackageCameraMetadata,
+        recordingID: String? = nil,
         onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in },
         onEventSequenceReserved: @escaping (UUID, Int) -> Void = { _, _ in }
     ) {
@@ -52,6 +54,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         self.onPackagePersisted = onPackagePersisted
         self.onEventSequenceReserved = onEventSequenceReserved
         self.camera = camera
+        self.recordingID = recordingID
     }
 
     /// Compatibility initializer for package-only callers that do not need persistence.
@@ -65,6 +68,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         decoderConfiguration: CausalEventDecoder.Configuration,
         client: EvidencePackageClientMetadata,
         camera: EvidencePackageCameraMetadata,
+        recordingID: String? = nil,
         onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in },
         onEventSequenceReserved: @escaping (UUID, Int) -> Void = { _, _ in }
     ) {
@@ -81,12 +85,32 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
             decoderConfiguration: decoderConfiguration,
             client: client,
             camera: camera,
+            recordingID: recordingID,
             onPackagePersisted: onPackagePersisted,
             onEventSequenceReserved: onEventSequenceReserved
         )
     }
 
     public var captureSessionID: UUID { captureSession.sessionID }
+
+    public var canonicalSessionID: UUID { captureSession.sessionID }
+
+    public var recordingCorrelationID: String? {
+        queue.sync { recordingID }
+    }
+
+    /// The canonical session remains the capture session. Until the evidence contract gains
+    /// canonical recording fields, this is the value to map to legacy capture_session_id.
+    public var legacyCaptureSessionID: String? {
+        queue.sync { recordingID }
+    }
+
+    public func setRecordingID(_ recordingID: String?) {
+        queue.sync {
+            guard !stopped else { return }
+            self.recordingID = recordingID
+        }
+    }
 
     public var pendingEventCount: Int {
         queue.sync { pendingEvents.count }

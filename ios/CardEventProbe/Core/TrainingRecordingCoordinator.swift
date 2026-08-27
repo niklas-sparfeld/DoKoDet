@@ -17,6 +17,8 @@ public struct TrainingRecordingConfiguration: Sendable {
     public let client: TrainingRecordingClient
     public let sourcePermission: String
     public let frameRate: Double
+    public let maximumDurationSeconds: Double?
+    public let maximumSizeBytes: Int64?
 
     public init(
         outputRoot: URL,
@@ -29,10 +31,20 @@ public struct TrainingRecordingConfiguration: Sendable {
         cameraPosition: String = "back",
         client: TrainingRecordingClient,
         sourcePermission: String,
-        frameRate: Double = 30.0
+        frameRate: Double = 30.0,
+        maximumDurationSeconds: Double? = nil,
+        maximumSizeBytes: Int64? = nil
     ) {
         precondition(startedAtUTC.timeIntervalSinceReferenceDate.isFinite, "start time must be finite")
         precondition(frameRate.isFinite && frameRate > 0.0, "frame rate must be positive")
+        precondition(
+            maximumDurationSeconds.map { $0.isFinite && $0 > 0.0 } ?? true,
+            "maximum duration must be positive"
+        )
+        precondition(
+            maximumSizeBytes.map { $0 > 0 } ?? true,
+            "maximum size must be positive"
+        )
         self.outputRoot = outputRoot
         self.recordingID = recordingID
         self.sessionID = sessionID
@@ -44,6 +56,8 @@ public struct TrainingRecordingConfiguration: Sendable {
         self.client = client
         self.sourcePermission = sourcePermission
         self.frameRate = frameRate
+        self.maximumDurationSeconds = maximumDurationSeconds
+        self.maximumSizeBytes = maximumSizeBytes
     }
 }
 
@@ -293,6 +307,17 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return metricsValue
+    }
+
+    /// Returns the current on-disk size of the staged video and prediction files.
+    public var estimatedStoredSizeBytes: Int64 {
+        lock.lock()
+        let urls = [videoURL, predictionsURL].compactMap { $0 }
+        lock.unlock()
+        return urls.reduce(0) { total, url in
+            let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+            return total + ((attributes?[.size] as? NSNumber)?.int64Value ?? 0)
+        }
     }
 
     /// Waits for writer work submitted before this call. Intended for tests and handoff.
