@@ -6,9 +6,9 @@
 - **Status:** Ready
 - **Depends on:** Plan 0020, which is complete
 - **Builds on:** Plan 0006 provides the table-observation contract and canonical fixtures
-- **Reviewed:** 2026-08-27 against completed plans 0006 and 0020, the current backend boundary,
-  and the current CardEventNet training pipeline
-- **Starts with:** A tiny generated fixture; corrected plan 0025 evidence is not a prerequisite
+- **Reviewed:** 2026-08-28 against repository baseline `e771072f9`, completed plans 0006, 0020,
+  and 0025, the current backend and analyzer contracts, and active plans 0022, 0027, and 0028
+- **Starts with:** A tiny generated fixture; reviewed plan 0025 evidence is not a prerequisite
 - **Unblocks:** The future TableEvidenceAnalyzer capability-development plan
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -61,7 +61,7 @@ exports small measured capabilities that a TableEvidenceAnalyzer can combine. It
 every model bundle to implement the complete table-observation pipeline.
 
 Plan 0025 provides optional motion evidence for later transition and tracking work. It does not
-block this plan. Add corrected real evidence through the plan 0020 review and dataset path when it
+block this plan. Add reviewed real evidence through the plan 0020 review and dataset path when it
 is available. Do not make unreviewed plan 0025 packages into training labels.
 
 ## 3. Current repository baseline
@@ -78,9 +78,9 @@ The repository now contains more foundation than this plan originally assumed:
   bytes that it crops.
 
 Use these implementations. Do not create a second dataset, split, review, or observation contract
-inside the new package. The first milestone must complete the active package and backend boundary
-cutover that plan 0006 exposed. The dataset milestone must add the missing sample-byte resolution
-contract before training code depends on local directory conventions.
+inside the new package. The first two milestones must complete the active backend boundary cutover
+and package rename that plan 0006 exposed. The dataset milestone must add the missing sample-byte
+resolution contract before training code depends on local directory conventions.
 
 ## 4. Initial project shape
 
@@ -285,29 +285,46 @@ performs visible-card detection, tracking, or end-to-end table observation.
 
 ## 11. Small implementation milestones
 
-### M0 — Package and active-boundary cutover
+### M0 — Active-boundary cutover
 
-1. Rename the current `vision_detector/` project and Python package to
-   `table_evidence_analyzer/`. Update imports, commands, and fixtures in the same change.
-2. Keep the canonical `table-observation/v1` models and plan 0006 fixture tests in the renamed
-   package.
-3. Replace the backend's `vision-detection/v1` result storage and scripted runner with the
-   `table-observation/v1` boundary. Update persistence and tests in the same change.
-4. Remove the obsolete plan 0005 contract, adapter, fixtures, configuration names, and active
-   documentation. Do not keep a dual runtime path.
-5. Add the CLI skeleton without a full-package analyzer command.
+1. Define the stable analyzer runtime interface around the existing canonical
+   `table-observation/v1` models.
+2. Replace the backend's `vision-detection/v1` result storage and scripted runner with this
+   table-observation boundary. Update persistence and tests in the same change.
+3. Remove the obsolete plan 0005 result contract, detector protocol, scripted adapter, fixtures,
+   configuration names, migrations, and active documentation. Do not keep a dual runtime path.
+4. Use the canonical plan 0006 observation fixture in one analyzer-to-backend-to-reconstruction
+   contract test.
 
 Acceptance:
 
-- `mise install` and `uv sync` reproduce the environment;
-- no active module, command, or fixture uses the obsolete component name;
-- one canonical plan 0006 observation fixture crosses the analyzer and reconstruction boundary
-  unchanged;
+- one canonical plan 0006 observation fixture crosses the analyzer, backend, and reconstruction
+  boundary without a schema translation;
 - the backend persists a schema-valid table observation without importing training internals;
-- no active `vision-detection/v1` runtime path remains;
+- no active code, command, fixture, database field, or documentation uses
+  `vision-detection/v1`;
+- the backend and analyzer contract tests remain local and do not download weights or data.
+
+### M1 — Package rename and CLI skeleton
+
+1. Rename the current `vision_detector/` project and Python package to
+   `table_evidence_analyzer/`. Update its project metadata and dependency names in the same change.
+2. Update active imports, commands, dataset task identifiers, fixtures, lock files, and
+   documentation. Do not retain the old package as an alias.
+3. Keep the canonical `table-observation/v1` models and plan 0006 fixture tests in the renamed
+   package.
+4. Add the `table-analyzer` CLI skeleton. Add each functional subcommand in the milestone that
+   implements it. Do not add a full-package analyzer command.
+
+Acceptance:
+
+- `mise install` and `mise exec -- uv sync` reproduce the renamed package environment;
+- the renamed package imports and `table-analyzer --help` runs;
+- no active module, command, fixture, dependency, or data-task identifier uses the obsolete
+  component name;
 - tests do not download weights or data.
 
-### M1 — Materialized smoke dataset
+### M2 — Materialized smoke dataset
 
 1. Add a tiny generated image fixture through the implemented plan 0020 dataset and split
    contracts.
@@ -327,7 +344,7 @@ Acceptance:
 - tests do not download weights or data;
 - training code does not scan annotation or raw-source directories.
 
-### M2 — Minimal train and evaluate loop
+### M3 — Minimal train and evaluate loop
 
 1. Add the first crop-classification adapter.
 2. Train it to overfit the tiny fixture on CPU.
@@ -340,7 +357,7 @@ Acceptance:
 - the expected fixture metric is asserted;
 - training and evaluation use the same class and preprocessing contracts.
 
-### M3 — Checkpoint, resume, and failure records
+### M4 — Checkpoint, resume, and failure records
 
 1. Save last and best checkpoints.
 2. Resume an interrupted smoke run.
@@ -353,7 +370,7 @@ Acceptance:
 - best-checkpoint selection uses validation only;
 - corrupt checkpoints fail without damaging prior artifacts.
 
-### M4 — Export and table-observation capability
+### M5 — Export and table-observation capability
 
 1. Export the smoke model bundle.
 2. Validate bundle hashes and compatibility.
@@ -369,7 +386,7 @@ Acceptance:
 - calibration is declared `uncalibrated` until measured;
 - repeated inference is deterministic for the fixture.
 
-### M5 — Portable accelerator execution
+### M6 — Portable accelerator execution
 
 1. Keep CPU as the test baseline.
 2. Support MPS and CUDA through explicit device selection.
@@ -378,7 +395,9 @@ Acceptance:
 
 Acceptance:
 
-- the same command and config shape work locally and on one CUDA machine;
+- the same command and config shape selects CPU, MPS, or CUDA without an implicit fallback;
+- automated device-selection tests cover all three requests and the unavailable-device failures;
+- run metadata records the selected device and precision for the CPU smoke path;
 - no cloud-provider SDK or Docker requirement enters the training code;
 - a failed accelerator request does not silently run a different experiment.
 
@@ -400,15 +419,19 @@ Acceptance:
 Run:
 
 ```bash
+mise install
 cd table_evidence_analyzer
-uv sync
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
+mise exec -- uv sync
+mise exec -- uv run pytest
+mise exec -- uv run ruff check .
+mise exec -- uv run ruff format --check .
 ```
 
 Run the CPU overfit, checkpoint-resume, export, and plan 0006 observation-fixture integration tests.
-Run one optional CUDA smoke test before relying on remote training.
+Automated tests must exercise explicit CPU, MPS, and CUDA selection without requiring an
+accelerator. Run a real MPS or CUDA smoke test when that hardware is available and record it as
+supplementary evidence. A real CUDA smoke test is required before relying on remote CUDA training,
+but it is not required to close this local training-foundation plan.
 
 ## 14. Definition of done
 
