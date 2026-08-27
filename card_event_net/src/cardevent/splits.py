@@ -16,14 +16,21 @@ class VideoSplit:
     train: tuple[str, ...]
     val: tuple[str, ...]
     test: tuple[str, ...]
+    unassigned: tuple[str, ...] = ()
+
+    _PARTITIONS = ("train", "val", "test", "unassigned")
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "VideoSplit":
         if not isinstance(data, Mapping):
             raise SplitError("Split file must contain a YAML mapping.")
 
+        unknown = set(data) - set(cls._PARTITIONS)
+        if unknown:
+            raise SplitError(f"Unknown split fields: {', '.join(sorted(unknown))}.")
+
         partitions: dict[str, tuple[str, ...]] = {}
-        for partition in ("train", "val", "test"):
+        for partition in cls._PARTITIONS:
             values = data.get(partition, [])
             if not isinstance(values, list) or any(
                 not isinstance(value, str) or not value for value in values
@@ -34,7 +41,7 @@ class VideoSplit:
             partitions[partition] = tuple(values)
 
         seen: set[str] = set()
-        for partition in ("train", "val", "test"):
+        for partition in cls._PARTITIONS:
             overlap = seen.intersection(partitions[partition])
             if overlap:
                 names = ", ".join(sorted(overlap))
@@ -44,11 +51,14 @@ class VideoSplit:
         return cls(**partitions)
 
     def to_mapping(self) -> dict[str, list[str]]:
-        return {
+        result = {
             "train": list(self.train),
             "val": list(self.val),
             "test": list(self.test),
         }
+        if self.unassigned:
+            result["unassigned"] = list(self.unassigned)
+        return result
 
     def names(self, partition: str) -> tuple[str, ...]:
         try:
@@ -84,7 +94,7 @@ def make_video_split(
     rng.shuffle(names)
     video_count = len(names)
     if video_count == 0:
-        return VideoSplit(train=(), val=(), test=())
+        return VideoSplit(train=(), val=(), test=(), unassigned=())
 
     train_count = max(1, round(video_count * 0.70))
     val_count = max(1, round(video_count * 0.15)) if video_count >= 2 else 0

@@ -41,6 +41,32 @@ def test_game_validation_rejects_leakage() -> None:
         validate_session_isolation(VideoSplit(("one",), ("two",), ()), records)
 
 
+def test_table_setup_validation_rejects_leakage() -> None:
+    records = (
+        DatasetRecord(video_id="one", session_id="session-one", table_setup="table-one"),
+        DatasetRecord(video_id="two", session_id="session-two", table_setup="table-one"),
+    )
+    with pytest.raises(SplitError, match="Table setup table-one"):
+        validate_session_isolation(VideoSplit(("one",), ("two",), ()), records)
+
+
+def test_group_split_keeps_linked_game_sessions_together() -> None:
+    records = (
+        DatasetRecord(video_id="one", session_id="session-one", game_id="game-one"),
+        DatasetRecord(video_id="two", session_id="session-two", game_id="game-one"),
+        DatasetRecord(video_id="three", session_id="session-three", game_id="game-two"),
+    )
+
+    split = make_group_split(records, seed=4)
+
+    assert set(split.train).isdisjoint(split.val)
+    assert set(split.train).isdisjoint(split.test)
+    assert set(split.val).isdisjoint(split.test)
+    assert ("one" in split.train) == ("two" in split.train)
+    assert ("one" in split.val) == ("two" in split.val)
+    assert ("one" in split.test) == ("two" in split.test)
+
+
 def test_load_versioned_example_manifest() -> None:
     path = Path(__file__).parents[1] / "data" / "dataset-manifest.example.yaml"
 
@@ -70,9 +96,22 @@ def test_current_manifest_covers_local_annotations_and_development_split() -> No
         if path.is_file() and path.suffix.casefold() in SUPPORTED_VIDEO_EXTENSIONS
     }
     assert raw_video_ids == manifest_video_ids
-    assert set(split.train + split.val) == expected_video_ids
+    assigned_video_ids = set(split.train + split.val + split.test)
+    assert assigned_video_ids.isdisjoint(split.unassigned)
+    assert assigned_video_ids | set(split.unassigned) == expected_video_ids
+    assert set(split.unassigned) == {"IMG_0669", "IMG_0670", "IMG_0671", "IMG_0673", "IMG_0674"}
     assert split.test == ()
     assert "IMG_2781" in split.train
+    intake_records = [by_video[video_id] for video_id in split.unassigned]
+    assert {record.content_type for record in intake_records} == {"staged_scenario"}
+    assert {record.session_id for record in intake_records} == {
+        "capture-20260825-weird-staged-a"
+    }
+    assert all(record.game_id is None for record in intake_records)
+    assert {record.source for record in intake_records} == {"self_recorded"}
+    assert {record.source_permission for record in intake_records} == {
+        "training_and_evaluation"
+    }
     assert {by_video[video_id].content_type for video_id in split.train} == {
         "real_game",
         "staged_trick_sequence",

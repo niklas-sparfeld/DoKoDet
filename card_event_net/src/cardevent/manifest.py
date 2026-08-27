@@ -284,11 +284,13 @@ def load_dataset_manifest(path: str | Path) -> tuple[DatasetRecord, ...]:
 
 def validate_session_isolation(split: VideoSplit, records: Sequence[DatasetRecord]) -> None:
     by_video = {record.video_id: record for record in records}
-    missing = set(split.train + split.val + split.test) - set(by_video)
+    split_names = split.train + split.val + split.test + split.unassigned
+    missing = set(split_names) - set(by_video)
     if missing:
         raise ManifestError(f"Split videos missing from manifest: {', '.join(sorted(missing))}.")
     seen_sessions: dict[str, str] = {}
     seen_games: dict[str, str] = {}
+    seen_table_setups: dict[str, str] = {}
     for partition in ("train", "val", "test"):
         for video in split.names(partition):
             record = by_video[video]
@@ -300,12 +302,61 @@ def validate_session_isolation(split: VideoSplit, records: Sequence[DatasetRecor
                 if record.game_id in seen_games and seen_games[record.game_id] != partition:
                     raise SplitError(f"Game {record.game_id} occurs in more than one partition.")
                 seen_games[record.game_id] = partition
+            if record.table_setup is not None:
+                if (
+                    record.table_setup in seen_table_setups
+                    and seen_table_setups[record.table_setup] != partition
+                ):
+                    raise SplitError(
+                        f"Table setup {record.table_setup} occurs in more than one partition."
+                    )
+                seen_table_setups[record.table_setup] = partition
 
 
 def make_group_split(records: Sequence[DatasetRecord], *, seed: int = 42) -> VideoSplit:
-    groups: dict[str, list[str]] = {}
-    for record in records:
-        groups.setdefault(record.session_id, []).append(record.video_id)
+    """Create a split that keeps known leakage groups together.
+
+    A session, game, or table setup can link several recordings. Treat linked
+    records as one connected group so a game that spans sessions cannot cross
+    partitions.
+    """
+
+    ordered_records = tuple(sorted(records, key=lambda record: record.video_id))
+    parents = list(range(len(ordered_records)))
+
+    def find(index: int) -> int:
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(first: int, second: int) -> None:
+        first_root = find(first)
+        second_root = find(second)
+        if first_root != second_root:
+            parents[second_root] = first_root
+
+    for field in ("session_id", "game_id", "table_setup"):
+        first_by_value: dict[str, int] = {}
+        for index, record in enumerate(ordered_records):
+            value = getattr(record, field)
+            if value is None:
+                continue
+            previous = first_by_value.get(value)
+            if previous is not None:
+                union(previous, index)
+            else:
+                first_by_value[value] = index
+
+    components: dict[int, list[str]] = {}
+    for index, record in enumerate(ordered_records):
+        components.setdefault(find(index), []).append(record.video_id)
+    groups = {
+        f"group-{index}": video_ids
+        for index, video_ids in enumerate(
+            sorted(components.values(), key=lambda values: tuple(values))
+        )
+    }
     group_split = make_video_split(tuple(groups), seed=seed)
     split = VideoSplit(
         train=tuple(sorted(video for group in group_split.train for video in groups[group])),

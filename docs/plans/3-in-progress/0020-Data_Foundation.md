@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Make source, annotation, review, split, and lineage data reliable before vision work
-- **Status:** Ready
+- **Status:** In Progress
 - **Reviewed:** 2026-08-27 against the glossary, current CardEventNet data tools, and local dataset
 - **Starts now:** In parallel with plans 0005 and 0006
 - **Unblocks:** The VisionDetector training pipeline and later recognition experiments

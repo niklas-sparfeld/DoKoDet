@@ -43,11 +43,12 @@ No epics.
 | Epic | Outcome |
 | --- | --- |
 | [0006 — Game engine contract and core PoC](2-ready/0006-GameEngine_v1.md) | Freeze the round-reconstruction contract and build the rules core. |
-| [0020 — Data foundation](2-ready/0020-Data_Foundation.md) | Establish the shared data lifecycle. |
 
 ### In Progress
 
-No epics.
+| Epic | Outcome |
+| --- | --- |
+| [0020 — Data foundation](3-in-progress/0020-Data_Foundation.md) | Establish the shared data lifecycle. |
 
 ### Blocked
 

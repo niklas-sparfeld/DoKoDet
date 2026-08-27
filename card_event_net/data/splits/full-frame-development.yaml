@@ -1,6 +1,7 @@
-# This is a session- and game-isolated development split.
+# This is a session-, game-, and table-setup-isolated development split.
 # It is not the final full-frame test split. Collect a new game for that purpose.
 # IMG_2781 was evaluated for the ROI pipeline, so it is training data here.
+# The five staged kitchen recordings are indexed intake and remain unassigned until reviewed.
 train:
   - IMG_0090
   - IMG_0091
@@ -42,3 +43,9 @@ val:
   - IMG_2779
   - IMG_2780
 test: []
+unassigned:
+  - IMG_0669
+  - IMG_0670
+  - IMG_0671
+  - IMG_0673
+  - IMG_0674

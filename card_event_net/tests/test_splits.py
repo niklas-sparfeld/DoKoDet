@@ -31,10 +31,15 @@ def test_small_split_warns() -> None:
 
 def test_split_round_trips_and_rejects_overlap(tmp_path: Path) -> None:
     path = tmp_path / "default.yaml"
-    expected = VideoSplit(train=("a",), val=("b",), test=("c",))
+    expected = VideoSplit(train=("a",), val=("b",), test=("c",), unassigned=("d",))
 
     save_split(expected, path)
 
     assert load_split(path) == expected
     with pytest.raises(SplitError, match="more than one partition"):
         VideoSplit.from_mapping({"train": ["a"], "val": ["a"], "test": []})
+
+
+def test_split_rejects_unknown_fields() -> None:
+    with pytest.raises(SplitError, match="Unknown split fields"):
+        VideoSplit.from_mapping({"train": [], "val": [], "test": [], "pending": []})

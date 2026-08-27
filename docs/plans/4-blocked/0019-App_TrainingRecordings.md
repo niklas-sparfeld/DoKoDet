@@ -5,9 +5,9 @@
 - Summary: Record live video and model predictions, upload them, and import them into CardEventNet
 - Status: Blocked
 - Depends on: completed plans 0003, 0004, and 0014; plan 0016; and the source-data contract from
-  [plan 0020](../2-ready/0020-Data_Foundation.md)
+  [plan 0020](../3-in-progress/0020-Data_Foundation.md)
 - Boundary: This plan owns recording capture, upload, and immutable intake. The data-foundation
-  [plan](../2-ready/0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
+  [plan](../3-in-progress/0020-Data_Foundation.md) owns canonical dataset identity, annotation lineage, review, and
   promotion.
 
 ## 1. Outcome
