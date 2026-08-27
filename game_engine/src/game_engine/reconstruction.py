@@ -17,7 +17,7 @@ from .evidence import (
     score_observed_card,
 )
 from .replay import ReplayError, TrickResult, replay_round
-from .rules import CardPlay, Ruleset
+from .rules import CardPlay, RulesError, Ruleset
 
 ReconstructionStatus = Literal["resolved", "ambiguous", "impossible", "incomplete"]
 
@@ -166,6 +166,9 @@ def reconstruct_round(
     max_search_nodes: int = 250_000,
     evidence_weights: VisualEvidenceWeights | None = None,
     ablated_evidence: Collection[EvidenceFamily] = (),
+    forced_identity_by_observed_card_id: Mapping[str, str] | None = None,
+    forced_player_by_play_index: Mapping[int, str] | None = None,
+    ignored_observed_card_ids: Collection[str] = (),
 ) -> ReconstructionResult:
     """Exhaustively reconstruct a bounded identity-only round.
 
@@ -187,6 +190,9 @@ def reconstruct_round(
         raise ValueError("ablated_evidence contains an unknown evidence family.")
     if len(set(requested_ablations)) != len(requested_ablations):
         raise ValueError("ablated_evidence must contain unique evidence families.")
+    forced_identities = dict(forced_identity_by_observed_card_id or {})
+    forced_players = dict(forced_player_by_play_index or {})
+    required_ignored_card_ids = frozenset(ignored_observed_card_ids)
 
     selected_ruleset = ruleset or _default_ruleset()
     if selected_ruleset.manifest.deck_variant != reconstruction_input.deck_variant:
@@ -201,6 +207,8 @@ def reconstruct_round(
             raise ValueError("missing play slots must be within the manifest play count.")
         if len(allowed_missing_slots) != len(requested_missing_slots):
             raise ValueError("missing play slots must be unique.")
+    if any(play_index < 1 or play_index > expected_plays for play_index in forced_players):
+        raise ValueError("forced player play indices must be within the manifest play count.")
 
     tokens, incomplete_observations = _flatten_observations(reconstruction_input.observations)
     missing_budget = min(max_missing_plays, max(0, expected_plays - len(tokens)))
@@ -276,7 +284,14 @@ def reconstruct_round(
 
         if token_index < len(tokens):
             token = tokens[token_index]
-            for card, probability in token.candidates:
+            candidates = (
+                () if token.observed_card_id in required_ignored_card_ids else token.candidates
+            )
+            if candidates and token.observed_card_id in forced_identities:
+                forced_card = forced_identities[token.observed_card_id]
+                candidate_probabilities = dict(candidates)
+                candidates = ((forced_card, candidate_probabilities.get(forced_card, 1.0)),)
+            for card, probability in candidates:
                 if card not in selected_ruleset.manifest_cards:
                     reject(f"replay rejected branch: candidate {card} is outside the selected deck")
                     continue
@@ -300,6 +315,13 @@ def reconstruct_round(
                     active_players=players,
                     ruleset=selected_ruleset,
                 )
+                required_player = forced_players.get(len(plays) + 1)
+                if required_player is not None and next_play.player != required_player:
+                    reject(
+                        f"correction rejected branch: card play {len(plays) + 1} must be by "
+                        f"{required_player}, got {next_play.player}"
+                    )
+                    continue
                 next_counts = dict(card_counts)
                 next_counts[card] += 1
                 next_tracklet_ids = (
@@ -506,6 +528,89 @@ def reconstruct(
     """Alias for :func:`reconstruct_round` used by small local integrations."""
 
     return reconstruct_round(reconstruction_input, **kwargs)  # type: ignore[arg-type]
+
+
+def reconstruct_manual_sequence(
+    reconstruction_input: ReconstructionInput,
+    plays: Sequence[CardPlay],
+    *,
+    ruleset: Ruleset | None = None,
+) -> ReconstructionResult:
+    """Validate a complete human-supplied card-play sequence with the selected ruleset."""
+
+    selected_ruleset = ruleset or _default_ruleset()
+    if selected_ruleset.manifest.deck_variant != reconstruction_input.deck_variant:
+        raise ValueError("ruleset manifest must match the reconstruction deck variant.")
+    resolved_plays = tuple(plays)
+    initial_hands: dict[str, list[str]] = {
+        player: [] for player in reconstruction_input.active_players
+    }
+    for play in resolved_plays:
+        if play.player not in initial_hands:
+            raise ReplayError(f"card play player {play.player} is not active in this round.")
+        try:
+            selected_ruleset.validate_card(play.card)
+        except RulesError as error:
+            raise ReplayError(f"card play: {error}") from error
+        initial_hands.setdefault(play.player, []).append(play.card)
+    replay = replay_round(
+        resolved_plays,
+        active_players=reconstruction_input.active_players,
+        first_trick_leader=reconstruction_input.first_trick_leader,
+        initial_hands=initial_hands,
+        ruleset=selected_ruleset,
+    )
+    gameplay = GameplayResult(
+        plays=resolved_plays,
+        tricks=replay.tricks,
+        initial_hands={player: tuple(cards) for player, cards in initial_hands.items()},
+    )
+    hypothesis = ReconstructionHypothesis(
+        gameplay=gameplay,
+        source_observation_ids=tuple(
+            observation.observation_id for observation in reconstruction_input.observations
+        ),
+        source_observed_card_ids=tuple(
+            card.observed_card_id
+            for observation in reconstruction_input.observations
+            for card in observation.cards
+        ),
+        ignored_observed_card_ids=(),
+        missing_play_indices=(),
+        score_breakdown=ScoreBreakdown(
+            identity_candidate_log_score=0.0,
+            ignored_observed_card_count=0,
+            inferred_missing_play_count=0,
+        ),
+    )
+    diagnostics = ReconstructionDiagnostics(
+        ruleset=f"{reconstruction_input.ruleset.name}/{reconstruction_input.ruleset.version}",
+        deck_variant=reconstruction_input.deck_variant,
+        capabilities=_capabilities(reconstruction_input.observations),
+        calibration_states=tuple(
+            sorted({observation.calibration for observation in reconstruction_input.observations})
+        ),
+        observations_seen=len(reconstruction_input.observations),
+        card_proposals_seen=sum(
+            len(observation.cards) for observation in reconstruction_input.observations
+        ),
+        search_nodes=0,
+        complete_branches=1,
+        merged_branches=0,
+        rejected_branches=(),
+        ignored_observations=(),
+        incomplete_observations=(),
+        search_limits={},
+        truncated=False,
+        evidence_families=_evidence_families(reconstruction_input.observations),
+        ablated_evidence=(),
+    )
+    return ReconstructionResult(
+        status="resolved",
+        hypotheses=(hypothesis,),
+        focused_decisions=(),
+        diagnostics=diagnostics,
+    )
 
 
 def _flatten_observations(
@@ -732,5 +837,6 @@ __all__ = [
     "ReconstructionStatus",
     "ScoreBreakdown",
     "reconstruct",
+    "reconstruct_manual_sequence",
     "reconstruct_round",
 ]

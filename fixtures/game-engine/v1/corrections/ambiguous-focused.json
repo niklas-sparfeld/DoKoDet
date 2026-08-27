@@ -1,0 +1,16 @@
+{
+  "schema_version": "reconstruction-corrections/v1",
+  "round_id": "synthetic-game-20260827-round-01",
+  "constraints": [
+    {
+      "schema_version": "reconstruction-correction/v1",
+      "constraint_id": "correction-ambiguous-card-041",
+      "kind": "select_identity",
+      "reviewer_id": "reviewer-01",
+      "created_at_ms": 202608270001,
+      "note": "The last proposal is the retained diamond queen, not the alternate club ten.",
+      "observed_card_id": "observation-041-card-01",
+      "selected_card": "DIAMONDS_QUEEN"
+    }
+  ]
+}

@@ -349,6 +349,25 @@ def parse_reconstruction_input_bytes(input_bytes: bytes) -> ReconstructionInput:
     return _parse_bytes(input_bytes, validate_reconstruction_input, "reconstruction input")
 
 
+def load_reconstruction_input_file(path: Path) -> ReconstructionInput:
+    """Read one reconstruction input or extract it from a checked-in scenario fixture."""
+
+    try:
+        input_bytes = path.read_bytes()
+    except OSError as error:
+        raise ContractError(f"could not read reconstruction input: {path}") from error
+    try:
+        payload = json.loads(input_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ContractError(f"the reconstruction input is not valid UTF-8 JSON: {path}") from error
+    if isinstance(payload, dict) and payload.get("schema_version") == ROUND_SCENARIO_SCHEMA_VERSION:
+        try:
+            return RoundScenario.model_validate(payload).input
+        except ValidationError as error:
+            raise ContractError(f"round scenario failed validation: {path}") from error
+    return parse_reconstruction_input_bytes(input_bytes)
+
+
 def canonical_json_bytes(model: BaseModel) -> bytes:
     """Serialize a valid contract model as stable compact JSON bytes."""
 
@@ -416,6 +435,7 @@ __all__ = [
     "ScenarioExpectation",
     "TableObservation",
     "canonical_json_bytes",
+    "load_reconstruction_input_file",
     "load_round_scenario",
     "parse_observation_bytes",
     "parse_reconstruction_input_bytes",

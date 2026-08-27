@@ -430,6 +430,16 @@ Acceptance:
 - a complete manual sequence can produce a reviewed reconstruction;
 - no correction mutates source observations.
 
+Progress (2026-08-27): M5 is complete. Added the immutable
+`reconstruction-correction/v1` and `reconstruction-corrections/v1` contracts with reviewer
+provenance, focused identity and player constraints, irrelevant-observation constraints, sequence
+edits, and complete manual sequences. Corrections recompute a new result while retaining the source
+result and source observations. The ambiguous fixture now resolves with a focused identity
+correction; invalid cards report the exact selected-deck conflict; complete manual sequences are
+checked by the same replay rules and produce a `ReviewedReconstruction`. Added local file loaders
+for checked-in reconstruction scenarios and correction documents. Association and custom trick
+boundary constraints are represented in the contract and report their bounded-PoC limitations.
+
 ## 9. Out of scope
 
 Move these to later plans:

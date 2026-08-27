@@ -168,6 +168,9 @@ The canonical `round-scenario/v1` fixtures are:
 - [`human-corrected.json`](fixtures/game-engine/v1/rounds/human-corrected.json) — a focused
   identity correction recorded as private test metadata.
 
+The focused correction handoff is
+[`ambiguous-focused.json`](fixtures/game-engine/v1/corrections/ambiguous-focused.json).
+
 Each fixture contains:
 
 - `input`: one reconstruction input with generated observations; the clean scenario has 40 exact
@@ -231,6 +234,26 @@ reconstruction hypotheses. They are not calibrated probabilities and are not mul
 independent evidence. `run_ablation` records the same reconstruction with one evidence family
 enabled and disabled. The supported ablation families are `presence`, `transition`,
 `active_area`, and `tracklet`.
+
+## M5 human correction and local handoff
+
+`game_engine/src/game_engine/corrections.py` defines the immutable
+`reconstruction-correction/v1` constraint and `reconstruction-corrections/v1` document. Each
+constraint has a stable identifier, reviewer identifier, creation time, and optional note. The
+document targets one round and can contain a focused identity or player decision, an irrelevant
+observation decision, a sequence edit, or a complete manually supplied card-play sequence.
+
+`apply_corrections` keeps the source `ReconstructionResult` and all `TableObservation` values
+unchanged. It recomputes a new result for executable focused constraints. A valid complete sequence
+is checked by the same `doko-normal/v1` replay rules and becomes a `ReviewedReconstruction` that
+retains the source result and applied constraints. A failed correction returns an exact
+`contract_conflict`, `deck_conflict`, or `rules_conflict` message. Trick-boundary and association
+corrections are part of the closed contract, but require later rules or association-aware search
+before they can be applied by this bounded PoC.
+
+`load_reconstruction_input_file` and `load_correction_document` provide the local file-based
+handoff. The input loader accepts a raw `round-reconstruction-input/v1` document or extracts the
+same input from a checked-in `round-scenario/v1` fixture. No HTTP orchestration is required.
 
 ## Ownership
 
