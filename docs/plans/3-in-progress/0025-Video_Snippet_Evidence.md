@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Summary:** Add bounded event-relative video snippets to iOS evidence packages and backend storage
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** None
 - **Builds on:** Plans 0003, 0004, and 0016 provide the completed frame-only baseline
 - **Reviewed:** 2026-08-27 against the current iOS and backend evidence pipeline
@@ -34,7 +34,7 @@ network service, trained model, or GPU.
 
 ### 2.1 Add a V2 evidence package
 
-Replace `cardevent-evidence/v1` with `cardevent-evidence/v2`. Add one optional video snippet part. A
+Use `cardevent-evidence/v2` with one optional video snippet part. A
 V2 package can remain frame-only when snippet capture fails or is disabled. Update all local
 producers, consumers, and fixtures in the same epic. Do not maintain a dual parser for the undeployed
 PoC format.
@@ -149,13 +149,16 @@ A failed upload must not leave accepted partial media or database rows.
 
 ## 6. Small implementation milestones
 
-### M0 — Media choice and V2 contract
+### M0 — Media choice and V2 contract — Complete
 
-1. Use a representative recorded source to compare at least two locally supported encoding settings.
-2. Record size, encode time, decode time, dimensions, frame rate, and event-relative coverage.
-3. Select one PoC container, codec, and bounded configuration.
-4. Write the V2 manifest contract and canonical fixture.
-5. Add strict Swift and Python contract tests.
+1. [x] Use a representative recorded source to compare at least two locally supported encoding settings.
+2. [x] Record size, encode time, decode time, dimensions, frame rate, and event-relative coverage.
+3. [x] Select one PoC container, codec, and bounded configuration.
+4. [x] Write the V2 manifest contract and canonical fixture.
+5. [x] Add strict Swift and Python contract tests.
+
+The measured selection is recorded in
+[the M0 media report](../../reports/0025-Video_Snippet_M0_Media_Selection.md).
 
 Acceptance:
 

@@ -312,7 +312,7 @@ and tracking improve independently.
   data for observed cards, snippets, and tracklets.
 - [Plan 0021](plans/2-ready/0021-Table_Evidence_Analyzer_Training_Pipeline.md) owns reusable model
   training, evaluation, export, and capability metadata.
-- [Plan 0025](plans/2-ready/0025-Video_Snippet_Evidence.md) owns iOS and backend video-snippet
+- [Plan 0025](plans/3-in-progress/0025-Video_Snippet_Evidence.md) owns iOS and backend video-snippet
   evidence transport.
 - [Plan 0022](plans/0-to-specify/0022-Table_Evidence_Analyzer_Development.md) will select measured
   visible-card, transition, spatial, and tracking methods for the TableEvidenceAnalyzer.

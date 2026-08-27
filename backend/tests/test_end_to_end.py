@@ -11,7 +11,7 @@ from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.upload_fixture import prepare_fixture
 
 BACKEND_ROOT = Path(__file__).parents[1]
-FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 
 
 def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> None:
@@ -25,7 +25,9 @@ def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> 
     app = create_app(settings)
     repository = EvidenceRepository(app.state.engine)
     storage = EvidenceStorage(settings.evidence_root)
-    manifest_bytes, manifest, frame_sources = prepare_fixture(FIXTURE_ROOT / "example-complete")
+    manifest_bytes, manifest, frame_sources, video_source = prepare_fixture(
+        FIXTURE_ROOT / "example-complete"
+    )
     files = {
         "manifest": ("manifest.json", manifest_bytes, "application/json"),
         **{
@@ -37,6 +39,13 @@ def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> 
             for frame in manifest.frames
         },
     }
+    assert video_source is not None
+    assert manifest.video_snippet is not None
+    files[manifest.video_snippet.part_name] = (
+        f"{manifest.video_snippet.part_name}.mp4",
+        video_source,
+        "video/mp4",
+    )
 
     with TestClient(app) as client:
         assert client.get("/health/live").json() == {"status": "ok"}

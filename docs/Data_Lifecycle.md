@@ -39,7 +39,7 @@ the source videos.
 For accepted evidence packages, create draft table observations in a new directory:
 
 ```bash
-uv run cardevent vision-import fixtures/evidence/v1/example-complete \
+uv run cardevent vision-import fixtures/evidence/v2/example-complete \
   --out-dir data/table-observations/draft \
   --operator niklas
 ```

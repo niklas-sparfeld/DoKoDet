@@ -13,12 +13,12 @@ from dokodetector_backend.repository import EvidenceRepository, upgrade_database
 from dokodetector_backend.storage import EvidenceStorage
 
 BACKEND_ROOT = Path(__file__).parents[1]
-FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 
 
 def load_upload_fixture(
     name: str, *, package_id: str | None = None
-) -> tuple[bytes, dict[str, bytes], dict[str, object]]:
+) -> tuple[bytes, dict[str, bytes], dict[str, object], bytes | None]:
     payload = json.loads((FIXTURE_ROOT / name / "manifest.json").read_bytes())
     if package_id is not None:
         payload["package_id"] = package_id
@@ -31,10 +31,17 @@ def load_upload_fixture(
         frame["sha256"] = hashlib.sha256(frame_bytes).hexdigest()
 
     manifest_bytes = json.dumps(payload, separators=(",", ":")).encode()
-    return manifest_bytes, frame_sources, payload
+    video_source = None
+    if payload.get("video_snippet") is not None:
+        video_source = (FIXTURE_ROOT / name / "snippet.mp4").read_bytes()
+    return manifest_bytes, frame_sources, payload, video_source
 
 
-def multipart_parts(manifest_bytes: bytes, frame_sources: dict[str, bytes]) -> dict[str, tuple]:
+def multipart_parts(
+    manifest_bytes: bytes,
+    frame_sources: dict[str, bytes],
+    video_source: bytes | None = None,
+) -> dict[str, tuple]:
     parts = {"manifest": ("untrusted-name.json", manifest_bytes, "application/json")}
     parts.update(
         {
@@ -42,6 +49,10 @@ def multipart_parts(manifest_bytes: bytes, frame_sources: dict[str, bytes]) -> d
             for part_name, frame_bytes in frame_sources.items()
         }
     )
+    if video_source is not None:
+        payload = json.loads(manifest_bytes)
+        part_name = payload["video_snippet"]["part_name"]
+        parts[part_name] = ("untrusted-name.mp4", video_source, "video/mp4")
     return parts
 
 
@@ -62,16 +73,16 @@ def test_upload_accepts_complete_incomplete_and_metadata_only_packages(backend) 
     client, repository, _ = backend
 
     for fixture_name in ("example-complete", "example-incomplete"):
-        manifest_bytes, frame_sources, payload = load_upload_fixture(fixture_name)
+        manifest_bytes, frame_sources, payload, video_source = load_upload_fixture(fixture_name)
         response = client.put(
             f"/v1/evidence-packages/{payload['package_id']}",
-            files=multipart_parts(manifest_bytes, frame_sources),
+            files=multipart_parts(manifest_bytes, frame_sources, video_source),
         )
         assert response.status_code == 201
         assert response.json()["created"] is True
         assert repository.get_package(payload["package_id"]) is not None
 
-    manifest_bytes, _, payload = load_upload_fixture(
+    manifest_bytes, _, payload, _ = load_upload_fixture(
         "example-incomplete", package_id="550e8400-e29b-41d4-a716-446655440002"
     )
     payload["session"]["event_sequence"] = 3
@@ -91,12 +102,12 @@ def test_upload_accepts_complete_incomplete_and_metadata_only_packages(backend) 
 
 def test_get_returns_stored_package_metadata(backend) -> None:
     client, _, storage = backend
-    manifest_bytes, frame_sources, payload = load_upload_fixture("example-complete")
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
     package_id = payload["package_id"]
 
     upload = client.put(
         f"/v1/evidence-packages/{package_id}",
-        files=multipart_parts(manifest_bytes, frame_sources),
+        files=multipart_parts(manifest_bytes, frame_sources, video_source),
     )
     response = client.get(f"/v1/evidence-packages/{package_id}")
 
@@ -105,9 +116,10 @@ def test_get_returns_stored_package_metadata(backend) -> None:
     body = response.json()
     assert body["package_id"] == package_id
     assert body["state"] == "stored"
-    assert body["schema_version"] == "cardevent-evidence/v1"
+    assert body["schema_version"] == "cardevent-evidence/v2"
     assert body["session"] == payload["session"]
     assert body["event"] == payload["event"]
+    assert body["manifest"]["video_snippet"] == payload["video_snippet"]
     assert body["manifest_sha256"] == hashlib.sha256(manifest_bytes).hexdigest()
     assert body["manifest"] == payload
     assert body["missing_frame_targets_ms"] == []
@@ -118,6 +130,9 @@ def test_get_returns_stored_package_metadata(backend) -> None:
     assert body["frames"][0]["sha256"] == hashlib.sha256(frame_sources["frame_00"]).hexdigest()
     assert body["frames"][0]["relative_path"] == (f"evidence/{package_id}/frames/frame_00.jpg")
     assert (storage.root / body["frames"][0]["relative_path"]).is_file()
+    video_path = storage.root / "evidence" / package_id / "video" / "snippet_00.mp4"
+    assert video_source is not None
+    assert video_path.read_bytes() == video_source
 
 
 def test_get_unknown_package_returns_stable_not_found_error(backend) -> None:
@@ -137,8 +152,8 @@ def test_get_unknown_package_returns_stable_not_found_error(backend) -> None:
 
 def test_identical_replay_returns_original_receipt_without_duplicate_files(backend) -> None:
     client, repository, storage = backend
-    manifest_bytes, frame_sources, payload = load_upload_fixture("example-incomplete")
-    parts = multipart_parts(manifest_bytes, frame_sources)
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-incomplete")
+    parts = multipart_parts(manifest_bytes, frame_sources, video_source)
     path = f"/v1/evidence-packages/{payload['package_id']}"
 
     first = client.put(path, files=parts)
@@ -155,14 +170,14 @@ def test_identical_replay_returns_original_receipt_without_duplicate_files(backe
 
 def test_conflicting_package_id_returns_409_without_overwriting_files(backend) -> None:
     client, repository, storage = backend
-    manifest_bytes, frame_sources, payload = load_upload_fixture("example-incomplete")
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-incomplete")
     path = f"/v1/evidence-packages/{payload['package_id']}"
-    first = client.put(path, files=multipart_parts(manifest_bytes, frame_sources))
+    first = client.put(path, files=multipart_parts(manifest_bytes, frame_sources, video_source))
 
     changed_payload = copy.deepcopy(payload)
     changed_payload["client"]["build"] = "different-build"
     changed_manifest = json.dumps(changed_payload, separators=(",", ":")).encode()
-    second = client.put(path, files=multipart_parts(changed_manifest, frame_sources))
+    second = client.put(path, files=multipart_parts(changed_manifest, frame_sources, video_source))
 
     assert first.status_code == 201
     assert second.status_code == 409
@@ -177,18 +192,18 @@ def test_conflicting_package_id_returns_409_without_overwriting_files(backend) -
 
 def test_conflicting_logical_event_returns_409_without_storing_second_package(backend) -> None:
     client, repository, storage = backend
-    manifest_bytes, frame_sources, payload = load_upload_fixture("example-incomplete")
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-incomplete")
     first = client.put(
         f"/v1/evidence-packages/{payload['package_id']}",
-        files=multipart_parts(manifest_bytes, frame_sources),
+        files=multipart_parts(manifest_bytes, frame_sources, video_source),
     )
 
-    second_manifest, second_frames, second_payload = load_upload_fixture(
+    second_manifest, second_frames, second_payload, second_video = load_upload_fixture(
         "example-incomplete", package_id="550e8400-e29b-41d4-a716-446655440099"
     )
     second = client.put(
         f"/v1/evidence-packages/{second_payload['package_id']}",
-        files=multipart_parts(second_manifest, second_frames),
+        files=multipart_parts(second_manifest, second_frames, second_video),
     )
 
     assert first.status_code == 201
@@ -201,14 +216,14 @@ def test_conflicting_logical_event_returns_409_without_storing_second_package(ba
 
 def test_package_size_limit_rejects_the_complete_package(backend) -> None:
     client, repository, storage = backend
-    manifest_bytes, frame_sources, payload = load_upload_fixture("example-complete")
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
     client.app.state.settings.max_package_bytes = len(manifest_bytes) + len(
         frame_sources["frame_00"]
     )
 
     response = client.put(
         f"/v1/evidence-packages/{payload['package_id']}",
-        files=multipart_parts(manifest_bytes, frame_sources),
+        files=multipart_parts(manifest_bytes, frame_sources, video_source),
     )
 
     assert response.status_code == 413
@@ -221,8 +236,8 @@ def test_package_size_limit_rejects_the_complete_package(backend) -> None:
 @pytest.mark.parametrize("rejection", ("missing", "extra", "oversized", "hash"))
 def test_rejected_parts_are_not_stored(backend, rejection: str) -> None:
     client, repository, storage = backend
-    manifest_bytes, frame_sources, payload = load_upload_fixture("example-complete")
-    parts = multipart_parts(manifest_bytes, frame_sources)
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
+    parts = multipart_parts(manifest_bytes, frame_sources, video_source)
     package_id = payload["package_id"]
 
     if rejection == "missing":

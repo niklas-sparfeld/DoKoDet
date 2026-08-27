@@ -23,7 +23,7 @@ from dokodetector_backend.repository import upgrade_database
 REPOSITORY_ROOT = Path(__file__).parents[2]
 BACKEND_ROOT = REPOSITORY_ROOT / "backend"
 IOS_ROOT = REPOSITORY_ROOT / "ios"
-FIXTURES_ROOT = REPOSITORY_ROOT / "fixtures" / "evidence" / "v1"
+FIXTURES_ROOT = REPOSITORY_ROOT / "fixtures" / "evidence" / "v2"
 COMPLETE_PACKAGE_ID = UUID("550e8400-e29b-41d4-a716-446655440000")
 
 

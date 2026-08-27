@@ -1,11 +1,11 @@
-# Evidence upload V1 contract
+# Evidence upload V2 contract
 
 This document freezes the client-to-server contract for one evidence package. The canonical
 manifest examples are:
 
 ```text
-fixtures/evidence/v1/example-complete/manifest.json
-fixtures/evidence/v1/example-incomplete/manifest.json
+fixtures/evidence/v2/example-complete/manifest.json
+fixtures/evidence/v2/example-incomplete/manifest.json
 ```
 
 The backend and iOS tests must load these files directly. Do not copy them into another fixture
@@ -23,14 +23,16 @@ event
 model
 event_decoder
 evidence_capture
+video_capture
 camera
 frames
+video_snippet
 missing_frame_targets_ms
 score_trace
 client
 ```
 
-`schema_version` is `cardevent-evidence/v1`. `package_id` and `session.session_id` are UUIDs.
+`schema_version` is `cardevent-evidence/v2`. `package_id` and `session.session_id` are UUIDs.
 `session.event_sequence` is a positive integer. These two session fields identify one logical
 event. The manifest has no player or turn context.
 
@@ -66,10 +68,28 @@ The `evidence_capture.target_offsets_ms` list is the configured target set. The 
 `event.evidence_complete` is true only when `missing_frame_targets_ms` is empty. A metadata-only
 package is valid when all configured targets are in the missing list and `frames` is empty.
 
+The `video_capture` object freezes the requested event-relative range and the PoC bounds:
+
+```text
+requested_start_offset_ms, requested_end_offset_ms
+max_duration_ms, max_width, max_height, max_nominal_frame_rate
+max_byte_length, queued_byte_capacity
+container, video_codec, content_type
+```
+
+The selected closed media values are `mp4`, `h264`, and `video/mp4`. The requested range covers all
+configured frame targets.
+
+`video_snippet` is nullable. `null` means that optional snippet evidence is absent. A non-null
+complete value declares exactly one multipart part and contains its actual event-relative start and
+end, duration, media values, byte length, and SHA-256. An incomplete value contains only
+`capture_complete: false` and a `failure_reason`; it has no media part. A corrupt declared snippet
+is different: it is complete and has a declared part, but its bytes fail hash or media validation.
+
 The client object contains `app_version`, `build`, `device_model_identifier`, and `os_version`.
 The device value is a model class. It is not a stable device identifier.
 
-All required fields are present in both fixtures. Unknown fields are not part of V1. Clients must
+All required fields are present in both fixtures. Unknown fields are not part of V2. Clients must
 send the fields shown in the fixtures and servers must reject unknown fields rather than silently
 assigning them a meaning.
 
@@ -88,6 +108,9 @@ manifest frame, using that frame's `part_name` as the multipart field name. A mi
 multipart part. A metadata-only package therefore contains the manifest part only. Undeclared
 frame parts, duplicate parts, and duplicate manifest parts are invalid.
 
+When `video_snippet` is complete, the request also contains one `video/mp4` part using its
+`part_name`. A null or incomplete snippet has no video part.
+
 For the complete fixture, the parts are:
 
 ```text
@@ -98,6 +121,7 @@ frame_02  image/jpeg
 frame_03  image/jpeg
 frame_04  image/jpeg
 frame_05  image/jpeg
+snippet_00 video/mp4
 ```
 
 Multipart filenames are not trusted and are not part of the contract fingerprint. The server stores
@@ -118,13 +142,14 @@ incomplete package.
 
 ### Size limits
 
-These are the V1 default limits. A deployment may lower them, but it must not raise them without a
+These are the V2 default limits. A deployment may lower them, but it must not raise them without a
 new contract version:
 
 ```text
 manifest bytes:             1,000,000
 one JPEG frame:            10,000,000
 manifest plus JPEG frames: 100,000,000
+one video snippet:             250,000
 ```
 
 The limits apply to received bytes, before any image decoding. A request over a limit is rejected
@@ -147,7 +172,7 @@ For an identical replay, return `200 OK` with the same shape, `created: false`, 
 `received_at`. Idempotency compares the package fingerprint below. A package ID with different
 content returns `409 Conflict` and is not overwritten.
 
-`state` is `stored` for every successful V1 response. `received_at` is an RFC 3339 UTC timestamp.
+`state` is `stored` for every successful V2 response. `received_at` is an RFC 3339 UTC timestamp.
 
 ## Fingerprint
 
@@ -158,12 +183,14 @@ The package fingerprint is the SHA-256 of canonical JSON with this shape:
   "manifest_sha256": "...",
   "frames": [
     {"byte_length": 123, "part_name": "frame_00", "sha256": "..."}
-  ]
+  ],
+  "video_snippet": null
 }
 ```
 
 The manifest digest is the SHA-256 of the received manifest bytes. Frame entries are sorted by
-`part_name`. Multipart boundaries, filenames, and received part order are not included. The server
+`part_name`. A present video entry contains its `part_name`, `byte_length`, and `sha256`.
+Multipart boundaries, filenames, and received part order are not included. The server
 must persist the received manifest bytes without reformatting them. Encode the fingerprint JSON as
 UTF-8 with lexicographically sorted object keys, compact separators (`,` and `:`), and no additional
 whitespace before hashing.
@@ -191,7 +218,7 @@ Validation errors use this stable shape. The server does not return stack traces
 | 400 | `invalid_request` | The multipart envelope or required part is malformed. |
 | 409 | `package_conflict` | The package ID exists with different content. |
 | 409 | `logical_event_conflict` | The session ID and event sequence already identify another package. |
-| 413 | `manifest_too_large`, `frame_too_large`, or `package_too_large` | A configured byte limit is exceeded. |
+| 413 | `manifest_too_large`, `frame_too_large`, `video_too_large`, or `package_too_large` | A configured byte limit is exceeded. |
 | 415 | `unsupported_media_type` | The request or a part has an unsupported content type. |
 | 422 | `invalid_package_id`, `package_id_mismatch`, `invalid_manifest`, or `hash_mismatch` | A declared identity, manifest, or byte digest is invalid. |
 | 500 | `internal_error` | The server failed after receiving a valid request. |

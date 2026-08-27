@@ -73,6 +73,17 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                 max_bytes=settings.max_manifest_bytes,
             )
             validate_package_id(requested_package_id, manifest)
+            video_upload = None
+            if manifest.video_snippet is not None and manifest.video_snippet.capture_complete:
+                video_part_name = manifest.video_snippet.part_name
+                assert video_part_name is not None
+                video_upload = frame_uploads.pop(video_part_name, None)
+                if video_upload is None:
+                    raise ContractError(
+                        "invalid_request",
+                        "The declared video snippet part is missing.",
+                        status_code=400,
+                    )
             _validate_frame_parts(manifest, frame_uploads)
 
             package_bytes = len(manifest_bytes)
@@ -103,7 +114,35 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                         details=[],
                     )
 
-            fingerprint = calculate_package_fingerprint(manifest_bytes, manifest.frames)
+            if manifest.video_snippet is not None and manifest.video_snippet.capture_complete:
+                assert video_upload is not None
+                _require_media_type(video_upload, "video/mp4")
+                video_length, video_digest = await _inspect_video(
+                    video_upload,
+                    max_video_bytes=settings.max_video_bytes,
+                )
+                package_bytes += video_length
+                if package_bytes > settings.max_package_bytes:
+                    raise ContractError(
+                        "package_too_large",
+                        "The package exceeds the configured size limit.",
+                        status_code=413,
+                    )
+                if (
+                    video_length != manifest.video_snippet.byte_length
+                    or video_digest != manifest.video_snippet.sha256
+                ):
+                    raise ContractError(
+                        "hash_mismatch",
+                        "The video snippet bytes do not match the manifest.",
+                        details=[],
+                    )
+
+            fingerprint = calculate_package_fingerprint(
+                manifest_bytes,
+                manifest.frames,
+                video_snippet=manifest.video_snippet,
+            )
             repository: EvidenceRepository = request.app.state.repository
             existing = repository.get_package(manifest.package_id)
             if existing is not None:
@@ -146,8 +185,16 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     package,
                     manifest_bytes,
                     {part_name: upload.file for part_name, upload in frame_uploads.items()},
+                    video_source=video_upload.file if video_upload is not None else None,
+                    video_part_name=(
+                        manifest.video_snippet.part_name
+                        if manifest.video_snippet is not None
+                        and manifest.video_snippet.capture_complete
+                        else None
+                    ),
                     max_manifest_bytes=settings.max_manifest_bytes,
                     max_frame_bytes=settings.max_frame_bytes,
+                    max_video_bytes=settings.max_video_bytes,
                 )
             except PackageConflict:
                 return _resolve_package_conflict(repository, manifest.package_id, fingerprint)
@@ -381,6 +428,23 @@ async def _inspect_frame(upload: UploadFile, *, max_frame_bytes: int) -> tuple[i
             raise ContractError(
                 "frame_too_large",
                 "A frame exceeds the configured size limit.",
+                status_code=413,
+            )
+        digest.update(chunk)
+    await upload.seek(0)
+    return byte_length, digest.hexdigest()
+
+
+async def _inspect_video(upload: UploadFile, *, max_video_bytes: int) -> tuple[int, str]:
+    await upload.seek(0)
+    digest = hashlib.sha256()
+    byte_length = 0
+    while chunk := await upload.read(FRAME_COPY_CHUNK_BYTES):
+        byte_length += len(chunk)
+        if byte_length > max_video_bytes:
+            raise ContractError(
+                "video_too_large",
+                "A video snippet exceeds the configured size limit.",
                 status_code=413,
             )
         digest.update(chunk)

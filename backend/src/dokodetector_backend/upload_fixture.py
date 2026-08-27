@@ -19,8 +19,8 @@ SYNTHETIC_FRAME_PREFIX = b"DokoDetector local fixture frame: "
 
 def prepare_fixture(
     fixture_directory: Path,
-) -> tuple[bytes, EvidenceManifest, dict[str, bytes]]:
-    """Load a fixture and prepare its manifest and frame bytes for upload.
+) -> tuple[bytes, EvidenceManifest, dict[str, bytes], bytes | None]:
+    """Load a fixture and prepare its manifest and media bytes for upload.
 
     A fixture may contain exact files below ``frames``. The checked-in shared examples contain
     manifest data only, so this helper creates deterministic local frame bytes for those examples
@@ -54,7 +54,19 @@ def prepare_fixture(
         else original_bytes
     )
     manifest = parse_manifest_bytes(manifest_bytes)
-    return manifest_bytes, manifest, frame_sources
+    video_source: bytes | None = None
+    if manifest.video_snippet is not None and manifest.video_snippet.capture_complete:
+        assert manifest.video_snippet.part_name is not None
+        video_path = fixture_directory / "video" / f"{manifest.video_snippet.part_name}.mp4"
+        if not video_path.is_file():
+            video_path = fixture_directory / "snippet.mp4"
+        video_source = video_path.read_bytes()
+        if (
+            len(video_source) != manifest.video_snippet.byte_length
+            or _sha256(video_source) != manifest.video_snippet.sha256
+        ):
+            raise ValueError("Video snippet bytes do not match the manifest.")
+    return manifest_bytes, manifest, frame_sources, video_source
 
 
 def upload_fixture(
@@ -65,7 +77,7 @@ def upload_fixture(
 ) -> dict[str, Any]:
     """Upload one prepared fixture and return the JSON response."""
 
-    manifest_bytes, manifest, frame_sources = prepare_fixture(fixture_directory)
+    manifest_bytes, manifest, frame_sources, video_source = prepare_fixture(fixture_directory)
     files: list[tuple[str, tuple[str, bytes, str]]] = [
         ("manifest", ("manifest.json", manifest_bytes, "application/json"))
     ]
@@ -76,6 +88,15 @@ def upload_fixture(
         )
         for frame in manifest.frames
     )
+    if video_source is not None:
+        assert manifest.video_snippet is not None
+        assert manifest.video_snippet.part_name is not None
+        files.append(
+            (
+                manifest.video_snippet.part_name,
+                (f"{manifest.video_snippet.part_name}.mp4", video_source, "video/mp4"),
+            )
+        )
 
     url = f"{server.rstrip('/')}/v1/evidence-packages/{manifest.package_id}"
     with httpx.Client(timeout=timeout) as client:

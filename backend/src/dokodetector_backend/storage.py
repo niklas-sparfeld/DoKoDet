@@ -32,6 +32,7 @@ class StoredEvidencePackage:
     package_id: UUID
     manifest: StoredFile
     frames: tuple[StoredFile, ...]
+    video: StoredFile | None = None
 
 
 class EvidenceStorage:
@@ -52,6 +53,7 @@ class EvidenceStorage:
         self.evidence_root.mkdir(parents=True, exist_ok=True)
         temporary_path = Path(tempfile.mkdtemp(prefix=".upload-", dir=self.evidence_root))
         (temporary_path / "frames").mkdir()
+        (temporary_path / "video").mkdir()
         return TemporaryEvidencePackage(self, package_uuid, temporary_path)
 
     def package_path(self, package_id: UUID | str) -> Path:
@@ -102,6 +104,7 @@ class TemporaryEvidencePackage:
         self.temporary_path = temporary_path
         self._manifest: StoredFile | None = None
         self._frames: dict[str, StoredFile] = {}
+        self._video: StoredFile | None = None
         self._committed = False
 
     def __enter__(self) -> TemporaryEvidencePackage:
@@ -147,6 +150,26 @@ class TemporaryEvidencePackage:
         self._frames[part_name] = stored
         return _with_final_path(stored, self.package_id)
 
+    def write_video(
+        self,
+        part_name: str,
+        source: bytes | BinaryIO,
+        *,
+        max_bytes: int | None = None,
+    ) -> StoredFile:
+        """Copy the one declared video snippet into the temporary package."""
+
+        if not SAFE_PART_NAME.fullmatch(part_name) or len(part_name) > 64:
+            raise ValueError("Video part names must use a safe part name.")
+        if self._video is not None:
+            raise FileExistsError("The video part was already written.")
+        self._video = self._copy(
+            f"video/{part_name}.mp4",
+            source,
+            max_bytes=max_bytes,
+        )
+        return _with_final_path(self._video, self.package_id)
+
     def commit(self) -> StoredEvidencePackage:
         """Rename the complete temporary directory to its final path."""
 
@@ -164,6 +187,9 @@ class TemporaryEvidencePackage:
             frames=tuple(
                 _with_final_path(self._frames[part_name], self.package_id)
                 for part_name in self._frames
+            ),
+            video=(
+                _with_final_path(self._video, self.package_id) if self._video is not None else None
             ),
         )
 

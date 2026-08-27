@@ -1,0 +1,20 @@
+{
+  "source": "IMG_0090.mov",
+  "event_source_time_ms": 11000,
+  "selected_frame_source_times_ms": [10200, 10600, 10900, 11150, 11400, 11700],
+  "snippet": {
+    "container": "mp4",
+    "video_codec": "h264",
+    "width": 640,
+    "height": 360,
+    "nominal_frame_rate": 15.0,
+    "duration_ms": 2133,
+    "frame_count": 32,
+    "byte_length": 137663
+  },
+  "decode_check": {
+    "tool": "ffprobe 8.0",
+    "video_streams": 1,
+    "decoded_frames": 32
+  }
+}

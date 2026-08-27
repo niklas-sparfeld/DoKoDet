@@ -4,7 +4,7 @@ import CryptoKit
 import Foundation
 import ImageIO
 
-public let evidencePackageSchemaVersion = "cardevent-evidence/v1"
+public let evidencePackageSchemaVersion = "cardevent-evidence/v2"
 
 /// Maps one monotonic media timeline to session-relative times and UTC dates.
 ///
@@ -229,6 +229,62 @@ public struct EvidenceCaptureMetadata: Codable, Equatable, Sendable {
     }
 }
 
+public struct EvidenceVideoCaptureMetadata: Codable, Equatable, Sendable {
+    public let requestedStartOffsetMs: Int
+    public let requestedEndOffsetMs: Int
+    public let maxDurationMs: Int
+    public let maxWidth: Int
+    public let maxHeight: Int
+    public let maxNominalFrameRate: Double
+    public let maxByteLength: Int
+    public let queuedByteCapacity: Int
+    public let container: String
+    public let videoCodec: String
+    public let contentType: String
+
+    public init(
+        requestedStartOffsetMs: Int = -1_000,
+        requestedEndOffsetMs: Int = 1_000,
+        maxDurationMs: Int = 2_500,
+        maxWidth: Int = 640,
+        maxHeight: Int = 360,
+        maxNominalFrameRate: Double = 15.0,
+        maxByteLength: Int = 250_000,
+        queuedByteCapacity: Int = 10 * 1024 * 1024,
+        container: String = "mp4",
+        videoCodec: String = "h264",
+        contentType: String = "video/mp4"
+    ) {
+        self.requestedStartOffsetMs = requestedStartOffsetMs
+        self.requestedEndOffsetMs = requestedEndOffsetMs
+        self.maxDurationMs = maxDurationMs
+        self.maxWidth = maxWidth
+        self.maxHeight = maxHeight
+        self.maxNominalFrameRate = maxNominalFrameRate
+        self.maxByteLength = maxByteLength
+        self.queuedByteCapacity = queuedByteCapacity
+        self.container = container
+        self.videoCodec = videoCodec
+        self.contentType = contentType
+    }
+
+    public static let standard = EvidenceVideoCaptureMetadata()
+
+    private enum CodingKeys: String, CodingKey {
+        case requestedStartOffsetMs = "requested_start_offset_ms"
+        case requestedEndOffsetMs = "requested_end_offset_ms"
+        case maxDurationMs = "max_duration_ms"
+        case maxWidth = "max_width"
+        case maxHeight = "max_height"
+        case maxNominalFrameRate = "max_nominal_frame_rate"
+        case maxByteLength = "max_byte_length"
+        case queuedByteCapacity = "queued_byte_capacity"
+        case container
+        case videoCodec = "video_codec"
+        case contentType = "content_type"
+    }
+}
+
 public struct EvidenceFrameManifest: Codable, Equatable, Sendable {
     public let partName: String
     public let targetOffsetMs: Int
@@ -312,6 +368,182 @@ public struct EvidenceFrameManifest: Codable, Equatable, Sendable {
     }
 }
 
+public struct EvidenceVideoSnippetManifest: Codable, Equatable, Sendable {
+    public let captureComplete: Bool
+    public let partName: String?
+    public let startOffsetMs: Int?
+    public let endOffsetMs: Int?
+    public let durationMs: Int
+    public let container: String?
+    public let videoCodec: String?
+    public let width: Int
+    public let height: Int
+    public let nominalFrameRate: Double?
+    public let byteLength: Int
+    public let contentType: String?
+    public let sha256: String?
+    public let failureReason: String?
+
+    public init(
+        partName: String,
+        startOffsetMs: Int,
+        endOffsetMs: Int,
+        durationMs: Int,
+        container: String = "mp4",
+        videoCodec: String = "h264",
+        width: Int,
+        height: Int,
+        nominalFrameRate: Double?,
+        byteLength: Int,
+        contentType: String = "video/mp4",
+        sha256: String
+    ) {
+        self.captureComplete = true
+        self.partName = partName
+        self.startOffsetMs = startOffsetMs
+        self.endOffsetMs = endOffsetMs
+        self.durationMs = durationMs
+        self.container = container
+        self.videoCodec = videoCodec
+        self.width = width
+        self.height = height
+        self.nominalFrameRate = nominalFrameRate
+        self.byteLength = byteLength
+        self.contentType = contentType
+        self.sha256 = sha256
+        self.failureReason = nil
+    }
+
+    public init(failureReason: String) {
+        self.captureComplete = false
+        self.partName = nil
+        self.startOffsetMs = nil
+        self.endOffsetMs = nil
+        self.durationMs = 0
+        self.container = nil
+        self.videoCodec = nil
+        self.width = 0
+        self.height = 0
+        self.nominalFrameRate = nil
+        self.byteLength = 0
+        self.contentType = nil
+        self.sha256 = nil
+        self.failureReason = failureReason
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case captureComplete = "capture_complete"
+        case partName = "part_name"
+        case startOffsetMs = "start_offset_ms"
+        case endOffsetMs = "end_offset_ms"
+        case durationMs = "duration_ms"
+        case container
+        case videoCodec = "video_codec"
+        case width
+        case height
+        case nominalFrameRate = "nominal_frame_rate"
+        case byteLength = "byte_length"
+        case contentType = "content_type"
+        case sha256
+        case failureReason = "failure_reason"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        captureComplete = try container.decode(Bool.self, forKey: .captureComplete)
+        partName = try container.decodeIfPresent(String.self, forKey: .partName)
+        startOffsetMs = try container.decodeIfPresent(Int.self, forKey: .startOffsetMs)
+        endOffsetMs = try container.decodeIfPresent(Int.self, forKey: .endOffsetMs)
+        durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs) ?? 0
+        self.container = try container.decodeIfPresent(String.self, forKey: .container)
+        videoCodec = try container.decodeIfPresent(String.self, forKey: .videoCodec)
+        width = try container.decodeIfPresent(Int.self, forKey: .width) ?? 0
+        height = try container.decodeIfPresent(Int.self, forKey: .height) ?? 0
+        nominalFrameRate = try container.decodeIfPresent(Double.self, forKey: .nominalFrameRate)
+        byteLength = try container.decodeIfPresent(Int.self, forKey: .byteLength) ?? 0
+        contentType = try container.decodeIfPresent(String.self, forKey: .contentType)
+        sha256 = try container.decodeIfPresent(String.self, forKey: .sha256)
+        failureReason = try container.decodeIfPresent(String.self, forKey: .failureReason)
+        try validate()
+    }
+
+    private func validate() throws {
+        if captureComplete {
+            guard let partName,
+                  let startOffsetMs,
+                  let endOffsetMs,
+                  let container,
+                  let videoCodec,
+                  let contentType,
+                  let sha256,
+                  endOffsetMs > startOffsetMs,
+                  durationMs == endOffsetMs - startOffsetMs,
+                  width > 0,
+                  height > 0,
+                  byteLength > 0,
+                  failureReason == nil,
+                  Self.isSafePartName(partName),
+                  container == "mp4",
+                  videoCodec == "h264",
+                  contentType == "video/mp4",
+                  Self.isLowercaseSHA256(sha256),
+                  nominalFrameRate.map({ $0.isFinite && $0 > 0.0 }) ?? true else {
+                throw DecodingError.dataCorrupted(
+                    DecodingError.Context(codingPath: [], debugDescription: "complete video snippet is invalid")
+                )
+            }
+        } else {
+            guard let failureReason,
+                  !failureReason.isEmpty,
+                  partName == nil,
+                  startOffsetMs == nil,
+                  endOffsetMs == nil,
+                  durationMs == 0,
+                  container == nil,
+                  videoCodec == nil,
+                  width == 0,
+                  height == 0,
+                  nominalFrameRate == nil,
+                  byteLength == 0,
+                  contentType == nil,
+                  sha256 == nil else {
+                throw DecodingError.dataCorrupted(
+                    DecodingError.Context(codingPath: [], debugDescription: "incomplete video snippet is invalid")
+                )
+            }
+        }
+    }
+
+    private static func isLowercaseSHA256(_ value: String) -> Bool {
+        value.count == 64 && value.unicodeScalars.allSatisfy { scalar in
+            (0x30...0x39).contains(scalar.value) || (0x61...0x66).contains(scalar.value)
+        }
+    }
+
+    private static func isSafePartName(_ partName: String) -> Bool {
+        guard partName.count <= 64,
+              let first = partName.unicodeScalars.first,
+              isASCII(first),
+              isLetterOrNumber(first) else {
+            return false
+        }
+        return partName.unicodeScalars.dropFirst().allSatisfy { scalar in
+            isASCII(scalar)
+                && (isLetterOrNumber(scalar) || scalar.value == 0x2E || scalar.value == 0x5F || scalar.value == 0x2D)
+        }
+    }
+
+    private static func isASCII(_ scalar: Unicode.Scalar) -> Bool {
+        scalar.value <= 0x7F
+    }
+
+    private static func isLetterOrNumber(_ scalar: Unicode.Scalar) -> Bool {
+        (0x30...0x39).contains(scalar.value)
+            || (0x41...0x5A).contains(scalar.value)
+            || (0x61...0x7A).contains(scalar.value)
+    }
+}
+
 public struct EvidenceScoreTraceEntry: Codable, Equatable, Sendable {
     public let sessionElapsedMs: Int
     public let score: Double
@@ -335,8 +567,10 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
     public let model: EvidencePackageModelMetadata
     public let eventDecoder: EvidenceEventDecoderMetadata
     public let evidenceCapture: EvidenceCaptureMetadata
+    public let videoCapture: EvidenceVideoCaptureMetadata
     public let camera: EvidencePackageCameraMetadata
     public let frames: [EvidenceFrameManifest]
+    public let videoSnippet: EvidenceVideoSnippetManifest?
     public let missingFrameTargetsMs: [Int]
     public let scoreTrace: [EvidenceScoreTraceEntry]
     public let client: EvidencePackageClientMetadata
@@ -348,8 +582,10 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         model: EvidencePackageModelMetadata,
         eventDecoder: EvidenceEventDecoderMetadata,
         evidenceCapture: EvidenceCaptureMetadata,
+        videoCapture: EvidenceVideoCaptureMetadata = .standard,
         camera: EvidencePackageCameraMetadata,
         frames: [EvidenceFrameManifest],
+        videoSnippet: EvidenceVideoSnippetManifest? = nil,
         missingFrameTargetsMs: [Int],
         scoreTrace: [EvidenceScoreTraceEntry],
         client: EvidencePackageClientMetadata,
@@ -362,8 +598,10 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         self.model = model
         self.eventDecoder = eventDecoder
         self.evidenceCapture = evidenceCapture
+        self.videoCapture = videoCapture
         self.camera = camera
         self.frames = frames
+        self.videoSnippet = videoSnippet
         self.missingFrameTargetsMs = missingFrameTargetsMs
         self.scoreTrace = scoreTrace
         self.client = client
@@ -371,6 +609,15 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let knownKeys = Set(CodingKeys.allCases.map(\.stringValue))
+        guard container.allKeys.allSatisfy({ knownKeys.contains($0.stringValue) }) else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "manifest contains an unknown field."
+                )
+            )
+        }
         schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
         packageID = try container.decode(UUID.self, forKey: .packageID)
         session = try container.decode(EvidenceSessionMetadata.self, forKey: .session)
@@ -378,8 +625,10 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         model = try container.decode(EvidencePackageModelMetadata.self, forKey: .model)
         eventDecoder = try container.decode(EvidenceEventDecoderMetadata.self, forKey: .eventDecoder)
         evidenceCapture = try container.decode(EvidenceCaptureMetadata.self, forKey: .evidenceCapture)
+        videoCapture = try container.decode(EvidenceVideoCaptureMetadata.self, forKey: .videoCapture)
         camera = try container.decode(EvidencePackageCameraMetadata.self, forKey: .camera)
         frames = try container.decode([EvidenceFrameManifest].self, forKey: .frames)
+        videoSnippet = try container.decode(EvidenceVideoSnippetManifest?.self, forKey: .videoSnippet)
         missingFrameTargetsMs = try container.decode([Int].self, forKey: .missingFrameTargetsMs)
         scoreTrace = try container.decode([EvidenceScoreTraceEntry].self, forKey: .scoreTrace)
         client = try container.decode(EvidencePackageClientMetadata.self, forKey: .client)
@@ -406,14 +655,16 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         try container.encode(model, forKey: .model)
         try container.encode(eventDecoder, forKey: .eventDecoder)
         try container.encode(evidenceCapture, forKey: .evidenceCapture)
+        try container.encode(videoCapture, forKey: .videoCapture)
         try container.encode(camera, forKey: .camera)
         try container.encode(frames, forKey: .frames)
+        try container.encode(videoSnippet, forKey: .videoSnippet)
         try container.encode(missingFrameTargetsMs, forKey: .missingFrameTargetsMs)
         try container.encode(scoreTrace, forKey: .scoreTrace)
         try container.encode(client, forKey: .client)
     }
 
-    private enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey, CaseIterable {
         case schemaVersion = "schema_version"
         case packageID = "package_id"
         case session
@@ -421,8 +672,10 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         case model
         case eventDecoder = "event_decoder"
         case evidenceCapture = "evidence_capture"
+        case videoCapture = "video_capture"
         case camera
         case frames
+        case videoSnippet = "video_snippet"
         case missingFrameTargetsMs = "missing_frame_targets_ms"
         case scoreTrace = "score_trace"
         case client
@@ -485,6 +738,24 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
             try fail("evidence_capture contains an invalid value.")
         }
 
+        let videoCapture = manifest.videoCapture
+        guard videoCapture.requestedEndOffsetMs > videoCapture.requestedStartOffsetMs,
+              videoCapture.maxDurationMs > 0,
+              videoCapture.maxWidth > 0,
+              videoCapture.maxHeight > 0,
+              videoCapture.maxNominalFrameRate.isFinite,
+              videoCapture.maxNominalFrameRate > 0.0,
+              videoCapture.maxByteLength > 0,
+              videoCapture.queuedByteCapacity > 0,
+              videoCapture.container == "mp4",
+              videoCapture.videoCodec == "h264",
+              videoCapture.contentType == "video/mp4",
+              videoCapture.requestedStartOffsetMs <= capture.targetOffsetsMs.min()!,
+              videoCapture.requestedEndOffsetMs >= capture.targetOffsetsMs.max()!,
+              videoCapture.maxDurationMs >= videoCapture.requestedEndOffsetMs - videoCapture.requestedStartOffsetMs else {
+            try fail("video_capture contains an invalid value.")
+        }
+
         guard manifest.camera.position == "back" || manifest.camera.position == "front",
               manifest.camera.orientation.isEmpty == false,
               manifest.camera.width > 0,
@@ -518,6 +789,27 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
               frameTargets.union(missingTargets) == Set(capture.targetOffsetsMs),
               manifest.event.evidenceComplete == missingTargets.isEmpty else {
             try fail("present and missing frame targets must match the configured target set.")
+        }
+
+        if let snippet = manifest.videoSnippet, snippet.captureComplete {
+            guard let startOffsetMs = snippet.startOffsetMs,
+                  let endOffsetMs = snippet.endOffsetMs,
+                  let container = snippet.container,
+                  let videoCodec = snippet.videoCodec,
+                  let contentType = snippet.contentType,
+                  startOffsetMs <= capture.targetOffsetsMs.min()!,
+                  endOffsetMs >= capture.targetOffsetsMs.max()!,
+                  snippet.durationMs == endOffsetMs - startOffsetMs,
+                  snippet.durationMs <= videoCapture.maxDurationMs,
+                  snippet.width <= videoCapture.maxWidth,
+                  snippet.height <= videoCapture.maxHeight,
+                  snippet.nominalFrameRate.map({ $0.isFinite && $0 <= videoCapture.maxNominalFrameRate }) ?? true,
+                  snippet.byteLength <= videoCapture.maxByteLength,
+                  container == videoCapture.container,
+                  videoCodec == videoCapture.videoCodec,
+                  contentType == videoCapture.contentType else {
+                try fail("video_snippet exceeds its declared capture bounds.")
+            }
         }
 
         var previousTraceTime: Int?

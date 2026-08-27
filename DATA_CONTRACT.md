@@ -118,7 +118,7 @@ Import accepted local evidence manifests as draft table observations:
 
 ```bash
 uv run cardevent vision-import \
-  ../fixtures/evidence/v1/example-complete/manifest.json \
+  ../fixtures/evidence/v2/example-complete/manifest.json \
   --out-dir data/table-observations
 ```
 

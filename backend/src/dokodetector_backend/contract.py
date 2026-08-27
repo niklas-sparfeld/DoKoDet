@@ -1,4 +1,4 @@
-"""Pydantic models and validation for the shared V1 evidence contract."""
+"""Pydantic models and validation for the shared V2 evidence contract."""
 
 from __future__ import annotations
 
@@ -22,8 +22,11 @@ from pydantic import (
 
 from dokodetector_backend.errors import ContractError, validation_details
 
-EVIDENCE_SCHEMA_VERSION = "cardevent-evidence/v1"
+EVIDENCE_SCHEMA_VERSION = "cardevent-evidence/v2"
 SUPPORTED_CONTENT_TYPE = "image/jpeg"
+SUPPORTED_VIDEO_CONTAINER = "mp4"
+SUPPORTED_VIDEO_CODEC = "h264"
+SUPPORTED_VIDEO_CONTENT_TYPE = "video/mp4"
 
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
@@ -99,6 +102,35 @@ class EvidenceCaptureMetadata(ContractModel):
         return value
 
 
+class VideoCaptureMetadata(ContractModel):
+    """The bounded video capture and encoding configuration."""
+
+    requested_start_offset_ms: int
+    requested_end_offset_ms: int
+    max_duration_ms: int = Field(gt=0)
+    max_width: int = Field(gt=0)
+    max_height: int = Field(gt=0)
+    max_nominal_frame_rate: float = Field(gt=0.0)
+    max_byte_length: int = Field(gt=0)
+    queued_byte_capacity: int = Field(gt=0)
+    container: Literal["mp4"]
+    video_codec: Literal["h264"]
+    content_type: Literal["video/mp4"]
+
+    @field_validator("max_nominal_frame_rate")
+    @classmethod
+    def require_finite_frame_rate(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("video frame-rate values must be finite.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_requested_range(self) -> VideoCaptureMetadata:
+        if self.requested_end_offset_ms <= self.requested_start_offset_ms:
+            raise ValueError("video capture requested offsets must be ordered.")
+        return self
+
+
 class CameraMetadata(ContractModel):
     """The camera format used for evidence capture."""
 
@@ -150,6 +182,73 @@ class ScoreTraceEntry(ContractModel):
         return value
 
 
+class VideoSnippetManifest(ContractModel):
+    """One optional event-relative encoded video snippet declaration."""
+
+    capture_complete: bool
+    part_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$",
+    )
+    start_offset_ms: int | None = None
+    end_offset_ms: int | None = None
+    duration_ms: int = Field(default=0, ge=0)
+    container: Literal["mp4"] | None = None
+    video_codec: Literal["h264"] | None = None
+    width: int = Field(default=0, ge=0)
+    height: int = Field(default=0, ge=0)
+    nominal_frame_rate: float | None = Field(default=None, gt=0.0)
+    byte_length: int = Field(default=0, ge=0)
+    content_type: Literal["video/mp4"] | None = None
+    sha256: Sha256 | None = None
+    failure_reason: str | None = Field(default=None, min_length=1, max_length=256)
+
+    @field_validator("nominal_frame_rate")
+    @classmethod
+    def require_finite_nominal_frame_rate(cls, value: float | None) -> float | None:
+        if value is not None and not math.isfinite(value):
+            raise ValueError("video nominal frame rate must be finite.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_capture_state(self) -> VideoSnippetManifest:
+        media_fields = (
+            self.part_name,
+            self.start_offset_ms,
+            self.end_offset_ms,
+            self.container,
+            self.video_codec,
+            self.content_type,
+            self.sha256,
+        )
+        if self.capture_complete:
+            if (
+                any(value is None for value in media_fields)
+                or self.start_offset_ms is None
+                or self.end_offset_ms is None
+                or self.end_offset_ms <= self.start_offset_ms
+                or self.duration_ms != self.end_offset_ms - self.start_offset_ms
+                or self.width <= 0
+                or self.height <= 0
+                or self.byte_length <= 0
+                or self.failure_reason is not None
+            ):
+                raise ValueError("a complete video snippet must declare encoded media.")
+        elif (
+            self.failure_reason is None
+            or any(value is not None for value in media_fields)
+            or self.duration_ms != 0
+            or self.width != 0
+            or self.height != 0
+            or self.nominal_frame_rate is not None
+            or self.byte_length != 0
+        ):
+            raise ValueError("an incomplete video snippet must declare only its failure reason.")
+        return self
+
+
 class ClientMetadata(ContractModel):
     """Client build and device model metadata."""
 
@@ -160,17 +259,19 @@ class ClientMetadata(ContractModel):
 
 
 class EvidenceManifest(ContractModel):
-    """The complete shared V1 manifest."""
+    """The complete shared V2 manifest."""
 
-    schema_version: Literal["cardevent-evidence/v1"]
+    schema_version: Literal["cardevent-evidence/v2"]
     package_id: UUID
     session: SessionMetadata
     event: EventMetadata
     model: ModelMetadata
     event_decoder: EventDecoderMetadata
     evidence_capture: EvidenceCaptureMetadata
+    video_capture: VideoCaptureMetadata
     camera: CameraMetadata
     frames: list[FrameManifest]
+    video_snippet: VideoSnippetManifest | None
     missing_frame_targets_ms: list[int]
     score_trace: list[ScoreTraceEntry]
     client: ClientMetadata
@@ -207,6 +308,37 @@ class EvidenceManifest(ContractModel):
             raise ValueError(
                 "event.evidence_complete must be true only when no frame targets are missing."
             )
+
+        video_capture = self.video_capture
+        if (
+            video_capture.requested_start_offset_ms > min(configured)
+            or video_capture.requested_end_offset_ms < max(configured)
+            or video_capture.max_duration_ms
+            < video_capture.requested_end_offset_ms - video_capture.requested_start_offset_ms
+        ):
+            raise ValueError("video capture must cover all configured frame target offsets.")
+
+        snippet = self.video_snippet
+        if (
+            snippet is not None
+            and snippet.capture_complete
+            and (
+                snippet.start_offset_ms is None
+                or snippet.end_offset_ms is None
+                or snippet.start_offset_ms > min(configured)
+                or snippet.end_offset_ms < max(configured)
+                or snippet.duration_ms > video_capture.max_duration_ms
+                or snippet.width > video_capture.max_width
+                or snippet.height > video_capture.max_height
+                or snippet.nominal_frame_rate is not None
+                and snippet.nominal_frame_rate > video_capture.max_nominal_frame_rate
+                or snippet.byte_length > video_capture.max_byte_length
+                or snippet.container != video_capture.container
+                or snippet.video_codec != video_capture.video_codec
+                or snippet.content_type != video_capture.content_type
+            )
+        ):
+            raise ValueError("video snippet exceeds its declared capture bounds.")
 
         trace_times = [entry.session_elapsed_ms for entry in self.score_trace]
         if trace_times != sorted(trace_times):
@@ -331,9 +463,37 @@ def _fingerprint_frame(frame: FrameManifest | Mapping[str, object]) -> dict[str,
         ) from error
 
 
+def _fingerprint_video(
+    video_snippet: VideoSnippetManifest | Mapping[str, object] | None,
+) -> dict[str, object] | None:
+    if video_snippet is None:
+        return None
+    if isinstance(video_snippet, VideoSnippetManifest):
+        if not video_snippet.capture_complete:
+            return None
+        return {
+            "part_name": video_snippet.part_name,
+            "byte_length": video_snippet.byte_length,
+            "sha256": video_snippet.sha256,
+        }
+    try:
+        if not bool(video_snippet["capture_complete"]):
+            return None
+        return {
+            "part_name": str(video_snippet["part_name"]),
+            "byte_length": int(video_snippet["byte_length"]),
+            "sha256": str(video_snippet["sha256"]),
+        }
+    except (KeyError, TypeError, ValueError) as error:
+        raise TypeError(
+            "video fingerprint entries need capture_complete, part_name, byte_length, and sha256."
+        ) from error
+
+
 def calculate_package_fingerprint(
     manifest_bytes: bytes,
     frames: Iterable[FrameManifest | Mapping[str, object]],
+    video_snippet: VideoSnippetManifest | Mapping[str, object] | None = None,
 ) -> str:
     """Calculate the deterministic package fingerprint."""
 
@@ -346,6 +506,7 @@ def calculate_package_fingerprint(
     fingerprint_input = {
         "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
         "frames": entries,
+        "video_snippet": _fingerprint_video(video_snippet),
     }
     canonical = json.dumps(
         fingerprint_input,
@@ -378,6 +539,11 @@ __all__ = [
     "ModelMetadata",
     "ScoreTraceEntry",
     "SessionMetadata",
+    "SUPPORTED_VIDEO_CODEC",
+    "SUPPORTED_VIDEO_CONTAINER",
+    "SUPPORTED_VIDEO_CONTENT_TYPE",
+    "VideoCaptureMetadata",
+    "VideoSnippetManifest",
     "PackageMetadataResponse",
     "StoredFrameResponse",
     "UploadResponse",

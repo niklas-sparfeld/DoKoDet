@@ -538,8 +538,8 @@ def _evidence_annotation(manifest_path: Path) -> TableObservationAnnotation:
             f"Could not read evidence manifest {manifest_path}: {exc}"
         ) from exc
     mapping = _mapping(payload, "evidence manifest")
-    if mapping.get("schema_version") != "cardevent-evidence/v1":
-        raise VisionAnnotationError("Evidence manifest must use cardevent-evidence/v1.")
+    if mapping.get("schema_version") != "cardevent-evidence/v2":
+        raise VisionAnnotationError("Evidence manifest must use cardevent-evidence/v2.")
     package_id = _identifier(mapping.get("package_id"), "package_id")
     event = _mapping(mapping.get("event"), "evidence event")
     event_time_ms = event.get("event_time_ms")

@@ -29,9 +29,12 @@ class EvidencePackagePersister:
         package: StoredPackage,
         manifest_source: bytes | BinaryIO,
         frame_sources: dict[str, bytes | BinaryIO],
+        video_source: bytes | BinaryIO | None = None,
+        video_part_name: str | None = None,
         *,
         max_manifest_bytes: int | None = None,
         max_frame_bytes: int | None = None,
+        max_video_bytes: int | None = None,
     ) -> StoredPackage:
         """Persist one package and clean up files if the database insert fails."""
 
@@ -46,6 +49,14 @@ class EvidencePackagePersister:
                 )
                 for frame in package.frames
             }
+            if video_source is not None:
+                if video_part_name is None:
+                    raise ValueError("A video part name is required for video bytes.")
+                upload.write_video(
+                    video_part_name,
+                    video_source,
+                    max_bytes=max_video_bytes,
+                )
             upload.commit()
             committed = True
 

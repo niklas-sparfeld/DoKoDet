@@ -25,7 +25,7 @@ from dokodetector_backend.repository import (
 from dokodetector_backend.storage import EvidenceStorage
 
 BACKEND_ROOT = Path(__file__).parents[1]
-FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 PACKAGE_ID = UUID("550e8400-e29b-41d4-a716-446655440000")
 
 
@@ -59,7 +59,11 @@ def package_record(
     return StoredPackage.from_manifest(
         manifest,
         raw,
-        package_fingerprint=calculate_package_fingerprint(raw, manifest.frames),
+        package_fingerprint=calculate_package_fingerprint(
+            raw,
+            manifest.frames,
+            video_snippet=manifest.video_snippet,
+        ),
         frames=frames,
         received_at=datetime(2026, 8, 26, 19, 0, tzinfo=timezone.utc),
     )

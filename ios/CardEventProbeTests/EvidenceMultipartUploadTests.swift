@@ -8,7 +8,7 @@ import XCTest
 
 final class EvidenceMultipartUploadTests: XCTestCase {
     func testValidatesBoundaryAndWritesCompletePartsInManifestOrder() throws {
-        XCTAssertTrue(EvidenceMultipartRequestBuilder.isValidBoundary("CardEventProbeEvidenceV1"))
+        XCTAssertTrue(EvidenceMultipartRequestBuilder.isValidBoundary("CardEventProbeEvidenceV2"))
         XCTAssertFalse(EvidenceMultipartRequestBuilder.isValidBoundary("boundary with spaces"))
         XCTAssertThrowsError(try EvidenceMultipartRequestBuilder(boundary: "boundary with spaces"))
 

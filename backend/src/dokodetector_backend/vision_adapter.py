@@ -94,7 +94,11 @@ def _verify_package_metadata(
     ):
         raise EvidenceIntegrityError("The stored package row does not match the manifest.")
     if (
-        calculate_package_fingerprint(manifest_bytes, manifest.frames)
+        calculate_package_fingerprint(
+            manifest_bytes,
+            manifest.frames,
+            video_snippet=manifest.video_snippet,
+        )
         != package.package_fingerprint
     ):
         raise EvidenceIntegrityError("The stored package fingerprint does not match the manifest.")

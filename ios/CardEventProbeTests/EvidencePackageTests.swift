@@ -35,7 +35,7 @@ final class EvidencePackageTests: XCTestCase {
         let json = try XCTUnwrap(
             JSONSerialization.jsonObject(with: encodedManifest) as? [String: Any]
         )
-        XCTAssertEqual(json["schema_version"] as? String, "cardevent-evidence/v1")
+        XCTAssertEqual(json["schema_version"] as? String, "cardevent-evidence/v2")
         XCTAssertNotNil(json["missing_frame_targets_ms"])
         let eventJSON = try XCTUnwrap(json["event"] as? [String: Any])
         XCTAssertEqual(eventJSON["event_time_ms"] as? Int, 1_000)

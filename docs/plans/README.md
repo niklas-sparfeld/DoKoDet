@@ -47,13 +47,13 @@ No epics.
 | Epic | Outcome |
 | --- | --- |
 | [0021 — TableEvidenceAnalyzer model training](2-ready/0021-Table_Evidence_Analyzer_Training_Pipeline.md) | Build the train, evaluate, checkpoint, and export loop for analyzer model components. |
-| [0025 — Video snippet evidence](2-ready/0025-Video_Snippet_Evidence.md) | Add bounded iOS-to-backend video snippets beside selected frames. |
 
 ### In Progress
 
 | Epic | Outcome |
 | --- | --- |
 | [0006 — Table observation reconstruction PoC](3-in-progress/0006-GameEngine_v1.md) | Freeze the observation boundary and build the rules and reconstruction oracle. |
+| [0025 — Video snippet evidence](3-in-progress/0025-Video_Snippet_Evidence.md) | Add bounded iOS-to-backend video snippets beside selected frames. |
 
 ### Blocked
 

@@ -1,0 +1,155 @@
+{
+  "schema_version": "cardevent-evidence/v2",
+  "package_id": "550e8400-e29b-41d4-a716-446655440000",
+  "session": {
+    "session_id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+    "event_sequence": 1
+  },
+  "event": {
+    "event_time_ms": 11000,
+    "emitted_at_ms": 11125,
+    "evidence_complete": true
+  },
+  "model": {
+    "name": "CardEventNet",
+    "version": "transition-v2-run-20260825-235429",
+    "weights_sha256": "f5eccd8e580d1dccecfa7835b3a0d9d5858cc47fdd0098aa33c3c47f01a38d04",
+    "preprocessing": "full_frame_letterbox_v1"
+  },
+  "event_decoder": {
+    "algorithm": "causal_peak_v1",
+    "threshold": 0.3442875146865845,
+    "peak_confirmation_ms": 125,
+    "minimum_event_gap_ms": 625,
+    "target_inference_hz": 8.0
+  },
+  "evidence_capture": {
+    "sample_hz": 8.0,
+    "jpeg_quality": 0.85,
+    "ring_duration_ms": 3000,
+    "target_offsets_ms": [-800, -400, -100, 150, 400, 700],
+    "maximum_lookup_distance_ms": 175,
+    "finalization_delay_ms": 900
+  },
+  "video_capture": {
+    "requested_start_offset_ms": -1000,
+    "requested_end_offset_ms": 1000,
+    "max_duration_ms": 2500,
+    "max_width": 640,
+    "max_height": 360,
+    "max_nominal_frame_rate": 15.0,
+    "max_byte_length": 250000,
+    "queued_byte_capacity": 10485760,
+    "container": "mp4",
+    "video_codec": "h264",
+    "content_type": "video/mp4"
+  },
+  "camera": {
+    "position": "back",
+    "orientation": "landscape_right",
+    "width": 1920,
+    "height": 1080
+  },
+  "frames": [
+    {
+      "part_name": "frame_00",
+      "target_offset_ms": -800,
+      "actual_offset_ms": -800,
+      "session_elapsed_ms": 10200,
+      "captured_at_utc": "2026-08-26T18:11:27.200Z",
+      "width": 640,
+      "height": 360,
+      "byte_length": 23022,
+      "content_type": "image/jpeg",
+      "sha256": "030077ebc0605179b2dd4b681ba16acdc1f304cbb0546c678db6f020ffac4309"
+    },
+    {
+      "part_name": "frame_01",
+      "target_offset_ms": -400,
+      "actual_offset_ms": -400,
+      "session_elapsed_ms": 10600,
+      "captured_at_utc": "2026-08-26T18:11:27.600Z",
+      "width": 640,
+      "height": 360,
+      "byte_length": 20936,
+      "content_type": "image/jpeg",
+      "sha256": "26cec3f9bfc196ac55b759071536149e374ca43293157bf2ed5cc1b2fb3a6215"
+    },
+    {
+      "part_name": "frame_02",
+      "target_offset_ms": -100,
+      "actual_offset_ms": -100,
+      "session_elapsed_ms": 10900,
+      "captured_at_utc": "2026-08-26T18:11:27.900Z",
+      "width": 640,
+      "height": 360,
+      "byte_length": 20550,
+      "content_type": "image/jpeg",
+      "sha256": "03593c1261f5fb806c873926394e4b17c434185c26df35a2badc2352d29ca721"
+    },
+    {
+      "part_name": "frame_03",
+      "target_offset_ms": 150,
+      "actual_offset_ms": 150,
+      "session_elapsed_ms": 11150,
+      "captured_at_utc": "2026-08-26T18:11:28.150Z",
+      "width": 640,
+      "height": 360,
+      "byte_length": 17669,
+      "content_type": "image/jpeg",
+      "sha256": "e3473fcb769bda88034d3177eacabac71ebcedea4a037c143359f757a04fc94e"
+    },
+    {
+      "part_name": "frame_04",
+      "target_offset_ms": 400,
+      "actual_offset_ms": 400,
+      "session_elapsed_ms": 11400,
+      "captured_at_utc": "2026-08-26T18:11:28.400Z",
+      "width": 640,
+      "height": 360,
+      "byte_length": 24922,
+      "content_type": "image/jpeg",
+      "sha256": "0a5c5bc6c8cbe957ee1feff7305b73e155e04bab8a2e94dd7d48f66847ab2151"
+    },
+    {
+      "part_name": "frame_05",
+      "target_offset_ms": 700,
+      "actual_offset_ms": 700,
+      "session_elapsed_ms": 11700,
+      "captured_at_utc": "2026-08-26T18:11:28.700Z",
+      "width": 640,
+      "height": 360,
+      "byte_length": 25112,
+      "content_type": "image/jpeg",
+      "sha256": "ae3f829b706f5fae502e53bbd6ca76e019fcf401e72b97056357c3581bad2fe8"
+    }
+  ],
+  "video_snippet": {
+    "capture_complete": true,
+    "part_name": "snippet_00",
+    "start_offset_ms": -1000,
+    "end_offset_ms": 1133,
+    "duration_ms": 2133,
+    "container": "mp4",
+    "video_codec": "h264",
+    "width": 640,
+    "height": 360,
+    "nominal_frame_rate": 15.0,
+    "byte_length": 137663,
+    "content_type": "video/mp4",
+    "sha256": "9632d221236646d0180a21be824a657ba4785eaaf25c955271a25dc9158b4855",
+    "failure_reason": null
+  },
+  "missing_frame_targets_ms": [],
+  "score_trace": [
+    {"session_elapsed_ms": 10900, "score": 0.35},
+    {"session_elapsed_ms": 11000, "score": 0.91},
+    {"session_elapsed_ms": 11125, "score": 0.71}
+  ],
+  "client": {
+    "app_version": "0.1.0",
+    "build": "1",
+    "device_model_identifier": "iPhone15,2",
+    "os_version": "18.6"
+  }
+}

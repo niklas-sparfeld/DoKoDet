@@ -1,5 +1,5 @@
 {
-  "schema_version": "cardevent-evidence/v1",
+  "schema_version": "cardevent-evidence/v2",
   "package_id": "550e8400-e29b-41d4-a716-446655440001",
   "session": {
     "session_id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
@@ -30,6 +30,19 @@
     "target_offsets_ms": [-800, -400, -100, 150, 400, 700],
     "maximum_lookup_distance_ms": 175,
     "finalization_delay_ms": 900
+  },
+  "video_capture": {
+    "requested_start_offset_ms": -1000,
+    "requested_end_offset_ms": 1000,
+    "max_duration_ms": 2500,
+    "max_width": 640,
+    "max_height": 360,
+    "max_nominal_frame_rate": 15.0,
+    "max_byte_length": 250000,
+    "queued_byte_capacity": 10485760,
+    "container": "mp4",
+    "video_codec": "h264",
+    "content_type": "video/mp4"
   },
   "camera": {
     "position": "back",
@@ -63,6 +76,7 @@
       "sha256": "1000000000000000000000000000000000000000000000000000000000000002"
     }
   ],
+  "video_snippet": null,
   "missing_frame_targets_ms": [-400, -100, 400, 700],
   "score_trace": [
     {"session_elapsed_ms": 17900, "score": 0.36},

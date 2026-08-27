@@ -29,7 +29,7 @@ from dokodetector_backend.vision_adapter import EvidenceIntegrityError
 from dokodetector_backend.vision_runner import VisionRunner, VisionRunnerError
 
 BACKEND_ROOT = Path(__file__).parents[1]
-FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 PACKAGE_ID = UUID("550e8400-e29b-41d4-a716-446655440000")
 
 
@@ -45,13 +45,18 @@ def load_upload_fixture(name: str) -> tuple[bytes, dict[str, bytes], dict[str, o
 
 
 def multipart_parts(manifest_bytes: bytes, frame_sources: dict[str, bytes]) -> dict[str, tuple]:
-    return {
+    parts = {
         "manifest": ("manifest.json", manifest_bytes, "application/json"),
         **{
             part_name: (f"{part_name}.jpg", frame_bytes, "image/jpeg")
             for part_name, frame_bytes in frame_sources.items()
         },
     }
+    payload = json.loads(manifest_bytes)
+    if payload.get("video_snippet") is not None:
+        video = (FIXTURE_ROOT / "example-complete" / "snippet.mp4").read_bytes()
+        parts[payload["video_snippet"]["part_name"]] = ("snippet.mp4", video, "video/mp4")
+    return parts
 
 
 @pytest.fixture()

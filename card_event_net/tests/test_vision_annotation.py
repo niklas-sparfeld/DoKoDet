@@ -26,7 +26,7 @@ from cardevent.vision_review import (
 )
 from cardevent.vision_viewer import VisionAnnotationViewer
 
-FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 VISION_FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "vision_annotation"
 
 

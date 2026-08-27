@@ -2,7 +2,7 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-The backend accepts V1 evidence packages and V1 training recordings. It stores metadata in SQLite
+The backend accepts V2 evidence packages and V1 training recordings. It stores metadata in SQLite
 and stores original source bytes on the local filesystem. M4 adds metadata read-back, readiness
 checks, and a shared-fixture upload command.
 
@@ -11,7 +11,7 @@ the scripted VisionDetector result with a `TableEvidenceAnalyzer` table observat
 optional bounded video snippet. See
 [Table Observation and Game Reconstruction](../docs/TableObservationReconstruction.md),
 [plan 0006](../docs/plans/3-in-progress/0006-GameEngine_v1.md), and
-[plan 0025](../docs/plans/2-ready/0025-Video_Snippet_Evidence.md). The implementation plans rename
+[plan 0025](../docs/plans/3-in-progress/0025-Video_Snippet_Evidence.md). The implementation plans rename
 the runtime interfaces; this README must continue to match the code until those plans land.
 
 ## Setup
@@ -52,13 +52,12 @@ In a second shell, upload the shared complete fixture:
 ```bash
 cd backend
 uv run python -m dokodetector_backend.upload_fixture \
-  ../fixtures/evidence/v1/example-complete \
+  ../fixtures/evidence/v2/example-complete \
   --server http://127.0.0.1:8000
 ```
 
-The checked-in shared examples contain manifest data but no image files. The command creates
-deterministic local frame bytes and updates their transmitted length and hash fields. A fixture
-with matching `frames/<part-name>.jpg` files uses those files unchanged.
+The checked-in complete example contains a small H.264/MP4 snippet and six JPEG frames. A fixture
+with matching media files uses those files unchanged.
 
 Then check the health routes:
 

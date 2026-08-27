@@ -182,7 +182,7 @@ def test_table_dataset_commands_parse_contract_paths() -> None:
 
 
 def test_vision_import_command_writes_table_observation_files(tmp_path: Path) -> None:
-    evidence_root = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
+    evidence_root = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
     output_dir = tmp_path / "table-observations"
 
     exit_code = main(

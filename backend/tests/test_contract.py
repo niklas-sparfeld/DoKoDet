@@ -6,6 +6,7 @@ import pytest
 
 from dokodetector_backend.contract import (
     EvidenceManifest,
+    VideoSnippetManifest,
     calculate_package_fingerprint,
     parse_manifest_bytes,
     validate_manifest,
@@ -13,7 +14,7 @@ from dokodetector_backend.contract import (
 )
 from dokodetector_backend.errors import ContractError
 
-FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v1"
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 
 
 def load_fixture(name: str) -> tuple[bytes, dict[str, object]]:
@@ -35,6 +36,34 @@ def test_shared_manifest_fixtures_are_accepted(
     assert isinstance(manifest, EvidenceManifest)
     assert manifest.event.evidence_complete is expected_complete
     assert len(manifest.frames) == expected_frame_count
+
+
+def test_video_snippet_is_optional_but_an_incomplete_capture_is_explicit() -> None:
+    _, complete_payload = load_fixture("example-complete")
+    complete = validate_manifest(complete_payload)
+    assert complete.video_snippet is not None
+    assert complete.video_snippet.capture_complete
+
+    _, incomplete_payload = load_fixture("example-incomplete")
+    incomplete = validate_manifest(incomplete_payload)
+    assert incomplete.video_snippet is None
+
+    failed = VideoSnippetManifest(capture_complete=False, failure_reason="encoder unavailable")
+    assert not failed.capture_complete
+
+
+def test_video_snippet_rejects_unsupported_media_and_out_of_bounds_capture() -> None:
+    _, original = load_fixture("example-complete")
+
+    unsupported = copy.deepcopy(original)
+    unsupported["video_snippet"]["video_codec"] = "hevc"
+    with pytest.raises(ContractError):
+        validate_manifest(unsupported)
+
+    out_of_bounds = copy.deepcopy(original)
+    out_of_bounds["video_snippet"]["start_offset_ms"] = -100
+    with pytest.raises(ContractError):
+        validate_manifest(out_of_bounds)
 
 
 def test_metadata_only_manifest_is_accepted() -> None:
@@ -107,6 +136,15 @@ def test_package_fingerprint_includes_manifest_bytes_and_frame_content() -> None
 
     assert changed_manifest != original
     assert changed_frame_fingerprint != original
+
+    assert (
+        calculate_package_fingerprint(
+            raw,
+            manifest.frames,
+            video_snippet=manifest.video_snippet.model_copy(update={"byte_length": 1}),
+        )
+        != original
+    )
 
 
 def test_manifest_parser_returns_stable_error_without_local_details() -> None:

@@ -5,7 +5,7 @@ import CryptoKit
 import FoundationNetworking
 #endif
 
-public let evidenceMultipartDefaultBoundary = "CardEventProbeEvidenceV1"
+public let evidenceMultipartDefaultBoundary = "CardEventProbeEvidenceV2"
 
 public enum EvidenceMultipartPreparationError: LocalizedError, Equatable {
     case invalidBoundary(String)
@@ -47,7 +47,7 @@ public struct PreparedEvidenceUpload {
     }
 }
 
-/// Writes the V1 multipart envelope without constructing the complete body in memory.
+/// Writes the V2 multipart envelope without constructing the complete body in memory.
 public struct EvidenceMultipartRequestBuilder: Sendable {
     private enum FrameSource {
         case data(Data)
