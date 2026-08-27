@@ -4,9 +4,11 @@
 
 - **Summary:** Build reproducible train, evaluate, and export mechanics for analyzer model components
 - **Status:** Ready
-- **Depends on:** Plan 0020 milestone M1
-- **Reviewed:** 2026-08-27 against the glossary and current CardEventNet training pipeline
-- **Starts early:** Use tiny generated fixtures before enough real analyzer data exists
+- **Depends on:** Plan 0020, which is complete
+- **Builds on:** Plan 0006 provides the table-observation contract and canonical fixtures
+- **Reviewed:** 2026-08-27 against completed plans 0006 and 0020, the current backend boundary,
+  and the current CardEventNet training pipeline
+- **Starts with:** A tiny generated fixture; corrected plan 0025 evidence is not a prerequisite
 - **Unblocks:** The future TableEvidenceAnalyzer capability-development plan
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -49,14 +51,38 @@ Do not import CardEventNet temporal-event code into the TableEvidenceAnalyzer. T
 labels, and metrics differ. Share small general utilities only after two real consumers justify
 extraction.
 
-Plan 0020 owns source, annotation, review, lineage, and dataset eligibility. This plan consumes a
-frozen dataset manifest. It must not scan raw directories and decide which labels are trustworthy.
+Plan 0020 owns source, annotation, review, lineage, dataset eligibility, group-safe splits, coverage,
+and lifecycle receipts. This plan consumes its implemented `dataset-version/v1` and
+`table-dataset-split/v1` contracts. It must not scan raw directories and decide which labels are
+trustworthy.
 
 Plan 0006 supersedes the plan 0005 runtime boundary with `table-observation/v1`. Training code
 exports small measured capabilities that a TableEvidenceAnalyzer can combine. It must not force
 every model bundle to implement the complete table-observation pipeline.
 
-## 3. Initial project shape
+Plan 0025 provides optional motion evidence for later transition and tracking work. It does not
+block this plan. Add corrected real evidence through the plan 0020 review and dataset path when it
+is available. Do not make unreviewed plan 0025 packages into training labels.
+
+## 3. Current repository baseline
+
+The repository now contains more foundation than this plan originally assumed:
+
+- `card_event_net` implements table-observation annotation, review, dataset assembly, group-safe
+  split, validation, coverage, and lifecycle-receipt commands;
+- `vision_detector` contains the canonical `table-observation/v1` result models and contract tests;
+- `game_engine` consumes the same canonical observation fixtures;
+- the backend still runs the obsolete `vision-detection/v1` scripted result path;
+- the current dataset entry identifies a source frame, observed card, box, target, source asset, and
+  transform, but a training loader still needs a deterministic way to resolve and verify the frame
+  bytes that it crops.
+
+Use these implementations. Do not create a second dataset, split, review, or observation contract
+inside the new package. The first milestone must complete the active package and backend boundary
+cutover that plan 0006 exposed. The dataset milestone must add the missing sample-byte resolution
+contract before training code depends on local directory conventions.
+
+## 4. Initial project shape
 
 Replace the lightweight `vision_detector/` package from plan 0005 with:
 
@@ -85,32 +111,43 @@ table_evidence_analyzer/
 Use commands such as:
 
 ```bash
-table-analyzer data validate --dataset <manifest>
+table-analyzer data validate --dataset <manifest> --split <split> --artifacts <index>
 table-analyzer train --config <config>
 table-analyzer evaluate --run <run-dir> --split validation
 table-analyzer export --run <run-dir> --output <bundle-dir>
-table-analyzer analyze --bundle <bundle-dir> --evidence <package-dir>
+table-analyzer classify-crop --bundle <bundle-dir> --image <crop>
 ```
 
 Keep command names stable only after their first contract tests exist. Do not add `mise` tasks that
 only wrap these commands.
 
-## 4. Dataset adapter contract
+Do not add a full-package `analyze` command in this plan. The first model receives an oracle crop. It
+cannot find visible cards in an evidence package. Plan 0022 owns visible-card localization and the
+composed evidence-package analyzer.
 
-The loader accepts an explicit dataset and split version from plan 0020. Every sample contains:
+## 5. Dataset adapter contract
 
-- stable sample and source identifiers;
-- source frame or crop reference plus content digest;
-- target and target-schema version;
-- annotation and review version;
-- deck and card-set version;
-- transform lineage;
-- session, game, table-setup, recording-lineage, and source-lineage leakage groups;
-- allowed-use state.
+The loader accepts an explicit dataset version and split version from plan 0020. It also accepts an
+explicit sample-artifact index or resolver contract. The resolver maps each `source_frame_id` to
+bytes and a content digest without making a local path part of sample identity. Every resolved
+sample contains:
+
+- `dataset_item_id`, `source_asset_id`, `source_frame_id`, and `observed_card_id`;
+- verified source-frame bytes and content digest;
+- the reviewed box, visual card identity, quality tags, and transform version;
+- target-schema, annotation, review, deck, and card-set versions;
+- session, game, table-setup, and source-lineage leakage groups;
+- the frozen eligibility and allowed-use state;
+- the named partition from `table-dataset-split/v1`.
+
+The dataset and split digests define membership. The artifact index locates immutable bytes. A
+cache can materialize crops, but each crop records the source-frame digest, box, transform version,
+and derived digest. Delete and rebuild a stale cache instead of accepting it.
 
 The first training task is oracle-crop card identity because it isolates identity recognition from
-localization. Use reviewed human crops from real data when they exist. Until then, use a tiny
-generated fixture with obvious labels to test mechanics only.
+localization. Use reviewed human boxes from real data when they exist. Until then, use a tiny
+generated fixture with obvious labels and at least three independent leakage groups to test train,
+validation, and test mechanics only.
 
 The loader must reject:
 
@@ -119,11 +156,12 @@ The loader must reject:
 - unreviewed or ineligible samples;
 - card identities outside the declared card set;
 - overlap between leakage groups across partitions;
-- derived artifacts whose transform version does not match the manifest.
+- a missing sample-artifact entry or changed source-frame bytes;
+- a crop whose box or transform version does not match the manifest.
 
 Do not silently skip invalid samples. Evaluation reports every excluded or failed item.
 
-## 5. Configuration and reproducibility
+## 6. Configuration and reproducibility
 
 Each run resolves one complete configuration before training starts:
 
@@ -157,7 +195,7 @@ metadata.
 Exact bit-for-bit training equality across CPU, MPS, and CUDA is not required. The same dataset,
 configuration, and seed must define the same semantic experiment.
 
-## 6. Model adapter
+## 7. Model adapter
 
 Define a small task interface rather than coupling training to one library model:
 
@@ -169,14 +207,17 @@ class TrainableAnalyzerTask(Protocol):
     def metrics(self, predictions: Predictions, targets: Targets): ...
 ```
 
-The first adapter is a small 24-class or deck-manifest-sized crop classifier. Its purpose is to
-exercise the pipeline. Do not present it as the chosen production architecture.
+The first adapter is a small card-set-manifest-sized crop classifier. The current shared card set
+has 24 visual identities. Do not reduce its output to the 20 identities in `doko-40-v1`: the
+TableEvidenceAnalyzer can report an identity outside the selected round deck, and reconstruction
+owns deck rejection. The classifier exists to exercise the pipeline. Do not present it as the
+chosen production architecture.
 
 Later visible-card detection, localization, transition, spatial, and tracking tasks can add
 adapters. They must retain the same run, checkpoint, dataset, and evaluation contracts. Each bundle
 declares the table-observation capabilities it can help produce.
 
-## 7. Checkpoints and resume
+## 8. Checkpoints and resume
 
 Every checkpoint stores:
 
@@ -195,7 +236,7 @@ experiment as a resume.
 Always retain the last checkpoint and the validation-selected best checkpoint. Do not select a
 checkpoint from test metrics.
 
-## 8. Evaluation contract
+## 9. Evaluation contract
 
 Evaluation consumes a frozen run or exported bundle and one named split. It writes:
 
@@ -215,7 +256,7 @@ Model calibration, visible-card localization, transition and active-area evidenc
 and complete evidence-package evaluation belong to the capability-development plan. They should
 reuse this report envelope and include feature ablations.
 
-## 9. Analyzer capability bundle contract
+## 10. Analyzer capability bundle contract
 
 Export a self-contained versioned bundle with:
 
@@ -236,30 +277,57 @@ content hashes
 An exported bundle loads without the training dataset. Loading validates every content hash and
 format version.
 
-The first bundle exposes identity candidates for a supplied crop. A test-only adapter can place
-those candidates into an observed-card fixture from plan 0006. Remove the obsolete plan 0005 result
-adapter when the new boundary lands. Do not claim that the oracle-crop bundle performs visible-card
-detection, tracking, or end-to-end table observation.
+The first bundle exposes identity candidates for a supplied crop. A test-only adapter places those
+candidates into an observed-card fixture from plan 0006. The backend must import the stable analyzer
+runtime contract and bundle loader, not training modules. Remove the obsolete plan 0005 result and
+scripted-detector adapters during the package cutover. Do not claim that the oracle-crop bundle
+performs visible-card detection, tracking, or end-to-end table observation.
 
-## 10. Small implementation milestones
+## 11. Small implementation milestones
 
-### M0 — Project and smoke dataset
+### M0 — Package and active-boundary cutover
 
 1. Rename the current `vision_detector/` project and Python package to
    `table_evidence_analyzer/`. Update imports, commands, and fixtures in the same change.
-2. Add the CLI skeleton.
-3. Add a tiny generated image dataset through the plan 0020 manifest adapter.
-4. Validate split, lineage, target, and digest rules.
-5. Add one fast data-loader integration test.
+2. Keep the canonical `table-observation/v1` models and plan 0006 fixture tests in the renamed
+   package.
+3. Replace the backend's `vision-detection/v1` result storage and scripted runner with the
+   `table-observation/v1` boundary. Update persistence and tests in the same change.
+4. Remove the obsolete plan 0005 contract, adapter, fixtures, configuration names, and active
+   documentation. Do not keep a dual runtime path.
+5. Add the CLI skeleton without a full-package analyzer command.
 
 Acceptance:
 
 - `mise install` and `uv sync` reproduce the environment;
 - no active module, command, or fixture uses the obsolete component name;
-- tests do not download weights or data;
-- invalid lineage and split leakage fail clearly.
+- one canonical plan 0006 observation fixture crosses the analyzer and reconstruction boundary
+  unchanged;
+- the backend persists a schema-valid table observation without importing training internals;
+- no active `vision-detection/v1` runtime path remains;
+- tests do not download weights or data.
 
-### M1 — Minimal train and evaluate loop
+### M1 — Materialized smoke dataset
+
+1. Add a tiny generated image fixture through the implemented plan 0020 dataset and split
+   contracts.
+2. Use at least three independent leakage groups so train, validation, and test partitions are
+   non-empty.
+3. Define the sample-artifact index or resolver and verify source-frame bytes before cropping.
+4. Materialize deterministic crops with complete digest and transform lineage.
+5. Validate split, eligibility, target, card-set, lineage, box, transform, and digest rules.
+6. Add one fast data-loader integration test.
+
+Acceptance:
+
+- every sample resolves from `dataset_item_id` to verified source-frame bytes and one deterministic
+  crop;
+- no local absolute path becomes semantic identity;
+- invalid lineage, changed frame bytes, stale crops, and split leakage fail clearly;
+- tests do not download weights or data;
+- training code does not scan annotation or raw-source directories.
+
+### M2 — Minimal train and evaluate loop
 
 1. Add the first crop-classification adapter.
 2. Train it to overfit the tiny fixture on CPU.
@@ -272,7 +340,7 @@ Acceptance:
 - the expected fixture metric is asserted;
 - training and evaluation use the same class and preprocessing contracts.
 
-### M2 — Checkpoint, resume, and failure records
+### M3 — Checkpoint, resume, and failure records
 
 1. Save last and best checkpoints.
 2. Resume an interrupted smoke run.
@@ -285,12 +353,13 @@ Acceptance:
 - best-checkpoint selection uses validation only;
 - corrupt checkpoints fail without damaging prior artifacts.
 
-### M3 — Export and table-observation capability
+### M4 — Export and table-observation capability
 
 1. Export the smoke model bundle.
 2. Validate bundle hashes and compatibility.
-3. Load it through the component adapter.
-4. Produce identity candidates inside a schema-valid plan 0006 observed-card fixture.
+3. Load it through the stable runtime adapter without importing training modules.
+4. Classify a supplied crop and produce identity candidates inside a schema-valid plan 0006
+   observed-card fixture.
 
 Acceptance:
 
@@ -300,7 +369,7 @@ Acceptance:
 - calibration is declared `uncalibrated` until measured;
 - repeated inference is deterministic for the fixture.
 
-### M4 — Portable accelerator execution
+### M5 — Portable accelerator execution
 
 1. Keep CPU as the test baseline.
 2. Support MPS and CUDA through explicit device selection.
@@ -313,7 +382,7 @@ Acceptance:
 - no cloud-provider SDK or Docker requirement enters the training code;
 - a failed accelerator request does not silently run a different experiment.
 
-## 11. Out of scope
+## 12. Out of scope
 
 - selecting the final visible-card detector, classifier, tracker, or video architecture;
 - sourcing or accepting unreviewed labels;
@@ -322,9 +391,11 @@ Acceptance:
 - a hosted experiment platform or model registry;
 - distributed training;
 - automatic deployment after export;
-- round or game reconstruction rules, or posterior correction.
+- round or game reconstruction rules, or posterior correction;
+- locating visible cards in a complete frame or evidence package;
+- changing the plan 0025 capture profile based on smoke-model results.
 
-## 12. Verification
+## 13. Verification
 
 Run:
 
@@ -339,10 +410,13 @@ uv run ruff format --check .
 Run the CPU overfit, checkpoint-resume, export, and plan 0006 observation-fixture integration tests.
 Run one optional CUDA smoke test before relying on remote training.
 
-## 13. Definition of done
+## 14. Definition of done
 
 - a frozen dataset manifest drives every sample;
 - the project and package use the `table_evidence_analyzer` name;
+- the active backend and analyzer boundary uses `table-observation/v1` without a legacy runtime
+  path;
+- dataset entries resolve to verified frame bytes and deterministic crops without directory scans;
 - a tiny CPU run proves train, evaluate, checkpoint, resume, and export;
 - run metadata captures code, data, environment, seed, and failures;
 - bundle loading verifies hashes and compatibility;
