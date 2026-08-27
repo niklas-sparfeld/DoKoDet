@@ -11,6 +11,7 @@ from vision_detector import (
     VisionDetectionResult,
     VisionEvidence,
     canonical_json_bytes,
+    parse_result_bytes,
 )
 
 from dokodetector_backend.app import create_app
@@ -133,6 +134,52 @@ def test_runner_persists_result_and_read_routes_hide_local_paths(backend) -> Non
     assert "relative_path" not in result_response.json()
 
 
+def test_complete_local_pipeline_proof(backend, monkeypatch, capsys) -> None:
+    """Prove the shared fixture path from HTTP upload to game-facing result parsing."""
+
+    client, repository, storage = backend
+    payload, manifest_bytes, frame_sources = upload_fixture(client, "example-complete")
+
+    package_response = client.get(f"/v1/evidence-packages/{payload['package_id']}")
+
+    assert package_response.status_code == 200
+    package_metadata = package_response.json()
+    assert package_metadata["package_id"] == payload["package_id"]
+    assert package_metadata["manifest"] == json.loads(manifest_bytes)
+    assert package_metadata["manifest_sha256"] == hashlib.sha256(manifest_bytes).hexdigest()
+    assert [frame["part_name"] for frame in package_metadata["frames"]] == list(frame_sources)
+
+    settings = client.app.state.settings
+    for name, value in {
+        "DATABASE_URL": settings.database_url,
+        "EVIDENCE_ROOT": os.fspath(settings.evidence_root),
+        "VISION_DETECTOR_NAME": "scripted",
+        "VISION_DETECTOR_VERSION": "scripted-v1",
+    }.items():
+        monkeypatch.setenv(name, value)
+
+    assert main(["--once", "--package-id", payload["package_id"]]) == 0
+    command_result = json.loads(capsys.readouterr().out)
+
+    stored = repository.get_vision_result(UUID(command_result["result_id"]))
+    assert stored is not None
+    stored_result = parse_result_bytes(stored.result_json.encode("utf-8"))
+    assert stored_result.status == "uncertain"
+    assert stored_result.package_id == PACKAGE_ID
+
+    result_response = client.get(f"/v1/vision-results/{stored.result_id}")
+    package_results_response = client.get(
+        f"/v1/evidence-packages/{payload['package_id']}/vision-results"
+    )
+
+    assert result_response.status_code == 200
+    assert package_results_response.status_code == 200
+    api_result = parse_result_bytes(result_response.content)
+    assert api_result == stored_result
+    assert package_results_response.json() == [api_result.model_dump(mode="json")]
+    assert (storage.root / stored.relative_path).read_bytes() == stored.result_json.encode("utf-8")
+
+
 def test_runner_is_idempotent_and_keeps_a_second_detector_version(backend) -> None:
     client, repository, storage = backend
     payload, _, _ = upload_fixture(client, "example-complete")
@@ -237,6 +284,39 @@ def test_detector_failure_does_not_create_result(backend) -> None:
 
     assert repository.list_vision_results(PACKAGE_ID) == ()
     assert not storage.vision_results_root.exists()
+
+
+def test_detector_failure_can_be_retried_successfully(backend) -> None:
+    client, repository, storage = backend
+    payload, _, _ = upload_fixture(client, "example-complete")
+    attempts = 0
+    scripted_detector = ScriptedVisionDetector()
+
+    class FlakyDetector:
+        name = "scripted"
+        version = "scripted-v1"
+
+        def detect(self, evidence: VisionEvidence) -> VisionDetectionResult:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise RuntimeError("transient detector failure")
+            return scripted_detector.detect(evidence)
+
+    runner = VisionRunner(repository, storage, FlakyDetector())
+
+    with pytest.raises(VisionRunnerError):
+        runner.run_once(payload["package_id"])
+
+    assert repository.list_vision_results(PACKAGE_ID) == ()
+    assert not storage.vision_results_root.exists()
+
+    recovered = runner.run_once(payload["package_id"])
+
+    assert recovered is not None
+    assert recovered.status == "uncertain"
+    assert attempts == 2
+    assert (storage.root / recovered.relative_path).is_file()
 
 
 def test_database_failure_removes_staged_result_directory(backend, monkeypatch) -> None:
