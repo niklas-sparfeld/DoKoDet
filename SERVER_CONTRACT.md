@@ -73,7 +73,7 @@ The `video_capture` object freezes the requested event-relative range and the Po
 ```text
 requested_start_offset_ms, requested_end_offset_ms
 max_duration_ms, max_width, max_height, max_nominal_frame_rate
-max_byte_length, queued_byte_capacity
+encoder_average_bit_rate, max_byte_length, temporary_byte_capacity, queued_byte_capacity
 container, video_codec, content_type
 ```
 

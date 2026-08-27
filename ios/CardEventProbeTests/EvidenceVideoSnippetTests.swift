@@ -6,6 +6,49 @@ import XCTest
 @testable import CardEventProbeCore
 
 final class EvidenceVideoSnippetTests: XCTestCase {
+    func testStandardVideoProfileUsesExploratoryResolutionAndBounds() {
+        let configuration = EvidenceVideoCaptureMetadata.standard
+
+        XCTAssertEqual(configuration.maxWidth, 960)
+        XCTAssertEqual(configuration.maxHeight, 540)
+        XCTAssertEqual(configuration.maxNominalFrameRate, 15.0)
+        XCTAssertEqual(configuration.encoderAverageBitRate, 1_200_000)
+        XCTAssertEqual(configuration.maxByteLength, 750_000)
+        XCTAssertEqual(configuration.temporaryByteCapacity, 83_886_080)
+        XCTAssertEqual(configuration.queuedByteCapacity, 10 * 1024 * 1024)
+    }
+
+    func testLiveCaptureRejectsAProfileThatCannotHoldItsCoverage() {
+        let configuration = EvidenceVideoCaptureMetadata(
+            requestedStartOffsetMs: -1_000,
+            requestedEndOffsetMs: 1_000,
+            maxDurationMs: 2_500,
+            maxWidth: 960,
+            maxHeight: 540,
+            maxNominalFrameRate: 15.0,
+            encoderAverageBitRate: 1_200_000,
+            maxByteLength: 750_000,
+            temporaryByteCapacity: 1_024,
+            queuedByteCapacity: 10 * 1024 * 1024
+        )
+
+        XCTAssertThrowsError(
+            try LiveEvidenceVideoSnippetProvider(configuration: configuration)
+        ) { error in
+            guard let error = error as? EvidenceVideoCaptureConfigurationError,
+                  case let .insufficientTemporaryCapacity(
+                requiredBytes,
+                capacityBytes,
+                requiredFrameCount,
+                availableFrameCount
+            ) = error else {
+                return XCTFail("unexpected configuration error: \(error)")
+            }
+            XCTAssertGreaterThan(requiredBytes, capacityBytes)
+            XCTAssertGreaterThan(requiredFrameCount, availableFrameCount)
+        }
+    }
+
     func testVideoCadenceSamplerProducesThirtyOneFramesFromTwoSecondsAtThirtyFPS() {
         var sampler = EvidenceVideoCadenceSampler(targetFrameRate: 15.0)
         var accepted = 0
@@ -97,7 +140,7 @@ final class EvidenceVideoSnippetTests: XCTestCase {
             maxByteLength: 250_000,
             queuedByteCapacity: 1_000_000
         )
-        let provider = LiveEvidenceVideoSnippetProvider(
+        let provider = try LiveEvidenceVideoSnippetProvider(
             configuration: configuration,
             minimumCoverageStartOffsetMs: -100,
             maximumCoverageEndOffsetMs: 100,
@@ -127,7 +170,7 @@ final class EvidenceVideoSnippetTests: XCTestCase {
     }
 
     func testLiveCaptureStopReleasesTheRollingBufferAndCancelsPendingCapture() throws {
-        let provider = LiveEvidenceVideoSnippetProvider(
+        let provider = try LiveEvidenceVideoSnippetProvider(
             configuration: EvidenceVideoCaptureMetadata(
                 requestedStartOffsetMs: -250,
                 requestedEndOffsetMs: 1_000,

@@ -138,7 +138,7 @@ public struct EvidenceVideoCaptureStatus: Equatable, Sendable {
         bufferedFrameCount: 0,
         bufferedDurationMs: 0,
         temporaryBytes: 0,
-        temporaryByteCapacity: EvidenceVideoCaptureMetadata.standard.maxByteLength * 160,
+        temporaryByteCapacity: EvidenceVideoCaptureMetadata.standard.temporaryByteCapacity,
         activeCaptureCount: 0,
         completedCaptureCount: 0,
         failedCaptureCount: 0,
@@ -195,31 +195,68 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
         configuration: EvidenceVideoCaptureMetadata = .standard,
         minimumCoverageStartOffsetMs: Int = -800,
         maximumCoverageEndOffsetMs: Int = 700,
-        temporaryByteCapacity: Int = 40 * 1024 * 1024,
+        temporaryByteCapacity: Int? = nil,
         maximumPendingConversionCount: Int = 4
-    ) {
+    ) throws {
         precondition(
             minimumCoverageStartOffsetMs < maximumCoverageEndOffsetMs,
             "live video coverage must be an ordered range"
         )
-        precondition(temporaryByteCapacity > 0, "temporary video capacity must be positive")
         precondition(maximumPendingConversionCount > 0, "pending conversion capacity must be positive")
+        let resolvedTemporaryByteCapacity = temporaryByteCapacity ?? configuration.temporaryByteCapacity
+        let bytesPerFrame = max(1, configuration.maxWidth * configuration.maxHeight * 4)
+        let requiredFrameCount = Self.requiredFrameCount(configuration: configuration)
+        let availableFrameCount = resolvedTemporaryByteCapacity / bytesPerFrame
+        guard configuration.requestedEndOffsetMs > configuration.requestedStartOffsetMs,
+              configuration.maxDurationMs >= configuration.requestedEndOffsetMs
+                - configuration.requestedStartOffsetMs,
+              configuration.maxWidth > 0,
+              configuration.maxHeight > 0,
+              configuration.maxNominalFrameRate.isFinite,
+              configuration.maxNominalFrameRate > 0.0,
+              configuration.encoderAverageBitRate > 0,
+              resolvedTemporaryByteCapacity > 0,
+              availableFrameCount >= requiredFrameCount + maximumPendingConversionCount else {
+            if resolvedTemporaryByteCapacity > 0,
+               availableFrameCount < requiredFrameCount + maximumPendingConversionCount {
+                throw EvidenceVideoCaptureConfigurationError.insufficientTemporaryCapacity(
+                    requiredBytes: (requiredFrameCount + maximumPendingConversionCount) * bytesPerFrame,
+                    capacityBytes: resolvedTemporaryByteCapacity,
+                    requiredFrameCount: requiredFrameCount,
+                    availableFrameCount: availableFrameCount
+                )
+            }
+            throw EvidenceVideoCaptureConfigurationError.invalidProfile
+        }
         self.configuration = configuration
         self.minimumCoverageStartOffsetMs = minimumCoverageStartOffsetMs
         self.maximumCoverageEndOffsetMs = maximumCoverageEndOffsetMs
         cadenceSampler = EvidenceVideoCadenceSampler(
             targetFrameRate: configuration.maxNominalFrameRate
         )
-        self.temporaryByteCapacity = temporaryByteCapacity
+        self.temporaryByteCapacity = resolvedTemporaryByteCapacity
         self.maximumPendingConversionCount = maximumPendingConversionCount
-        let bytesPerFrame = max(1, configuration.maxWidth * configuration.maxHeight * 4)
         maximumBufferedFrameCount = min(
             max(1, Int(ceil(Double(configuration.maxDurationMs) / 1_000.0 * configuration.maxNominalFrameRate)) + 1),
-            max(1, temporaryByteCapacity / bytesPerFrame - maximumPendingConversionCount)
+            availableFrameCount - maximumPendingConversionCount
         )
         outputPixelBufferPool = Self.makePixelBufferPool(
             width: configuration.maxWidth,
             height: configuration.maxHeight
+        )
+    }
+
+    private static func requiredFrameCount(configuration: EvidenceVideoCaptureMetadata) -> Int {
+        max(
+            1,
+            Int(
+                ceil(
+                    Double(
+                        configuration.requestedEndOffsetMs
+                            - configuration.requestedStartOffsetMs
+                    ) / 1_000.0 * configuration.maxNominalFrameRate
+                )
+            ) + 1
         )
     }
 
@@ -277,15 +314,7 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
             eventTimestamp,
             CMTime(value: Int64(configuration.requestedEndOffsetMs), timescale: 1_000)
         )
-        let requiredFrameCount = max(
-            1,
-            Int(
-                ceil(
-                    CMTimeGetSeconds(CMTimeSubtract(requestedEnd, requestedStart))
-                        * configuration.maxNominalFrameRate
-                )
-            ) + 1
-        )
+        let requiredFrameCount = Self.requiredFrameCount(configuration: configuration)
         guard maximumBufferedFrameCount >= requiredFrameCount else {
             recordFailure(EvidenceVideoSnippetCaptureError.temporaryStorageUnavailable)
             throw EvidenceVideoSnippetCaptureError.temporaryStorageUnavailable
@@ -567,7 +596,7 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
                 AVVideoHeightKey: configuration.maxHeight,
                 AVVideoCompressionPropertiesKey: [
                     AVVideoExpectedSourceFrameRateKey: configuration.maxNominalFrameRate,
-                    AVVideoAverageBitRateKey: 400_000,
+                    AVVideoAverageBitRateKey: configuration.encoderAverageBitRate,
                 ],
             ]
         )

@@ -65,6 +65,7 @@ final class AppState: ObservableObject {
     @Published private(set) var evidencePackageError: String?
     @Published private(set) var evidenceQueueDiagnostics: EvidencePackageQueueDiagnostics?
     @Published private(set) var evidenceVideoCaptureStatus = EvidenceVideoCaptureStatus.idle
+    @Published private(set) var evidenceVideoCaptureConfigurationError: String?
     @Published private(set) var evidenceUploadError: String?
     @Published private(set) var evidenceUploadRunning = false
     @Published private(set) var latestEvidencePackageID: UUID?
@@ -443,6 +444,7 @@ final class AppState: ObservableObject {
         stopReplayForNewSession()
         stopLiveInference()
         resetEvents()
+        evidenceVideoCaptureConfigurationError = nil
         guard let runner = modelRunner else { return nil }
         guard let captureSession = beginCaptureSession() else { return nil }
         activeDiagnosticSource = .live
@@ -454,13 +456,19 @@ final class AppState: ObservableObject {
             sessionClock: captureSession.clock
         )
         self.evidenceSampler = evidenceSampler
-        let liveVideoCapture = LiveEvidenceVideoSnippetProvider(
-            configuration: EvidenceVideoCaptureMetadata.standard,
-            minimumCoverageStartOffsetMs: evidenceCaptureConfiguration.targetOffsetsMs.min() ?? -800,
-            maximumCoverageEndOffsetMs: evidenceCaptureConfiguration.targetOffsetsMs.max() ?? 700
-        )
+        let liveVideoCapture: LiveEvidenceVideoSnippetProvider?
+        do {
+            liveVideoCapture = try LiveEvidenceVideoSnippetProvider(
+                configuration: EvidenceVideoCaptureMetadata.standard,
+                minimumCoverageStartOffsetMs: evidenceCaptureConfiguration.targetOffsetsMs.min() ?? -800,
+                maximumCoverageEndOffsetMs: evidenceCaptureConfiguration.targetOffsetsMs.max() ?? 700
+            )
+        } catch {
+            liveVideoCapture = nil
+            evidenceVideoCaptureConfigurationError = error.localizedDescription
+        }
         self.liveVideoCapture = liveVideoCapture
-        evidenceVideoCaptureStatus = liveVideoCapture.status
+        evidenceVideoCaptureStatus = liveVideoCapture?.status ?? .idle
         evidencePackageCoordinator = makeEvidencePackageCoordinator(
             captureSession: captureSession,
             ring: evidenceSampler.ring,

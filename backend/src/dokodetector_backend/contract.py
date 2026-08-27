@@ -111,7 +111,9 @@ class VideoCaptureMetadata(ContractModel):
     max_width: int = Field(gt=0)
     max_height: int = Field(gt=0)
     max_nominal_frame_rate: float = Field(gt=0.0)
+    encoder_average_bit_rate: int = Field(gt=0)
     max_byte_length: int = Field(gt=0)
+    temporary_byte_capacity: int = Field(gt=0)
     queued_byte_capacity: int = Field(gt=0)
     container: Literal["mp4"]
     video_codec: Literal["h264"]

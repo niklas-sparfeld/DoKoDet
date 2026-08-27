@@ -236,7 +236,9 @@ public struct EvidenceVideoCaptureMetadata: Codable, Equatable, Sendable {
     public let maxWidth: Int
     public let maxHeight: Int
     public let maxNominalFrameRate: Double
+    public let encoderAverageBitRate: Int
     public let maxByteLength: Int
+    public let temporaryByteCapacity: Int
     public let queuedByteCapacity: Int
     public let container: String
     public let videoCodec: String
@@ -246,10 +248,12 @@ public struct EvidenceVideoCaptureMetadata: Codable, Equatable, Sendable {
         requestedStartOffsetMs: Int = -1_000,
         requestedEndOffsetMs: Int = 1_000,
         maxDurationMs: Int = 2_500,
-        maxWidth: Int = 640,
-        maxHeight: Int = 360,
+        maxWidth: Int = 960,
+        maxHeight: Int = 540,
         maxNominalFrameRate: Double = 15.0,
-        maxByteLength: Int = 250_000,
+        encoderAverageBitRate: Int = 1_200_000,
+        maxByteLength: Int = 750_000,
+        temporaryByteCapacity: Int = 83_886_080,
         queuedByteCapacity: Int = 10 * 1024 * 1024,
         container: String = "mp4",
         videoCodec: String = "h264",
@@ -261,7 +265,9 @@ public struct EvidenceVideoCaptureMetadata: Codable, Equatable, Sendable {
         self.maxWidth = maxWidth
         self.maxHeight = maxHeight
         self.maxNominalFrameRate = maxNominalFrameRate
+        self.encoderAverageBitRate = encoderAverageBitRate
         self.maxByteLength = maxByteLength
+        self.temporaryByteCapacity = temporaryByteCapacity
         self.queuedByteCapacity = queuedByteCapacity
         self.container = container
         self.videoCodec = videoCodec
@@ -277,7 +283,9 @@ public struct EvidenceVideoCaptureMetadata: Codable, Equatable, Sendable {
         case maxWidth = "max_width"
         case maxHeight = "max_height"
         case maxNominalFrameRate = "max_nominal_frame_rate"
+        case encoderAverageBitRate = "encoder_average_bit_rate"
         case maxByteLength = "max_byte_length"
+        case temporaryByteCapacity = "temporary_byte_capacity"
         case queuedByteCapacity = "queued_byte_capacity"
         case container
         case videoCodec = "video_codec"
@@ -745,7 +753,9 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
               videoCapture.maxHeight > 0,
               videoCapture.maxNominalFrameRate.isFinite,
               videoCapture.maxNominalFrameRate > 0.0,
+              videoCapture.encoderAverageBitRate > 0,
               videoCapture.maxByteLength > 0,
+              videoCapture.temporaryByteCapacity > 0,
               videoCapture.queuedByteCapacity > 0,
               videoCapture.container == "mp4",
               videoCapture.videoCodec == "h264",

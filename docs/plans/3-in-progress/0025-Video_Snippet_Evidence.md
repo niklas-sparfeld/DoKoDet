@@ -309,18 +309,26 @@ Acceptance:
 
 ### M5 — Exploratory resolution profile
 
-1. [ ] Add a configurable encoder bitrate instead of the fixed 400 kbit/s setting.
-2. [ ] Change the exploratory live profile to 960×540, 15 fps, and the bounds in section 2.5.
-3. [ ] Update Swift and Python contracts, fixtures, and tests in the same change.
-4. [ ] Verify that the raw rolling-buffer capacity can hold the required pre-event and post-event
+1. [x] Add a configurable encoder bitrate instead of the fixed 400 kbit/s setting.
+2. [x] Change the exploratory live profile to 960×540, 15 fps, and the bounds in section 2.5.
+3. [x] Update Swift and Python contracts, fixtures, and tests in the same change.
+4. [x] Verify that the raw rolling-buffer capacity can hold the required pre-event and post-event
    samples at 960×540 before live capture starts.
-5. [ ] Fail explicitly when a configured profile cannot satisfy required coverage within its memory
+5. [x] Fail explicitly when a configured profile cannot satisfy required coverage within its memory
    bound.
-6. [ ] Create 640×360 and 960×540 derivatives from the same representative source snippets.
-7. [ ] Record encoded size, peak temporary memory, encode latency, decode latency, and visible card
+6. [x] Create 640×360 and 960×540 derivatives from the same representative source snippets.
+7. [x] Record encoded size, peak temporary memory, encode latency, decode latency, and visible card
    detail for both profiles.
-8. [ ] Keep 960×540 as the accepted source profile unless measurements show no useful difference or
+8. [x] Keep 960×540 as the accepted source profile unless measurements show no useful difference or
    unacceptable device cost.
+
+Progress (2026-08-27): Added the 960×540 exploratory profile with a configurable 1,200,000 bit/s
+encoder target, 750,000-byte media bound, 80 MiB temporary capacity, and 10 MiB queue capacity.
+Swift and Python contracts and the shared fixtures now record the encoder bitrate and temporary
+capacity. The live provider checks the required coverage before it starts and keeps the frame-only
+path when the profile is not viable. A same-source 640×360 and 960×540 comparison is recorded in
+[the M5 resolution report](../../reports/0025-Video_Snippet_M5_Resolution_Profile.md). Device
+measurements remain in M6.
 
 Acceptance:
 

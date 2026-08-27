@@ -32,6 +32,10 @@ struct DiagnosticsPanel: View {
             if let inferenceError = appState.inferenceError {
                 OperatorErrorView(title: "Capture", message: inferenceError)
             }
+
+            if let videoConfigurationError = appState.evidenceVideoCaptureConfigurationError {
+                OperatorErrorView(title: "Video profile", message: videoConfigurationError)
+            }
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))

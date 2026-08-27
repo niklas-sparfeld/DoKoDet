@@ -36,6 +36,12 @@ def test_shared_manifest_fixtures_are_accepted(
     assert isinstance(manifest, EvidenceManifest)
     assert manifest.event.evidence_complete is expected_complete
     assert len(manifest.frames) == expected_frame_count
+    assert manifest.video_capture.max_width == 960
+    assert manifest.video_capture.max_height == 540
+    assert manifest.video_capture.max_nominal_frame_rate == 15.0
+    assert manifest.video_capture.encoder_average_bit_rate == 1_200_000
+    assert manifest.video_capture.max_byte_length == 750_000
+    assert manifest.video_capture.temporary_byte_capacity == 83_886_080
 
 
 def test_video_snippet_is_optional_but_an_incomplete_capture_is_explicit() -> None:

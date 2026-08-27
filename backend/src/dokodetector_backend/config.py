@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     evidence_root: Path = Path(".runtime")
     max_manifest_bytes: int = 1_000_000
     max_frame_bytes: int = 10_000_000
-    max_video_bytes: int = 250_000
+    max_video_bytes: int = 750_000
     max_package_bytes: int = 100_000_000
     max_recording_manifest_bytes: int = 1_000_000
     max_recording_predictions_bytes: int = 10_000_000

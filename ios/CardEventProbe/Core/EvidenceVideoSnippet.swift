@@ -58,6 +58,36 @@ public enum EvidenceVideoSnippetCaptureError: LocalizedError, Equatable {
     }
 }
 
+public enum EvidenceVideoCaptureConfigurationError: LocalizedError, Equatable {
+    case invalidProfile
+    case insufficientTemporaryCapacity(
+        requiredBytes: Int,
+        capacityBytes: Int,
+        requiredFrameCount: Int,
+        availableFrameCount: Int
+    )
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidProfile:
+            return "The video capture profile is invalid."
+        case let .insufficientTemporaryCapacity(
+            requiredBytes,
+            capacityBytes,
+            requiredFrameCount,
+            availableFrameCount
+        ):
+            return "The video capture profile needs "
+                + String(requiredFrameCount) + " frames ("
+                + ByteCountFormatter.string(fromByteCount: Int64(requiredBytes), countStyle: .file)
+                + "), but its "
+                + ByteCountFormatter.string(fromByteCount: Int64(capacityBytes), countStyle: .file)
+                + " temporary limit holds only "
+                + String(availableFrameCount) + " frames."
+        }
+    }
+}
+
 /// Encodes a bounded MP4/H.264 range from a replay source on the caller's queue.
 public final class AVAssetVideoSnippetProvider: @unchecked Sendable, EvidenceVideoSnippetProviding {
     public let sourceURL: URL
@@ -217,7 +247,7 @@ public final class AVAssetVideoSnippetProvider: @unchecked Sendable, EvidenceVid
                 AVVideoHeightKey: height,
                 AVVideoCompressionPropertiesKey: [
                     AVVideoExpectedSourceFrameRateKey: frameRate,
-                    AVVideoAverageBitRateKey: 400_000,
+                    AVVideoAverageBitRateKey: configuration.encoderAverageBitRate,
                 ],
             ]
         )
