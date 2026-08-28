@@ -57,7 +57,9 @@ No epics.
 
 ### Blocked
 
-No epics.
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| [0029 — Repository data boundaries and evidence intake](4-blocked/0029-Repository_Data_Boundaries_and_Evidence_Intake.md) | 0027 | Keep shared intake at the repository root, stage incomplete videos before intake, and preserve accepted evidence packages as pipeline inputs. |
 
 ### Closed
 
