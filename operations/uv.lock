@@ -21,10 +21,28 @@ wheels = [
 ]
 
 [[package]]
+name = "doko-game-engine"
+version = "0.1.0"
+source = { directory = "../game_engine" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.9,<3" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0,<9" },
+    { name = "ruff", specifier = ">=0.6,<1" },
+]
+
+[[package]]
 name = "doko-operations"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "doko-game-engine" },
     { name = "pyyaml" },
     { name = "table-evidence-analyzer" },
 ]
@@ -37,6 +55,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "doko-game-engine", directory = "../game_engine" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "table-evidence-analyzer", directory = "../table_evidence_analyzer" },
 ]

@@ -91,6 +91,21 @@ from .review import (
     validate_review_run,
 )
 from .status import render_human, render_json, status_mapping
+from .system_holdout import (
+    FAILURE_BOUNDARIES,
+    SYSTEM_HOLDOUT_EVALUATION_SCHEMA_VERSION,
+    SYSTEM_RECONSTRUCTION_CONFIG_SCHEMA_VERSION,
+    LockedComponentArtifact,
+    SystemHoldoutEvaluationError,
+    SystemHoldoutFixtureRunner,
+    SystemHoldoutReport,
+    SystemHoldoutRunner,
+    SystemReconstructionConfig,
+    evaluate_system_holdout,
+    load_system_holdout_report,
+    load_system_reconstruction_config,
+    run_system_holdout_evaluation,
+)
 from .table_evidence import (
     COVERAGE_SCHEMA_VERSION,
     DATASET_VERSION_SCHEMA_VERSION,
@@ -216,4 +231,17 @@ __all__ = [
     "validate_stale_artifact_receipt",
     "VALID_SELECTION_SOURCES",
     "withdraw_source_permission",
+    "FAILURE_BOUNDARIES",
+    "SYSTEM_HOLDOUT_EVALUATION_SCHEMA_VERSION",
+    "SYSTEM_RECONSTRUCTION_CONFIG_SCHEMA_VERSION",
+    "LockedComponentArtifact",
+    "SystemHoldoutEvaluationError",
+    "SystemHoldoutFixtureRunner",
+    "SystemHoldoutRunner",
+    "SystemHoldoutReport",
+    "SystemReconstructionConfig",
+    "evaluate_system_holdout",
+    "load_system_holdout_report",
+    "load_system_reconstruction_config",
+    "run_system_holdout_evaluation",
 ]

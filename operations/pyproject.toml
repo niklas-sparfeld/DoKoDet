@@ -8,11 +8,13 @@ version = "0.1.0"
 description = "DokoDetector repository data and model operations"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+  "doko-game-engine",
   "pyyaml>=6.0,<7",
   "table-evidence-analyzer",
 ]
 
 [tool.uv.sources]
+doko-game-engine = { path = "../game_engine" }
 table-evidence-analyzer = { path = "../table_evidence_analyzer" }
 
 [project.scripts]

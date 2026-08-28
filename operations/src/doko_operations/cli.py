@@ -45,6 +45,12 @@ from .review import (
     run_review,
 )
 from .status import render_human, render_json
+from .system_holdout import (
+    FAILURE_BOUNDARIES,
+    SystemHoldoutEvaluationError,
+    SystemHoldoutFixtureRunner,
+    evaluate_system_holdout,
+)
 from .table_evidence import TABLE_EVIDENCE_TASK, TableObservationReviewAdapter
 from .table_evidence_campaign import (
     TableEvidenceFixtureCommandRunner,
@@ -310,6 +316,33 @@ def build_parser() -> argparse.ArgumentParser:
             "Checked-in app bundle path (default: "
             "ios/CardEventProbe/CardEventNetTransitionV2.mlpackage)."
         ),
+    )
+    system = model_commands.add_parser(
+        "evaluate-system", help="Run the locked composed pipeline on the shared system holdout."
+    )
+    _add_path_options(system, suppress_defaults=True)
+    _add_model_options(system)
+    system.add_argument("cardevent_campaign_id")
+    system.add_argument("table_campaign_id")
+    system.add_argument("--holdout-registry", type=Path, default=None)
+    system.add_argument("--cardevent-dataset", type=Path, required=True)
+    system.add_argument("--cardevent-split", type=Path, required=True)
+    system.add_argument("--table-dataset", type=Path, required=True)
+    system.add_argument("--table-split", type=Path, required=True)
+    system.add_argument("--reconstruction-config", type=Path, default=None)
+    system.add_argument("--fixture", type=Path, default=None)
+    system.add_argument("--evaluation-root", type=Path, default=None)
+    system.add_argument(
+        "--runner",
+        choices=("fixture",),
+        default="fixture",
+        help="Execution backend (the local fixture is the supported M5 backend).",
+    )
+    system.add_argument(
+        "--fail-boundary",
+        choices=FAILURE_BOUNDARIES,
+        default=None,
+        help="Inject one local fixture failure for attribution tests.",
     )
     return parser
 
@@ -749,6 +782,39 @@ def main(argv: Sequence[str] | None = None) -> int:
                         f"artifacts: {result['campaign_path']}\n"
                     )
                 return 1 if campaign.state == "failed" else 0
+            if args.model_command == "evaluate-system":
+                runner = (
+                    SystemHoldoutFixtureRunner(fail_boundary=args.fail_boundary)
+                    if args.runner == "fixture"
+                    else None
+                )
+                report = evaluate_system_holdout(
+                    args.cardevent_campaign_id,
+                    args.table_campaign_id,
+                    repository_root=config.repository_root,
+                    cardevent_dataset_path=args.cardevent_dataset,
+                    cardevent_split_path=args.cardevent_split,
+                    table_dataset_path=args.table_dataset,
+                    table_split_path=args.table_split,
+                    reconstruction_config_path=args.reconstruction_config,
+                    holdout_registry_path=args.holdout_registry,
+                    model_registry_path=args.model_registry,
+                    campaign_root=args.campaign_root,
+                    fixture_path=args.fixture,
+                    evaluation_root=args.evaluation_root,
+                    runner=runner,
+                )
+                result = {"report": report.to_mapping()}
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(
+                        "System holdout evaluation\n"
+                        f"evaluation: {report.evaluation_id}\n"
+                        f"status: {report.status}\n"
+                        f"recommendation: {report.recommendation}\n"
+                    )
+                return 1 if report.status == "failed" else 0
             if args.model_command == "status":
                 result = model_status(
                     config.repository_root,
@@ -780,7 +846,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else:
                     sys.stdout.write(render_comparison_human(comparison))
                 return 0
-        except (ConfigurationError, OSError, ModelImprovementError) as error:
+        except (
+            ConfigurationError,
+            OSError,
+            ModelImprovementError,
+            SystemHoldoutError,
+            SystemHoldoutEvaluationError,
+        ) as error:
             print(f"error: {error}", file=sys.stderr)
             return 2
     try:

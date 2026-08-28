@@ -175,6 +175,9 @@ def _load_json_model(path: Path, model_type: type[ModelT]) -> ModelT:
 
 
 def _repository_root() -> Path:
+    for candidate in (Path.cwd(), *Path.cwd().parents):
+        if (candidate / "fixtures" / "game-engine" / "v1").is_dir():
+            return candidate
     return Path(__file__).resolve().parents[3]
 
 

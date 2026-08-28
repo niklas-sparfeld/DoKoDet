@@ -1,0 +1,15 @@
+{
+  "schema_version": "system-reconstruction-config/v1",
+  "config_id": "reconstruction-fixture",
+  "config_version": 1,
+  "engine_version": "game-engine/v1",
+  "ruleset": {
+    "name": "doko-normal",
+    "version": "v1"
+  },
+  "deck_variant": "doko-40-v1",
+  "max_missing_plays": 0,
+  "max_hypotheses": 8,
+  "max_search_nodes": 100000,
+  "locked": true
+}

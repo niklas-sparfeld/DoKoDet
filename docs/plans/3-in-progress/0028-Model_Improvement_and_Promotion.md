@@ -478,6 +478,21 @@ Acceptance:
 - no component champion changes as a side effect;
 - the local fixture needs no cloud service or physical device.
 
+#### M5 progress evidence — 2026-08-29
+
+- Added a read-only `evaluate_system_holdout` operation and `doko model evaluate-system` command.
+  It loads the reviewed plan 0027 registry, validates both locked component campaigns and their
+  explicit dataset/split manifests, and rejects a system holdout group in training or validation.
+- Added a strict locked reconstruction configuration and a local fixture runner for source
+  evidence, event proposals, evidence selection, table observations, and game reconstruction.
+  The fixture uses the existing game-engine round contract and needs no cloud service or device.
+- Added deterministic system report artifacts with registry, component-lock, reconstruction,
+  fixture, stage, isolation, and failure-attribution evidence. Repeated evaluation reads the
+  existing report. Campaign files, model bundles, and the champion registry remain unchanged.
+- Added tests for success, cross-component leakage, locked-campaign enforcement, event/observation/
+  reconstruction attribution, idempotent retry, and registry immutability. Operations, game-engine,
+  and TableEvidenceAnalyzer test suites plus Ruff checks pass.
+
 ### M6 — Optional skill and clean-room exercise
 
 1. Add the project-local skill with explicit triggers and workflow instructions.

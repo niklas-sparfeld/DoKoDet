@@ -85,3 +85,21 @@ doko model promote <campaign-id> \
 
 The promotion receipt records the old and new bundle digests. A repeated confirmed invocation
 reads the receipt and does not rerun the test or export.
+
+M5 adds a read-only composed evaluation on the plan 0027 system holdout. Both component campaigns
+must have a candidate lock. Pass the frozen dataset and split manifests for each component:
+
+```bash
+doko model evaluate-system <cardevent-campaign> <table-campaign> \
+  --holdout-registry data/operations/system-holdout-registry.json \
+  --cardevent-dataset <cardevent-dataset.json> \
+  --cardevent-split <cardevent-split.json> \
+  --table-dataset <table-dataset.json> \
+  --table-split <table-split.json>
+```
+
+The command also checks the locked reconstruction configuration and the local game-engine fixture.
+It writes a separate system report under `data/model-system-evaluations/`. It does not update a
+component campaign, start a candidate, or change the champion registry. Use `--runner` only through
+the fixture path in local tests; `--fail-boundary event`, `--fail-boundary observation`, and
+`--fail-boundary reconstruction` exercise report attribution.
