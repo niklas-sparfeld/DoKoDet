@@ -1688,6 +1688,7 @@ def train_from_files(
     batch_size: int | None = None,
     num_workers: int | None = None,
     precision: str | None = None,
+    seed_override: int | None = None,
     resume_path: str | Path | None = None,
 ) -> TrainingResult:
     try:
@@ -1695,6 +1696,14 @@ def train_from_files(
         split = load_split(split_path)
     except (OSError, RuntimeError, SplitError, ValueError) as exc:
         raise TrainingError(f"Could not load training inputs: {exc}") from exc
+    if seed_override is not None:
+        if (
+            isinstance(seed_override, bool)
+            or not isinstance(seed_override, int)
+            or seed_override < 0
+        ):
+            raise TrainingError("seed_override must be a non-negative integer.")
+        config = replace(config, seed=seed_override)
     if resume_path is not None:
         if run_name is not None:
             raise TrainingError("--resume cannot be combined with --run-name.")

@@ -1,0 +1,56 @@
+{
+  "schema_version": "model-registry/v1",
+  "registry_version": 1,
+  "champions": [
+    {
+      "component": "card-event-net",
+      "capability": "event-detection",
+      "champion_bundle_id": "cardevent-champion",
+      "champion_bundle_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bundle_path": "models/cardevent-champion.json",
+      "runtime_contract_version": "runtime/v1",
+      "input_contract_version": "input/v1",
+      "dataset_version_id": "dataset-cardevent-fixture",
+      "dataset_version_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "split_version_id": "split-cardevent-fixture",
+      "split_version_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "annotation_version_id": "annotation-cardevent-fixture",
+      "annotation_version_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "review_version_id": "review-cardevent-fixture",
+      "review_version_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "validation_report_id": "validation-champion",
+      "sealed_test_report_id": "test-champion",
+      "export": {
+        "environment": {"tool": "fixture", "version": "1"},
+        "compatibility": "runtime/v1"
+      },
+      "promotion_receipt_id": "receipt-champion",
+      "decision_note": "Fixture champion."
+    },
+    {
+      "component": "table-evidence-analyzer",
+      "capability": "visual-card-identity",
+      "champion_bundle_id": "table-champion",
+      "champion_bundle_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "bundle_path": "models/table-champion.json",
+      "runtime_contract_version": "runtime/v1",
+      "input_contract_version": "input/v1",
+      "dataset_version_id": "dataset-table-fixture",
+      "dataset_version_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "split_version_id": "split-table-fixture",
+      "split_version_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "annotation_version_id": "annotation-table-fixture",
+      "annotation_version_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "review_version_id": "review-table-fixture",
+      "review_version_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+      "validation_report_id": "validation-table-champion",
+      "sealed_test_report_id": "test-table-champion",
+      "export": {
+        "environment": {"tool": "fixture", "version": "1"},
+        "compatibility": "runtime/v1"
+      },
+      "promotion_receipt_id": "receipt-table-champion",
+      "decision_note": "Fixture analyzer champion."
+    }
+  ]
+}

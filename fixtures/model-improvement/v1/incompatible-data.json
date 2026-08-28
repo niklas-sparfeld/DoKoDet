@@ -1,0 +1,14 @@
+{
+  "data": {
+    "dataset": {"id": "dataset-fixture", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "split": {"id": "split-fixture", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    "source_annotation": null,
+    "review": null
+  },
+  "candidate_data": {
+    "dataset": {"id": "dataset-fixture", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "split": {"id": "split-fixture", "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"},
+    "source_annotation": null,
+    "review": null
+  }
+}

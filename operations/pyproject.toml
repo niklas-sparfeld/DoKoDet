@@ -5,9 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "doko-operations"
 version = "0.1.0"
-description = "Read-only DokoDetector repository data operations"
+description = "DokoDetector repository data and model operations"
 requires-python = ">=3.13,<3.14"
-dependencies = []
+dependencies = [
+  "pyyaml>=6.0,<7",
+]
 
 [project.scripts]
 doko = "doko_operations.cli:main"

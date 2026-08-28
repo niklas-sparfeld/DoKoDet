@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
+from math import isfinite
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -526,6 +528,7 @@ def evaluate_checkpoint_from_files(
     output_path: str | Path | None = None,
     device_override: str | None = None,
     reviewed_hard_negative_manifest: str | Path | None = None,
+    threshold_override: float | None = None,
 ) -> dict[str, Any]:
     """Evaluate a checkpoint and select thresholds from validation data only."""
     try:
@@ -555,6 +558,19 @@ def evaluate_checkpoint_from_files(
             target_recall=loaded.config.metrics.target_recall,
             peak_confirmation_s=peak_confirmation_s,
         )
+        if threshold_override is not None:
+            if (
+                isinstance(threshold_override, bool)
+                or not isinstance(threshold_override, (int, float))
+                or not isfinite(threshold_override)
+                or not 0.0 <= threshold_override <= 1.0
+            ):
+                raise EvaluationError("threshold_override must be finite and between 0 and 1.")
+            selection = replace(
+                selection,
+                threshold=float(threshold_override),
+                selection_reason="explicit",
+            )
         _save_threshold_selection(
             checkpoint_file,
             selection,

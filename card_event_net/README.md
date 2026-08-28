@@ -186,6 +186,9 @@ uv run cardevent train \
   --split data/splits/default.yaml
 ```
 
+The campaign runner can pass a declared seed with `--seed`. It records the seed in the training
+checkpoint and run configuration.
+
 Runs are stored in `data/outputs/run-YYYYMMDD-HHMMSS/`. Each run contains `config.yaml`,
 `environment.json`, `metrics.jsonl`, `epochs/`, `best.pt`, `last.pt`, and `summary.json`.
 Training uses the same label semantics for training and validation. Ignored transition samples do
@@ -256,6 +259,9 @@ uv run cardevent evaluate \
   --split data/splits/default.yaml \
   --partition val
 ```
+
+Pass `--threshold` to evaluate validation at an explicit operating point. Without it, the command
+selects the target-recall operating point from validation.
 
 Evaluate the test partition after validation. The command uses the persisted validation
 threshold. If it is missing, the command selects it from validation first. It never uses test

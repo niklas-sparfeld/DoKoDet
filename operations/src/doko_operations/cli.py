@@ -8,6 +8,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from .cardevent_campaign import FixtureCommandRunner, run_card_event_campaign
 from .config import ConfigurationError, RepositoryConfig
 from .holdout import SystemHoldoutError, seal_system_holdout_group
 from .impact import (
@@ -18,6 +19,18 @@ from .impact import (
     retire_source,
 )
 from .intake import inspect_repository
+from .model_improvement import (
+    ModelImprovementError,
+    load_campaign,
+    load_campaign_comparison,
+    load_model_registry,
+    model_status,
+    render_comparison_human,
+    render_comparison_json,
+    render_model_status_human,
+    render_model_status_json,
+    validate_campaign_against_registry,
+)
 from .pending_video import PendingVideoCompletionError, complete_pending_video
 from .review import (
     REVIEW_TASK_ALL,
@@ -159,6 +172,46 @@ def build_parser() -> argparse.ArgumentParser:
     retire.add_argument("--reason", required=True)
     retire.add_argument("--format", choices=("human", "json"), default="human")
     retire.add_argument("--json", action="store_true", help="Alias for --format json.")
+    model = commands.add_parser("model", help="Inspect model champions and campaigns.")
+    model_commands = model.add_subparsers(dest="model_command", metavar="COMMAND")
+    status = model_commands.add_parser(
+        "status", help="Show read-only model registry and campaign status."
+    )
+    _add_path_options(status, suppress_defaults=True)
+    _add_model_options(status)
+    compare = model_commands.add_parser(
+        "compare", help="Show one read-only model campaign comparison."
+    )
+    _add_path_options(compare, suppress_defaults=True)
+    _add_model_options(compare)
+    compare.add_argument("campaign_id")
+    improve = model_commands.add_parser(
+        "improve", help="Run or resume a bounded component improvement campaign."
+    )
+    _add_path_options(improve, suppress_defaults=True)
+    _add_model_options(improve)
+    improve.add_argument("component", choices=("card-event-net",))
+    improve.add_argument("--recipe", type=Path, required=True)
+    improve.add_argument("--campaign-id", default=None)
+    improve.add_argument(
+        "--runner",
+        choices=("cardevent", "fixture"),
+        default="cardevent",
+        help="Execution backend (default: cardevent; fixture is for local clean-room checks).",
+    )
+    improve.add_argument(
+        "--project-root",
+        type=Path,
+        default=None,
+        help="CardEventNet project root (default: card_event_net).",
+    )
+    improve.add_argument("--config", type=Path, default=None, help="Default CardEventNet config.")
+    improve.add_argument("--split", type=Path, default=None, help="Default CardEventNet split.")
+    improve.add_argument("--cache-dir", type=Path, default=None)
+    improve.add_argument("--annotations-dir", type=Path, default=None)
+    improve.add_argument("--max-samples", type=int, default=None)
+    improve.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default=None)
+    improve.add_argument("--precision", choices=("fp32", "bf16"), default=None)
     return parser
 
 
@@ -195,8 +248,30 @@ def _add_path_options(parser: argparse.ArgumentParser, *, suppress_defaults: boo
     )
 
 
+def _add_model_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--model-registry",
+        type=Path,
+        default=None,
+        help="Override the champion registry path (default: data/model-registry.json).",
+    )
+    parser.add_argument(
+        "--campaign-root",
+        type=Path,
+        default=None,
+        help="Override the campaign root (default: data/model-campaigns).",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("human", "json"),
+        default="human",
+        help="Output format (default: human).",
+    )
+    parser.add_argument("--json", action="store_true", help="Alias for --format json.")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run one read-only command and return its process status."""
+    """Run one repository operation and return its process status."""
 
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -403,6 +478,88 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(render_review_human(result, repository_root=config.repository_root))
         return 1 if result.state == "failed" else 0
+    if args.command == "model":
+        if args.model_command is None:
+            model_parser = next(
+                action for action in parser._subparsers._group_actions if action.dest == "command"
+            )
+            model_parser.choices["model"].print_help()
+            return 0
+        try:
+            config = RepositoryConfig.from_environment(args.repository_root)
+            if args.model_command == "improve":
+                command_runner = FixtureCommandRunner() if args.runner == "fixture" else None
+                campaign = run_card_event_campaign(
+                    args.recipe,
+                    repository_root=config.repository_root,
+                    registry_path=args.model_registry,
+                    campaign_root=args.campaign_root,
+                    campaign_id=args.campaign_id,
+                    project_root=args.project_root,
+                    config_path=args.config,
+                    split_path=args.split,
+                    cache_dir=args.cache_dir,
+                    annotations_dir=args.annotations_dir,
+                    max_samples=args.max_samples,
+                    device=args.device,
+                    precision=args.precision,
+                    runner=command_runner,
+                )
+                campaign_root = (
+                    args.campaign_root
+                    or config.repository_root / "data" / "model-campaigns"
+                )
+                if not campaign_root.is_absolute():
+                    campaign_root = config.repository_root / campaign_root
+                result = {
+                    "campaign": campaign.to_mapping(),
+                    "campaign_path": str(campaign_root / campaign.campaign_id),
+                }
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(
+                        "CardEventNet campaign\n"
+                        f"campaign: {campaign.campaign_id}\n"
+                        f"state: {campaign.state}\n"
+                        f"recommendation: {campaign.recommendation or 'pending'}\n"
+                        f"artifacts: {result['campaign_path']}\n"
+                    )
+                return 1 if campaign.state == "failed" else 0
+            if args.model_command == "status":
+                result = model_status(
+                    config.repository_root,
+                    registry_path=args.model_registry,
+                    campaign_root=args.campaign_root,
+                )
+                if args.json or args.format == "json":
+                    sys.stdout.write(render_model_status_json(result))
+                else:
+                    sys.stdout.write(render_model_status_human(result))
+                return 0 if result["valid"] else 1
+            if args.model_command == "compare":
+                campaign_root = (
+                    args.campaign_root or config.repository_root / "data" / "model-campaigns"
+                )
+                if not campaign_root.is_absolute():
+                    campaign_root = config.repository_root / campaign_root
+                campaign = load_campaign(campaign_root, args.campaign_id)
+                registry_path = (
+                    args.model_registry or config.repository_root / "data" / "model-registry.json"
+                )
+                if not registry_path.is_absolute():
+                    registry_path = config.repository_root / registry_path
+                if registry_path.exists():
+                    validate_campaign_against_registry(campaign, load_model_registry(registry_path))
+                comparison = load_campaign_comparison(campaign_root, campaign)
+                if args.json or args.format == "json":
+                    sys.stdout.write(render_comparison_json(comparison))
+                else:
+                    sys.stdout.write(render_comparison_human(comparison))
+                return 0
+        except (ConfigurationError, OSError, ModelImprovementError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
     try:
         config = RepositoryConfig.from_environment(
             args.repository_root,

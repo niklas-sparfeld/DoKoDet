@@ -1,6 +1,11 @@
 """Repository data operations for DokoDetector."""
 
 from .cardevent import CARD_EVENT_TASK, CardEventNetReviewAdapter
+from .cardevent_campaign import (
+    CardEventCampaignError,
+    FixtureCommandRunner,
+    run_card_event_campaign,
+)
 from .config import ConfigurationError, RepositoryConfig, discover_repository_root
 from .holdout import (
     SYSTEM_HOLDOUT_GROUP_NAMES,
@@ -96,6 +101,7 @@ from .table_evidence import (
 __all__ = [
     "BundleInspection",
     "CARD_EVENT_TASK",
+    "CardEventCampaignError",
     "CardEventNetReviewAdapter",
     "COVERAGE_SCHEMA_VERSION",
     "DATASET_VERSION_SCHEMA_VERSION",
@@ -110,6 +116,7 @@ __all__ = [
     "SYSTEM_HOLDOUT_REGISTRY_ID",
     "SYSTEM_HOLDOUT_REGISTRY_SCHEMA_VERSION",
     "Failure",
+    "FixtureCommandRunner",
     "SystemHoldoutError",
     "SourceImpactError",
     "InspectionResult",
@@ -166,6 +173,7 @@ __all__ = [
     "analyze_repository_impacts",
     "analyze_source_impact",
     "retire_source",
+    "run_card_event_campaign",
     "sealed_group_keys",
     "status_mapping",
     "validate_review_report",

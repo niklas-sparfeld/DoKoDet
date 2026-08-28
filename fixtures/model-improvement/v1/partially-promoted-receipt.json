@@ -1,0 +1,27 @@
+{
+  "schema_version": "model-promotion-receipt/v1",
+  "receipt_id": "receipt-partial",
+  "campaign_id": "campaign-fixture",
+  "component": "card-event-net",
+  "capability": "event-detection",
+  "candidate_id": "candidate-1",
+  "promoted_bundle": {"id": "candidate-bundle", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "previous_champion": {"id": "champion-bundle", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+  "recipe_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "data": {
+    "dataset": {"id": "dataset-fixture", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "split": {"id": "split-fixture", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    "source_annotation": null,
+    "review": null
+  },
+  "sealed_test_evaluation_id": "test-candidate",
+  "export_artifact": {"id": "export-candidate", "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"},
+  "runtime_contract_version": "runtime/v1",
+  "input_contract_version": "input/v1",
+  "promotion_state": "promoted",
+  "registry_update": "unchanged",
+  "registry_before_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "registry_after_digest": null,
+  "occurred_at_utc": "2026-08-28T10:00:00.000Z",
+  "failure_reason": null
+}

@@ -4,7 +4,7 @@
 
 - **Summary:** Run bounded component experiments, compare them reproducibly, and promote a new
   champion model bundle through one operator command
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed plans 0021 and 0027
 - **Can start with:** Existing CardEventNet training, evaluation, export, and historical experiment
   reports while the dependent TableEvidenceAnalyzer path is completed
@@ -336,6 +336,17 @@ Acceptance:
 - a hard-gate failure prevents `promote_candidate`;
 - read-only commands do not change campaign or registry state.
 
+#### M0 progress evidence — 2026-08-28
+
+- Added strict standard-library contracts for the model registry, recipes, gate profiles, campaign
+  state, evaluations and comparison, candidate locks, and promotion receipts.
+- Added checked-in CardEventNet and TableEvidenceAnalyzer identity gate profiles with fixture
+  thresholds. The comparator recomputes gates and ranks candidates from validation metrics only.
+- Added deterministic JSON, human, and Markdown comparison renderers plus read-only `doko model
+  status` and `doko model compare` commands.
+- Added tests and failure fixtures for corrupted, stale, incompatible, interrupted, and partially
+  promoted artifacts. Operations checks pass: 44 tests and Ruff checks.
+
 ### M1 — CardEventNet campaign runner
 
 1. Adapt existing CardEventNet train, evaluate, diagnose, hard-negative, and export commands.
@@ -351,6 +362,16 @@ Acceptance:
 - champion and candidates use identical validation inputs;
 - candidate selection reads no test metrics;
 - the current manual command sequence is reproducible from campaign artifacts.
+
+#### M1 progress evidence — 2026-08-28
+
+- Added a resumable CardEventNet campaign runner around the existing train, validation evaluate,
+  diagnose, optional hard-negative, and optional Core ML export commands.
+- Added recipe YAML loading, explicit validation threshold and training-seed forwarding, shared
+  validation-input checks, run provenance, exit-code logs, and a command manifest.
+- Added candidate lock creation from validation results. The fixture backend completes a bounded
+  local campaign and a second invocation issues no commands. Operations checks pass: 47 tests and
+  Ruff checks. CardEventNet focused checks pass: 44 tests and Ruff checks.
 
 ### M2 — CardEventNet promotion path
 

@@ -345,6 +345,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Training precision (default: fp32; bf16 requires CUDA).",
     )
     train_parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Override the seed from the training config.",
+    )
+    train_parser.add_argument(
         "--resume",
         type=Path,
         default=None,
@@ -498,6 +504,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("auto", "cpu", "cuda", "mps"),
         default=None,
         help="Override the device stored in the checkpoint.",
+    )
+    evaluate_parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="Evaluate validation at this explicit operating threshold.",
     )
     diagnose_parser.set_defaults(command_name="diagnose")
 
@@ -1120,6 +1132,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 batch_size=args.batch_size,
                 num_workers=args.num_workers,
                 precision=args.precision,
+                seed_override=args.seed,
                 resume_path=args.resume,
             )
         except (TrainingError, RuntimeError, OSError, ValueError) as exc:
@@ -1158,6 +1171,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output_path=args.out,
                 device_override=args.device,
                 reviewed_hard_negative_manifest=args.reviewed_hard_negative_manifest,
+                threshold_override=args.threshold,
             )
         except (EvaluationError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")

@@ -1,0 +1,26 @@
+{
+  "schema_version": "model-campaign/v1",
+  "campaign_id": "campaign-fixture",
+  "component": "card-event-net",
+  "capability": "event-detection",
+  "task": "cardevent_event_detection",
+  "recipe_id": "recipe-fixture",
+  "recipe_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "baseline_bundle": {"id": "cardevent-champion", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "data": {
+    "dataset": {"id": "dataset-cardevent-fixture", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "split": {"id": "split-cardevent-fixture", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    "source_annotation": {"id": "annotation-cardevent-fixture", "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+    "review": {"id": "review-cardevent-fixture", "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+  },
+  "state": "compared",
+  "created_at_utc": "2026-08-28T10:00:00.000Z",
+  "updated_at_utc": "2026-08-28T10:00:00.000Z",
+  "candidate_runs": [],
+  "comparison_id": "comparison-fixture",
+  "lock_id": null,
+  "test_evaluation_id": null,
+  "promotion_receipt_id": null,
+  "recommendation": "keep_champion",
+  "failure_reason": null
+}

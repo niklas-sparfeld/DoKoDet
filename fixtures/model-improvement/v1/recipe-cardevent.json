@@ -1,0 +1,31 @@
+{
+  "schema_version": "model-improvement-recipe/v1",
+  "recipe_id": "recipe-fixture",
+  "recipe_version": 1,
+  "component": "card-event-net",
+  "capability": "event-detection",
+  "task": "cardevent_event_detection",
+  "baseline_bundle": {"id": "cardevent-champion", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "data": {
+    "dataset": {"id": "dataset-cardevent-fixture", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "split": {"id": "split-cardevent-fixture", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    "source_annotation": {"id": "annotation-cardevent-fixture", "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+    "review": {"id": "review-cardevent-fixture", "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+  },
+  "experiment_axes": ["threshold"],
+  "candidates": [
+    {
+      "candidate_id": "candidate-1",
+      "experiment_family": "threshold",
+      "configuration": {"threshold": 0.5}
+    }
+  ],
+  "seeds": [7],
+  "repeat_policy": "single",
+  "budget": {"max_candidates": 1, "max_compute_minutes": 5, "max_failures": 0},
+  "execution": {"device": "cpu", "precision": "float32"},
+  "selection_metrics": [{"metric": "event_f1", "direction": "maximize"}],
+  "gate_profile_id": "card-event-net-v1",
+  "export_compatibility": "runtime/v1",
+  "sealed_test_authorized": true
+}

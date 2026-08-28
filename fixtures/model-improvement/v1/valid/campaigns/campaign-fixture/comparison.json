@@ -1,0 +1,38 @@
+{
+  "schema_version": "model-comparison/v1",
+  "comparison_id": "comparison-fixture",
+  "campaign_id": "campaign-fixture",
+  "component": "card-event-net",
+  "capability": "event-detection",
+  "task": "cardevent_event_detection",
+  "recipe_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "gate_profile_id": "card-event-net-v1",
+  "data": {
+    "dataset": {"id": "dataset-cardevent-fixture", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "split": {"id": "split-cardevent-fixture", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    "source_annotation": {"id": "annotation-cardevent-fixture", "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+    "review": {"id": "review-cardevent-fixture", "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+  },
+  "champion": {
+    "evaluation_id": "champion-evaluation",
+    "role": "champion",
+    "candidate_id": null,
+    "run_id": "run-champion",
+    "bundle": {"id": "cardevent-champion", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "state": "success",
+    "data": {
+      "dataset": {"id": "dataset-cardevent-fixture", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "split": {"id": "split-cardevent-fixture", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+      "source_annotation": {"id": "annotation-cardevent-fixture", "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+      "review": {"id": "review-cardevent-fixture", "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+    },
+    "metrics": {"event_f1": 0.9},
+    "gates": [],
+    "failure_reason": null
+  },
+  "candidates": [],
+  "recommendation": "keep_champion",
+  "recommended_candidate_id": null,
+  "selection_order": [],
+  "generated_at_utc": "2026-08-28T10:00:00.000Z"
+}

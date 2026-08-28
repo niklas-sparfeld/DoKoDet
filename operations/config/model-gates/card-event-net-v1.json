@@ -1,0 +1,32 @@
+{
+  "schema_version": "model-promotion-gate-profile/v1",
+  "gate_profile_id": "card-event-net-v1",
+  "component": "card-event-net",
+  "capability": "event-detection",
+  "gates": [
+    {"gate_id": "event-recall", "metric": "event_recall", "operator": "min", "threshold": 0.9, "hard": true, "min_support": null, "support_metric": null, "description": "Event recall at the selected operating point."},
+    {"gate_id": "event-precision", "metric": "event_precision", "operator": "min", "threshold": 0.85, "hard": true, "min_support": null, "support_metric": null, "description": "Event precision at the selected operating point."},
+    {"gate_id": "event-f1", "metric": "event_f1", "operator": "min", "threshold": 0.87, "hard": true, "min_support": null, "support_metric": null, "description": "Event F1 at the selected operating point."},
+    {"gate_id": "false-events-per-hour", "metric": "false_events_per_hour", "operator": "max", "threshold": 1.0, "hard": true, "min_support": null, "support_metric": null, "description": "False event rate stays within the fixture limit."},
+    {"gate_id": "worst-video-f1", "metric": "worst_video_f1", "operator": "min", "threshold": 0.7, "hard": true, "min_support": 1, "support_metric": "worst_video_support", "description": "Worst-video F1 when a supported group exists."},
+    {"gate_id": "scenario-group-f1", "metric": "important_scenario_group_f1", "operator": "min", "threshold": 0.7, "hard": true, "min_support": 1, "support_metric": "important_scenario_group_support", "description": "Important scenario-group F1 when a supported group exists."},
+    {"gate_id": "timestamp-delay", "metric": "timestamp_confirmation_delay_ms", "operator": "max", "threshold": 500, "hard": true, "min_support": null, "support_metric": null, "description": "Timestamp confirmation delay stays bounded."},
+    {"gate_id": "causal-delay", "metric": "causal_confirmation_delay_ms", "operator": "max", "threshold": 1000, "hard": true, "min_support": null, "support_metric": null, "description": "Causal confirmation delay stays bounded."},
+    {"gate_id": "hard-negative-rate", "metric": "reviewed_hard_negative_false_positive_rate", "operator": "max", "threshold": 0.05, "hard": true, "min_support": 1, "support_metric": "reviewed_hard_negative_support", "description": "Reviewed hard-negative false positives stay bounded."},
+    {"gate_id": "model-size", "metric": "model_size_mb", "operator": "max", "threshold": 50, "hard": true, "min_support": null, "support_metric": null, "description": "Model size stays within the fixture limit."},
+    {"gate_id": "inference-latency", "metric": "inference_latency_ms", "operator": "max", "threshold": 100, "hard": true, "min_support": null, "support_metric": null, "description": "Inference latency stays within the fixture limit."},
+    {"gate_id": "coreml-export", "metric": "coreml_export", "operator": "equals", "threshold": true, "hard": true, "min_support": null, "support_metric": null, "description": "Core ML export validation passes."},
+    {"gate_id": "device-parity", "metric": "device_parity", "operator": "min", "threshold": 0.95, "hard": true, "min_support": null, "support_metric": null, "description": "Device parity meets the fixture limit."},
+    {"gate_id": "regression-fixtures", "metric": "regression_fixtures", "operator": "equals", "threshold": true, "hard": true, "min_support": null, "support_metric": null, "description": "Regression fixtures pass."},
+    {"gate_id": "decoder-compatibility", "metric": "decoder_compatible", "operator": "equals", "threshold": true, "hard": true, "min_support": null, "support_metric": null, "description": "Decoder compatibility passes."}
+  ],
+  "non_inferiority": [
+    {"metric": "event_recall", "max_regression": 0.02, "hard": true},
+    {"metric": "event_precision", "max_regression": 0.02, "hard": true},
+    {"metric": "false_events_per_hour", "max_regression": 0.2, "hard": true}
+  ],
+  "selection_metrics": [
+    {"metric": "event_f1", "direction": "maximize"},
+    {"metric": "false_events_per_hour", "direction": "minimize"}
+  ]
+}

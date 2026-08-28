@@ -1,0 +1,34 @@
+{
+  "schema_version": "model-promotion-gate-profile/v1",
+  "gate_profile_id": "table-evidence-analyzer-identity-v1",
+  "component": "table-evidence-analyzer",
+  "capability": "visual-card-identity",
+  "gates": [
+    {"gate_id": "top-1-accuracy", "metric": "top1_accuracy", "operator": "min", "threshold": 0.9, "hard": true, "min_support": null, "support_metric": null, "description": "Top-1 visual card identity accuracy."},
+    {"gate_id": "top-k-accuracy", "metric": "topk_accuracy", "operator": "min", "threshold": 0.98, "hard": true, "min_support": null, "support_metric": null, "description": "Top-k visual card identity accuracy."},
+    {"gate_id": "per-identity-accuracy", "metric": "per_identity_min_accuracy", "operator": "min", "threshold": 0.75, "hard": true, "min_support": 1, "support_metric": "per_identity_support", "description": "Worst supported identity accuracy."},
+    {"gate_id": "worst-deck-design", "metric": "worst_deck_design_accuracy", "operator": "min", "threshold": 0.75, "hard": true, "min_support": 1, "support_metric": "worst_deck_design_support", "description": "Worst supported deck-design accuracy."},
+    {"gate_id": "worst-device", "metric": "worst_device_accuracy", "operator": "min", "threshold": 0.75, "hard": true, "min_support": 1, "support_metric": "worst_device_support", "description": "Worst supported device accuracy."},
+    {"gate_id": "worst-table-setup", "metric": "worst_table_setup_accuracy", "operator": "min", "threshold": 0.75, "hard": true, "min_support": 1, "support_metric": "worst_table_setup_support", "description": "Worst supported table-setup accuracy."},
+    {"gate_id": "worst-visibility", "metric": "worst_visibility_accuracy", "operator": "min", "threshold": 0.75, "hard": true, "min_support": 1, "support_metric": "worst_visibility_support", "description": "Worst supported visibility accuracy."},
+    {"gate_id": "worst-glare", "metric": "worst_glare_accuracy", "operator": "min", "threshold": 0.7, "hard": true, "min_support": 1, "support_metric": "worst_glare_support", "description": "Worst supported glare accuracy."},
+    {"gate_id": "worst-blur", "metric": "worst_blur_accuracy", "operator": "min", "threshold": 0.7, "hard": true, "min_support": 1, "support_metric": "worst_blur_support", "description": "Worst supported blur accuracy."},
+    {"gate_id": "worst-perspective", "metric": "worst_perspective_accuracy", "operator": "min", "threshold": 0.7, "hard": true, "min_support": 1, "support_metric": "worst_perspective_support", "description": "Worst supported perspective accuracy."},
+    {"gate_id": "worst-occlusion", "metric": "worst_occlusion_accuracy", "operator": "min", "threshold": 0.7, "hard": true, "min_support": 1, "support_metric": "worst_occlusion_support", "description": "Worst supported occlusion accuracy."},
+    {"gate_id": "high-confidence-errors", "metric": "high_confidence_error_rate", "operator": "max", "threshold": 0.05, "hard": true, "min_support": 1, "support_metric": "high_confidence_error_support", "description": "High-confidence errors stay bounded."},
+    {"gate_id": "unusable-samples", "metric": "unusable_sample_rate", "operator": "max", "threshold": 0.2, "hard": true, "min_support": null, "support_metric": null, "description": "Unusable-sample handling stays within the fixture limit."},
+    {"gate_id": "model-size", "metric": "model_size_mb", "operator": "max", "threshold": 50, "hard": true, "min_support": null, "support_metric": null, "description": "Model size stays within the fixture limit."},
+    {"gate_id": "inference-latency", "metric": "inference_latency_ms", "operator": "max", "threshold": 100, "hard": true, "min_support": null, "support_metric": null, "description": "Inference latency stays within the fixture limit."},
+    {"gate_id": "bundle-integrity", "metric": "bundle_integrity", "operator": "equals", "threshold": true, "hard": true, "min_support": null, "support_metric": null, "description": "Capability bundle integrity passes."},
+    {"gate_id": "runtime-loading", "metric": "runtime_loads", "operator": "equals", "threshold": true, "hard": true, "min_support": null, "support_metric": null, "description": "Runtime-only loading passes."},
+    {"gate_id": "observation-fixture", "metric": "observation_fixture_compatible", "operator": "equals", "threshold": true, "hard": true, "min_support": null, "support_metric": null, "description": "The table-observation/v1 fixture remains compatible."}
+  ],
+  "non_inferiority": [
+    {"metric": "top1_accuracy", "max_regression": 0.02, "hard": true},
+    {"metric": "topk_accuracy", "max_regression": 0.02, "hard": true}
+  ],
+  "selection_metrics": [
+    {"metric": "top1_accuracy", "direction": "maximize"},
+    {"metric": "topk_accuracy", "direction": "maximize"}
+  ]
+}

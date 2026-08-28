@@ -1,0 +1,26 @@
+{
+  "schema_version": "model-campaign/v1",
+  "campaign_id": "campaign-stale",
+  "component": "card-event-net",
+  "capability": "event-detection",
+  "task": "cardevent_event_detection",
+  "recipe_id": "recipe-fixture",
+  "recipe_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "baseline_bundle": {"id": "old-champion", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "data": {
+    "dataset": {"id": "dataset-fixture", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "split": {"id": "split-fixture", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    "source_annotation": null,
+    "review": null
+  },
+  "state": "running",
+  "created_at_utc": "2026-08-28T10:00:00.000Z",
+  "updated_at_utc": "2026-08-28T10:00:00.000Z",
+  "candidate_runs": [],
+  "comparison_id": null,
+  "lock_id": null,
+  "test_evaluation_id": null,
+  "promotion_receipt_id": null,
+  "recommendation": null,
+  "failure_reason": null
+}

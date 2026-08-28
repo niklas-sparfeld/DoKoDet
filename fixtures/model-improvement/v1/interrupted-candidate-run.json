@@ -1,0 +1,9 @@
+{
+  "candidate_id": "candidate-interrupted",
+  "run_id": "run-interrupted",
+  "state": "interrupted",
+  "run_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "checkpoint_id": null,
+  "result_digest": null,
+  "failure_reason": "Operator cancelled the local run."
+}
