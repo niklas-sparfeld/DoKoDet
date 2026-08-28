@@ -9,7 +9,11 @@ description = "DokoDetector repository data and model operations"
 requires-python = ">=3.13,<3.14"
 dependencies = [
   "pyyaml>=6.0,<7",
+  "table-evidence-analyzer",
 ]
+
+[tool.uv.sources]
+table-evidence-analyzer = { path = "../table_evidence_analyzer" }
 
 [project.scripts]
 doko = "doko_operations.cli:main"

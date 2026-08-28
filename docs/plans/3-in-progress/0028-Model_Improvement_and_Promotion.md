@@ -419,6 +419,21 @@ Acceptance:
 - a crop classifier is never reported as complete table analysis;
 - candidate selection uses validation only.
 
+#### M3 progress evidence — 2026-08-28
+
+- Added a resumable TableEvidenceAnalyzer campaign adapter around the plan 0021 `table-analyzer`
+  train, validation-evaluate, and export commands. Dataset, split, and sample-artifact paths are
+  explicit and validated against their frozen IDs and digests; the adapter does not scan source
+  directories.
+- Added capability-bundle validation, `table-observation/v1` fixture validation, runtime and input
+  contract records, oracle-crop scope, and group metrics for deck, device, table-setup, visibility,
+  glare, blur, perspective, and occlusion dimensions. Missing group support is recorded as
+  `not_available` and produces a non-passing gate state.
+- Added bounded fixture training, validation-only comparison, candidate lock and resume tests,
+  CLI support, a checked-in recipe shape, and stable positive probabilities for multi-class bundle
+  inference. Operations checks pass: 61 tests and Ruff checks. TableEvidenceAnalyzer checks pass:
+  23 tests and Ruff checks.
+
 ### M4 — TableEvidenceAnalyzer promotion path
 
 1. Add one-time test evaluation for a locked analyzer candidate.

@@ -42,7 +42,11 @@ class CapabilityBundle:
             label: sum((point[i] - centroid[i]) ** 2 for i in range(3))
             for label, centroid in self.centroids.items()
         }
-        weights = {label: math.exp(-distance) for label, distance in distances.items()}
+        nearest = min(distances.values())
+        weights = {
+            label: math.exp(-min(distance - nearest, 700.0))
+            for label, distance in distances.items()
+        }
         total = sum(weights.values())
         return [
             IdentityCandidate(card=label, probability=weight / total)

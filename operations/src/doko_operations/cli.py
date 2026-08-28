@@ -46,6 +46,10 @@ from .review import (
 )
 from .status import render_human, render_json
 from .table_evidence import TABLE_EVIDENCE_TASK, TableObservationReviewAdapter
+from .table_evidence_campaign import (
+    TableEvidenceFixtureCommandRunner,
+    run_table_evidence_campaign,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -217,14 +221,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_path_options(improve, suppress_defaults=True)
     _add_model_options(improve)
-    improve.add_argument("component", choices=("card-event-net",))
+    improve.add_argument("component", choices=("card-event-net", "table-evidence-analyzer"))
     improve.add_argument("--recipe", type=Path, required=True)
     improve.add_argument("--campaign-id", default=None)
     improve.add_argument(
         "--runner",
-        choices=("cardevent", "fixture"),
+        choices=("cardevent", "table-evidence-analyzer", "fixture"),
         default="cardevent",
-        help="Execution backend (default: cardevent; fixture is for local clean-room checks).",
+        help="Execution backend; fixture is for local clean-room checks.",
     )
     improve.add_argument(
         "--project-root",
@@ -236,6 +240,24 @@ def build_parser() -> argparse.ArgumentParser:
     improve.add_argument("--split", type=Path, default=None, help="Default CardEventNet split.")
     improve.add_argument("--cache-dir", type=Path, default=None)
     improve.add_argument("--annotations-dir", type=Path, default=None)
+    improve.add_argument(
+        "--dataset",
+        type=Path,
+        default=None,
+        help="Explicit plan 0020 dataset manifest for TableEvidenceAnalyzer.",
+    )
+    improve.add_argument(
+        "--artifacts",
+        type=Path,
+        default=None,
+        help="Explicit plan 0020 sample-artifact index for TableEvidenceAnalyzer.",
+    )
+    improve.add_argument(
+        "--champion-run",
+        type=Path,
+        default=None,
+        help="Explicit analyzer champion run or capability bundle.",
+    )
     improve.add_argument("--max-samples", type=int, default=None)
     improve.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default=None)
     improve.add_argument("--precision", choices=("fp32", "bf16"), default=None)
@@ -596,26 +618,47 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             config = RepositoryConfig.from_environment(args.repository_root)
             if args.model_command == "improve":
-                command_runner = FixtureCommandRunner() if args.runner == "fixture" else None
-                campaign = run_card_event_campaign(
-                    args.recipe,
-                    repository_root=config.repository_root,
-                    registry_path=args.model_registry,
-                    campaign_root=args.campaign_root,
-                    campaign_id=args.campaign_id,
-                    project_root=args.project_root,
-                    config_path=args.config,
-                    split_path=args.split,
-                    cache_dir=args.cache_dir,
-                    annotations_dir=args.annotations_dir,
-                    max_samples=args.max_samples,
-                    device=args.device,
-                    precision=args.precision,
-                    runner=command_runner,
-                )
+                if args.component == "table-evidence-analyzer":
+                    command_runner = (
+                        TableEvidenceFixtureCommandRunner() if args.runner == "fixture" else None
+                    )
+                    campaign = run_table_evidence_campaign(
+                        args.recipe,
+                        repository_root=config.repository_root,
+                        registry_path=args.model_registry,
+                        campaign_root=args.campaign_root,
+                        campaign_id=args.campaign_id,
+                        project_root=args.project_root,
+                        dataset_path=args.dataset,
+                        split_path=args.split,
+                        artifacts_path=args.artifacts,
+                        champion_run_path=args.champion_run,
+                        device=args.device,
+                        precision=args.precision,
+                        runner=command_runner,
+                    )
+                    label = "TableEvidenceAnalyzer"
+                else:
+                    command_runner = FixtureCommandRunner() if args.runner == "fixture" else None
+                    campaign = run_card_event_campaign(
+                        args.recipe,
+                        repository_root=config.repository_root,
+                        registry_path=args.model_registry,
+                        campaign_root=args.campaign_root,
+                        campaign_id=args.campaign_id,
+                        project_root=args.project_root,
+                        config_path=args.config,
+                        split_path=args.split,
+                        cache_dir=args.cache_dir,
+                        annotations_dir=args.annotations_dir,
+                        max_samples=args.max_samples,
+                        device=args.device,
+                        precision=args.precision,
+                        runner=command_runner,
+                    )
+                    label = "CardEventNet"
                 campaign_root = (
-                    args.campaign_root
-                    or config.repository_root / "data" / "model-campaigns"
+                    args.campaign_root or config.repository_root / "data" / "model-campaigns"
                 )
                 if not campaign_root.is_absolute():
                     campaign_root = config.repository_root / campaign_root
@@ -627,7 +670,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
                 else:
                     sys.stdout.write(
-                        "CardEventNet campaign\n"
+                        f"{label} campaign\n"
                         f"campaign: {campaign.campaign_id}\n"
                         f"state: {campaign.state}\n"
                         f"recommendation: {campaign.recommendation or 'pending'}\n"
@@ -652,8 +695,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     confirm=args.confirm,
                 )
                 campaign_root = (
-                    args.campaign_root
-                    or config.repository_root / "data" / "model-campaigns"
+                    args.campaign_root or config.repository_root / "data" / "model-campaigns"
                 )
                 if not campaign_root.is_absolute():
                     campaign_root = config.repository_root / campaign_root

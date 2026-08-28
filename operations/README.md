@@ -47,3 +47,24 @@ doko model promote <campaign-id> \
 
 Use `--runner fixture` for the local clean-room promotion. A successful retry reads the existing
 promotion receipt and issues no new test, export, or registry command.
+
+M3 adds the bounded TableEvidenceAnalyzer campaign adapter. It consumes explicit plan 0020
+dataset, split, and sample-artifact files, then runs validation-only train, evaluate, and export
+commands:
+
+```bash
+doko model improve table-evidence-analyzer \
+  --recipe fixtures/model-improvement/v1/recipe-table-analyzer.json \
+  --repository-root <repository> \
+  --model-registry <registry.json> \
+  --dataset <dataset.json> \
+  --split <split.json> \
+  --artifacts <artifact-index.json> \
+  --runner fixture \
+  --campaign-root <campaign-root>
+```
+
+The campaign records the `identity_candidates` capability, `table-observation/v1` output
+contract, runtime compatibility, group support, and the validation comparison. It is scoped to
+oracle-crop identity classification. It does not claim complete table analysis or use the test
+partition.

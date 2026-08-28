@@ -1,0 +1,39 @@
+{
+  "schema_version": "model-improvement-recipe/v1",
+  "recipe_id": "recipe-table-analyzer-fixture",
+  "recipe_version": 1,
+  "component": "table-evidence-analyzer",
+  "capability": "visual-card-identity",
+  "task": "table_evidence_analysis",
+  "baseline_bundle": {"id": "table-champion", "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"},
+  "data": {
+    "dataset": {"id": "dataset-table-fixture", "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+    "split": {"id": "split-table-fixture", "digest": "9999999999999999999999999999999999999999999999999999999999999999"},
+    "source_annotation": {"id": "annotation-table-fixture", "digest": "8888888888888888888888888888888888888888888888888888888888888888"},
+    "review": {"id": "review-table-fixture", "digest": "7777777777777777777777777777777777777777777777777777777777777777"}
+  },
+  "experiment_axes": ["seed"],
+  "candidates": [
+    {
+      "candidate_id": "candidate-1",
+      "experiment_family": "seed",
+      "configuration": {
+        "dataset_path": "table_evidence_analyzer/data/dataset.json",
+        "split_path": "table_evidence_analyzer/data/split.json",
+        "artifacts_path": "table_evidence_analyzer/data/artifacts/index.json",
+        "seed": 19
+      }
+    }
+  ],
+  "seeds": [17],
+  "repeat_policy": "single",
+  "budget": {"max_candidates": 1, "max_compute_minutes": 5, "max_failures": 0},
+  "execution": {"device": "cpu", "precision": "fp32"},
+  "selection_metrics": [
+    {"metric": "top1_accuracy", "direction": "maximize"},
+    {"metric": "topk_accuracy", "direction": "maximize"}
+  ],
+  "gate_profile_id": "table-evidence-analyzer-identity-v1",
+  "export_compatibility": "runtime/v1",
+  "sealed_test_authorized": false
+}

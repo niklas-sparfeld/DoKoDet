@@ -106,6 +106,12 @@ from .table_evidence import (
     TableEvidenceReviewAdapter,
     TableObservationReviewAdapter,
 )
+from .table_evidence_campaign import (
+    TableEvidenceCampaignError,
+    TableEvidenceFixtureCommandRunner,
+    TableEvidenceSubprocessCommandRunner,
+    run_table_evidence_campaign,
+)
 
 __all__ = [
     "BundleInspection",
@@ -179,6 +185,10 @@ __all__ = [
     "TABLE_OBSERVATION_REVIEW_SCHEMA_VERSION",
     "TableEvidenceReviewAdapter",
     "TableObservationReviewAdapter",
+    "TableEvidenceCampaignError",
+    "TableEvidenceFixtureCommandRunner",
+    "TableEvidenceSubprocessCommandRunner",
+    "run_table_evidence_campaign",
     "TaskArtifacts",
     "load_review_report",
     "load_review_run",
