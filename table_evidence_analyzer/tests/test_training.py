@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from table_evidence_analyzer.data import build_smoke_fixture
-from table_evidence_analyzer.training import TrainConfig, evaluate, train
+from table_evidence_analyzer.training import TrainConfig, evaluate, select_device, train
 
 
 def test_smoke_train_and_evaluate_writes_predictions_and_expected_metric(tmp_path: Path) -> None:
@@ -71,3 +71,24 @@ def test_training_writes_last_and_validation_selected_best_checkpoint(tmp_path: 
     assert last["best_metric"] == "validation_top_1_accuracy"
     assert best["best_value"] == 0.0
     assert last["centroids"] == best["centroids"]
+
+
+def test_device_selection_is_explicit_and_cpu_metadata_is_recorded(tmp_path: Path) -> None:
+    assert select_device("cpu") == "cpu"
+    import pytest
+
+    with pytest.raises(ValueError, match="unsupported"):
+        select_device("automatic")
+    fixture = build_smoke_fixture(tmp_path / "fixture")
+    output = tmp_path / "run"
+    train(
+        TrainConfig(
+            dataset=fixture.dataset_path,
+            split=fixture.split_path,
+            artifacts=fixture.artifact_index_path,
+            output=output,
+        )
+    )
+    run = json.loads((output / "run.json").read_text())
+    assert run["device"] == "cpu"
+    assert run["precision"] == "fp32"

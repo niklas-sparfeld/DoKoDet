@@ -50,6 +50,8 @@ class TrainConfig:
     epochs: int = 8
     task: str = "identity_crop_centroid"
     resume: Path | None = None
+    device: str = "cpu"
+    precision: str = "fp32"
 
     @classmethod
     def from_mapping(cls, value: dict[str, Any], base: Path) -> "TrainConfig":
@@ -63,6 +65,8 @@ class TrainConfig:
             epochs=int(value.get("epochs", 8)),
             task=str(value.get("task", cls.task)),
             resume=(base / str(value["resume"]) if value.get("resume") else None),
+            device=str(value.get("device", "cpu")),
+            precision=str(value.get("precision", "fp32")),
         )
 
 
@@ -107,10 +111,27 @@ def _validate_resume(checkpoint: dict[str, Any], expected: dict[str, Any]) -> No
         raise ValueError("resume checkpoint is missing model state")
 
 
+def select_device(request: str) -> str:
+    """Select an explicitly requested local device; never fall back silently."""
+    if request not in {"cpu", "mps", "cuda"}:
+        raise ValueError(f"unsupported device request: {request}")
+    if request == "cpu":
+        return request
+    try:
+        import torch
+    except ImportError as exc:
+        raise ValueError(f"requested device is unavailable: {request}") from exc
+    available = torch.backends.mps.is_available() if request == "mps" else torch.cuda.is_available()
+    if not available:
+        raise ValueError(f"requested device is unavailable: {request}")
+    return request
+
+
 def train(config: TrainConfig) -> Path:
     started = time.time()
     config.output.mkdir(parents=True, exist_ok=True)
     try:
+        selected_device = select_device(config.device)
         dataset = load_dataset_manifest(config.dataset)
         split = load_split_manifest(config.split)
         artifacts = load_artifact_index(config.artifacts)
@@ -183,6 +204,8 @@ def train(config: TrainConfig) -> Path:
         "status": "completed",
         "config": config_payload,
         "environment": {"python": sys.version, "platform": platform.platform()},
+        "device": selected_device,
+        "precision": config.precision,
         "dataset_version_digest": dataset.digest,
         "split_version_digest": split.digest,
         "seed": config.seed,
