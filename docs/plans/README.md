@@ -54,7 +54,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0029 — Repository data boundaries and evidence intake](3-in-progress/0029-Repository_Data_Boundaries_and_Evidence_Intake.md) | 0027 | Keep shared intake at the repository root, stage incomplete videos before intake, and preserve accepted evidence packages as pipeline inputs. |
+| None | — | — |
 
 ### Blocked
 
@@ -66,6 +66,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0029 — Repository data boundaries and evidence intake](5-closed/0029-Repository_Data_Boundaries_and_Evidence_Intake.md) | Complete | Keep shared intake at the repository root, stage incomplete videos before intake, and preserve accepted evidence packages as pipeline inputs. |
 | [0030 — iOS training upload ergonomics](5-closed/0030-iOS_Training_Upload_Ergonomics.md) | Complete | Show preparation and byte-accurate upload progress after a training recording stops. |
 | [0028 — Model improvement and promotion](5-closed/0028-Model_Improvement_and_Promotion.md) | Complete | Run bounded component experiments and explicitly promote a new champion model bundle. |
 | [0027 — Shared training data operations](5-closed/0027-Shared_Training_Data_Operations.md) | Complete | Capture source material once and process it independently for CardEventNet and the TableEvidenceAnalyzer. |
@@ -94,20 +95,16 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Start 0029 with repository-root path and bundle contracts. Complete its pending-video path before
-   changing evidence-package intake.
-2. Run 0030 in parallel when iOS capacity is available. Keep its upload-progress changes separate
-   from the 0029 evidence-package producer contract.
-3. Put corrected 0025 packages through the completed 0027 table-evidence review path. Use the
+1. Put corrected 0025 packages through the completed 0027 table-evidence review path. Use the
    resulting coverage and failure measurements to specify 0022. Do not treat the three 0025 M6
    packages as a sufficient recognition dataset by themselves.
-4. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+2. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
    to specify 0023.
-5. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-6. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+3. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+4. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
    without replacing the identity-only oracle baseline.
-7. Specify 0026 after focused review cases and correction behavior are measured.
-8. Specify 0024 only after end-to-end product and operational measurements exist.
+5. Specify 0026 after focused review cases and correction behavior are measured.
+6. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 

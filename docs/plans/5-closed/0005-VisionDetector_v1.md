@@ -12,7 +12,7 @@
 - **Starts with:** [Plan 0006 M0](0006-GameEngine_v1.md) to freeze one shared result contract
 - **Unblocks:** The fake-detector integration in [plan 0016](0016-iOS_EvidenceUpload_Integration.md)
 - **Parallel with:** [Plan 0020](../5-closed/0020-Data_Foundation.md) and
-  [plan 0021](../3-in-progress/0021-Table_Evidence_Analyzer_Training_Pipeline.md)
+  [plan 0021](../5-closed/0021-Table_Evidence_Analyzer_Training_Pipeline.md)
 - **Next:** [Plan 0022](../0-to-specify/0022-Table_Evidence_Analyzer_Development.md) replaces the scripted
   detector with measured models
 - **Handoff report:** [M4 real-recognition handoff](../../reports/0005-VisionDetector_M4_Real_Recognition_Handoff.md)

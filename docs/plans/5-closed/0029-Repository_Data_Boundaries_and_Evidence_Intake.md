@@ -4,7 +4,12 @@
 
 - **Summary:** Keep shared source intake at the repository root, stage incomplete video uploads
   before intake, and make accepted evidence packages durable pipeline inputs
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0 through M3 are complete. Shared source intake is repository-root-owned,
+  pending videos have an atomic completion path, accepted evidence packages survive runtime
+  rebuilds, and the clean-room and documentation gates pass. No changes were made to closed plan
+  0027.
 - **Depends on:** Completed plan 0027
 - **Builds on:** Plans 0020 and 0027 provide source identity, lineage, task enrollment, lifecycle,
   repository intake, and review operations
@@ -172,6 +177,16 @@ reports conflicts. Do not retain a permanent dual-reader or a second writable ev
   test command remains blocked by pre-existing strict-concurrency errors in
   `TrainingRecordingUploadQueueTests.swift`.
 
+### M3 — Documentation and clean-room verification
+
+1. Define the canonical term for a pre-intake upload in `docs/glossary.md` before using it in other
+   public documentation.
+2. Update `README.md`, `backend/README.md`, `DATA_CONTRACT.md`, `SERVER_CONTRACT.md`,
+   `docs/Repository_Intake_Contract.md`, `docs/Data_Lifecycle.md`, and affected component guides.
+3. Do not rewrite closed epic 0027. Record the new architecture in current guides and this epic.
+4. Run one clean-room test for raw video completion and one for live evidence-package capture,
+   backend restart, review discovery, and runtime deletion.
+
 ### M3 implementation evidence — 2026-08-28
 
 - Defined **pending upload** in the project glossary. A pending upload stays outside repository
@@ -187,16 +202,6 @@ reports conflicts. Do not retain a permanent dual-reader or a second writable ev
 - Verification passed: the focused local pipeline test and all M2 component checks. The full Swift
   test command remains blocked by the pre-existing strict-concurrency errors in
   `TrainingRecordingUploadQueueTests.swift`; the Swift package build passes.
-
-### M3 — Documentation and clean-room verification
-
-1. Define the canonical term for a pre-intake upload in `docs/glossary.md` before using it in other
-   public documentation.
-2. Update `README.md`, `backend/README.md`, `DATA_CONTRACT.md`, `SERVER_CONTRACT.md`,
-   `docs/Repository_Intake_Contract.md`, `docs/Data_Lifecycle.md`, and affected component guides.
-3. Do not rewrite closed epic 0027. Record the new architecture in current guides and this epic.
-4. Run one clean-room test for raw video completion and one for live evidence-package capture,
-   backend restart, review discovery, and runtime deletion.
 
 ## 4. Acceptance
 

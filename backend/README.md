@@ -10,7 +10,7 @@ The backend stores table observations produced by a `TableEvidenceAnalyzer` and 
 bounded video snippet. See
 [Table Observation and Game Reconstruction](../docs/TableObservationReconstruction.md),
 [plan 0006](../docs/plans/5-closed/0006-GameEngine_v1.md), and
-[plan 0025](../docs/plans/3-in-progress/0025-Video_Snippet_Evidence.md). The runtime stores the
+[plan 0025](../docs/plans/5-closed/0025-Video_Snippet_Evidence.md). The runtime stores the
 canonical `table-observation/v1` contract and does not import training modules.
 
 ## Setup
