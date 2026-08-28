@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from starlette.requests import ClientDisconnect
 
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
@@ -55,3 +56,16 @@ def test_contract_errors_use_a_stable_response_shape() -> None:
             "details": [],
         }
     }
+
+
+def test_client_disconnect_returns_499() -> None:
+    app = create_app(Settings(_env_file=None))
+
+    @app.get("/test-client-disconnect")
+    async def client_disconnect_route() -> None:
+        raise ClientDisconnect()
+
+    response = TestClient(app).get("/test-client-disconnect")
+
+    assert response.status_code == 499
+    assert response.content == b""

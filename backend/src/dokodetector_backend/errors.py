@@ -6,8 +6,9 @@ from collections.abc import Sequence
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from starlette.requests import ClientDisconnect
 
 
 class APIErrorDetail(BaseModel):
@@ -84,7 +85,13 @@ def error_response(
 
 
 def register_error_handlers(app: FastAPI) -> None:
-    """Register safe handlers for contract and request validation errors."""
+    """Register safe handlers for expected HTTP boundary errors."""
+
+    @app.exception_handler(ClientDisconnect)
+    async def handle_client_disconnect(_: Request, __: ClientDisconnect) -> Response:
+        """Treat an aborted request body as an expected client-side event."""
+
+        return Response(status_code=499)
 
     @app.exception_handler(ContractError)
     async def handle_contract_error(_: Request, error: ContractError) -> JSONResponse:
