@@ -30,6 +30,22 @@ Use trunk-based development.
 * Keep commits focused.
 * Do not modify or discard unrelated changes.
 
+### Integrate worktree commits
+
+When you finish work in a secondary worktree, integrate its completed commits into the main
+worktree:
+
+1. Commit the work on the secondary worktree's detached `HEAD`.
+2. Use `git worktree list` to find the worktree that has `main` checked out.
+3. Confirm that the main worktree is clean and that no other Git operation is in progress there.
+4. Run `git -C <main-worktree-path> cherry-pick <commit>` for each completed commit, in order.
+5. Confirm that `main` contains the commits and that the main worktree is clean.
+
+Do not use push and pull to move commits between local worktrees. Do not update the `main` ref
+directly. Only one agent can integrate into the main worktree at a time. If the main worktree has
+uncommitted changes, an in-progress Git operation, or a cherry-pick conflict, stop and report the
+problem. Do not modify or discard the user's work.
+
 ## Planning workflow
 
 Use the [epic board](docs/plans/README.md) for project plans. Each numbered Markdown file is one
