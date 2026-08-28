@@ -765,6 +765,24 @@ Acceptance:
   interfaces;
 - the operator invokes no manual import, cache, apply-review, dataset-build, or split command.
 
+#### M11 progress evidence — 2026-08-28
+
+- Added a headless clean-room integration test that drives the Swift saved-video collection-profile
+  simulator, retryable repository-bundle upload, SQLite index rebuild, and both independent
+  `doko data review` task branches. The first review run pauses, the second publishes only
+  CardEventNet, and the third resumes and publishes TableEvidenceAnalyzer.
+- The test approves both split proposals, runs `doko data validate`, checks that every published
+  JSON source digest matches the one accepted source asset, and checks that task outputs contain no
+  media copy. It invokes no manual import, cache, apply-review, dataset-build, or split command.
+- Added the required exercise record at
+  `docs/reports/0027-Shared_Training_Data_Operations_Exercise.md`. The automated gate passed;
+  the local interactive human exercise remains explicitly recorded as pending because it cannot be
+  performed by the headless test.
+- Verification: the clean-room test passes; the full backend suite passes (87 passed); operations
+  tests pass (27 passed); relevant Swift collection, Record-tab, capture, and upload tests pass
+  (13 passed); backend and operations Ruff check and format checks pass; and `git diff --check`
+  passes.
+
 ## 10. Out of scope
 
 - automatic acceptance of model proposals as ground truth;
