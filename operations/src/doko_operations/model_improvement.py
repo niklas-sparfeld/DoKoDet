@@ -1,8 +1,8 @@
 """Contracts and deterministic comparison for model-improvement campaigns.
 
-M0 only reads campaign artifacts.  Training, export, test evaluation, and promotion are owned by
-later milestones.  The contracts in this module are deliberately strict so that a campaign cannot
-silently compare different data or replace a component champion with a different component.
+These contracts are deliberately strict so that a campaign cannot silently compare different data
+or replace a component champion with a different component. Campaign execution and promotion live
+in the component-specific operation modules.
 """
 
 from __future__ import annotations

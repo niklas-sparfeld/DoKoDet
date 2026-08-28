@@ -34,3 +34,16 @@ doko model improve card-event-net \
 ```
 
 Run the same command again to resume the campaign. Completed candidates are not run again.
+
+M2 promotes a locked candidate only after an explicit confirmation. It runs the sealed test once,
+checks Core ML export, runtime loading, parity, and the iOS input fixture, then updates the app
+bundle and the component registry with compensation on failure:
+
+```bash
+doko model promote <campaign-id> \
+  --candidate <candidate-id> \
+  --confirm
+```
+
+Use `--runner fixture` for the local clean-room promotion. A successful retry reads the existing
+promotion receipt and issues no new test, export, or registry command.

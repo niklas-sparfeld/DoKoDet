@@ -389,6 +389,17 @@ Acceptance:
 - repeated promotion of the same campaign is idempotent;
 - the receipt traces the bundle to source, data, split, code, run, and test versions.
 
+#### M2 progress evidence — 2026-08-28
+
+- Added `doko model promote` with required explicit confirmation, one-time sealed test evaluation,
+  locked-threshold forwarding, and a `human_review_required` stop for failed hard test gates.
+- Added Core ML export and parity evidence, runtime package loading, iOS preprocessing fixture
+  validation, and checked-in app-bundle staging.
+- Added atomic registry replacement, former-champion retention metadata, promotion receipts with
+  registry digests, and compensation that restores the app bundle and registry after failure.
+- Added fixture tests for success, poor test results, export failure, CLI promotion, and idempotent
+  retry. Operations checks pass: 16 model-improvement tests and Ruff checks.
+
 ### M3 — TableEvidenceAnalyzer campaign adapter
 
 Start after plan 0021 provides stable train, evaluate, checkpoint, and export contracts.

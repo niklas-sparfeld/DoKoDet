@@ -3,7 +3,9 @@
 from .cardevent import CARD_EVENT_TASK, CardEventNetReviewAdapter
 from .cardevent_campaign import (
     CardEventCampaignError,
+    CardEventPromotionError,
     FixtureCommandRunner,
+    promote_card_event_campaign,
     run_card_event_campaign,
 )
 from .config import ConfigurationError, RepositoryConfig, discover_repository_root
@@ -102,6 +104,7 @@ __all__ = [
     "BundleInspection",
     "CARD_EVENT_TASK",
     "CardEventCampaignError",
+    "CardEventPromotionError",
     "CardEventNetReviewAdapter",
     "COVERAGE_SCHEMA_VERSION",
     "DATASET_VERSION_SCHEMA_VERSION",
@@ -174,6 +177,7 @@ __all__ = [
     "analyze_source_impact",
     "retire_source",
     "run_card_event_campaign",
+    "promote_card_event_campaign",
     "sealed_group_keys",
     "status_mapping",
     "validate_review_report",

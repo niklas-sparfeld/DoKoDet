@@ -8,7 +8,11 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from .cardevent_campaign import FixtureCommandRunner, run_card_event_campaign
+from .cardevent_campaign import (
+    FixtureCommandRunner,
+    promote_card_event_campaign,
+    run_card_event_campaign,
+)
 from .config import ConfigurationError, RepositoryConfig
 from .holdout import SystemHoldoutError, seal_system_holdout_group
 from .impact import (
@@ -212,6 +216,43 @@ def build_parser() -> argparse.ArgumentParser:
     improve.add_argument("--max-samples", type=int, default=None)
     improve.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default=None)
     improve.add_argument("--precision", choices=("fp32", "bf16"), default=None)
+    promote = model_commands.add_parser(
+        "promote", help="Test and promote one explicitly confirmed locked candidate."
+    )
+    _add_path_options(promote, suppress_defaults=True)
+    _add_model_options(promote)
+    promote.add_argument("campaign_id")
+    promote.add_argument("--candidate", dest="candidate_id", default=None)
+    promote.add_argument(
+        "--runner",
+        choices=("cardevent", "fixture"),
+        default="cardevent",
+        help="Execution backend (default: cardevent; fixture is for local clean-room checks).",
+    )
+    promote.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Confirm the one-time sealed test and promotion operation.",
+    )
+    promote.add_argument(
+        "--project-root",
+        type=Path,
+        default=None,
+        help="CardEventNet project root (default: card_event_net).",
+    )
+    promote.add_argument("--split", type=Path, default=None)
+    promote.add_argument("--cache-dir", type=Path, default=None)
+    promote.add_argument("--annotations-dir", type=Path, default=None)
+    promote.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default=None)
+    promote.add_argument(
+        "--app-bundle",
+        type=Path,
+        default=None,
+        help=(
+            "Checked-in app bundle path (default: "
+            "ios/CardEventProbe/CardEventNetTransitionV2.mlpackage)."
+        ),
+    )
     return parser
 
 
@@ -523,6 +564,43 @@ def main(argv: Sequence[str] | None = None) -> int:
                         f"campaign: {campaign.campaign_id}\n"
                         f"state: {campaign.state}\n"
                         f"recommendation: {campaign.recommendation or 'pending'}\n"
+                        f"artifacts: {result['campaign_path']}\n"
+                    )
+                return 1 if campaign.state == "failed" else 0
+            if args.model_command == "promote":
+                command_runner = FixtureCommandRunner() if args.runner == "fixture" else None
+                campaign = promote_card_event_campaign(
+                    args.campaign_id,
+                    repository_root=config.repository_root,
+                    registry_path=args.model_registry,
+                    campaign_root=args.campaign_root,
+                    candidate_id=args.candidate_id,
+                    project_root=args.project_root,
+                    split_path=args.split,
+                    cache_dir=args.cache_dir,
+                    annotations_dir=args.annotations_dir,
+                    device=args.device,
+                    app_bundle_path=args.app_bundle,
+                    runner=command_runner,
+                    confirm=args.confirm,
+                )
+                campaign_root = (
+                    args.campaign_root
+                    or config.repository_root / "data" / "model-campaigns"
+                )
+                if not campaign_root.is_absolute():
+                    campaign_root = config.repository_root / campaign_root
+                result = {
+                    "campaign": campaign.to_mapping(),
+                    "campaign_path": str(campaign_root / campaign.campaign_id),
+                }
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(
+                        "CardEventNet promotion\n"
+                        f"campaign: {campaign.campaign_id}\n"
+                        f"state: {campaign.state}\n"
                         f"artifacts: {result['campaign_path']}\n"
                     )
                 return 1 if campaign.state == "failed" else 0

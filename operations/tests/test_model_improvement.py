@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-from doko_operations.cardevent_campaign import FixtureCommandRunner, run_card_event_campaign
+import doko_operations.cardevent_campaign as campaign_module
+from doko_operations.cardevent_campaign import (
+    CardEventPromotionError,
+    FixtureCommandRunner,
+    promote_card_event_campaign,
+    run_card_event_campaign,
+)
 from doko_operations.cli import main
 from doko_operations.model_improvement import (
     CandidateRunReference,
@@ -20,7 +26,10 @@ from doko_operations.model_improvement import (
     PromotionReceipt,
     compare_evaluations,
     default_gate_profile,
+    load_campaign,
     load_model_recipe,
+    load_model_registry,
+    load_promotion_receipt,
     model_status,
     render_comparison_human,
     render_comparison_json,
@@ -611,3 +620,230 @@ def test_cardevent_improve_cli_runs_fixture_campaign(tmp_path: Path, capsys) -> 
     result = json.loads(capsys.readouterr().out)
     assert result["campaign"]["state"] == "candidate_locked"
     assert Path(result["campaign_path"], "logs", "commands.json").is_file()
+
+
+def _start_fixture_campaign(
+    tmp_path: Path,
+) -> tuple[Path, Path, Path, Path, ModelCampaign]:
+    repository_root = tmp_path / "repository"
+    repository_root.mkdir()
+    campaign_root = tmp_path / "campaigns"
+    registry_path = repository_root / "registry.json"
+    registry_path.write_bytes((FIXTURE_ROOT / "valid" / "registry.json").read_bytes())
+    campaign = run_card_event_campaign(
+        FIXTURE_ROOT / "recipe-cardevent.json",
+        repository_root=repository_root,
+        registry_path=registry_path,
+        campaign_root=campaign_root,
+        project_root=tmp_path / "card_event_net",
+        runner=FixtureCommandRunner(),
+        now_utc=TIMESTAMP,
+    )
+    return (
+        repository_root,
+        campaign_root,
+        registry_path,
+        repository_root / "CardEventNet.mlpackage",
+        campaign,
+    )
+
+
+def test_cardevent_promotion_updates_registry_and_is_idempotent(tmp_path: Path) -> None:
+    repository_root, campaign_root, registry_path, app_bundle, campaign = _start_fixture_campaign(
+        tmp_path
+    )
+    original_registry = registry_path.read_bytes()
+    runner = FixtureCommandRunner()
+
+    promoted = promote_card_event_campaign(
+        campaign.campaign_id,
+        repository_root=repository_root,
+        registry_path=registry_path,
+        campaign_root=campaign_root,
+        project_root=tmp_path / "card_event_net",
+        app_bundle_path=app_bundle,
+        runner=runner,
+        confirm=True,
+        now_utc=TIMESTAMP,
+    )
+
+    assert promoted.state == "promoted"
+    assert app_bundle.is_file()
+    receipt = load_promotion_receipt(
+        campaign_root / campaign.campaign_id / "promotion-receipt.json"
+    )
+    assert receipt.promotion_state == "promoted"
+    assert receipt.previous_champion.id == "cardevent-champion"
+    registry = load_model_registry(registry_path)
+    champion = registry.champion_for("card-event-net", "event-detection")
+    assert champion is not None
+    assert champion.bundle_path == "CardEventNet.mlpackage"
+    assert champion.champion_bundle.digest == receipt.promoted_bundle.digest
+    assert [command[command.index("cardevent") + 1] for command in runner.commands] == [
+        "evaluate",
+        "export-coreml",
+    ]
+
+    command_count = len(runner.commands)
+    repeated = promote_card_event_campaign(
+        campaign.campaign_id,
+        repository_root=repository_root,
+        registry_path=registry_path,
+        campaign_root=campaign_root,
+        app_bundle_path=app_bundle,
+        runner=runner,
+        confirm=True,
+        now_utc=TIMESTAMP,
+    )
+    assert repeated.to_mapping() == promoted.to_mapping()
+    assert len(runner.commands) == command_count
+    assert registry_path.read_bytes() != original_registry
+
+
+def test_cardevent_promotion_requires_confirmation_without_mutation(tmp_path: Path) -> None:
+    repository_root, campaign_root, registry_path, app_bundle, campaign = _start_fixture_campaign(
+        tmp_path
+    )
+    original_registry = registry_path.read_bytes()
+
+    with pytest.raises(CardEventPromotionError, match="explicit confirmation"):
+        promote_card_event_campaign(
+            campaign.campaign_id,
+            repository_root=repository_root,
+            registry_path=registry_path,
+            campaign_root=campaign_root,
+            app_bundle_path=app_bundle,
+            confirm=False,
+        )
+
+    assert registry_path.read_bytes() == original_registry
+    assert not app_bundle.exists()
+    assert not (campaign_root / campaign.campaign_id / "test-evaluation.json").exists()
+
+
+def test_cardevent_promotion_stops_on_poor_sealed_test(tmp_path: Path) -> None:
+    repository_root, campaign_root, registry_path, app_bundle, campaign = _start_fixture_campaign(
+        tmp_path
+    )
+    original_registry = registry_path.read_bytes()
+    runner = FixtureCommandRunner(test_quality=0.5)
+
+    result = promote_card_event_campaign(
+        campaign.campaign_id,
+        repository_root=repository_root,
+        registry_path=registry_path,
+        campaign_root=campaign_root,
+        project_root=tmp_path / "card_event_net",
+        app_bundle_path=app_bundle,
+        runner=runner,
+        confirm=True,
+        now_utc=TIMESTAMP,
+    )
+
+    assert result.state == "human_review_required"
+    assert result.test_evaluation_id is not None
+    assert not app_bundle.exists()
+    assert registry_path.read_bytes() == original_registry
+    assert len(runner.commands) == 1
+    assert not (campaign_root / campaign.campaign_id / "promotion-receipt.json").exists()
+
+
+def test_cardevent_promotion_compensates_after_export_failure(tmp_path: Path) -> None:
+    repository_root, campaign_root, registry_path, app_bundle, campaign = _start_fixture_campaign(
+        tmp_path
+    )
+    original_registry = registry_path.read_bytes()
+    runner = FixtureCommandRunner(fail_commands=("export-coreml",))
+
+    with pytest.raises(CardEventPromotionError, match="fixture export-coreml failed"):
+        promote_card_event_campaign(
+            campaign.campaign_id,
+            repository_root=repository_root,
+            registry_path=registry_path,
+            campaign_root=campaign_root,
+            project_root=tmp_path / "card_event_net",
+            app_bundle_path=app_bundle,
+            runner=runner,
+            confirm=True,
+            now_utc=TIMESTAMP,
+        )
+
+    failed = load_campaign(campaign_root, campaign.campaign_id)
+    assert failed.state == "failed"
+    receipt = load_promotion_receipt(
+        campaign_root / campaign.campaign_id / "promotion-receipt.json"
+    )
+    assert receipt.promotion_state == "failed"
+    assert receipt.registry_update == "unchanged"
+    assert registry_path.read_bytes() == original_registry
+    assert not app_bundle.exists()
+
+
+def test_cardevent_promotion_restores_existing_app_bundle_on_registry_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repository_root, campaign_root, registry_path, app_bundle, campaign = _start_fixture_campaign(
+        tmp_path
+    )
+    app_bundle.write_text("old-app-bundle\n")
+    original_registry = registry_path.read_bytes()
+    original_app = app_bundle.read_bytes()
+    real_atomic_write = campaign_module._atomic_write_bytes
+
+    def fail_registry_write(path: Path, payload: bytes) -> None:
+        if path == registry_path:
+            raise OSError("fixture registry is read-only")
+        real_atomic_write(path, payload)
+
+    monkeypatch.setattr(campaign_module, "_atomic_write_bytes", fail_registry_write)
+    with pytest.raises(CardEventPromotionError, match="read-only"):
+        promote_card_event_campaign(
+            campaign.campaign_id,
+            repository_root=repository_root,
+            registry_path=registry_path,
+            campaign_root=campaign_root,
+            project_root=tmp_path / "card_event_net",
+            app_bundle_path=app_bundle,
+            runner=FixtureCommandRunner(),
+            confirm=True,
+            now_utc=TIMESTAMP,
+        )
+
+    assert registry_path.read_bytes() == original_registry
+    assert app_bundle.read_bytes() == original_app
+
+
+def test_cardevent_promote_cli_promotes_fixture(tmp_path: Path, capsys) -> None:
+    repository_root, campaign_root, registry_path, app_bundle, campaign = _start_fixture_campaign(
+        tmp_path
+    )
+
+    assert (
+        main(
+            [
+                "model",
+                "promote",
+                campaign.campaign_id,
+                "--candidate",
+                "candidate-1",
+                "--repository-root",
+                str(repository_root),
+                "--model-registry",
+                str(registry_path),
+                "--campaign-root",
+                str(campaign_root),
+                "--project-root",
+                str(tmp_path / "card_event_net"),
+                "--app-bundle",
+                str(app_bundle),
+                "--runner",
+                "fixture",
+                "--confirm",
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["campaign"]["state"] == "promoted"
