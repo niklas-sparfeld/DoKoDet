@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 from .config import ConfigurationError, RepositoryConfig
 from .holdout import SystemHoldoutError, seal_system_holdout_group
+from .impact import (
+    RETIREMENT_STATES,
+    SourceImpactError,
+    analyze_repository_impacts,
+    analyze_source_impact,
+    retire_source,
+)
 from .intake import inspect_repository
 from .review import (
     REVIEW_TASK_ALL,
@@ -111,6 +119,30 @@ def build_parser() -> argparse.ArgumentParser:
     seal.add_argument("--holdout-registry", type=Path, default=None)
     seal.add_argument("--format", choices=("human", "json"), default="human")
     seal.add_argument("--json", action="store_true", help="Alias for --format json.")
+    impact = data_commands.add_parser(
+        "impact",
+        help="Report source permission and retirement impact.",
+        description="Report source permission and retirement impact.",
+    )
+    _add_path_options(impact, suppress_defaults=True)
+    impact.add_argument("--source-asset-id", default=None)
+    impact.add_argument("--retention-state", choices=tuple(sorted(RETIREMENT_STATES | {"active"})))
+    impact.add_argument("--format", choices=("human", "json"), default="human")
+    impact.add_argument("--json", action="store_true", help="Alias for --format json.")
+    source = data_commands.add_parser("source", help="Write versioned source lifecycle state.")
+    source_commands = source.add_subparsers(dest="source_command", metavar="COMMAND")
+    retire = source_commands.add_parser(
+        "retire", help="Withdraw permission or retire one source asset."
+    )
+    _add_path_options(retire, suppress_defaults=True)
+    retire.add_argument("--source-asset-id", required=True)
+    retire.add_argument(
+        "--retention-state", choices=tuple(sorted(RETIREMENT_STATES)), required=True
+    )
+    retire.add_argument("--operator", required=True)
+    retire.add_argument("--reason", required=True)
+    retire.add_argument("--format", choices=("human", "json"), default="human")
+    retire.add_argument("--json", action="store_true", help="Alias for --format json.")
     return parser
 
 
@@ -154,6 +186,83 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         data_parser.choices["data"].print_help()
         return 0
+    if args.command == "data" and args.data_command == "impact":
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                artifacts_root=args.artifacts_root,
+            )
+            if args.source_asset_id:
+                result = analyze_source_impact(
+                    config.repository_root,
+                    args.source_asset_id,
+                    bundle_root=config.bundle_root,
+                    artifacts_root=config.derived_artifact_root,
+                    requested_retention_state=args.retention_state,
+                )
+            else:
+                if args.retention_state is not None:
+                    raise SourceImpactError(
+                        "--retention-state requires --source-asset-id for an impact preview."
+                    )
+                result = {
+                    "schema_version": "source-impact-index/v1",
+                    "reports": list(
+                        analyze_repository_impacts(
+                            config.repository_root,
+                            bundle_root=config.bundle_root,
+                            artifacts_root=config.derived_artifact_root,
+                        )
+                    ),
+                }
+        except (ConfigurationError, OSError, SourceImpactError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(
+                json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+            )
+        else:
+            sys.stdout.write(_render_impact_human(result))
+        return 0
+    if args.command == "data" and args.data_command == "source":
+        if args.source_command != "retire":
+            parser.parse_args(["data", "source", "--help"])
+            return 0
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                artifacts_root=args.artifacts_root,
+            )
+            result = retire_source(
+                config.repository_root,
+                args.source_asset_id,
+                bundle_root=config.bundle_root,
+                artifacts_root=config.derived_artifact_root,
+                retention_state=args.retention_state,
+                operator=args.operator,
+                reason=args.reason,
+            )
+        except (ConfigurationError, OSError, SourceImpactError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(
+                json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+            )
+        else:
+            state = result["source_state"]
+            receipt = result["stale_receipt"]
+            sys.stdout.write(
+                "Source lifecycle state recorded\n"
+                f"source: {state['source_asset_id']}\n"
+                f"retention state: {state['retention_state']}\n"
+                f"state version: {state['version']}\n"
+                f"stale receipt: {receipt['receipt_id']}\n"
+            )
+        return 0
     if args.command == "data" and args.data_command == "holdout":
         if args.holdout_command != "seal":
             parser.parse_args(["data", "holdout", "--help"])
@@ -181,8 +290,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"error: {error}", file=sys.stderr)
             return 2
         if args.json or args.format == "json":
-            import json
-
             sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
         else:
             seal = result["seals"][-1]
@@ -286,6 +393,21 @@ def _decision_provider(path: Path | None):
         return decision
 
     return provide
+
+
+def _render_impact_human(result: dict) -> str:
+    reports = result.get("reports") if "reports" in result else [result]
+    lines = ["DokoDetector source impact"]
+    for report in reports:
+        lines.append(
+            f"source: {report['source_asset_id']} ({report['retention_state']}), "
+            f"{sum(report['artifact_counts'].values())} affected artifacts"
+        )
+        for task in report["task_impacts"]:
+            lines.append(f"  - {task['task']}: {task['impact_state']}")
+        for artifact in report["affected_artifacts"]:
+            lines.append(f"    - {artifact['kind']}: {artifact['path']}")
+    return "\n".join(lines) + "\n"
 
 
 __all__ = ["build_parser", "main"]

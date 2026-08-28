@@ -215,6 +215,8 @@ doko data status
 doko data review --task cardevent_event_detection --reviewer <name>
 doko data review --task table_evidence_analysis --reviewer <name>
 doko data review --task all --reviewer <name>
+doko data impact --source-asset-id <id>
+doko data source retire --source-asset-id <id> --retention-state <state> --operator <name> --reason <text>
 doko data validate
 ```
 
@@ -715,6 +717,23 @@ Acceptance:
 - source retirement does not modify source bytes or historical artifacts;
 - unrelated valid intake and unassigned groups remain usable;
 - repeated impact analysis is deterministic.
+
+#### M10 progress evidence — 2026-08-28
+
+- Added deterministic cross-task source impact analysis. It follows shared source IDs and digests
+  through CardEventNet and TableEvidenceAnalyzer annotations, dataset versions, splits, caches,
+  runs, and model bundles, including dataset, split, run, and model reference chains.
+- Added `doko data impact` and `doko data source retire`. Retirement and permission withdrawal write
+  immutable `source-record-state/v1`, `source-impact-report/v1`, and
+  `stale-artifact-receipt/v1` documents. They never edit source bytes, task enrollment, or
+  historical derived artifacts, and repeated identical operations return the existing receipt.
+- Extended status and validation output with both task impacts, cross-task permission failures,
+  and stale artifact paths from immutable receipts. Active unrelated sources and unassigned groups
+  remain unchanged.
+- Verification: `mise exec -- uv run --offline pytest` in `operations/` (27 passed), Ruff check and
+  format checks pass, and `git diff --check` passes. Regression tests cover both task branches,
+  all affected artifact categories, graph-linked run and model artifacts, immutable source
+  preservation, stale status/validation output, CLI impact reporting, and idempotent analysis.
 
 ### M11 — Clean-room workflow and operator exercise
 

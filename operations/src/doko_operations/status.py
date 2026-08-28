@@ -47,6 +47,7 @@ def render_human(result: InspectionResult, *, repository_root: Path, bundle_root
         f"failures: {len(result.failures)}",
         f"unassigned eligible groups: {len(result.unassigned_eligible_groups)}",
         f"stale derived artifacts: {len(result.stale_derived_artifacts)}",
+        f"source impacts: {len(result.source_impacts)}",
     ]
     if result.bundles:
         lines.append("bundle details:")
@@ -71,6 +72,14 @@ def render_human(result: InspectionResult, *, repository_root: Path, bundle_root
     if result.stale_derived_artifacts:
         lines.append("stale derived artifacts:")
         lines.extend(f"  - {item}" for item in result.stale_derived_artifacts)
+    if result.source_impacts:
+        lines.append("source impacts:")
+        for impact in result.source_impacts:
+            affected = sum(impact["artifact_counts"].values())
+            lines.append(
+                f"  - {impact['source_asset_id']}: {impact['retention_state']}, "
+                f"{affected} affected artifacts across {len(impact['affected_tasks'])} tasks"
+            )
     return "\n".join(lines) + "\n"
 
 

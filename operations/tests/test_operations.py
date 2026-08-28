@@ -14,6 +14,12 @@ from doko_operations.holdout import (
     validate_split_against_system_holdout,
     validate_system_holdout_registry,
 )
+from doko_operations.impact import (
+    analyze_source_impact,
+    load_current_source_state,
+    retire_source,
+    validate_stale_artifact_receipt,
+)
 from doko_operations.intake import discover_bundle_paths, inspect_repository
 from doko_operations.review import (
     REVIEW_RUN_SCHEMA_VERSION,
@@ -853,3 +859,221 @@ def test_review_contract_rejects_unknown_state_fields() -> None:
         validate_review_run({"schema_version": REVIEW_RUN_SCHEMA_VERSION, "unexpected": True})
     with pytest.raises(ReviewRunError, match="unknown fields"):
         validate_review_report({"schema_version": "doko-review-report/v1", "unexpected": True})
+
+
+def test_source_retirement_reports_cross_task_artifacts_and_writes_only_new_receipts(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "intake"
+    shutil.copytree(FIXTURE_ROOT, intake)
+    artifacts = tmp_path / "artifacts"
+    source_id = "source-both"
+    source_digest = "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8"
+
+    def write(relative: str, payload: dict[str, object]) -> None:
+        path = artifacts / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+    write(
+        "published/cardevent_event_detection/cardevent/annotations/annotation-both.json",
+        {
+            "schema_version": "cardevent-annotation/v2",
+            "source_asset_id": source_id,
+            "source_sha256": source_digest,
+        },
+    )
+    write(
+        "published/cardevent_event_detection/cardevent/dataset/cardevent-dataset.json",
+        {
+            "schema_version": "cardevent-dataset-version/v1",
+            "task": "cardevent_event_detection",
+            "dataset_version_id": "dataset-cardevent-both",
+            "source_assets": [{"source_asset_id": source_id, "source_sha256": source_digest}],
+        },
+    )
+    write(
+        "published/cardevent_event_detection/cardevent/split/cardevent-split.json",
+        {
+            "schema_version": "cardevent-split-proposal/v1",
+            "task": "cardevent_event_detection",
+            "dataset_version_id": "dataset-cardevent-both",
+        },
+    )
+    write(
+        "published/cardevent_event_detection/cardevent/cache/cache.json",
+        {
+            "schema_version": "cardevent-cache-refresh/v1",
+            "task": "cardevent_event_detection",
+            "source_assets": [{"source_asset_id": source_id, "source_sha256": source_digest}],
+        },
+    )
+    write(
+        "published/table_evidence_analysis/table-evidence/annotations/annotation-both.json",
+        {
+            "schema_version": "table-observation-annotation/v1",
+            "source_asset_id": source_id,
+            "source_sha256": source_digest,
+        },
+    )
+    write(
+        "published/table_evidence_analysis/table-evidence/dataset/table-dataset.json",
+        {
+            "schema_version": "dataset-version/v1",
+            "task": "table_evidence_analysis",
+            "dataset_version_id": "dataset-table-both",
+            "source_assets": [{"source_asset_id": source_id, "source_sha256": source_digest}],
+        },
+    )
+    write(
+        "published/table_evidence_analysis/table-evidence/split/table-split.json",
+        {
+            "schema_version": "table-dataset-split/v1",
+            "task": "table_evidence_analysis",
+            "dataset_version_id": "dataset-table-both",
+        },
+    )
+    write(
+        "runs/table-run.json",
+        {
+            "schema_version": "training-run/v1",
+            "run_id": "table-run-both",
+            "task": "table_evidence_analysis",
+            "dataset_version_id": "dataset-table-both",
+        },
+    )
+    write(
+        "models/table-model.json",
+        {
+            "schema_version": "model-bundle/v1",
+            "model_bundle_id": "table-model-both",
+            "task": "table_evidence_analysis",
+            "training_run_id": "table-run-both",
+        },
+    )
+    write("published/unrelated.json", {"schema_version": "unrelated/v1", "valid": True})
+
+    source_before = (intake / "both" / "source-record.json").read_bytes()
+    enrollment_before = (intake / "both" / "initial-task-enrollment.json").read_bytes()
+    video_before = (intake / "both" / "videos" / "video-both.mov").read_bytes()
+
+    preview = analyze_source_impact(
+        tmp_path,
+        source_id,
+        bundle_root=intake,
+        artifacts_root=artifacts,
+        requested_retention_state="retired",
+    )
+    assert {task["task"] for task in preview["task_impacts"]} == {
+        "cardevent_event_detection",
+        "table_evidence_analysis",
+    }
+    assert preview["artifact_counts"] == {
+        "annotations": 2,
+        "caches": 1,
+        "datasets": 2,
+        "model_bundles": 1,
+        "runs": 1,
+        "splits": 2,
+    }
+    assert "published/unrelated.json" not in {
+        item["path"] for item in preview["affected_artifacts"]
+    }
+
+    result = retire_source(
+        tmp_path,
+        source_id,
+        bundle_root=intake,
+        artifacts_root=artifacts,
+        retention_state="retired",
+        operator="m10-reviewer",
+        reason="Permission withdrawn by source owner.",
+    )
+    assert result["source_state"]["retention_state"] == "retired"
+    validate_stale_artifact_receipt(result["stale_receipt"])
+    assert load_current_source_state(artifacts, source_id)["retention_state"] == "retired"
+    assert (intake / "both" / "source-record.json").read_bytes() == source_before
+    assert (intake / "both" / "initial-task-enrollment.json").read_bytes() == enrollment_before
+    assert (intake / "both" / "videos" / "video-both.mov").read_bytes() == video_before
+
+    status = inspect_repository(tmp_path, bundle_root=intake, artifacts_root=artifacts)
+    assert not status.valid
+    assert len(status.source_impacts) == 3
+    assert {item["source_asset_id"] for item in status.source_impacts} == {
+        "source-both",
+        "source-cardevent-only",
+        "source-table-evidence-only",
+    }
+    stale = set(status.stale_derived_artifacts)
+    assert (
+        "artifacts/published/cardevent_event_detection/cardevent/dataset/cardevent-dataset.json"
+        in stale
+    )
+    assert (
+        "artifacts/published/table_evidence_analysis/table-evidence/dataset/table-dataset.json"
+        in stale
+    )
+    assert sum(failure.kind == "cross_task_impact" for failure in status.failures) >= 2
+    assert all(item.source_asset_id != source_id for item in status.pending_review)
+
+    repeated = analyze_source_impact(
+        tmp_path,
+        source_id,
+        bundle_root=intake,
+        artifacts_root=artifacts,
+    )
+    assert repeated == analyze_source_impact(
+        tmp_path,
+        source_id,
+        bundle_root=intake,
+        artifacts_root=artifacts,
+    )
+
+
+def test_source_retirement_is_idempotent_and_cli_reports_impact(tmp_path: Path, capsys) -> None:
+    intake = tmp_path / "intake"
+    shutil.copytree(FIXTURE_ROOT, intake)
+    artifacts = tmp_path / "artifacts"
+    first = retire_source(
+        tmp_path,
+        "source-cardevent-only",
+        bundle_root=intake,
+        artifacts_root=artifacts,
+        retention_state="deletion_requested",
+        operator="m10-reviewer",
+        reason="Permission withdrawn.",
+    )
+    second = retire_source(
+        tmp_path,
+        "source-cardevent-only",
+        bundle_root=intake,
+        artifacts_root=artifacts,
+        retention_state="deletion_requested",
+        operator="m10-reviewer",
+        reason="Permission withdrawn.",
+    )
+    assert second == first
+    assert len(list((artifacts / "stale-artifact-receipts").glob("*.json"))) == 1
+
+    assert (
+        main(
+            [
+                "data",
+                "impact",
+                "--repository-root",
+                str(tmp_path),
+                "--intake-root",
+                str(intake),
+                "--artifacts-root",
+                str(artifacts),
+                "--source-asset-id",
+                "source-cardevent-only",
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["source_asset_id"] == "source-cardevent-only"
+    assert output["retention_state"] == "deletion_requested"
