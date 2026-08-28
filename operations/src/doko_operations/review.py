@@ -262,10 +262,11 @@ def default_adapters() -> dict[str, ReviewAdapter]:
     """Return the deterministic default adapters for both data tasks."""
 
     from .cardevent import CardEventNetReviewAdapter
+    from .table_evidence import TableEvidenceReviewAdapter
 
     return {
         "cardevent_event_detection": CardEventNetReviewAdapter(),
-        "table_evidence_analysis": GenericReviewAdapter(),
+        "table_evidence_analysis": TableEvidenceReviewAdapter(),
     }
 
 

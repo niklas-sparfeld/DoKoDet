@@ -217,9 +217,20 @@ def inspect_repository(
 def _looks_like_bundle(path: Path) -> bool:
     if not path.is_dir():
         return False
+    manifest_path = path / "manifest.json"
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            manifest = None
+        if (
+            isinstance(manifest, Mapping)
+            and manifest.get("schema_version") == "cardevent-evidence/v2"
+        ):
+            return False
     return any(
         (
-            (path / "manifest.json").exists(),
+            manifest_path.exists(),
             (path / "source-record.json").exists(),
             (path / "initial-task-enrollment.json").exists(),
             (path / "videos").is_dir(),

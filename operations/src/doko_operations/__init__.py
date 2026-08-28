@@ -27,11 +27,19 @@ from .review import (
     validate_review_run,
 )
 from .status import render_human, render_json, status_mapping
+from .table_evidence import (
+    COVERAGE_SCHEMA_VERSION,
+    SELECTION_SCHEMA_VERSION,
+    TABLE_EVIDENCE_TASK,
+    VALID_SELECTION_SOURCES,
+    TableEvidenceReviewAdapter,
+)
 
 __all__ = [
     "BundleInspection",
     "CARD_EVENT_TASK",
     "CardEventNetReviewAdapter",
+    "COVERAGE_SCHEMA_VERSION",
     "ConfigurationError",
     "Failure",
     "InspectionResult",
@@ -48,6 +56,9 @@ __all__ = [
     "ReviewItem",
     "ReviewResult",
     "ReviewRunError",
+    "SELECTION_SCHEMA_VERSION",
+    "TABLE_EVIDENCE_TASK",
+    "TableEvidenceReviewAdapter",
     "TaskArtifacts",
     "load_review_report",
     "load_review_run",
@@ -57,4 +68,5 @@ __all__ = [
     "status_mapping",
     "validate_review_report",
     "validate_review_run",
+    "VALID_SELECTION_SOURCES",
 ]

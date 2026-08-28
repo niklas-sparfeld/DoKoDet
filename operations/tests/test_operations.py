@@ -11,6 +11,7 @@ from doko_operations.intake import discover_bundle_paths, inspect_repository
 from doko_operations.review import (
     REVIEW_RUN_SCHEMA_VERSION,
     GenericReviewAdapter,
+    ReviewInput,
     ReviewItem,
     ReviewRunError,
     TaskArtifacts,
@@ -22,9 +23,27 @@ from doko_operations.review import (
     validate_review_run,
 )
 from doko_operations.status import render_json
+from doko_operations.table_evidence import (
+    TABLE_EVIDENCE_TASK,
+    TableEvidenceReviewAdapter,
+)
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXTURE_ROOT = REPOSITORY_ROOT / "fixtures" / "repository-bundle" / "v1"
+
+
+def _table_review_input(bundle: Path) -> ReviewInput:
+    source = json.loads((bundle / "source-record.json").read_text())
+    enrollment = json.loads((bundle / "initial-task-enrollment.json").read_text())
+    table = next(item for item in enrollment["enrollments"] if item["task"] == TABLE_EVIDENCE_TASK)
+    return ReviewInput(
+        task=TABLE_EVIDENCE_TASK,
+        source_asset_id=source["source_asset_id"],
+        recording_id=source["recording_id"],
+        source_sha256=source["sha256"],
+        bundle_path=str(bundle),
+        task_enrollment_id=table["task_enrollment_id"],
+    )
 
 
 def test_fixture_discovery_is_deterministic_and_includes_all_three_cases() -> None:
@@ -396,6 +415,162 @@ def test_deferred_cardevent_enrollment_creates_no_review_work(tmp_path: Path) ->
     assert state["tasks"][0]["inputs"] == []
     assert state["tasks"][0]["items"] == []
     assert not (tmp_path / "artifacts" / "published").exists()
+
+
+def test_table_evidence_selection_has_proposal_independent_coverage() -> None:
+    item = _table_review_input(FIXTURE_ROOT / "both")
+    selected = TableEvidenceReviewAdapter(coverage_interval_s=10).discover(
+        TABLE_EVIDENCE_TASK, [item]
+    )
+
+    assert {candidate.kind for candidate in selected} == {
+        "mac_event_proposal",
+        "negative_sample",
+        "coverage_sample",
+    }
+    coverage = next(candidate for candidate in selected if candidate.kind == "coverage_sample")
+    assert "coverage_sample" in coverage.prompt
+    assert "1.000s" not in coverage.prompt
+
+
+def test_table_evidence_selection_classifies_device_proposals_and_operator_events(
+    tmp_path: Path,
+) -> None:
+    bundle = tmp_path / "bundle"
+    shutil.copytree(FIXTURE_ROOT / "table-evidence-only", bundle)
+    proposal_path = next((bundle / "predictions").glob("*.json"))
+    proposal = json.loads(proposal_path.read_text())
+    proposal["execution_environment"]["platform"] = "ios"
+    proposal_path.write_text(json.dumps(proposal))
+    reviewed_path = tmp_path / "reviewed-events.json"
+    reviewed_path.write_text(
+        json.dumps(
+            {
+                "source_asset_id": "source-table-evidence-only",
+                "review_state": "reviewed",
+                "events": [{"time_s": 3.5, "type": "card_played"}],
+            }
+        )
+    )
+    adapter = TableEvidenceReviewAdapter(
+        reviewed_event_roots=[reviewed_path],
+        operator_intervals={
+            "source-table-evidence-only": [
+                {"start_s": 5.0, "end_s": 7.0, "label": "difficult transition"}
+            ]
+        },
+    )
+
+    selected = adapter.discover(TABLE_EVIDENCE_TASK, [_table_review_input(bundle)])
+
+    assert "device_event_proposal" in {candidate.kind for candidate in selected}
+    assert "reviewed_event" in {candidate.kind for candidate in selected}
+    assert "operator_selected" in {candidate.kind for candidate in selected}
+    assert all("selected by " in candidate.prompt for candidate in selected)
+
+
+def test_table_evidence_materializes_frames_and_allows_missing_optional_snippet(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "frame-only-package"
+    shutil.copytree(REPOSITORY_ROOT / "fixtures" / "evidence" / "v2" / "example-complete", package)
+    (package / "snippet.mp4").unlink()
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["video_snippet"] = None
+    manifest_path.write_text(json.dumps(manifest))
+    adapter = TableEvidenceReviewAdapter(evidence_roots=[package])
+
+    selected = adapter.discover(
+        TABLE_EVIDENCE_TASK, [_table_review_input(FIXTURE_ROOT / "table-evidence-only")]
+    )
+    package_id = manifest["package_id"]
+    assert selected
+
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="table-evidence-fixture",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: {"outcome": "reviewed"},
+        adapters={TABLE_EVIDENCE_TASK: adapter},
+    )
+
+    assert result.state == "complete"
+    output = (
+        tmp_path
+        / "artifacts"
+        / "published"
+        / TABLE_EVIDENCE_TASK
+        / "table-evidence"
+        / "candidate-selection.json"
+    )
+    payload = json.loads(output.read_text())
+    selected_package = next(
+        item for item in payload["selections"] if item["evidence_package_id"] == package_id
+    )
+    assert len(selected_package["evidence"]["frame_references"]) == 6
+    assert selected_package["evidence"]["video_snippet"] is None
+    assert (
+        payload["proposal_generator_runs"][0]["proposal_generator_run_id"]
+        == "proposal-table-evidence-only"
+    )
+    coverage = json.loads(
+        (
+            tmp_path
+            / "artifacts"
+            / "published"
+            / TABLE_EVIDENCE_TASK
+            / "table-evidence"
+            / "selection-coverage.json"
+        ).read_text()
+    )
+    assert {item["selection_source"] for item in coverage["selection_sources"]} >= {
+        "mac_event_proposal",
+        "coverage_sample",
+        "negative_sample",
+    }
+
+
+def test_table_evidence_selection_digest_and_order_are_repeatable(tmp_path: Path) -> None:
+    adapter = TableEvidenceReviewAdapter(
+        operator_intervals={"source-table-evidence-only": [{"start_s": 5.0, "end_s": 7.0}]}
+    )
+    common = {
+        "repository_root": REPOSITORY_ROOT,
+        "task": TABLE_EVIDENCE_TASK,
+        "reviewer": "repeatable-selection",
+        "bundle_root": FIXTURE_ROOT / "table-evidence-only",
+        "decision_provider": lambda item: {"outcome": "reviewed"},
+        "adapters": {TABLE_EVIDENCE_TASK: adapter},
+    }
+    first = run_review(artifacts_root=tmp_path / "first", **common)
+    second = run_review(artifacts_root=tmp_path / "second", **common)
+    first_path = (
+        tmp_path
+        / "first"
+        / "published"
+        / TABLE_EVIDENCE_TASK
+        / "table-evidence"
+        / "candidate-selection.json"
+    )
+    second_path = (
+        tmp_path
+        / "second"
+        / "published"
+        / TABLE_EVIDENCE_TASK
+        / "table-evidence"
+        / "candidate-selection.json"
+    )
+    first_payload = json.loads(first_path.read_text())
+    second_payload = json.loads(second_path.read_text())
+
+    assert first.state == second.state == "complete"
+    assert first_payload["selection_digest"] == second_payload["selection_digest"]
+    assert [item["selection_id"] for item in first_payload["selections"]] == [
+        item["selection_id"] for item in second_payload["selections"]
+    ]
 
 
 def test_review_contract_rejects_unknown_state_fields() -> None:

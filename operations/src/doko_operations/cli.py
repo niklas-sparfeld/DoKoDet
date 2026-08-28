@@ -17,6 +17,7 @@ from .review import (
     run_review,
 )
 from .status import render_human, render_json
+from .table_evidence import TABLE_EVIDENCE_TASK, TableEvidenceReviewAdapter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -62,6 +63,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     review.add_argument(
         "--approve-split", action="store_true", help="Approve any staged split proposal."
+    )
+    review.add_argument(
+        "--evidence-root",
+        action="append",
+        type=Path,
+        default=[],
+        help="Read-only root containing accepted evidence packages (repeatable).",
+    )
+    review.add_argument(
+        "--reviewed-events-root",
+        action="append",
+        type=Path,
+        default=[],
+        help="Read-only root containing reviewed event documents (repeatable).",
+    )
+    review.add_argument(
+        "--operator-selection-file",
+        type=Path,
+        default=None,
+        help="JSON file containing explicit operator-selected intervals.",
     )
     review.add_argument("--format", choices=("human", "json"), default="human")
     review.add_argument("--json", action="store_true", help="Alias for --format json.")
@@ -117,6 +138,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             provider = _decision_provider(args.decision_file)
             split_provider = (lambda task, state: True) if args.approve_split else None
+            adapters = None
+            if args.evidence_root or args.reviewed_events_root or args.operator_selection_file:
+                adapters = {
+                    TABLE_EVIDENCE_TASK: TableEvidenceReviewAdapter(
+                        evidence_roots=args.evidence_root,
+                        reviewed_event_roots=args.reviewed_events_root,
+                        operator_selection_file=args.operator_selection_file,
+                    )
+                }
             result = run_review(
                 config.repository_root,
                 task=args.task,
@@ -126,6 +156,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_id=args.run_id,
                 decision_provider=provider,
                 split_approval_provider=split_provider,
+                adapters=adapters,
             )
         except (ConfigurationError, OSError, ReviewRunError) as error:
             print(f"error: {error}", file=sys.stderr)

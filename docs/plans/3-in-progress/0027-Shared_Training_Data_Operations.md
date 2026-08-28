@@ -614,6 +614,24 @@ Acceptance:
 - missing optional snippets do not invalidate selected frames;
 - repeated selection with the same inputs has the same order and digest.
 
+#### M7 progress evidence — 2026-08-28
+
+- Added the repository-backed `TableEvidenceReviewAdapter`. It discovers selected recordings,
+  proposal-generator runs, reviewed event documents, accepted evidence packages, deterministic
+  coverage samples, low-probability negatives, and explicit operator intervals without copying
+  source media.
+- Classifies `ios` and `macos` proposal runs as device and Mac event sources. Each selected item
+  records its selection source, recording range, proposal-generator run lineage, and immutable
+  frame and optional snippet references. Frame-only evidence remains valid when the optional
+  snippet is absent.
+- Added deterministic selection and coverage artifacts, CLI roots for evidence and reviewed-event
+  inputs, and operator interval-file support. The repository intake scanner does not mistake an
+  embedded V2 evidence package for a shared recording bundle.
+- Verification: operations `mise exec -- uv run --offline pytest` (19 passed), Ruff check, Ruff
+  format check, and a headless CLI review invocation pass. Selection tests cover device and Mac
+  provenance, reviewed events, proposal-independent coverage, explicit intervals, frame-only
+  evidence, proposal lineage, and repeated selection digests.
+
 ### M8 — Table-observation review adapter
 
 1. Open or resume review for each selected table-evidence item.
