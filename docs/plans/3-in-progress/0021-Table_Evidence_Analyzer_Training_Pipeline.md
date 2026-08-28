@@ -433,6 +433,13 @@ Acceptance:
 - calibration is declared `uncalibrated` until measured;
 - repeated inference is deterministic for the fixture.
 
+Progress (2026-08-28): M5 is complete. Added a self-contained bundle manifest and model artifact
+with SHA-256 verification, compatibility checks, uncalibrated calibration declaration, and a
+training-independent runtime loader. Bundle inference emits normalized identity candidates for
+an oracle crop and declares only `identity_candidates`. Verification: `mise exec -- uv run pytest`
+(20 passed), `mise exec -- uv run ruff check src tests`, and `mise exec -- uv run ruff format
+--check src tests`; no weights or data were downloaded.
+
 ### M6 — Portable accelerator execution
 
 1. Keep CPU as the test baseline.

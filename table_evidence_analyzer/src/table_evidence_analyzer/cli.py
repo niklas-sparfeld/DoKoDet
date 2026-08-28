@@ -103,6 +103,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "evaluate":
         print(evaluate(args.run, args.split))
         return 0
+    if args.command == "export":
+        from .export import export_bundle
+
+        print(export_bundle(args.run, args.output))
+        return 0
+    if args.command == "classify-crop":
+        from .export import load_bundle
+
+        print(
+            [
+                candidate.model_dump(mode="json")
+                for candidate in load_bundle(args.bundle).classify(args.image)
+            ]
+        )
+        return 0
     parser.exit(2, f"error: command '{_command_name(args)}' is not implemented yet.\n")
 
 
