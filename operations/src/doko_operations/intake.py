@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping
 
+from .evidence_package import discover_evidence_package_paths, load_evidence_package
 from .intake_contract import IntakeContractError, parse_pending_video
 
 TASKS = ("cardevent_event_detection", "table_evidence_analysis")
@@ -96,6 +97,28 @@ class PendingVideoInspection:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidencePackageInspection:
+    """Inspection result for one canonical evidence-package bundle."""
+
+    path: str
+    package_id: str | None
+    source_asset_id: str | None
+    state: str
+    selected_tasks: tuple[str, ...]
+    errors: tuple[str, ...]
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "package_id": self.package_id,
+            "source_asset_id": self.source_asset_id,
+            "state": self.state,
+            "selected_tasks": list(self.selected_tasks),
+            "errors": list(self.errors),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewWork:
     """Pending task work found from enrollment or a review-run state file."""
 
@@ -132,6 +155,7 @@ class InspectionResult:
     """All deterministic read-only observations for one repository root."""
 
     bundles: tuple[BundleInspection, ...]
+    evidence_packages: tuple[EvidencePackageInspection, ...]
     pending_videos: tuple[PendingVideoInspection, ...]
     pending_review: tuple[ReviewWork, ...]
     failures: tuple[Failure, ...]
@@ -149,6 +173,7 @@ class InspectionResult:
             "repository_root": ".",
             "bundle_root": _relative_path(bundle_root, repository_root),
             "bundles": [item.to_mapping() for item in self.bundles],
+            "evidence_packages": [item.to_mapping() for item in self.evidence_packages],
             "pending_videos": [item.to_mapping() for item in self.pending_videos],
             "pending_review": [item.to_mapping() for item in self.pending_review],
             "failures": [item.to_mapping() for item in self.failures],
@@ -194,6 +219,7 @@ def inspect_repository(
     repository_root: str | Path,
     *,
     bundle_root: str | Path | None = None,
+    evidence_package_root: str | Path | None = None,
     pending_video_root: str | Path | None = None,
     artifacts_root: str | Path | None = None,
 ) -> InspectionResult:
@@ -222,6 +248,12 @@ def inspect_repository(
         else Path(pending_video_root or repo / "data/incoming/videos")
     )
     pending_root = pending_root.expanduser().resolve()
+    evidence_root = (
+        repo / evidence_package_root
+        if evidence_package_root is not None and not Path(evidence_package_root).is_absolute()
+        else Path(evidence_package_root or repo / "data/intake/evidence-packages")
+    )
+    evidence_root = evidence_root.expanduser().resolve()
     inspections: list[BundleInspection] = []
     for candidate in discover_bundle_paths(root):
         inspections.append(_inspect_bundle(candidate, repo))
@@ -229,6 +261,15 @@ def inspect_repository(
     failures = [
         Failure(item.path, "validation", message) for item in inspections for message in item.errors
     ]
+    evidence_inspections = [
+        _inspect_evidence_package(candidate, repo)
+        for candidate in discover_evidence_package_paths(evidence_root)
+    ]
+    failures.extend(
+        Failure(item.path, "evidence_package", message)
+        for item in evidence_inspections
+        for message in item.errors
+    )
     pending_inspections = _inspect_pending_videos(pending_root, repo)
     failures.extend(
         Failure(item.path, "pending_video", message)
@@ -273,6 +314,7 @@ def inspect_repository(
             )
     return InspectionResult(
         bundles=tuple(inspections),
+        evidence_packages=tuple(evidence_inspections),
         pending_videos=tuple(pending_inspections),
         pending_review=tuple(pending),
         failures=tuple(sorted(failures, key=lambda item: (item.path, item.kind, item.message))),
@@ -280,6 +322,44 @@ def inspect_repository(
         stale_derived_artifacts=tuple(stale),
         source_impacts=tuple(source_impacts),
     )
+
+
+def _inspect_evidence_package(path: Path, repository_root: Path) -> EvidencePackageInspection:
+    """Validate one canonical evidence package without changing it."""
+
+    package_id: str | None = None
+    source_asset_id: str | None = None
+    try:
+        raw_manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
+        if isinstance(raw_manifest, Mapping):
+            package_id = (
+                raw_manifest.get("package_id")
+                if isinstance(raw_manifest.get("package_id"), str)
+                else None
+            )
+            source_asset_id = (
+                raw_manifest.get("source_asset_id")
+                if isinstance(raw_manifest.get("source_asset_id"), str)
+                else None
+            )
+        package = load_evidence_package(path)
+        return EvidencePackageInspection(
+            _relative_path(path, repository_root),
+            package.bundle.package_id,
+            package.bundle.source_asset_id,
+            "complete",
+            tuple(sorted(package.selected_tasks)),
+            (),
+        )
+    except (OSError, IntakeContractError, ValueError) as error:
+        return EvidencePackageInspection(
+            _relative_path(path, repository_root),
+            package_id,
+            source_asset_id,
+            "invalid",
+            (),
+            (str(error),),
+        )
 
 
 def _inspect_pending_videos(root: Path, repository_root: Path) -> list[PendingVideoInspection]:

@@ -3,15 +3,14 @@ import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from test_api import load_upload_fixture, multipart_parts
 
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
+from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.repository import EvidenceRepository, upgrade_database
-from dokodetector_backend.storage import EvidenceStorage
-from dokodetector_backend.upload_fixture import prepare_fixture
 
 BACKEND_ROOT = Path(__file__).parents[1]
-FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 
 
 def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> None:
@@ -19,62 +18,40 @@ def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> 
     upgrade_database(BACKEND_ROOT, database_url)
     settings = Settings(
         _env_file=None,
+        repository_root=tmp_path,
         database_url=database_url,
         evidence_root=tmp_path / "runtime",
+        evidence_package_intake_root=tmp_path / "repository-intake" / "evidence-packages",
     )
     app = create_app(settings)
     repository = EvidenceRepository(app.state.engine)
-    storage = EvidenceStorage(settings.evidence_root)
-    manifest_bytes, manifest, frame_sources, video_source = prepare_fixture(
-        FIXTURE_ROOT / "example-complete"
-    )
-    files = {
-        "manifest": ("manifest.json", manifest_bytes, "application/json"),
-        **{
-            frame.part_name: (
-                f"{frame.part_name}.jpg",
-                frame_sources[frame.part_name],
-                "image/jpeg",
-            )
-            for frame in manifest.frames
-        },
-    }
+    storage = EvidencePackageStorage(settings.evidence_package_intake_root)
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
+    files = multipart_parts(manifest_bytes, frame_sources, video_source)
     assert video_source is not None
-    assert manifest.video_snippet is not None
-    files[manifest.video_snippet.part_name] = (
-        f"{manifest.video_snippet.part_name}.mp4",
-        video_source,
-        "video/mp4",
-    )
 
     with TestClient(app) as client:
         assert client.get("/health/live").json() == {"status": "ok"}
         assert client.get("/health/ready").json() == {"status": "ok"}
         upload = client.put(
-            f"/v1/evidence-packages/{manifest.package_id}",
+            f"/v1/evidence-packages/{payload['package_id']}",
             files=files,
         )
-        read_back = client.get(f"/v1/evidence-packages/{manifest.package_id}")
+        read_back = client.get(f"/v1/evidence-packages/{payload['package_id']}")
 
     assert upload.status_code == 201
     assert read_back.status_code == 200
     metadata = read_back.json()
-    assert metadata["package_id"] == str(manifest.package_id)
-    assert metadata["session"] == manifest.session.model_dump(mode="json")
-    assert metadata["event"] == manifest.event.model_dump(mode="json")
+    assert metadata["package_id"] == payload["package_id"]
+    assert metadata["session"] == payload["session"]
+    assert metadata["event"] == payload["event"]
     assert metadata["manifest"] == json.loads(manifest_bytes)
     assert metadata["manifest_sha256"] == hashlib.sha256(manifest_bytes).hexdigest()
 
-    stored = repository.get_package(manifest.package_id)
+    stored = repository.get_package(payload["package_id"])
     assert stored is not None
-    stored_manifest_path = storage.root / "evidence" / str(manifest.package_id) / "manifest.json"
-    assert stored_manifest_path.read_bytes() == manifest_bytes
-    for frame in manifest.frames:
-        stored_frame_path = (
-            storage.root
-            / "evidence"
-            / str(manifest.package_id)
-            / "frames"
-            / f"{frame.part_name}.jpg"
-        )
-        assert stored_frame_path.read_bytes() == frame_sources[frame.part_name]
+    package_path = storage.package_path(payload["package_id"])
+    assert (package_path / "evidence-manifest.json").read_bytes() == manifest_bytes
+    for frame in payload["frames"]:
+        stored_frame_path = package_path / "frames" / f"{frame['part_name']}.jpg"
+        assert stored_frame_path.read_bytes() == frame_sources[frame["part_name"]]

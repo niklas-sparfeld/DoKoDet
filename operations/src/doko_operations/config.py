@@ -41,6 +41,7 @@ class RepositoryConfig:
 
     repository_root: Path
     intake_root: Path | None = None
+    evidence_package_root: Path | None = None
     pending_video_root: Path | None = None
     artifacts_root: Path | None = None
 
@@ -49,7 +50,12 @@ class RepositoryConfig:
         if not root.is_dir():
             raise ConfigurationError(f"Repository root is not a directory: {root}")
         object.__setattr__(self, "repository_root", root)
-        for name in ("intake_root", "pending_video_root", "artifacts_root"):
+        for name in (
+            "intake_root",
+            "evidence_package_root",
+            "pending_video_root",
+            "artifacts_root",
+        ):
             value = getattr(self, name)
             if value is None:
                 continue
@@ -64,6 +70,7 @@ class RepositoryConfig:
         repository_root: str | Path | None = None,
         *,
         intake_root: str | Path | None = None,
+        evidence_package_root: str | Path | None = None,
         pending_video_root: str | Path | None = None,
         artifacts_root: str | Path | None = None,
     ) -> "RepositoryConfig":
@@ -74,6 +81,7 @@ class RepositoryConfig:
         return cls(
             root,
             intake_root=intake_root,
+            evidence_package_root=evidence_package_root,
             pending_video_root=pending_video_root,
             artifacts_root=artifacts_root,
         )
@@ -108,6 +116,14 @@ class RepositoryConfig:
         """Return the raw-video area that waits for operator completion."""
 
         return self.pending_video_root or (self.repository_root / "data" / "incoming" / "videos")
+
+    @property
+    def evidence_package_intake_root(self) -> Path:
+        """Return the canonical accepted evidence-package root."""
+
+        return self.evidence_package_root or (
+            self.repository_root / "data" / "intake" / "evidence-packages"
+        )
 
 
 __all__ = ["ConfigurationError", "RepositoryConfig", "discover_repository_root"]

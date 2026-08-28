@@ -1,4 +1,6 @@
 import hashlib
+import json
+import shutil
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -6,12 +8,14 @@ from uuid import UUID
 
 import pytest
 
+from dokodetector_backend.api import _build_evidence_package_bundle
 from dokodetector_backend.contract import (
     EvidenceManifest,
     calculate_package_fingerprint,
     parse_manifest_bytes,
     validate_manifest,
 )
+from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
 from dokodetector_backend.repository import (
     EvidenceRepository,
@@ -22,7 +26,6 @@ from dokodetector_backend.repository import (
     create_database_engine,
     upgrade_database,
 )
-from dokodetector_backend.storage import EvidenceStorage
 
 BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
@@ -52,7 +55,7 @@ def package_record(
     frames = tuple(
         StoredFrame.from_manifest(
             frame,
-            relative_path=f"evidence/{manifest.package_id}/frames/{frame.part_name}.jpg",
+            relative_path=f"frames/{frame.part_name}.jpg",
         )
         for frame in manifest.frames
     )
@@ -92,7 +95,7 @@ def test_package_and_frame_rows_survive_a_database_restart(tmp_path) -> None:
 
     assert reloaded == package
     assert reloaded is not None
-    assert reloaded.frames[0].relative_path == (f"evidence/{PACKAGE_ID}/frames/frame_00.jpg")
+    assert reloaded.frames[0].relative_path == "frames/frame_00.jpg"
 
 
 def test_repository_enforces_unique_logical_event(repository: EvidenceRepository) -> None:
@@ -125,12 +128,35 @@ def test_repository_rejects_duplicate_package_id(repository: EvidenceRepository)
         repository.insert_package(package)
 
 
+def test_repository_rebuilds_package_rows_from_canonical_intake(tmp_path) -> None:
+    intake_root = tmp_path / "evidence-packages"
+    shutil.copytree(
+        Path(__file__).parents[2]
+        / "fixtures"
+        / "repository-intake"
+        / "v1"
+        / "evidence-package-complete",
+        intake_root / str(PACKAGE_ID),
+    )
+    database_url = f"sqlite:///{tmp_path / 'rebuild.sqlite'}"
+    upgrade_database(BACKEND_ROOT, database_url)
+    repository = EvidenceRepository(create_database_engine(database_url))
+
+    rebuilt = repository.rebuild_from_intake(EvidencePackageStorage(intake_root))
+
+    assert [item.package_id for item in rebuilt] == [PACKAGE_ID]
+    stored = repository.get_package(PACKAGE_ID)
+    assert stored is not None
+    assert stored.package_fingerprint == rebuilt[0].package_fingerprint
+    assert stored.frames[0].relative_path == "frames/frame_00.jpg"
+
+
 def test_persister_links_existing_files_to_database_rows(tmp_path) -> None:
     raw, manifest = load_fixture("example-complete")
     database_url = f"sqlite:///{tmp_path / 'stored.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
     repository = EvidenceRepository(create_database_engine(database_url))
-    storage = EvidenceStorage(tmp_path)
+    storage = EvidencePackageStorage(tmp_path / "evidence-packages")
     persister = EvidencePackagePersister(repository, storage)
     frame_sources = {
         frame.part_name: f"bytes for {frame.part_name}".encode() for frame in manifest.frames
@@ -148,11 +174,29 @@ def test_persister_links_existing_files_to_database_rows(tmp_path) -> None:
         ),
     )
     video_source = (FIXTURE_ROOT / "example-complete" / "snippet.mp4").read_bytes()
+    package_record_bytes, task_enrollment_bytes, lineage_bytes = _metadata(
+        package.package_id, package.session_id
+    )
+    bundle_manifest_bytes = _build_evidence_package_bundle(
+        package_id=package.package_id,
+        source_asset_id=f"source-evidence-{package.package_id}",
+        manifest_bytes=raw,
+        package_record_bytes=package_record_bytes,
+        task_enrollment_bytes=task_enrollment_bytes,
+        lineage_bytes=lineage_bytes,
+        manifest=manifest,
+        frame_sources=frame_sources,
+        video_bytes=video_source,
+    )
 
     stored = persister.persist(
         package,
-        raw,
-        frame_sources,
+        evidence_manifest_source=raw,
+        package_record_source=package_record_bytes,
+        task_enrollment_source=task_enrollment_bytes,
+        lineage_source=lineage_bytes,
+        bundle_manifest_source=bundle_manifest_bytes,
+        frame_sources=frame_sources,
         video_source=video_source,
         video_part_name=manifest.video_snippet.part_name,
     )
@@ -160,18 +204,17 @@ def test_persister_links_existing_files_to_database_rows(tmp_path) -> None:
 
     assert reloaded == stored
     assert reloaded is not None
-    assert (tmp_path / f"{stored.frames[0].relative_path}").read_bytes() == frame_sources[
-        stored.frames[0].part_name
-    ]
-    assert (tmp_path / "evidence" / str(PACKAGE_ID) / "manifest.json").read_bytes() == raw
+    assert (
+        storage.package_path(stored.package_id) / stored.frames[0].relative_path
+    ).read_bytes() == frame_sources[stored.frames[0].part_name]
+    assert (storage.package_path(PACKAGE_ID) / "evidence-manifest.json").read_bytes() == raw
     assert (
         stored.frames[0].sha256
         == hashlib.sha256(frame_sources[stored.frames[0].part_name]).hexdigest()
     )
     assert (
-        storage.video_path(PACKAGE_ID, manifest.video_snippet.part_name).read_bytes()
-        == video_source
-    )
+        storage.package_path(PACKAGE_ID) / "video" / f"{manifest.video_snippet.part_name}.mp4"
+    ).read_bytes() == video_source
 
 
 def test_failed_database_insert_removes_renamed_files(tmp_path) -> None:
@@ -179,15 +222,33 @@ def test_failed_database_insert_removes_renamed_files(tmp_path) -> None:
     database_url = f"sqlite:///{tmp_path / 'failure.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
     repository = EvidenceRepository(create_database_engine(database_url))
-    storage = EvidenceStorage(tmp_path)
+    storage = EvidencePackageStorage(tmp_path / "evidence-packages")
     persister = EvidencePackagePersister(repository, storage)
 
     first_package = package_record(raw, manifest)
     video_source = (FIXTURE_ROOT / "example-complete" / "snippet.mp4").read_bytes()
+    package_record_bytes, task_enrollment_bytes, lineage_bytes = _metadata(
+        first_package.package_id, first_package.session_id
+    )
+    bundle_manifest_bytes = _build_evidence_package_bundle(
+        package_id=first_package.package_id,
+        source_asset_id=f"source-evidence-{first_package.package_id}",
+        manifest_bytes=raw,
+        package_record_bytes=package_record_bytes,
+        task_enrollment_bytes=task_enrollment_bytes,
+        lineage_bytes=lineage_bytes,
+        manifest=manifest,
+        frame_sources={frame.part_name: b"first-frame" for frame in manifest.frames},
+        video_bytes=video_source,
+    )
     persister.persist(
         first_package,
-        raw,
-        {frame.part_name: b"first-frame" for frame in manifest.frames},
+        evidence_manifest_source=raw,
+        package_record_source=package_record_bytes,
+        task_enrollment_source=task_enrollment_bytes,
+        lineage_source=lineage_bytes,
+        bundle_manifest_source=bundle_manifest_bytes,
+        frame_sources={frame.part_name: b"first-frame" for frame in manifest.frames},
         video_source=video_source,
         video_part_name=manifest.video_snippet.part_name,
     )
@@ -200,12 +261,67 @@ def test_failed_database_insert_removes_renamed_files(tmp_path) -> None:
     with pytest.raises(LogicalEventConflict):
         persister.persist(
             second_package,
-            raw,
-            {frame.part_name: b"second-frame" for frame in manifest.frames},
+            evidence_manifest_source=raw,
+            package_record_source=package_record_bytes,
+            task_enrollment_source=task_enrollment_bytes,
+            lineage_source=lineage_bytes,
+            bundle_manifest_source=bundle_manifest_bytes,
+            frame_sources={frame.part_name: b"second-frame" for frame in manifest.frames},
             video_source=video_source,
             video_part_name=manifest.video_snippet.part_name,
         )
 
     assert repository.get_package(second_package.package_id) is None
     assert not storage.package_path(second_package.package_id).exists()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []
+
+
+def _metadata(package_id: UUID, session_id: UUID) -> tuple[bytes, bytes, bytes]:
+    package_value = str(package_id)
+    source_asset_id = f"source-evidence-{package_value}"
+
+    def encode(value: dict[str, object]) -> bytes:
+        return json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+
+    record = {
+        "schema_version": "evidence-package-record/v1",
+        "package_id": package_value,
+        "source_asset_id": source_asset_id,
+        "source_permission": "project_use",
+        "allowed_uses": ["evaluation"],
+        "retention_state": "active",
+        "notes": "test",
+    }
+    enrollment = {
+        "schema_version": "task-enrollment/v1",
+        "source_asset_id": source_asset_id,
+        "enrollments": [
+            {
+                "task_enrollment_id": f"enrollment-{package_value}-cardevent",
+                "task": "cardevent_event_detection",
+                "disposition": "selected",
+                "lifecycle_state": "intake",
+                "operator": "test",
+                "created_at_utc": "2026-01-01T00:00:00Z",
+                "reason": None,
+            },
+            {
+                "task_enrollment_id": f"enrollment-{package_value}-table",
+                "task": "table_evidence_analysis",
+                "disposition": "selected",
+                "lifecycle_state": "intake",
+                "operator": "test",
+                "created_at_utc": "2026-01-01T00:00:00Z",
+                "reason": None,
+            },
+        ],
+    }
+    lineage = {
+        "schema_version": "evidence-package-lineage/v1",
+        "package_id": package_value,
+        "parent_source_asset_id": None,
+        "parent_recording_id": None,
+        "parent_video_id": None,
+        "session_id": str(session_id),
+    }
+    return encode(record), encode(enrollment), encode(lineage)

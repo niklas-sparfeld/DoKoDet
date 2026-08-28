@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, BinaryIO
 
+from dokodetector_backend.evidence_package_storage import (
+    EvidencePackageStorage,
+    calculate_bundle_fingerprint,
+)
 from dokodetector_backend.repository import (
     EvidenceRepository,
     StoredPackage,
@@ -20,14 +24,18 @@ if TYPE_CHECKING:
 class EvidencePackagePersister:
     """Store files first, then commit their metadata in SQLite."""
 
-    def __init__(self, repository: EvidenceRepository, storage: EvidenceStorage) -> None:
+    def __init__(self, repository: EvidenceRepository, storage: EvidencePackageStorage) -> None:
         self.repository = repository
         self.storage = storage
 
     def persist(
         self,
         package: StoredPackage,
-        manifest_source: bytes | BinaryIO,
+        evidence_manifest_source: bytes | BinaryIO,
+        package_record_source: bytes | BinaryIO,
+        task_enrollment_source: bytes | BinaryIO,
+        lineage_source: bytes | BinaryIO,
+        bundle_manifest_source: bytes | BinaryIO,
         frame_sources: dict[str, bytes | BinaryIO],
         video_source: bytes | BinaryIO | None = None,
         video_part_name: str | None = None,
@@ -40,10 +48,30 @@ class EvidencePackagePersister:
 
         committed = False
         with self.storage.start_package(package.package_id) as upload:
-            upload.write_manifest(manifest_source, max_bytes=max_manifest_bytes)
+            upload.write_part(
+                "manifest.json",
+                bundle_manifest_source,
+                max_bytes=max_manifest_bytes,
+            )
+            upload.write_part(
+                "evidence-manifest.json",
+                evidence_manifest_source,
+                max_bytes=max_manifest_bytes,
+            )
+            upload.write_part(
+                "package-record.json",
+                package_record_source,
+                max_bytes=max_manifest_bytes,
+            )
+            upload.write_part(
+                "initial-task-enrollment.json",
+                task_enrollment_source,
+                max_bytes=max_manifest_bytes,
+            )
+            upload.write_part("lineage.json", lineage_source, max_bytes=max_manifest_bytes)
             stored_frames = {
-                frame.part_name: upload.write_frame(
-                    frame.part_name,
+                frame.part_name: upload.write_part(
+                    f"frames/{frame.part_name}.jpg",
                     frame_sources[frame.part_name],
                     max_bytes=max_frame_bytes,
                 )
@@ -52,16 +80,17 @@ class EvidencePackagePersister:
             if video_source is not None:
                 if video_part_name is None:
                     raise ValueError("A video part name is required for video bytes.")
-                upload.write_video(
-                    video_part_name,
+                upload.write_part(
+                    f"video/{video_part_name}.mp4",
                     video_source,
                     max_bytes=max_video_bytes,
                 )
-            upload.commit()
+            committed_files = upload.commit()
             committed = True
 
         package_with_paths = replace(
             package,
+            package_fingerprint=calculate_bundle_fingerprint(committed_files),
             frames=tuple(
                 replace(
                     frame,

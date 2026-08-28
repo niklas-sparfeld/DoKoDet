@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,7 +16,21 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 from table_evidence_analyzer import TableObservation
 
 from alembic import command
-from dokodetector_backend.contract import EvidenceManifest, FrameManifest
+from dokodetector_backend.contract import (
+    EvidenceManifest,
+    FrameManifest,
+    parse_manifest_bytes,
+)
+from dokodetector_backend.evidence_package_storage import (
+    EvidencePackageStorage,
+    calculate_bundle_fingerprint,
+)
+from dokodetector_backend.intake_contract import (
+    EvidencePackageBundle,
+    IntakeContractError,
+    parse_evidence_package_bundle,
+    validate_evidence_package_bundle,
+)
 from dokodetector_backend.models import (
     EvidenceFrame,
     EvidencePackage,
@@ -142,6 +157,10 @@ class LogicalEventConflict(RepositoryConflict):
 
 class TableObservationConflict(RepositoryConflict):
     """An analyzer observation key is already used by different content."""
+
+
+class RepositoryRebuildError(RepositoryError):
+    """The canonical evidence-package intake cannot rebuild the index."""
 
 
 def create_database_engine(database_url: str) -> Engine:
@@ -299,6 +318,82 @@ class EvidenceRepository:
             )
             return tuple(_package_from_model(row) for row in rows)
 
+    def rebuild_from_intake(self, storage: EvidencePackageStorage) -> tuple[StoredPackage, ...]:
+        """Rebuild package search rows from canonical repository bundles."""
+
+        rebuilt: list[StoredPackage] = []
+        root = storage.root
+        for package_path in (
+            sorted(root.iterdir(), key=lambda item: item.name) if root.is_dir() else ()
+        ):
+            if not package_path.is_dir() or package_path.name.startswith("."):
+                continue
+            try:
+                files = storage.file_digests(package_path.name)
+                manifest_bytes = (package_path / "manifest.json").read_bytes()
+                bundle = parse_evidence_package_bundle(manifest_bytes)
+                package_files = {
+                    relative_path: (package_path / relative_path).read_bytes()
+                    for relative_path in files
+                    if relative_path != "manifest.json"
+                }
+                evidence_manifest = package_files[bundle.files.evidence_manifest.relative_path]
+                package_record = package_files[bundle.files.package_record.relative_path]
+                task_enrollment = package_files[bundle.files.task_enrollment.relative_path]
+                lineage = package_files[bundle.files.lineage.relative_path]
+                validate_evidence_package_bundle(
+                    manifest_bytes,
+                    evidence_manifest,
+                    package_record,
+                    task_enrollment,
+                    lineage,
+                    package_files,
+                )
+                original = parse_manifest_bytes(evidence_manifest)
+                if str(original.package_id) != bundle.package_id:
+                    raise RepositoryRebuildError(
+                        "evidence manifest package_id differs from repository bundle"
+                    )
+                _assert_evidence_package_files(bundle, original, files)
+                enrollment_document = json.loads(task_enrollment.decode("utf-8"))
+                received_at = min(
+                    datetime.fromisoformat(item["created_at_utc"].replace("Z", "+00:00"))
+                    for item in enrollment_document["enrollments"]
+                )
+                frames = tuple(
+                    StoredFrame.from_manifest(
+                        frame,
+                        relative_path=f"frames/{frame.part_name}.jpg",
+                    )
+                    for frame in original.frames
+                )
+                rebuilt.append(
+                    StoredPackage.from_manifest(
+                        original,
+                        evidence_manifest,
+                        package_fingerprint=calculate_bundle_fingerprint(files),
+                        frames=frames,
+                        received_at=_as_utc(received_at),
+                    )
+                )
+            except RepositoryRebuildError:
+                raise
+            except (OSError, KeyError, TypeError, ValueError, IntakeContractError) as error:
+                raise RepositoryRebuildError(
+                    f"Canonical evidence package {package_path.name} is invalid: {error}"
+                ) from error
+
+        try:
+            with self._session_factory.begin() as session:
+                session.query(TableObservationRow).delete()
+                session.query(EvidencePackage).delete()
+                session.add_all(_package_to_model(item) for item in rebuilt)
+        except IntegrityError as error:
+            raise RepositoryRebuildError(
+                "The evidence package index could not be rebuilt."
+            ) from error
+        return tuple(rebuilt)
+
     def get_table_observation(self, observation_id: str) -> StoredTableObservation | None:
         """Read one stored table observation."""
 
@@ -437,6 +532,49 @@ def _package_to_model(package: StoredPackage) -> EvidencePackage:
     )
 
 
+def _assert_evidence_package_files(
+    bundle: EvidencePackageBundle,
+    evidence_manifest: EvidenceManifest,
+    files: dict[str, object],
+) -> None:
+    """Verify that canonical paths and media descriptors match the original manifest."""
+
+    expected_paths = {
+        "manifest.json",
+        bundle.files.evidence_manifest.relative_path,
+        bundle.files.package_record.relative_path,
+        bundle.files.task_enrollment.relative_path,
+        bundle.files.lineage.relative_path,
+        *(f"frames/{frame.part_name}.jpg" for frame in evidence_manifest.frames),
+    }
+    if (
+        evidence_manifest.video_snippet is not None
+        and evidence_manifest.video_snippet.capture_complete
+    ):
+        assert evidence_manifest.video_snippet.part_name is not None
+        expected_paths.add(f"video/{evidence_manifest.video_snippet.part_name}.mp4")
+    if set(files) != expected_paths:
+        raise RepositoryRebuildError("canonical evidence package has unexpected files")
+
+    descriptors = [
+        bundle.files.evidence_manifest,
+        bundle.files.package_record,
+        bundle.files.task_enrollment,
+        bundle.files.lineage,
+        *bundle.files.frames,
+    ]
+    if bundle.files.video_snippet is not None:
+        descriptors.append(bundle.files.video_snippet)
+    for descriptor in descriptors:
+        stored = files.get(descriptor.relative_path)
+        if stored is None or (
+            stored.byte_length != descriptor.byte_length or stored.sha256 != descriptor.sha256
+        ):
+            raise RepositoryRebuildError(
+                f"canonical evidence package member {descriptor.relative_path!r} is invalid"
+            )
+
+
 def _package_from_model(row: EvidencePackage) -> StoredPackage:
     return StoredPackage(
         package_id=UUID(row.package_id),
@@ -525,6 +663,7 @@ __all__ = [
     "PackageConflict",
     "RepositoryConflict",
     "RepositoryError",
+    "RepositoryRebuildError",
     "StoredFrame",
     "StoredPackage",
     "StoredTableObservation",

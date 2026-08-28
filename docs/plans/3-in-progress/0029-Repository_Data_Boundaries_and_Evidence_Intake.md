@@ -153,6 +153,25 @@ reports conflicts. Do not retain a permanent dual-reader or a second writable ev
    packages.
 5. Add the one-time runtime adoption command. Remove the active runtime-only authority afterward.
 
+### M2 implementation evidence — 2026-08-28
+
+- Accepted evidence packages now use immutable repository bundles under
+  `data/intake/evidence-packages/<package-id>`. Backend writes are atomic and include member
+  digests for the manifest, operator metadata, frames, and optional video snippet.
+- The iOS producer and multipart upload contract include package record, initial task enrollment,
+  and lineage documents. Both task enrollments are explicit and independent.
+- Backend startup rebuilds the searchable package and frame state from canonical intake bundles.
+  Runtime deletion does not remove accepted package source bytes.
+- `doko data status` and `doko data validate` inspect canonical evidence packages. The table and
+  CardEventNet adapters discover only packages that select their respective task.
+- Added `doko data adopt-evidence` (and `adopt-evidence-package`) for one-time migration from the
+  old runtime evidence path. The command preserves the old package until the operator verifies
+  the new bundle.
+- Verification passed: backend tests, operations tests, TableEvidenceAnalyzer tests, CardEventNet
+  tests, Python compile checks, Ruff checks and formatting, and Swift package build. The full Swift
+  test command remains blocked by pre-existing strict-concurrency errors in
+  `TrainingRecordingUploadQueueTests.swift`.
+
 ### M3 — Documentation and clean-room verification
 
 1. Define the canonical term for a pre-intake upload in `docs/glossary.md` before using it in other

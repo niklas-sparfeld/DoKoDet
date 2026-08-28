@@ -263,15 +263,15 @@ class GenericReviewAdapter:
         return ()
 
 
-def default_adapters() -> dict[str, ReviewAdapter]:
+def default_adapters(*, evidence_roots: Sequence[str | Path] = ()) -> dict[str, ReviewAdapter]:
     """Return the deterministic default adapters for both data tasks."""
 
     from .cardevent import CardEventNetReviewAdapter
     from .table_evidence import TableObservationReviewAdapter
 
     return {
-        "cardevent_event_detection": CardEventNetReviewAdapter(),
-        "table_evidence_analysis": TableObservationReviewAdapter(),
+        "cardevent_event_detection": CardEventNetReviewAdapter(evidence_roots=evidence_roots),
+        "table_evidence_analysis": TableObservationReviewAdapter(evidence_roots=evidence_roots),
     }
 
 
@@ -1036,6 +1036,7 @@ def run_review(
     task: str,
     reviewer: str,
     bundle_root: str | Path | None = None,
+    evidence_package_root: str | Path | None = None,
     artifacts_root: str | Path | None = None,
     run_id: str | None = None,
     decision_provider: DecisionProvider | None = None,
@@ -1059,11 +1060,18 @@ def run_review(
     intake_result = inspect_repository(
         repository,
         bundle_root=bundle_root,
+        evidence_package_root=evidence_package_root,
         artifacts_root=artifacts_root,
     )
     inputs, discovery_failures = _selected_inputs(repository, intake_result, requested_tasks)
     input_digest = _input_digest(inputs, requested_tasks)
-    adapter_map = dict(default_adapters())
+    configured_evidence_roots: tuple[Path, ...] = ()
+    if evidence_package_root is not None:
+        configured_root = Path(evidence_package_root).expanduser()
+        if not configured_root.is_absolute():
+            configured_root = repository / configured_root
+        configured_evidence_roots = (configured_root.resolve(),)
+    adapter_map = dict(default_adapters(evidence_roots=configured_evidence_roots))
     if adapters is not None:
         adapter_map.update(adapters)
     missing_adapters = [task_name for task_name in requested_tasks if task_name not in adapter_map]

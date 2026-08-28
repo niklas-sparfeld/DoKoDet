@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./.runtime/dokodetector.db"
     evidence_root: Path = Path(".runtime")
     repository_intake_root: Path = Path("data/intake/recordings")
+    evidence_package_intake_root: Path = Path("data/intake/evidence-packages")
     pending_video_root: Path = Path("data/incoming/videos")
     max_manifest_bytes: int = 1_000_000
     max_frame_bytes: int = 10_000_000
@@ -93,6 +94,7 @@ class Settings(BaseSettings):
         self.database_url = _resolve_database_url(self.database_url, root)
         self.evidence_root = _resolve_path(self.evidence_root, root)
         self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
+        self.evidence_package_intake_root = _resolve_path(self.evidence_package_intake_root, root)
         self.pending_video_root = _resolve_path(self.pending_video_root, root)
         return self
 

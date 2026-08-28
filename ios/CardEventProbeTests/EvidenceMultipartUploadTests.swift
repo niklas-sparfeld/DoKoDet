@@ -51,11 +51,34 @@ final class EvidenceMultipartUploadTests: XCTestCase {
         XCTAssertTrue(body.suffix(closingBoundary.count).elementsEqual(closingBoundary))
 
         let parts = try parseMultipart(body, boundary: "TestBoundaryV1")
-        XCTAssertEqual(parts.map(\.name), ["manifest", "frame_00", "frame_01"])
-        XCTAssertEqual(parts.map(\.filename), ["manifest.json", "frame_00.jpg", "frame_01.jpg"])
-        XCTAssertEqual(parts.map(\.contentType), ["application/json", "image/jpeg", "image/jpeg"])
-        XCTAssertEqual(parts[1].body, Data("jpeg-a".utf8))
-        XCTAssertEqual(parts[2].body, Data("jpeg-b".utf8))
+        XCTAssertEqual(
+            parts.map(\.name),
+            ["manifest", "package_record", "task_enrollment", "lineage", "frame_00", "frame_01"]
+        )
+        XCTAssertEqual(
+            parts.map(\.filename),
+            [
+                "manifest.json",
+                "package-record.json",
+                "initial-task-enrollment.json",
+                "lineage.json",
+                "frame_00.jpg",
+                "frame_01.jpg",
+            ]
+        )
+        XCTAssertEqual(
+            parts.map(\.contentType),
+            [
+                "application/json",
+                "application/json",
+                "application/json",
+                "application/json",
+                "image/jpeg",
+                "image/jpeg",
+            ]
+        )
+        XCTAssertEqual(parts[4].body, Data("jpeg-a".utf8))
+        XCTAssertEqual(parts[5].body, Data("jpeg-b".utf8))
 
         let manifest = try JSONSerialization.jsonObject(with: parts[0].body) as? [String: Any]
         XCTAssertEqual(manifest?["package_id"] as? String, package.manifest.packageID.uuidString.lowercased())
@@ -78,10 +101,13 @@ final class EvidenceMultipartUploadTests: XCTestCase {
         let body = try Data(contentsOf: prepared.bodyFileURL)
         let parts = try parseMultipart(body, boundary: "ZeroFrameBoundary")
 
-        XCTAssertEqual(parts.count, 1)
+        XCTAssertEqual(parts.count, 4)
         XCTAssertEqual(parts[0].name, "manifest")
         XCTAssertEqual(parts[0].filename, "manifest.json")
         XCTAssertEqual(parts[0].contentType, "application/json")
+        XCTAssertEqual(parts[1].name, "package_record")
+        XCTAssertEqual(parts[2].name, "task_enrollment")
+        XCTAssertEqual(parts[3].name, "lineage")
     }
 
     func testIdenticalPreparationDoesNotMutatePackage() throws {
@@ -138,7 +164,7 @@ final class EvidenceMultipartUploadTests: XCTestCase {
             boundary: "StoredPackageBoundary"
         )
         XCTAssertEqual(parts[0].body, storedManifest)
-        XCTAssertEqual(parts[1].body, Data("jpeg".utf8))
+        XCTAssertEqual(parts[4].body, Data("jpeg".utf8))
     }
 
     func testURLSessionClientSendsFileBackedRequestToContractPath() async throws {
@@ -193,8 +219,11 @@ final class EvidenceMultipartUploadTests: XCTestCase {
             try XCTUnwrap(RecordingURLProtocol.lastBody),
             boundary: "ProtocolBoundary"
         )
-        XCTAssertEqual(parts.map(\.name), ["manifest", "frame_00"])
-        XCTAssertEqual(parts[1].body, Data("jpeg".utf8))
+        XCTAssertEqual(
+            parts.map(\.name),
+            ["manifest", "package_record", "task_enrollment", "lineage", "frame_00"]
+        )
+        XCTAssertEqual(parts[4].body, Data("jpeg".utf8))
     }
 
     private struct MultipartPart {

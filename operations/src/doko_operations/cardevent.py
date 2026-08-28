@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .evidence_package import discover_evidence_package_paths, load_evidence_package
 from .holdout import (
     SystemHoldoutError,
     empty_system_holdout_registry,
@@ -80,7 +81,10 @@ def _bundle_inputs(item: ReviewInput) -> tuple[Path, Mapping[str, Any], list[Map
     return video, source, proposals
 
 
-def _proposal_items(item: ReviewInput) -> tuple[list[ReviewItem], dict[str, dict[str, Any]]]:
+def _proposal_items(
+    item: ReviewInput,
+    evidence_roots: Sequence[str | Path] = (),
+) -> tuple[list[ReviewItem], dict[str, dict[str, Any]]]:
     video, source, proposals = _bundle_inputs(item)
     del video
     result: list[ReviewItem] = []
@@ -176,8 +180,63 @@ def _proposal_items(item: ReviewInput) -> tuple[list[ReviewItem], dict[str, dict
             "probability": low["probability"],
         }
         break
+    for package in _selected_evidence_packages(item, evidence_roots):
+        package_item_id = (
+            "cardevent-package-"
+            + _digest(
+                {"source_asset_id": item.source_asset_id, "package_id": package.bundle.package_id}
+            )[:20]
+        )
+        package_item = ReviewItem(
+            package_item_id,
+            item.source_asset_id,
+            "evidence_package",
+            (
+                f"Review accepted evidence package {package.bundle.package_id} "
+                f"for {item.source_asset_id}."
+            ),
+        )
+        result.append(package_item)
+        metadata[package_item_id] = {
+            "kind": package_item.kind,
+            "package_id": package.bundle.package_id,
+            "package_path": str(package.path),
+        }
     result.sort(key=lambda value: (value.source_asset_id, value.kind, value.item_id))
     return result, metadata
+
+
+def _selected_evidence_packages(
+    item: ReviewInput, evidence_roots: Sequence[str | Path]
+) -> list[Any]:
+    roots = [Path(root).expanduser().resolve() for root in evidence_roots]
+    bundle_path = Path(item.bundle_path).resolve()
+    for ancestor in (bundle_path, *bundle_path.parents):
+        roots.append(ancestor / "data" / "intake" / "evidence-packages")
+    result: list[Any] = []
+    seen: set[Path] = set()
+    source_record = _read_json(bundle_path / "source-record.json")
+    source_session_id = source_record.get("session_id")
+    for root in roots:
+        for package_path in discover_evidence_package_paths(root):
+            if package_path in seen:
+                continue
+            seen.add(package_path)
+            try:
+                package = load_evidence_package(package_path)
+            except (OSError, ValueError):
+                continue
+            if CARD_EVENT_TASK not in package.selected_tasks:
+                continue
+            lineage = package.lineage
+            if (
+                lineage.parent_source_asset_id != item.source_asset_id
+                and lineage.parent_recording_id != item.recording_id
+                and lineage.session_id != source_session_id
+            ):
+                continue
+            result.append(package)
+    return sorted(result, key=lambda value: value.bundle.package_id)
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
@@ -190,7 +249,8 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
 class CardEventNetReviewAdapter:
     """Use repository proposals to seed a complete video-wide CardEventNet review."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, evidence_roots: Sequence[str | Path] = ()) -> None:
+        self.evidence_roots = tuple(Path(root).expanduser().resolve() for root in evidence_roots)
         self._system_holdout_registry = empty_system_holdout_registry()
 
     def set_system_holdout_registry(self, registry: Mapping[str, Any]) -> None:
@@ -202,7 +262,7 @@ class CardEventNetReviewAdapter:
             raise ReviewRunError(f"CardEventNet adapter cannot process {task}")
         result: list[ReviewItem] = []
         for item in sorted(inputs, key=lambda value: value.source_asset_id):
-            source_items, _ = _proposal_items(item)
+            source_items, _ = _proposal_items(item, self.evidence_roots)
             result.extend(source_items)
         return result
 
@@ -239,7 +299,7 @@ class CardEventNetReviewAdapter:
         for input_item in inputs:
             video, source, proposals = _bundle_inputs(input_item)
             source_details[input_item.source_asset_id] = (video, source, proposals)
-            _, item_metadata = _proposal_items(input_item)
+            _, item_metadata = _proposal_items(input_item, self.evidence_roots)
             metadata_by_item.update(item_metadata)
         wide_items = [
             item

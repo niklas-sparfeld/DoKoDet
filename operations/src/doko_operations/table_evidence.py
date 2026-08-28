@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .evidence_package import discover_evidence_package_paths, load_evidence_package
 from .holdout import (
     SystemHoldoutError,
     empty_system_holdout_registry,
@@ -676,6 +677,27 @@ class TableEvidenceReviewAdapter:
     def _discover_packages(
         self, bundle: Path, source: Mapping[str, Any], item: ReviewInput
     ) -> list[Mapping[str, Any]]:
+        packages: list[Mapping[str, Any]] = []
+        canonical_roots = list(self.evidence_roots)
+        for ancestor in (bundle, *bundle.parents):
+            canonical_roots.append(ancestor / "data" / "intake" / "evidence-packages")
+        canonical_paths: set[Path] = set()
+        for root in canonical_roots:
+            canonical_paths.update(discover_evidence_package_paths(root))
+        for path in sorted(canonical_paths, key=lambda value: value.as_posix()):
+            try:
+                package = load_evidence_package(path)
+            except (OSError, ValueError):
+                continue
+            if TABLE_EVIDENCE_TASK not in package.selected_tasks:
+                continue
+            if not _canonical_package_matches(package, source, item):
+                continue
+            packages.append(_materialize_package(path, package.evidence_manifest, item))
+
+        # Explicit roots can still point to a producer fixture in the old V2 layout.  The default
+        # search above never includes runtime-only evidence, so accepted repository data has one
+        # authority while clean-room fixtures remain useful to component tests.
         roots = list(self.evidence_roots)
         explicit_package_paths = {
             root.parent if root.is_file() and root.name == "manifest.json" else root
@@ -684,14 +706,7 @@ class TableEvidenceReviewAdapter:
             or (root.is_dir() and (root / "manifest.json").is_file())
         }
         for ancestor in (bundle, *bundle.parents):
-            roots.extend(
-                (
-                    ancestor / "evidence",
-                    ancestor / "evidence-packages",
-                    ancestor / ".runtime" / "evidence",
-                    ancestor / "data" / "evidence",
-                )
-            )
+            roots.extend((ancestor / "fixtures" / "evidence",))
         paths: set[Path] = set()
         for root in roots:
             if root.is_file() and root.name == "manifest.json":
@@ -707,7 +722,6 @@ class TableEvidenceReviewAdapter:
                 raise ReviewRunError(
                     f"Could not discover evidence packages below {root}: {exc}"
                 ) from exc
-        packages: list[Mapping[str, Any]] = []
         for path in sorted(paths, key=lambda value: value.as_posix()):
             manifest_path = path / "manifest.json"
             try:
@@ -1822,6 +1836,20 @@ def _package_matches(
     )
 
 
+def _canonical_package_matches(package: Any, source: Mapping[str, Any], item: ReviewInput) -> bool:
+    """Match a package to its parent recording through explicit lineage."""
+
+    lineage = package.lineage
+    if lineage.parent_source_asset_id == item.source_asset_id:
+        return True
+    if lineage.parent_recording_id == item.recording_id:
+        return True
+    manifest_session = package.evidence_manifest.get("session")
+    return isinstance(manifest_session, Mapping) and manifest_session.get(
+        "session_id"
+    ) == source.get("session_id")
+
+
 def _materialize_package(
     package_path: Path, manifest: Mapping[str, Any], item: ReviewInput
 ) -> dict[str, Any]:
@@ -1898,7 +1926,14 @@ def _materialize_package(
         end_s = event_time_ms / 1000 + 1.0
     return {
         "package_id": package_id,
-        "manifest_path": str(package_path / "manifest.json"),
+        "manifest_path": str(
+            package_path
+            / (
+                "evidence-manifest.json"
+                if (package_path / "evidence-manifest.json").is_file()
+                else "manifest.json"
+            )
+        ),
         "event_time_s": _rounded(event_time_ms / 1000),
         "recording_range": [_rounded(max(0.0, start_s)), _rounded(max(end_s, start_s + 0.001))],
         "frame_references": sorted(frame_refs, key=lambda value: value["part_name"]),

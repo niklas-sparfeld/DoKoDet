@@ -9,6 +9,12 @@ from .cardevent_campaign import (
     run_card_event_campaign,
 )
 from .config import ConfigurationError, RepositoryConfig, discover_repository_root
+from .evidence_adoption import EvidencePackageAdoptionError, adopt_runtime_evidence_package
+from .evidence_package import (
+    EvidencePackageData,
+    discover_evidence_package_paths,
+    load_evidence_package,
+)
 from .holdout import (
     SYSTEM_HOLDOUT_GROUP_NAMES,
     SYSTEM_HOLDOUT_REGISTRY_ID,
@@ -41,6 +47,7 @@ from .impact import (
 )
 from .intake import (
     BundleInspection,
+    EvidencePackageInspection,
     Failure,
     InspectionResult,
     PendingVideoInspection,
@@ -102,6 +109,7 @@ from .table_evidence import (
 
 __all__ = [
     "BundleInspection",
+    "EvidencePackageInspection",
     "CARD_EVENT_TASK",
     "CardEventCampaignError",
     "CardEventPromotionError",
@@ -109,6 +117,8 @@ __all__ = [
     "COVERAGE_SCHEMA_VERSION",
     "DATASET_VERSION_SCHEMA_VERSION",
     "ConfigurationError",
+    "EvidencePackageAdoptionError",
+    "EvidencePackageData",
     "ARTIFACT_KINDS",
     "RETIREMENT_STATES",
     "RETENTION_STATES",
@@ -127,10 +137,12 @@ __all__ = [
     "PendingVideoCompletion",
     "PendingVideoCompletionError",
     "complete_pending_video",
+    "adopt_runtime_evidence_package",
     "RepositoryConfig",
     "ReviewWork",
     "TaskState",
     "discover_bundle_paths",
+    "discover_evidence_package_paths",
     "discover_repository_root",
     "empty_system_holdout_registry",
     "freeze_task_publication",
@@ -148,6 +160,7 @@ __all__ = [
     "parse_evidence_package_record",
     "parse_pending_video",
     "load_system_holdout_registry",
+    "load_evidence_package",
     "load_current_source_state",
     "render_human",
     "render_json",

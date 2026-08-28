@@ -39,6 +39,8 @@ def render_human(result: InspectionResult, *, repository_root: Path, bundle_root
     invalid = sum(item.state == "invalid" for item in result.bundles)
     pending = sum(item.state == "ready_to_complete" for item in result.pending_videos)
     pending_invalid = sum(item.state == "invalid" for item in result.pending_videos)
+    evidence_complete = sum(item.state == "complete" for item in result.evidence_packages)
+    evidence_invalid = sum(item.state == "invalid" for item in result.evidence_packages)
     lines = [
         "DokoDetector data status",
         f"repository root: {repository_root}",
@@ -48,6 +50,8 @@ def render_human(result: InspectionResult, *, repository_root: Path, bundle_root
         f"pending videos: {len(result.pending_videos)} "
         f"({pending} pending, {pending} ready-to-complete, {pending_invalid} invalid)",
         f"pending review: {len(result.pending_review)}",
+        f"evidence packages: {len(result.evidence_packages)} "
+        f"({evidence_complete} complete, {evidence_invalid} invalid)",
         f"failures: {len(result.failures)}",
         f"unassigned eligible groups: {len(result.unassigned_eligible_groups)}",
         f"stale derived artifacts: {len(result.stale_derived_artifacts)}",
@@ -65,6 +69,15 @@ def render_human(result: InspectionResult, *, repository_root: Path, bundle_root
         for item in result.pending_videos:
             identity = item.upload_id or "unknown-upload"
             lines.append(f"  - {item.path}: {item.state} ({identity})")
+            for error in item.errors:
+                lines.append(f"    {error}")
+    if result.evidence_packages:
+        lines.append("evidence package details:")
+        for item in result.evidence_packages:
+            identity = item.package_id or "unknown-package"
+            lines.append(f"  - {item.path}: {item.state} ({identity})")
+            for task in item.selected_tasks:
+                lines.append(f"    selected: {task}")
             for error in item.errors:
                 lines.append(f"    {error}")
     if result.pending_review:

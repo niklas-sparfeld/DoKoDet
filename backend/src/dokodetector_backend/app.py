@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
+from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
@@ -36,12 +37,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = create_database_engine(app_settings.database_url)
     app.state.repository = EvidenceRepository(app.state.engine)
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
-    app.state.persister = EvidencePackagePersister(app.state.repository, app.state.storage)
+    app.state.evidence_package_storage = EvidencePackageStorage(
+        app_settings.evidence_package_intake_root
+    )
+    app.state.persister = EvidencePackagePersister(
+        app.state.repository,
+        app.state.evidence_package_storage,
+    )
     app.state.repository_bundle_repository = RepositoryBundleRepository(app.state.engine)
     app.state.repository_bundle_storage = RepositoryBundleStorage(
         app_settings.repository_intake_root
     )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
+    app.state.repository.rebuild_from_intake(app.state.evidence_package_storage)
     app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)
     register_error_handlers(app)
     app.include_router(router)
@@ -61,7 +69,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             with app.state.engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
-            _check_evidence_directory(app.state.storage.evidence_root)
+            _check_evidence_directory(app.state.storage.table_observations_root)
+            _check_evidence_directory(app.state.evidence_package_storage.root)
             _check_evidence_directory(app.state.repository_bundle_storage.root)
             _check_evidence_directory(app.state.pending_video_storage.root)
         except (OSError, SQLAlchemyError):

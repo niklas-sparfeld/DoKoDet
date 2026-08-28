@@ -96,9 +96,15 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
             return (frame.partName, .data(packagedFrame.jpegData))
         })
         let videoSource = package.videoSnippet.map { FrameSource.data($0.mp4Data) }
+        let repositoryMetadata = try package.repositoryMetadata
+            ?? EvidencePackageRepositoryMetadata.standard(for: package.manifest)
+        let repositoryMetadataData = try repositoryMetadata.encodedDocuments()
         return try prepare(
             manifest: package.manifest,
             manifestData: try package.manifest.encoded(),
+            packageRecordData: repositoryMetadataData.packageRecord,
+            taskEnrollmentData: repositoryMetadataData.taskEnrollment,
+            lineageData: repositoryMetadataData.lineage,
             frameSources: sources,
             videoSource: videoSource,
             baseURL: baseURL
@@ -122,6 +128,31 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
         do {
             let manifestData = try Data(contentsOf: manifestURL)
             let manifest = try JSONDecoder().decode(EvidencePackageManifest.self, from: manifestData)
+            let packageRecordData = try Data(
+                contentsOf: packageURL.appendingPathComponent("package-record.json")
+            )
+            let taskEnrollmentData = try Data(
+                contentsOf: packageURL.appendingPathComponent("initial-task-enrollment.json")
+            )
+            let lineageData = try Data(
+                contentsOf: packageURL.appendingPathComponent("lineage.json")
+            )
+            let decoder = JSONDecoder()
+            let metadata = try EvidencePackageRepositoryMetadata(
+                packageRecord: try decoder.decode(
+                    RepositoryEvidencePackageRecord.self,
+                    from: packageRecordData
+                ),
+                taskEnrollment: try decoder.decode(
+                    RepositoryTaskEnrollmentDocument.self,
+                    from: taskEnrollmentData
+                ),
+                lineage: try decoder.decode(
+                    RepositoryEvidencePackageLineage.self,
+                    from: lineageData
+                )
+            )
+            _ = metadata
             let frameSources = Dictionary(
                 uniqueKeysWithValues: manifest.frames.map { frame in
                     (
@@ -150,6 +181,9 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
             return try prepare(
                 manifest: manifest,
                 manifestData: manifestData,
+                packageRecordData: packageRecordData,
+                taskEnrollmentData: taskEnrollmentData,
+                lineageData: lineageData,
                 frameSources: frameSources,
                 videoSource: videoSource,
                 baseURL: baseURL
@@ -174,6 +208,9 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
     private func prepare(
         manifest: EvidencePackageManifest,
         manifestData: Data,
+        packageRecordData: Data,
+        taskEnrollmentData: Data,
+        lineageData: Data,
         frameSources: [String: FrameSource],
         videoSource: FrameSource?,
         baseURL: URL
@@ -204,6 +241,9 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
             try writeBody(
                 manifest: manifest,
                 manifestData: manifestData,
+                packageRecordData: packageRecordData,
+                taskEnrollmentData: taskEnrollmentData,
+                lineageData: lineageData,
                 frameSources: frameSources,
                 videoSource: videoSource,
                 to: bodyURL
@@ -239,6 +279,9 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
     private func writeBody(
         manifest: EvidencePackageManifest,
         manifestData: Data,
+        packageRecordData: Data,
+        taskEnrollmentData: Data,
+        lineageData: Data,
         frameSources: [String: FrameSource],
         videoSource: FrameSource?,
         to bodyURL: URL
@@ -261,6 +304,25 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
         try writeASCII("Content-Type: application/json\r\n\r\n", to: handle)
         try handle.write(contentsOf: manifestData)
         try writeASCII("\r\n", to: handle)
+
+        try writeJSONPart(
+            name: "package_record",
+            filename: "package-record.json",
+            data: packageRecordData,
+            to: handle
+        )
+        try writeJSONPart(
+            name: "task_enrollment",
+            filename: "initial-task-enrollment.json",
+            data: taskEnrollmentData,
+            to: handle
+        )
+        try writeJSONPart(
+            name: "lineage",
+            filename: "lineage.json",
+            data: lineageData,
+            to: handle
+        )
 
         for frameManifest in manifest.frames {
             guard let frameSource = frameSources[frameManifest.partName] else {
@@ -300,6 +362,22 @@ public struct EvidenceMultipartRequestBuilder: Sendable {
         try writeASCII("--\(boundary)--\r\n", to: handle)
         try handle.close()
         closed = true
+    }
+
+    private func writeJSONPart(
+        name: String,
+        filename: String,
+        data: Data,
+        to handle: FileHandle
+    ) throws {
+        try writeASCII("--\(boundary)\r\n", to: handle)
+        try writeASCII(
+            "Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n",
+            to: handle
+        )
+        try writeASCII("Content-Type: application/json\r\n\r\n", to: handle)
+        try handle.write(contentsOf: data)
+        try writeASCII("\r\n", to: handle)
     }
 
     private func writeFrame(

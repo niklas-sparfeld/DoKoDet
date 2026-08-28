@@ -748,6 +748,16 @@ public struct RepositoryEvidencePackageLineage: Codable, Equatable, Sendable {
         case parentVideoID = "parent_video_id"
         case sessionID = "session_id"
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(packageID, forKey: .packageID)
+        try container.encode(parentSourceAssetID, forKey: .parentSourceAssetID)
+        try container.encode(parentRecordingID, forKey: .parentRecordingID)
+        try container.encode(parentVideoID, forKey: .parentVideoID)
+        try container.encode(sessionID, forKey: .sessionID)
+    }
 }
 
 public struct RepositoryEvidencePackageFiles: Codable, Equatable, Sendable {

@@ -14,6 +14,7 @@ from .cardevent_campaign import (
     run_card_event_campaign,
 )
 from .config import ConfigurationError, RepositoryConfig
+from .evidence_adoption import EvidencePackageAdoptionError, adopt_runtime_evidence_package
 from .holdout import SystemHoldoutError, seal_system_holdout_group
 from .impact import (
     RETIREMENT_STATES,
@@ -85,6 +86,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     complete.add_argument("--format", choices=("human", "json"), default="human")
     complete.add_argument("--json", action="store_true", help="Alias for --format json.")
+    adopt = data_commands.add_parser(
+        "adopt-evidence",
+        aliases=("adopt-evidence-package",),
+        help="Adopt one legacy runtime evidence package into repository intake.",
+        description="Adopt one legacy runtime evidence package into repository intake.",
+    )
+    _add_path_options(adopt, suppress_defaults=True)
+    adopt.add_argument(
+        "--runtime-root",
+        type=Path,
+        required=True,
+        help="Legacy backend runtime root containing evidence/<package-id>.",
+    )
+    adopt.add_argument("--package-id", required=True)
+    adopt.add_argument(
+        "--metadata",
+        type=Path,
+        required=True,
+        help="JSON metadata object or directory with the package record, enrollment, and lineage.",
+    )
+    adopt.add_argument("--format", choices=("human", "json"), default="human")
+    adopt.add_argument("--json", action="store_true", help="Alias for --format json.")
     review = data_commands.add_parser(
         "review",
         help="Create or resume one task review run.",
@@ -281,6 +304,13 @@ def _add_path_options(parser: argparse.ArgumentParser, *, suppress_defaults: boo
         help="Override the raw pending-video root.",
     )
     parser.add_argument(
+        "--evidence-package-root",
+        dest="evidence_package_root",
+        type=Path,
+        default=default,
+        help="Override the canonical accepted evidence-package root.",
+    )
+    parser.add_argument(
         "--artifacts-root",
         dest="artifacts_root",
         type=Path,
@@ -330,6 +360,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
                 pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
@@ -374,6 +405,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
                 pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
@@ -412,6 +444,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
                 pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
@@ -448,6 +481,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
                 pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
@@ -480,11 +514,43 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"source SHA-256: {result.source_sha256}\n"
             )
         return 0
+    if args.command == "data" and args.data_command in {
+        "adopt-evidence",
+        "adopt-evidence-package",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            result = adopt_runtime_evidence_package(
+                args.runtime_root,
+                args.package_id,
+                args.metadata,
+                evidence_package_root=config.evidence_package_intake_root,
+            )
+        except (ConfigurationError, OSError, EvidencePackageAdoptionError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(
+                "Evidence package adopted\n"
+                f"package: {result['package_id']}\n"
+                f"state: {result['state']}\n"
+                f"path: {result['path']}\n"
+            )
+        return 0
     if args.command == "data" and args.data_command == "review":
         try:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
                 pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
@@ -504,6 +570,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 task=args.task,
                 reviewer=args.reviewer,
                 bundle_root=config.bundle_root,
+                evidence_package_root=config.evidence_package_intake_root,
                 artifacts_root=config.derived_artifact_root,
                 run_id=args.run_id,
                 decision_provider=provider,
@@ -642,12 +709,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = RepositoryConfig.from_environment(
             args.repository_root,
             intake_root=args.intake_root,
+            evidence_package_root=args.evidence_package_root,
             pending_video_root=args.pending_video_root,
             artifacts_root=args.artifacts_root,
         )
         result = inspect_repository(
             config.repository_root,
             bundle_root=config.bundle_root,
+            evidence_package_root=config.evidence_package_intake_root,
             pending_video_root=config.pending_root,
             artifacts_root=config.derived_artifact_root,
         )

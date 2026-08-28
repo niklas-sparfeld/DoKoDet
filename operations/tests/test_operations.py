@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from doko_operations.cardevent import CARD_EVENT_TASK, CardEventNetReviewAdapter
 from doko_operations.cli import main
+from doko_operations.evidence_package import load_evidence_package
 from doko_operations.holdout import (
     SystemHoldoutError,
     load_system_holdout_registry,
@@ -45,6 +47,9 @@ from doko_operations.table_evidence import (
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXTURE_ROOT = REPOSITORY_ROOT / "fixtures" / "repository-bundle" / "v1"
 PENDING_FIXTURE_ROOT = REPOSITORY_ROOT / "fixtures" / "repository-intake" / "v1" / "pending-video"
+EVIDENCE_PACKAGE_FIXTURE_ROOT = (
+    REPOSITORY_ROOT / "fixtures" / "repository-intake" / "v1" / "evidence-package-complete"
+)
 
 
 def _table_review_input(bundle: Path) -> ReviewInput:
@@ -85,6 +90,57 @@ def test_status_reports_independent_task_enrollment_and_pending_work() -> None:
         ("source-table-evidence-only", "table_evidence_analysis"),
     }
     assert {(item.source_asset_id, item.task) for item in result.pending_review} == selected
+
+
+def test_status_reports_canonical_evidence_package() -> None:
+    result = inspect_repository(
+        REPOSITORY_ROOT,
+        bundle_root=FIXTURE_ROOT,
+        evidence_package_root=EVIDENCE_PACKAGE_FIXTURE_ROOT,
+    )
+
+    assert result.valid
+    assert len(result.evidence_packages) == 1
+    assert result.evidence_packages[0].state == "complete"
+    assert result.evidence_packages[0].selected_tasks == (
+        CARD_EVENT_TASK,
+        TABLE_EVIDENCE_TASK,
+    )
+
+
+def test_task_adapters_discover_selected_canonical_evidence_package() -> None:
+    input_item = _table_review_input(FIXTURE_ROOT / "both")
+    table_adapter = TableEvidenceReviewAdapter(evidence_roots=[EVIDENCE_PACKAGE_FIXTURE_ROOT])
+    table_items = table_adapter.discover(TABLE_EVIDENCE_TASK, [input_item])
+    cardevent_items = CardEventNetReviewAdapter(
+        evidence_roots=[EVIDENCE_PACKAGE_FIXTURE_ROOT]
+    ).discover(CARD_EVENT_TASK, [input_item])
+
+    assert table_items
+    assert any(
+        candidate.selection.get("evidence_package_id") == "550e8400-e29b-41d4-a716-446655440000"
+        for candidate in table_adapter._candidates([input_item])
+    )
+    assert any(item.kind == "evidence_package" for item in cardevent_items)
+
+
+def test_review_uses_configured_evidence_package_root_for_default_adapters(tmp_path: Path) -> None:
+    evidence_root = tmp_path / "accepted-evidence"
+    shutil.copytree(EVIDENCE_PACKAGE_FIXTURE_ROOT, evidence_root / "package")
+
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=CARD_EVENT_TASK,
+        reviewer="configured-evidence-root-reviewer",
+        bundle_root=FIXTURE_ROOT / "both",
+        evidence_package_root=evidence_root,
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: None,
+    )
+
+    assert result.state == "in_progress"
+    state = load_review_run(result.run_path)
+    assert any(item["kind"] == "evidence_package" for item in state["tasks"][0]["items"])
 
 
 def test_status_reports_ready_and_invalid_pending_videos(tmp_path: Path) -> None:
@@ -136,6 +192,66 @@ def test_complete_video_command_publishes_a_recording_bundle(tmp_path: Path, cap
     output = json.loads(capsys.readouterr().out)
     assert output["recording_id"] == "recording-upload-001"
     assert (tmp_path / "data" / "intake" / "recordings" / "recording-upload-001").is_dir()
+
+
+def test_adopt_evidence_command_publishes_canonical_bundle_without_deleting_runtime(
+    tmp_path: Path, capsys
+) -> None:
+    package_id = "550e8400-e29b-41d4-a716-446655440000"
+    legacy = tmp_path / "runtime" / "evidence" / package_id
+    shutil.copytree(EVIDENCE_PACKAGE_FIXTURE_ROOT / "frames", legacy / "frames")
+    shutil.copytree(EVIDENCE_PACKAGE_FIXTURE_ROOT / "video", legacy / "video")
+    shutil.copy(EVIDENCE_PACKAGE_FIXTURE_ROOT / "evidence-manifest.json", legacy / "manifest.json")
+    destination = tmp_path / "data" / "intake" / "evidence-packages"
+
+    assert (
+        main(
+            [
+                "data",
+                "adopt-evidence",
+                "--repository-root",
+                str(tmp_path),
+                "--runtime-root",
+                str(tmp_path / "runtime"),
+                "--package-id",
+                package_id,
+                "--metadata",
+                str(EVIDENCE_PACKAGE_FIXTURE_ROOT),
+                "--evidence-package-root",
+                str(destination),
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["state"] == "adopted"
+    assert load_evidence_package(destination / package_id).bundle.package_id == package_id
+    assert legacy.is_dir()
+
+    assert (
+        main(
+            [
+                "data",
+                "adopt-evidence-package",
+                "--repository-root",
+                str(tmp_path),
+                "--runtime-root",
+                str(tmp_path / "runtime"),
+                "--package-id",
+                package_id,
+                "--metadata",
+                str(EVIDENCE_PACKAGE_FIXTURE_ROOT),
+                "--evidence-package-root",
+                str(destination),
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["state"] == "already_adopted"
 
 
 def test_incomplete_bundle_is_reported_without_writing_the_bundle(tmp_path: Path) -> None:

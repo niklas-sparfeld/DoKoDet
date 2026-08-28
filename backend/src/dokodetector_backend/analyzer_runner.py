@@ -13,6 +13,7 @@ from table_evidence_analyzer import (
 )
 
 from dokodetector_backend.analyzer_adapter import load_analyzer_evidence
+from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.persistence import TableObservationPersister
 from dokodetector_backend.repository import (
     EvidenceRepository,
@@ -34,8 +35,10 @@ class AnalyzerRunner:
     def __init__(
         self,
         repository: EvidenceRepository,
-        storage: EvidenceStorage,
+        storage: EvidencePackageStorage,
         analyzer: TableEvidenceAnalyzer,
+        *,
+        observation_storage: EvidenceStorage,
     ) -> None:
         self.repository = repository
         self.storage = storage
@@ -44,7 +47,7 @@ class AnalyzerRunner:
         self.analyzer_version = getattr(analyzer, "version", None)
         if not self.analyzer_name or not self.analyzer_version:
             raise ValueError("analyzer name and version are required for observation selection.")
-        self.observation_persister = TableObservationPersister(repository, storage)
+        self.observation_persister = TableObservationPersister(repository, observation_storage)
 
     def run_once(self, package_id: UUID | str | None = None) -> StoredTableObservation | None:
         """Run the analyzer for one explicit or pending package."""

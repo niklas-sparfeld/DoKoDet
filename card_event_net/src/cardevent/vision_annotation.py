@@ -524,9 +524,21 @@ def save_vision_annotation(
 
 def _manifest_path(path: Path) -> Path:
     if path.is_dir():
-        path = path / "manifest.json"
+        if (path / "evidence-manifest.json").is_file():
+            path = path / "evidence-manifest.json"
+        else:
+            path = path / "manifest.json"
     if not path.is_file():
         raise VisionAnnotationError(f"Evidence manifest does not exist: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise VisionAnnotationError(f"Could not read evidence manifest {path}: {exc}") from exc
+    if isinstance(payload, Mapping) and payload.get("schema_version") == "evidence-package-bundle/v1":
+        canonical = path.parent / "evidence-manifest.json"
+        if not canonical.is_file():
+            raise VisionAnnotationError(f"Canonical evidence manifest does not exist: {canonical}")
+        path = canonical
     return path
 
 

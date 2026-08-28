@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import APIErrorDetail, ContractError, _log_rejection
+from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.repository import EvidenceRepository, upgrade_database
-from dokodetector_backend.storage import EvidenceStorage
 
 BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
@@ -45,7 +45,64 @@ def multipart_parts(
     frame_sources: dict[str, bytes],
     video_source: bytes | None = None,
 ) -> dict[str, tuple]:
-    parts = {"manifest": ("untrusted-name.json", manifest_bytes, "application/json")}
+    payload = json.loads(manifest_bytes)
+    package_id = payload["package_id"]
+    source_asset_id = f"source-evidence-{package_id}"
+    package_record = {
+        "schema_version": "evidence-package-record/v1",
+        "package_id": package_id,
+        "source_asset_id": source_asset_id,
+        "source_permission": "project_use",
+        "allowed_uses": ["evaluation"],
+        "retention_state": "active",
+        "notes": "test",
+    }
+    task_enrollment = {
+        "schema_version": "task-enrollment/v1",
+        "source_asset_id": source_asset_id,
+        "enrollments": [
+            {
+                "task_enrollment_id": f"enrollment-{package_id}-cardevent",
+                "task": "cardevent_event_detection",
+                "disposition": "selected",
+                "lifecycle_state": "intake",
+                "operator": "test",
+                "created_at_utc": "2026-01-01T00:00:00Z",
+                "reason": None,
+            },
+            {
+                "task_enrollment_id": f"enrollment-{package_id}-table",
+                "task": "table_evidence_analysis",
+                "disposition": "selected",
+                "lifecycle_state": "intake",
+                "operator": "test",
+                "created_at_utc": "2026-01-01T00:00:00Z",
+                "reason": None,
+            },
+        ],
+    }
+    lineage = {
+        "schema_version": "evidence-package-lineage/v1",
+        "package_id": package_id,
+        "parent_source_asset_id": None,
+        "parent_recording_id": None,
+        "parent_video_id": None,
+        "session_id": payload["session"]["session_id"],
+    }
+
+    def encode(value: dict[str, object]) -> bytes:
+        return json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+
+    parts = {
+        "manifest": ("untrusted-name.json", manifest_bytes, "application/json"),
+        "package_record": ("package-record.json", encode(package_record), "application/json"),
+        "task_enrollment": (
+            "initial-task-enrollment.json",
+            encode(task_enrollment),
+            "application/json",
+        ),
+        "lineage": ("lineage.json", encode(lineage), "application/json"),
+    }
     parts.update(
         {
             part_name: ("untrusted-name.jpg", frame_bytes, "image/jpeg")
@@ -53,23 +110,23 @@ def multipart_parts(
         }
     )
     if video_source is not None:
-        payload = json.loads(manifest_bytes)
         part_name = payload["video_snippet"]["part_name"]
         parts[part_name] = ("untrusted-name.mp4", video_source, "video/mp4")
     return parts
 
 
 @pytest.fixture()
-def backend(tmp_path) -> tuple[TestClient, EvidenceRepository, EvidenceStorage]:
+def backend(tmp_path) -> tuple[TestClient, EvidenceRepository, EvidencePackageStorage]:
     database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
     settings = Settings(
         _env_file=None,
         database_url=database_url,
         evidence_root=tmp_path / "runtime",
+        evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
     )
     app = create_app(settings)
-    return TestClient(app), app.state.repository, app.state.storage
+    return TestClient(app), app.state.repository, app.state.evidence_package_storage
 
 
 def test_upload_accepts_complete_incomplete_and_metadata_only_packages(backend) -> None:
@@ -124,7 +181,7 @@ def test_get_returns_stored_package_metadata(backend) -> None:
     assert body["event"] == payload["event"]
     assert body["manifest"]["video_snippet"] == payload["video_snippet"]
     assert body["video_snippet"] == payload["video_snippet"]
-    assert body["video_relative_path"] == (f"evidence/{package_id}/video/snippet_00.mp4")
+    assert body["video_relative_path"] == ("video/snippet_00.mp4")
     assert body["manifest_sha256"] == hashlib.sha256(manifest_bytes).hexdigest()
     assert body["manifest"] == payload
     assert body["missing_frame_targets_ms"] == []
@@ -133,9 +190,9 @@ def test_get_returns_stored_package_metadata(backend) -> None:
     ]
     assert body["frames"][0]["byte_length"] == len(frame_sources["frame_00"])
     assert body["frames"][0]["sha256"] == hashlib.sha256(frame_sources["frame_00"]).hexdigest()
-    assert body["frames"][0]["relative_path"] == (f"evidence/{package_id}/frames/frame_00.jpg")
-    assert (storage.root / body["frames"][0]["relative_path"]).is_file()
-    video_path = storage.root / "evidence" / package_id / "video" / "snippet_00.mp4"
+    assert body["frames"][0]["relative_path"] == "frames/frame_00.jpg"
+    assert (storage.package_path(package_id) / body["frames"][0]["relative_path"]).is_file()
+    video_path = storage.root / package_id / "video" / "snippet_00.mp4"
     assert video_source is not None
     assert video_path.read_bytes() == video_source
 
@@ -220,7 +277,7 @@ def test_identical_replay_returns_original_receipt_without_duplicate_files(backe
     assert second.json()["received_at"] == first.json()["received_at"]
     assert repository.get_package(payload["package_id"]) is not None
     assert storage.package_path(payload["package_id"]).is_dir()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []
 
 
 def test_identical_complete_replay_is_idempotent_and_keeps_original_video(backend) -> None:
@@ -237,8 +294,10 @@ def test_identical_complete_replay_is_idempotent_and_keeps_original_video(backen
     assert second.json()["created"] is False
     assert repository.get_package(payload["package_id"]) is not None
     assert video_source is not None
-    assert storage.video_path(payload["package_id"], "snippet_00").read_bytes() == video_source
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert (
+        storage.package_path(payload["package_id"]) / "video/snippet_00.mp4"
+    ).read_bytes() == video_source
+    assert list(storage.root.glob(".upload-*")) == []
 
 
 def test_conflicting_package_id_returns_409_without_overwriting_files(backend) -> None:
@@ -259,7 +318,7 @@ def test_conflicting_package_id_returns_409_without_overwriting_files(backend) -
         repository.get_package(UUID(payload["package_id"])).manifest_json == manifest_bytes.decode()
     )
     assert (
-        storage.package_path(payload["package_id"]) / "manifest.json"
+        storage.package_path(payload["package_id"]) / "evidence-manifest.json"
     ).read_bytes() == manifest_bytes
 
 
@@ -284,7 +343,7 @@ def test_conflicting_logical_event_returns_409_without_storing_second_package(ba
     assert second.json()["error"]["code"] == "logical_event_conflict"
     assert repository.get_package(second_payload["package_id"]) is None
     assert not storage.package_path(second_payload["package_id"]).exists()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []
 
 
 def test_package_size_limit_rejects_the_complete_package(backend) -> None:
@@ -303,7 +362,7 @@ def test_package_size_limit_rejects_the_complete_package(backend) -> None:
     assert response.json()["error"]["code"] == "package_too_large"
     assert repository.get_package(payload["package_id"]) is None
     assert not storage.package_path(payload["package_id"]).exists()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []
 
 
 def test_video_size_limit_rejects_the_complete_package(backend) -> None:
@@ -321,7 +380,7 @@ def test_video_size_limit_rejects_the_complete_package(backend) -> None:
     assert response.json()["error"]["code"] == "video_too_large"
     assert repository.get_package(payload["package_id"]) is None
     assert not storage.package_path(payload["package_id"]).exists()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []
 
 
 def test_unsupported_video_part_media_type_is_rejected(backend) -> None:
@@ -377,7 +436,7 @@ def test_truncated_video_is_rejected_after_hash_matches(backend) -> None:
     assert response.json()["error"]["code"] == "invalid_video"
     assert repository.get_package(payload["package_id"]) is None
     assert not storage.package_path(payload["package_id"]).exists()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []
 
 
 @pytest.mark.parametrize(
@@ -408,7 +467,7 @@ def test_video_probe_rejects_material_manifest_disagreements(backend, field, val
     assert response.json()["error"]["code"] == "invalid_video"
     assert repository.get_package(payload["package_id"]) is None
     assert not storage.package_path(payload["package_id"]).exists()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []
 
 
 def test_video_files_are_removed_when_database_insert_conflicts(backend) -> None:
@@ -432,7 +491,7 @@ def test_video_files_are_removed_when_database_insert_conflicts(backend) -> None
     assert second.json()["error"]["code"] == "logical_event_conflict"
     assert repository.get_package(second_payload["package_id"]) is None
     assert not storage.package_path(second_payload["package_id"]).exists()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []
 
 
 def test_missing_video_read_returns_not_found_for_frame_only_package(backend) -> None:
@@ -482,4 +541,4 @@ def test_rejected_parts_are_not_stored(backend, rejection: str) -> None:
     assert response.json()["error"]["code"] == expected_code
     assert repository.get_package(package_id) is None
     assert not storage.package_path(package_id).exists()
-    assert list(storage.evidence_root.glob(".upload-*")) == []
+    assert list(storage.root.glob(".upload-*")) == []

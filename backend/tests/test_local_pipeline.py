@@ -36,9 +36,13 @@ class LocalBackend:
         self.port = _unused_port()
         self.environment = {
             **os.environ,
+            "REPOSITORY_ROOT": os.fspath(tmp_path),
             "DATABASE_URL": self.database_url,
             "EVIDENCE_ROOT": os.fspath(self.evidence_root),
-            "REPOSITORY_INTAKE_ROOT": os.fspath(tmp_path / "repository-intake"),
+            "REPOSITORY_INTAKE_ROOT": os.fspath(tmp_path / "repository-intake" / "recordings"),
+            "EVIDENCE_PACKAGE_INTAKE_ROOT": os.fspath(
+                tmp_path / "repository-intake" / "evidence-packages"
+            ),
             "SERVER_HOST": "127.0.0.1",
             "SERVER_PORT": str(self.port),
             "BONJOUR_ENABLED": "false",

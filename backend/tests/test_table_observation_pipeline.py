@@ -17,6 +17,7 @@ from dokodetector_backend.analyzer_adapter import EvidenceIntegrityError
 from dokodetector_backend.analyzer_runner import AnalyzerRunner, AnalyzerRunnerError
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
+from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.persistence import TableObservationPersister
 from dokodetector_backend.repository import (
     EvidenceRepository,
@@ -24,7 +25,6 @@ from dokodetector_backend.repository import (
     TableObservationConflict,
     upgrade_database,
 )
-from dokodetector_backend.storage import EvidenceStorage
 
 BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
@@ -46,8 +46,73 @@ def load_upload_fixture(name: str) -> tuple[bytes, dict[str, bytes], dict[str, o
 
 
 def multipart_parts(manifest_bytes: bytes, frame_sources: dict[str, bytes]) -> dict[str, tuple]:
+    payload = json.loads(manifest_bytes)
+    source_asset_id = f"source-evidence-{payload['package_id']}"
+
+    def encode(value: dict[str, object]) -> bytes:
+        return json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+
     parts = {
         "manifest": ("manifest.json", manifest_bytes, "application/json"),
+        "package_record": (
+            "package-record.json",
+            encode(
+                {
+                    "schema_version": "evidence-package-record/v1",
+                    "package_id": payload["package_id"],
+                    "source_asset_id": source_asset_id,
+                    "source_permission": "project_use",
+                    "allowed_uses": ["evaluation"],
+                    "retention_state": "active",
+                    "notes": "test",
+                }
+            ),
+            "application/json",
+        ),
+        "task_enrollment": (
+            "initial-task-enrollment.json",
+            encode(
+                {
+                    "schema_version": "task-enrollment/v1",
+                    "source_asset_id": source_asset_id,
+                    "enrollments": [
+                        {
+                            "task_enrollment_id": f"enrollment-{payload['package_id']}-cardevent",
+                            "task": "cardevent_event_detection",
+                            "disposition": "selected",
+                            "lifecycle_state": "intake",
+                            "operator": "test",
+                            "created_at_utc": "2026-01-01T00:00:00Z",
+                            "reason": None,
+                        },
+                        {
+                            "task_enrollment_id": f"enrollment-{payload['package_id']}-table",
+                            "task": "table_evidence_analysis",
+                            "disposition": "selected",
+                            "lifecycle_state": "intake",
+                            "operator": "test",
+                            "created_at_utc": "2026-01-01T00:00:00Z",
+                            "reason": None,
+                        },
+                    ],
+                }
+            ),
+            "application/json",
+        ),
+        "lineage": (
+            "lineage.json",
+            encode(
+                {
+                    "schema_version": "evidence-package-lineage/v1",
+                    "package_id": payload["package_id"],
+                    "parent_source_asset_id": None,
+                    "parent_recording_id": None,
+                    "parent_video_id": None,
+                    "session_id": payload["session"]["session_id"],
+                }
+            ),
+            "application/json",
+        ),
         **{
             part_name: (f"{part_name}.jpg", frame_bytes, "image/jpeg")
             for part_name, frame_bytes in frame_sources.items()
@@ -61,16 +126,17 @@ def multipart_parts(manifest_bytes: bytes, frame_sources: dict[str, bytes]) -> d
 
 
 @pytest.fixture()
-def backend(tmp_path) -> tuple[TestClient, EvidenceRepository, EvidenceStorage]:
+def backend(tmp_path) -> tuple[TestClient, EvidenceRepository, EvidencePackageStorage]:
     database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
     settings = Settings(
         _env_file=None,
         database_url=database_url,
         evidence_root=tmp_path / "runtime",
+        evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
     )
     app = create_app(settings)
-    return TestClient(app), app.state.repository, app.state.storage
+    return TestClient(app), app.state.repository, app.state.evidence_package_storage
 
 
 def upload_fixture(client: TestClient, name: str) -> tuple[dict[str, object], bytes]:
@@ -101,7 +167,7 @@ class FixtureAnalyzer:
 def test_runner_verifies_evidence_before_analyzer_invocation(backend) -> None:
     client, repository, storage = backend
     payload, _ = upload_fixture(client, "example-complete")
-    frame_path = storage.root / "evidence" / payload["package_id"] / "frames" / "frame_00.jpg"
+    frame_path = storage.package_path(payload["package_id"]) / "frames" / "frame_00.jpg"
     frame_path.write_bytes(b"corrupted evidence")
     called = False
 
@@ -115,7 +181,9 @@ def test_runner_verifies_evidence_before_analyzer_invocation(backend) -> None:
             return FixtureAnalyzer().analyze(evidence)
 
     with pytest.raises(EvidenceIntegrityError):
-        AnalyzerRunner(repository, storage, Analyzer()).run_once(PACKAGE_ID)
+        AnalyzerRunner(
+            repository, storage, Analyzer(), observation_storage=client.app.state.storage
+        ).run_once(PACKAGE_ID)
 
     assert called is False
     assert repository.list_table_observations(PACKAGE_ID) == ()
@@ -124,14 +192,18 @@ def test_runner_verifies_evidence_before_analyzer_invocation(backend) -> None:
 def test_observation_crosses_analyzer_backend_reconstruction_boundary(backend) -> None:
     client, repository, storage = backend
     payload, _ = upload_fixture(client, "example-complete")
-    stored = AnalyzerRunner(repository, storage, FixtureAnalyzer()).run_once(payload["package_id"])
+    stored = AnalyzerRunner(
+        repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+    ).run_once(payload["package_id"])
 
     assert stored is not None
     persisted = parse_observation_bytes(stored.observation_json.encode())
     assert persisted.schema_version == "table-observation/v1"
     assert persisted.source.package_id == str(PACKAGE_ID)
     assert persisted.session.event_sequence == 1
-    assert (storage.root / stored.relative_path).read_bytes() == stored.observation_json.encode()
+    assert (
+        client.app.state.storage.root / stored.relative_path
+    ).read_bytes() == stored.observation_json.encode()
 
     sys.path.insert(0, str(Path(__file__).parents[2] / "game_engine" / "src"))
     from game_engine.contract import canonical_json_bytes as reconstruction_json
@@ -150,7 +222,9 @@ def test_runner_is_idempotent_and_processes_pending_packages(backend) -> None:
     client, repository, storage = backend
     first_payload, _ = upload_fixture(client, "example-complete")
     second_payload, _ = upload_fixture(client, "example-incomplete")
-    runner = AnalyzerRunner(repository, storage, FixtureAnalyzer())
+    runner = AnalyzerRunner(
+        repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+    )
 
     first = runner.run_once(first_payload["package_id"])
     replay = runner.run_once(first_payload["package_id"])
@@ -175,7 +249,9 @@ def test_analyzer_failure_does_not_create_observation_and_can_retry(backend) -> 
                 raise RuntimeError("analyzer failed")
             return FixtureAnalyzer().analyze(evidence)
 
-    runner = AnalyzerRunner(repository, storage, FlakyAnalyzer())
+    runner = AnalyzerRunner(
+        repository, storage, FlakyAnalyzer(), observation_storage=client.app.state.storage
+    )
     with pytest.raises(AnalyzerRunnerError):
         runner.run_once(payload["package_id"])
     assert repository.list_table_observations(PACKAGE_ID) == ()
@@ -187,7 +263,9 @@ def test_analyzer_failure_does_not_create_observation_and_can_retry(backend) -> 
 def test_observation_conflict_keeps_original_bytes(backend) -> None:
     client, repository, storage = backend
     payload, _ = upload_fixture(client, "example-complete")
-    stored = AnalyzerRunner(repository, storage, FixtureAnalyzer()).run_once(payload["package_id"])
+    stored = AnalyzerRunner(
+        repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+    ).run_once(payload["package_id"])
     assert stored is not None
     original_bytes = stored.observation_json.encode()
     changed = TableObservation.model_validate(
@@ -195,14 +273,14 @@ def test_observation_conflict_keeps_original_bytes(backend) -> None:
     )
     # Same package and analyzer identity must remain idempotent, even with a different ID.
     with pytest.raises(TableObservationConflict):
-        TableObservationPersister(repository, storage).persist(
+        TableObservationPersister(repository, client.app.state.storage).persist(
             changed, canonical_json_bytes(changed)
         )
     assert (
         repository.get_table_observation(stored.observation_id).observation_json.encode()
         == original_bytes
     )
-    assert (storage.root / stored.relative_path).read_bytes() == original_bytes
+    assert (client.app.state.storage.root / stored.relative_path).read_bytes() == original_bytes
 
 
 def test_database_failure_removes_staged_observation_directory(backend, monkeypatch) -> None:
@@ -214,8 +292,10 @@ def test_database_failure_removes_staged_observation_directory(backend, monkeypa
 
     monkeypatch.setattr(repository, "insert_table_observation", fail)
     with pytest.raises(RepositoryError):
-        AnalyzerRunner(repository, storage, FixtureAnalyzer()).run_once(payload["package_id"])
+        AnalyzerRunner(
+            repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+        ).run_once(payload["package_id"])
 
     assert repository.list_table_observations(PACKAGE_ID) == ()
-    assert storage.table_observations_root.exists()
-    assert list(storage.table_observations_root.iterdir()) == []
+    assert client.app.state.storage.table_observations_root.exists()
+    assert list(client.app.state.storage.table_observations_root.iterdir()) == []
