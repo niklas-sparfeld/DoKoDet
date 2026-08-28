@@ -397,8 +397,9 @@ Acceptance:
   validation, and checked-in app-bundle staging.
 - Added atomic registry replacement, former-champion retention metadata, promotion receipts with
   registry digests, and compensation that restores the app bundle and registry after failure.
-- Added fixture tests for success, poor test results, export failure, CLI promotion, and idempotent
-  retry. Operations checks pass: 16 model-improvement tests and Ruff checks.
+- Added fixture tests for success, poor test results, export failure, CLI promotion, confirmation,
+  rollback, and idempotent retry. Operations checks pass: 19 model-improvement tests and Ruff
+  checks.
 
 ### M3 — TableEvidenceAnalyzer campaign adapter
 
