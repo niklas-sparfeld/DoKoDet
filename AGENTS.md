@@ -37,14 +37,19 @@ worktree:
 
 1. Commit the work on the secondary worktree's detached `HEAD`.
 2. Use `git worktree list` to find the worktree that has `main` checked out.
-3. Confirm that the main worktree is clean and that no other Git operation is in progress there.
+3. Confirm that the main worktree has no tracked changes and that no other Git operation is in
+   progress there. Unrelated untracked files may remain if the incoming commits cannot overwrite,
+   move, or otherwise affect them.
 4. Run `git -C <main-worktree-path> cherry-pick <commit>` for each completed commit, in order.
-5. Confirm that `main` contains the commits and that the main worktree is clean.
+5. Confirm that `main` contains the commits, has no tracked changes, and still contains any allowed
+   untracked files.
 
 Do not use push and pull to move commits between local worktrees. Do not update the `main` ref
 directly. Only one agent can integrate into the main worktree at a time. If the main worktree has
-uncommitted changes, an in-progress Git operation, or a cherry-pick conflict, stop and report the
-problem. Do not modify or discard the user's work.
+tracked changes, related or overlapping untracked files, an in-progress Git operation, or a
+cherry-pick conflict, stop and report the problem. Before you integrate with untracked files
+present, list their paths and compare them with every path changed by the incoming commits. Do not
+modify, add, move, or discard the user's untracked files.
 
 ## Planning workflow
 
