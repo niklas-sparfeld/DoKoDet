@@ -1,11 +1,16 @@
 from pathlib import Path
 
+from alembic.config import Config
 from fastapi.testclient import TestClient
+from sqlalchemy import inspect
 from starlette.requests import ClientDisconnect
 
+from alembic import command
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import ContractError
+
+BACKEND_ROOT = Path(__file__).parents[1]
 
 
 def test_health_routes_report_process_status() -> None:
@@ -37,6 +42,25 @@ def test_factory_exposes_injected_settings() -> None:
     app = create_app(settings)
 
     assert app.state.settings is settings
+
+
+def test_factory_applies_pending_repository_bundle_migration(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_ROOT / "alembic"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "0003_training_recordings")
+
+    settings = Settings(
+        _env_file=None,
+        database_url=database_url,
+        evidence_root=tmp_path / "evidence",
+        repository_intake_root=tmp_path / "intake",
+    )
+
+    app = create_app(settings)
+
+    assert inspect(app.state.engine).has_table("repository_bundles")
 
 
 def test_contract_errors_use_a_stable_response_shape() -> None:

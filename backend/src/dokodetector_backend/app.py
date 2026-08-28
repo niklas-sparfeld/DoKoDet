@@ -2,17 +2,22 @@
 
 import os
 import tempfile
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.persistence import EvidencePackagePersister
-from dokodetector_backend.repository import EvidenceRepository, create_database_engine
+from dokodetector_backend.repository import (
+    EvidenceRepository,
+    create_database_engine,
+    upgrade_database,
+)
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
 from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
@@ -23,6 +28,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """Create the local backend application."""
 
     app_settings = settings or Settings()
+    upgrade_database(Path(__file__).resolve().parents[2], app_settings.database_url)
     app = FastAPI(title="DokoDetector Backend", version="0.1.0")
     app.state.settings = app_settings
     app.state.engine = create_database_engine(app_settings.database_url)
@@ -33,10 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.repository_bundle_storage = RepositoryBundleStorage(
         app_settings.repository_intake_root
     )
-    if inspect(app.state.engine).has_table("repository_bundles"):
-        app.state.repository_bundle_repository.rebuild_from_intake(
-            app.state.repository_bundle_storage
-        )
+    app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)
     register_error_handlers(app)
     app.include_router(router)
     app.include_router(repository_bundle_router)
