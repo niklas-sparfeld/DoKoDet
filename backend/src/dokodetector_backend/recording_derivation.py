@@ -16,14 +16,15 @@ REVIEW_QUEUE_FORMAT = "cardevent-review-queue-v1"
 
 
 def build_dataset_record_yaml(manifest: RecordingManifest) -> bytes:
-    """Build an intentionally incomplete, operator-facing dataset record."""
+    """Build an operator-facing dataset record from the complete profile metadata."""
 
+    metadata = manifest.collection_metadata
     values: dict[str, Any] = {
         "video_id": manifest.video_id,
         "file_name": manifest.video.name,
-        "content_type": None,
+        "content_type": metadata.content_type,
         "session_id": manifest.session_id,
-        "game_id": None,
+        "game_id": metadata.game_id,
         "recording_date": manifest.started_at_utc,
         "device": manifest.client.device_model,
         "camera": manifest.camera.position,
@@ -31,22 +32,19 @@ def build_dataset_record_yaml(manifest: RecordingManifest) -> bytes:
         "frame_rate": manifest.video.frame_rate,
         "duration_s": manifest.duration_s,
         "orientation": manifest.camera.orientation,
-        "camera_view": None,
-        "camera_motion": None,
-        "camera_framing": None,
-        "table_setup": None,
-        "lighting": [],
-        "background": None,
-        "card_deck": None,
-        "scenario_tags": [],
-        "known_limitations": [],
+        "camera_view": metadata.camera_view,
+        "camera_motion": metadata.camera_motion,
+        "camera_framing": metadata.camera_framing,
+        "table_setup": metadata.table_setup,
+        "lighting": metadata.lighting,
+        "background": metadata.background,
+        "card_deck": metadata.card_deck,
+        "scenario_tags": metadata.scenario_tags,
+        "known_limitations": metadata.known_limitations,
         "source": manifest.source,
         "annotation_version": None,
         "source_permission": manifest.source_permission,
-        "notes": (
-            "Draft generated from cardevent-recording/v1. Complete the video-wide annotation "
-            "metadata before dataset import."
-        ),
+        "notes": metadata.notes,
     }
     lines = [f"schema_version: {DATASET_MANIFEST_SCHEMA_VERSION}", "videos:", "  -"]
     for key, value in values.items():

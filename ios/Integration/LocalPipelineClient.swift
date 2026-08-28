@@ -126,6 +126,22 @@ struct LocalPipelineClient {
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString
         )
         let startedAtUTC = Date(timeIntervalSince1970: 1_756_000_000)
+        var collectionProfile = CollectionProfile.newDraft(
+            profileID: "profile-saved-video-simulator-v1",
+            sessionID: sessionID
+        )
+        collectionProfile.name = "Saved video simulator"
+        collectionProfile.operatorName = "saved-video-simulator"
+        collectionProfile.activity = .stagedActivity
+        collectionProfile.tableSetup = "saved-video-simulator-table"
+        collectionProfile.cardDeck = "doko-48-v1"
+        collectionProfile.cameraView = "overhead"
+        collectionProfile.cameraMotion = "fixed"
+        collectionProfile.cameraFraming = "table_fills_frame"
+        collectionProfile.lighting = ["room_light"]
+        collectionProfile.background = "saved video fixture"
+        collectionProfile.scenarioTags = ["normal_card_play"]
+        collectionProfile.sourcePermission = "training_and_evaluation"
         let recordingConfiguration = TrainingRecordingConfiguration(
             outputRoot: trainingRoot.appendingPathComponent("queued", isDirectory: true),
             recordingID: recordingID,
@@ -136,6 +152,11 @@ struct LocalPipelineClient {
             decoder: decoder,
             client: client,
             sourcePermission: "training_and_evaluation",
+            collectionMetadata: try collectionProfile.recordingMetadata(),
+            taskEnrollments: try collectionProfile.makeTaskEnrollments(
+                recordingID: recordingID,
+                createdAtUTC: utcString(from: startedAtUTC)
+            ),
             frameRate: frameRate
         )
         let recordingCoordinator = TrainingRecordingCoordinator(configuration: recordingConfiguration)
@@ -709,6 +730,13 @@ private enum OptionsError: LocalizedError {
             return "Invalid command-line value: \(value)."
         }
     }
+}
+
+private func utcString(from date: Date) -> String {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    return formatter.string(from: date)
 }
 
 private enum SavedVideoSimulationError: LocalizedError {

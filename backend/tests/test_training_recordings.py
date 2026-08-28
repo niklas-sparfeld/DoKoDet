@@ -106,6 +106,10 @@ def test_derived_artifacts_regenerate_byte_for_byte() -> None:
     predictions_sha256 = hashlib.sha256(predictions_bytes).hexdigest()
 
     assert build_dataset_record_yaml(manifest) == build_dataset_record_yaml(manifest)
+    dataset_record = build_dataset_record_yaml(manifest).decode("utf-8")
+    assert 'content_type: "staged_scenario"' in dataset_record
+    assert 'camera_view: "overhead"' in dataset_record
+    assert 'table_setup: "table-fixture-v1"' in dataset_record
     assert build_candidate_review_queue(
         manifest,
         predictions,

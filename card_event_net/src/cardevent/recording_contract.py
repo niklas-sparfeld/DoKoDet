@@ -22,6 +22,17 @@ _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _FILENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SOURCE_PERMISSIONS = {"training_only", "training_and_evaluation", "project_use", "unrestricted"}
+_TASKS = {"cardevent_event_detection", "table_evidence_analysis"}
+_DISPOSITIONS = {"selected", "deferred", "excluded"}
+_LIFECYCLE_STATES = {
+    "intake",
+    "annotating",
+    "review_required",
+    "reviewed",
+    "eligible",
+    "excluded",
+    "retired",
+}
 
 
 def _object(value: Any, context: str) -> Mapping[str, Any]:
@@ -289,6 +300,173 @@ class CaptureMetrics:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordingCollectionMetadata:
+    collection_profile_id: str
+    operator: str
+    content_type: str
+    game_id: str | None
+    table_setup: str
+    card_deck: str
+    camera_view: str
+    camera_motion: str
+    camera_framing: str
+    lighting: list[str]
+    background: str
+    scenario_tags: list[str]
+    known_limitations: list[str]
+    source_permission: str
+    notes: str | None
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any]) -> "RecordingCollectionMetadata":
+        fields = {
+            "collection_profile_id",
+            "operator",
+            "content_type",
+            "game_id",
+            "table_setup",
+            "card_deck",
+            "camera_view",
+            "camera_motion",
+            "camera_framing",
+            "lighting",
+            "background",
+            "scenario_tags",
+            "known_limitations",
+            "source_permission",
+            "notes",
+        }
+        _closed(data, fields, "manifest.collection_metadata")
+        content_type = _string(data, "content_type", "manifest.collection_metadata")
+        if content_type not in {"real_game", "staged_scenario"}:
+            raise RecordingContractError(
+                "manifest.collection_metadata.content_type is not supported."
+            )
+        game_id = data["game_id"]
+        if game_id is not None:
+            if not isinstance(game_id, str) or _IDENTIFIER.fullmatch(game_id) is None:
+                raise RecordingContractError(
+                    "manifest.collection_metadata.game_id must be a safe identifier."
+                )
+            if content_type == "staged_scenario":
+                raise RecordingContractError("staged_scenario metadata must not include game_id.")
+        elif content_type == "real_game":
+            raise RecordingContractError("real_game metadata requires game_id.")
+        lighting = data["lighting"]
+        scenario_tags = data["scenario_tags"]
+        known_limitations = data["known_limitations"]
+        if (
+            not isinstance(lighting, list)
+            or not lighting
+            or any(not isinstance(value, str) or not value for value in lighting)
+        ):
+            raise RecordingContractError(
+                "manifest.collection_metadata.lighting must be non-empty strings."
+            )
+        if (
+            not isinstance(scenario_tags, list)
+            or not scenario_tags
+            or any(not isinstance(value, str) or not value for value in scenario_tags)
+        ):
+            raise RecordingContractError(
+                "manifest.collection_metadata.scenario_tags must be non-empty strings."
+            )
+        if not isinstance(known_limitations, list) or any(
+            not isinstance(value, str) or not value for value in known_limitations
+        ):
+            raise RecordingContractError(
+                "manifest.collection_metadata.known_limitations must be strings."
+            )
+        source_permission = _string(data, "source_permission", "manifest.collection_metadata")
+        if source_permission not in _SOURCE_PERMISSIONS:
+            raise RecordingContractError(
+                "manifest.collection_metadata.source_permission is not supported."
+            )
+        notes = data["notes"]
+        if notes is not None and (not isinstance(notes, str) or not notes):
+            raise RecordingContractError(
+                "manifest.collection_metadata.notes must be a non-empty string or null."
+            )
+        return cls(
+            collection_profile_id=_identifier(
+                data, "collection_profile_id", "manifest.collection_metadata"
+            ),
+            operator=_string(data, "operator", "manifest.collection_metadata"),
+            content_type=content_type,
+            game_id=game_id,
+            table_setup=_string(data, "table_setup", "manifest.collection_metadata"),
+            card_deck=_string(data, "card_deck", "manifest.collection_metadata"),
+            camera_view=_string(data, "camera_view", "manifest.collection_metadata"),
+            camera_motion=_string(data, "camera_motion", "manifest.collection_metadata"),
+            camera_framing=_string(data, "camera_framing", "manifest.collection_metadata"),
+            lighting=lighting,
+            background=_string(data, "background", "manifest.collection_metadata"),
+            scenario_tags=scenario_tags,
+            known_limitations=known_limitations,
+            source_permission=source_permission,
+            notes=notes,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RecordingTaskEnrollment:
+    task_enrollment_id: str
+    task: str
+    disposition: str
+    lifecycle_state: str
+    operator: str
+    created_at_utc: str
+    reason: str | None
+
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, Any], index: int) -> "RecordingTaskEnrollment":
+        context = f"manifest.task_enrollments[{index}]"
+        fields = {
+            "task_enrollment_id",
+            "task",
+            "disposition",
+            "lifecycle_state",
+            "operator",
+            "created_at_utc",
+            "reason",
+        }
+        _closed(data, fields, context)
+        task = _string(data, "task", context)
+        disposition = _string(data, "disposition", context)
+        lifecycle_state = _string(data, "lifecycle_state", context)
+        if (
+            task not in _TASKS
+            or disposition not in _DISPOSITIONS
+            or lifecycle_state not in _LIFECYCLE_STATES
+        ):
+            raise RecordingContractError(
+                f"{context} contains an unsupported task, disposition, or state."
+            )
+        reason = data["reason"]
+        if reason is not None and (not isinstance(reason, str) or not reason):
+            raise RecordingContractError(f"{context}.reason must be a non-empty string or null.")
+        _utc_timestamp(data, "created_at_utc", context)
+        if disposition == "excluded":
+            if lifecycle_state != "excluded" or reason is None:
+                raise RecordingContractError(
+                    f"{context} excluded enrollment needs state and reason."
+                )
+        elif lifecycle_state != "intake" or reason is not None:
+            raise RecordingContractError(
+                f"{context} selected or deferred enrollment must start in intake."
+            )
+        return cls(
+            task_enrollment_id=_identifier(data, "task_enrollment_id", context),
+            task=task,
+            disposition=disposition,
+            lifecycle_state=lifecycle_state,
+            operator=_string(data, "operator", context),
+            created_at_utc=_string(data, "created_at_utc", context),
+            reason=reason,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RecordingManifest:
     recording_id: str
     session_id: str
@@ -304,6 +482,8 @@ class RecordingManifest:
     client: RecordingClient
     capture_metrics: CaptureMetrics
     source_permission: str
+    collection_metadata: RecordingCollectionMetadata
+    task_enrollments: list[RecordingTaskEnrollment]
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "RecordingManifest":
@@ -325,6 +505,8 @@ class RecordingManifest:
             "capture_metrics",
             "source",
             "source_permission",
+            "collection_metadata",
+            "task_enrollments",
         }
         _closed(data, fields, "recording manifest")
         if data["schema_version"] != RECORDING_SCHEMA_VERSION:
@@ -353,6 +535,34 @@ class RecordingManifest:
         )
         if video.name != f"{video_id}.mov" or predictions.name != f"{video_id}.json":
             raise RecordingContractError("recording file names must be derived from video_id.")
+        collection_metadata = RecordingCollectionMetadata.from_mapping(
+            _object(data["collection_metadata"], "manifest.collection_metadata")
+        )
+        raw_enrollments = data["task_enrollments"]
+        if not isinstance(raw_enrollments, list) or len(raw_enrollments) != 2:
+            raise RecordingContractError("manifest.task_enrollments must contain two entries.")
+        task_enrollments = [
+            RecordingTaskEnrollment.from_mapping(_object(value, "task enrollment"), index)
+            for index, value in enumerate(raw_enrollments)
+        ]
+        if {enrollment.task for enrollment in task_enrollments} != _TASKS:
+            raise RecordingContractError(
+                "manifest.task_enrollments must contain one entry for each data task."
+            )
+        if len({enrollment.task_enrollment_id for enrollment in task_enrollments}) != len(
+            task_enrollments
+        ):
+            raise RecordingContractError("manifest.task_enrollments identifiers must be unique.")
+        if collection_metadata.source_permission != permission:
+            raise RecordingContractError(
+                "collection metadata permission must match source_permission."
+            )
+        if any(
+            enrollment.operator != collection_metadata.operator for enrollment in task_enrollments
+        ):
+            raise RecordingContractError(
+                "task enrollment operators must match collection metadata."
+            )
         return cls(
             recording_id=_identifier(data, "recording_id", "recording manifest"),
             session_id=_identifier(data, "session_id", "recording manifest"),
@@ -374,6 +584,8 @@ class RecordingManifest:
                 _object(data["capture_metrics"], "manifest.capture_metrics")
             ),
             source_permission=permission,
+            collection_metadata=collection_metadata,
+            task_enrollments=task_enrollments,
         )
 
 
@@ -550,7 +762,9 @@ __all__ = [
     "RECORDING_SCHEMA_VERSION",
     "DevicePredictions",
     "RecordingContractError",
+    "RecordingCollectionMetadata",
     "RecordingManifest",
+    "RecordingTaskEnrollment",
     "parse_device_predictions_bytes",
     "parse_recording_manifest_bytes",
     "validate_recording_documents",

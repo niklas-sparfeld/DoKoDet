@@ -45,6 +45,11 @@ def test_shared_fixture_is_accepted_and_its_counts_are_checked() -> None:
     assert manifest.video.name == predictions.source_video
     assert len(predictions.probabilities) == manifest.predictions.sample_count
     assert len(predictions.event_proposals) == manifest.predictions.event_proposal_count
+    assert manifest.collection_metadata.table_setup == "table-fixture-v1"
+    assert {enrollment.task for enrollment in manifest.task_enrollments} == {
+        "cardevent_event_detection",
+        "table_evidence_analysis",
+    }
 
 
 def test_schema_documents_and_versioned_documents_are_present() -> None:

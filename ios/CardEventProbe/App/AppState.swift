@@ -84,6 +84,10 @@ final class AppState: ObservableObject {
     @Published private(set) var trainingRecordingStartedAt: Date?
     @Published private(set) var trainingRecordingElapsedSeconds = 0.0
     @Published private(set) var trainingRecordingEstimatedSizeBytes: Int64 = 0
+    @Published private(set) var collectionProfiles: [CollectionProfile] = []
+    @Published private(set) var selectedCollectionProfileID: String?
+    @Published private(set) var collectionProfileError: String?
+    @Published private(set) var activeCollectionProfile: CollectionProfile?
 
     let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
@@ -111,6 +115,7 @@ final class AppState: ObservableObject {
     private var liveCoordinator: FrameInferenceCoordinator?
     private var liveVideoCapture: LiveEvidenceVideoSnippetProvider?
     private var trainingRecordingCoordinator: TrainingRecordingCoordinator?
+    private var activeTaskEnrollments: [RepositoryTaskEnrollment] = []
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
     private var activeDiagnosticSource: DiagnosticSource?
@@ -119,6 +124,7 @@ final class AppState: ObservableObject {
     private let trainingRecordingMaximumDurationSeconds: Double
     private let trainingRecordingMaximumSizeBytes: Int64
     private let trainingRecordingMinimumFreeBytes: Int64
+    private let collectionProfileStore: CollectionProfileStore
 
     var actualPredictionRateHz: Double? {
         guard let first = scoreHistory.first,
@@ -144,11 +150,21 @@ final class AppState: ObservableObject {
     init(
         maximumTrainingRecordingDurationSeconds: Double = 15.0 * 60.0,
         maximumTrainingRecordingSizeBytes: Int64 = 2 * 1024 * 1024 * 1024,
-        minimumTrainingRecordingFreeBytes: Int64 = 256 * 1024 * 1024
+        minimumTrainingRecordingFreeBytes: Int64 = 256 * 1024 * 1024,
+        collectionProfileDirectory: URL? = nil
     ) {
         trainingRecordingMaximumDurationSeconds = maximumTrainingRecordingDurationSeconds
         trainingRecordingMaximumSizeBytes = maximumTrainingRecordingSizeBytes
         trainingRecordingMinimumFreeBytes = minimumTrainingRecordingFreeBytes
+        collectionProfileStore = CollectionProfileStore(
+            directory: collectionProfileDirectory ?? Self.collectionProfileRoot()
+        )
+        do {
+            collectionProfiles = try collectionProfileStore.loadAll()
+            selectedCollectionProfileID = collectionProfiles.first?.profileID
+        } catch {
+            collectionProfileError = error.localizedDescription
+        }
         recoverEvidencePackages()
         recoverTrainingRecordings()
         loadModel()
@@ -274,12 +290,45 @@ final class AppState: ObservableObject {
         }
     }
 
-    func startTrainingRecording(sourcePermission: String) {
-        guard sourcePermission == "training_and_evaluation" || sourcePermission == "training_only" else {
-            trainingRecordingError = "Choose an explicit source permission before recording."
+    var selectedCollectionProfile: CollectionProfile? {
+        guard let selectedCollectionProfileID else { return nil }
+        return collectionProfiles.first { $0.profileID == selectedCollectionProfileID }
+    }
+
+    func newCollectionProfileDraft() -> CollectionProfile {
+        CollectionProfile.newDraft()
+    }
+
+    func selectCollectionProfile(_ profileID: String?) {
+        guard profileID == nil || collectionProfiles.contains(where: { $0.profileID == profileID }) else {
             return
         }
-        guard canStartTrainingRecording, let sessionID = captureSessionID else {
+        selectedCollectionProfileID = profileID
+        collectionProfileError = nil
+    }
+
+    func saveCollectionProfile(_ profile: CollectionProfile) {
+        do {
+            try collectionProfileStore.save(profile)
+            collectionProfiles = try collectionProfileStore.loadAll()
+            selectedCollectionProfileID = profile.profileID
+            collectionProfileError = nil
+        } catch {
+            collectionProfileError = error.localizedDescription
+        }
+    }
+
+    func startTrainingRecording(
+        profile: CollectionProfile,
+        overrides: [CollectionTaskDispositionOverride] = []
+    ) {
+        guard profile.isComplete else {
+            trainingRecordingError = profile.validationIssues
+                .map { "\($0.field.rawValue): \($0.message)" }
+                .joined(separator: " ")
+            return
+        }
+        guard canStartTrainingRecording, captureSessionID != nil else {
             trainingRecordingError = "Start a live capture with a ready backend before recording."
             return
         }
@@ -289,6 +338,20 @@ final class AppState: ObservableObject {
         }
 
         let recordingID = UUID().uuidString.lowercased()
+        let startedAt = Date()
+        let collectionMetadata: TrainingRecordingCollectionMetadata
+        let taskEnrollments: [RepositoryTaskEnrollment]
+        do {
+            collectionMetadata = try profile.recordingMetadata()
+            taskEnrollments = try profile.makeTaskEnrollments(
+                recordingID: recordingID,
+                createdAtUTC: Self.utcTimestamp(startedAt),
+                overrides: overrides
+            )
+        } catch {
+            trainingRecordingError = error.localizedDescription
+            return
+        }
         let model = TrainingRecordingModel(
             name: "CardEventNet",
             version: modelRunner?.contract.metadata["version"] ?? "transition-v2-run-20260825-235429",
@@ -314,12 +377,15 @@ final class AppState: ObservableObject {
         let configuration = TrainingRecordingConfiguration(
             outputRoot: trainingRecordingStore.directoryURL(for: .queued),
             recordingID: recordingID,
-            sessionID: sessionID.uuidString.lowercased(),
+            sessionID: profile.sessionID,
             videoID: "video-\(recordingID)",
+            startedAtUTC: startedAt,
             model: model,
             decoder: decoder,
             client: client,
-            sourcePermission: sourcePermission,
+            sourcePermission: profile.sourcePermission,
+            collectionMetadata: collectionMetadata,
+            taskEnrollments: taskEnrollments,
             frameRate: 30.0,
             maximumDurationSeconds: trainingRecordingMaximumDurationSeconds,
             maximumSizeBytes: trainingRecordingMaximumSizeBytes
@@ -333,6 +399,8 @@ final class AppState: ObservableObject {
         }
 
         trainingRecordingCoordinator = coordinator
+        activeCollectionProfile = profile
+        activeTaskEnrollments = taskEnrollments
         liveCoordinator?.attachTrainingRecording(coordinator)
         latestTrainingRecordingID = recordingID
         trainingRecordingStartedAt = Date()
@@ -345,17 +413,32 @@ final class AppState: ObservableObject {
         evidencePackageCoordinator?.setRecordingID(recordingID)
     }
 
-    func stopTrainingRecording() {
+    func stopTrainingRecording(scenarioTags: [String]? = nil, notes: String? = nil) {
         guard trainingRecordingState == .recording else { return }
         guard let coordinator = trainingRecordingCoordinator else {
             trainingRecordingState = .failed("The training recording coordinator is not available.")
             trainingRecordingError = "The training recording coordinator is not available."
             return
         }
+        guard let activeCollectionProfile else {
+            trainingRecordingError = "The active collection profile is not available."
+            return
+        }
+        let collectionMetadata: TrainingRecordingCollectionMetadata
+        do {
+            collectionMetadata = try activeCollectionProfile.recordingMetadata(
+                scenarioTags: scenarioTags,
+                notes: notes
+            )
+        } catch {
+            trainingRecordingError = error.localizedDescription
+            return
+        }
         liveCoordinator?.attachTrainingRecording(nil)
         trainingRecordingState = .finalizing
         trainingRecordingMetrics = coordinator.metrics
-        coordinator.stop { [weak self, weak coordinator] result in
+        coordinator.stop(
+            completion: { [weak self, weak coordinator] result in
             Task { @MainActor in
                 guard let self else { return }
                 self.trainingRecordingMetrics = coordinator?.metrics ?? self.trainingRecordingMetrics
@@ -363,6 +446,8 @@ final class AppState: ObservableObject {
                 self.trainingRecordingElapsedSeconds = 0.0
                 self.trainingRecordingEstimatedSizeBytes = coordinator?.estimatedStoredSizeBytes ?? 0
                 self.trainingRecordingCoordinator = nil
+                self.activeCollectionProfile = nil
+                self.activeTaskEnrollments = []
                 switch result {
                 case let .success(url):
                     self.trainingRecordingError = nil
@@ -376,7 +461,10 @@ final class AppState: ObservableObject {
                     self.trainingRecordingQueueDiagnostics = self.trainingRecordingStore.diagnostics
                 }
             }
-        }
+            },
+            collectionMetadata: collectionMetadata,
+            taskEnrollments: activeTaskEnrollments
+        )
     }
 
     func updateTrainingRecordingClock(now: Date = Date()) {
@@ -986,5 +1074,21 @@ final class AppState: ObservableObject {
         return baseURL
             .appendingPathComponent("DokoDetector", isDirectory: true)
             .appendingPathComponent("training-recordings", isDirectory: true)
+    }
+
+    private static func collectionProfileRoot() -> URL {
+        let baseURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return baseURL
+            .appendingPathComponent("DokoDetector", isDirectory: true)
+            .appendingPathComponent("collection-profiles", isDirectory: true)
+    }
+
+    private static func utcTimestamp(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
     }
 }

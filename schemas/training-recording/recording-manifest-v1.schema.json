@@ -21,7 +21,9 @@
     "client",
     "capture_metrics",
     "source",
-    "source_permission"
+    "source_permission",
+    "collection_metadata",
+    "task_enrollments"
   ],
   "properties": {
     "schema_version": {"const": "cardevent-recording/v1"},
@@ -42,6 +44,13 @@
     "source": {"const": "self_recorded"},
     "source_permission": {
       "enum": ["training_only", "training_and_evaluation", "project_use", "unrestricted"]
+    },
+    "collection_metadata": {"$ref": "#/$defs/collection_metadata"},
+    "task_enrollments": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/task_enrollment"}
     }
   },
   "$defs": {
@@ -163,6 +172,81 @@
         "written_frame_count": {"type": "integer", "minimum": 0},
         "dropped_frame_count": {"type": "integer", "minimum": 0}
       }
+    },
+    "collection_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection_profile_id", "operator", "content_type", "game_id", "table_setup",
+        "card_deck", "camera_view", "camera_motion", "camera_framing", "lighting",
+        "background", "scenario_tags", "known_limitations", "source_permission", "notes"
+      ],
+      "properties": {
+        "collection_profile_id": {"$ref": "#/$defs/identifier"},
+        "operator": {"type": "string", "minLength": 1},
+        "content_type": {"enum": ["real_game", "staged_scenario"]},
+        "game_id": {"anyOf": [{"$ref": "#/$defs/identifier"}, {"type": "null"}]},
+        "table_setup": {"type": "string", "minLength": 1},
+        "card_deck": {"type": "string", "minLength": 1},
+        "camera_view": {"type": "string", "minLength": 1},
+        "camera_motion": {"type": "string", "minLength": 1},
+        "camera_framing": {"type": "string", "minLength": 1},
+        "lighting": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "background": {"type": "string", "minLength": 1},
+        "scenario_tags": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "known_limitations": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "source_permission": {
+          "enum": ["training_only", "training_and_evaluation", "project_use", "unrestricted"]
+        },
+        "notes": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"content_type": {"const": "real_game"}}},
+          "then": {"properties": {"game_id": {"$ref": "#/$defs/identifier"}}}
+        },
+        {
+          "if": {"properties": {"content_type": {"const": "staged_scenario"}}},
+          "then": {"properties": {"game_id": {"type": "null"}}}
+        }
+      ]
+    },
+    "task_enrollment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_enrollment_id", "task", "disposition", "lifecycle_state", "operator",
+        "created_at_utc", "reason"
+      ],
+      "properties": {
+        "task_enrollment_id": {"$ref": "#/$defs/identifier"},
+        "task": {"enum": ["cardevent_event_detection", "table_evidence_analysis"]},
+        "disposition": {"enum": ["selected", "deferred", "excluded"]},
+        "lifecycle_state": {"enum": ["intake", "excluded"]},
+        "operator": {"type": "string", "minLength": 1},
+        "created_at_utc": {"$ref": "#/$defs/utc_timestamp"},
+        "reason": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"disposition": {"const": "excluded"}}},
+          "then": {
+            "properties": {
+              "lifecycle_state": {"const": "excluded"},
+              "reason": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"disposition": {"enum": ["selected", "deferred"]}}},
+          "then": {
+            "properties": {
+              "lifecycle_state": {"const": "intake"},
+              "reason": {"type": "null"}
+            }
+          }
+        }
+      ]
     }
   }
 }

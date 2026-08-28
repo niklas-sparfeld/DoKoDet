@@ -369,6 +369,8 @@ public struct TrainingRecordingManifest: Codable, Equatable, Sendable {
     public let captureMetrics: TrainingRecordingCaptureMetrics
     public let source: String
     public let sourcePermission: String
+    public let collectionMetadata: TrainingRecordingCollectionMetadata
+    public let taskEnrollments: [RepositoryTaskEnrollment]
 
     public init(
         schemaVersion: String = trainingRecordingSchemaVersion,
@@ -387,7 +389,9 @@ public struct TrainingRecordingManifest: Codable, Equatable, Sendable {
         client: TrainingRecordingClient,
         captureMetrics: TrainingRecordingCaptureMetrics,
         source: String = "self_recorded",
-        sourcePermission: String
+        sourcePermission: String,
+        collectionMetadata: TrainingRecordingCollectionMetadata,
+        taskEnrollments: [RepositoryTaskEnrollment]
     ) throws {
         self.schemaVersion = schemaVersion
         self.recordingID = recordingID
@@ -406,6 +410,8 @@ public struct TrainingRecordingManifest: Codable, Equatable, Sendable {
         self.captureMetrics = captureMetrics
         self.source = source
         self.sourcePermission = sourcePermission
+        self.collectionMetadata = collectionMetadata
+        self.taskEnrollments = taskEnrollments
         try validate()
     }
 
@@ -429,6 +435,11 @@ public struct TrainingRecordingManifest: Codable, Equatable, Sendable {
         captureMetrics = try container.decode(TrainingRecordingCaptureMetrics.self, forKey: .captureMetrics)
         source = try container.decode(String.self, forKey: .source)
         sourcePermission = try container.decode(String.self, forKey: .sourcePermission)
+        collectionMetadata = try container.decode(
+            TrainingRecordingCollectionMetadata.self,
+            forKey: .collectionMetadata
+        )
+        taskEnrollments = try container.decode([RepositoryTaskEnrollment].self, forKey: .taskEnrollments)
         try validate()
     }
 
@@ -450,6 +461,8 @@ public struct TrainingRecordingManifest: Codable, Equatable, Sendable {
         case captureMetrics = "capture_metrics"
         case source
         case sourcePermission = "source_permission"
+        case collectionMetadata = "collection_metadata"
+        case taskEnrollments = "task_enrollments"
     }
 
     private func validate() throws {
@@ -472,6 +485,14 @@ public struct TrainingRecordingManifest: Codable, Equatable, Sendable {
         guard video.name == "\(videoID).mov", predictions.name == "\(videoID).json",
               video.width == camera.sourceWidth, video.height == camera.sourceHeight else {
             throw contractError("recording file names and camera dimensions must match video_id")
+        }
+        guard collectionMetadata.sourcePermission == sourcePermission,
+              collectionMetadata.validationIssues.isEmpty,
+              taskEnrollments.count == RepositoryDataTask.allCases.count,
+              Set(taskEnrollments.map(\.task)) == Set(RepositoryDataTask.allCases),
+              Set(taskEnrollments.map(\.taskEnrollmentID)).count == taskEnrollments.count,
+              taskEnrollments.allSatisfy({ $0.operator == collectionMetadata.operatorName }) else {
+            throw contractError("recording collection metadata or task enrollments are incomplete")
         }
     }
 

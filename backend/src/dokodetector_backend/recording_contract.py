@@ -107,6 +107,58 @@ class CaptureMetrics(RecordingContractModel):
         return self
 
 
+class RecordingCollectionMetadata(RecordingContractModel):
+    collection_profile_id: Identifier
+    operator: str = Field(min_length=1)
+    content_type: Literal["real_game", "staged_scenario"]
+    game_id: Identifier | None
+    table_setup: str = Field(min_length=1)
+    card_deck: str = Field(min_length=1)
+    camera_view: str = Field(min_length=1)
+    camera_motion: str = Field(min_length=1)
+    camera_framing: str = Field(min_length=1)
+    lighting: list[str] = Field(min_length=1)
+    background: str = Field(min_length=1)
+    scenario_tags: list[str] = Field(min_length=1)
+    known_limitations: list[str]
+    source_permission: Literal[
+        "training_only", "training_and_evaluation", "project_use", "unrestricted"
+    ]
+    notes: str | None
+
+    @model_validator(mode="after")
+    def game_id_matches_content_type(self) -> RecordingCollectionMetadata:
+        if self.content_type == "real_game" and self.game_id is None:
+            raise ValueError("real_game metadata requires game_id.")
+        if self.content_type == "staged_scenario" and self.game_id is not None:
+            raise ValueError("staged_scenario metadata must not include game_id.")
+        return self
+
+
+class RecordingTaskEnrollment(RecordingContractModel):
+    task_enrollment_id: Identifier
+    task: Literal["cardevent_event_detection", "table_evidence_analysis"]
+    disposition: Literal["selected", "deferred", "excluded"]
+    lifecycle_state: Literal[
+        "intake", "annotating", "review_required", "reviewed", "eligible", "excluded", "retired"
+    ]
+    operator: str = Field(min_length=1)
+    created_at_utc: str
+    reason: str | None
+
+    @model_validator(mode="after")
+    def disposition_matches_state(self) -> RecordingTaskEnrollment:
+        _parse_utc(self.created_at_utc, "created_at_utc")
+        if self.disposition == "excluded":
+            if self.lifecycle_state != "excluded" or not self.reason:
+                raise ValueError("excluded enrollment requires state and reason.")
+        elif self.lifecycle_state != "intake" or self.reason is not None:
+            raise ValueError(
+                "selected or deferred enrollment must start in intake without a reason."
+            )
+        return self
+
+
 class RecordingManifest(RecordingContractModel):
     schema_version: Literal["cardevent-recording/v1"]
     recording_id: Identifier
@@ -127,6 +179,8 @@ class RecordingManifest(RecordingContractModel):
     source_permission: Literal[
         "training_only", "training_and_evaluation", "project_use", "unrestricted"
     ]
+    collection_metadata: RecordingCollectionMetadata
+    task_enrollments: list[RecordingTaskEnrollment] = Field(min_length=2, max_length=2)
 
     @field_validator("duration_s")
     @classmethod
@@ -146,6 +200,20 @@ class RecordingManifest(RecordingContractModel):
             raise ValueError("video.name must be derived from video_id.")
         if self.predictions.name != f"{self.video_id}.json":
             raise ValueError("predictions.name must be derived from video_id.")
+        if self.collection_metadata.source_permission != self.source_permission:
+            raise ValueError("collection metadata permission must match source_permission.")
+        tasks = [enrollment.task for enrollment in self.task_enrollments]
+        if set(tasks) != {"cardevent_event_detection", "table_evidence_analysis"}:
+            raise ValueError("task_enrollments must contain one entry for each data task.")
+        if len({enrollment.task_enrollment_id for enrollment in self.task_enrollments}) != len(
+            tasks
+        ):
+            raise ValueError("task_enrollments must have unique identifiers.")
+        if any(
+            enrollment.operator != self.collection_metadata.operator
+            for enrollment in self.task_enrollments
+        ):
+            raise ValueError("task enrollment operators must match collection metadata.")
         return self
 
 
@@ -396,7 +464,9 @@ __all__ = [
     "DerivedArtifactResponse",
     "RecordingDerivedArtifactsResponse",
     "RecordingContractModel",
+    "RecordingCollectionMetadata",
     "RecordingManifest",
+    "RecordingTaskEnrollment",
     "StoredRecordingFileResponse",
     "TrainingRecordingMetadataResponse",
     "TrainingRecordingUploadResponse",

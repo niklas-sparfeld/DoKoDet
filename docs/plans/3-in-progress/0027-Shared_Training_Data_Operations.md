@@ -415,6 +415,26 @@ Acceptance:
 - Swift core tests cover profile persistence and overrides, and app UI-state tests cover Record-tab
   navigation and validation.
 
+#### M2 progress evidence — 2026-08-28
+
+- Added the dedicated Record tab and profile editor. Profiles persist as strict JSON under
+  application support, reuse the saved session defaults, and expose field-level validation before
+  recording finalization.
+- Added profile task dispositions and per-recording overrides. Finalized manifests carry complete
+  collection metadata and one enrollment for each data task. Overrides do not mutate the saved
+  profile.
+- Kept bounded capture, live inference, evidence capture, durable queue, retry, and three-part
+  training-recording upload behavior in place. Backend and CardEventNet readers now validate and
+  derive the complete operator metadata.
+- Verification: `swift test --package-path ios --filter
+  'CollectionProfileTests|RecordTabStateTests|TrainingRecordingCoordinatorTests|TrainingRecordingUploadQueueTests'
+  -Xswiftc -swift-version -Xswiftc 5` (13 passed); iOS simulator app build with
+  `xcodebuild ... CODE_SIGNING_ALLOWED=NO` succeeds; backend recording tests (17 passed),
+  CardEventNet recording tests (16 passed), and operations tests (6 passed) pass; modified
+  Python files pass Ruff check and format checks; the training-recording schema and fixture pass
+  JSON parsing.
+- Required saved-video app exercise and interactive review exercise remain manual follow-up.
+
 ### M3 — Atomic repository bundle storage
 
 1. Add the configured repository intake root.

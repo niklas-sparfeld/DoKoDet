@@ -57,6 +57,12 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
         XCTAssertEqual(validated.1.probabilities[1].timeS, 0.1, accuracy: 0.000001)
         XCTAssertEqual(validated.1.eventProposals.count, 1)
         XCTAssertEqual(validated.1.eventProposals[0].emittedAtS, 0.1, accuracy: 0.000001)
+        XCTAssertEqual(validated.0.collectionMetadata.collectionProfileID, "profile-fixture-001")
+        XCTAssertEqual(validated.0.collectionMetadata.tableSetup, "table-fixture-v1")
+        XCTAssertEqual(
+            validated.0.taskEnrollments.map(\.task),
+            RepositoryDataTask.allCases
+        )
         XCTAssertEqual(coordinator.metrics.receivedFrameCount, 2)
         XCTAssertEqual(coordinator.metrics.writtenFrameCount, 2)
         XCTAssertEqual(coordinator.metrics.droppedFrameCount, 0)
@@ -199,7 +205,8 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
     }
 
     private func configuration(root: URL) -> TrainingRecordingConfiguration {
-        TrainingRecordingConfiguration(
+        let profile = validProfile()
+        return TrainingRecordingConfiguration(
             outputRoot: root,
             recordingID: "recording-fixture-001",
             sessionID: "session-fixture-001",
@@ -224,8 +231,34 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
                 osVersion: "macOS 15"
             ),
             sourcePermission: "training_and_evaluation",
+            collectionMetadata: TrainingRecordingCollectionMetadata(profile: profile),
+            taskEnrollments: try! profile.makeTaskEnrollments(
+                recordingID: "recording-fixture-001",
+                createdAtUTC: "2026-08-28T08:00:00Z"
+            ),
             frameRate: 10.0
         )
+    }
+
+    private func validProfile() -> CollectionProfile {
+        var profile = CollectionProfile.newDraft(
+            profileID: "profile-fixture-001",
+            sessionID: "session-fixture-001"
+        )
+        profile.name = "Fixture collection"
+        profile.operatorName = "fixture-operator"
+        profile.activity = .realGame
+        profile.gameID = "game-fixture-001"
+        profile.tableSetup = "table-fixture-v1"
+        profile.cardDeck = "doko-48-v1"
+        profile.cameraView = "overhead"
+        profile.cameraMotion = "fixed"
+        profile.cameraFraming = "table_fills_frame"
+        profile.lighting = ["room_light"]
+        profile.background = "wood table"
+        profile.scenarioTags = ["normal_card_play"]
+        profile.sourcePermission = "training_and_evaluation"
+        return profile
     }
 
     private func frame(at timestamp: Double) -> VideoFrame {

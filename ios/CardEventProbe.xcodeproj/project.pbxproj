@@ -57,6 +57,10 @@
 		A00000000000000000000030 /* EvidenceVideoSnippet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000030 /* EvidenceVideoSnippet.swift */; };
 		A00000000000000000000031 /* EvidenceLiveVideoSnippet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000031 /* EvidenceLiveVideoSnippet.swift */; };
 		A00000000000000000000032 /* CameraSourceRate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000032 /* CameraSourceRate.swift */; };
+		A00000000000000000000033 /* CollectionProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000033 /* CollectionProfile.swift */; };
+		A00000000000000000000034 /* RecordTabState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000034 /* RecordTabState.swift */; };
+		A00000000000000000000035 /* RecordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000035 /* RecordView.swift */; };
+		A00000000000000000000036 /* RepositoryIntake.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000036 /* RepositoryIntake.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -111,6 +115,10 @@
 		B00000000000000000000030 /* EvidenceVideoSnippet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceVideoSnippet.swift; sourceTree = "<group>"; };
 		B00000000000000000000031 /* EvidenceLiveVideoSnippet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceLiveVideoSnippet.swift; sourceTree = "<group>"; };
 		B00000000000000000000032 /* CameraSourceRate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraSourceRate.swift; sourceTree = "<group>"; };
+		B00000000000000000000033 /* CollectionProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionProfile.swift; sourceTree = "<group>"; };
+		B00000000000000000000034 /* RecordTabState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordTabState.swift; sourceTree = "<group>"; };
+		B00000000000000000000035 /* RecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordView.swift; sourceTree = "<group>"; };
+		B00000000000000000000036 /* RepositoryIntake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryIntake.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -209,6 +217,9 @@
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000032 /* CameraSourceRate.swift */,
+				B00000000000000000000033 /* CollectionProfile.swift */,
+				B00000000000000000000034 /* RecordTabState.swift */,
+				B00000000000000000000036 /* RepositoryIntake.swift */,
 				B0000000000000000000002C /* TrainingRecording.swift */,
 				B0000000000000000000002D /* TrainingRecordingCoordinator.swift */,
 				B0000000000000000000002E /* TrainingRecordingQueue.swift */,
@@ -246,6 +257,7 @@
 			children = (
 				B0000000000000000000000C /* DiagnosticsPanel.swift */,
 				B0000000000000000000000D /* LiveDetectionView.swift */,
+				B00000000000000000000035 /* RecordView.swift */,
 				B0000000000000000000000E /* ReplayView.swift */,
 				B0000000000000000000000F /* RootView.swift */,
 			);
@@ -395,6 +407,10 @@
 				A0000000000000000000002D /* TrainingRecordingCoordinator.swift in Sources */,
 				A0000000000000000000002E /* TrainingRecordingQueue.swift in Sources */,
 				A00000000000000000000032 /* CameraSourceRate.swift in Sources */,
+				A00000000000000000000033 /* CollectionProfile.swift in Sources */,
+				A00000000000000000000034 /* RecordTabState.swift in Sources */,
+				A00000000000000000000035 /* RecordView.swift in Sources */,
+				A00000000000000000000036 /* RepositoryIntake.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

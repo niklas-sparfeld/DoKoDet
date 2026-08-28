@@ -16,6 +16,8 @@ public struct TrainingRecordingConfiguration: Sendable {
     public let cameraPosition: String
     public let client: TrainingRecordingClient
     public let sourcePermission: String
+    public let collectionMetadata: TrainingRecordingCollectionMetadata
+    public let taskEnrollments: [RepositoryTaskEnrollment]
     public let frameRate: Double
     public let maximumDurationSeconds: Double?
     public let maximumSizeBytes: Int64?
@@ -31,6 +33,8 @@ public struct TrainingRecordingConfiguration: Sendable {
         cameraPosition: String = "back",
         client: TrainingRecordingClient,
         sourcePermission: String,
+        collectionMetadata: TrainingRecordingCollectionMetadata,
+        taskEnrollments: [RepositoryTaskEnrollment],
         frameRate: Double = 30.0,
         maximumDurationSeconds: Double? = nil,
         maximumSizeBytes: Int64? = nil
@@ -55,6 +59,8 @@ public struct TrainingRecordingConfiguration: Sendable {
         self.cameraPosition = cameraPosition
         self.client = client
         self.sourcePermission = sourcePermission
+        self.collectionMetadata = collectionMetadata
+        self.taskEnrollments = taskEnrollments
         self.frameRate = frameRate
         self.maximumDurationSeconds = maximumDurationSeconds
         self.maximumSizeBytes = maximumSizeBytes
@@ -288,6 +294,8 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
     private var lastWrittenFrameTime: CMTime?
     private var firstOrientation: String?
     private var frameWriteInFlight = false
+    private var finalizationCollectionMetadata: TrainingRecordingCollectionMetadata?
+    private var finalizationTaskEnrollments: [RepositoryTaskEnrollment]?
 
     public init(
         configuration: TrainingRecordingConfiguration,
@@ -521,9 +529,20 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
 
     /// Finalizes the writer and atomically moves the complete bundle out of staging.
     public func stop(completion: @escaping (Result<URL, Error>) -> Void = { _ in }) {
+        stop(completion: completion, collectionMetadata: nil, taskEnrollments: nil)
+    }
+
+    /// Finalizes the recording with the operator metadata visible at upload time.
+    public func stop(
+        completion: @escaping (Result<URL, Error>) -> Void,
+        collectionMetadata: TrainingRecordingCollectionMetadata?,
+        taskEnrollments: [RepositoryTaskEnrollment]?
+    ) {
         lock.lock()
         switch stateValue {
         case .recording, .failed:
+            finalizationCollectionMetadata = collectionMetadata
+            finalizationTaskEnrollments = taskEnrollments
             stopCompletions.append(completion)
             stateValue = .finalizing
             lock.unlock()
@@ -817,7 +836,9 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
                 writtenFrameCount: metricsValue.writtenFrameCount,
                 droppedFrameCount: metricsValue.droppedFrameCount
             ),
-            sourcePermission: configuration.sourcePermission
+            sourcePermission: configuration.sourcePermission,
+            collectionMetadata: finalizationCollectionMetadata ?? configuration.collectionMetadata,
+            taskEnrollments: finalizationTaskEnrollments ?? configuration.taskEnrollments
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

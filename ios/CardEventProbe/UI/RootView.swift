@@ -1,14 +1,25 @@
 import SwiftUI
 
 struct RootView: View {
+    @State private var selectedTab: AppTab = .live
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
                 LiveDetectionView()
             }
             .tabItem {
                 Label("Live", systemImage: "camera")
             }
+            .tag(AppTab.live)
+
+            NavigationStack {
+                RecordView()
+            }
+            .tabItem {
+                Label("Record", systemImage: "record.circle")
+            }
+            .tag(AppTab.record)
 
 #if DEBUG
             NavigationStack {
@@ -17,6 +28,7 @@ struct RootView: View {
             .tabItem {
                 Label("Replay", systemImage: "film")
             }
+            .tag(AppTab.replay)
 #endif
         }
         .onAppear {

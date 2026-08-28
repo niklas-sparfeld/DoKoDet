@@ -11,7 +11,7 @@ public enum RepositoryDataTask: String, Codable, CaseIterable, Hashable, Sendabl
     case tableEvidenceAnalysis = "table_evidence_analysis"
 }
 
-public enum RepositoryTaskDisposition: String, Codable, CaseIterable, Sendable {
+public enum RepositoryTaskDisposition: String, Codable, CaseIterable, Hashable, Sendable {
     case selected
     case deferred
     case excluded
@@ -112,6 +112,39 @@ public struct RepositoryTaskEnrollment: Codable, Equatable, Sendable {
     public let createdAtUTC: String
     public let reason: String?
 
+    public init(
+        taskEnrollmentID: String,
+        task: RepositoryDataTask,
+        disposition: RepositoryTaskDisposition,
+        operatorName: String,
+        createdAtUTC: String,
+        reason: String? = nil
+    ) throws {
+        guard RepositoryIntakeContract.isIdentifier(taskEnrollmentID) else {
+            throw repositoryContractError("task enrollment id is invalid: \(taskEnrollmentID)")
+        }
+        guard !operatorName.isEmpty else {
+            throw repositoryContractError("task enrollment operator is invalid")
+        }
+        guard RepositoryIntakeContract.isUTCTimestamp(createdAtUTC) else {
+            throw repositoryContractError("task enrollment timestamp is invalid: \(createdAtUTC)")
+        }
+        if disposition == .excluded {
+            guard reason?.isEmpty == false else {
+                throw repositoryContractError("excluded enrollment needs a reason")
+            }
+        } else if reason != nil {
+            throw repositoryContractError("selected or deferred enrollment must not have a reason")
+        }
+        self.taskEnrollmentID = taskEnrollmentID
+        self.task = task
+        self.disposition = disposition
+        self.lifecycleState = disposition == .excluded ? "excluded" : "intake"
+        self.operator = operatorName
+        self.createdAtUTC = createdAtUTC
+        self.reason = reason
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try repositoryRequireExactKeys(decoder, CodingKeys.self)
@@ -146,6 +179,17 @@ public struct RepositoryTaskEnrollment: Codable, Equatable, Sendable {
         case `operator`
         case createdAtUTC = "created_at_utc"
         case reason
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(taskEnrollmentID, forKey: .taskEnrollmentID)
+        try container.encode(task, forKey: .task)
+        try container.encode(disposition, forKey: .disposition)
+        try container.encode(lifecycleState, forKey: .lifecycleState)
+        try container.encode(`operator`, forKey: .operator)
+        try container.encode(createdAtUTC, forKey: .createdAtUTC)
+        try container.encode(reason, forKey: .reason)
     }
 }
 
