@@ -8,6 +8,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .intake_contract import (
+    IntakeContractError,
+    ProposalGeneratorRun,
+    parse_json_bytes,
+)
 from .recording_contract import RecordingContractError, parse_device_predictions_bytes
 from .video import VideoError, VideoMetadata, _import_cv2, read_video_metadata
 from .viewer import (
@@ -281,6 +286,15 @@ def load_annotation_proposals(path: str | Path) -> tuple[AnnotationProposal, ...
         raise AnnotationError(f"Could not read model proposals: {exc}") from exc
     if not isinstance(payload, Mapping):
         raise AnnotationError("Model proposals must contain a JSON object.")
+    if payload.get("schema_version") == "proposal-generator-run/v1":
+        try:
+            proposal_run = ProposalGeneratorRun.from_mapping(parse_json_bytes(raw, "proposal run"))
+        except IntakeContractError as exc:
+            raise AnnotationError(f"Could not read proposal generator run: {exc}") from exc
+        return tuple(
+            AnnotationProposal(proposal.time_s, proposal.probability)
+            for proposal in proposal_run.event_proposals
+        )
     if payload.get("schema_version") == "cardevent-device-predictions/v1":
         try:
             predictions = parse_device_predictions_bytes(raw)

@@ -16,11 +16,11 @@ final class TrainingRecordingUploadQueueTests: XCTestCase {
         let diagnostics = try store.recover()
 
         XCTAssertEqual(diagnostics.queuedCount, 1)
-        XCTAssertEqual(diagnostics.recoveredRecordingIDs, ["recording-fixture-001"])
+        XCTAssertEqual(diagnostics.recoveredRecordingIDs, ["recording-both"])
         XCTAssertTrue(diagnostics.errors.isEmpty)
     }
 
-    func testMultipartUploadUsesThreeFileBackedParts() throws {
+    func testMultipartUploadUsesRepositoryBundleFileBackedParts() throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
         let store = TrainingRecordingStore(root: root)
@@ -38,11 +38,13 @@ final class TrainingRecordingUploadQueueTests: XCTestCase {
 
         XCTAssertEqual(
             prepared.request.url?.path,
-            "/v1/training-recordings/recording-fixture-001"
+            "/v1/repository-bundles/recording-both"
         )
         XCTAssertTrue(bodyText.contains("name=\"manifest\""))
-        XCTAssertTrue(bodyText.contains("name=\"video\"; filename=\"video-fixture-001.mov\""))
-        XCTAssertTrue(bodyText.contains("name=\"predictions\"; filename=\"video-fixture-001.json\""))
+        XCTAssertTrue(bodyText.contains("name=\"source_record\"; filename=\"source-record.json\""))
+        XCTAssertTrue(bodyText.contains("name=\"task_enrollment\"; filename=\"initial-task-enrollment.json\""))
+        XCTAssertTrue(bodyText.contains("name=\"video\"; filename=\"video-both.mov\""))
+        XCTAssertTrue(bodyText.contains("name=\"proposal\"; filename=\"proposal-both.json\""))
         XCTAssertGreaterThan(prepared.contentLength, 0)
     }
 
@@ -62,10 +64,9 @@ final class TrainingRecordingUploadQueueTests: XCTestCase {
 
         XCTAssertEqual(failed.first?.disposition, .retryableFailure)
         XCTAssertEqual(store.diagnostics.failedCount, 1)
-        XCTAssertNotNil(store.failure(for: "recording-fixture-001"))
-        XCTAssertNil(store.failure(for: "recording-fixture-002"))
+        XCTAssertNotNil(store.failure(for: "recording-both"))
         XCTAssertTrue(FileManager.default.fileExists(
-            atPath: store.recordingURL(for: "recording-fixture-001", in: .failed).path
+            atPath: store.recordingURL(for: "recording-both", in: .failed).path
         ))
 
         RecordingUploadURLProtocol.statusCode = 201
@@ -92,7 +93,7 @@ final class TrainingRecordingUploadQueueTests: XCTestCase {
         in store: TrainingRecordingStore,
         state: TrainingRecordingQueueState
     ) throws -> URL {
-        let destination = store.recordingURL(for: "recording-fixture-001", in: state)
+        let destination = store.recordingURL(for: "recording-both", in: state)
         try FileManager.default.createDirectory(
             at: destination.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -106,7 +107,7 @@ final class TrainingRecordingUploadQueueTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("fixtures/training-recording/v1/recording-fixture-001")
+            .appendingPathComponent("fixtures/repository-bundle/v1/both")
     }
 
     private func temporaryDirectory() -> URL {
@@ -159,7 +160,7 @@ private final class RecordingUploadURLProtocol: URLProtocol {
             return
         }
         let body = Data(
-            "{\"recording_id\":\"recording-fixture-001\",\"state\":\"acknowledged\",\"created\":\(statusCode == 201 ? "true" : "false"),\"received_at\":\"2026-08-27T00:00:00Z\"}"
+            "{\"recording_id\":\"recording-both\",\"state\":\"acknowledged\",\"created\":\(statusCode == 201 ? "true" : "false"),\"received_at\":\"2026-08-27T00:00:00Z\"}"
                 .utf8
         )
         let response = HTTPURLResponse(

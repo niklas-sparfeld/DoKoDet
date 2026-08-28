@@ -1073,7 +1073,7 @@ final class AppState: ObservableObject {
         ).first ?? FileManager.default.temporaryDirectory
         return baseURL
             .appendingPathComponent("DokoDetector", isDirectory: true)
-            .appendingPathComponent("training-recordings", isDirectory: true)
+            .appendingPathComponent("repository-bundles", isDirectory: true)
     }
 
     private static func collectionProfileRoot() -> URL {

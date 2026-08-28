@@ -284,14 +284,17 @@ struct LocalPipelineClient {
         let manifestData = try Data(
             contentsOf: bundleURL.appendingPathComponent("manifest.json")
         )
-        let predictionsData = try Data(
-            contentsOf: bundleURL.appendingPathComponent("\(videoID).json")
+        let manifest = try decodeRepositoryJSON(RepositoryBundle.self, data: manifestData)
+        _ = try validateRepositoryBundleDirectory(at: bundleURL)
+        guard let proposalDescriptor = manifest.files.proposalGeneratorRuns.first else {
+            throw SavedVideoSimulationError.missingProposalGeneratorRun
+        }
+        let proposalData = try Data(
+            contentsOf: bundleURL.appendingPathComponent(proposalDescriptor.relativePath)
         )
-        let manifest = try JSONDecoder().decode(TrainingRecordingManifest.self, from: manifestData)
-        _ = try validateTrainingRecordingBundle(
-            manifestData: manifestData,
-            predictionsData: predictionsData,
-            videoURL: bundleURL.appendingPathComponent(manifest.video.name)
+        let proposal = try decodeRepositoryJSON(
+            RepositoryProposalGeneratorRun.self,
+            data: proposalData
         )
         let evidenceDiagnostics = try evidenceStore.recover()
 
@@ -306,17 +309,17 @@ struct LocalPipelineClient {
             "evidence_recording_correlation_id": evidenceRecordingCorrelationID,
             "evidence_canonical_session_id": captureSession.sessionID.uuidString.lowercased(),
             "input_frame_count": frameCount,
-            "prediction_sample_count": manifest.predictions.sampleCount,
-            "event_proposal_count": manifest.predictions.eventProposalCount,
+            "prediction_sample_count": proposal.probabilities.count,
+            "event_proposal_count": proposal.eventProposals.count,
             "input_duration_s": CMTimeGetSeconds(asset.duration),
-            "recording_duration_s": manifest.durationS,
+            "recording_duration_s": CMTimeGetSeconds(lastTimestamp),
             "last_input_timestamp_s": CMTimeGetSeconds(lastTimestamp),
-            "recording_video_sha256": manifest.video.sha256,
-            "recording_predictions_sha256": manifest.predictions.sha256,
+            "recording_video_sha256": manifest.sourceSHA256,
+            "recording_predictions_sha256": proposalDescriptor.sha256,
             "recording_metrics": [
-                "received_frame_count": manifest.captureMetrics.receivedFrameCount,
-                "written_frame_count": manifest.captureMetrics.writtenFrameCount,
-                "dropped_frame_count": manifest.captureMetrics.droppedFrameCount,
+                "received_frame_count": recordingCoordinator.metrics.receivedFrameCount,
+                "written_frame_count": recordingCoordinator.metrics.writtenFrameCount,
+                "dropped_frame_count": recordingCoordinator.metrics.droppedFrameCount,
             ],
         ])
     }
@@ -746,6 +749,7 @@ private enum SavedVideoSimulationError: LocalizedError {
     case readerFailed
     case noFrames
     case missingEvidenceRecordingCorrelation
+    case missingProposalGeneratorRun
     case finalizationTimedOut
     case finalizationMissing
 
@@ -763,6 +767,8 @@ private enum SavedVideoSimulationError: LocalizedError {
             return "The saved video did not produce any frames or predictions."
         case .missingEvidenceRecordingCorrelation:
             return "The simulated evidence package has no recording correlation ID."
+        case .missingProposalGeneratorRun:
+            return "The simulated recording has no proposal generator run."
         case .finalizationTimedOut:
             return "The saved-video recording did not finish within 30 seconds."
         case .finalizationMissing:

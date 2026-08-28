@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import hashlib
 import json
@@ -8,216 +10,216 @@ from fastapi.testclient import TestClient
 
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
-from dokodetector_backend.recording_contract import (
-    parse_device_predictions_bytes,
-    parse_recording_manifest_bytes,
-)
-from dokodetector_backend.recording_derivation import (
-    build_candidate_review_queue,
-    build_dataset_record_yaml,
-)
-from dokodetector_backend.recording_repository import TrainingRecordingRepository
-from dokodetector_backend.recording_storage import TrainingRecordingStorage
 from dokodetector_backend.repository import upgrade_database
+from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
 
 BACKEND_ROOT = Path(__file__).parents[1]
-FIXTURE_ROOT = (
-    Path(__file__).parents[2] / "fixtures" / "training-recording" / "v1" / "recording-fixture-001"
-)
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 
 
-def load_fixture() -> tuple[bytes, bytes, bytes, dict[str, object]]:
+def load_fixture() -> dict[str, bytes | dict[str, object]]:
     manifest_bytes = (FIXTURE_ROOT / "manifest.json").read_bytes()
-    predictions_bytes = (FIXTURE_ROOT / "video-fixture-001.json").read_bytes()
-    video_bytes = (FIXTURE_ROOT / "video-fixture-001.mov").read_bytes()
-    return manifest_bytes, predictions_bytes, video_bytes, json.loads(manifest_bytes)
-
-
-def recording_parts(
-    manifest_bytes: bytes,
-    predictions_bytes: bytes,
-    video_bytes: bytes,
-) -> dict[str, tuple[str, bytes, str]]:
+    source_bytes = (FIXTURE_ROOT / "source-record.json").read_bytes()
+    enrollment_bytes = (FIXTURE_ROOT / "initial-task-enrollment.json").read_bytes()
+    proposal_path = next((FIXTURE_ROOT / "predictions").glob("*.json"))
+    video_path = FIXTURE_ROOT / "videos" / "video-both.mov"
     return {
-        "manifest": ("untrusted-manifest.json", manifest_bytes, "application/json"),
-        "video": ("untrusted-video.mov", video_bytes, "video/quicktime"),
-        "predictions": ("untrusted-predictions.json", predictions_bytes, "application/json"),
+        "manifest": manifest_bytes,
+        "source_record": source_bytes,
+        "task_enrollment": enrollment_bytes,
+        "proposal": proposal_path.read_bytes(),
+        "proposal_name": proposal_path.name,
+        "video": video_path.read_bytes(),
+        "video_name": video_path.name,
+        "manifest_object": json.loads(manifest_bytes),
     }
 
 
+def bundle_parts(
+    fixture: dict[str, bytes | dict[str, object]],
+) -> list[tuple[str, tuple[str, bytes, str]]]:
+    return [
+        ("manifest", ("manifest.json", fixture["manifest"], "application/json")),
+        ("source_record", ("source-record.json", fixture["source_record"], "application/json")),
+        (
+            "task_enrollment",
+            ("initial-task-enrollment.json", fixture["task_enrollment"], "application/json"),
+        ),
+        ("video", (fixture["video_name"], fixture["video"], "video/quicktime")),
+        ("proposal", (fixture["proposal_name"], fixture["proposal"], "application/json")),
+    ]
+
+
 @pytest.fixture()
-def backend(
-    tmp_path: Path,
-) -> tuple[TestClient, TrainingRecordingRepository, TrainingRecordingStorage]:
-    database_url = f"sqlite:///{tmp_path / 'recordings.sqlite'}"
+def backend(tmp_path: Path) -> tuple[TestClient, RepositoryBundleRepository, Path]:
+    database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
+    intake_root = tmp_path / "data" / "intake" / "recordings"
     settings = Settings(
         _env_file=None,
         database_url=database_url,
         evidence_root=tmp_path / "runtime",
+        repository_intake_root=intake_root,
     )
     app = create_app(settings)
-    return TestClient(app), app.state.training_repository, app.state.training_storage
+    return TestClient(app), app.state.repository_bundle_repository, intake_root
 
 
-def test_upload_stores_immutable_bundle_and_deterministic_derived_artifacts(backend) -> None:
-    client, repository, storage = backend
-    manifest_bytes, predictions_bytes, video_bytes, manifest = load_fixture()
+def test_upload_stores_one_complete_commit_ready_bundle(backend) -> None:
+    client, repository, intake_root = backend
+    fixture = load_fixture()
+    recording_id = fixture["manifest_object"]["recording_id"]
 
     response = client.put(
-        f"/v1/training-recordings/{manifest['recording_id']}",
-        files=recording_parts(manifest_bytes, predictions_bytes, video_bytes),
+        f"/v1/repository-bundles/{recording_id}",
+        files=bundle_parts(fixture),
     )
 
     assert response.status_code == 201
     assert response.json()["created"] is True
-    stored = repository.get(manifest["recording_id"])
-    assert stored is not None
-    recording_path = storage.recording_path(manifest["recording_id"])
-    assert (recording_path / "manifest.json").read_bytes() == manifest_bytes
-    assert (recording_path / "videos" / "video-fixture-001.mov").read_bytes() == video_bytes
-    assert (
-        recording_path / "predictions" / "video-fixture-001.json"
-    ).read_bytes() == predictions_bytes
-    assert (recording_path / "intake" / "dataset-record.yaml").is_file()
-    queue_path = recording_path / "intake" / "candidate-review-queue.json"
-    queue = json.loads(queue_path.read_text(encoding="utf-8"))
-    assert queue["provenance"] == "candidate_only"
-    assert [item["category"] for item in queue["items"]] == ["unmatched_model_candidate"]
-    assert stored.candidate_queue is not None
+    bundle_path = intake_root / recording_id
+    assert {
+        path.relative_to(bundle_path).as_posix()
+        for path in bundle_path.rglob("*")
+        if path.is_file()
+    } == {
+        "manifest.json",
+        "source-record.json",
+        "initial-task-enrollment.json",
+        "videos/video-both.mov",
+        "predictions/proposal-both.json",
+    }
+    assert (bundle_path / "videos" / "video-both.mov").read_bytes() == fixture["video"]
+    assert (bundle_path / "source-record.json").read_bytes() == fixture["source_record"]
+    assert (bundle_path / "initial-task-enrollment.json").read_bytes() == fixture["task_enrollment"]
+    assert repository.get(recording_id) is not None
+    assert not (intake_root / "training-recordings").exists()
+    assert list(intake_root.glob(".upload-*")) == []
 
-    read_back = client.get(f"/v1/training-recordings/{manifest['recording_id']}")
+    read_back = client.get(f"/v1/repository-bundles/{recording_id}")
 
     assert read_back.status_code == 200
-    body = read_back.json()
-    assert body["recording_id"] == manifest["recording_id"]
-    assert body["manifest_sha256"] == hashlib.sha256(manifest_bytes).hexdigest()
-    assert body["video"]["sha256"] == manifest["video"]["sha256"]
-    assert body["predictions"]["sha256"] == manifest["predictions"]["sha256"]
-    assert body["derived_artifacts"]["state"] == "ready"
-    assert body["derived_artifacts"]["candidate_review_queue"]["state"] == "ready"
-    assert body["evidence_package_count"] == 0
-
-
-def test_derived_artifacts_regenerate_byte_for_byte() -> None:
-    manifest_bytes, predictions_bytes, _, _ = load_fixture()
-    manifest = parse_recording_manifest_bytes(manifest_bytes)
-    predictions = parse_device_predictions_bytes(predictions_bytes)
-    predictions_sha256 = hashlib.sha256(predictions_bytes).hexdigest()
-
-    assert build_dataset_record_yaml(manifest) == build_dataset_record_yaml(manifest)
-    dataset_record = build_dataset_record_yaml(manifest).decode("utf-8")
-    assert 'content_type: "staged_scenario"' in dataset_record
-    assert 'camera_view: "overhead"' in dataset_record
-    assert 'table_setup: "table-fixture-v1"' in dataset_record
-    assert build_candidate_review_queue(
-        manifest,
-        predictions,
-        predictions_sha256=predictions_sha256,
-    ) == build_candidate_review_queue(
-        manifest,
-        predictions,
-        predictions_sha256=predictions_sha256,
+    assert read_back.json()["source_asset_id"] == fixture["manifest_object"]["source_asset_id"]
+    assert (
+        read_back.json()["files"]["videos/video-both.mov"]["sha256"]
+        == hashlib.sha256(fixture["video"]).hexdigest()
     )
 
 
 def test_identical_retry_is_idempotent_and_conflicting_content_is_rejected(backend) -> None:
-    client, repository, storage = backend
-    manifest_bytes, predictions_bytes, video_bytes, manifest = load_fixture()
-    path = f"/v1/training-recordings/{manifest['recording_id']}"
-    parts = recording_parts(manifest_bytes, predictions_bytes, video_bytes)
+    client, repository, intake_root = backend
+    fixture = load_fixture()
+    manifest = copy.deepcopy(fixture["manifest_object"])
+    recording_id = manifest["recording_id"]
+    path = f"/v1/repository-bundles/{recording_id}"
 
-    first = client.put(path, files=parts)
-    second = client.put(path, files=parts)
+    first = client.put(path, files=bundle_parts(fixture))
+    accepted_before = (intake_root / recording_id / "source-record.json").read_bytes()
+    second = client.put(path, files=bundle_parts(fixture))
 
-    changed_manifest = copy.deepcopy(manifest)
-    changed_manifest["client"]["build"] = "different-build"
-    conflict = client.put(
-        path,
-        files=recording_parts(
-            json.dumps(changed_manifest, separators=(",", ":")).encode(),
-            predictions_bytes,
-            video_bytes,
-        ),
-    )
+    source = json.loads(fixture["source_record"])
+    source["notes"] = "conflicting retry"
+    source_bytes = json.dumps(source, separators=(",", ":")).encode()
+    manifest["files"]["source_record"]["byte_length"] = len(source_bytes)
+    manifest["files"]["source_record"]["sha256"] = hashlib.sha256(source_bytes).hexdigest()
+    changed = dict(fixture)
+    changed["source_record"] = source_bytes
+    changed["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
+    conflict = client.put(path, files=bundle_parts(changed))
 
     assert first.status_code == 201
     assert second.status_code == 200
     assert second.json()["created"] is False
     assert conflict.status_code == 409
     assert conflict.json()["error"]["code"] == "recording_conflict"
-    assert repository.get(manifest["recording_id"]) is not None
-    assert list(storage.training_recordings_root.glob(".upload-*")) == []
+    assert (intake_root / recording_id / "source-record.json").read_bytes() == accepted_before
+    assert repository.get(recording_id) is not None
+    assert list(intake_root.glob(".upload-*")) == []
 
 
-@pytest.mark.parametrize("variant", ["truncated", "invalid_hash"])
-def test_invalid_bundle_is_not_committed(backend, variant: str) -> None:
-    client, repository, storage = backend
-    manifest_bytes, predictions_bytes, video_bytes, manifest = load_fixture()
+@pytest.mark.parametrize("variant", ["truncated", "invalid_hash", "missing_source"])
+def test_interrupted_or_invalid_upload_leaves_no_final_bundle_or_row(backend, variant: str) -> None:
+    client, repository, intake_root = backend
+    fixture = load_fixture()
+    recording_id = fixture["manifest_object"]["recording_id"]
+    changed = dict(fixture)
     if variant == "truncated":
-        video_bytes = video_bytes[:-1]
+        changed["video"] = fixture["video"][:-1]
+    elif variant == "invalid_hash":
+        manifest = copy.deepcopy(fixture["manifest_object"])
+        manifest["files"]["video"]["sha256"] = "0" * 64
+        manifest["source_sha256"] = "0" * 64
+        changed["manifest"] = json.dumps(manifest, separators=(",", ":")).encode()
     else:
-        changed_manifest = copy.deepcopy(manifest)
-        changed_manifest["video"]["sha256"] = "0" * 64
-        manifest_bytes = json.dumps(changed_manifest, separators=(",", ":")).encode()
+        changed["source_record"] = b"{}"
 
     response = client.put(
-        f"/v1/training-recordings/{manifest['recording_id']}",
-        files=recording_parts(manifest_bytes, predictions_bytes, video_bytes),
+        f"/v1/repository-bundles/{recording_id}",
+        files=bundle_parts(changed),
     )
 
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "recording_hash_mismatch"
-    assert repository.get(manifest["recording_id"]) is None
-    assert not storage.recording_path(manifest["recording_id"]).exists()
-    assert list(storage.training_recordings_root.glob(".upload-*")) == []
+    assert repository.get(recording_id) is None
+    assert not (intake_root / recording_id).exists()
+    assert list(intake_root.glob(".upload-*")) == []
 
 
-def test_video_and_total_limits_are_reported_before_commit(backend) -> None:
-    client, repository, storage = backend
-    manifest_bytes, predictions_bytes, video_bytes, manifest = load_fixture()
-    client.app.state.settings.max_recording_video_bytes = len(video_bytes) - 1
+def test_bundle_and_part_limits_are_checked_before_publication(backend) -> None:
+    client, repository, intake_root = backend
+    fixture = load_fixture()
+    recording_id = fixture["manifest_object"]["recording_id"]
+    client.app.state.settings.max_recording_video_bytes = len(fixture["video"]) - 1
 
     response = client.put(
-        f"/v1/training-recordings/{manifest['recording_id']}",
-        files=recording_parts(manifest_bytes, predictions_bytes, video_bytes),
+        f"/v1/repository-bundles/{recording_id}",
+        files=bundle_parts(fixture),
     )
 
     assert response.status_code == 413
-    assert response.json()["error"]["code"] == "recording_video_too_large"
-    assert repository.get(manifest["recording_id"]) is None
-    assert not storage.recording_path(manifest["recording_id"]).exists()
+    assert repository.get(recording_id) is None
+    assert not (intake_root / recording_id).exists()
 
 
-def test_derived_failure_rolls_back_committed_bundle(backend, monkeypatch) -> None:
-    client, repository, storage = backend
-    manifest_bytes, predictions_bytes, video_bytes, manifest = load_fixture()
+def test_sqlite_index_failure_does_not_change_canonical_bundle(backend, monkeypatch) -> None:
+    client, repository, intake_root = backend
+    fixture = load_fixture()
+    recording_id = fixture["manifest_object"]["recording_id"]
 
     def fail(*args, **kwargs):
-        raise OSError("simulated derived write failure")
+        raise RuntimeError("simulated index failure")
 
-    monkeypatch.setattr(storage, "write_derived", fail)
+    monkeypatch.setattr(repository, "insert", fail)
     response = client.put(
-        f"/v1/training-recordings/{manifest['recording_id']}",
-        files=recording_parts(manifest_bytes, predictions_bytes, video_bytes),
+        f"/v1/repository-bundles/{recording_id}",
+        files=bundle_parts(fixture),
     )
 
     assert response.status_code == 500
-    assert response.json()["error"]["code"] == "internal_error"
-    assert repository.get(manifest["recording_id"]) is None
-    assert not storage.recording_path(manifest["recording_id"]).exists()
+    assert (intake_root / recording_id / "manifest.json").read_bytes() == fixture["manifest"]
+    assert repository.get(recording_id) is None
 
 
-def test_unknown_recording_returns_stable_not_found_error(backend) -> None:
-    client, _, _ = backend
+def test_restart_reads_the_same_index_and_canonical_bundle(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
+    upgrade_database(BACKEND_ROOT, database_url)
+    intake_root = tmp_path / "intake"
+    settings = Settings(
+        _env_file=None,
+        database_url=database_url,
+        evidence_root=tmp_path / "runtime",
+        repository_intake_root=intake_root,
+    )
+    fixture = load_fixture()
+    recording_id = fixture["manifest_object"]["recording_id"]
 
-    response = client.get("/v1/training-recordings/recording-unknown")
+    first = TestClient(create_app(settings))
+    assert (
+        first.put(f"/v1/repository-bundles/{recording_id}", files=bundle_parts(fixture)).status_code
+        == 201
+    )
+    second = TestClient(create_app(settings))
 
-    assert response.status_code == 404
-    assert response.json() == {
-        "error": {
-            "code": "recording_not_found",
-            "message": "The training recording was not found.",
-            "details": [],
-        }
-    }
+    response = second.put(f"/v1/repository-bundles/{recording_id}", files=bundle_parts(fixture))
+
+    assert response.status_code == 200
+    assert response.json()["created"] is False

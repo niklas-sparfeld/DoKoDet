@@ -8,6 +8,7 @@ import pytest
 from cardevent.annotation import (
     AnnotationError,
     AnnotationEvent,
+    AnnotationProposal,
     AnnotationSession,
     Roi,
     VideoAnnotation,
@@ -35,6 +36,17 @@ def test_annotation_path_for_video_uses_project_layout() -> None:
     path = annotation_path_for_video(Path("card_event_net/data/raw/IMG_0090.mov"))
 
     assert path == Path("card_event_net/data/annotations/IMG_0090.json")
+
+
+def test_load_annotation_proposals_reads_repository_bundle_run() -> None:
+    proposal_path = (
+        Path(__file__).resolve().parents[2]
+        / "fixtures/repository-bundle/v1/both/predictions/proposal-both.json"
+    )
+
+    proposals = load_annotation_proposals(proposal_path)
+
+    assert proposals == (AnnotationProposal(time_s=1.0, probability=0.9),)
 
 
 def test_save_annotation_sorts_events_and_warns(tmp_path: Path) -> None:

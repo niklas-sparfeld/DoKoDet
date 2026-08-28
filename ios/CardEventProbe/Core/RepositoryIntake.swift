@@ -37,6 +37,60 @@ public struct RepositorySourceRecord: Codable, Equatable, Sendable {
     public let retentionState: String
     public let notes: String?
 
+    public init(
+        sourceAssetID: String,
+        sha256: String,
+        byteLength: Int,
+        mediaType: String,
+        originalFilename: String,
+        acquisitionMethod: String,
+        sourcePermission: String,
+        allowedUses: [String],
+        sessionID: String?,
+        recordingID: String?,
+        videoID: String?,
+        gameID: String?,
+        roundID: String?,
+        tableSetup: String?,
+        contentType: String?,
+        retentionState: String,
+        notes: String?
+    ) throws {
+        guard RepositoryIntakeContract.isIdentifier(sourceAssetID) else { throw repositoryContractError("source asset id is invalid") }
+        guard RepositoryIntakeContract.isSHA256(sha256) else { throw repositoryContractError("source digest is invalid") }
+        guard byteLength > 0, !mediaType.isEmpty else { throw repositoryContractError("source media metadata is invalid") }
+        guard RepositoryIntakeContract.isFilename(originalFilename) else { throw repositoryContractError("source filename is invalid") }
+        guard !acquisitionMethod.isEmpty, !allowedUses.isEmpty else { throw repositoryContractError("source acquisition or use metadata is invalid") }
+        guard Set(allowedUses).isSubset(of: ["train", "validation", "test", "evaluation"]), allowedUses.count == Set(allowedUses).count else { throw repositoryContractError("source allowed uses are invalid") }
+        guard ["training_only", "training_and_evaluation", "project_use", "unrestricted"].contains(sourcePermission) else { throw repositoryContractError("source permission is invalid") }
+        guard ["active", "deletion_requested", "deleted", "retired"].contains(retentionState) else { throw repositoryContractError("source retention state is invalid") }
+        guard [sessionID, recordingID, videoID, gameID, roundID, tableSetup].allSatisfy({ value in
+            value == nil || RepositoryIntakeContract.isIdentifier(value!)
+        }) else { throw repositoryContractError("source identity metadata is invalid") }
+        guard contentType == nil || ["real_game", "staged_trick_sequence", "staged_scenario", "synthetic_render", "other"].contains(contentType!) else { throw repositoryContractError("source content type is invalid") }
+        if ["staged_scenario", "staged_trick_sequence"].contains(contentType), gameID != nil || roundID != nil {
+            throw repositoryContractError("staged activity must not have a game or round")
+        }
+        self.schemaVersion = repositorySourceRecordSchemaVersion
+        self.sourceAssetID = sourceAssetID
+        self.sha256 = sha256
+        self.byteLength = byteLength
+        self.mediaType = mediaType
+        self.originalFilename = originalFilename
+        self.acquisitionMethod = acquisitionMethod
+        self.sourcePermission = sourcePermission
+        self.allowedUses = allowedUses
+        self.sessionID = sessionID
+        self.recordingID = recordingID
+        self.videoID = videoID
+        self.gameID = gameID
+        self.roundID = roundID
+        self.tableSetup = tableSetup
+        self.contentType = contentType
+        self.retentionState = retentionState
+        self.notes = notes
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try repositoryRequireExactKeys(decoder, CodingKeys.self)
@@ -79,6 +133,28 @@ public struct RepositorySourceRecord: Codable, Equatable, Sendable {
         if ["staged_scenario", "staged_trick_sequence"].contains(contentType), gameID != nil || roundID != nil {
             throw repositoryContractError("staged activity must not have a game or round")
         }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(sourceAssetID, forKey: .sourceAssetID)
+        try container.encode(sha256, forKey: .sha256)
+        try container.encode(byteLength, forKey: .byteLength)
+        try container.encode(mediaType, forKey: .mediaType)
+        try container.encode(originalFilename, forKey: .originalFilename)
+        try container.encode(acquisitionMethod, forKey: .acquisitionMethod)
+        try container.encode(sourcePermission, forKey: .sourcePermission)
+        try container.encode(allowedUses, forKey: .allowedUses)
+        try container.encode(sessionID, forKey: .sessionID)
+        try container.encode(recordingID, forKey: .recordingID)
+        try container.encode(videoID, forKey: .videoID)
+        try container.encode(gameID, forKey: .gameID)
+        try container.encode(roundID, forKey: .roundID)
+        try container.encode(tableSetup, forKey: .tableSetup)
+        try container.encode(contentType, forKey: .contentType)
+        try container.encode(retentionState, forKey: .retentionState)
+        try container.encode(notes, forKey: .notes)
     }
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
@@ -198,6 +274,17 @@ public struct RepositoryTaskEnrollmentDocument: Codable, Equatable, Sendable {
     public let sourceAssetID: String
     public let enrollments: [RepositoryTaskEnrollment]
 
+    public init(sourceAssetID: String, enrollments: [RepositoryTaskEnrollment]) throws {
+        guard RepositoryIntakeContract.isIdentifier(sourceAssetID), enrollments.count == 2,
+              Set(enrollments.map(\.task)) == Set(RepositoryDataTask.allCases),
+              Set(enrollments.map(\.taskEnrollmentID)).count == 2 else {
+            throw repositoryContractError("task enrollment document must contain one entry for each task")
+        }
+        self.schemaVersion = repositoryTaskEnrollmentSchemaVersion
+        self.sourceAssetID = sourceAssetID
+        self.enrollments = enrollments
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try repositoryRequireExactKeys(decoder, CodingKeys.self)
@@ -224,6 +311,13 @@ public struct RepositoryBundleFile: Codable, Equatable, Sendable {
     public let type: String
     public let byteLength: Int
     public let sha256: String
+
+    public init(relativePath: String, type: String, byteLength: Int, sha256: String) {
+        self.relativePath = relativePath
+        self.type = type
+        self.byteLength = byteLength
+        self.sha256 = sha256
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -253,6 +347,20 @@ public struct RepositoryProposalFile: Codable, Equatable, Sendable {
     public let type: String
     public let byteLength: Int
     public let sha256: String
+
+    public init(
+        proposalGeneratorRunID: String,
+        relativePath: String,
+        type: String,
+        byteLength: Int,
+        sha256: String
+    ) {
+        self.proposalGeneratorRunID = proposalGeneratorRunID
+        self.relativePath = relativePath
+        self.type = type
+        self.byteLength = byteLength
+        self.sha256 = sha256
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -285,6 +393,23 @@ public struct RepositoryBundleFiles: Codable, Equatable, Sendable {
     public let taskEnrollment: RepositoryBundleFile
     public let proposalGeneratorRuns: [RepositoryProposalFile]
 
+    public init(
+        video: RepositoryBundleFile,
+        sourceRecord: RepositoryBundleFile,
+        taskEnrollment: RepositoryBundleFile,
+        proposalGeneratorRuns: [RepositoryProposalFile]
+    ) throws {
+        guard video.type == "video/quicktime", sourceRecord.type == "application/json",
+              taskEnrollment.type == "application/json",
+              Set(proposalGeneratorRuns.map(\.proposalGeneratorRunID)).count == proposalGeneratorRuns.count else {
+            throw repositoryContractError("bundle file types or proposal identities are invalid")
+        }
+        self.video = video
+        self.sourceRecord = sourceRecord
+        self.taskEnrollment = taskEnrollment
+        self.proposalGeneratorRuns = proposalGeneratorRuns
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try repositoryRequireExactKeys(decoder, CodingKeys.self)
@@ -316,6 +441,32 @@ public struct RepositoryBundle: Codable, Equatable, Sendable {
     public let state: String
     public let sourceSHA256: String
     public let files: RepositoryBundleFiles
+
+    public init(
+        sourceAssetID: String,
+        recordingID: String,
+        videoID: String,
+        sessionID: String,
+        sourceSHA256: String,
+        files: RepositoryBundleFiles
+    ) throws {
+        guard RepositoryIntakeContract.isIdentifier(sourceAssetID),
+              RepositoryIntakeContract.isIdentifier(recordingID),
+              RepositoryIntakeContract.isIdentifier(videoID),
+              RepositoryIntakeContract.isIdentifier(sessionID),
+              RepositoryIntakeContract.isSHA256(sourceSHA256),
+              files.video.sha256 == sourceSHA256 else {
+            throw repositoryContractError("repository bundle contains an invalid identity or digest")
+        }
+        self.schemaVersion = repositoryBundleSchemaVersion
+        self.sourceAssetID = sourceAssetID
+        self.recordingID = recordingID
+        self.videoID = videoID
+        self.sessionID = sessionID
+        self.state = "complete"
+        self.sourceSHA256 = sourceSHA256
+        self.files = files
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -355,6 +506,18 @@ public struct RepositoryProposalDecoder: Codable, Equatable, Sendable {
     public let peakConfirmationS: Double
     public let minimumEventGapS: Double
 
+    public init(algorithm: String, threshold: Double, peakConfirmationS: Double, minimumEventGapS: Double) throws {
+        guard !algorithm.isEmpty, threshold.isFinite, (0...1).contains(threshold),
+              peakConfirmationS.isFinite, peakConfirmationS >= 0,
+              minimumEventGapS.isFinite, minimumEventGapS >= 0 else {
+            throw repositoryContractError("proposal decoder contains an invalid value")
+        }
+        self.algorithm = algorithm
+        self.threshold = threshold
+        self.peakConfirmationS = peakConfirmationS
+        self.minimumEventGapS = minimumEventGapS
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try repositoryRequireExactKeys(decoder, CodingKeys.self)
@@ -381,6 +544,14 @@ public struct RepositoryProposalSampling: Codable, Equatable, Sendable {
     public let strategy: String
     public let targetHz: Double
 
+    public init(strategy: String, targetHz: Double) throws {
+        guard !strategy.isEmpty, targetHz.isFinite, targetHz > 0 else {
+            throw repositoryContractError("proposal sampling contains an invalid value")
+        }
+        self.strategy = strategy
+        self.targetHz = targetHz
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try repositoryRequireExactKeys(decoder, CodingKeys.self)
@@ -402,6 +573,17 @@ public struct RepositoryExecutionEnvironment: Codable, Equatable, Sendable {
     public let device: String
     public let osVersion: String
     public let runtimeVersion: String
+
+    public init(platform: String, device: String, osVersion: String, runtimeVersion: String) throws {
+        guard ["ios", "macos", "linux"].contains(platform), !device.isEmpty,
+              !osVersion.isEmpty, !runtimeVersion.isEmpty else {
+            throw repositoryContractError("proposal execution environment contains an invalid value")
+        }
+        self.platform = platform
+        self.device = device
+        self.osVersion = osVersion
+        self.runtimeVersion = runtimeVersion
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -429,6 +611,16 @@ public struct RepositoryProbability: Codable, Equatable, Sendable {
     public let probability: Double
     public let inferenceMs: Double
 
+    public init(timeS: Double, probability: Double, inferenceMs: Double) throws {
+        guard timeS.isFinite, timeS >= 0, probability.isFinite, (0...1).contains(probability),
+              inferenceMs.isFinite, inferenceMs >= 0 else {
+            throw repositoryContractError("proposal probability contains an invalid value")
+        }
+        self.timeS = timeS
+        self.probability = probability
+        self.inferenceMs = inferenceMs
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try repositoryRequireExactKeys(decoder, CodingKeys.self)
@@ -452,6 +644,16 @@ public struct RepositoryEventProposal: Codable, Equatable, Sendable {
     public let timeS: Double
     public let emittedAtS: Double
     public let probability: Double
+
+    public init(timeS: Double, emittedAtS: Double, probability: Double) throws {
+        guard timeS.isFinite, timeS >= 0, emittedAtS.isFinite, emittedAtS >= timeS,
+              probability.isFinite, (0...1).contains(probability) else {
+            throw repositoryContractError("event proposal contains an invalid value")
+        }
+        self.timeS = timeS
+        self.emittedAtS = emittedAtS
+        self.probability = probability
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -489,6 +691,52 @@ public struct RepositoryProposalGeneratorRun: Codable, Equatable, Sendable {
     public let probabilities: [RepositoryProbability]
     public let eventProposals: [RepositoryEventProposal]
     public let outputSHA256: String
+
+    public init(
+        proposalGeneratorRunID: String,
+        sourceAssetID: String,
+        recordingID: String,
+        videoID: String,
+        sourceSHA256: String,
+        modelBundleID: String,
+        weightsSHA256: String,
+        decoder: RepositoryProposalDecoder,
+        preprocessing: String,
+        sampling: RepositoryProposalSampling,
+        executionEnvironment: RepositoryExecutionEnvironment,
+        probabilities: [RepositoryProbability],
+        eventProposals: [RepositoryEventProposal],
+        outputSHA256: String
+    ) throws {
+        guard RepositoryIntakeContract.isIdentifier(proposalGeneratorRunID),
+              RepositoryIntakeContract.isIdentifier(sourceAssetID),
+              RepositoryIntakeContract.isIdentifier(recordingID),
+              RepositoryIntakeContract.isIdentifier(videoID),
+              RepositoryIntakeContract.isSHA256(sourceSHA256),
+              RepositoryIntakeContract.isIdentifier(modelBundleID),
+              RepositoryIntakeContract.isSHA256(weightsSHA256), !preprocessing.isEmpty,
+              RepositoryIntakeContract.isSHA256(outputSHA256),
+              probabilities.indices.dropFirst().allSatisfy({ index in probabilities[index - 1].timeS <= probabilities[index].timeS }),
+              eventProposals.indices.dropFirst().allSatisfy({ index in eventProposals[index - 1].timeS <= eventProposals[index].timeS }) else {
+            throw repositoryContractError("proposal generator run contains an invalid value")
+        }
+        self.schemaVersion = proposalGeneratorRunSchemaVersion
+        self.proposalGeneratorRunID = proposalGeneratorRunID
+        self.purpose = "proposal_only"
+        self.sourceAssetID = sourceAssetID
+        self.recordingID = recordingID
+        self.videoID = videoID
+        self.sourceSHA256 = sourceSHA256
+        self.modelBundleID = modelBundleID
+        self.weightsSHA256 = weightsSHA256
+        self.decoder = decoder
+        self.preprocessing = preprocessing
+        self.sampling = sampling
+        self.executionEnvironment = executionEnvironment
+        self.probabilities = probabilities
+        self.eventProposals = eventProposals
+        self.outputSHA256 = outputSHA256
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -541,6 +789,126 @@ public struct RepositoryProposalGeneratorRun: Codable, Equatable, Sendable {
     }
 }
 
+/// Validates a durable bundle, including its exact member set and every declared digest.
+public func validateRepositoryBundleDirectory(at directoryURL: URL) throws -> RepositoryBundle {
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory),
+          isDirectory.boolValue else {
+        throw repositoryContractError("repository bundle directory is missing")
+    }
+    let manifestData = try Data(contentsOf: directoryURL.appendingPathComponent("manifest.json"))
+    let bundle: RepositoryBundle
+    do {
+        bundle = try decodeRepositoryJSON(RepositoryBundle.self, data: manifestData)
+    } catch {
+        throw repositoryContractError("manifest: \(error.localizedDescription)")
+    }
+    guard bundle.files.sourceRecord.relativePath == "source-record.json",
+          bundle.files.taskEnrollment.relativePath == "initial-task-enrollment.json",
+          bundle.files.video.relativePath.hasPrefix("videos/"),
+          bundle.files.video.relativePath.hasSuffix(".mov"),
+          bundle.files.proposalGeneratorRuns.allSatisfy({
+              $0.relativePath.hasPrefix("predictions/") && $0.relativePath.hasSuffix(".json")
+          }) else {
+        throw repositoryContractError("bundle member paths are invalid")
+    }
+
+    let sourceURL = directoryURL.appendingPathComponent(bundle.files.sourceRecord.relativePath)
+    let enrollmentURL = directoryURL.appendingPathComponent(bundle.files.taskEnrollment.relativePath)
+    let videoURL = directoryURL.appendingPathComponent(bundle.files.video.relativePath)
+    let sourceData = try Data(contentsOf: sourceURL)
+    let enrollmentData = try Data(contentsOf: enrollmentURL)
+    let source: RepositorySourceRecord
+    let enrollments: RepositoryTaskEnrollmentDocument
+    do {
+        source = try decodeRepositoryJSON(RepositorySourceRecord.self, data: sourceData)
+    } catch {
+        throw repositoryContractError("source record: \(error.localizedDescription)")
+    }
+    do {
+        enrollments = try decodeRepositoryJSON(RepositoryTaskEnrollmentDocument.self, data: enrollmentData)
+    } catch {
+        throw repositoryContractError("task enrollment: \(error.localizedDescription)")
+    }
+    var proposalData: [String: Data] = [:]
+    for descriptor in bundle.files.proposalGeneratorRuns {
+        let data = try Data(contentsOf: directoryURL.appendingPathComponent(descriptor.relativePath))
+        try verifyRepositoryBytes(data, descriptor: descriptor)
+        let run: RepositoryProposalGeneratorRun
+        do {
+            run = try decodeRepositoryJSON(RepositoryProposalGeneratorRun.self, data: data)
+        } catch {
+            throw repositoryContractError("proposal run: \(error.localizedDescription)")
+        }
+        proposalData[run.proposalGeneratorRunID] = data
+    }
+    let proposalRuns = try proposalData.values.map {
+        try decodeRepositoryJSON(RepositoryProposalGeneratorRun.self, data: $0)
+    }
+    try RepositoryIntakeContract.validate(
+        bundle: bundle,
+        source: source,
+        enrollments: enrollments,
+        proposalRuns: proposalRuns
+    )
+    try verifyRepositoryBytes(manifestData, descriptor: RepositoryBundleFile(
+        relativePath: "manifest.json",
+        type: "application/json",
+        byteLength: manifestData.count,
+        sha256: manifestData.sha256Hex
+    ))
+    try verifyRepositoryFile(videoURL, descriptor: bundle.files.video)
+    try verifyRepositoryBytes(sourceData, descriptor: bundle.files.sourceRecord)
+    try verifyRepositoryBytes(enrollmentData, descriptor: bundle.files.taskEnrollment)
+
+    let expected = Set([
+        "manifest.json",
+        bundle.files.video.relativePath,
+        bundle.files.sourceRecord.relativePath,
+        bundle.files.taskEnrollment.relativePath,
+    ] + bundle.files.proposalGeneratorRuns.map(\.relativePath))
+    guard let enumerator = FileManager.default.enumerator(
+        at: directoryURL,
+        includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    ) else {
+        throw repositoryContractError("bundle directory could not be inspected")
+    }
+    var actual: Set<String> = []
+    let rootPath = directoryURL.standardizedFileURL.path
+    for case let url as URL in enumerator {
+        guard (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else {
+            continue
+        }
+        let filePath = url.standardizedFileURL.path
+        guard filePath.hasPrefix(rootPath + "/") else {
+            throw repositoryContractError("bundle member is outside its directory")
+        }
+        actual.insert(String(filePath.dropFirst(rootPath.count + 1)))
+    }
+    guard actual == expected else {
+        throw repositoryContractError("bundle contains an unexpected or missing file")
+    }
+    return bundle
+}
+
+private func verifyRepositoryFile(_ url: URL, descriptor: RepositoryBundleFile) throws {
+    let values = try url.resourceValues(forKeys: [.fileSizeKey])
+    guard let byteLength = values.fileSize, byteLength == descriptor.byteLength else {
+        throw repositoryContractError("bundle file bytes do not match their descriptor")
+    }
+    let handle = try FileHandle(forReadingFrom: url)
+    defer { try? handle.close() }
+    var hasher = SHA256()
+    while let chunk = try handle.read(upToCount: 1024 * 1024), !chunk.isEmpty {
+        hasher.update(data: chunk)
+    }
+    let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    guard digest == descriptor.sha256 else {
+        throw repositoryContractError("bundle file bytes do not match their descriptor")
+    }
+}
+
 public enum RepositoryIntakeContract {
     public static func validate(
         bundle: RepositoryBundle,
@@ -550,7 +918,12 @@ public enum RepositoryIntakeContract {
     ) throws {
         guard bundle.sourceAssetID == source.sourceAssetID, bundle.sourceSHA256 == source.sha256,
               bundle.recordingID == source.recordingID, bundle.videoID == source.videoID,
-              bundle.sessionID == source.sessionID, enrollments.sourceAssetID == bundle.sourceAssetID else {
+              bundle.sessionID == source.sessionID, source.mediaType == "video/quicktime",
+              source.byteLength == bundle.files.video.byteLength,
+              source.originalFilename == bundle.files.video.relativePath.split(separator: "/").last.map(String.init),
+              source.tableSetup != nil,
+              source.contentType != "real_game" || source.gameID != nil,
+              enrollments.sourceAssetID == bundle.sourceAssetID else {
             throw repositoryContractError("repository bundle documents have different identities")
         }
         let expected = Set(bundle.files.proposalGeneratorRuns.map(\.proposalGeneratorRunID))
@@ -637,7 +1010,20 @@ public func decodeRepositoryJSON<T: Decodable>(_ type: T.Type, data: Data) throw
     try JSONDecoder().decode(type, from: data)
 }
 
+public func encodeRepositoryJSON<T: Encodable>(_ value: T) throws -> Data {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    return try encoder.encode(value)
+}
+
 public func verifyRepositoryBytes(_ data: Data, descriptor: RepositoryBundleFile) throws {
+    guard data.count == descriptor.byteLength,
+          data.sha256Hex == descriptor.sha256 else {
+        throw repositoryContractError("bundle file bytes do not match their descriptor")
+    }
+}
+
+public func verifyRepositoryBytes(_ data: Data, descriptor: RepositoryProposalFile) throws {
     guard data.count == descriptor.byteLength,
           data.sha256Hex == descriptor.sha256 else {
         throw repositoryContractError("bundle file bytes do not match their descriptor")

@@ -397,6 +397,26 @@ Acceptance:
 - complete, incomplete, invalid, deferred, and independently selected fixture cases are covered;
 - the commands require no model, camera, display, or network.
 
+#### M1 progress evidence — 2026-08-28
+
+- Added the standalone `operations/` package with the `doko` entry point and the explicit
+  `RepositoryConfig` root, intake-root, and derived-artifact-root settings. The package uses the
+  root `mise.toml` Python 3.13 and uv 0.12 declarations.
+- Added deterministic bundle discovery and read-only inspection of complete, incomplete, and
+  invalid repository bundles. Inspection validates member paths, lengths, digests, strict M0
+  document fields, task enrollment state, proposal-only lineage, permission state, review-run
+  state, unassigned split groups, and stale-artifact markers.
+- Added `doko data status` and `doko data validate` with stable human and sorted JSON output. The
+  commands use no model, camera, display, network, SQLite, or write operation; `validate` exits
+  non-zero when inspection failures exist.
+- Added six operations tests covering deterministic discovery, independent selected/deferred task
+  cases, incomplete and invalid bundles, read-only behavior, resumable review state, unassigned
+  groups, stale artifacts, and stable JSON output.
+- Verification: `mise install`; `mise exec -- uv run --offline pytest` (6 passed) and
+  `mise exec -- uv run --offline ruff check src tests` plus
+  `mise exec -- uv run --offline ruff format --check src tests` in `operations/`; the checked-in
+  fixture root reports three complete bundles and no validation failures.
+
 ### M2 — Record tab and collection profiles
 
 1. Add the dedicated app tab and collection-profile editor.
@@ -455,6 +475,26 @@ Acceptance:
 - the accepted source, manifest, proposal, source record, and enrollment hashes validate;
 - no active upload producer, consumer, or fixture uses the superseded bundle contract;
 - the current upload, restart, size-limit, and retry behavior remains covered.
+
+#### M3 progress evidence — 2026-08-28
+
+- Added the configured `repository_intake_root` and a backend repository-bundle index that stores
+  searchable metadata separately from canonical bundle files.
+- Switched the app and backend upload path to the replacement repository bundle. The app validates
+  and atomically publishes complete bundles; the backend streams every multipart member below the
+  configured intake root, validates media, metadata, lineage, enrollment, sizes, and hashes, then
+  performs one atomic directory rename.
+- Added idempotent identical retries and conflicting-identifier protection. Validation and size
+  failures remove temporary directories without publishing a final bundle, and the staging context
+  cleans up interrupted writes. SQLite index failure does not alter an accepted canonical bundle.
+- Removed the superseded active backend upload route, contract, storage, derivation, repository,
+  and test surface. Swift upload tests and CardEventNet proposal loading use the replacement
+  contract. Historical manual-import support remains outside M3 for M4.
+- Verification: backend `mise exec -- uv run --offline pytest tests` (84 passed, 1 skipped),
+  CardEventNet `mise exec -- uv run --offline pytest tests` (235 passed, 1 skipped), Swift
+  replacement tests with Swift 5 mode (12 passed), and M3 Python Ruff check and format checks
+  pass. The saved-video integration checks the accepted repository bundle and member hashes before
+  its explicit M4 direct-component-access skip.
 
 ### M4 — Rebuildable intake index and component access
 

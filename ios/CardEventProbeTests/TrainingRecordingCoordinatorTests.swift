@@ -42,25 +42,30 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
 
         let result = waitForStop(coordinator)
         let bundleURL = try XCTUnwrap(try result.get())
-        let manifestData = try Data(contentsOf: bundleURL.appendingPathComponent("manifest.json"))
-        let predictionsURL = bundleURL.appendingPathComponent("video-fixture-001.json")
-        let predictionsData = try Data(contentsOf: predictionsURL)
-        let videoURL = bundleURL.appendingPathComponent("video-fixture-001.mov")
-        let validated = try validateTrainingRecordingBundle(
-            manifestData: manifestData,
-            predictionsData: predictionsData,
-            videoURL: videoURL
+        let bundle = try validateRepositoryBundleDirectory(at: bundleURL)
+        let proposalDescriptor = try XCTUnwrap(bundle.files.proposalGeneratorRuns.first)
+        let proposal = try decodeRepositoryJSON(
+            RepositoryProposalGeneratorRun.self,
+            data: Data(contentsOf: bundleURL.appendingPathComponent(proposalDescriptor.relativePath))
+        )
+        let source = try decodeRepositoryJSON(
+            RepositorySourceRecord.self,
+            data: Data(contentsOf: bundleURL.appendingPathComponent(bundle.files.sourceRecord.relativePath))
+        )
+        let enrollments = try decodeRepositoryJSON(
+            RepositoryTaskEnrollmentDocument.self,
+            data: Data(contentsOf: bundleURL.appendingPathComponent(bundle.files.taskEnrollment.relativePath))
         )
 
-        XCTAssertEqual(validated.1.probabilities.count, 2)
-        XCTAssertEqual(validated.1.probabilities[0].timeS, 0.0, accuracy: 0.000001)
-        XCTAssertEqual(validated.1.probabilities[1].timeS, 0.1, accuracy: 0.000001)
-        XCTAssertEqual(validated.1.eventProposals.count, 1)
-        XCTAssertEqual(validated.1.eventProposals[0].emittedAtS, 0.1, accuracy: 0.000001)
-        XCTAssertEqual(validated.0.collectionMetadata.collectionProfileID, "profile-fixture-001")
-        XCTAssertEqual(validated.0.collectionMetadata.tableSetup, "table-fixture-v1")
+        XCTAssertEqual(proposal.probabilities.count, 2)
+        XCTAssertEqual(proposal.probabilities[0].timeS, 0.0, accuracy: 0.000001)
+        XCTAssertEqual(proposal.probabilities[1].timeS, 0.1, accuracy: 0.000001)
+        XCTAssertEqual(proposal.eventProposals.count, 1)
+        XCTAssertEqual(proposal.eventProposals[0].emittedAtS, 0.1, accuracy: 0.000001)
+        XCTAssertEqual(source.gameID, "game-fixture-001")
+        XCTAssertEqual(source.tableSetup, "table-fixture-v1")
         XCTAssertEqual(
-            validated.0.taskEnrollments.map(\.task),
+            enrollments.enrollments.map(\.task),
             RepositoryDataTask.allCases
         )
         XCTAssertEqual(coordinator.metrics.receivedFrameCount, 2)
@@ -106,18 +111,17 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
         let result = waitForStop(coordinator)
         let bundleURL = try XCTUnwrap(try result.get())
         let manifestData = try Data(contentsOf: bundleURL.appendingPathComponent("manifest.json"))
-        let predictionsData = try Data(
-            contentsOf: bundleURL.appendingPathComponent("video-fixture-001.json")
-        )
-        let validated = try validateTrainingRecordingBundle(
-            manifestData: manifestData,
-            predictionsData: predictionsData,
-            videoURL: bundleURL.appendingPathComponent("video-fixture-001.mov")
+        let bundle = try decodeRepositoryJSON(RepositoryBundle.self, data: manifestData)
+        _ = try validateRepositoryBundleDirectory(at: bundleURL)
+        let proposalDescriptor = try XCTUnwrap(bundle.files.proposalGeneratorRuns.first)
+        let proposal = try decodeRepositoryJSON(
+            RepositoryProposalGeneratorRun.self,
+            data: Data(contentsOf: bundleURL.appendingPathComponent(proposalDescriptor.relativePath))
         )
 
-        XCTAssertEqual(validated.1.probabilities.count, 1)
-        XCTAssertEqual(validated.1.probabilities[0].timeS, 0.0, accuracy: 0.000001)
-        XCTAssertTrue(validated.1.eventProposals.isEmpty)
+        XCTAssertEqual(proposal.probabilities.count, 1)
+        XCTAssertEqual(proposal.probabilities[0].timeS, 0.0, accuracy: 0.000001)
+        XCTAssertTrue(proposal.eventProposals.isEmpty)
         XCTAssertEqual(coordinator.metrics.predictionSampleCount, 1)
         XCTAssertEqual(coordinator.metrics.eventProposalCount, 0)
     }

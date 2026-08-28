@@ -2,9 +2,8 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-The backend accepts V2 evidence packages and V1 training recordings. It stores metadata in SQLite
-and stores original source bytes on the local filesystem. Local HTTP routes provide metadata and
-byte-identical source read-back.
+The backend accepts V2 evidence packages and V1 repository bundles. It stores searchable bundle
+metadata in SQLite and stores the complete accepted bundle on the configured intake root.
 
 The backend stores table observations produced by a `TableEvidenceAnalyzer` and adds an optional
 bounded video snippet. See
@@ -78,15 +77,17 @@ curl http://127.0.0.1:8000/v1/evidence-packages/550e8400-e29b-41d4-a716-44665544
   --output snippet.mp4
 ```
 
-Upload a complete training recording from the shared fixture:
+Upload a complete repository bundle from the shared fixture:
 
 ```bash
 cd backend
-curl -X PUT http://127.0.0.1:8000/v1/training-recordings/recording-fixture-001 \
-  -F 'manifest=@../fixtures/training-recording/v1/recording-fixture-001/manifest.json;type=application/json' \
-  -F 'video=@../fixtures/training-recording/v1/recording-fixture-001/video-fixture-001.mov;type=video/quicktime' \
-  -F 'predictions=@../fixtures/training-recording/v1/recording-fixture-001/video-fixture-001.json;type=application/json'
-curl http://127.0.0.1:8000/v1/training-recordings/recording-fixture-001
+curl -X PUT http://127.0.0.1:8000/v1/repository-bundles/recording-both \
+  -F 'manifest=@../fixtures/repository-bundle/v1/both/manifest.json;type=application/json' \
+  -F 'source_record=@../fixtures/repository-bundle/v1/both/source-record.json;type=application/json' \
+  -F 'task_enrollment=@../fixtures/repository-bundle/v1/both/initial-task-enrollment.json;type=application/json' \
+  -F 'video=@../fixtures/repository-bundle/v1/both/videos/video-both.mov;type=video/quicktime' \
+  -F 'proposal=@../fixtures/repository-bundle/v1/both/predictions/proposal-both.json;type=application/json'
+curl http://127.0.0.1:8000/v1/repository-bundles/recording-both
 ```
 
 Run the complete local pipeline gates from `backend/`:
@@ -98,9 +99,8 @@ uv run pytest tests/test_local_pipeline.py
 The gate starts the real local HTTP API with temporary SQLite and filesystem stores. It uses the
 Swift `CardEventProbeLocalPipeline` client to upload complete, incomplete, and metadata-only
 packages, then checks idempotent replay, conflict retention, transport retry, and queue recovery
-after an app restart. The same test module also runs a saved
-H.264 video through recording, outage retry, backend intake, CardEventNet import, proposal review
-entry, and `cardevent prepare`. It does not require Docker, a phone, or cloud services.
+after an app restart. The saved-video test also checks the replacement repository bundle and its
+canonical member hashes. It does not require Docker, a phone, or cloud services.
 
 The default local runtime directory is `.runtime/`. It is ignored by Git. Settings use these
 environment variables:
@@ -115,6 +115,7 @@ MAX_RECORDING_MANIFEST_BYTES=1000000
 MAX_RECORDING_PREDICTIONS_BYTES=10000000
 MAX_RECORDING_VIDEO_BYTES=1000000000
 MAX_RECORDING_BYTES=1100000000
+REPOSITORY_INTAKE_ROOT=data/intake/recordings
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8000
 BONJOUR_ENABLED=true
@@ -171,11 +172,11 @@ Stored files use this layout:
 .runtime/evidence/<package-id>/frames/<part-name>.jpg
 .runtime/evidence/<package-id>/video/<part-name>.mp4
 .runtime/table-observations/<observation-id>/observation.json
-.runtime/training-recordings/<recording-id>/manifest.json
-.runtime/training-recordings/<recording-id>/videos/<video-id>.mov
-.runtime/training-recordings/<recording-id>/predictions/<video-id>.json
-.runtime/training-recordings/<recording-id>/intake/dataset-record.yaml
-.runtime/training-recordings/<recording-id>/intake/candidate-review-queue.json
+data/intake/recordings/<recording-id>/manifest.json
+data/intake/recordings/<recording-id>/source-record.json
+data/intake/recordings/<recording-id>/initial-task-enrollment.json
+data/intake/recordings/<recording-id>/videos/<video-id>.mov
+data/intake/recordings/<recording-id>/predictions/<proposal-run-id>.json
 ```
 
 There is no delete API for recordings. To remove local test data, stop the service, delete the
@@ -183,9 +184,9 @@ recording directory, and delete its SQLite row:
 
 ```bash
 cd backend
-rm -rf .runtime/training-recordings/<recording-id>
+rm -rf data/intake/recordings/<recording-id>
 sqlite3 .runtime/dokodetector.db \
-  "DELETE FROM training_recordings WHERE recording_id = '<recording-id>';"
+  "DELETE FROM repository_bundles WHERE recording_id = '<recording-id>';"
 ```
 
 Readiness runs a SQLite query and checks that the evidence directory can be read and written. The

@@ -319,7 +319,7 @@ public final class TrainingRecordingStore: @unchecked Sendable {
         return storedDiagnostics
     }
 
-    public func validateRecording(at recordingURL: URL) throws -> TrainingRecordingManifest {
+    public func validateRecording(at recordingURL: URL) throws -> RepositoryBundle {
         lock.lock()
         defer { lock.unlock() }
         return try validateRecordingLocked(at: recordingURL)
@@ -365,64 +365,15 @@ public final class TrainingRecordingStore: @unchecked Sendable {
         }
     }
 
-    private func validateRecordingLocked(at recordingURL: URL) throws -> TrainingRecordingManifest {
+    private func validateRecordingLocked(at recordingURL: URL) throws -> RepositoryBundle {
         guard isDirectory(recordingURL) else {
             throw TrainingRecordingStoreError.invalidRecording(recordingURL, "entry is not a directory")
         }
-        let manifestURL = recordingURL.appendingPathComponent("manifest.json")
-        guard isRegularFile(manifestURL) else {
-            throw TrainingRecordingStoreError.invalidRecording(recordingURL, "manifest.json is missing")
-        }
-        let manifestData: Data
         do {
-            manifestData = try Data(contentsOf: manifestURL)
+            return try validateRepositoryBundleDirectory(at: recordingURL)
         } catch {
             throw TrainingRecordingStoreError.invalidRecording(recordingURL, error.localizedDescription)
         }
-        let entries: [URL]
-        do {
-            entries = try fileManager.contentsOfDirectory(
-                at: recordingURL,
-                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
-                options: []
-            )
-        } catch {
-            throw TrainingRecordingStoreError.invalidRecording(recordingURL, error.localizedDescription)
-        }
-        let manifest: TrainingRecordingManifest
-        do {
-            manifest = try JSONDecoder().decode(TrainingRecordingManifest.self, from: manifestData)
-        } catch {
-            throw TrainingRecordingStoreError.invalidRecording(recordingURL, error.localizedDescription)
-        }
-        let videoURL = recordingURL.appendingPathComponent(manifest.video.name)
-        let predictionsURL = recordingURL.appendingPathComponent(manifest.predictions.name)
-        guard Set(entries.map(\.lastPathComponent)) == Set([
-            "manifest.json",
-            manifest.video.name,
-            manifest.predictions.name,
-        ]) else {
-            throw TrainingRecordingStoreError.invalidRecording(
-                recordingURL,
-                "bundle contains an unexpected top-level entry"
-            )
-        }
-        guard isRegularFile(videoURL), isRegularFile(predictionsURL) else {
-            throw TrainingRecordingStoreError.invalidRecording(
-                recordingURL,
-                "the manifest files are missing"
-            )
-        }
-        do {
-            _ = try validateTrainingRecordingBundle(
-                manifestData: manifestData,
-                predictionsData: Data(contentsOf: predictionsURL),
-                videoURL: videoURL
-            )
-        } catch {
-            throw TrainingRecordingStoreError.invalidRecording(recordingURL, error.localizedDescription)
-        }
-        return manifest
     }
 
     private func retainCorruptLocked(

@@ -84,59 +84,35 @@ public struct TrainingRecordingMultipartRequestBuilder: Sendable {
             throw TrainingRecordingMultipartPreparationError.invalidBaseURL(baseURL)
         }
 
-        let manifestURL = recordingURL.appendingPathComponent("manifest.json")
         let manifestData: Data
-        let manifest: TrainingRecordingManifest
+        let bundle: RepositoryBundle
         do {
-            manifestData = try Data(contentsOf: manifestURL)
-            manifest = try JSONDecoder().decode(TrainingRecordingManifest.self, from: manifestData)
+            manifestData = try Data(
+                contentsOf: recordingURL.appendingPathComponent("manifest.json")
+            )
+            bundle = try validateRepositoryBundleDirectory(at: recordingURL)
         } catch {
             throw TrainingRecordingMultipartPreparationError.invalidBundle(
                 recordingURL,
                 error.localizedDescription
             )
         }
-        guard recordingURL.lastPathComponent == manifest.recordingID else {
+        guard recordingURL.lastPathComponent == bundle.recordingID else {
             throw TrainingRecordingMultipartPreparationError.invalidBundle(
                 recordingURL,
                 "directory name does not match manifest.recording_id"
             )
         }
 
-        let videoURL = recordingURL.appendingPathComponent(manifest.video.name)
-        let predictionsURL = recordingURL.appendingPathComponent(manifest.predictions.name)
-        let bundleEntries = (try? FileManager.default.contentsOfDirectory(
-            at: recordingURL,
-            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
-            options: []
-        )) ?? []
-        guard Set(bundleEntries.map(\.lastPathComponent)) == Set([
-            "manifest.json",
-            manifest.video.name,
-            manifest.predictions.name,
-        ]) else {
-            throw TrainingRecordingMultipartPreparationError.invalidBundle(
-                recordingURL,
-                "bundle contains an unexpected top-level entry"
-            )
-        }
-        let predictionsData: Data
-        do {
-            predictionsData = try Data(contentsOf: predictionsURL)
-            _ = try validateTrainingRecordingBundle(
-                manifestData: manifestData,
-                predictionsData: predictionsData,
-                videoURL: videoURL
-            )
-        } catch {
-            throw TrainingRecordingMultipartPreparationError.invalidBundle(
-                recordingURL,
-                error.localizedDescription
-            )
+        let videoURL = recordingURL.appendingPathComponent(bundle.files.video.relativePath)
+        let sourceRecordURL = recordingURL.appendingPathComponent(bundle.files.sourceRecord.relativePath)
+        let taskEnrollmentURL = recordingURL.appendingPathComponent(bundle.files.taskEnrollment.relativePath)
+        let proposalURLs = bundle.files.proposalGeneratorRuns.map { descriptor in
+            (descriptor, recordingURL.appendingPathComponent(descriptor.relativePath))
         }
 
         let bodyURL = bodyDirectory.appendingPathComponent(
-            "training-recording-\(manifest.recordingID)-\(UUID().uuidString.lowercased()).multipart"
+            "repository-bundle-\(bundle.recordingID)-\(UUID().uuidString.lowercased()).multipart"
         )
         do {
             try FileManager.default.createDirectory(
@@ -145,16 +121,18 @@ public struct TrainingRecordingMultipartRequestBuilder: Sendable {
             )
             try writeBody(
                 manifestData: manifestData,
+                sourceRecordURL: sourceRecordURL,
+                taskEnrollmentURL: taskEnrollmentURL,
                 videoURL: videoURL,
-                predictionsURL: predictionsURL,
+                proposalURLs: proposalURLs,
                 to: bodyURL
             )
             let contentLength = try fileSize(of: bodyURL)
             var request = URLRequest(
                 url: baseURL
                     .appendingPathComponent("v1", isDirectory: true)
-                    .appendingPathComponent("training-recordings", isDirectory: true)
-                    .appendingPathComponent(manifest.recordingID)
+                    .appendingPathComponent("repository-bundles", isDirectory: true)
+                    .appendingPathComponent(bundle.recordingID)
             )
             request.httpMethod = "PUT"
             request.setValue(
@@ -183,8 +161,10 @@ public struct TrainingRecordingMultipartRequestBuilder: Sendable {
 
     private func writeBody(
         manifestData: Data,
+        sourceRecordURL: URL,
+        taskEnrollmentURL: URL,
         videoURL: URL,
-        predictionsURL: URL,
+        proposalURLs: [(RepositoryProposalFile, URL)],
         to bodyURL: URL
     ) throws {
         FileManager.default.createFile(atPath: bodyURL.path, contents: nil)
@@ -203,27 +183,59 @@ public struct TrainingRecordingMultipartRequestBuilder: Sendable {
         try handle.write(contentsOf: manifestData)
         try writeASCII("\r\n", to: handle)
 
-        try writeASCII("--\(boundary)\r\n", to: handle)
-        try writeASCII(
-            "Content-Disposition: form-data; name=\"video\"; filename=\"\(videoURL.lastPathComponent)\"\r\n",
+        try writeFilePart(
+            name: "source_record",
+            filename: sourceRecordURL.lastPathComponent,
+            contentType: "application/json",
+            url: sourceRecordURL,
             to: handle
         )
-        try writeASCII("Content-Type: video/quicktime\r\n\r\n", to: handle)
-        try copyFile(videoURL, to: handle)
-        try writeASCII("\r\n", to: handle)
+        try writeFilePart(
+            name: "task_enrollment",
+            filename: taskEnrollmentURL.lastPathComponent,
+            contentType: "application/json",
+            url: taskEnrollmentURL,
+            to: handle
+        )
 
-        try writeASCII("--\(boundary)\r\n", to: handle)
-        try writeASCII(
-            "Content-Disposition: form-data; name=\"predictions\"; filename=\"\(predictionsURL.lastPathComponent)\"\r\n",
+        try writeFilePart(
+            name: "video",
+            filename: videoURL.lastPathComponent,
+            contentType: "video/quicktime",
+            url: videoURL,
             to: handle
         )
-        try writeASCII("Content-Type: application/json\r\n\r\n", to: handle)
-        try copyFile(predictionsURL, to: handle)
-        try writeASCII("\r\n", to: handle)
+
+        for (_, proposalURL) in proposalURLs {
+            try writeFilePart(
+                name: "proposal",
+                filename: proposalURL.lastPathComponent,
+                contentType: "application/json",
+                url: proposalURL,
+                to: handle
+            )
+        }
 
         try writeASCII("--\(boundary)--\r\n", to: handle)
         try handle.close()
         closed = true
+    }
+
+    private func writeFilePart(
+        name: String,
+        filename: String,
+        contentType: String,
+        url: URL,
+        to handle: FileHandle
+    ) throws {
+        try writeASCII("--\(boundary)\r\n", to: handle)
+        try writeASCII(
+            "Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n",
+            to: handle
+        )
+        try writeASCII("Content-Type: \(contentType)\r\n\r\n", to: handle)
+        try copyFile(url, to: handle)
+        try writeASCII("\r\n", to: handle)
     }
 
     private func copyFile(_ url: URL, to output: FileHandle) throws {
@@ -409,8 +421,7 @@ public final class TrainingRecordingUploadClient: @unchecked Sendable {
             return uploadError.failureKind
         }
         if error is TrainingRecordingMultipartPreparationError
-            || error is TrainingRecordingStoreError
-            || error is TrainingRecordingContractError {
+            || error is TrainingRecordingStoreError {
             return .permanent
         }
         return .retryable

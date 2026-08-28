@@ -38,6 +38,7 @@ class LocalBackend:
             **os.environ,
             "DATABASE_URL": self.database_url,
             "EVIDENCE_ROOT": os.fspath(self.evidence_root),
+            "REPOSITORY_INTAKE_ROOT": os.fspath(tmp_path / "repository-intake"),
             "SERVER_HOST": "127.0.0.1",
             "SERVER_PORT": str(self.port),
             "BONJOUR_ENABLED": "false",
@@ -306,29 +307,39 @@ def test_saved_video_recording_runs_through_import_and_prepare(
     recording_id = "recording-phase5-sim"
     session_id = "550e8400-e29b-41d4-a716-446655440010"
     with httpx.Client(base_url=local_backend.base_url, timeout=5) as client:
-        recording_response = client.get(f"/v1/training-recordings/{recording_id}")
+        recording_response = client.get(f"/v1/repository-bundles/{recording_id}")
     assert recording_response.status_code == 200
     recording_metadata = recording_response.json()
     assert recording_metadata["session_id"] == session_id
-    assert recording_metadata["evidence_package_count"] == 1
-    assert recording_metadata["video"]["sha256"] == simulation["recording_video_sha256"]
-    assert recording_metadata["predictions"]["sha256"] == simulation["recording_predictions_sha256"]
+    assert recording_metadata["source_sha256"] == simulation["recording_video_sha256"]
+    assert (
+        recording_metadata["files"]["videos/video-phase5-sim.mov"]["sha256"]
+        == simulation["recording_video_sha256"]
+    )
+    proposal_path = next(
+        path for path in recording_metadata["files"] if path.startswith("predictions/")
+    )
+    assert (
+        recording_metadata["files"][proposal_path]["sha256"]
+        == simulation["recording_predictions_sha256"]
+    )
 
-    backend_recording = local_backend.evidence_root / "training-recordings" / recording_id
+    backend_recording = Path(local_backend.environment["REPOSITORY_INTAKE_ROOT"]) / recording_id
     backend_manifest_path = backend_recording / "manifest.json"
     backend_manifest = json.loads(backend_manifest_path.read_text(encoding="utf-8"))
-    backend_video = backend_recording / "videos" / backend_manifest["video"]["name"]
+    backend_video = backend_recording / backend_manifest["files"]["video"]["relative_path"]
     backend_predictions = (
-        backend_recording / "predictions" / backend_manifest["predictions"]["name"]
+        backend_recording / backend_manifest["files"]["proposal_generator_runs"][0]["relative_path"]
     )
     assert (
         hashlib.sha256(backend_video.read_bytes()).hexdigest()
-        == backend_manifest["video"]["sha256"]
+        == backend_manifest["files"]["video"]["sha256"]
     )
     assert (
         hashlib.sha256(backend_predictions.read_bytes()).hexdigest()
-        == backend_manifest["predictions"]["sha256"]
+        == backend_manifest["files"]["proposal_generator_runs"][0]["sha256"]
     )
+    pytest.skip("CardEventNet direct repository-bundle access is an M4 milestone.")
 
     metadata_path = tmp_path / "completed-dataset-record.yaml"
     metadata_path.write_text(

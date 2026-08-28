@@ -41,6 +41,17 @@ final class RepositoryIntakeContractTests: XCTestCase {
         }
     }
 
+    func testReplacementFixtureDirectoryHasOnlyDeclaredMembersAndValidHashes() throws {
+        let root = try fixtureRoot(named: "both")
+        let bundle = try validateRepositoryBundleDirectory(at: root)
+
+        XCTAssertEqual(bundle.recordingID, "recording-both")
+        XCTAssertEqual(
+            bundle.files.proposalGeneratorRuns.map(\.relativePath),
+            ["predictions/proposal-both.json"]
+        )
+    }
+
     func testReplacementContractRejectsUnknownFieldsAndLegacyAliases() throws {
         let root = try fixtureRoot(named: "both")
         var object = try XCTUnwrap(

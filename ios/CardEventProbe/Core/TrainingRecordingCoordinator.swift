@@ -8,6 +8,7 @@ import ImageIO
 public struct TrainingRecordingConfiguration: Sendable {
     public let outputRoot: URL
     public let recordingID: String
+    public let sourceAssetID: String
     public let sessionID: String
     public let videoID: String
     public let startedAtUTC: Date
@@ -27,6 +28,7 @@ public struct TrainingRecordingConfiguration: Sendable {
         recordingID: String,
         sessionID: String,
         videoID: String,
+        sourceAssetID: String? = nil,
         startedAtUTC: Date = Date(),
         model: TrainingRecordingModel,
         decoder: TrainingRecordingDecoder,
@@ -51,6 +53,7 @@ public struct TrainingRecordingConfiguration: Sendable {
         )
         self.outputRoot = outputRoot
         self.recordingID = recordingID
+        self.sourceAssetID = sourceAssetID ?? "source-\(recordingID)"
         self.sessionID = sessionID
         self.videoID = videoID
         self.startedAtUTC = startedAtUTC
@@ -287,7 +290,7 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
     private var finalDirectory: URL?
     private var videoURL: URL?
     private var predictionsURL: URL?
-    private var predictionWriter: StreamingDevicePredictionsWriter?
+    private var predictionWriter: StreamingProposalGeneratorRunWriter?
     private var videoWriter: (any TrainingRecordingVideoWriter)?
     private var sourceTimestamp: CMTime?
     private var latestTimelineTime: CMTime?
@@ -363,22 +366,30 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
             )
         }
 
-        let videoURL = stagingDirectory.appendingPathComponent(
+        let videoDirectory = stagingDirectory.appendingPathComponent("videos", isDirectory: true)
+        let predictionsDirectory = stagingDirectory.appendingPathComponent("predictions", isDirectory: true)
+        try? fileManager.createDirectory(at: videoDirectory, withIntermediateDirectories: true)
+        try? fileManager.createDirectory(at: predictionsDirectory, withIntermediateDirectories: true)
+        let videoURL = videoDirectory.appendingPathComponent(
             "\(configuration.videoID).mov",
             isDirectory: false
         )
-        let predictionsURL = stagingDirectory.appendingPathComponent(
-            "\(configuration.videoID).json",
+        let predictionsURL = predictionsDirectory.appendingPathComponent(
+            "proposal-\(configuration.recordingID)-device.json",
             isDirectory: false
         )
 
         do {
-            let predictionWriter = try StreamingDevicePredictionsWriter(
+            let predictionWriter = try StreamingProposalGeneratorRunWriter(
                 url: predictionsURL,
                 temporaryDirectory: stagingDirectory,
-                sourceVideo: videoURL.lastPathComponent,
+                sourceAssetID: configuration.sourceAssetID,
+                recordingID: configuration.recordingID,
+                videoID: configuration.videoID,
+                client: configuration.client,
                 model: configuration.model,
-                decoder: configuration.decoder
+                decoder: configuration.decoder,
+                frameRate: configuration.frameRate
             )
             lock.lock()
             self.stagingDirectory = stagingDirectory
@@ -650,7 +661,7 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
         lock.unlock()
         do {
             try predictionWriter.append(
-                TrainingRecordingProbability(
+                try RepositoryProbability(
                     timeS: CMTimeGetSeconds(relativeTime),
                     probability: prediction.cardEventProbability,
                     inferenceMs: prediction.inferenceDurationMs
@@ -658,7 +669,7 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
             )
             if let event, let eventRelativeTime, let emittedRelativeTime {
                 try predictionWriter.append(
-                    TrainingRecordingEventProposal(
+                    try RepositoryEventProposal(
                         timeS: CMTimeGetSeconds(eventRelativeTime),
                         emittedAtS: CMTimeGetSeconds(emittedRelativeTime),
                         probability: event.peakProbability
@@ -694,7 +705,7 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
         lock.unlock()
         do {
             try predictionWriter.append(
-                TrainingRecordingEventProposal(
+                try RepositoryEventProposal(
                     timeS: CMTimeGetSeconds(eventRelativeTime),
                     emittedAtS: CMTimeGetSeconds(emittedRelativeTime),
                     probability: event.peakProbability
@@ -720,18 +731,11 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
         lock.lock()
         let currentError = recordingError
         let writer = videoWriter
-        let predictionWriter = self.predictionWriter
+        let hasPredictionWriter = self.predictionWriter != nil
         lock.unlock()
 
-        guard let writer, let predictionWriter else {
+        guard let writer, hasPredictionWriter else {
             finishWithFailure(currentError ?? .noFramesWritten)
-            return
-        }
-
-        do {
-            try predictionWriter.finish()
-        } catch {
-            finishWithFailure(.predictionWriteFailed(error.localizedDescription))
             return
         }
 
@@ -757,6 +761,22 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
             writerOutput = try result.get()
         } catch {
             finishWithFailure(.writerFailed(error.localizedDescription))
+            return
+        }
+
+        let predictionWriter: StreamingProposalGeneratorRunWriter?
+        lock.lock()
+        predictionWriter = self.predictionWriter
+        let videoURL = self.videoURL
+        lock.unlock()
+        guard let predictionWriter, let videoURL else {
+            finishWithFailure(.predictionWriteFailed("the proposal writer is missing"))
+            return
+        }
+        do {
+            try predictionWriter.finish(sourceSHA256: try sha256Hex(of: videoURL))
+        } catch {
+            finishWithFailure(.predictionWriteFailed(error.localizedDescription))
             return
         }
 
@@ -791,67 +811,114 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
               videoByteLength > 0 else {
             throw TrainingRecordingError.finalizationFailed("the video file is empty")
         }
+        let videoSHA256 = try sha256Hex(of: videoURL)
         let predictionsData = try Data(contentsOf: predictionsURL)
-        let duration = max(
-            CMTimeGetSeconds(latestTimelineTime ?? lastWrittenFrameTime ?? .zero)
-                + (1.0 / configuration.frameRate),
-            1.0 / configuration.frameRate
-        )
-        let manifest = try TrainingRecordingManifest(
-            recordingID: configuration.recordingID,
-            sessionID: configuration.sessionID,
-            videoID: configuration.videoID,
-            startedAtUTC: utcString(from: configuration.startedAtUTC),
-            endedAtUTC: utcString(from: configuration.startedAtUTC.addingTimeInterval(duration)),
-            durationS: duration,
-            video: TrainingRecordingVideo(
-                name: videoURL.lastPathComponent,
-                type: "video/quicktime",
-                byteLength: videoByteLength,
-                sha256: try sha256Hex(of: videoURL),
-                codec: "h264",
-                width: writerOutput.width,
-                height: writerOutput.height,
-                frameRate: writerOutput.frameRate
-            ),
-            predictions: TrainingRecordingPredictionsFile(
-                name: predictionsURL.lastPathComponent,
-                type: "application/json",
-                byteLength: predictionsData.count,
-                sha256: predictionsData.sha256Hex,
-                sampleCount: predictionWriter?.sampleCount ?? 0,
-                eventProposalCount: predictionWriter?.eventProposalCount ?? 0
-            ),
-            model: configuration.model,
-            decoder: configuration.decoder,
-            camera: TrainingRecordingCamera(
-                position: configuration.cameraPosition,
-                orientation: firstOrientation ?? "up",
-                sourceWidth: writerOutput.width,
-                sourceHeight: writerOutput.height
-            ),
-            client: configuration.client,
-            captureMetrics: TrainingRecordingCaptureMetrics(
-                receivedFrameCount: metricsValue.receivedFrameCount,
-                writtenFrameCount: metricsValue.writtenFrameCount,
-                droppedFrameCount: metricsValue.droppedFrameCount
-            ),
+        let collectionMetadata = finalizationCollectionMetadata ?? configuration.collectionMetadata
+        let taskEnrollments = finalizationTaskEnrollments ?? configuration.taskEnrollments
+        guard collectionMetadata.validationIssues.isEmpty,
+              collectionMetadata.sourcePermission == configuration.sourcePermission,
+              taskEnrollments.count == RepositoryDataTask.allCases.count,
+              Set(taskEnrollments.map(\.task)) == Set(RepositoryDataTask.allCases),
+              Set(taskEnrollments.map(\.taskEnrollmentID)).count == taskEnrollments.count,
+              taskEnrollments.allSatisfy({ $0.operator == collectionMetadata.operatorName }) else {
+            throw TrainingRecordingError.validationFailed(
+                "collection metadata and initial task enrollments are incomplete"
+            )
+        }
+        let sourceRecord = try RepositorySourceRecord(
+            sourceAssetID: configuration.sourceAssetID,
+            sha256: videoSHA256,
+            byteLength: videoByteLength,
+            mediaType: "video/quicktime",
+            originalFilename: videoURL.lastPathComponent,
+            acquisitionMethod: "self_recorded",
             sourcePermission: configuration.sourcePermission,
-            collectionMetadata: finalizationCollectionMetadata ?? configuration.collectionMetadata,
-            taskEnrollments: finalizationTaskEnrollments ?? configuration.taskEnrollments
+            allowedUses: allowedUses(for: configuration.sourcePermission),
+            sessionID: configuration.sessionID,
+            recordingID: configuration.recordingID,
+            videoID: configuration.videoID,
+            gameID: collectionMetadata.gameID,
+            roundID: nil,
+            tableSetup: collectionMetadata.tableSetup,
+            contentType: collectionMetadata.contentType,
+            retentionState: "active",
+            notes: collectionMetadata.notes
+        )
+        let enrollmentDocument = try RepositoryTaskEnrollmentDocument(
+            sourceAssetID: configuration.sourceAssetID,
+            enrollments: taskEnrollments
+        )
+        let proposalRun: RepositoryProposalGeneratorRun
+        do {
+            proposalRun = try decodeRepositoryJSON(
+                RepositoryProposalGeneratorRun.self,
+                data: predictionsData
+            )
+        } catch {
+            throw TrainingRecordingError.validationFailed(error.localizedDescription)
+        }
+        guard proposalRun.sourceAssetID == configuration.sourceAssetID,
+              proposalRun.recordingID == configuration.recordingID,
+              proposalRun.videoID == configuration.videoID else {
+            throw TrainingRecordingError.validationFailed("proposal lineage does not match recording")
+        }
+        let videoFile = RepositoryBundleFile(
+            relativePath: "videos/\(videoURL.lastPathComponent)",
+            type: "video/quicktime",
+            byteLength: videoByteLength,
+            sha256: videoSHA256
+        )
+        let sourceRecordData = try encodeRepositoryJSON(sourceRecord)
+        let enrollmentData = try encodeRepositoryJSON(enrollmentDocument)
+        let sourceFile = RepositoryBundleFile(
+            relativePath: "source-record.json",
+            type: "application/json",
+            byteLength: sourceRecordData.count,
+            sha256: sourceRecordData.sha256Hex
+        )
+        let enrollmentFile = RepositoryBundleFile(
+            relativePath: "initial-task-enrollment.json",
+            type: "application/json",
+            byteLength: enrollmentData.count,
+            sha256: enrollmentData.sha256Hex
+        )
+        let proposalFile = RepositoryProposalFile(
+            proposalGeneratorRunID: proposalRun.proposalGeneratorRunID,
+            relativePath: "predictions/\(predictionsURL.lastPathComponent)",
+            type: "application/json",
+            byteLength: predictionsData.count,
+            sha256: predictionsData.sha256Hex
+        )
+        let bundleFiles = try RepositoryBundleFiles(
+            video: videoFile,
+            sourceRecord: sourceFile,
+            taskEnrollment: enrollmentFile,
+            proposalGeneratorRuns: [proposalFile]
+        )
+        let bundle = try RepositoryBundle(
+            sourceAssetID: configuration.sourceAssetID,
+            recordingID: configuration.recordingID,
+            videoID: configuration.videoID,
+            sessionID: configuration.sessionID,
+            sourceSHA256: videoSHA256,
+            files: bundleFiles
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let manifestData = try encoder.encode(manifest)
+        let manifestData = try encoder.encode(bundle)
         let manifestURL = stagingDirectory.appendingPathComponent("manifest.json", isDirectory: false)
+        try sourceRecordData.write(
+            to: stagingDirectory.appendingPathComponent("source-record.json"),
+            options: .atomic
+        )
+        try enrollmentData.write(
+            to: stagingDirectory.appendingPathComponent("initial-task-enrollment.json"),
+            options: .atomic
+        )
         try manifestData.write(to: manifestURL, options: .atomic)
 
         do {
-            _ = try validateTrainingRecordingBundle(
-                manifestData: manifestData,
-                predictionsData: predictionsData,
-                videoURL: videoURL
-            )
+            _ = try validateRepositoryBundleDirectory(at: stagingDirectory)
         } catch {
             throw TrainingRecordingError.validationFailed(String(describing: error))
         }
@@ -910,7 +977,7 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
     }
 }
 
-private final class StreamingDevicePredictionsWriter {
+private final class StreamingProposalGeneratorRunWriter {
     private let url: URL
     private let temporaryURL: URL
     private let handle: FileHandle
@@ -925,9 +992,13 @@ private final class StreamingDevicePredictionsWriter {
     init(
         url: URL,
         temporaryDirectory: URL,
-        sourceVideo: String,
+        sourceAssetID: String,
+        recordingID: String,
+        videoID: String,
+        client: TrainingRecordingClient,
         model: TrainingRecordingModel,
-        decoder: TrainingRecordingDecoder
+        decoder: TrainingRecordingDecoder,
+        frameRate: Double
     ) throws {
         self.url = url
         temporaryURL = temporaryDirectory.appendingPathComponent("event-proposals.tmp", isDirectory: false)
@@ -945,15 +1016,30 @@ private final class StreamingDevicePredictionsWriter {
         self.handle = handle
         self.eventHandle = eventHandle
 
+        let zeroDigest = String(repeating: "0", count: 64)
+        let modelBundleID = "\(model.name):\(model.version)"
         var prefix = Data(
-            "{\"schema_version\":\"\(devicePredictionsSchemaVersion)\",\"source_video\":".utf8
+            "{\"schema_version\":\"\(proposalGeneratorRunSchemaVersion)\",\"proposal_generator_run_id\":\"proposal-\(recordingID)-device\",\"purpose\":\"proposal_only\",\"source_asset_id\":\"\(sourceAssetID)\",\"recording_id\":\"\(recordingID)\",\"video_id\":\"\(videoID)\",\"source_sha256\":\"\(zeroDigest)\",\"model_bundle_id\":\"\(modelBundleID)\",\"weights_sha256\":".utf8
         )
-        let sourceVideoData = try encoder.encode(sourceVideo)
-        prefix.append(sourceVideoData)
-        prefix.append(Data(",\"model\":".utf8))
-        prefix.append(try encoder.encode(model))
+        prefix.append(try encoder.encode(model.weightsSHA256))
         prefix.append(Data(",\"decoder\":".utf8))
-        prefix.append(try encoder.encode(decoder))
+        prefix.append(try encoder.encode(RepositoryProposalDecoder(
+            algorithm: decoder.algorithm,
+            threshold: decoder.threshold,
+            peakConfirmationS: decoder.peakConfirmationS,
+            minimumEventGapS: decoder.minimumEventGapS
+        )))
+        prefix.append(Data(",\"preprocessing\":".utf8))
+        prefix.append(try encoder.encode(model.preprocessing))
+        prefix.append(Data(",\"sampling\":".utf8))
+        prefix.append(try encoder.encode(RepositoryProposalSampling(strategy: "capture_rate", targetHz: frameRate)))
+        prefix.append(Data(",\"execution_environment\":".utf8))
+        prefix.append(try encoder.encode(RepositoryExecutionEnvironment(
+            platform: "ios",
+            device: client.deviceModel,
+            osVersion: client.osVersion,
+            runtimeVersion: client.appVersion
+        )))
         prefix.append(Data(",\"probabilities\":[".utf8))
         try handle.write(contentsOf: prefix)
     }
@@ -963,7 +1049,7 @@ private final class StreamingDevicePredictionsWriter {
         try? eventHandle.close()
     }
 
-    func append(_ sample: TrainingRecordingProbability) throws {
+    func append(_ sample: RepositoryProbability) throws {
         guard !isClosed else {
             throw TrainingRecordingError.predictionWriteFailed("the prediction stream is closed")
         }
@@ -978,7 +1064,7 @@ private final class StreamingDevicePredictionsWriter {
         sampleCount += 1
     }
 
-    func append(_ proposal: TrainingRecordingEventProposal) throws {
+    func append(_ proposal: RepositoryEventProposal) throws {
         guard !isClosed else {
             throw TrainingRecordingError.predictionWriteFailed("the prediction stream is closed")
         }
@@ -993,7 +1079,7 @@ private final class StreamingDevicePredictionsWriter {
         eventProposalCount += 1
     }
 
-    func finish() throws {
+    func finish(sourceSHA256: String) throws {
         guard !isClosed else { return }
         isClosed = true
         try eventHandle.close()
@@ -1003,8 +1089,23 @@ private final class StreamingDevicePredictionsWriter {
         while let chunk = try reader.read(upToCount: 64 * 1024), !chunk.isEmpty {
             try handle.write(contentsOf: chunk)
         }
-        try handle.write(contentsOf: Data("]}".utf8))
+        let zeroDigest = String(repeating: "0", count: 64)
+        try handle.write(contentsOf: Data("],\"output_sha256\":\"\(zeroDigest)\"}".utf8))
         try handle.close()
+        let placeholderData = try Data(contentsOf: url)
+        let marker = Data(zeroDigest.utf8)
+        guard let sourceRange = placeholderData.range(of: marker) else {
+            throw TrainingRecordingError.predictionWriteFailed("the source digest marker is missing")
+        }
+        var resolvedData = placeholderData
+        resolvedData.replaceSubrange(sourceRange, with: Data(sourceSHA256.utf8))
+        guard let outputRange = resolvedData.range(of: marker, options: .backwards) else {
+            throw TrainingRecordingError.predictionWriteFailed("the output digest marker is missing")
+        }
+        var outputInput = resolvedData
+        outputInput.replaceSubrange(outputRange, with: marker)
+        resolvedData.replaceSubrange(outputRange, with: Data(outputInput.sha256Hex.utf8))
+        try resolvedData.write(to: url, options: .atomic)
         try? FileManager.default.removeItem(at: temporaryURL)
     }
 
@@ -1047,6 +1148,17 @@ private func utcString(from date: Date) -> String {
     ]
     formatter.timeZone = TimeZone(secondsFromGMT: 0)
     return formatter.string(from: date)
+}
+
+private func allowedUses(for sourcePermission: String) -> [String] {
+    switch sourcePermission {
+    case "training_only":
+        return ["train"]
+    case "training_and_evaluation":
+        return ["train", "validation", "test", "evaluation"]
+    default:
+        return ["train", "validation", "test", "evaluation"]
+    }
 }
 
 private func sha256Hex(of url: URL) throws -> String {

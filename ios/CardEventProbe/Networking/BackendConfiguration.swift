@@ -52,10 +52,10 @@ public struct BackendConfiguration: Equatable, Sendable {
             .appendingPathComponent(observationID)
     }
 
-    public func trainingRecordingURL(for recordingID: String) -> URL {
+    public func repositoryBundleURL(for recordingID: String) -> URL {
         baseURL
             .appendingPathComponent("v1", isDirectory: true)
-            .appendingPathComponent("training-recordings", isDirectory: true)
+            .appendingPathComponent("repository-bundles", isDirectory: true)
             .appendingPathComponent(recordingID)
     }
 

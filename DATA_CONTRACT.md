@@ -213,15 +213,16 @@ operation changes only the source-record version and identifies downstream objec
 It can use `deletion_requested` for a pending permission withdrawal or `retired` for a completed
 withdrawal.
 
-## Training recording bundle
+## Repository intake bundle
 
-Plan 0019 uses the versioned schemas in:
+Shared app recordings use the frozen schemas in `schemas/repository-intake/`:
 
-- `schemas/training-recording/recording-manifest-v1.schema.json` for the complete recording bundle;
-- `schemas/training-recording/device-predictions-v1.schema.json` for device proposals and raw
-  probability samples.
+- `repository-bundle-v1.schema.json` describes the complete immutable member set;
+- `source-record-v1.schema.json` records source permission, retention, and collection metadata;
+- `task-enrollment-v1.schema.json` records the initial independent data-task enrollments;
+- `proposal-generator-run-v1.schema.json` records proposal lineage and probability output.
 
-The small bundle in `fixtures/training-recording/v1/recording-fixture-001/` is the cross-component
-contract fixture. Its video and prediction bytes are immutable inputs. The manifest records their
-lengths and SHA-256 digests. Device predictions are provenance and event proposals, not human
-annotations or training labels.
+The replacement fixtures in `fixtures/repository-bundle/v1/` are complete bundle inputs. Their
+video, source record, enrollment, and proposal bytes are immutable. The manifest records each
+member length and SHA-256 digest. Proposal output is lineage-only and is not a human annotation or
+training label.
