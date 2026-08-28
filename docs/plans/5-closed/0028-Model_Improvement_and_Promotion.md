@@ -4,7 +4,11 @@
 
 - **Summary:** Run bounded component experiments, compare them reproducibly, and promote a new
   champion model bundle through one operator command
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** All M0–M6 milestones, the component promotion paths, the shared system holdout
+  evaluation, and the optional skill clean-room gate are complete. Routine model campaigns remain
+  usable without Codex.
 - **Depends on:** Completed plans 0021 and 0027
 - **Can start with:** Existing CardEventNet training, evaluation, export, and historical experiment
   reports while the dependent TableEvidenceAnalyzer path is completed
@@ -508,6 +512,22 @@ Acceptance:
 - the skill cannot access test results before candidate lock;
 - the skill cannot update the champion registry directly;
 - a contributor can reproduce the campaign from checked-in artifacts.
+
+#### M6 progress evidence — 2026-08-29
+
+- Added the project-local `.codex/skills/model-improvement` skill with explicit triggers, bounded
+  recipe guidance, validation-only selection, candidate-lock and sealed-test boundaries, operator
+  confirmation, and blocked-work handoff instructions.
+- Added `scripts/propose_recipe.py`. It validates a checked-in recipe through the existing
+  `ModelRecipe` contract and writes only a new canonical `proposed-*.json` input. It refuses
+  campaign and registry destinations and never overwrites an existing artifact.
+- Added a clean-room regression test that runs the checked-in recipe and the skill-produced recipe
+  in isolated fixture campaigns with the same fixed time and fixture runner. It compares structured
+  campaign, comparison, and lock artifacts, recommendation, selection order, result digests, and
+  command sequence. The safety tests confirm that proposal generation leaves the registry and
+  campaign paths unchanged.
+- Skill validation, the full operations test suite, operations Ruff checks, targeted formatting
+  checks, and `git diff --check` pass.
 
 ## 11. Out of scope
 
