@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/evidence-package-lineage-v1.schema.json",
+  "title": "DokoDetector evidence package lineage v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "package_id", "parent_source_asset_id", "parent_recording_id",
+    "parent_video_id", "session_id"
+  ],
+  "properties": {
+    "schema_version": {"const": "evidence-package-lineage/v1"},
+    "package_id": {"$ref": "#/$defs/identifier"},
+    "parent_source_asset_id": {"$ref": "#/$defs/nullable_identifier"},
+    "parent_recording_id": {"$ref": "#/$defs/nullable_identifier"},
+    "parent_video_id": {"$ref": "#/$defs/nullable_identifier"},
+    "session_id": {"$ref": "#/$defs/nullable_identifier"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "nullable_identifier": {
+      "anyOf": [{"$ref": "#/$defs/identifier"}, {"type": "null"}]
+    }
+  }
+}

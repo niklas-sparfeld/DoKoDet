@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/evidence-package-record-v1.schema.json",
+  "title": "DokoDetector evidence package source record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "package_id", "source_asset_id", "source_permission", "allowed_uses",
+    "retention_state", "notes"
+  ],
+  "properties": {
+    "schema_version": {"const": "evidence-package-record/v1"},
+    "package_id": {"$ref": "#/$defs/identifier"},
+    "source_asset_id": {"$ref": "#/$defs/identifier"},
+    "source_permission": {
+      "enum": ["training_only", "training_and_evaluation", "project_use", "unrestricted"]
+    },
+    "allowed_uses": {
+      "type": "array",
+      "items": {"enum": ["train", "validation", "test", "evaluation"]},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "retention_state": {"enum": ["active", "deletion_requested", "deleted", "retired"]},
+    "notes": {"type": ["string", "null"]}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"}
+  }
+}

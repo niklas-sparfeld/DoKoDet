@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/evidence-package-bundle-v1.schema.json",
+  "title": "DokoDetector repository evidence package bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "package_id", "source_asset_id", "state", "files"],
+  "properties": {
+    "schema_version": {"const": "evidence-package-bundle/v1"},
+    "package_id": {"$ref": "#/$defs/identifier"},
+    "source_asset_id": {"$ref": "#/$defs/identifier"},
+    "state": {"const": "complete"},
+    "files": {"$ref": "#/$defs/files"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "json_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": {"$ref": "#/$defs/path"},
+        "type": {"const": "application/json"},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "frame_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": {"type": "string", "pattern": "^frames/[A-Za-z0-9][A-Za-z0-9._-]*\\.jpg$"},
+        "type": {"const": "image/jpeg"},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "snippet_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": {"type": "string", "pattern": "^video/[A-Za-z0-9][A-Za-z0-9._-]*\\.mp4$"},
+        "type": {"const": "video/mp4"},
+        "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_manifest", "package_record", "task_enrollment", "lineage", "frames",
+        "video_snippet"
+      ],
+      "properties": {
+        "evidence_manifest": {
+          "allOf": [
+            {"$ref": "#/$defs/json_file"},
+            {"properties": {"relative_path": {"const": "evidence-manifest.json"}}}
+          ]
+        },
+        "package_record": {
+          "allOf": [
+            {"$ref": "#/$defs/json_file"},
+            {"properties": {"relative_path": {"const": "package-record.json"}}}
+          ]
+        },
+        "task_enrollment": {
+          "allOf": [
+            {"$ref": "#/$defs/json_file"},
+            {"properties": {"relative_path": {"const": "initial-task-enrollment.json"}}}
+          ]
+        },
+        "lineage": {
+          "allOf": [
+            {"$ref": "#/$defs/json_file"},
+            {"properties": {"relative_path": {"const": "lineage.json"}}}
+          ]
+        },
+        "frames": {"type": "array", "items": {"$ref": "#/$defs/frame_file"}},
+        "video_snippet": {
+          "anyOf": [{"$ref": "#/$defs/snippet_file"}, {"type": "null"}]
+        }
+      }
+    }
+  }
+}

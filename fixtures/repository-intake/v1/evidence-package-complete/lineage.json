@@ -1,0 +1,8 @@
+{
+  "schema_version": "evidence-package-lineage/v1",
+  "package_id": "550e8400-e29b-41d4-a716-446655440000",
+  "parent_source_asset_id": "source-both",
+  "parent_recording_id": "recording-both",
+  "parent_video_id": "video-both",
+  "session_id": "session-both"
+}

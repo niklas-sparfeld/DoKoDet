@@ -1,0 +1,9 @@
+{
+  "schema_version": "evidence-package-record/v1",
+  "package_id": "550e8400-e29b-41d4-a716-446655440000",
+  "source_asset_id": "source-evidence-complete",
+  "source_permission": "training_and_evaluation",
+  "allowed_uses": ["train", "validation", "evaluation"],
+  "retention_state": "active",
+  "notes": "Shared complete evidence-package conformance fixture."
+}

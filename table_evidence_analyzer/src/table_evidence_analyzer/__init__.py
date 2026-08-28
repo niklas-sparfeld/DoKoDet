@@ -11,6 +11,19 @@ from table_evidence_analyzer.cards import (
     load_card_set,
     load_deck_manifest,
 )
+from table_evidence_analyzer.repository_intake import (
+    EvidencePackageBundle,
+    EvidencePackageFile,
+    EvidencePackageFiles,
+    EvidencePackageLineage,
+    EvidencePackageRecord,
+    PendingVideo,
+    PendingVideoMediaFacts,
+    parse_evidence_package_bundle,
+    parse_evidence_package_lineage,
+    parse_evidence_package_record,
+    parse_pending_video,
+)
 from table_evidence_analyzer.table_observation import (
     ANALYZER_CAPABILITIES,
     CALIBRATION_STATES,
@@ -50,4 +63,15 @@ __all__ = [
     "load_deck_manifest",
     "parse_observation_bytes",
     "validate_observation",
+    "EvidencePackageBundle",
+    "EvidencePackageFile",
+    "EvidencePackageFiles",
+    "EvidencePackageLineage",
+    "EvidencePackageRecord",
+    "PendingVideo",
+    "PendingVideoMediaFacts",
+    "parse_evidence_package_bundle",
+    "parse_evidence_package_lineage",
+    "parse_evidence_package_record",
+    "parse_pending_video",
 ]

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/pending-video-v1.schema.json",
+  "title": "DokoDetector pending video receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "upload_id", "state", "original_filename", "byte_length", "sha256",
+    "media_type", "received_at_utc", "media_facts"
+  ],
+  "properties": {
+    "schema_version": {"const": "pending-video/v1"},
+    "upload_id": {"$ref": "#/$defs/identifier"},
+    "state": {"const": "pending"},
+    "original_filename": {"$ref": "#/$defs/filename"},
+    "byte_length": {"type": "integer", "exclusiveMinimum": 0},
+    "sha256": {"$ref": "#/$defs/sha256"},
+    "media_type": {"enum": ["video/quicktime", "video/mp4"]},
+    "received_at_utc": {"$ref": "#/$defs/timestamp"},
+    "media_facts": {"$ref": "#/$defs/media_facts"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "filename": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "media_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "container", "video_codec", "width", "height", "nominal_frame_rate",
+        "duration_ms", "frame_count"
+      ],
+      "properties": {
+        "container": {"type": "string", "minLength": 1},
+        "video_codec": {"type": "string", "minLength": 1},
+        "width": {"type": "integer", "exclusiveMinimum": 0},
+        "height": {"type": "integer", "exclusiveMinimum": 0},
+        "nominal_frame_rate": {"type": "number", "exclusiveMinimum": 0},
+        "duration_ms": {"type": "integer", "exclusiveMinimum": 0},
+        "frame_count": {"type": "integer", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "task-enrollment/v1",
+  "source_asset_id": "source-evidence-complete",
+  "enrollments": [
+    {
+      "task_enrollment_id": "enrollment-evidence-cardevent",
+      "task": "cardevent_event_detection",
+      "disposition": "selected",
+      "lifecycle_state": "intake",
+      "operator": "fixture-operator",
+      "created_at_utc": "2026-08-28T15:00:01Z",
+      "reason": null
+    },
+    {
+      "task_enrollment_id": "enrollment-evidence-table",
+      "task": "table_evidence_analysis",
+      "disposition": "selected",
+      "lifecycle_state": "intake",
+      "operator": "fixture-operator",
+      "created_at_utc": "2026-08-28T15:00:01Z",
+      "reason": null
+    }
+  ]
+}

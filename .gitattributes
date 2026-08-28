@@ -3,3 +3,11 @@ card_event_net/data/raw/*.m4v filter=lfs diff=lfs merge=lfs -text
 **/data/intake/recordings/**/*.mov filter=lfs diff=lfs merge=lfs -text
 **/data/intake/recordings/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
 **/data/intake/recordings/**/*.m4v filter=lfs diff=lfs merge=lfs -text
+**/data/incoming/videos/**/*.mov filter=lfs diff=lfs merge=lfs -text
+**/data/incoming/videos/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+**/data/incoming/videos/**/*.m4v filter=lfs diff=lfs merge=lfs -text
+**/data/intake/evidence-packages/**/*.mov filter=lfs diff=lfs merge=lfs -text
+**/data/intake/evidence-packages/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+**/data/intake/evidence-packages/**/*.m4v filter=lfs diff=lfs merge=lfs -text
+**/data/intake/evidence-packages/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+**/data/intake/evidence-packages/**/*.jpeg filter=lfs diff=lfs merge=lfs -text

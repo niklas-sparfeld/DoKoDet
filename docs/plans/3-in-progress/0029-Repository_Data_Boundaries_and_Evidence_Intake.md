@@ -4,7 +4,7 @@
 
 - **Summary:** Keep shared source intake at the repository root, stage incomplete video uploads
   before intake, and make accepted evidence packages durable pipeline inputs
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed plan 0027
 - **Builds on:** Plans 0020 and 0027 provide source identity, lineage, task enrollment, lifecycle,
   repository intake, and review operations
@@ -108,6 +108,18 @@ reports conflicts. Do not retain a permanent dual-reader or a second writable ev
 3. Add matching typed models and conformance fixtures in Swift, backend, operations, and relevant
    component packages.
 4. Extend Git ignore and Git LFS rules for pending and accepted media at every required depth.
+
+### M0 implementation evidence — 2026-08-28
+
+- Backend settings resolve SQLite, runtime, and repository intake paths from the nearest repository
+  root, whether the service starts from the repository root or `backend/`.
+- Strict pending-video and evidence-package schemas are frozen under
+  `schemas/repository-intake/`.
+- Backend, operations, CardEventNet, TableEvidenceAnalyzer, and Swift decode shared conformance
+  fixtures. The backend and Swift validators also verify package member digests and exact layout.
+- Git ignore and Git LFS rules cover pending upload media and accepted evidence-package media.
+- Verification passed: backend 94 tests, operations 29 tests, TableEvidenceAnalyzer 23 tests,
+  CardEventNet 231 tests with one skip, and Swift repository-intake conformance tests.
 
 ### M1 — Pending video completion
 

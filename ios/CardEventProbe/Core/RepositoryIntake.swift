@@ -5,6 +5,10 @@ public let repositoryBundleSchemaVersion = "repository-bundle/v1"
 public let repositoryTaskEnrollmentSchemaVersion = "task-enrollment/v1"
 public let proposalGeneratorRunSchemaVersion = "proposal-generator-run/v1"
 public let repositorySourceRecordSchemaVersion = "source-record/v1"
+public let pendingVideoSchemaVersion = "pending-video/v1"
+public let evidencePackageBundleSchemaVersion = "evidence-package-bundle/v1"
+public let evidencePackageRecordSchemaVersion = "evidence-package-record/v1"
+public let evidencePackageLineageSchemaVersion = "evidence-package-lineage/v1"
 
 public enum RepositoryDataTask: String, Codable, CaseIterable, Hashable, Sendable {
     case cardEventDetection = "cardevent_event_detection"
@@ -500,6 +504,355 @@ public struct RepositoryBundle: Codable, Equatable, Sendable {
     }
 }
 
+public struct RepositoryPendingVideoMediaFacts: Codable, Equatable, Sendable {
+    public let container: String
+    public let videoCodec: String
+    public let width: Int
+    public let height: Int
+    public let nominalFrameRate: Double
+    public let durationMs: Int
+    public let frameCount: Int
+
+    public init(
+        container: String,
+        videoCodec: String,
+        width: Int,
+        height: Int,
+        nominalFrameRate: Double,
+        durationMs: Int,
+        frameCount: Int
+    ) throws {
+        guard !container.isEmpty, !videoCodec.isEmpty, width > 0, height > 0,
+              nominalFrameRate.isFinite, nominalFrameRate > 0, durationMs > 0, frameCount > 0 else {
+            throw repositoryContractError("pending video media facts are invalid")
+        }
+        self.container = container
+        self.videoCodec = videoCodec
+        self.width = width
+        self.height = height
+        self.nominalFrameRate = nominalFrameRate
+        self.durationMs = durationMs
+        self.frameCount = frameCount
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try repositoryRequireExactKeys(decoder, CodingKeys.self)
+        try self.init(
+            container: container.decode(String.self, forKey: .container),
+            videoCodec: container.decode(String.self, forKey: .videoCodec),
+            width: container.decode(Int.self, forKey: .width),
+            height: container.decode(Int.self, forKey: .height),
+            nominalFrameRate: container.decode(Double.self, forKey: .nominalFrameRate),
+            durationMs: container.decode(Int.self, forKey: .durationMs),
+            frameCount: container.decode(Int.self, forKey: .frameCount)
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case container
+        case videoCodec = "video_codec"
+        case width
+        case height
+        case nominalFrameRate = "nominal_frame_rate"
+        case durationMs = "duration_ms"
+        case frameCount = "frame_count"
+    }
+}
+
+public struct RepositoryPendingVideo: Codable, Equatable, Sendable {
+    public let schemaVersion: String
+    public let uploadID: String
+    public let state: String
+    public let originalFilename: String
+    public let byteLength: Int
+    public let sha256: String
+    public let mediaType: String
+    public let receivedAtUTC: String
+    public let mediaFacts: RepositoryPendingVideoMediaFacts
+
+    public init(
+        uploadID: String,
+        originalFilename: String,
+        byteLength: Int,
+        sha256: String,
+        mediaType: String,
+        receivedAtUTC: String,
+        mediaFacts: RepositoryPendingVideoMediaFacts
+    ) throws {
+        guard RepositoryIntakeContract.isIdentifier(uploadID),
+              RepositoryIntakeContract.isFilename(originalFilename), byteLength > 0,
+              RepositoryIntakeContract.isSHA256(sha256),
+              ["video/quicktime", "video/mp4"].contains(mediaType),
+              RepositoryIntakeContract.isUTCTimestamp(receivedAtUTC) else {
+            throw repositoryContractError("pending video contains an invalid value")
+        }
+        self.schemaVersion = pendingVideoSchemaVersion
+        self.uploadID = uploadID
+        self.state = "pending"
+        self.originalFilename = originalFilename
+        self.byteLength = byteLength
+        self.sha256 = sha256
+        self.mediaType = mediaType
+        self.receivedAtUTC = receivedAtUTC
+        self.mediaFacts = mediaFacts
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try repositoryRequireExactKeys(decoder, CodingKeys.self)
+        try self.init(
+            uploadID: container.decode(String.self, forKey: .uploadID),
+            originalFilename: container.decode(String.self, forKey: .originalFilename),
+            byteLength: container.decode(Int.self, forKey: .byteLength),
+            sha256: container.decode(String.self, forKey: .sha256),
+            mediaType: container.decode(String.self, forKey: .mediaType),
+            receivedAtUTC: container.decode(String.self, forKey: .receivedAtUTC),
+            mediaFacts: container.decode(RepositoryPendingVideoMediaFacts.self, forKey: .mediaFacts)
+        )
+        let state = try container.decode(String.self, forKey: .state)
+        let schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+        guard schemaVersion == pendingVideoSchemaVersion, state == "pending" else {
+            throw repositoryContractError("pending video contains an invalid schema or state")
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case schemaVersion = "schema_version"
+        case uploadID = "upload_id"
+        case state
+        case originalFilename = "original_filename"
+        case byteLength = "byte_length"
+        case sha256
+        case mediaType = "media_type"
+        case receivedAtUTC = "received_at_utc"
+        case mediaFacts = "media_facts"
+    }
+}
+
+public struct RepositoryEvidencePackageRecord: Codable, Equatable, Sendable {
+    public let schemaVersion: String
+    public let packageID: String
+    public let sourceAssetID: String
+    public let sourcePermission: String
+    public let allowedUses: [String]
+    public let retentionState: String
+    public let notes: String?
+
+    public init(
+        packageID: String,
+        sourceAssetID: String,
+        sourcePermission: String,
+        allowedUses: [String],
+        retentionState: String,
+        notes: String?
+    ) throws {
+        guard RepositoryIntakeContract.isIdentifier(packageID),
+              RepositoryIntakeContract.isIdentifier(sourceAssetID),
+              ["training_only", "training_and_evaluation", "project_use", "unrestricted"].contains(sourcePermission),
+              !allowedUses.isEmpty, Set(allowedUses).isSubset(of: ["train", "validation", "test", "evaluation"]),
+              allowedUses.count == Set(allowedUses).count,
+              ["active", "deletion_requested", "deleted", "retired"].contains(retentionState) else {
+            throw repositoryContractError("evidence package record contains an invalid value")
+        }
+        self.schemaVersion = evidencePackageRecordSchemaVersion
+        self.packageID = packageID
+        self.sourceAssetID = sourceAssetID
+        self.sourcePermission = sourcePermission
+        self.allowedUses = allowedUses
+        self.retentionState = retentionState
+        self.notes = notes
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try repositoryRequireExactKeys(decoder, CodingKeys.self)
+        schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+        packageID = try container.decode(String.self, forKey: .packageID)
+        sourceAssetID = try container.decode(String.self, forKey: .sourceAssetID)
+        sourcePermission = try container.decode(String.self, forKey: .sourcePermission)
+        allowedUses = try container.decode([String].self, forKey: .allowedUses)
+        retentionState = try container.decode(String.self, forKey: .retentionState)
+        notes = try container.decodeIfPresent(String.self, forKey: .notes)
+        guard schemaVersion == evidencePackageRecordSchemaVersion,
+              RepositoryIntakeContract.isIdentifier(packageID),
+              RepositoryIntakeContract.isIdentifier(sourceAssetID),
+              ["training_only", "training_and_evaluation", "project_use", "unrestricted"].contains(sourcePermission),
+              !allowedUses.isEmpty, Set(allowedUses).isSubset(of: ["train", "validation", "test", "evaluation"]),
+              allowedUses.count == Set(allowedUses).count,
+              ["active", "deletion_requested", "deleted", "retired"].contains(retentionState) else {
+            throw repositoryContractError("evidence package record contains an invalid value")
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case schemaVersion = "schema_version"
+        case packageID = "package_id"
+        case sourceAssetID = "source_asset_id"
+        case sourcePermission = "source_permission"
+        case allowedUses = "allowed_uses"
+        case retentionState = "retention_state"
+        case notes
+    }
+}
+
+public struct RepositoryEvidencePackageLineage: Codable, Equatable, Sendable {
+    public let schemaVersion: String
+    public let packageID: String
+    public let parentSourceAssetID: String?
+    public let parentRecordingID: String?
+    public let parentVideoID: String?
+    public let sessionID: String?
+
+    public init(
+        packageID: String,
+        parentSourceAssetID: String?,
+        parentRecordingID: String?,
+        parentVideoID: String?,
+        sessionID: String?
+    ) throws {
+        guard RepositoryIntakeContract.isIdentifier(packageID),
+              [parentSourceAssetID, parentRecordingID, parentVideoID, sessionID].allSatisfy({ value in
+                  value == nil || RepositoryIntakeContract.isIdentifier(value!)
+              }) else {
+            throw repositoryContractError("evidence package lineage contains an invalid value")
+        }
+        self.schemaVersion = evidencePackageLineageSchemaVersion
+        self.packageID = packageID
+        self.parentSourceAssetID = parentSourceAssetID
+        self.parentRecordingID = parentRecordingID
+        self.parentVideoID = parentVideoID
+        self.sessionID = sessionID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try repositoryRequireExactKeys(decoder, CodingKeys.self)
+        try self.init(
+            packageID: container.decode(String.self, forKey: .packageID),
+            parentSourceAssetID: container.decodeIfPresent(String.self, forKey: .parentSourceAssetID),
+            parentRecordingID: container.decodeIfPresent(String.self, forKey: .parentRecordingID),
+            parentVideoID: container.decodeIfPresent(String.self, forKey: .parentVideoID),
+            sessionID: container.decodeIfPresent(String.self, forKey: .sessionID)
+        )
+        guard try container.decode(String.self, forKey: .schemaVersion) == evidencePackageLineageSchemaVersion else {
+            throw repositoryContractError("evidence package lineage schema is unsupported")
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case schemaVersion = "schema_version"
+        case packageID = "package_id"
+        case parentSourceAssetID = "parent_source_asset_id"
+        case parentRecordingID = "parent_recording_id"
+        case parentVideoID = "parent_video_id"
+        case sessionID = "session_id"
+    }
+}
+
+public struct RepositoryEvidencePackageFiles: Codable, Equatable, Sendable {
+    public let evidenceManifest: RepositoryBundleFile
+    public let packageRecord: RepositoryBundleFile
+    public let taskEnrollment: RepositoryBundleFile
+    public let lineage: RepositoryBundleFile
+    public let frames: [RepositoryBundleFile]
+    public let videoSnippet: RepositoryBundleFile?
+
+    public init(
+        evidenceManifest: RepositoryBundleFile,
+        packageRecord: RepositoryBundleFile,
+        taskEnrollment: RepositoryBundleFile,
+        lineage: RepositoryBundleFile,
+        frames: [RepositoryBundleFile],
+        videoSnippet: RepositoryBundleFile?
+    ) throws {
+        guard (evidenceManifest.relativePath, evidenceManifest.type) == ("evidence-manifest.json", "application/json"),
+              (packageRecord.relativePath, packageRecord.type) == ("package-record.json", "application/json"),
+              (taskEnrollment.relativePath, taskEnrollment.type) == ("initial-task-enrollment.json", "application/json"),
+              (lineage.relativePath, lineage.type) == ("lineage.json", "application/json"),
+              Set(frames.map(\.relativePath)).count == frames.count,
+              frames.allSatisfy({ $0.relativePath.hasPrefix("frames/") && $0.relativePath.hasSuffix(".jpg") && $0.type == "image/jpeg" }),
+              videoSnippet == nil || (videoSnippet!.relativePath.hasPrefix("video/") && videoSnippet!.relativePath.hasSuffix(".mp4") && videoSnippet!.type == "video/mp4") else {
+            throw repositoryContractError("evidence package member descriptors are invalid")
+        }
+        self.evidenceManifest = evidenceManifest
+        self.packageRecord = packageRecord
+        self.taskEnrollment = taskEnrollment
+        self.lineage = lineage
+        self.frames = frames
+        self.videoSnippet = videoSnippet
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try repositoryRequireExactKeys(decoder, CodingKeys.self)
+        try self.init(
+            evidenceManifest: container.decode(RepositoryBundleFile.self, forKey: .evidenceManifest),
+            packageRecord: container.decode(RepositoryBundleFile.self, forKey: .packageRecord),
+            taskEnrollment: container.decode(RepositoryBundleFile.self, forKey: .taskEnrollment),
+            lineage: container.decode(RepositoryBundleFile.self, forKey: .lineage),
+            frames: container.decode([RepositoryBundleFile].self, forKey: .frames),
+            videoSnippet: container.decodeIfPresent(RepositoryBundleFile.self, forKey: .videoSnippet)
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case evidenceManifest = "evidence_manifest"
+        case packageRecord = "package_record"
+        case taskEnrollment = "task_enrollment"
+        case lineage
+        case frames
+        case videoSnippet = "video_snippet"
+    }
+}
+
+public struct RepositoryEvidencePackageBundle: Codable, Equatable, Sendable {
+    public let schemaVersion: String
+    public let packageID: String
+    public let sourceAssetID: String
+    public let state: String
+    public let files: RepositoryEvidencePackageFiles
+
+    public init(
+        packageID: String,
+        sourceAssetID: String,
+        files: RepositoryEvidencePackageFiles
+    ) throws {
+        guard RepositoryIntakeContract.isIdentifier(packageID),
+              RepositoryIntakeContract.isIdentifier(sourceAssetID) else {
+            throw repositoryContractError("evidence package bundle identity is invalid")
+        }
+        self.schemaVersion = evidencePackageBundleSchemaVersion
+        self.packageID = packageID
+        self.sourceAssetID = sourceAssetID
+        self.state = "complete"
+        self.files = files
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try repositoryRequireExactKeys(decoder, CodingKeys.self)
+        schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+        packageID = try container.decode(String.self, forKey: .packageID)
+        sourceAssetID = try container.decode(String.self, forKey: .sourceAssetID)
+        state = try container.decode(String.self, forKey: .state)
+        files = try container.decode(RepositoryEvidencePackageFiles.self, forKey: .files)
+        guard schemaVersion == evidencePackageBundleSchemaVersion, state == "complete",
+              RepositoryIntakeContract.isIdentifier(packageID),
+              RepositoryIntakeContract.isIdentifier(sourceAssetID) else {
+            throw repositoryContractError("evidence package bundle contains an invalid identity or state")
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case schemaVersion = "schema_version"
+        case packageID = "package_id"
+        case sourceAssetID = "source_asset_id"
+        case state
+        case files
+    }
+}
+
 public struct RepositoryProposalDecoder: Codable, Equatable, Sendable {
     public let algorithm: String
     public let threshold: Double
@@ -789,7 +1142,93 @@ public struct RepositoryProposalGeneratorRun: Codable, Equatable, Sendable {
     }
 }
 
-/// Validates a durable bundle, including its exact member set and every declared digest.
+/// Validates a durable evidence-package bundle, including its exact member set and every digest.
+public func validateEvidencePackageBundleDirectory(at directoryURL: URL) throws -> RepositoryEvidencePackageBundle {
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory),
+          isDirectory.boolValue else {
+        throw repositoryContractError("evidence package bundle directory is missing")
+    }
+    let manifestData = try Data(contentsOf: directoryURL.appendingPathComponent("manifest.json"))
+    let bundle = try decodeRepositoryJSON(RepositoryEvidencePackageBundle.self, data: manifestData)
+    let evidenceData = try Data(contentsOf: directoryURL.appendingPathComponent(bundle.files.evidenceManifest.relativePath))
+    let recordData = try Data(contentsOf: directoryURL.appendingPathComponent(bundle.files.packageRecord.relativePath))
+    let enrollmentData = try Data(contentsOf: directoryURL.appendingPathComponent(bundle.files.taskEnrollment.relativePath))
+    let lineageData = try Data(contentsOf: directoryURL.appendingPathComponent(bundle.files.lineage.relativePath))
+    let evidence = try decodeRepositoryJSON(EvidencePackageManifest.self, data: evidenceData)
+    let record = try decodeRepositoryJSON(RepositoryEvidencePackageRecord.self, data: recordData)
+    let enrollments = try decodeRepositoryJSON(RepositoryTaskEnrollmentDocument.self, data: enrollmentData)
+    let lineage = try decodeRepositoryJSON(RepositoryEvidencePackageLineage.self, data: lineageData)
+    guard evidence.packageID.uuidString.lowercased() == bundle.packageID.lowercased(),
+          record.packageID == bundle.packageID, record.sourceAssetID == bundle.sourceAssetID,
+          enrollments.sourceAssetID == bundle.sourceAssetID, lineage.packageID == bundle.packageID else {
+        throw repositoryContractError("evidence package documents have different identities")
+    }
+
+    try verifyRepositoryBytes(evidenceData, descriptor: bundle.files.evidenceManifest)
+    try verifyRepositoryBytes(recordData, descriptor: bundle.files.packageRecord)
+    try verifyRepositoryBytes(enrollmentData, descriptor: bundle.files.taskEnrollment)
+    try verifyRepositoryBytes(lineageData, descriptor: bundle.files.lineage)
+    let expectedFrames = Set(evidence.frames.map { "frames/\($0.partName).jpg" })
+    guard expectedFrames == Set(bundle.files.frames.map(\.relativePath)) else {
+        throw repositoryContractError("evidence package frame descriptors differ from manifest")
+    }
+    for descriptor in bundle.files.frames {
+        try verifyEvidencePackageFile(
+            directoryURL.appendingPathComponent(descriptor.relativePath), descriptor: descriptor
+        )
+    }
+    let expectedSnippet: String? = {
+        guard let snippet = evidence.videoSnippet, snippet.captureComplete, let partName = snippet.partName else {
+            return nil
+        }
+        return "video/\(partName).mp4"
+    }()
+    guard expectedSnippet == bundle.files.videoSnippet?.relativePath else {
+        throw repositoryContractError("evidence package snippet descriptor differs from manifest")
+    }
+    if let descriptor = bundle.files.videoSnippet {
+        try verifyEvidencePackageFile(
+            directoryURL.appendingPathComponent(descriptor.relativePath), descriptor: descriptor
+        )
+    }
+    let expected = Set([
+        "manifest.json",
+        bundle.files.evidenceManifest.relativePath,
+        bundle.files.packageRecord.relativePath,
+        bundle.files.taskEnrollment.relativePath,
+        bundle.files.lineage.relativePath,
+    ] + bundle.files.frames.map(\.relativePath) + (bundle.files.videoSnippet.map { [$0.relativePath] } ?? []))
+    guard let enumerator = FileManager.default.enumerator(
+        at: directoryURL,
+        includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    ) else {
+        throw repositoryContractError("evidence package directory could not be inspected")
+    }
+    var actual: Set<String> = []
+    let rootPath = directoryURL.standardizedFileURL.path
+    for case let url as URL in enumerator {
+        guard (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else {
+            continue
+        }
+        let filePath = url.standardizedFileURL.path
+        guard filePath.hasPrefix(rootPath + "/") else {
+            throw repositoryContractError("evidence package member is outside its directory")
+        }
+        actual.insert(String(filePath.dropFirst(rootPath.count + 1)))
+    }
+    guard actual == expected else {
+        throw repositoryContractError("evidence package contains an unexpected or missing file")
+    }
+    return bundle
+}
+
+private func verifyEvidencePackageFile(_ url: URL, descriptor: RepositoryBundleFile) throws {
+    try verifyRepositoryBytes(Data(contentsOf: url), descriptor: descriptor)
+}
+
+/// Validates a durable recording bundle, including its exact member set and every declared digest.
 public func validateRepositoryBundleDirectory(at directoryURL: URL) throws -> RepositoryBundle {
     var isDirectory: ObjCBool = false
     guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory),

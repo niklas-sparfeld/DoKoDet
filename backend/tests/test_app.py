@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect
@@ -42,6 +43,28 @@ def test_factory_exposes_injected_settings() -> None:
     app = create_app(settings)
 
     assert app.state.settings is settings
+
+
+@pytest.mark.parametrize("working_directory", [BACKEND_ROOT.parent, BACKEND_ROOT])
+def test_factory_resolves_default_storage_from_repository_root(
+    tmp_path: Path, monkeypatch, working_directory: Path
+) -> None:
+    monkeypatch.chdir(working_directory)
+    settings = Settings(
+        _env_file=None,
+        database_url=f"sqlite:///{tmp_path / 'repository.sqlite'}",
+        evidence_root=Path(".runtime"),
+        repository_intake_root=Path("data/intake/recordings"),
+    )
+
+    app = create_app(settings)
+
+    assert settings.repository_root == BACKEND_ROOT.parent
+    assert app.state.storage.evidence_root == BACKEND_ROOT.parent / ".runtime" / "evidence"
+    assert app.state.repository_bundle_storage.root == (
+        BACKEND_ROOT.parent / "data" / "intake" / "recordings"
+    )
+    assert not (BACKEND_ROOT / "backend" / "data" / "intake").exists()
 
 
 def test_factory_applies_pending_repository_bundle_migration(tmp_path: Path) -> None:

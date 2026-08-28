@@ -77,6 +77,32 @@ final class RepositoryIntakeContractTests: XCTestCase {
         )
     }
 
+    func testM0PendingVideoAndEvidencePackageFixturesDecodeAcrossTheBoundary() throws {
+        let root = try fixtureRoot(named: "evidence-package-complete")
+        let pendingRoot = try fixtureRoot(named: "pending-video")
+        let pending = try decode(
+            RepositoryPendingVideo.self,
+            at: pendingRoot.appendingPathComponent("manifest.json")
+        )
+        let bundle = try validateEvidencePackageBundleDirectory(at: root)
+        let record = try decode(
+            RepositoryEvidencePackageRecord.self,
+            at: root.appendingPathComponent("package-record.json")
+        )
+        let lineage = try decode(
+            RepositoryEvidencePackageLineage.self,
+            at: root.appendingPathComponent("lineage.json")
+        )
+
+        XCTAssertEqual(pending.state, "pending")
+        XCTAssertEqual(pending.mediaFacts.container, "mp4")
+        XCTAssertEqual(bundle.packageID, record.packageID)
+        XCTAssertEqual(bundle.packageID, lineage.packageID)
+        XCTAssertEqual(bundle.sourceAssetID, record.sourceAssetID)
+        XCTAssertEqual(bundle.files.frames.count, 6)
+        XCTAssertNotNil(bundle.files.videoSnippet)
+    }
+
     private func decode<T: Decodable>(_ type: T.Type, at url: URL) throws -> T {
         try JSONDecoder().decode(type, from: Data(contentsOf: url))
     }
@@ -86,9 +112,10 @@ final class RepositoryIntakeContractTests: XCTestCase {
             .deletingLastPathComponent() // CardEventProbeTests
             .deletingLastPathComponent() // ios
             .deletingLastPathComponent() // repository root
-        let root = repositoryRoot
-            .appendingPathComponent("fixtures/repository-bundle/v1")
-            .appendingPathComponent(name)
+        let fixtureBase = name == "evidence-package-complete" || name == "pending-video"
+            ? "fixtures/repository-intake/v1"
+            : "fixtures/repository-bundle/v1"
+        let root = repositoryRoot.appendingPathComponent(fixtureBase).appendingPathComponent(name)
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.path))
         return root
     }

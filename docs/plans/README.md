@@ -49,13 +49,12 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0028 — Model improvement and promotion](2-ready/0028-Model_Improvement_and_Promotion.md) | 0021 and 0027 | Run bounded component experiments and explicitly promote a new champion model bundle. |
-| [0029 — Repository data boundaries and evidence intake](2-ready/0029-Repository_Data_Boundaries_and_Evidence_Intake.md) | 0027 | Keep shared intake at the repository root, stage incomplete videos before intake, and preserve accepted evidence packages as pipeline inputs. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0029 — Repository data boundaries and evidence intake](3-in-progress/0029-Repository_Data_Boundaries_and_Evidence_Intake.md) | 0027 | Keep shared intake at the repository root, stage incomplete videos before intake, and preserve accepted evidence packages as pipeline inputs. |
 
 ### Blocked
 

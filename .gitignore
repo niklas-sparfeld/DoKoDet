@@ -5,9 +5,16 @@
 **/.ruff_cache/
 **/.uv-cache/
 **/.venv/
+**/.runtime/
 .env
 .DS_Store
 **/data/cache/
 **/data/outputs/
+/data/incoming/videos/
+/data/intake/evidence-packages/**/*.mov
+/data/intake/evidence-packages/**/*.mp4
+/data/intake/evidence-packages/**/*.m4v
+/data/intake/evidence-packages/**/*.jpg
+/data/intake/evidence-packages/**/*.jpeg
 /diagnostics/
 **/node_modules/

@@ -1,0 +1,76 @@
+{
+  "schema_version": "evidence-package-bundle/v1",
+  "package_id": "550e8400-e29b-41d4-a716-446655440000",
+  "source_asset_id": "source-evidence-complete",
+  "state": "complete",
+  "files": {
+    "evidence_manifest": {
+      "relative_path": "evidence-manifest.json",
+      "type": "application/json",
+      "byte_length": 4661,
+      "sha256": "011fce4aad0dc4ea4cd55c5d5cf69cad6abce583980c03127da5215445a6a43a"
+    },
+    "package_record": {
+      "relative_path": "package-record.json",
+      "type": "application/json",
+      "byte_length": 364,
+      "sha256": "cf2aeabfc0a9f017fd4c32fdb5e4c3ec662c13e1b942b7409dc8ba377642784c"
+    },
+    "task_enrollment": {
+      "relative_path": "initial-task-enrollment.json",
+      "type": "application/json",
+      "byte_length": 695,
+      "sha256": "317cc47f98798f8e595cf2a903394de8e797ae67d3ea4bff4df3396bca403d26"
+    },
+    "lineage": {
+      "relative_path": "lineage.json",
+      "type": "application/json",
+      "byte_length": 263,
+      "sha256": "2347ca1512a35825c67e860286d8d3869e2fdc47e7c448f214672ea3b6855367"
+    },
+    "frames": [
+      {
+        "relative_path": "frames/frame_00.jpg",
+        "type": "image/jpeg",
+        "byte_length": 23022,
+        "sha256": "030077ebc0605179b2dd4b681ba16acdc1f304cbb0546c678db6f020ffac4309"
+      },
+      {
+        "relative_path": "frames/frame_01.jpg",
+        "type": "image/jpeg",
+        "byte_length": 20936,
+        "sha256": "26cec3f9bfc196ac55b759071536149e374ca43293157bf2ed5cc1b2fb3a6215"
+      },
+      {
+        "relative_path": "frames/frame_02.jpg",
+        "type": "image/jpeg",
+        "byte_length": 20550,
+        "sha256": "03593c1261f5fb806c873926394e4b17c434185c26df35a2badc2352d29ca721"
+      },
+      {
+        "relative_path": "frames/frame_03.jpg",
+        "type": "image/jpeg",
+        "byte_length": 17669,
+        "sha256": "e3473fcb769bda88034d3177eacabac71ebcedea4a037c143359f757a04fc94e"
+      },
+      {
+        "relative_path": "frames/frame_04.jpg",
+        "type": "image/jpeg",
+        "byte_length": 24922,
+        "sha256": "0a5c5bc6c8cbe957ee1feff7305b73e155e04bab8a2e94dd7d48f66847ab2151"
+      },
+      {
+        "relative_path": "frames/frame_05.jpg",
+        "type": "image/jpeg",
+        "byte_length": 25112,
+        "sha256": "ae3f829b706f5fae502e53bbd6ca76e019fcf401e72b97056357c3581bad2fe8"
+      }
+    ],
+    "video_snippet": {
+      "relative_path": "video/snippet_00.mp4",
+      "type": "video/mp4",
+      "byte_length": 137663,
+      "sha256": "9632d221236646d0180a21be824a657ba4785eaaf25c955271a25dc9158b4855"
+    }
+  }
+}

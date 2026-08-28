@@ -11,12 +11,26 @@ from cardevent.intake_contract import (
     TASK_CARD_EVENT,
     TASK_TABLE_EVIDENCE,
     IntakeContractError,
+    parse_evidence_package_bundle,
+    parse_evidence_package_lineage,
+    parse_evidence_package_record,
     parse_json_bytes,
+    parse_pending_video,
     validate_repository_bundle,
 )
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1"
 FIXTURES = ("cardevent-only", "table-evidence-only", "both")
+EVIDENCE_FIXTURE_ROOT = (
+    Path(__file__).parents[2]
+    / "fixtures"
+    / "repository-intake"
+    / "v1"
+    / "evidence-package-complete"
+)
+PENDING_FIXTURE_ROOT = (
+    Path(__file__).parents[2] / "fixtures" / "repository-intake" / "v1" / "pending-video"
+)
 
 
 def _documents(
@@ -124,3 +138,17 @@ def test_json_parser_rejects_non_object_and_invalid_utf8() -> None:
         parse_json_bytes(b"[]", "fixture")
     with pytest.raises(IntakeContractError):
         parse_json_bytes(b"\xff", "fixture")
+
+
+def test_cardevent_decodes_pending_and_evidence_package_contracts() -> None:
+    pending = parse_pending_video((PENDING_FIXTURE_ROOT / "manifest.json").read_bytes())
+    bundle = parse_evidence_package_bundle((EVIDENCE_FIXTURE_ROOT / "manifest.json").read_bytes())
+    record = parse_evidence_package_record(
+        (EVIDENCE_FIXTURE_ROOT / "package-record.json").read_bytes()
+    )
+    lineage = parse_evidence_package_lineage((EVIDENCE_FIXTURE_ROOT / "lineage.json").read_bytes())
+
+    assert pending.media_facts.frame_count == 300
+    assert bundle.package_id == record.package_id == lineage.package_id
+    assert bundle.source_asset_id == record.source_asset_id
+    assert len(bundle.files.frames) == 6
