@@ -550,6 +550,23 @@ Acceptance:
 - `--task all` retains separate progress and failure state for both tasks;
 - component log volume stays in run logs while the Markdown report stays concise.
 
+#### M5 progress evidence — 2026-08-28
+
+- Added strict `doko-review-run/v1` and `doko-review-report/v1` contracts, validators, and checked-in
+  JSON schemas. Run state records selected input digests, task-local decisions, staged and published
+  outputs, split approval, failures, next action, and commit-ready files.
+- Added typed task-adapter interfaces and `doko data review`. The command discovers selected intake
+  enrollments, uses deterministic run identity, saves atomically after each decision, resumes
+  interrupted and failed task work, stages output before validation, and publishes tasks separately.
+- Added concise Markdown reports and separate run logs. The JSON and human outputs print the exact
+  next human action; completed runs return without calling adapters or overwriting immutable output.
+- Added deterministic tests for new, interrupted, resumed, complete, failed, and `--task all` runs,
+  strict malformed state, read-only status visibility, idempotent completion, and no partial
+  publication after validation failure.
+- Verification: `mise exec -- uv run --offline pytest` in `operations/` (12 passed), Ruff check and
+  format checks pass, and a headless CLI review invocation produces strict JSON state and report
+  output without model, camera, display, network, or SQLite access.
+
 ### M6 — CardEventNet review adapter
 
 1. Discover selected, unreviewed recordings from task enrollment.

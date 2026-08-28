@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://doko-detector.local/schemas/review-run-v1.schema.json",
+  "title": "DokoDetector review run v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "reviewer", "requested_tasks", "input_digest",
+    "created_at_utc", "updated_at_utc", "state", "tasks", "next_action", "failure",
+    "log_path", "report_path", "commit_ready_files"
+  ],
+  "properties": {
+    "schema_version": {"const": "doko-review-run/v1"},
+    "run_id": {"$ref": "#/$defs/identifier"},
+    "reviewer": {"type": "string", "minLength": 1},
+    "requested_tasks": {"$ref": "#/$defs/tasks"},
+    "input_digest": {"$ref": "#/$defs/sha256"},
+    "created_at_utc": {"$ref": "#/$defs/timestamp"},
+    "updated_at_utc": {"$ref": "#/$defs/timestamp"},
+    "state": {"enum": ["new", "in_progress", "interrupted", "failed", "complete"]},
+    "tasks": {"type": "array", "items": {"$ref": "#/$defs/taskState"}},
+    "next_action": {"anyOf": [{"$ref": "#/$defs/nextAction"}, {"type": "null"}]},
+    "failure": {"anyOf": [{"$ref": "#/$defs/failure"}, {"type": "null"}]},
+    "log_path": {"type": "string", "minLength": 1},
+    "report_path": {"type": "string", "minLength": 1},
+    "commit_ready_files": {"$ref": "#/$defs/paths"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "task": {"enum": ["cardevent_event_detection", "table_evidence_analysis"]},
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/task"}
+    },
+    "paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "reviewInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "source_asset_id", "recording_id", "source_sha256", "bundle_path", "task_enrollment_id"],
+      "properties": {
+        "task": {"$ref": "#/$defs/task"},
+        "source_asset_id": {"$ref": "#/$defs/identifier"},
+        "recording_id": {"$ref": "#/$defs/identifier"},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "bundle_path": {"type": "string", "minLength": 1},
+        "task_enrollment_id": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "decisionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "source_asset_id", "kind", "prompt", "state", "decision", "decided_at_utc"],
+      "properties": {
+        "item_id": {"$ref": "#/$defs/identifier"},
+        "source_asset_id": {"$ref": "#/$defs/identifier"},
+        "kind": {"type": "string", "minLength": 1},
+        "prompt": {"type": "string", "minLength": 1},
+        "state": {"enum": ["pending", "complete"]},
+        "decision": {"anyOf": [{"type": "object"}, {"type": "null"}]},
+        "decided_at_utc": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]}
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "message"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1}
+      }
+    },
+    "taskState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task", "state", "inputs", "items", "staged_outputs", "published_outputs",
+        "split_approval_required", "split_approved", "failure"
+      ],
+      "properties": {
+        "task": {"$ref": "#/$defs/task"},
+        "state": {"enum": ["pending", "in_progress", "failed", "complete"]},
+        "inputs": {"type": "array", "items": {"$ref": "#/$defs/reviewInput"}},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/decisionItem"}},
+        "staged_outputs": {"$ref": "#/$defs/paths"},
+        "published_outputs": {"$ref": "#/$defs/paths"},
+        "split_approval_required": {"type": "boolean"},
+        "split_approved": {"type": "boolean"},
+        "failure": {"anyOf": [{"$ref": "#/$defs/failure"}, {"type": "null"}]}
+      }
+    },
+    "nextAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "task", "item_id", "message"],
+      "properties": {
+        "kind": {"enum": ["human_decision", "approve_split", "resolve_failure", "validate_task"]},
+        "task": {"$ref": "#/$defs/task"},
+        "item_id": {"anyOf": [{"$ref": "#/$defs/identifier"}, {"type": "null"}]},
+        "message": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
