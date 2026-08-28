@@ -77,8 +77,9 @@ package instead of continuously streaming video.
 
 ### Evidence transport and storage
 
-The Python backend receives, validates, and stores evidence packages. It preserves immutable source
-bytes and hands a requested package to downstream processing.
+The Python backend receives and validates evidence packages. It stores each accepted package as one
+immutable repository intake bundle. The searchable index and analyzer output are disposable state.
+The backend preserves source bytes and hands a requested package to downstream processing.
 
 The backend contains little table analysis or game logic. This keeps stored evidence replayable as
 analyzer components and reconstruction methods change.
@@ -179,3 +180,39 @@ The near-term work proceeds in independent layers:
 
 The [epic board](docs/plans/README.md) contains the exact order, dependencies, and acceptance gates.
 Epic numbers record creation order. Status folders record workflow state.
+
+## Storage boundaries
+
+Shared source bytes use these repository-root paths:
+
+```text
+data/incoming/videos/<upload-id>/             pending upload; not yet intake
+data/intake/recordings/<recording-id>/        complete recording bundle
+data/intake/evidence-packages/<package-id>/   accepted evidence package
+data/operations/                              review and lifecycle artifacts
+backend/.runtime/                             disposable index, cache, and outputs
+```
+
+A pending upload is not visible to review or dataset assembly. An operator completes it with
+metadata and both task enrollments before it becomes a recording bundle:
+
+```bash
+mise exec -- uv run --project operations doko data status --repository-root .
+mise exec -- uv run --project operations doko data complete-video \
+  --repository-root . --upload-id <upload-id> --metadata completion.json
+```
+
+Accepted evidence packages are available to both data tasks when their independent task
+enrollments select the task. Review reads the shared package in place; it does not copy source
+media into a component data directory. Inspect or validate the shared intake with:
+
+```bash
+mise exec -- uv run --project operations doko data validate --repository-root .
+mise exec -- uv run --project operations doko data adopt-evidence \
+  --repository-root . --runtime-root backend/.runtime \
+  --package-id <package-id> --metadata package-metadata.json
+```
+
+The adoption command is for packages from the old runtime path. It keeps the old package until the
+operator verifies the new intake bundle. Deleting `backend/.runtime` cannot delete an accepted
+source package.

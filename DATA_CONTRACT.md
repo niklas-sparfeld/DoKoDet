@@ -24,6 +24,23 @@ The layers have different meaning.
   versions.
 - A derived artifact records how it came from a source frame or other accepted input.
 
+## Source intake boundary
+
+Shared source bytes use repository-root paths. A pending upload stays outside intake until an
+operator supplies complete metadata and both task enrollments:
+
+```text
+data/incoming/videos/<upload-id>/             pending upload
+data/intake/recordings/<recording-id>/        complete recording bundle
+data/intake/evidence-packages/<package-id>/   accepted evidence package
+backend/.runtime/                             disposable backend state
+```
+
+A pending upload records its digest, byte length, media facts, and completion state. It is not a
+recording, an evidence package, or an input to review or dataset assembly. An accepted evidence
+package is immutable source input. Its package bytes remain available when the backend rebuilds its
+SQLite index or its runtime directory is deleted.
+
 ## Identifiers
 
 Use the semantic identifiers defined by the data foundation plan:
@@ -226,3 +243,28 @@ The replacement fixtures in `fixtures/repository-bundle/v1/` are complete bundle
 video, source record, enrollment, and proposal bytes are immutable. The manifest records each
 member length and SHA-256 digest. Proposal output is lineage-only and is not a human annotation or
 training label.
+
+Accepted evidence packages use these additional frozen schemas:
+
+- `evidence-package-bundle-v1.schema.json` hashes the complete package member set;
+- `evidence-package-record-v1.schema.json` records permission, allowed uses, retention, and source
+  identity;
+- `evidence-package-lineage-v1.schema.json` links the package to its parent recording and source
+  asset when known.
+
+The canonical package layout is:
+
+```text
+manifest.json
+evidence-manifest.json
+package-record.json
+initial-task-enrollment.json
+lineage.json
+frames/<part-name>.jpg
+video/<part-name>.mp4                  optional
+```
+
+The package record and task-enrollment documents are independent of the evidence manifest. The
+enrollment document has one entry for each supported data task. A task adapter may read a package
+only when its enrollment has `disposition: selected`. A selected package still needs human review
+before it can enter a dataset.

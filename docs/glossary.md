@@ -103,6 +103,13 @@ roles are not interchangeable.
 Immutable imported bytes, such as an original video or accepted evidence package. A source asset
 records or represents source material. It is not the real-world recording or activity itself.
 
+### Pending upload
+
+A received source upload that is not yet a complete repository intake bundle. A pending upload stays
+under `data/incoming` with its receipt, source digest, byte length, and measured media facts. It is
+not visible to a data task, review, dataset, split, or model run. The HTTP contract may use a more
+specific name, such as `pending video`.
+
 ### Event
 
 A time-bounded occurrence that is relevant to detection or gameplay. Use a qualified event term

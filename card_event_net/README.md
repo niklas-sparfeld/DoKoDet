@@ -122,6 +122,25 @@ For queue-based visual review, use `cardevent review`. See the
 [CardEventNet review workflow](../docs/CardEventNet_ReviewWorkflow.md) for the full validation
 and training process.
 
+## Review an accepted evidence package
+
+The backend stores each accepted evidence package as one immutable source bundle under
+`../data/intake/evidence-packages/<package-id>/`. CardEventNet can use the package only when its
+`cardevent_event_detection` task enrollment has `disposition: selected`. It reads the package
+frames and optional snippet in place. It does not copy source media into `data/`.
+
+Check the shared intake and create durable review work from the repository root:
+
+```bash
+mise exec -- uv run --project operations doko data status --repository-root .
+mise exec -- uv run --project operations doko data review \
+  --repository-root . --task cardevent_event_detection --reviewer <name>
+```
+
+Pending uploads under `../data/incoming/videos/` are not visible to CardEventNet. Complete a
+pending upload before review. A proposal is not a reviewed event and does not create a training
+label.
+
 ## Review a shared training recording
 
 The backend stores each accepted recording once in the repository intake. CardEventNet reads the

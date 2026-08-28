@@ -11,6 +11,11 @@ fixtures/evidence/v2/example-incomplete/manifest.json
 The backend and iOS tests must load these files directly. Do not copy them into another fixture
 format.
 
+An accepted package is also a repository intake bundle. The backend writes it below
+`data/intake/evidence-packages/<package-id>` and rebuilds its searchable index from that bundle at
+startup. The bundle contract is
+[`evidence-package-bundle/v1`](schemas/repository-intake/evidence-package-bundle-v1.schema.json).
+
 ## Manifest
 
 The manifest is UTF-8 JSON. Its top-level fields are:
@@ -103,10 +108,24 @@ Content-Type: multipart/form-data; boundary=<boundary>
 ```
 
 `{package_id}` must be a UUID and must equal `manifest.package_id`. The request has exactly one
-`manifest` part with content type `application/json`. It has one `image/jpeg` part for each
-manifest frame, using that frame's `part_name` as the multipart field name. A missing target has no
-multipart part. A metadata-only package therefore contains the manifest part only. Undeclared
-frame parts, duplicate parts, and duplicate manifest parts are invalid.
+`manifest`, `package_record`, `task_enrollment`, and `lineage` part. Each fixed part uses content
+type `application/json`. It has one `image/jpeg` part for each manifest frame, using that frame's
+`part_name` as the multipart field name. A missing target has no multipart part. A metadata-only
+package therefore contains the four fixed parts only. Undeclared frame parts, duplicate parts, and
+duplicate fixed parts are invalid.
+
+The fixed documents use these schemas:
+
+```text
+package_record       evidence-package-record/v1
+task_enrollment      task-enrollment/v1
+lineage              evidence-package-lineage/v1
+```
+
+The package record supplies source permission, allowed uses, retention state, and source asset
+identity. The task-enrollment document contains one independent enrollment for each supported data
+task. Lineage links the package to its parent recording and source asset when known. These
+documents are part of the package identity and are preserved byte-for-byte.
 
 When `video_snippet` is complete, the request also contains one `video/mp4` part using its
 `part_name`. A null or incomplete snippet has no video part.
@@ -115,6 +134,9 @@ For the complete fixture, the parts are:
 
 ```text
 manifest  application/json
+package_record application/json
+task_enrollment application/json
+lineage application/json
 frame_00  image/jpeg
 frame_01  image/jpeg
 frame_02  image/jpeg
@@ -125,11 +147,12 @@ snippet_00 video/mp4
 ```
 
 Multipart filenames are not trusted and are not part of the contract fingerprint. The server stores
-each accepted frame as `<part_name>.jpg` and a complete snippet as `<part_name>.mp4` below the
-package directory.
+the fixed documents at their canonical names, each accepted frame as `<part_name>.jpg`, and a
+complete snippet as `<part_name>.mp4` below the package directory.
 
 The server validates the complete package before it stores or exposes it:
 
+- each fixed intake document is present, valid, and consistent with the package and source identity;
 - each declared frame has one matching part and no extra frame part exists;
 - each frame byte length and SHA-256 match the manifest;
 - each frame content type is `image/jpeg`;
@@ -150,7 +173,7 @@ new contract version:
 manifest bytes:             1,000,000
 one JPEG frame:            10,000,000
 manifest plus JPEG frames: 100,000,000
-one video snippet:             250,000
+one video snippet:             750,000
 ```
 
 The limits apply to received bytes, before any image decoding. A request over a limit is rejected
@@ -184,8 +207,9 @@ GET /v1/evidence-packages/{package_id}
 ```
 
 The response includes the validated manifest, selected-frame metadata, and the optional
-`video_snippet` metadata. For a complete snippet, `video_relative_path` reports its local relative
-storage path. Clients must use the safe read endpoint instead of constructing a filesystem path:
+`video_snippet` metadata. For a complete snippet, `video_relative_path` reports its relative path
+below the canonical package directory. Clients must use the safe read endpoint instead of
+constructing a filesystem path:
 
 ```http
 GET /v1/evidence-packages/{package_id}/video-snippet
@@ -197,24 +221,15 @@ part name from the client.
 
 ## Fingerprint
 
-The package fingerprint is the SHA-256 of canonical JSON with this shape:
+The package fingerprint includes every canonical bundle member. For each member, use its POSIX
+relative path, byte length, and SHA-256 digest. Sort members by relative path and join the records
+with a NUL between fields and a newline between records. Hash the UTF-8 result with SHA-256.
 
-```json
-{
-  "manifest_sha256": "...",
-  "frames": [
-    {"byte_length": 123, "part_name": "frame_00", "sha256": "..."}
-  ],
-  "video_snippet": null
-}
-```
-
-The manifest digest is the SHA-256 of the received manifest bytes. Frame entries are sorted by
-`part_name`. A present video entry contains its `part_name`, `byte_length`, and `sha256`.
-Multipart boundaries, filenames, and received part order are not included. The server
-must persist the received manifest bytes without reformatting them. Encode the fingerprint JSON as
-UTF-8 with lexicographically sorted object keys, compact separators (`,` and `:`), and no additional
-whitespace before hashing.
+This includes `manifest.json`, the received `evidence-manifest.json`, the three fixed intake
+documents, every frame, and the optional video snippet. Multipart boundaries, filenames, and
+received part order are not included. The server persists all received JSON bytes without
+reformatting them. An identical replay returns `200`; any changed fixed document or source member
+returns `409`.
 
 ## HTTP errors
 

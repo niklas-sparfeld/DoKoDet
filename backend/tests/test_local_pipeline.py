@@ -222,6 +222,100 @@ def test_ios_client_reaches_backend_over_local_http(
     assert restarted["diagnostics"]["queued"] == 0
 
 
+def test_pending_video_clean_room_survives_restart_and_completes(
+    local_backend: LocalBackend,
+    tmp_path: Path,
+) -> None:
+    """Exercise pending source intake, restart, and atomic recording completion."""
+
+    upload_id = "pending-clean-room"
+    recording_id = "recording-pending-clean-room"
+    video = (FIXTURES_ROOT / "example-complete" / "snippet.mp4").read_bytes()
+    pending_root = tmp_path / "data" / "incoming" / "videos"
+    recording_root = Path(local_backend.environment["REPOSITORY_INTAKE_ROOT"])
+
+    with httpx.Client(base_url=local_backend.base_url, timeout=10) as client:
+        uploaded = client.put(
+            f"/v1/pending-videos/{upload_id}",
+            files={"video": ("pending.mov", video, "video/quicktime")},
+        )
+    assert uploaded.status_code == 201
+    assert uploaded.json()["sha256"] == hashlib.sha256(video).hexdigest()
+
+    local_backend.stop()
+    local_backend.start()
+    with httpx.Client(base_url=local_backend.base_url, timeout=5) as client:
+        pending_after_restart = client.get(f"/v1/pending-videos/{upload_id}")
+    assert pending_after_restart.status_code == 200
+    assert pending_after_restart.json()["byte_length"] == len(video)
+
+    completion = tmp_path / "pending-completion.json"
+    completion.write_text(
+        json.dumps(
+            {
+                "schema_version": "pending-video-completion/v1",
+                "source_asset_id": "source-pending-clean-room",
+                "recording_id": recording_id,
+                "video_id": "video-pending-clean-room",
+                "session_id": "session-pending-clean-room",
+                "acquisition_method": "clean_room_pending_upload",
+                "source_permission": "training_and_evaluation",
+                "allowed_uses": ["train", "validation", "evaluation"],
+                "game_id": "game-pending-clean-room",
+                "round_id": None,
+                "table_setup": "table-clean-room-v1",
+                "content_type": "real_game",
+                "notes": "Clean-room completion fixture.",
+                "task_enrollments": [
+                    {
+                        "task_enrollment_id": "enrollment-pending-cardevent",
+                        "task": "cardevent_event_detection",
+                        "disposition": "selected",
+                        "lifecycle_state": "intake",
+                        "operator": "clean-room",
+                        "created_at_utc": "2026-08-28T16:00:00Z",
+                        "reason": None,
+                    },
+                    {
+                        "task_enrollment_id": "enrollment-pending-table",
+                        "task": "table_evidence_analysis",
+                        "disposition": "selected",
+                        "lifecycle_state": "intake",
+                        "operator": "clean-room",
+                        "created_at_utc": "2026-08-28T16:00:00Z",
+                        "reason": None,
+                    },
+                ],
+            },
+            sort_keys=True,
+        )
+    )
+
+    completed = run_doko(
+        "data",
+        "complete-video",
+        "--repository-root",
+        REPOSITORY_ROOT,
+        "--pending-video-root",
+        pending_root,
+        "--intake-root",
+        recording_root,
+        "--upload-id",
+        upload_id,
+        "--metadata",
+        completion,
+        "--format",
+        "json",
+    )
+    assert completed["state"] == "complete"
+    assert completed["recording_id"] == recording_id
+    assert completed["source_sha256"] == hashlib.sha256(video).hexdigest()
+    assert not (pending_root / upload_id).exists()
+    assert (
+        recording_root / recording_id / "videos" / "video-pending-clean-room.mov"
+    ).read_bytes() == video
+
+
 def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
     local_backend: LocalBackend,
     tmp_path: Path,
@@ -307,6 +401,9 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
         local_backend.base_url,
     )
     assert evidence_uploaded["attempts"][0]["disposition"] == "acknowledged"
+    evidence_package_id = evidence_uploaded["attempts"][0]["package_id"]
+    evidence_package_root = Path(local_backend.environment["EVIDENCE_PACKAGE_INTAKE_ROOT"])
+    assert (evidence_package_root / evidence_package_id).is_dir()
 
     recording_id = "recording-phase5-sim"
     session_id = "550e8400-e29b-41d4-a716-446655440010"
@@ -346,17 +443,22 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
     assert backend_video.parent == backend_recording / "videos"
     assert backend_predictions.parent == backend_recording / "predictions"
 
-    # Rebuild the searchable index from the accepted bundle after a database restart. The
-    # canonical source remains in one repository-intake bundle throughout this exercise.
+    # Rebuild the searchable index after a database restart and runtime deletion. The canonical
+    # source remains in one repository-intake bundle throughout the exercise.
     local_backend.stop()
+    shutil.rmtree(local_backend.evidence_root)
     for suffix in ("", "-wal", "-shm"):
         (tmp_path / f"evidence.sqlite{suffix}").unlink(missing_ok=True)
     upgrade_database(BACKEND_ROOT, local_backend.database_url)
     local_backend.start()
     with httpx.Client(base_url=local_backend.base_url, timeout=5) as client:
         rebuilt = client.get(f"/v1/repository-bundles/{recording_id}")
+        rebuilt_evidence = client.get(f"/v1/evidence-packages/{evidence_package_id}")
     assert rebuilt.status_code == 200
     assert rebuilt.json()["source_sha256"] == simulation["recording_video_sha256"]
+    assert rebuilt_evidence.status_code == 200
+    assert rebuilt_evidence.json()["package_id"] == evidence_package_id
+    assert (evidence_package_root / evidence_package_id).is_dir()
 
     intake_root = Path(local_backend.environment["REPOSITORY_INTAKE_ROOT"])
     artifacts_root = tmp_path / "operations"
@@ -367,6 +469,8 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
         REPOSITORY_ROOT,
         "--intake-root",
         intake_root,
+        "--evidence-package-root",
+        evidence_package_root,
         "--artifacts-root",
         artifacts_root,
         "--task",
@@ -408,6 +512,8 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
         REPOSITORY_ROOT,
         "--intake-root",
         intake_root,
+        "--evidence-package-root",
+        evidence_package_root,
         "--artifacts-root",
         artifacts_root,
         "--task",
@@ -446,6 +552,8 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
         REPOSITORY_ROOT,
         "--intake-root",
         intake_root,
+        "--evidence-package-root",
+        evidence_package_root,
         "--artifacts-root",
         artifacts_root,
         "--task",
@@ -477,6 +585,8 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
         REPOSITORY_ROOT,
         "--intake-root",
         intake_root,
+        "--evidence-package-root",
+        evidence_package_root,
         "--artifacts-root",
         artifacts_root,
         "--format",

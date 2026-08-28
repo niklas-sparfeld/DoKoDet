@@ -7,6 +7,39 @@ The source bytes are immutable. Each operation reads its inputs and writes a new
 with a lifecycle receipt. A receipt names the source assets, annotation sets, reviews, dataset
 versions, splits, derived artifacts, and runs that it touches.
 
+## Shared storage
+
+Keep shared source bytes at the repository root:
+
+```text
+data/incoming/videos/<upload-id>/             pending upload
+data/intake/recordings/<recording-id>/        complete recording bundle
+data/intake/evidence-packages/<package-id>/   accepted evidence package
+data/operations/                              review and lifecycle artifacts
+backend/.runtime/                             disposable backend state
+```
+
+A pending upload is not a recording and is not an evidence package. It is not visible to a data
+task. The backend and operations tools resolve these paths from the repository root.
+
+Inspect the intake before an operation:
+
+```bash
+mise exec -- uv run --project operations doko data status --repository-root .
+mise exec -- uv run --project operations doko data validate --repository-root .
+```
+
+Complete a pending upload only after the operator has supplied the required source metadata and the
+two independent task enrollments:
+
+```bash
+mise exec -- uv run --project operations doko data complete-video \
+  --repository-root . --upload-id <upload-id> --metadata completion.json
+```
+
+The command publishes one recording bundle by atomic rename. It does not change the source digest.
+If it fails, the pending upload remains available for retry.
+
 ## Normal flow
 
 ```text
@@ -36,7 +69,8 @@ This writes a source import receipt beside the ingestion index. The receipt cont
 source digests and the ingestion manifest and index versions. It does not move, rename, or rewrite
 the source videos.
 
-For accepted evidence packages, create draft table observations in a new directory:
+For an accepted evidence package, create draft table observations in a new directory. Read the
+package from shared intake; do not copy its source media into a component data directory:
 
 ```bash
 uv run cardevent vision-import fixtures/evidence/v2/example-complete \
@@ -44,6 +78,7 @@ uv run cardevent vision-import fixtures/evidence/v2/example-complete \
   --operator niklas
 ```
 
+Use `data/intake/evidence-packages/<package-id>` in place of the fixture path for repository data.
 The import receipt records the evidence package and draft annotation-set versions. A draft is not
 eligible data.
 
@@ -54,7 +89,7 @@ Review all available frames and the optional video snippet:
 ```bash
 uv run cardevent vision-review \
   --annotation data/table-observations/draft/annotation-set-001.json \
-  --frames-dir data/evidence/frames \
+  --frames-dir data/intake/evidence-packages/<package-id>/frames \
   --out data/table-observation-reviews/review-001.json \
   --reviewer niklas
 
@@ -177,3 +212,18 @@ uv run cardevent dataset-validate \
 Do not promote a dataset when source bytes changed, source permission is invalid, a review version
 is missing, lineage is ambiguous, a duplicate source is present, or a leakage group crosses
 partitions.
+
+## Adopt an old runtime package
+
+Packages from the old runtime evidence path need one explicit adoption. Validate and publish the
+package into shared intake:
+
+```bash
+mise exec -- uv run --project operations doko data adopt-evidence \
+  --repository-root . --runtime-root backend/.runtime \
+  --package-id <package-id> --metadata package-metadata.json
+```
+
+The command keeps the old runtime package until the operator verifies the canonical bundle. After
+verification, backend runtime state can be deleted and rebuilt. It must not be used as a second
+source authority.

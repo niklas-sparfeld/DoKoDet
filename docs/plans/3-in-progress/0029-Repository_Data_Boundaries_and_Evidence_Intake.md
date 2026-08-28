@@ -172,6 +172,22 @@ reports conflicts. Do not retain a permanent dual-reader or a second writable ev
   test command remains blocked by pre-existing strict-concurrency errors in
   `TrainingRecordingUploadQueueTests.swift`.
 
+### M3 implementation evidence — 2026-08-28
+
+- Defined **pending upload** in the project glossary. A pending upload stays outside repository
+  intake and all data-task inputs until completion.
+- Updated the root guide, backend guide, data and server contracts, repository intake contract,
+  lifecycle guide, and both task guides with the repository-root storage boundaries and M1/M2
+  operator commands.
+- Added a clean-room pending-video test. It uploads a raw video over HTTP, restarts the backend,
+  completes the upload into one recording bundle, and checks that the source digest is unchanged.
+- Extended the live evidence clean-room test. It uploads an evidence package, deletes backend
+  runtime state, rebuilds SQLite, and checks that the accepted package and review inputs remain
+  available from canonical intake.
+- Verification passed: the focused local pipeline test and all M2 component checks. The full Swift
+  test command remains blocked by the pre-existing strict-concurrency errors in
+  `TrainingRecordingUploadQueueTests.swift`; the Swift package build passes.
+
 ### M3 — Documentation and clean-room verification
 
 1. Define the canonical term for a pre-intake upload in `docs/glossary.md` before using it in other

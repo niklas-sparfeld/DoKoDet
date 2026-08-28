@@ -2,8 +2,9 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-The backend accepts V2 evidence packages and V1 repository bundles. It stores searchable bundle
-metadata in SQLite and stores the complete accepted bundle on the configured intake root.
+The backend accepts V2 evidence packages and V1 repository bundles. It stores searchable metadata
+in SQLite and stores every accepted source bundle on the repository intake root. SQLite, temporary
+uploads, caches, and analyzer output are disposable runtime state.
 
 The backend stores table observations produced by a `TableEvidenceAnalyzer` and adds an optional
 bounded video snippet. See
@@ -116,6 +117,8 @@ MAX_RECORDING_PREDICTIONS_BYTES=10000000
 MAX_RECORDING_VIDEO_BYTES=1000000000
 MAX_RECORDING_BYTES=1100000000
 REPOSITORY_INTAKE_ROOT=data/intake/recordings
+EVIDENCE_PACKAGE_INTAKE_ROOT=data/intake/evidence-packages
+PENDING_VIDEO_ROOT=data/incoming/videos
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8000
 BONJOUR_ENABLED=true
@@ -168,27 +171,55 @@ Python process. macOS uses code signing when it makes Application Firewall decis
 Stored files use this layout:
 
 ```text
-.runtime/evidence/<package-id>/manifest.json
-.runtime/evidence/<package-id>/frames/<part-name>.jpg
-.runtime/evidence/<package-id>/video/<part-name>.mp4
 .runtime/table-observations/<observation-id>/observation.json
 data/intake/recordings/<recording-id>/manifest.json
 data/intake/recordings/<recording-id>/source-record.json
 data/intake/recordings/<recording-id>/initial-task-enrollment.json
 data/intake/recordings/<recording-id>/videos/<video-id>.mov
 data/intake/recordings/<recording-id>/predictions/<proposal-run-id>.json
+data/intake/evidence-packages/<package-id>/manifest.json
+data/intake/evidence-packages/<package-id>/evidence-manifest.json
+data/intake/evidence-packages/<package-id>/package-record.json
+data/intake/evidence-packages/<package-id>/initial-task-enrollment.json
+data/intake/evidence-packages/<package-id>/lineage.json
+data/intake/evidence-packages/<package-id>/frames/<part-name>.jpg
+data/intake/evidence-packages/<package-id>/video/<part-name>.mp4
+data/incoming/videos/<upload-id>/manifest.json
+data/incoming/videos/<upload-id>/<original-filename>
 ```
 
-There is no delete API for recordings. To remove local test data, stop the service, delete the
-recording directory, and delete its SQLite row:
+The repository intake is the source authority. The backend rebuilds searchable package state from
+accepted evidence-package bundles at startup. A pending upload is not a recording or an evidence
+package. It stays outside intake until an operator supplies valid metadata and both task
+enrollments with the operations command:
+
+```bash
+cd ..
+mise exec -- uv run --project operations doko data status --repository-root .
+mise exec -- uv run --project operations doko data complete-video \
+  --repository-root . --upload-id <upload-id> --metadata completion.json
+```
+
+For a package written by an older backend, use the one-time adoption command. It validates the old
+bytes, writes the canonical package, and keeps the old runtime directory until verification:
+
+```bash
+mise exec -- uv run --project operations doko data adopt-evidence \
+  --repository-root . --runtime-root backend/.runtime \
+  --package-id <package-id> --metadata package-metadata.json
+```
+
+Deleting `.runtime/` removes only disposable backend state. It does not remove accepted source
+bundles. There is no delete API for recordings or evidence packages. To remove local test data,
+stop the service and remove the complete test intake bundle together with its SQLite row:
 
 ```bash
 cd backend
-rm -rf data/intake/recordings/<recording-id>
+rm -rf ../data/intake/recordings/<recording-id>
 sqlite3 .runtime/dokodetector.db \
   "DELETE FROM repository_bundles WHERE recording_id = '<recording-id>';"
 ```
 
-Readiness runs a SQLite query and checks that the evidence directory can be read and written. The
-PoC uses one API process with local SQLite and filesystem state. It does not provide multi-process
-locking or distributed coordination.
+Readiness runs a SQLite query and checks that the runtime table-observation directory, both intake
+roots, and the pending-upload root can be read and written. The PoC uses one API process with local
+SQLite and filesystem state. It does not provide multi-process locking or distributed coordination.
