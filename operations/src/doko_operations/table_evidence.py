@@ -12,6 +12,7 @@ import json
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -20,6 +21,15 @@ from .review import ReviewInput, ReviewItem, ReviewRunError, TaskArtifacts
 TABLE_EVIDENCE_TASK = "table_evidence_analysis"
 SELECTION_SCHEMA_VERSION = "table-evidence-candidate-selection/v1"
 COVERAGE_SCHEMA_VERSION = "table-evidence-selection-coverage/v1"
+TABLE_OBSERVATION_ANNOTATION_SCHEMA_VERSION = "table-observation-annotation/v1"
+TABLE_OBSERVATION_REVIEW_SCHEMA_VERSION = "table-observation-review/v1"
+DATASET_VERSION_SCHEMA_VERSION = "dataset-version/v1"
+TABLE_DATASET_TASK = "table_evidence_analyzer_identity_crop"
+TABLE_DATASET_TRANSFORM_VERSION = "identity-crop-v1"
+TABLE_DATASET_SPLIT_SCHEMA_VERSION = "table-dataset-split/v1"
+TABLE_DATASET_COVERAGE_SCHEMA_VERSION = "table-dataset-coverage/v1"
+TABLE_DATASET_VALIDATION_SCHEMA_VERSION = "table-dataset-validation/v1"
+REVIEW_REPORT_SCHEMA_VERSION = "table-observation-review-report/v1"
 VALID_SELECTION_SOURCES = (
     "device_event_proposal",
     "mac_event_proposal",
@@ -37,6 +47,20 @@ _PLATFORM_SOURCES = {
 }
 _REVIEWED_STATES = frozenset({"reviewed", "eligible", "complete", "applied"})
 _SHA256 = frozenset("0123456789abcdef")
+_CARD_IDENTITIES = frozenset(
+    f"{suit}_{rank}"
+    for suit in ("CLUBS", "SPADES", "HEARTS", "DIAMONDS")
+    for rank in ("NINE", "JACK", "QUEEN", "KING", "TEN", "ACE")
+)
+_VISIBILITY_STATES = frozenset(
+    {"identifiable", "card_not_visible", "visible_but_not_identifiable", "ambiguous_card"}
+)
+_ACTIVE_AREA_CLASSES = frozenset({"inside", "outside", "uncertain", "not_applicable"})
+_MOVEMENT_STATES = frozenset({"stationary", "moving", "reappeared", "unknown"})
+_OCCLUSION_STATES = frozenset({"none", "short", "complete", "unknown"})
+_ACCEPTED_OUTCOMES = frozenset(
+    {"accepted", "confirmed", "confirmed_positive", "include", "confirm_card_play"}
+)
 
 
 def _canonical_json(value: Any) -> str:
@@ -73,6 +97,10 @@ def _finite_number(value: Any, field: str, *, minimum: float = 0.0) -> float:
 
 def _rounded(value: float) -> float:
     return round(value, 6)
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _safe_relative_path(value: Any) -> bool:
@@ -190,6 +218,7 @@ class TableEvidenceReviewAdapter:
         self.candidate_window_s = _finite_number(
             candidate_window_s, "candidate_window_s", minimum=0.001
         )
+        self._reviewer = "review-run"
         intervals: Any = operator_intervals
         if operator_selection_file is not None:
             intervals = _read_json(
@@ -197,6 +226,13 @@ class TableEvidenceReviewAdapter:
                 "operator selection intervals",
             )
         self.operator_intervals = _normalize_operator_intervals(intervals)
+
+    def set_reviewer(self, reviewer: str) -> None:
+        """Set the operator name used by immutable table-observation review artifacts."""
+
+        if not isinstance(reviewer, str) or not reviewer.strip():
+            raise ReviewRunError("Table-observation reviewer must be a non-empty string.")
+        self._reviewer = reviewer
 
     def discover(self, task: str, inputs: Sequence[ReviewInput]) -> Sequence[ReviewItem]:
         if task != TABLE_EVIDENCE_TASK:
@@ -271,6 +307,65 @@ class TableEvidenceReviewAdapter:
         validation_path = output_root / "selection-validation.json"
         _write_json(validation_path, validation_payload)
 
+        annotation_records = self._reviewed_annotations(candidates, items)
+        self._write_review_artifacts(annotation_records, output_root)
+        dataset_payload, dataset_entries, unassigned = _dataset_payload(
+            annotation_records,
+            inputs=inputs,
+            selection_digest=selection_digest,
+        )
+        dataset_path = output_root / "dataset" / "table-evidence-dataset-version.json"
+        _write_json(dataset_path, dataset_payload)
+
+        coverage = _dataset_coverage(
+            annotation_records,
+            inputs=inputs,
+            dataset_payload=dataset_payload,
+            unassigned=unassigned,
+        )
+        dataset_coverage_path = output_root / "dataset" / "coverage.json"
+        _write_json(dataset_coverage_path, coverage)
+        dataset_coverage_markdown_path = output_root / "dataset" / "coverage.md"
+        dataset_coverage_markdown_path.write_text(
+            _dataset_coverage_markdown(coverage), encoding="utf-8"
+        )
+
+        split_payload = _split_payload(dataset_payload, dataset_entries, selection_digest)
+        split_path = output_root / "split-proposal" / "table-evidence-split-proposal.json"
+        _write_json(split_path, split_payload)
+
+        validation = _dataset_validation(
+            annotation_records,
+            dataset_payload=dataset_payload,
+            dataset_entries=dataset_entries,
+            unassigned=unassigned,
+        )
+        dataset_validation_path = output_root / "validation" / "table-evidence-validation.json"
+        _write_json(dataset_validation_path, validation)
+
+        receipt = _lifecycle_receipt(
+            annotation_records,
+            inputs=inputs,
+            dataset_payload=dataset_payload,
+            split_payload=split_payload,
+            selection_digest=selection_digest,
+        )
+        receipt_path = output_root / "lifecycle-receipt.json"
+        _write_json(receipt_path, receipt)
+
+        review_report = _review_report(
+            annotation_records,
+            selection_digest=selection_digest,
+            dataset_payload=dataset_payload,
+            unassigned=unassigned,
+        )
+        review_report_path = output_root / "review-report.json"
+        _write_json(review_report_path, review_report)
+        review_report_markdown_path = output_root / "review-report.md"
+        review_report_markdown_path.write_text(
+            _review_report_markdown(review_report), encoding="utf-8"
+        )
+
         files = tuple(sorted(path for path in staging_dir.rglob("*") if path.is_file()))
         return TaskArtifacts(files)
 
@@ -282,12 +377,57 @@ class TableEvidenceReviewAdapter:
             staging_dir / "table-evidence" / "selection-coverage.json",
             staging_dir / "table-evidence" / "selection-coverage.md",
             staging_dir / "table-evidence" / "selection-validation.json",
+            staging_dir / "table-evidence" / "dataset" / "table-evidence-dataset-version.json",
+            staging_dir / "table-evidence" / "dataset" / "coverage.json",
+            staging_dir / "table-evidence" / "dataset" / "coverage.md",
+            staging_dir
+            / "table-evidence"
+            / "split-proposal"
+            / "table-evidence-split-proposal.json",
+            staging_dir / "table-evidence" / "validation" / "table-evidence-validation.json",
+            staging_dir / "table-evidence" / "lifecycle-receipt.json",
+            staging_dir / "table-evidence" / "review-report.json",
+            staging_dir / "table-evidence" / "review-report.md",
         )
         return tuple(
             f"missing staged table-evidence output: {path}"
             for path in required
             if not path.is_file()
         )
+
+    def _reviewed_annotations(
+        self, candidates: Sequence[_Candidate], items: Sequence[Mapping[str, Any]]
+    ) -> list[dict[str, Any]]:
+        candidates_by_id = {candidate.item.item_id: candidate for candidate in candidates}
+        records: list[dict[str, Any]] = []
+        for item in sorted(items, key=lambda value: str(value.get("item_id", ""))):
+            item_id = item.get("item_id")
+            if not isinstance(item_id, str) or item_id not in candidates_by_id:
+                raise ReviewRunError("Table-evidence review item is not a discovered candidate.")
+            decision = item.get("decision")
+            if not isinstance(decision, Mapping):
+                raise ReviewRunError(f"Table-evidence decision is missing for {item_id}.")
+            candidate = candidates_by_id[item_id]
+            records.append(_annotation_record(candidate, decision, self._reviewer))
+        return records
+
+    def _write_review_artifacts(
+        self, records: Sequence[Mapping[str, Any]], output_root: Path
+    ) -> tuple[list[Path], list[Path]]:
+        annotation_paths: list[Path] = []
+        review_paths: list[Path] = []
+        for record in records:
+            annotation = record["reviewed_annotation"]
+            review = record["review"]
+            annotation_path = (
+                output_root / "annotations" / f"{annotation['annotation_set_id']}.json"
+            )
+            review_path = output_root / "reviews" / f"{review['review_id']}.json"
+            _write_json(annotation_path, annotation)
+            _write_json(review_path, review)
+            annotation_paths.append(annotation_path)
+            review_paths.append(review_path)
+        return annotation_paths, review_paths
 
     def _candidates(self, inputs: Sequence[ReviewInput]) -> list[_Candidate]:
         result: list[_Candidate] = []
@@ -692,6 +832,811 @@ class TableEvidenceReviewAdapter:
         }
 
 
+class TableObservationReviewAdapter(TableEvidenceReviewAdapter):
+    """Review adapter that promotes selected evidence to table-observation artifacts."""
+
+    def finalize(
+        self,
+        task: str,
+        inputs: Sequence[ReviewInput],
+        items: Sequence[Mapping[str, Any]],
+        staging_dir: Path,
+    ) -> TaskArtifacts:
+        artifacts = super().finalize(task, inputs, items, staging_dir)
+        return TaskArtifacts(artifacts.staged_files, split_approval_required=True)
+
+
+def _annotation_record(
+    candidate: _Candidate, decision: Mapping[str, Any], reviewer: str
+) -> dict[str, Any]:
+    selection = candidate.selection
+    evidence = selection["evidence"]
+    annotation_set_id = (
+        "annotation-set-"
+        + _digest(
+            {"selection_id": selection["selection_id"], "source": selection["source_asset_id"]}
+        )[:24]
+    )
+    frame_references = evidence.get("frame_references", [])
+    if not isinstance(frame_references, list):
+        raise ReviewRunError(f"Evidence frame references are invalid for {candidate.item.item_id}.")
+    observed_cards = _observed_cards(
+        decision.get("observed_cards", decision.get("cards", [])),
+        frame_references=frame_references,
+        selection_id=selection["selection_id"],
+    )
+    package_id = evidence.get("package_id")
+    source = (
+        {"package_id": package_id}
+        if isinstance(package_id, str) and package_id
+        else {"recording_id": selection["recording_id"]}
+    )
+    draft: dict[str, Any] = {
+        "schema_version": TABLE_OBSERVATION_ANNOTATION_SCHEMA_VERSION,
+        "annotation_set_id": annotation_set_id,
+        "source": source,
+        "observed_cards": observed_cards,
+        "event_review": "unreviewed",
+        "review_state": "draft",
+    }
+    snippet = evidence.get("video_snippet")
+    if isinstance(snippet, Mapping):
+        start_s = float(selection["recording_range"]["start_s"])
+        end_s = float(selection["recording_range"]["end_s"])
+        start_ms = max(0, int(round(start_s * 1000)))
+        end_ms = max(start_ms + 1, int(round(end_s * 1000)))
+        draft["video_snippet"] = {
+            "video_snippet_id": snippet["video_snippet_id"],
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+        }
+    event_decision = _event_decision(decision)
+    reviewed = dict(draft)
+    reviewed["event_review"] = (
+        "confirmed_card_play" if event_decision == "confirm_card_play" else "false_event_proposal"
+    )
+    reviewed["review_state"] = "reviewed"
+    source_annotation_sha256 = _digest(draft)
+    review_id = (
+        "review-"
+        + _digest(
+            {
+                "annotation_set_id": annotation_set_id,
+                "source_annotation_sha256": source_annotation_sha256,
+                "event_decision": event_decision,
+                "reviewer": reviewer,
+            }
+        )[:24]
+    )
+    notes = decision.get("notes")
+    review = {
+        "schema_version": TABLE_OBSERVATION_REVIEW_SCHEMA_VERSION,
+        "review_id": review_id,
+        "annotation_set_id": annotation_set_id,
+        "source_annotation_sha256": source_annotation_sha256,
+        "event_decision": event_decision,
+        "reviewer": reviewer,
+        "reviewed_at": _now(),
+        "reviewed_annotation": reviewed,
+        "notes": notes if isinstance(notes, str) else None,
+    }
+    return {
+        "selection": selection,
+        "selection_id": selection["selection_id"],
+        "annotation": draft,
+        "reviewed_annotation": reviewed,
+        "review": review,
+        "event_decision": event_decision,
+    }
+
+
+def _event_decision(decision: Mapping[str, Any]) -> str:
+    explicit = decision.get("event_decision")
+    if explicit in {"confirm_card_play", "reject_event"}:
+        return str(explicit)
+    event_review = decision.get("event_review")
+    if event_review == "confirmed_card_play":
+        return "confirm_card_play"
+    if event_review in {
+        "false_event_proposal",
+        "no_visible_cards",
+        "card_not_visible",
+        "visible_but_not_identifiable",
+        "ambiguous_card",
+        "insufficient_visual_evidence",
+    }:
+        return "reject_event"
+    return "confirm_card_play" if decision.get("outcome") in _ACCEPTED_OUTCOMES else "reject_event"
+
+
+def _observed_cards(
+    value: Any,
+    *,
+    frame_references: Sequence[Mapping[str, Any]],
+    selection_id: str,
+) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ReviewRunError(f"Observed cards for {selection_id} must be a list.")
+    aliases = {
+        str(reference.get("frame_id")): str(reference.get("frame_id"))
+        for reference in frame_references
+        if isinstance(reference.get("frame_id"), str)
+    }
+    aliases.update(
+        {
+            str(reference.get("part_name")): str(reference.get("frame_id"))
+            for reference in frame_references
+            if isinstance(reference.get("part_name"), str)
+            and isinstance(reference.get("frame_id"), str)
+        }
+    )
+    result: list[dict[str, Any]] = []
+    for index, raw_card in enumerate(value):
+        if not isinstance(raw_card, Mapping):
+            raise ReviewRunError(f"Observed card {index} for {selection_id} must be an object.")
+        identity = raw_card.get("visual_card_identity")
+        if identity is not None and (
+            not isinstance(identity, str) or identity not in _CARD_IDENTITIES
+        ):
+            raise ReviewRunError(f"Observed card {index} has an invalid visual card identity.")
+        raw_frames = raw_card.get("frame_observations", raw_card.get("frames"))
+        if raw_frames is None:
+            raw_frames = list(frame_references)
+        if not isinstance(raw_frames, list) or not raw_frames:
+            raise ReviewRunError(
+                f"Observed card {index} for {selection_id} needs frame observations."
+            )
+        card_bbox = raw_card.get("bbox")
+        frame_observations: list[dict[str, Any]] = []
+        seen_frame_ids: set[str] = set()
+        for frame_index, raw_frame in enumerate(raw_frames):
+            if isinstance(raw_frame, str):
+                raw_frame = {"frame_id": raw_frame}
+            if not isinstance(raw_frame, Mapping):
+                raise ReviewRunError(
+                    f"Frame observation {frame_index} for card {index} must be an object."
+                )
+            frame_id = raw_frame.get("frame_id", raw_frame.get("part_name"))
+            if not isinstance(frame_id, str) or not frame_id:
+                raise ReviewRunError(
+                    f"Frame observation {frame_index} for card {index} needs a frame_id."
+                )
+            frame_id = aliases.get(frame_id, frame_id)
+            if frame_id in seen_frame_ids:
+                raise ReviewRunError(f"Observed card {index} repeats frame {frame_id}.")
+            seen_frame_ids.add(frame_id)
+            bbox_value = raw_frame.get("bbox", card_bbox)
+            bbox = _bbox(bbox_value, f"frame observation {frame_index} for card {index}")
+            usable = raw_frame.get("usable_for_identity", identity is not None and bbox is not None)
+            if not isinstance(usable, bool):
+                raise ReviewRunError("usable_for_identity must be a boolean.")
+            tags = raw_frame.get("tags", raw_card.get("tags", raw_card.get("quality_tags", [])))
+            if not isinstance(tags, list) or any(
+                not isinstance(tag, str) or not tag for tag in tags
+            ):
+                raise ReviewRunError("Frame observation tags must be a list of non-empty strings.")
+            frame: dict[str, Any] = {
+                "frame_id": frame_id,
+                "bbox": bbox,
+                "usable_for_identity": usable,
+                "tags": sorted(set(tags)),
+            }
+            if raw_frame.get("observation_id") is not None:
+                observation_id = raw_frame["observation_id"]
+                if not isinstance(observation_id, str) or not observation_id:
+                    raise ReviewRunError("observation_id must be a non-empty identifier.")
+                frame["observation_id"] = observation_id
+            frame_observations.append(frame)
+        visibility = raw_card.get("visibility")
+        if visibility is None:
+            visibility = (
+                "identifiable"
+                if identity is not None
+                else (
+                    "visible_but_not_identifiable"
+                    if any(frame["bbox"] is not None for frame in frame_observations)
+                    else "card_not_visible"
+                )
+            )
+        if visibility not in _VISIBILITY_STATES:
+            raise ReviewRunError(f"Observed card {index} has an invalid visibility.")
+        if visibility == "identifiable" and identity is None:
+            raise ReviewRunError(f"Identifiable observed card {index} needs a card identity.")
+        if visibility != "identifiable" and identity is not None:
+            raise ReviewRunError(f"Non-identifiable observed card {index} cannot have an identity.")
+        if visibility != "identifiable" and any(
+            frame["usable_for_identity"] for frame in frame_observations
+        ):
+            raise ReviewRunError(
+                f"Non-identifiable observed card {index} cannot have identity-usable frames."
+            )
+        if visibility == "identifiable" and not any(
+            frame["usable_for_identity"] for frame in frame_observations
+        ):
+            raise ReviewRunError(
+                f"Identifiable observed card {index} needs an identity-usable frame."
+            )
+        observed_card_id = raw_card.get("observed_card_id")
+        if observed_card_id is None:
+            observed_card_id = (
+                "observed-card-" + _digest({"selection_id": selection_id, "index": index})[:24]
+            )
+        if (
+            not isinstance(observed_card_id, str)
+            or not observed_card_id
+            or any(character in observed_card_id for character in "/\\\x00")
+        ):
+            raise ReviewRunError(f"Observed card {index} has an invalid observed_card_id.")
+        became_newly_visible = raw_card.get("became_newly_visible", False)
+        if not isinstance(became_newly_visible, bool):
+            raise ReviewRunError("became_newly_visible must be a boolean.")
+        active_area = raw_card.get("active_area_class", "not_applicable")
+        if active_area not in _ACTIVE_AREA_CLASSES:
+            raise ReviewRunError(f"Observed card {index} has an invalid active_area_class.")
+        card: dict[str, Any] = {
+            "observed_card_id": observed_card_id,
+            "visual_card_identity": identity,
+            "visibility": visibility,
+            "frame_observations": frame_observations,
+            "became_newly_visible": became_newly_visible,
+            "active_area_class": active_area,
+            "card_tracklet_id": _optional_identifier_value(raw_card.get("card_tracklet_id")),
+            "movement": _optional_enum_value(raw_card.get("movement"), _MOVEMENT_STATES),
+            "occlusion": _optional_enum_value(raw_card.get("occlusion"), _OCCLUSION_STATES),
+        }
+        result.append(card)
+    ids = [card["observed_card_id"] for card in result]
+    if len(ids) != len(set(ids)):
+        raise ReviewRunError(f"Observed cards for {selection_id} contain duplicate IDs.")
+    return result
+
+
+def _bbox(value: Any, field: str) -> list[int] | None:
+    if value is None:
+        return None
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        raise ReviewRunError(f"{field} bbox must be null or four coordinates.")
+    if any(isinstance(item, bool) or not isinstance(item, int) for item in value):
+        raise ReviewRunError(f"{field} bbox coordinates must be integers.")
+    result = list(value)
+    if result[0] < 0 or result[1] < 0 or result[2] <= result[0] or result[3] <= result[1]:
+        raise ReviewRunError(f"{field} bbox must be a positive rectangle.")
+    return result
+
+
+def _optional_identifier_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not value
+        or any(character in value for character in "/\\\x00")
+    ):
+        raise ReviewRunError("Optional identifier is invalid.")
+    return value
+
+
+def _optional_enum_value(value: Any, choices: frozenset[str]) -> str | None:
+    if value is None:
+        return None
+    if value not in choices:
+        raise ReviewRunError(f"Value must be one of: {', '.join(sorted(choices))}.")
+    return str(value)
+
+
+def _dataset_payload(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    inputs: Sequence[ReviewInput],
+    selection_digest: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    sources = {
+        item.source_asset_id: _read_json(
+            Path(item.bundle_path) / "source-record.json", "source record"
+        )
+        for item in inputs
+    }
+    entries: list[dict[str, Any]] = []
+    unassigned: list[dict[str, Any]] = []
+    for record in records:
+        annotation = record["reviewed_annotation"]
+        source_id = record["selection"]["source_asset_id"]
+        source = sources[source_id]
+        record_entries = 0
+        for card in annotation["observed_cards"]:
+            if card["visibility"] != "identifiable" or card["visual_card_identity"] is None:
+                continue
+            for frame in card["frame_observations"]:
+                if not frame["usable_for_identity"] or frame["bbox"] is None:
+                    continue
+                entry_id = ":".join(
+                    (annotation["annotation_set_id"], card["observed_card_id"], frame["frame_id"])
+                )
+                entries.append(
+                    {
+                        "dataset_item_id": entry_id,
+                        "source_asset_id": source_id,
+                        "source_sha256": source["sha256"],
+                        "annotation_set_id": annotation["annotation_set_id"],
+                        "review_id": record["review"]["review_id"],
+                        "eligibility": {
+                            "schema_version": "eligibility/v1",
+                            "source_asset_id": source_id,
+                            "state": "eligible",
+                            "source_permission": source["source_permission"],
+                            "allowed_uses": list(source["allowed_uses"]),
+                            "review_state": "reviewed",
+                            "annotation_set_id": annotation["annotation_set_id"],
+                            "review_id": record["review"]["review_id"],
+                            "intended_use": _intended_use(source["allowed_uses"]),
+                            "reason": None,
+                        },
+                        "target_schema": TABLE_OBSERVATION_ANNOTATION_SCHEMA_VERSION,
+                        "group_keys": _group_keys(source),
+                        "inclusion_reason": (
+                            f"Reviewed {annotation['event_review']} table observation with an "
+                            "identity-usable frame."
+                        ),
+                        "transform_version": TABLE_DATASET_TRANSFORM_VERSION,
+                        "source_frame_id": frame["frame_id"],
+                        "observed_card_id": card["observed_card_id"],
+                        "bbox": frame["bbox"],
+                        "visual_card_identity": card["visual_card_identity"],
+                        "quality_tags": frame["tags"],
+                    }
+                )
+                record_entries += 1
+        if record_entries == 0:
+            unassigned.append(
+                {
+                    "annotation_set_id": annotation["annotation_set_id"],
+                    "reason": "no_identity_usable_observed_card",
+                }
+            )
+    entries.sort(key=lambda value: value["dataset_item_id"])
+    unassigned.sort(key=lambda value: (value["annotation_set_id"], value["reason"]))
+    group_key_names = sorted({key for entry in entries for key, _ in entry["group_keys"]})
+    allowed_use_filter = sorted(
+        {use for source in sources.values() for use in source.get("allowed_uses", [])}
+    )
+    dataset_version_id = "table-evidence-" + selection_digest[:20]
+    digest_core = {
+        "schema_version": DATASET_VERSION_SCHEMA_VERSION,
+        "task": TABLE_DATASET_TASK,
+        "target_schema": TABLE_OBSERVATION_ANNOTATION_SCHEMA_VERSION,
+        "entries": [
+            _dataset_entry_digest_mapping(entry)
+            for entry in sorted(entries, key=lambda value: value["dataset_item_id"])
+        ],
+        "allowed_use_filter": allowed_use_filter,
+        "group_key_names": group_key_names,
+        "derived_artifact_transform_version": TABLE_DATASET_TRANSFORM_VERSION,
+        "creation_code_revision": "doko-operations-m8",
+        "dirty_state": True,
+        "deck_design_version": None,
+        "card_set_version": None,
+    }
+    payload = {
+        **digest_core,
+        "dataset_version_id": dataset_version_id,
+        "created_at": None,
+        "dataset_version_digest": _digest(digest_core),
+    }
+    return payload, entries, unassigned
+
+
+def _dataset_entry_digest_mapping(entry: Mapping[str, Any]) -> dict[str, Any]:
+    value = dict(entry)
+    value["group_keys"] = sorted(value["group_keys"])
+    eligibility = dict(value["eligibility"])
+    eligibility["allowed_uses"] = sorted(eligibility["allowed_uses"])
+    value["eligibility"] = eligibility
+    return value
+
+
+def _intended_use(allowed_uses: Sequence[str]) -> str:
+    for use in ("train", "validation", "test", "evaluation"):
+        if use in allowed_uses:
+            return use
+    raise ReviewRunError("A reviewed source has no allowed intended use.")
+
+
+def _group_keys(source: Mapping[str, Any]) -> list[list[str]]:
+    values = [("source_lineage", str(source["source_asset_id"]))]
+    for field in ("session_id", "game_id", "table_setup"):
+        value = source.get(field)
+        if isinstance(value, str) and value:
+            values.append((field, value))
+    return [list(value) for value in sorted(values)]
+
+
+def _split_payload(
+    dataset: Mapping[str, Any], entries: Sequence[Mapping[str, Any]], selection_digest: str
+) -> dict[str, Any]:
+    core = {
+        "schema_version": TABLE_DATASET_SPLIT_SCHEMA_VERSION,
+        "dataset_version_id": dataset["dataset_version_id"],
+        "dataset_version_digest": dataset["dataset_version_digest"],
+        "group_key_names": sorted(dataset["group_key_names"]),
+        "seed": 42,
+        "train": [],
+        "validation": [],
+        "test": [],
+        "unassigned": sorted(entry["dataset_item_id"] for entry in entries),
+    }
+    return {
+        **core,
+        "split_version_id": "table-evidence-split-" + selection_digest[:20],
+        "split_version_digest": _digest(core),
+    }
+
+
+def _dataset_coverage(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    inputs: Sequence[ReviewInput],
+    dataset_payload: Mapping[str, Any],
+    unassigned: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    sources = {
+        item.source_asset_id: _read_json(
+            Path(item.bundle_path) / "source-record.json", "source record"
+        )
+        for item in inputs
+    }
+    event_reviews = [record["reviewed_annotation"]["event_review"] for record in records]
+    identities: list[str] = []
+    visibilities: list[str] = []
+    active_areas: list[str] = []
+    movements: list[str] = []
+    occlusions: list[str] = []
+    newly_visible: list[str] = []
+    quality_tags: list[str] = []
+    crop_sizes: list[str] = []
+    visible_card_counts: list[str] = []
+    selected_frame_count = 0
+    snippet_count = 0
+    evidence_complete = {
+        record["reviewed_annotation"]["source"]["package_id"]: True
+        for record in records
+        if record["reviewed_annotation"]["source"].get("package_id")
+    }
+    for record in records:
+        annotation = record["reviewed_annotation"]
+        selected_frame_count += len(
+            {
+                frame["frame_id"]
+                for card in annotation["observed_cards"]
+                for frame in card["frame_observations"]
+            }
+        )
+        snippet_count += annotation.get("video_snippet") is not None
+        visible_card_counts.append(str(len(annotation["observed_cards"])))
+        for card in annotation["observed_cards"]:
+            visibilities.append(card["visibility"])
+            if card["visual_card_identity"] is not None:
+                identities.append(card["visual_card_identity"])
+            active_areas.append(card["active_area_class"])
+            if card["movement"] is not None:
+                movements.append(card["movement"])
+            if card["occlusion"] is not None:
+                occlusions.append(card["occlusion"])
+            newly_visible.append(str(card["became_newly_visible"]).lower())
+            for frame in card["frame_observations"]:
+                quality_tags.extend(frame["tags"])
+                if frame["bbox"] is not None:
+                    crop_sizes.append(
+                        f"{frame['bbox'][2] - frame['bbox'][0]}x"
+                        f"{frame['bbox'][3] - frame['bbox'][1]}"
+                    )
+    source_values: dict[str, list[str]] = {
+        "session_id": [],
+        "game_id": [],
+        "round_id": [],
+        "table_setup": [],
+        "content_type": [],
+        "device_class": [],
+        "deck_design": [],
+        "physical_card_id": [],
+    }
+    for source in sources.values():
+        metadata = source.get("collection_metadata")
+        metadata = metadata if isinstance(metadata, Mapping) else {}
+        values = {
+            "session_id": source.get("session_id"),
+            "game_id": source.get("game_id"),
+            "round_id": source.get("round_id"),
+            "table_setup": source.get("table_setup"),
+            "content_type": source.get("content_type"),
+            "device_class": metadata.get("device_class", source.get("device_class")),
+            "deck_design": metadata.get("deck_design", source.get("deck_design")),
+            "physical_card_id": metadata.get("physical_card_id", source.get("physical_card_id")),
+        }
+        for field, value in values.items():
+            if value is not None:
+                source_values[field].append(str(value))
+    complete = {"complete": 0, "incomplete": 0, "unknown": 0}
+    for value in evidence_complete.values():
+        complete["complete" if value else "incomplete"] += 1
+    complete["unknown"] = len(
+        {
+            record["reviewed_annotation"]["source"].get("recording_id")
+            for record in records
+            if record["reviewed_annotation"]["source"].get("package_id") is None
+        }
+        - {None}
+    )
+    return {
+        "schema_version": TABLE_DATASET_COVERAGE_SCHEMA_VERSION,
+        "dataset_version_id": dataset_payload["dataset_version_id"],
+        "dataset_version_digest": dataset_payload["dataset_version_digest"],
+        "counts": {
+            "dataset_entries": len(dataset_payload["entries"]),
+            "annotation_sets": len(records),
+            "source_assets": len(sources),
+            "selected_frames": selected_frame_count,
+            "video_snippets": snippet_count,
+            "reviewed_card_tracklets": 0,
+            "unassigned": len(unassigned),
+            "excluded": 0,
+        },
+        "event_review": _counter(event_reviews),
+        "visual_card_identity": _counter(identities),
+        "visibility": _counter(visibilities),
+        "quality": {
+            "tags": _counter(quality_tags),
+            "crop_sizes": _counter(crop_sizes),
+            "newly_visible": _counter(newly_visible),
+            "active_area": _counter(active_areas),
+            "movement": _counter(movements),
+            "occlusion": _counter(occlusions),
+        },
+        "visible_card_count": _counter(visible_card_counts),
+        "evidence_completeness": complete,
+        "source_coverage": {field: _counter(values) for field, values in source_values.items()},
+        "unassigned": [dict(item) for item in unassigned],
+        "excluded": [],
+    }
+
+
+def _counter(values: Sequence[str]) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for value in values:
+        result[value] = result.get(value, 0) + 1
+    return dict(sorted(result.items()))
+
+
+def _dataset_coverage_markdown(payload: Mapping[str, Any]) -> str:
+    lines = [
+        "# TableEvidenceAnalyzer dataset coverage",
+        "",
+        f"- Dataset version: `{payload['dataset_version_id']}`",
+        f"- Dataset digest: `{payload['dataset_version_digest']}`",
+        "",
+        "## Counts",
+        "",
+    ]
+    lines.extend(f"- {name}: {value}" for name, value in sorted(payload["counts"].items()))
+    lines.extend(["", "## Event review", ""])
+    lines.extend(f"- {name}: {value}" for name, value in payload["event_review"].items())
+    lines.extend(["", "## Evidence completeness", ""])
+    lines.extend(f"- {name}: {value}" for name, value in payload["evidence_completeness"].items())
+    lines.extend(["", "## Unassigned", ""])
+    if payload["unassigned"]:
+        lines.extend(f"- {item}" for item in payload["unassigned"])
+    else:
+        lines.append("- None")
+    return "\n".join(lines) + "\n"
+
+
+def _dataset_validation(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    dataset_payload: Mapping[str, Any],
+    dataset_entries: Sequence[Mapping[str, Any]],
+    unassigned: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    errors: list[str] = []
+    for record in records:
+        annotation = record["reviewed_annotation"]
+        review = record["review"]
+        if annotation["review_state"] != "reviewed":
+            errors.append(f"Annotation {annotation['annotation_set_id']} is not reviewed.")
+        if review["annotation_set_id"] != annotation["annotation_set_id"]:
+            errors.append(f"Review {review['review_id']} does not match its annotation.")
+        if review["source_annotation_sha256"] != _digest(record["annotation"]):
+            errors.append(f"Review {review['review_id']} has a changed source annotation.")
+    warnings = []
+    if not dataset_entries:
+        warnings.append(
+            "No eligible identity samples were assembled; reviewed evidence is retained."
+        )
+    if unassigned:
+        warnings.append(f"{len(unassigned)} reviewed annotation set has no identity-usable sample.")
+    return {
+        "schema_version": TABLE_DATASET_VALIDATION_SCHEMA_VERSION,
+        "dataset_version_id": dataset_payload["dataset_version_id"],
+        "dataset_version_digest": dataset_payload["dataset_version_digest"],
+        "checked_entry_count": len(dataset_entries),
+        "valid": not errors,
+        "errors": sorted(errors),
+        "warnings": sorted(warnings),
+    }
+
+
+def _lifecycle_receipt(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    inputs: Sequence[ReviewInput],
+    dataset_payload: Mapping[str, Any],
+    split_payload: Mapping[str, Any],
+    selection_digest: str,
+) -> dict[str, Any]:
+    source_refs = [
+        {"kind": "source_asset", "id": item.source_asset_id, "digest": item.source_sha256}
+        for item in inputs
+    ]
+    package_refs = [
+        {
+            "kind": "evidence_package",
+            "id": record["selection"]["evidence_package_id"],
+            "digest": None,
+        }
+        for record in records
+        if record["selection"].get("evidence_package_id")
+    ]
+    run_refs = {
+        run["proposal_generator_run_id"]: run
+        for record in records
+        for run in [record["selection"].get("proposal_generator_run")]
+        if isinstance(run, Mapping)
+    }
+    annotation_refs = [
+        {
+            "kind": "annotation_set",
+            "id": record["reviewed_annotation"]["annotation_set_id"],
+            "digest": _digest(record["reviewed_annotation"]),
+        }
+        for record in records
+    ]
+    review_refs = [
+        {
+            "kind": "review",
+            "id": record["review"]["review_id"],
+            "digest": _digest(record["review"]),
+        }
+        for record in records
+    ]
+    inputs_refs = _unique_refs((*source_refs, *package_refs))
+    dependencies = _unique_refs(
+        (
+            *source_refs,
+            *package_refs,
+            *[
+                {"kind": "derived_artifact", "id": run_id, "digest": run["run_digest"]}
+                for run_id, run in sorted(run_refs.items())
+            ],
+        )
+    )
+    outputs = _unique_refs(
+        (
+            *annotation_refs,
+            *review_refs,
+            {
+                "kind": "dataset_version",
+                "id": dataset_payload["dataset_version_id"],
+                "digest": dataset_payload["dataset_version_digest"],
+            },
+            {
+                "kind": "split_version",
+                "id": split_payload["split_version_id"],
+                "digest": split_payload["split_version_digest"],
+            },
+        )
+    )
+    metadata = {
+        "task": TABLE_EVIDENCE_TASK,
+        "selection_digest": selection_digest,
+        "reviewed_item_count": len(records),
+        "eligible_dataset_entry_count": len(dataset_payload["entries"]),
+        "lifecycle_state": "eligible" if dataset_payload["entries"] else "reviewed",
+        "proposal_generator_run_ids": sorted(run_refs),
+    }
+    core = {
+        "schema_version": "lifecycle-receipt/v1",
+        "receipt_type": "annotation_application",
+        "operator": records[0]["review"]["reviewer"] if records else "review-run",
+        "inputs": inputs_refs,
+        "outputs": outputs,
+        "dependencies": dependencies,
+        "metadata": metadata,
+    }
+    return {
+        **core,
+        "receipt_id": "receipt-table-evidence-" + selection_digest[:20],
+        "occurred_at": _now(),
+        "receipt_digest": _digest(core),
+    }
+
+
+def _unique_refs(values: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    result: dict[tuple[str, str], dict[str, Any]] = {}
+    for value in values:
+        key = (str(value["kind"]), str(value["id"]))
+        existing = result.get(key)
+        if existing is not None and existing.get("digest") != value.get("digest"):
+            raise ReviewRunError(f"Lifecycle reference {key[0]}:{key[1]} has conflicting digests.")
+        result[key] = dict(value)
+    return [result[key] for key in sorted(result)]
+
+
+def _review_report(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    selection_digest: str,
+    dataset_payload: Mapping[str, Any],
+    unassigned: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema_version": REVIEW_REPORT_SCHEMA_VERSION,
+        "task": TABLE_EVIDENCE_TASK,
+        "selection_digest": selection_digest,
+        "review_state": "reviewed",
+        "lifecycle_state": "eligible" if dataset_payload["entries"] else "reviewed",
+        "annotation_sets": [
+            {
+                "selection_id": record["selection_id"],
+                "selection_source": record["selection"]["selection_source"],
+                "annotation_set_id": record["reviewed_annotation"]["annotation_set_id"],
+                "review_id": record["review"]["review_id"],
+                "event_decision": record["event_decision"],
+                "event_review": record["reviewed_annotation"]["event_review"],
+                "observed_card_count": len(record["reviewed_annotation"]["observed_cards"]),
+                "selected_frame_count": len(
+                    {
+                        frame["frame_id"]
+                        for card in record["reviewed_annotation"]["observed_cards"]
+                        for frame in card["frame_observations"]
+                    }
+                ),
+                "video_snippet_available": record["reviewed_annotation"].get("video_snippet")
+                is not None,
+            }
+            for record in records
+        ],
+        "dataset_version_id": dataset_payload["dataset_version_id"],
+        "dataset_version_digest": dataset_payload["dataset_version_digest"],
+        "eligible_dataset_entry_count": len(dataset_payload["entries"]),
+        "unassigned_annotation_count": len(unassigned),
+    }
+
+
+def _review_report_markdown(payload: Mapping[str, Any]) -> str:
+    lines = [
+        "# Table-observation review report",
+        "",
+        f"- Task: `{payload['task']}`",
+        f"- Review state: `{payload['review_state']}`",
+        f"- Lifecycle state: `{payload['lifecycle_state']}`",
+        f"- Dataset entries: `{payload['eligible_dataset_entry_count']}`",
+        "",
+        "## Annotation sets",
+        "",
+    ]
+    for item in payload["annotation_sets"]:
+        lines.append(
+            f"- `{item['annotation_set_id']}`: `{item['event_review']}`, "
+            f"{item['observed_card_count']} observed cards, "
+            f"{item['selected_frame_count']} selected frames"
+        )
+    lines.extend(
+        ["", f"- Unassigned annotation sets: `{payload['unassigned_annotation_count']}`", ""]
+    )
+    return "\n".join(lines)
+
+
 def _normalize_operator_intervals(
     value: Mapping[str, Sequence[Mapping[str, Any]]] | Sequence[Mapping[str, Any]] | Any,
 ) -> dict[str, tuple[Mapping[str, Any], ...]]:
@@ -901,6 +1846,8 @@ def _materialize_package(
         if not _safe_part_name(part_name):
             raise ReviewRunError(f"Evidence video snippet is invalid in {package_path}")
         snippet_path = package_path / "video" / f"{part_name}.mp4"
+        if not snippet_path.is_file():
+            snippet_path = package_path / "snippet.mp4"
         _verify_declared_file(snippet_path, snippet, "Evidence video snippet")
         snippet_ref = {
             "video_snippet_id": "snippet-"
@@ -1085,8 +2032,16 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
 
 __all__ = [
     "COVERAGE_SCHEMA_VERSION",
+    "DATASET_VERSION_SCHEMA_VERSION",
     "SELECTION_SCHEMA_VERSION",
+    "TABLE_DATASET_COVERAGE_SCHEMA_VERSION",
+    "TABLE_DATASET_SPLIT_SCHEMA_VERSION",
+    "TABLE_DATASET_TASK",
+    "TABLE_DATASET_VALIDATION_SCHEMA_VERSION",
     "TABLE_EVIDENCE_TASK",
+    "TABLE_OBSERVATION_ANNOTATION_SCHEMA_VERSION",
+    "TABLE_OBSERVATION_REVIEW_SCHEMA_VERSION",
     "TableEvidenceReviewAdapter",
+    "TableObservationReviewAdapter",
     "VALID_SELECTION_SOURCES",
 ]

@@ -17,7 +17,7 @@ from .review import (
     run_review,
 )
 from .status import render_human, render_json
-from .table_evidence import TABLE_EVIDENCE_TASK, TableEvidenceReviewAdapter
+from .table_evidence import TABLE_EVIDENCE_TASK, TableObservationReviewAdapter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -141,7 +141,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             adapters = None
             if args.evidence_root or args.reviewed_events_root or args.operator_selection_file:
                 adapters = {
-                    TABLE_EVIDENCE_TASK: TableEvidenceReviewAdapter(
+                    TABLE_EVIDENCE_TASK: TableObservationReviewAdapter(
                         evidence_roots=args.evidence_root,
                         reviewed_event_roots=args.reviewed_events_root,
                         operator_selection_file=args.operator_selection_file,

@@ -648,6 +648,25 @@ Acceptance:
 - deferred or excluded table-evidence enrollment creates no review work;
 - no CardEventNet dataset membership, review state, or artifact changes.
 
+#### M8 progress evidence — 2026-08-28
+
+- Extended the repository-backed table-evidence adapter into a resumable table-observation review
+  adapter. A complete decision set writes new `table-observation-annotation/v1` annotations and
+  `table-observation-review/v1` artifacts. A rejected event proposal keeps its reviewed visible-card
+  evidence and never turns the proposal into a card label.
+- Staged deterministic dataset-version, coverage, unassigned split-proposal, validation, lifecycle
+  receipt, and review-report artifacts. Review output stays under the table-evidence task and does
+  not write CardEventNet annotations, datasets, or review state. No output is created until every
+  selected item has a human decision; reviewed evidence without an identity-usable card remains
+  explicitly reviewed and unassigned.
+- Bound the review-run reviewer to the immutable table-observation review artifact and exposed the
+  named `TableObservationReviewAdapter` through the package and CLI. Complete evidence packages,
+  frame-only packages, and deferred table-evidence enrollments remain supported.
+- Verification: operations `mise exec -- uv run --offline pytest` (22 passed), Ruff check and
+  format checks pass. Regression tests cover false-proposal visible-card retention, staged dataset
+  and split outputs, incomplete review without reviewed or eligible publication, and deferred
+  table-evidence enrollment without review work.
+
 ### M9 — Independent publication and system holdout
 
 1. Define the shared system holdout registry and reviewed seal operation.

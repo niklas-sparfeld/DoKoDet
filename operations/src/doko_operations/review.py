@@ -262,11 +262,11 @@ def default_adapters() -> dict[str, ReviewAdapter]:
     """Return the deterministic default adapters for both data tasks."""
 
     from .cardevent import CardEventNetReviewAdapter
-    from .table_evidence import TableEvidenceReviewAdapter
+    from .table_evidence import TableObservationReviewAdapter
 
     return {
         "cardevent_event_detection": CardEventNetReviewAdapter(),
-        "table_evidence_analysis": TableEvidenceReviewAdapter(),
+        "table_evidence_analysis": TableObservationReviewAdapter(),
     }
 
 
@@ -1060,6 +1060,10 @@ def run_review(
     adapter_map = dict(default_adapters())
     if adapters is not None:
         adapter_map.update(adapters)
+    for adapter in adapter_map.values():
+        set_reviewer = getattr(adapter, "set_reviewer", None)
+        if callable(set_reviewer):
+            set_reviewer(reviewer)
     missing_adapters = [task_name for task_name in requested_tasks if task_name not in adapter_map]
     if missing_adapters:
         raise ReviewRunError("No adapter is registered for: " + ", ".join(missing_adapters))

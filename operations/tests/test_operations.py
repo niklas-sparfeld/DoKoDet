@@ -26,6 +26,7 @@ from doko_operations.status import render_json
 from doko_operations.table_evidence import (
     TABLE_EVIDENCE_TASK,
     TableEvidenceReviewAdapter,
+    TableObservationReviewAdapter,
 )
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
@@ -571,6 +572,147 @@ def test_table_evidence_selection_digest_and_order_are_repeatable(tmp_path: Path
     assert [item["selection_id"] for item in first_payload["selections"]] == [
         item["selection_id"] for item in second_payload["selections"]
     ]
+
+
+def test_table_observation_review_stages_immutable_outputs_and_keeps_false_proposal_cards(
+    tmp_path: Path,
+) -> None:
+    evidence = tmp_path / "evidence"
+    shutil.copytree(REPOSITORY_ROOT / "fixtures" / "evidence" / "v2" / "example-complete", evidence)
+    manifest_path = evidence / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["event"]["event_time_ms"] = 1000
+    manifest_path.write_text(json.dumps(manifest))
+    source_before = (FIXTURE_ROOT / "table-evidence-only" / "source-record.json").read_bytes()
+    adapter = TableObservationReviewAdapter(evidence_roots=[evidence])
+
+    def decide(item: ReviewItem) -> dict[str, object]:
+        if item.kind == "mac_event_proposal":
+            return {
+                "event_decision": "reject_event",
+                "observed_cards": [
+                    {
+                        "visual_card_identity": "HEARTS_QUEEN",
+                        "bbox": [10, 20, 110, 140],
+                        "became_newly_visible": True,
+                        "active_area_class": "inside",
+                        "tags": ["glare"],
+                    }
+                ],
+            }
+        return {"event_decision": "reject_event"}
+
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="table-observation-reviewer",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=decide,
+        adapters={TABLE_EVIDENCE_TASK: adapter},
+    )
+
+    assert result.state == "in_progress"
+    assert (
+        result.next_action
+        == "Approve the proposed split for table_evidence_analysis before publication."
+    )
+    staging = result.run_path.parent / "staging" / TABLE_EVIDENCE_TASK / "table-evidence"
+    assert (staging / "review-report.json").is_file()
+    assert not (tmp_path / "artifacts" / "published").exists()
+
+    published_result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="table-observation-reviewer",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: (_ for _ in ()).throw(
+            AssertionError(f"resumed review requested {item.item_id}")
+        ),
+        split_approval_provider=lambda task, state: (
+            task == TABLE_EVIDENCE_TASK and not state["split_approved"]
+        ),
+        adapters={TABLE_EVIDENCE_TASK: adapter},
+    )
+
+    assert published_result.state == "complete"
+    published = tmp_path / "artifacts" / "published" / TABLE_EVIDENCE_TASK / "table-evidence"
+    report = json.loads((published / "review-report.json").read_text())
+    proposal = next(
+        item
+        for item in report["annotation_sets"]
+        if item["selection_source"] == "mac_event_proposal"
+    )
+    annotation = json.loads(
+        (published / "annotations" / f"{proposal['annotation_set_id']}.json").read_text()
+    )
+    assert annotation["review_state"] == "reviewed"
+    assert annotation["event_review"] == "false_event_proposal"
+    assert annotation["observed_cards"][0]["visual_card_identity"] == "HEARTS_QUEEN"
+    assert len(annotation["observed_cards"][0]["frame_observations"]) == 6
+    assert report["lifecycle_state"] == "eligible"
+
+    dataset = json.loads(
+        (published / "dataset" / "table-evidence-dataset-version.json").read_text()
+    )
+    assert dataset["schema_version"] == "dataset-version/v1"
+    assert len(dataset["entries"]) == 6
+    assert json.loads((published / "validation" / "table-evidence-validation.json").read_text())[
+        "valid"
+    ]
+    split = json.loads(
+        (published / "split-proposal" / "table-evidence-split-proposal.json").read_text()
+    )
+    assert split["unassigned"] == [entry["dataset_item_id"] for entry in dataset["entries"]]
+    receipt = json.loads((published / "lifecycle-receipt.json").read_text())
+    assert receipt["metadata"]["lifecycle_state"] == "eligible"
+    assert (
+        FIXTURE_ROOT / "table-evidence-only" / "source-record.json"
+    ).read_bytes() == source_before
+    assert not any(path.name == "cardevent-review-manifest.json" for path in published.rglob("*"))
+
+
+def test_incomplete_table_observation_review_does_not_publish_reviewed_or_eligible_state(
+    tmp_path: Path,
+) -> None:
+    adapter = TableObservationReviewAdapter(
+        evidence_roots=[REPOSITORY_ROOT / "fixtures" / "evidence" / "v2" / "example-complete"]
+    )
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="incomplete-table-reviewer",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: None,
+        adapters={TABLE_EVIDENCE_TASK: adapter},
+    )
+
+    assert result.state == "in_progress"
+    assert not (tmp_path / "artifacts" / "published").exists()
+    assert not list((result.run_path.parent / "staging").rglob("annotations"))
+    state = load_review_run(result.run_path)
+    assert all(item["state"] == "pending" for item in state["tasks"][0]["items"])
+
+
+def test_deferred_table_evidence_enrollment_creates_no_review_work(tmp_path: Path) -> None:
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="deferred-table-reviewer",
+        bundle_root=FIXTURE_ROOT / "cardevent-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: (_ for _ in ()).throw(
+            AssertionError(f"deferred source created {item.item_id}")
+        ),
+    )
+
+    assert result.state == "complete"
+    state = load_review_run(result.run_path)
+    assert state["tasks"][0]["inputs"] == []
+    assert state["tasks"][0]["items"] == []
+    assert not (tmp_path / "artifacts" / "published").exists()
 
 
 def test_review_contract_rejects_unknown_state_fields() -> None:

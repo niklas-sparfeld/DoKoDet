@@ -29,10 +29,18 @@ from .review import (
 from .status import render_human, render_json, status_mapping
 from .table_evidence import (
     COVERAGE_SCHEMA_VERSION,
+    DATASET_VERSION_SCHEMA_VERSION,
     SELECTION_SCHEMA_VERSION,
+    TABLE_DATASET_COVERAGE_SCHEMA_VERSION,
+    TABLE_DATASET_SPLIT_SCHEMA_VERSION,
+    TABLE_DATASET_TASK,
+    TABLE_DATASET_VALIDATION_SCHEMA_VERSION,
     TABLE_EVIDENCE_TASK,
+    TABLE_OBSERVATION_ANNOTATION_SCHEMA_VERSION,
+    TABLE_OBSERVATION_REVIEW_SCHEMA_VERSION,
     VALID_SELECTION_SOURCES,
     TableEvidenceReviewAdapter,
+    TableObservationReviewAdapter,
 )
 
 __all__ = [
@@ -40,6 +48,7 @@ __all__ = [
     "CARD_EVENT_TASK",
     "CardEventNetReviewAdapter",
     "COVERAGE_SCHEMA_VERSION",
+    "DATASET_VERSION_SCHEMA_VERSION",
     "ConfigurationError",
     "Failure",
     "InspectionResult",
@@ -58,7 +67,14 @@ __all__ = [
     "ReviewRunError",
     "SELECTION_SCHEMA_VERSION",
     "TABLE_EVIDENCE_TASK",
+    "TABLE_DATASET_COVERAGE_SCHEMA_VERSION",
+    "TABLE_DATASET_SPLIT_SCHEMA_VERSION",
+    "TABLE_DATASET_TASK",
+    "TABLE_DATASET_VALIDATION_SCHEMA_VERSION",
+    "TABLE_OBSERVATION_ANNOTATION_SCHEMA_VERSION",
+    "TABLE_OBSERVATION_REVIEW_SCHEMA_VERSION",
     "TableEvidenceReviewAdapter",
+    "TableObservationReviewAdapter",
     "TaskArtifacts",
     "load_review_report",
     "load_review_run",
