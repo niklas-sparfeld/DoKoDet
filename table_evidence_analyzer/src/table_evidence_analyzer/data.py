@@ -12,7 +12,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import struct
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -220,7 +219,9 @@ class DatasetEntry:
         for pair in raw_groups:
             if not isinstance(pair, list) or len(pair) != 2:
                 raise DataContractError("each group key must be a [name, value] pair.")
-            groups.append((_require_id(pair[0], "group key name"), _require_id(pair[1], "group key value")))
+            groups.append(
+                (_require_id(pair[0], "group key name"), _require_id(pair[1], "group key value"))
+            )
         if len({name for name, _ in groups}) != len(groups):
             raise DataContractError("dataset entry group keys must be unique.")
         raw_bbox = data.get("bbox")
@@ -244,11 +245,17 @@ class DatasetEntry:
         ):
             if value is not None:
                 _require_id(value, field)
-        if any(value is not None for value in (source_frame_id, observed_card_id, bbox, identity)) and not all(
+        if any(
+            value is not None for value in (source_frame_id, observed_card_id, bbox, identity)
+        ) and not all(
             value is not None for value in (source_frame_id, observed_card_id, bbox, identity)
         ):
-            raise DataContractError("a dataset sample reference needs frame, card, bbox, and identity.")
-        if bbox is not None and (bbox[0] < 0 or bbox[1] < 0 or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]):
+            raise DataContractError(
+                "a dataset sample reference needs frame, card, bbox, and identity."
+            )
+        if bbox is not None and (
+            bbox[0] < 0 or bbox[1] < 0 or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]
+        ):
             raise DataContractError("bbox must be a positive rectangle.")
         return cls(
             dataset_item_id=_require_id(data["dataset_item_id"], "dataset_item_id"),
@@ -354,7 +361,9 @@ class DatasetManifest:
             derived_artifact_transform_version=_require_text(
                 data["derived_artifact_transform_version"], "derived_artifact_transform_version"
             ),
-            creation_code_revision=_require_text(data["creation_code_revision"], "creation_code_revision"),
+            creation_code_revision=_require_text(
+                data["creation_code_revision"], "creation_code_revision"
+            ),
             dirty_state=data["dirty_state"],
             deck_design_version=data["deck_design_version"],
             card_set_version=data["card_set_version"],
@@ -362,7 +371,9 @@ class DatasetManifest:
         )
         if not isinstance(version.dirty_state, bool):
             raise DataContractError("dirty_state must be a boolean.")
-        if version.digest != _require_digest(data["dataset_version_digest"], "dataset_version_digest"):
+        if version.digest != _require_digest(
+            data["dataset_version_digest"], "dataset_version_digest"
+        ):
             raise DataContractError("dataset_version_digest does not match the dataset contents.")
         return version
 
@@ -460,7 +471,9 @@ class SplitManifest:
         manifest = cls(
             split_version_id=_require_id(data["split_version_id"], "split_version_id"),
             dataset_version_id=_require_id(data["dataset_version_id"], "dataset_version_id"),
-            dataset_version_digest=_require_digest(data["dataset_version_digest"], "dataset_version_digest"),
+            dataset_version_digest=_require_digest(
+                data["dataset_version_digest"], "dataset_version_digest"
+            ),
             group_key_names=_sorted_unique_strings(data["group_key_names"], "group_key_names"),
             seed=seed,
             **partitions,
@@ -505,7 +518,8 @@ class SplitManifest:
                 previous = group_partitions.get(group)
                 if previous is not None and previous != partition:
                     raise DataContractError(
-                        "a session, game, table setup, or source lineage group crosses dataset partitions."
+                        "a session, game, table setup, or source lineage group crosses "
+                        "dataset partitions."
                     )
                 group_partitions[group] = partition
 
@@ -612,7 +626,9 @@ class ArtifactIndex:
         index = cls(
             artifact_index_id=_require_id(data["artifact_index_id"], "artifact_index_id"),
             dataset_version_id=_require_id(data["dataset_version_id"], "dataset_version_id"),
-            dataset_version_digest=_require_digest(data["dataset_version_digest"], "dataset_version_digest"),
+            dataset_version_digest=_require_digest(
+                data["dataset_version_digest"], "dataset_version_digest"
+            ),
             artifacts=artifacts,
             root=root,
         )
@@ -639,11 +655,15 @@ class ArtifactIndex:
         path = (artifact_root / artifact.relative_path).resolve()
         resolved_root = artifact_root.resolve()
         if resolved_root not in path.parents:
-            raise DataContractError(f"Artifact path escapes the artifact root: {artifact.relative_path}")
+            raise DataContractError(
+                f"Artifact path escapes the artifact root: {artifact.relative_path}"
+            )
         try:
             value = path.read_bytes()
         except OSError as exc:
-            raise DataContractError(f"Could not read source frame artifact {source_frame_id}.") from exc
+            raise DataContractError(
+                f"Could not read source frame artifact {source_frame_id}."
+            ) from exc
         if len(value) != artifact.byte_length or _sha256(value) != artifact.sha256:
             raise DataContractError(f"Source frame {source_frame_id} does not match its digest.")
         return ResolvedFrame(artifact.source_asset_id, source_frame_id, value, artifact.sha256)
@@ -711,7 +731,10 @@ class CropCache:
             "split_version_id": self.split_version_id,
             "split_version_digest": self.split_version_digest,
             "transform_version": self.transform_version,
-            "crops": [crop.to_mapping() for crop in sorted(self.crops, key=lambda item: item.dataset_item_id)],
+            "crops": [
+                crop.to_mapping()
+                for crop in sorted(self.crops, key=lambda item: item.dataset_item_id)
+            ],
         }
         return _sha256(_canonical(payload).encode())
 
@@ -772,7 +795,11 @@ class CropCache:
             if dict(lineage) != expected_lineage:
                 raise DataContractError("crop cache entry has incomplete or changed lineage.")
             bbox = raw.get("bbox")
-            if not isinstance(bbox, list) or len(bbox) != 4 or any(not isinstance(item, int) for item in bbox):
+            if (
+                not isinstance(bbox, list)
+                or len(bbox) != 4
+                or any(not isinstance(item, int) for item in bbox)
+            ):
                 raise DataContractError("crop cache bbox is invalid.")
             relative = raw.get("relative_path")
             if (
@@ -783,7 +810,11 @@ class CropCache:
             ):
                 raise DataContractError("crop cache relative_path is invalid.")
             byte_length = raw.get("byte_length")
-            if isinstance(byte_length, bool) or not isinstance(byte_length, int) or byte_length <= 0:
+            if (
+                isinstance(byte_length, bool)
+                or not isinstance(byte_length, int)
+                or byte_length <= 0
+            ):
                 raise DataContractError("crop cache byte_length must be a positive integer.")
             partition = raw.get("partition")
             if partition not in {"train", "validation", "test", "unassigned"}:
@@ -793,13 +824,21 @@ class CropCache:
                     dataset_item_id=_require_id(raw.get("dataset_item_id"), "dataset_item_id"),
                     source_asset_id=_require_id(raw.get("source_asset_id"), "source_asset_id"),
                     source_frame_id=_require_id(raw.get("source_frame_id"), "source_frame_id"),
-                    source_frame_sha256=_require_digest(raw.get("source_frame_sha256"), "source_frame_sha256"),
-                    annotation_set_id=_require_id(raw.get("annotation_set_id"), "annotation_set_id"),
+                    source_frame_sha256=_require_digest(
+                        raw.get("source_frame_sha256"), "source_frame_sha256"
+                    ),
+                    annotation_set_id=_require_id(
+                        raw.get("annotation_set_id"), "annotation_set_id"
+                    ),
                     review_id=_require_id(raw.get("review_id"), "review_id"),
                     observed_card_id=_require_id(raw.get("observed_card_id"), "observed_card_id"),
-                    visual_card_identity=_require_id(raw.get("visual_card_identity"), "visual_card_identity"),
+                    visual_card_identity=_require_id(
+                        raw.get("visual_card_identity"), "visual_card_identity"
+                    ),
                     bbox=tuple(bbox),
-                    transform_version=_require_text(raw.get("transform_version"), "transform_version"),
+                    transform_version=_require_text(
+                        raw.get("transform_version"), "transform_version"
+                    ),
                     relative_path=relative,
                     byte_length=byte_length,
                     sha256=_require_digest(raw.get("sha256"), "crop sha256"),
@@ -808,9 +847,13 @@ class CropCache:
             )
         cache = cls(
             dataset_version_id=_require_id(data["dataset_version_id"], "dataset_version_id"),
-            dataset_version_digest=_require_digest(data["dataset_version_digest"], "dataset_version_digest"),
+            dataset_version_digest=_require_digest(
+                data["dataset_version_digest"], "dataset_version_digest"
+            ),
             split_version_id=_require_id(data["split_version_id"], "split_version_id"),
-            split_version_digest=_require_digest(data["split_version_digest"], "split_version_digest"),
+            split_version_digest=_require_digest(
+                data["split_version_digest"], "split_version_digest"
+            ),
             transform_version=_require_text(data["transform_version"], "transform_version"),
             crops=tuple(crops),
             root=root,
@@ -831,7 +874,9 @@ class CropCache:
         except OSError as exc:
             raise DataContractError(f"Crop artifact is missing: {crop.dataset_item_id}.") from exc
         if len(value) != crop.byte_length or _sha256(value) != crop.sha256:
-            raise DataContractError(f"stale crop cache: crop {crop.dataset_item_id} does not match its digest.")
+            raise DataContractError(
+                f"stale crop cache: crop {crop.dataset_item_id} does not match its digest."
+            )
         return value
 
 
@@ -851,7 +896,9 @@ class MaterializedCropDataset(Sequence[LoadedCrop]):
         if partition is not None and partition not in {"train", "validation", "test", "unassigned"}:
             raise DataContractError(f"Unknown dataset partition: {partition}.")
         self.cache = cache
-        self.crops = tuple(crop for crop in cache.crops if partition is None or crop.partition == partition)
+        self.crops = tuple(
+            crop for crop in cache.crops if partition is None or crop.partition == partition
+        )
 
     def __len__(self) -> int:
         return len(self.crops)
@@ -959,14 +1006,20 @@ def validate_dataset(
             errors.append(f"Entry {entry.dataset_item_id} has no materializable sample reference.")
             continue
         if artifacts is not None:
-            matching = [item for item in artifacts.artifacts if item.source_frame_id == entry.source_frame_id]
+            matching = [
+                item
+                for item in artifacts.artifacts
+                if item.source_frame_id == entry.source_frame_id
+            ]
             if not matching:
                 errors.append(f"Entry {entry.dataset_item_id} has no sample-artifact index entry.")
             elif matching[0].source_asset_id != entry.source_asset_id:
                 errors.append(f"Entry {entry.dataset_item_id} has a mismatched source artifact.")
             else:
                 try:
-                    frame = artifacts.resolve(entry.source_frame_id, source_asset_id=entry.source_asset_id)
+                    frame = artifacts.resolve(
+                        entry.source_frame_id, source_asset_id=entry.source_asset_id
+                    )
                     entry_by_frame[entry.source_frame_id] = frame.sha256
                 except DataContractError as exc:
                     errors.append(str(exc))
@@ -1024,12 +1077,21 @@ def _ppm_tokens(value: bytes) -> tuple[int, int, int, int]:
 def _crop_ppm(value: bytes, bbox: tuple[int, int, int, int]) -> bytes:
     width, height, _max_value, offset = _ppm_tokens(value)
     x_min, y_min, x_max, y_max = bbox
-    if x_min < 0 or y_min < 0 or x_max > width or y_max > height or x_max <= x_min or y_max <= y_min:
+    if (
+        x_min < 0
+        or y_min < 0
+        or x_max > width
+        or y_max > height
+        or x_max <= x_min
+        or y_max <= y_min
+    ):
         raise DataContractError("crop bbox is outside the source frame.")
     source = memoryview(value)[offset:]
     row_width = width * 3
     rows = b"".join(
-        source[(y_min + row) * row_width + x_min * 3 : (y_min + row) * row_width + x_max * 3].tobytes()
+        source[
+            (y_min + row) * row_width + x_min * 3 : (y_min + row) * row_width + x_max * 3
+        ].tobytes()
         for row in range(y_max - y_min)
     )
     return f"P6\n{x_max - x_min} {y_max - y_min}\n255\n".encode() + rows
@@ -1209,7 +1271,11 @@ def build_smoke_fixture(root: str | Path) -> SmokeFixture:
                     "review_state": "reviewed",
                     "annotation_set_id": f"smoke-annotation-{suffix}",
                     "review_id": f"smoke-review-{suffix}",
-                    "intended_use": "train" if index == 0 else "validation" if index == 1 else "test",
+                    "intended_use": "train"
+                    if index == 0
+                    else "validation"
+                    if index == 1
+                    else "test",
                     "reason": None,
                 },
                 "target_schema": TARGET_SCHEMA,
@@ -1278,9 +1344,13 @@ def build_smoke_fixture(root: str | Path) -> SmokeFixture:
         "created_at": dataset.created_at,
         "dataset_version_digest": dataset.digest,
     }
-    dataset_path.write_text(json.dumps(dataset_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    dataset_path.write_text(
+        json.dumps(dataset_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     split_path = fixture_root / "split.json"
-    split_path.write_text(json.dumps(split.to_mapping(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    split_path.write_text(
+        json.dumps(split.to_mapping(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     artifact_index_path = artifact_root / "index.json"
     index_payload = {
         "schema_version": ARTIFACT_INDEX_SCHEMA,
@@ -1300,7 +1370,9 @@ def build_smoke_fixture(root: str | Path) -> SmokeFixture:
         ],
         "artifact_index_digest": index.digest,
     }
-    artifact_index_path.write_text(json.dumps(index_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    artifact_index_path.write_text(
+        json.dumps(index_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return SmokeFixture(
         root=fixture_root,
         dataset_path=dataset_path,
