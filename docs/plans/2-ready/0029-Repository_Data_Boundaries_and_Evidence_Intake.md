@@ -4,9 +4,8 @@
 
 - **Summary:** Keep shared source intake at the repository root, stage incomplete video uploads
   before intake, and make accepted evidence packages durable pipeline inputs
-- **Status:** Blocked
-- **Depends on:** Plan 0027 must be complete
-- **Blocked by:** Plan 0027 still changes the shared intake, operations, and review contracts
+- **Status:** Ready
+- **Depends on:** Completed plan 0027
 - **Builds on:** Plans 0020 and 0027 provide source identity, lineage, task enrollment, lifecycle,
   repository intake, and review operations
 - **Reviewed:** 2026-08-28 against plan 0027 and the current backend, operations, CardEventNet, and

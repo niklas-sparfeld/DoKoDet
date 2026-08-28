@@ -46,27 +46,28 @@ The shared target architecture is
 
 ### Ready
 
-| Epic | Outcome |
-| --- | --- |
-| [0027 — Shared training data operations](3-in-progress/0027-Shared_Training_Data_Operations.md) | Capture source material once and process it independently for CardEventNet and the TableEvidenceAnalyzer. |
-| [0028 — Model improvement and promotion](2-ready/0028-Model_Improvement_and_Promotion.md) | Run bounded component experiments and explicitly promote a new champion model bundle. |
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| [0028 — Model improvement and promotion](2-ready/0028-Model_Improvement_and_Promotion.md) | 0021 and 0027 | Run bounded component experiments and explicitly promote a new champion model bundle. |
+| [0029 — Repository data boundaries and evidence intake](2-ready/0029-Repository_Data_Boundaries_and_Evidence_Intake.md) | 0027 | Keep shared intake at the repository root, stage incomplete videos before intake, and preserve accepted evidence packages as pipeline inputs. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0027 — Shared training data operations](3-in-progress/0027-Shared_Training_Data_Operations.md) | 0019 and 0020 | Capture source material once and process it independently for CardEventNet and the TableEvidenceAnalyzer. |
+| None | — | — |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0029 — Repository data boundaries and evidence intake](4-blocked/0029-Repository_Data_Boundaries_and_Evidence_Intake.md) | 0027 | Keep shared intake at the repository root, stage incomplete videos before intake, and preserve accepted evidence packages as pipeline inputs. |
+| None | — | — |
 
 ### Closed
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0027 — Shared training data operations](5-closed/0027-Shared_Training_Data_Operations.md) | Complete | Capture source material once and process it independently for CardEventNet and the TableEvidenceAnalyzer. |
 | [0021 — TableEvidenceAnalyzer model training](5-closed/0021-Table_Evidence_Analyzer_Training_Pipeline.md) | Complete | Build the train, evaluate, checkpoint, and export loop for analyzer model components. |
 | [0001 — CardEventNet v1](5-closed/0001-CardEventNet_v1.md) | Complete | Initial CardEventNet pipeline. |
 | [0002 — iOS CardEventNet PoC](5-closed/0002-iOS_CardEventNet_PoC.md) | Complete | iOS inference PoC. |
@@ -92,27 +93,22 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Use the reviewed 0025 packages and M6 report as input to 0027 and 0022. Defer 0025 performance
-   telemetry until performance becomes a problem.
-2. Start 0021 as the next full implementation epic. Use the completed 0020 data contracts and the
-   completed 0006 observation boundary. Do not wait for more snippets or recognition data.
-3. In 0021, first remove the active legacy result path. Then prove deterministic sample-byte
-   resolution before adding the train, evaluate, checkpoint, and export loop.
-4. Implement 0027 shared intake and independent task enrollment before the next large collection
-   batch. Start its contract and operator work without waiting for 0021 model training.
-5. Put corrected 0025 packages through the 0027 table-evidence review path. Use the resulting
-   coverage and failure measurements to specify 0022. Do not treat the three 0025 M6 packages as a
-   sufficient recognition dataset by themselves.
-6. Start 0028 with the existing CardEventNet loop. Add its TableEvidenceAnalyzer adapter after 0021
-   provides stable run and capability-bundle artifacts. Do not use test or system holdout results
-   for candidate selection.
-7. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
-   to specify 0023. This measurement pass can proceed without blocking 0021.
-8. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-9. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+1. Start 0029 with repository-root path and bundle contracts. Complete its pending-video path before
+   changing evidence-package intake.
+2. Start 0028 with registry, recipe, campaign, and report contracts. Then implement the
+   CardEventNet campaign and promotion path before the TableEvidenceAnalyzer adapter.
+3. Run 0030 in parallel when iOS capacity is available. Keep its upload-progress changes separate
+   from the 0029 evidence-package producer contract.
+4. Put corrected 0025 packages through the completed 0027 table-evidence review path. Use the
+   resulting coverage and failure measurements to specify 0022. Do not treat the three 0025 M6
+   packages as a sufficient recognition dataset by themselves.
+5. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+   to specify 0023.
+6. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+7. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
    without replacing the identity-only oracle baseline.
-10. Specify 0026 after focused review cases and correction behavior are measured.
-11. Specify 0024 only after end-to-end product and operational measurements exist.
+8. Specify 0026 after focused review cases and correction behavior are measured.
+9. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 

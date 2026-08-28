@@ -4,7 +4,11 @@
 
 - **Summary:** Capture source material once and process it independently for CardEventNet and the
   TableEvidenceAnalyzer
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** All implementation milestones and the automated clean-room gate are complete.
+  The local interactive exercise remains an operator verification follow-up, as recorded in the
+  exercise report. It does not block the delivered data-operations contracts or workflows.
 - **Depends on:** Plans 0019 and 0020, which are complete
 - **Builds on:** Plan 0025 adds optional video snippets to evidence packages
 - **Reviewed:** 2026-08-28 against repository baseline `e392f929d`, the implemented recording

@@ -5,8 +5,7 @@
 - **Summary:** Run bounded component experiments, compare them reproducibly, and promote a new
   champion model bundle through one operator command
 - **Status:** Ready
-- **Depends on:** Plan 0021 for the TableEvidenceAnalyzer training adapter and plan 0027 for the
-  automatic new-data handoff
+- **Depends on:** Completed plans 0021 and 0027
 - **Can start with:** Existing CardEventNet training, evaluation, export, and historical experiment
   reports while the dependent TableEvidenceAnalyzer path is completed
 - **Builds on:** Plans 0012, 0015, and 0020 provide experiment, comparison, and lifecycle patterns
