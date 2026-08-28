@@ -48,6 +48,7 @@ from .status import render_human, render_json
 from .table_evidence import TABLE_EVIDENCE_TASK, TableObservationReviewAdapter
 from .table_evidence_campaign import (
     TableEvidenceFixtureCommandRunner,
+    promote_table_evidence_campaign,
     run_table_evidence_campaign,
 )
 
@@ -270,9 +271,9 @@ def build_parser() -> argparse.ArgumentParser:
     promote.add_argument("--candidate", dest="candidate_id", default=None)
     promote.add_argument(
         "--runner",
-        choices=("cardevent", "fixture"),
+        choices=("cardevent", "table-evidence-analyzer", "fixture"),
         default="cardevent",
-        help="Execution backend (default: cardevent; fixture is for local clean-room checks).",
+        help=("Execution backend (default: cardevent; fixture is for local clean-room checks)."),
     )
     promote.add_argument(
         "--confirm",
@@ -286,6 +287,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="CardEventNet project root (default: card_event_net).",
     )
     promote.add_argument("--split", type=Path, default=None)
+    promote.add_argument(
+        "--dataset",
+        type=Path,
+        default=None,
+        help="Explicit plan 0020 dataset manifest for TableEvidenceAnalyzer.",
+    )
+    promote.add_argument(
+        "--artifacts",
+        type=Path,
+        default=None,
+        help="Explicit plan 0020 sample-artifact index for TableEvidenceAnalyzer.",
+    )
     promote.add_argument("--cache-dir", type=Path, default=None)
     promote.add_argument("--annotations-dir", type=Path, default=None)
     promote.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default=None)
@@ -678,27 +691,50 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                 return 1 if campaign.state == "failed" else 0
             if args.model_command == "promote":
-                command_runner = FixtureCommandRunner() if args.runner == "fixture" else None
-                campaign = promote_card_event_campaign(
-                    args.campaign_id,
-                    repository_root=config.repository_root,
-                    registry_path=args.model_registry,
-                    campaign_root=args.campaign_root,
-                    candidate_id=args.candidate_id,
-                    project_root=args.project_root,
-                    split_path=args.split,
-                    cache_dir=args.cache_dir,
-                    annotations_dir=args.annotations_dir,
-                    device=args.device,
-                    app_bundle_path=args.app_bundle,
-                    runner=command_runner,
-                    confirm=args.confirm,
-                )
                 campaign_root = (
                     args.campaign_root or config.repository_root / "data" / "model-campaigns"
                 )
                 if not campaign_root.is_absolute():
                     campaign_root = config.repository_root / campaign_root
+                existing_campaign = load_campaign(campaign_root, args.campaign_id)
+                if existing_campaign.component == "table-evidence-analyzer":
+                    command_runner = (
+                        TableEvidenceFixtureCommandRunner(test_quality=0.96)
+                        if args.runner == "fixture"
+                        else None
+                    )
+                    campaign = promote_table_evidence_campaign(
+                        args.campaign_id,
+                        repository_root=config.repository_root,
+                        registry_path=args.model_registry,
+                        campaign_root=args.campaign_root,
+                        candidate_id=args.candidate_id,
+                        project_root=args.project_root,
+                        dataset_path=args.dataset,
+                        split_path=args.split,
+                        artifacts_path=args.artifacts,
+                        runner=command_runner,
+                        confirm=args.confirm,
+                    )
+                    label = "TableEvidenceAnalyzer promotion"
+                else:
+                    command_runner = FixtureCommandRunner() if args.runner == "fixture" else None
+                    campaign = promote_card_event_campaign(
+                        args.campaign_id,
+                        repository_root=config.repository_root,
+                        registry_path=args.model_registry,
+                        campaign_root=args.campaign_root,
+                        candidate_id=args.candidate_id,
+                        project_root=args.project_root,
+                        split_path=args.split,
+                        cache_dir=args.cache_dir,
+                        annotations_dir=args.annotations_dir,
+                        device=args.device,
+                        app_bundle_path=args.app_bundle,
+                        runner=command_runner,
+                        confirm=args.confirm,
+                    )
+                    label = "CardEventNet promotion"
                 result = {
                     "campaign": campaign.to_mapping(),
                     "campaign_path": str(campaign_root / campaign.campaign_id),
@@ -707,7 +743,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
                 else:
                     sys.stdout.write(
-                        "CardEventNet promotion\n"
+                        f"{label}\n"
                         f"campaign: {campaign.campaign_id}\n"
                         f"state: {campaign.state}\n"
                         f"artifacts: {result['campaign_path']}\n"

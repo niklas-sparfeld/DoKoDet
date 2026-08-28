@@ -68,3 +68,20 @@ The campaign records the `identity_candidates` capability, `table-observation/v1
 contract, runtime compatibility, group support, and the validation comparison. It is scoped to
 oracle-crop identity classification. It does not claim complete table analysis or use the test
 partition.
+
+M4 promotes a locked TableEvidenceAnalyzer candidate only when the resolved recipe authorizes a
+sealed test. It evaluates the test partition once, exports and validates the portable bundle,
+loads it through the training-free runtime interface, checks the plan 0006 observation fixture,
+retains the former champion, and atomically updates only the analyzer registry entry:
+
+```bash
+doko model promote <campaign-id> \
+  --repository-root <repository> \
+  --model-registry <registry.json> \
+  --campaign-root <campaign-root> \
+  --runner fixture \
+  --confirm
+```
+
+The promotion receipt records the old and new bundle digests. A repeated confirmed invocation
+reads the receipt and does not rerun the test or export.

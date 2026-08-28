@@ -450,6 +450,18 @@ Acceptance:
 - the former analyzer champion remains available for rollback;
 - no CardEventNet registry entry changes.
 
+#### M4 progress evidence — 2026-08-29
+
+- Added confirmed, idempotent TableEvidenceAnalyzer promotion with one-time sealed-test
+  evaluation, locked-candidate export, bundle schema/hash/compatibility validation, and a
+  training-free `load_bundle` check.
+- Added plan 0006 `table-observation/v1` fixture integration, retained former-champion metadata and
+  artifact copy, atomic analyzer-only registry replacement, promotion receipts, and compensation
+  that restores the registry and removes a staged bundle after failure.
+- Added fixture coverage for successful promotion, confirmation, failed sealed test, export
+  failure compensation, CLI routing, former-champion retention, CardEventNet isolation, and
+  idempotent retry.
+
 ### M5 — Shared system holdout evaluation
 
 1. Load the system holdout registry from plan 0027.

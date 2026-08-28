@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shlex
+import shutil
 import subprocess
+import tempfile
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from contextlib import suppress
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -31,12 +35,17 @@ from table_evidence_analyzer.table_observation import (
 )
 
 from .cardevent_campaign import (
+    _atomic_write_bytes,
     _campaign_id,
     _candidate_configuration,
     _candidate_lock,
     _candidate_run_digest,
+    _copy_path,
     _create_campaign,
     _failure_evaluation,
+    _promotion_receipt,
+    _remove_path,
+    _root_relative_path,
     _seed_from_configuration,
     _string_from_configuration,
     _update,
@@ -44,16 +53,23 @@ from .cardevent_campaign import (
 from .model_improvement import (
     ArtifactReference,
     CandidateRunReference,
+    ChampionModel,
+    ExportContract,
     ModelCampaign,
     ModelComparison,
     ModelEvaluation,
     ModelImprovementError,
     ModelRecipe,
+    ModelRegistry,
     compare_evaluations,
     default_gate_profile,
+    evaluate_gates,
     load_campaign,
+    load_campaign_comparison,
+    load_candidate_lock,
     load_model_recipe,
     load_model_registry,
+    load_promotion_receipt,
     render_comparison_report,
     sha256_mapping,
     validate_campaign_against_registry,
@@ -62,6 +78,10 @@ from .model_improvement import (
 
 class TableEvidenceCampaignError(ModelImprovementError):
     """Raised when a TableEvidenceAnalyzer campaign cannot be completed."""
+
+
+class TableEvidencePromotionError(TableEvidenceCampaignError):
+    """Raised when a locked TableEvidenceAnalyzer candidate cannot be promoted."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,11 +144,13 @@ class TableEvidenceFixtureCommandRunner:
         *,
         champion_quality: float = 0.90,
         candidate_quality: float = 0.96,
+        test_quality: float | None = None,
         fail_commands: Sequence[str] = (),
     ) -> None:
         self.commands: list[tuple[str, ...]] = []
         self.champion_quality = champion_quality
         self.candidate_quality = candidate_quality
+        self.test_quality = test_quality
         self.fail_commands = frozenset(fail_commands)
 
     def run(
@@ -174,14 +196,16 @@ class TableEvidenceFixtureCommandRunner:
             )
         elif command_name == "evaluate":
             split_name = _option(command, "--split")
-            if split_name != "validation":
+            if split_name not in {"validation", "test"} or (
+                split_name == "test" and self.test_quality is None
+            ):
                 _write_text(
                     log_path,
                     f"command: {shlex.join(command)}\nreturncode: 2\n"
-                    "fixture only permits validation evaluation\n",
+                    "fixture only permits authorized evaluation partitions\n",
                 )
                 return TableEvidenceCommandResult(
-                    2, "", "fixture only permits validation evaluation"
+                    2, "", "fixture only permits authorized evaluation partitions"
                 )
             run_dir = Path(_option(command, "--run"))
             run = _read_json(run_dir / "run.json", "fixture run")
@@ -191,14 +215,22 @@ class TableEvidenceFixtureCommandRunner:
             dataset = load_dataset_manifest(Path(str(config["dataset"])))
             split = load_split_manifest(Path(str(config["split"])))
             is_champion = run_dir.name == "champion"
-            quality = self.champion_quality if is_champion else self.candidate_quality
-            predictions = _fixture_predictions(dataset, split, quality=quality)
+            quality = (
+                self.test_quality
+                if split_name == "test" and self.test_quality is not None
+                else self.champion_quality
+                if is_champion
+                else self.candidate_quality
+            )
+            predictions = _fixture_predictions(
+                dataset, split, quality=quality, partition=split_name
+            )
             _write_json(
-                run_dir / "evaluation-validation.json",
+                run_dir / f"evaluation-{split_name}.json",
                 {
                     "schema_version": "table-analyzer-evaluation/v1",
                     "run_id": run["run_id"],
-                    "split": "validation",
+                    "split": split_name,
                     "dataset_version_digest": dataset.digest,
                     "split_version_digest": split.digest,
                     "sample_count": len(predictions),
@@ -436,6 +468,8 @@ def _group_metrics(
     dataset: DatasetManifest,
     split: SplitManifest,
     predictions: Mapping[str, Mapping[str, object]],
+    *,
+    partition: str = "validation",
 ) -> dict[str, object]:
     dimensions = (
         "deck_design",
@@ -450,7 +484,7 @@ def _group_metrics(
     entries = {
         entry.dataset_item_id: entry
         for entry in dataset.entries
-        if entry.dataset_item_id in set(split.validation)
+        if entry.dataset_item_id in set(split.partitions[partition])
     }
     result: dict[str, object] = {}
     for dimension in dimensions:
@@ -537,6 +571,55 @@ def _observation_fixture(
     return True, (time.perf_counter() - started) * 1000.0
 
 
+def _plan0006_observation_fixture(
+    root: Path,
+    bundle_path: Path,
+    *,
+    dataset: DatasetManifest,
+    split: SplitManifest,
+    artifacts_path: Path,
+    cache_path: Path,
+) -> tuple[bool, float]:
+    """Validate the promoted output against the canonical plan 0006 fixture."""
+
+    started = time.perf_counter()
+    fixture = root / "fixtures" / "game-engine" / "v1" / "observations" / "minimal.json"
+    if not fixture.is_file():
+        fixture = (
+            Path(__file__).resolve().parents[3]
+            / "fixtures"
+            / "game-engine"
+            / "v1"
+            / "observations"
+            / "minimal.json"
+        )
+    try:
+        payload = _read_json(fixture, "plan 0006 observation fixture")
+        bundle = load_bundle(bundle_path)
+        artifacts = load_artifact_index(artifacts_path)
+        cache = materialize_crops(dataset, split, artifacts, cache_path)
+        samples = list(MaterializedCropDataset(cache, partition="validation"))
+        cards = list(payload.get("cards", []))
+        if samples:
+            crop = next(
+                item for item in cache.crops if item.dataset_item_id == samples[0].dataset_item_id
+            )
+            candidates = bundle.classify(cache.root / crop.relative_path)
+            if not cards or not isinstance(cards[0], Mapping):
+                return False, (time.perf_counter() - started) * 1000.0
+            card = dict(cards[0])
+            card["identity_candidates"] = [
+                candidate.model_dump(mode="json") for candidate in candidates
+            ]
+            cards = [card]
+        payload["cards"] = cards
+        payload["capabilities"] = ["identity_candidates"]
+        TableObservation.model_validate(payload)
+    except (KeyError, OSError, TypeError, ValueError):
+        return False, (time.perf_counter() - started) * 1000.0
+    return True, (time.perf_counter() - started) * 1000.0
+
+
 def _validate_bundle(
     bundle_path: Path,
     *,
@@ -578,6 +661,21 @@ def _validate_bundle(
     return {"bundle": bundle, "contract": contract}
 
 
+def _runtime_only_bundle_check(bundle_path: Path) -> dict[str, object]:
+    """Load only the portable export interface, without training imports or data."""
+
+    try:
+        load_bundle(bundle_path)
+    except (OSError, TypeError, ValueError) as error:
+        raise TableEvidencePromotionError(f"runtime-only bundle load failed: {error}") from error
+    return {
+        "status": "passed",
+        "method": "table_evidence_analyzer.export.load_bundle",
+        "training_data": False,
+        "training_modules": False,
+    }
+
+
 def _evaluation_metrics(
     payload: Mapping[str, object],
     *,
@@ -588,6 +686,7 @@ def _evaluation_metrics(
     capability: Mapping[str, object],
     observation_fixture_compatible: bool,
     inference_latency_ms: float,
+    partition: str = "validation",
 ) -> dict[str, object]:
     raw_predictions = payload.get("predictions", [])
     predictions = (
@@ -599,8 +698,10 @@ def _evaluation_metrics(
         if isinstance(raw_predictions, list)
         else {}
     )
-    validation_entries = [
-        entry for entry in dataset.entries if entry.dataset_item_id in set(split.validation)
+    evaluation_entries = [
+        entry
+        for entry in dataset.entries
+        if entry.dataset_item_id in set(split.partitions[partition])
     ]
     top1 = payload.get("top_1_accuracy")
     if not isinstance(top1, (int, float)) or isinstance(top1, bool):
@@ -632,7 +733,7 @@ def _evaluation_metrics(
     metrics: dict[str, object] = {
         "top1_accuracy": float(top1),
         "topk_accuracy": float(topk),
-        "sample_count": len(validation_entries),
+        "sample_count": len(evaluation_entries),
         "prediction_count": len(predictions),
         "per_identity": identity_metrics,
         "per_identity_support": min(
@@ -641,7 +742,8 @@ def _evaluation_metrics(
         "per_identity_min_accuracy": min(
             (float(item["accuracy"]) for item in identity_metrics.values()), default=0.0
         ),
-        "group_metrics": _group_metrics(dataset, split, predictions),
+        "group_metrics": _group_metrics(dataset, split, predictions, partition=partition),
+        "evaluation_partition": partition,
         "bundle_integrity": True,
         "runtime_loads": True,
         "observation_fixture_compatible": observation_fixture_compatible,
@@ -682,11 +784,15 @@ def _evaluation_metrics(
 
 
 def _fixture_predictions(
-    dataset: DatasetManifest, split: SplitManifest, *, quality: float
+    dataset: DatasetManifest,
+    split: SplitManifest,
+    *,
+    quality: float,
+    partition: str = "validation",
 ) -> list[dict[str, object]]:
     identities = ["CLUBS_NINE", "HEARTS_QUEEN", "SPADES_JACK"]
     result: list[dict[str, object]] = []
-    for index, item_id in enumerate(split.validation):
+    for index, item_id in enumerate(split.partitions[partition]):
         entry = next(item for item in dataset.entries if item.dataset_item_id == item_id)
         correct = quality >= 0.95 or index > 0
         prediction = entry.visual_card_identity if correct else identities[0]
@@ -1358,12 +1464,680 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _write_table_promotion_report(
+    campaign_dir: Path,
+    campaign: ModelCampaign,
+    *,
+    test_evaluation: ModelEvaluation | None,
+    checks: Mapping[str, object] | None,
+    failure_reason: str | None = None,
+) -> None:
+    lines = [
+        "# TableEvidenceAnalyzer promotion report",
+        "",
+        f"- Campaign: `{campaign.campaign_id}`",
+        f"- State: `{campaign.state}`",
+        f"- Candidate: `{test_evaluation.candidate_id if test_evaluation else 'none'}`",
+        f"- Test evaluation: `{test_evaluation.evaluation_id if test_evaluation else 'none'}`",
+        "",
+    ]
+    if failure_reason is not None:
+        lines.extend([f"- Failure: `{failure_reason}`", ""])
+    if test_evaluation is not None:
+        lines.extend(["## Sealed test gates", ""])
+        for gate in test_evaluation.gates:
+            lines.append(f"- `{gate.gate_id}`: `{gate.status}` — {gate.reason}")
+        lines.append("")
+    if checks:
+        lines.extend(["## Export and runtime checks", ""])
+        for name, result in checks.items():
+            status = result.get("status", "unknown") if isinstance(result, Mapping) else "unknown"
+            lines.append(f"- `{name}`: `{status}`")
+        lines.append("")
+    _write_text(campaign_dir / "promotion-report.md", "\n".join(lines))
+
+
+def _stage_bundle(source: Path, target: Path) -> None:
+    """Publish a new bundle at a campaign-owned path with an atomic directory rename."""
+
+    if not source.is_dir():
+        raise TableEvidencePromotionError(f"exported analyzer bundle is not a directory: {source}")
+    if target.exists() or target.is_symlink():
+        raise TableEvidencePromotionError(f"promotion bundle target already exists: {target}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    staging_parent = Path(tempfile.mkdtemp(prefix=f".{target.name}-", dir=target.parent))
+    staged = staging_parent / target.name
+    try:
+        _copy_path(source, staged)
+        os.replace(staged, target)
+    except (OSError, shutil.Error) as error:
+        raise TableEvidencePromotionError(f"could not stage analyzer bundle: {error}") from error
+    finally:
+        shutil.rmtree(staging_parent, ignore_errors=True)
+
+
+def _retain_previous_table_champion(
+    root: Path,
+    campaign_dir: Path,
+    champion: ChampionModel,
+) -> dict[str, object]:
+    """Keep the former table champion reference and a copy when its artifact is present."""
+
+    source = _resolve(root, champion.bundle_path)
+    retained = campaign_dir / "previous-champion-bundle"
+    available = source.exists()
+    source_digest: str | None = None
+    if available:
+        source_digest = _path_digest(source)
+        if source_digest != champion.champion_bundle.digest:
+            raise TableEvidencePromotionError(
+                "current table champion bundle digest differs from the registry"
+            )
+        if not retained.exists():
+            _copy_path(source, retained)
+        if _path_digest(retained) != source_digest:
+            raise TableEvidencePromotionError(
+                "retained table champion copy failed its digest check"
+            )
+    record = {
+        "champion": champion.to_mapping(),
+        "bundle_path": _root_relative_path(root, source, "former champion bundle path"),
+        "bundle_available": available,
+        "bundle_digest": source_digest,
+        "retained_copy_path": (str(retained.resolve()) if available else None),
+    }
+    _write_json(campaign_dir / "previous-champion.json", record)
+    return record
+
+
+def _validate_test_payload(
+    payload: Mapping[str, object],
+    *,
+    dataset: DatasetManifest,
+    split: SplitManifest,
+) -> None:
+    if payload.get("schema_version") != "table-analyzer-evaluation/v1":
+        raise TableEvidencePromotionError("sealed test evaluation has an unsupported schema")
+    if payload.get("split") != "test":
+        raise TableEvidencePromotionError("sealed test evaluation must use the test partition")
+    if payload.get("dataset_version_digest") != dataset.digest:
+        raise TableEvidencePromotionError("sealed test evaluation uses a different dataset digest")
+    if payload.get("split_version_digest") != split.digest:
+        raise TableEvidencePromotionError("sealed test evaluation uses a different split digest")
+
+
+def promote_table_evidence_campaign(
+    campaign_id: str,
+    *,
+    repository_root: str | Path,
+    registry_path: str | Path | None = None,
+    campaign_root: str | Path | None = None,
+    candidate_id: str | None = None,
+    project_root: str | Path | None = None,
+    dataset_path: str | Path | None = None,
+    split_path: str | Path | None = None,
+    artifacts_path: str | Path | None = None,
+    runner: TableEvidenceCommandRunner | None = None,
+    confirm: bool = False,
+    now_utc: str | None = None,
+) -> ModelCampaign:
+    """Test, validate, and promote one locked TableEvidenceAnalyzer candidate."""
+
+    if not confirm:
+        raise TableEvidencePromotionError("promotion requires explicit confirmation")
+    root = Path(repository_root).resolve()
+    campaigns = _resolve(root, campaign_root or root / "data" / "model-campaigns")
+    campaign = load_campaign(campaigns, campaign_id)
+    campaign_dir = campaigns / campaign.campaign_id
+    receipt_path = campaign_dir / "promotion-receipt.json"
+    if receipt_path.exists():
+        receipt = load_promotion_receipt(receipt_path)
+        if receipt.campaign_id != campaign.campaign_id:
+            raise TableEvidencePromotionError("promotion receipt belongs to a different campaign")
+        return campaign
+    if campaign.state in {"promoted", "failed", "human_review_required"}:
+        return campaign
+    if campaign.state not in {"candidate_locked", "tested", "promotion_recommended"}:
+        raise TableEvidencePromotionError(
+            f"campaign {campaign.campaign_id} is not ready for promotion: {campaign.state}"
+        )
+
+    recipe = load_model_recipe(campaign_dir / "resolved-recipe.yaml")
+    if not recipe.sealed_test_authorized:
+        raise TableEvidencePromotionError("recipe does not authorize a sealed test evaluation")
+    if recipe.component != "table-evidence-analyzer":
+        raise TableEvidencePromotionError(
+            "only TableEvidenceAnalyzer campaigns have an M4 promotion path"
+        )
+    if recipe.digest != campaign.recipe_digest:
+        raise TableEvidencePromotionError("resolved recipe digest differs from the campaign")
+    profile = default_gate_profile(recipe.component)
+    if profile.gate_profile_id != recipe.gate_profile_id:
+        raise TableEvidencePromotionError(
+            "recipe gate profile does not match the checked-in profile"
+        )
+    registry_file = _resolve(root, registry_path or root / "data" / "model-registry.json")
+    registry = load_model_registry(registry_file)
+    validate_campaign_against_registry(campaign, registry)
+    champion = registry.champion_for(campaign.component, campaign.capability)
+    if champion is None:
+        raise TableEvidencePromotionError(
+            "model registry has no current TableEvidenceAnalyzer champion"
+        )
+    if campaign.baseline_bundle != champion.champion_bundle:
+        raise TableEvidencePromotionError("campaign baseline is no longer the current champion")
+    comparison = load_campaign_comparison(campaigns, campaign)
+    if comparison.recommendation != "promote_candidate":
+        raise TableEvidencePromotionError(
+            f"campaign recommendation is {comparison.recommendation}, not promote_candidate"
+        )
+    selected_candidate = candidate_id or comparison.recommended_candidate_id
+    if selected_candidate != comparison.recommended_candidate_id:
+        raise TableEvidencePromotionError(
+            "selected candidate differs from the locked recommendation"
+        )
+    if selected_candidate is None:
+        raise TableEvidencePromotionError("campaign has no recommended candidate")
+    candidate = next(
+        (item for item in recipe.candidates if item.candidate_id == selected_candidate), None
+    )
+    if candidate is None:
+        raise TableEvidencePromotionError(f"candidate {selected_candidate} is not in the recipe")
+    lock = load_candidate_lock(campaign_dir / "lock.json")
+    if (
+        lock.campaign_id != campaign.campaign_id
+        or lock.candidate_id != selected_candidate
+        or lock.recipe_digest != recipe.digest
+        or lock.data != recipe.data
+    ):
+        raise TableEvidencePromotionError(
+            "candidate lock is stale or incompatible with the campaign"
+        )
+    run = next(
+        (item for item in campaign.candidate_runs if item.candidate_id == selected_candidate), None
+    )
+    if run is None or run.state != "success" or run.checkpoint_id != lock.checkpoint_id:
+        raise TableEvidencePromotionError("candidate lock does not identify a completed checkpoint")
+    candidate_evaluation = next(
+        (item for item in comparison.candidates if item.candidate_id == selected_candidate), None
+    )
+    if candidate_evaluation is None or candidate_evaluation.state != "success":
+        raise TableEvidencePromotionError(
+            "locked candidate has no successful validation evaluation"
+        )
+
+    candidate_dir = campaign_dir / "candidates" / selected_candidate
+    run_dir = campaign_dir / "runs" / selected_candidate
+    candidate_bundle = candidate_dir / "capability-bundle"
+    checkpoint = run_dir / "checkpoint-best.json"
+    if not checkpoint.is_file() or not candidate_bundle.is_dir():
+        raise TableEvidencePromotionError(
+            "locked analyzer checkpoint or capability bundle is missing"
+        )
+    configuration = _candidate_configuration(candidate)
+    dataset, split, selected_dataset, selected_split, selected_artifacts = _validate_data_contract(
+        recipe,
+        configuration,
+        root=root,
+        dataset_path=dataset_path,
+        split_path=split_path,
+        artifacts_path=artifacts_path,
+    )
+    validated_candidate = _validate_bundle(
+        candidate_bundle,
+        component=recipe.component,
+        capability=recipe.capability,
+        runtime_contract_version=recipe.export_compatibility,
+        input_contract_version="input/v1",
+        dataset=dataset,
+        split=split,
+    )
+    expected_contract = validated_candidate["contract"]
+    assert isinstance(expected_contract, Mapping)
+    if _path_digest(candidate_bundle) != candidate_evaluation.bundle.digest:
+        raise TableEvidencePromotionError(
+            "locked candidate bundle digest differs from validation evaluation"
+        )
+    stored_contract = _read_json(
+        candidate_dir / "capability-contract.json", "candidate capability contract"
+    )
+    if stored_contract != dict(expected_contract):
+        raise TableEvidencePromotionError(
+            "candidate capability contract differs from the resolved contract"
+        )
+
+    command_runner = runner or TableEvidenceSubprocessCommandRunner()
+    command_manifest = campaign_dir / "logs" / "commands.json"
+    timestamp = now_utc or _now()
+    test_evaluation_file = campaign_dir / "test-evaluation.json"
+    test_evaluation: ModelEvaluation | None = None
+    checks: dict[str, object] = {}
+    registry_before_bytes = registry_file.read_bytes()
+    registry_before_digest = sha256_mapping(registry.to_mapping())
+    placeholder_digest = sha256_mapping(
+        {
+            "campaign_id": campaign.campaign_id,
+            "candidate_id": selected_candidate,
+            "artifact": "export",
+        }
+    )
+    export_reference = ArtifactReference(
+        f"export-{campaign.campaign_id}-{selected_candidate}", placeholder_digest
+    )
+    promoted_reference = ArtifactReference(
+        f"bundle-{campaign.campaign_id}-{selected_candidate}-promoted", placeholder_digest
+    )
+    receipt_identity = {
+        "campaign_id": campaign.campaign_id,
+        "candidate_id": selected_candidate,
+        "lock_id": lock.lock_id,
+    }
+    receipt_id = f"receipt-{sha256_mapping(receipt_identity)[:20]}"
+    target = _resolve(
+        root,
+        f"models/table-evidence-analyzer-{campaign.campaign_id}-{selected_candidate}.bundle",
+    )
+    target_staged = False
+    registry_changed = False
+
+    try:
+        raw_test_path = run_dir / "evaluation-test.json"
+        if test_evaluation_file.exists():
+            test_evaluation = ModelEvaluation.from_mapping(
+                _read_json(test_evaluation_file, "sealed test evaluation")
+            )
+        else:
+            if not raw_test_path.exists():
+                project = _resolve(root, project_root or root / "table_evidence_analyzer")
+                _run_checked(
+                    command_runner,
+                    (
+                        *_command_prefix(project),
+                        "evaluate",
+                        "--run",
+                        str(run_dir),
+                        "--split",
+                        "test",
+                    ),
+                    root=root,
+                    log_path=campaign_dir / "logs" / "test-evaluate.log",
+                    manifest_path=command_manifest,
+                )
+            raw_test = _read_json(raw_test_path, "TableEvidenceAnalyzer sealed test evaluation")
+            _validate_test_payload(raw_test, dataset=dataset, split=split)
+            candidate_latency = candidate_evaluation.metrics.get("inference_latency_ms", 0.0)
+            test_metrics = _evaluation_metrics(
+                raw_test,
+                dataset=dataset,
+                split=split,
+                artifact_path=candidate_bundle,
+                checkpoint_path=checkpoint,
+                capability=expected_contract,
+                observation_fixture_compatible=True,
+                inference_latency_ms=float(candidate_latency)
+                if isinstance(candidate_latency, (int, float))
+                and not isinstance(candidate_latency, bool)
+                else 0.0,
+                partition="test",
+            )
+            test_evaluation = ModelEvaluation.from_mapping(
+                {
+                    "evaluation_id": f"evaluation-{campaign.campaign_id}-{selected_candidate}-test",
+                    "role": "candidate",
+                    "candidate_id": selected_candidate,
+                    "run_id": f"run-{campaign.campaign_id}-{selected_candidate}-test",
+                    "bundle": candidate_evaluation.bundle.to_mapping(),
+                    "state": "success",
+                    "data": recipe.data.to_mapping(),
+                    "metrics": test_metrics,
+                    "gates": [gate.to_mapping() for gate in evaluate_gates(profile, test_metrics)],
+                    "failure_reason": None,
+                }
+            )
+            _write_json(test_evaluation_file, test_evaluation.to_mapping())
+        if (
+            test_evaluation.role != "candidate"
+            or test_evaluation.candidate_id != selected_candidate
+            or test_evaluation.data != recipe.data
+            or test_evaluation.state != "success"
+        ):
+            raise TableEvidencePromotionError(
+                "sealed test evaluation identifies the wrong candidate or data"
+            )
+        if not test_evaluation.gates:
+            test_evaluation = replace(
+                test_evaluation,
+                gates=evaluate_gates(profile, test_evaluation.metrics),
+            )
+            _write_json(test_evaluation_file, test_evaluation.to_mapping())
+        campaign = _update(
+            campaign,
+            state="tested",
+            timestamp=timestamp,
+            test_evaluation_id=test_evaluation.evaluation_id,
+        )
+        _write_json(campaign_dir / "campaign.json", campaign.to_mapping())
+        failed_gates = [
+            gate.gate_id for gate in test_evaluation.gates if gate.hard and gate.status == "failed"
+        ]
+        if failed_gates:
+            reason = f"sealed test hard gates failed: {', '.join(failed_gates)}"
+            campaign = _update(
+                campaign,
+                state="human_review_required",
+                timestamp=timestamp,
+                failure_reason=reason,
+            )
+            _write_json(campaign_dir / "campaign.json", campaign.to_mapping())
+            _write_table_promotion_report(
+                campaign_dir,
+                campaign,
+                test_evaluation=test_evaluation,
+                checks=None,
+                failure_reason=reason,
+            )
+            return campaign
+
+        project = _resolve(root, project_root or root / "table_evidence_analyzer")
+        export_path = campaign_dir / "promotion-bundle"
+        if not export_path.exists():
+            _run_checked(
+                command_runner,
+                (
+                    *_command_prefix(project),
+                    "export",
+                    "--run",
+                    str(run_dir),
+                    "--output",
+                    str(export_path),
+                ),
+                root=root,
+                log_path=campaign_dir / "logs" / "promotion-export.log",
+                manifest_path=command_manifest,
+            )
+        validated_export = _validate_bundle(
+            export_path,
+            component=recipe.component,
+            capability=recipe.capability,
+            runtime_contract_version=recipe.export_compatibility,
+            input_contract_version="input/v1",
+            dataset=dataset,
+            split=split,
+        )
+        export_contract = validated_export["contract"]
+        assert isinstance(export_contract, Mapping)
+        if dict(export_contract) != dict(expected_contract):
+            raise TableEvidencePromotionError(
+                "exported capability contract is incompatible with the locked candidate"
+            )
+        run_payload = _read_json(run_dir / "run.json", "locked analyzer run")
+        if validated_export["bundle"].manifest.get("run_id") != run_payload.get("run_id"):
+            raise TableEvidencePromotionError("exported bundle run ID differs from the locked run")
+        export_digest = _path_digest(export_path)
+        export_reference = ArtifactReference(export_reference.id, export_digest)
+        promoted_reference = ArtifactReference(promoted_reference.id, export_digest)
+        checks["bundle_validation"] = {
+            "status": "passed",
+            "schema": BUNDLE_SCHEMA,
+            "digest": export_digest,
+            "compatibility": recipe.export_compatibility,
+        }
+        _write_json(campaign_dir / "promotion-checks.json", checks)
+        checks["runtime_only_load"] = _runtime_only_bundle_check(export_path)
+        _write_json(campaign_dir / "promotion-checks.json", checks)
+        observation_compatible, observation_latency = _plan0006_observation_fixture(
+            root,
+            export_path,
+            dataset=dataset,
+            split=split,
+            artifacts_path=selected_artifacts,
+            cache_path=campaign_dir / "promotion-crop-cache",
+        )
+        if not observation_compatible:
+            raise TableEvidencePromotionError("plan 0006 observation fixture is incompatible")
+        checks["plan0006_observation_fixture"] = {
+            "status": "passed",
+            "schema": OBSERVATION_SCHEMA_VERSION,
+            "latency_ms": observation_latency,
+        }
+        _write_json(campaign_dir / "promotion-checks.json", checks)
+        test_raw = _read_json(run_dir / "evaluation-test.json", "sealed test evaluation")
+        test_metrics = _evaluation_metrics(
+            test_raw,
+            dataset=dataset,
+            split=split,
+            artifact_path=export_path,
+            checkpoint_path=checkpoint,
+            capability=export_contract,
+            observation_fixture_compatible=True,
+            inference_latency_ms=observation_latency,
+            partition="test",
+        )
+        test_evaluation = replace(
+            test_evaluation,
+            bundle=promoted_reference,
+            metrics=test_metrics,
+            gates=evaluate_gates(profile, test_metrics),
+        )
+        _write_json(test_evaluation_file, test_evaluation.to_mapping())
+        failed_gates = [
+            gate.gate_id for gate in test_evaluation.gates if gate.hard and gate.status == "failed"
+        ]
+        if failed_gates:
+            reason = (
+                f"promotion checks caused sealed test hard gates to fail: {', '.join(failed_gates)}"
+            )
+            campaign = _update(
+                campaign,
+                state="human_review_required",
+                timestamp=timestamp,
+                failure_reason=reason,
+            )
+            _write_json(campaign_dir / "campaign.json", campaign.to_mapping())
+            _write_table_promotion_report(
+                campaign_dir,
+                campaign,
+                test_evaluation=test_evaluation,
+                checks=checks,
+                failure_reason=reason,
+            )
+            return campaign
+
+        previous = _retain_previous_table_champion(root, campaign_dir, champion)
+        del previous
+        _stage_bundle(export_path, target)
+        target_staged = True
+        if _path_digest(target) != export_digest:
+            raise TableEvidencePromotionError(
+                "promoted bundle digest differs from the validated export"
+            )
+        target_relative = _root_relative_path(root, target, "promoted bundle path")
+        checks["registry_bundle_stage"] = {"status": "staged", "path": target_relative}
+        _write_json(campaign_dir / "promotion-checks.json", checks)
+        new_champion = ChampionModel(
+            component=champion.component,
+            capability=champion.capability,
+            champion_bundle=promoted_reference,
+            bundle_path=target_relative,
+            runtime_contract_version=recipe.export_compatibility,
+            input_contract_version="input/v1",
+            data=recipe.data,
+            validation_report_id=comparison.comparison_id,
+            sealed_test_report_id=test_evaluation.evaluation_id,
+            export=ExportContract(
+                environment={
+                    "tool": "table-evidence-analyzer",
+                    "campaign_id": campaign.campaign_id,
+                    "candidate_id": selected_candidate,
+                },
+                compatibility=recipe.export_compatibility,
+            ),
+            promotion_receipt_id=receipt_id,
+            decision_note=(
+                f"Promoted {selected_candidate} after explicit confirmation and sealed test "
+                f"evaluation {test_evaluation.evaluation_id}."
+            ),
+        )
+        new_registry = ModelRegistry(
+            registry_version=registry.registry_version + 1,
+            champions=tuple(
+                new_champion
+                if item.component == champion.component and item.capability == champion.capability
+                else item
+                for item in registry.champions
+            ),
+        )
+        new_registry = ModelRegistry.from_mapping(new_registry.to_mapping())
+        if [
+            item.to_mapping()
+            for item in new_registry.champions
+            if item.component == "card-event-net"
+        ] != [
+            item.to_mapping() for item in registry.champions if item.component == "card-event-net"
+        ]:
+            raise TableEvidencePromotionError(
+                "TableEvidenceAnalyzer promotion changed CardEventNet registry entries"
+            )
+        registry_after_digest = sha256_mapping(new_registry.to_mapping())
+        _atomic_write_bytes(
+            registry_file,
+            json.dumps(
+                new_registry.to_mapping(), ensure_ascii=False, indent=2, sort_keys=True
+            ).encode()
+            + b"\n",
+        )
+        registry_changed = True
+        if sha256_mapping(load_model_registry(registry_file).to_mapping()) != registry_after_digest:
+            raise TableEvidencePromotionError(
+                "atomic analyzer registry update failed its digest check"
+            )
+        checks["registry_update"] = {
+            "status": "updated",
+            "before_digest": registry_before_digest,
+            "after_digest": registry_after_digest,
+            "card_event_net_changed": False,
+        }
+        _write_json(campaign_dir / "promotion-checks.json", checks)
+        receipt = _promotion_receipt(
+            campaign=campaign,
+            recipe=recipe,
+            candidate_id=selected_candidate,
+            previous_champion=champion.champion_bundle,
+            promoted_bundle=promoted_reference,
+            export_artifact=export_reference,
+            test_evaluation_id=test_evaluation.evaluation_id,
+            runtime_contract_version=recipe.export_compatibility,
+            input_contract_version="input/v1",
+            receipt_id=receipt_id,
+            registry_before_digest=registry_before_digest,
+            registry_after_digest=registry_after_digest,
+            promotion_state="promoted",
+            registry_update="updated",
+            occurred_at_utc=timestamp,
+            failure_reason=None,
+        )
+        _atomic_write_bytes(
+            receipt_path,
+            json.dumps(receipt.to_mapping(), ensure_ascii=False, indent=2, sort_keys=True).encode()
+            + b"\n",
+        )
+        campaign = _update(
+            campaign,
+            state="promoted",
+            timestamp=timestamp,
+            test_evaluation_id=test_evaluation.evaluation_id,
+            promotion_receipt_id=receipt.receipt_id,
+            failure_reason=None,
+        )
+        _write_json(campaign_dir / "campaign.json", campaign.to_mapping())
+        _write_table_promotion_report(
+            campaign_dir,
+            campaign,
+            test_evaluation=test_evaluation,
+            checks=checks,
+        )
+        return campaign
+    except (
+        TableEvidenceCampaignError,
+        ModelImprovementError,
+        OSError,
+        ValueError,
+        shutil.Error,
+    ) as error:
+        if registry_changed:
+            with suppress(OSError, ValueError):
+                _atomic_write_bytes(registry_file, registry_before_bytes)
+        if target_staged:
+            _remove_path(target)
+        reason = str(error)
+        if test_evaluation is None:
+            test_evaluation = ModelEvaluation.from_mapping(
+                {
+                    "evaluation_id": f"evaluation-{campaign.campaign_id}-{selected_candidate}-test",
+                    "role": "candidate",
+                    "candidate_id": selected_candidate,
+                    "run_id": f"run-{campaign.campaign_id}-{selected_candidate}-test",
+                    "bundle": candidate_evaluation.bundle.to_mapping(),
+                    "state": "failed",
+                    "data": recipe.data.to_mapping(),
+                    "metrics": {},
+                    "gates": [],
+                    "failure_reason": reason,
+                }
+            )
+        _write_json(test_evaluation_file, test_evaluation.to_mapping())
+        failed_receipt = _promotion_receipt(
+            campaign=campaign,
+            recipe=recipe,
+            candidate_id=selected_candidate,
+            previous_champion=champion.champion_bundle,
+            promoted_bundle=promoted_reference,
+            export_artifact=export_reference,
+            test_evaluation_id=test_evaluation.evaluation_id,
+            runtime_contract_version=recipe.export_compatibility,
+            input_contract_version="input/v1",
+            receipt_id=receipt_id,
+            registry_before_digest=registry_before_digest,
+            registry_after_digest=None,
+            promotion_state="failed",
+            registry_update="unchanged",
+            occurred_at_utc=timestamp,
+            failure_reason=reason,
+        )
+        _atomic_write_bytes(
+            receipt_path,
+            json.dumps(
+                failed_receipt.to_mapping(), ensure_ascii=False, indent=2, sort_keys=True
+            ).encode()
+            + b"\n",
+        )
+        campaign = _update(
+            campaign,
+            state="failed",
+            timestamp=timestamp,
+            test_evaluation_id=test_evaluation.evaluation_id,
+            promotion_receipt_id=failed_receipt.receipt_id,
+            failure_reason=reason,
+        )
+        _write_json(campaign_dir / "campaign.json", campaign.to_mapping())
+        _write_table_promotion_report(
+            campaign_dir,
+            campaign,
+            test_evaluation=test_evaluation,
+            checks=checks or None,
+            failure_reason=reason,
+        )
+        raise TableEvidencePromotionError(reason) from error
+
+
 __all__ = [
     "TableEvidenceCampaignError",
+    "TableEvidencePromotionError",
     "TableEvidenceCommandResult",
     "TableEvidenceCommandRunner",
     "TableEvidenceFixtureCommandRunner",
     "TableEvidenceSubprocessCommandRunner",
+    "promote_table_evidence_campaign",
     "render_table_evidence_campaign_report",
     "run_table_evidence_campaign",
 ]

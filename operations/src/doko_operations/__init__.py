@@ -109,7 +109,9 @@ from .table_evidence import (
 from .table_evidence_campaign import (
     TableEvidenceCampaignError,
     TableEvidenceFixtureCommandRunner,
+    TableEvidencePromotionError,
     TableEvidenceSubprocessCommandRunner,
+    promote_table_evidence_campaign,
     run_table_evidence_campaign,
 )
 
@@ -186,8 +188,10 @@ __all__ = [
     "TableEvidenceReviewAdapter",
     "TableObservationReviewAdapter",
     "TableEvidenceCampaignError",
+    "TableEvidencePromotionError",
     "TableEvidenceFixtureCommandRunner",
     "TableEvidenceSubprocessCommandRunner",
+    "promote_table_evidence_campaign",
     "run_table_evidence_campaign",
     "TaskArtifacts",
     "load_review_report",
