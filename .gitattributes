@@ -1,2 +1,5 @@
 card_event_net/data/raw/*.mov filter=lfs diff=lfs merge=lfs -text
 card_event_net/data/raw/*.m4v filter=lfs diff=lfs merge=lfs -text
+**/data/intake/recordings/**/*.mov filter=lfs diff=lfs merge=lfs -text
+**/data/intake/recordings/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+**/data/intake/recordings/**/*.m4v filter=lfs diff=lfs merge=lfs -text

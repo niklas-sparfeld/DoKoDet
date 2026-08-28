@@ -514,6 +514,26 @@ Acceptance:
 - Git LFS checks cover nested `.mov`, `.mp4`, and `.m4v` recording media;
 - historical source-record fixtures still resolve without a legacy upload path.
 
+#### M4 progress evidence — 2026-08-28
+
+- Added `RepositoryBundleRepository.rebuild_from_intake`, which validates every canonical bundle,
+  checks member hashes and the exact file set, and replaces SQLite search rows only after all
+  bundles pass validation. App startup rebuilds the index when the migrated table exists, so a
+  deleted SQLite index is restored from accepted bundle files. Rebuilt `received_at` values use
+  the earliest immutable task-enrollment timestamp.
+- Added CardEventNet repository-intake access. It validates shared bundle contracts and opens the
+  canonical video and proposal paths in place. It does not copy source bytes into a component raw
+  directory. Repository discovery is deterministic.
+- Removed the obsolete `cardevent import-recording` command, importer module, importer tests, and
+  the unreachable copy-out section from the local pipeline exercise. Updated the CardEventNet
+  guide to use canonical intake paths directly.
+- Added Git LFS attributes for `.mov`, `.mp4`, and `.m4v` at every nested path below a repository
+  intake root. `git check-attr` confirms all three patterns.
+- Verification: backend `mise exec -- uv run --offline pytest tests` (87 passed) and Ruff checks
+  pass; CardEventNet `mise exec -- uv run --offline pytest tests` (230 passed, 1 skipped) and Ruff
+  checks pass; operations `mise exec -- uv run --offline pytest` (6 passed). The existing CardEventNet
+  formatting check still reports unrelated pre-existing files; all changed files pass formatting.
+
 ### M5 — Resumable review-run orchestration
 
 1. Define the strict review-run state and report contracts.

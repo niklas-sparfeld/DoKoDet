@@ -5,7 +5,7 @@ import tempfile
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from dokodetector_backend.api import router
@@ -33,6 +33,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.repository_bundle_storage = RepositoryBundleStorage(
         app_settings.repository_intake_root
     )
+    if inspect(app.state.engine).has_table("repository_bundles"):
+        app.state.repository_bundle_repository.rebuild_from_intake(
+            app.state.repository_bundle_storage
+        )
     register_error_handlers(app)
     app.include_router(router)
     app.include_router(repository_bundle_router)

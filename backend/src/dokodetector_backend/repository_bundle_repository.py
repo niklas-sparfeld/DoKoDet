@@ -10,7 +10,12 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from dokodetector_backend.intake_contract import parse_repository_bundle, validate_repository_bundle
 from dokodetector_backend.models import RepositoryBundleIndex
+from dokodetector_backend.repository_bundle_storage import (
+    RepositoryBundleStorage,
+    bundle_fingerprint,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +42,10 @@ class RepositoryBundleRepositoryError(RuntimeError):
 
 class RepositoryBundleConflict(RepositoryBundleRepositoryError):
     """A recording ID is already indexed with different content."""
+
+
+class RepositoryBundleRebuildError(RepositoryBundleRepositoryError):
+    """A canonical bundle cannot be used to rebuild the index."""
 
 
 class RepositoryBundleRepository:
@@ -85,6 +94,88 @@ class RepositoryBundleRepository:
             raise RepositoryBundleRepositoryError(
                 "The bundle index could not be stored."
             ) from error
+
+    def rebuild_from_intake(
+        self, storage: RepositoryBundleStorage
+    ) -> tuple[StoredRepositoryBundle, ...]:
+        """Rebuild searchable rows from complete canonical bundle files only."""
+
+        rebuilt: list[StoredRepositoryBundle] = []
+        for bundle_path in sorted(storage.root.iterdir()) if storage.root.is_dir() else ():
+            if not bundle_path.is_dir() or bundle_path.name.startswith("."):
+                continue
+            try:
+                files = storage.file_digests(bundle_path.name)
+                manifest_bytes = (bundle_path / "manifest.json").read_bytes()
+                source_bytes = (bundle_path / "source-record.json").read_bytes()
+                enrollment_bytes = (bundle_path / "initial-task-enrollment.json").read_bytes()
+                descriptors = parse_repository_bundle(manifest_bytes).files.proposal_generator_runs
+                proposal_bytes = {
+                    descriptor.proposal_generator_run_id: (
+                        bundle_path / descriptor.relative_path
+                    ).read_bytes()
+                    for descriptor in descriptors
+                }
+                bundle, _, enrollments, runs = validate_repository_bundle(
+                    manifest_bytes, source_bytes, enrollment_bytes, proposal_bytes
+                )
+                _assert_bundle_files(bundle, files)
+                received_at = min(
+                    datetime.fromisoformat(item.created_at_utc.replace("Z", "+00:00"))
+                    for item in enrollments.enrollments
+                )
+                rebuilt.append(
+                    StoredRepositoryBundle(
+                        recording_id=bundle.recording_id,
+                        source_asset_id=bundle.source_asset_id,
+                        video_id=bundle.video_id,
+                        session_id=bundle.session_id,
+                        source_sha256=bundle.source_sha256,
+                        manifest_sha256=files["manifest.json"].sha256,
+                        source_record_sha256=files["source-record.json"].sha256,
+                        task_enrollment_sha256=files["initial-task-enrollment.json"].sha256,
+                        proposal_run_ids=tuple(run.proposal_generator_run_id for run in runs),
+                        bundle_fingerprint=bundle_fingerprint(files),
+                        state=bundle.state,
+                        received_at=received_at,
+                    )
+                )
+            except (OSError, KeyError, ValueError) as error:
+                raise RepositoryBundleRebuildError(
+                    f"Canonical repository bundle {bundle_path.name} is invalid: {error}"
+                ) from error
+
+        with self._session_factory.begin() as session:
+            session.query(RepositoryBundleIndex).delete()
+            session.add_all(_to_model(item) for item in rebuilt)
+        return tuple(rebuilt)
+
+
+def _assert_bundle_files(bundle: object, files: dict[str, object]) -> None:
+    expected = {
+        "manifest.json",
+        "source-record.json",
+        "initial-task-enrollment.json",
+        *(item.relative_path for item in bundle.files.proposal_generator_runs),
+        bundle.files.video.relative_path,
+    }
+    if set(files) != expected:
+        raise RepositoryBundleRebuildError("canonical bundle contains unexpected or missing files")
+    descriptors = {
+        "manifest.json": None,
+        "source-record.json": bundle.files.source_record,
+        "initial-task-enrollment.json": bundle.files.task_enrollment,
+        bundle.files.video.relative_path: bundle.files.video,
+        **{item.relative_path: item for item in bundle.files.proposal_generator_runs},
+    }
+    for relative_path, descriptor in descriptors.items():
+        if descriptor is None:
+            continue
+        stored = files[relative_path]
+        if stored.byte_length != descriptor.byte_length or stored.sha256 != descriptor.sha256:
+            raise RepositoryBundleRebuildError(
+                f"canonical file does not match manifest: {relative_path}"
+            )
 
 
 def _to_model(bundle: StoredRepositoryBundle) -> RepositoryBundleIndex:
