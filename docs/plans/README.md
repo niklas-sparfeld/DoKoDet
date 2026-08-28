@@ -40,7 +40,9 @@ The shared target architecture is
 
 ### Backlog
 
-No epics.
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| [0030 — iOS training upload ergonomics](1-backlog/0030-iOS_Training_Upload_Ergonomics.md) | 0019 | Show preparation and byte-accurate upload progress after a training recording stops. |
 
 ### Ready
 
