@@ -17,32 +17,27 @@ struct CameraPreview: UIViewRepresentable {
 }
 
 final class PreviewView: UIView {
-    override class var layerClass: AnyClass {
-        AVCaptureVideoPreviewLayer.self
-    }
-
-    var previewLayer: AVCaptureVideoPreviewLayer {
-        guard let layer = layer as? AVCaptureVideoPreviewLayer else {
-            preconditionFailure("PreviewView must use AVCaptureVideoPreviewLayer")
-        }
-        return layer
-    }
+    let previewLayer: AVCaptureVideoPreviewLayer
 
     var onOrientationChange: (UIInterfaceOrientation) -> Void
     private var lastInterfaceOrientation: UIInterfaceOrientation?
+    private var portraitPreviewSize: CGSize?
 
     init(
         session: AVCaptureSession,
         onOrientationChange: @escaping (UIInterfaceOrientation) -> Void
     ) {
+        previewLayer = AVCaptureVideoPreviewLayer(session: session)
         self.onOrientationChange = onOrientationChange
         super.init(frame: .zero)
-        previewLayer.session = session
+        backgroundColor = .black
+        layer.addSublayer(previewLayer)
         previewLayer.videoGravity = .resizeAspectFill
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        layoutPreviewLayer()
         updateVideoOrientation()
     }
 
@@ -61,6 +56,27 @@ final class PreviewView: UIView {
         guard lastInterfaceOrientation != interfaceOrientation else { return }
         lastInterfaceOrientation = interfaceOrientation
         onOrientationChange(interfaceOrientation)
+    }
+
+    private func layoutPreviewLayer() {
+        guard let interfaceOrientation = window?.windowScene?.interfaceOrientation else {
+            previewLayer.frame = bounds
+            return
+        }
+
+        if interfaceOrientation.isPortrait {
+            portraitPreviewSize = bounds.size
+            previewLayer.frame = bounds
+            return
+        }
+
+        let size = portraitPreviewSize ?? bounds.size
+        previewLayer.frame = CGRect(
+            x: (bounds.width - size.width) / 2,
+            y: (bounds.height - size.height) / 2,
+            width: size.width,
+            height: size.height
+        )
     }
 
     @available(*, unavailable)
