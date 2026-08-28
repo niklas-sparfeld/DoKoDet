@@ -1,4 +1,4 @@
 interface:
   display_name: "Implement Epic"
-  short_description: "Review and deliver one DokoDetector epic"
-  default_prompt: "Use $implement-epic to review and implement epic 0021 through completion."
+  short_description: "Implement or resume one DokoDetector epic"
+  default_prompt: "Use $implement-epic to implement epic 0021 through completion."

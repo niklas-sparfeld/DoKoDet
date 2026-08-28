@@ -1,42 +1,67 @@
 ---
 name: implement-epic
-description: Review and implement one DokoDetector epic from its current board state through verified completion. Use when the user asks to implement or complete a numbered epic end to end. Do not use for plan drafting, plan review only, or one explicitly named milestone only.
+description: Implement or resume one already-specified DokoDetector epic through verified completion. Use when the user asks to implement, continue, or complete a numbered epic. Do not use for plan drafting or review; the epic must already be Ready or In Progress.
 ---
 
 # Implement Epic
 
-Review the selected epic against the current repository, then implement it one milestone at a time.
-Keep the plan, board, code, tests, and commits synchronized.
+Implement the selected epic one milestone at a time. Keep the plan, board, code, tests, and commits
+synchronized.
 
-## Model roles and context boundaries
+Plan review is outside this skill. Treat a `Ready` or `In Progress` epic as authoritative. Do not
+reassess its outcome, dependencies, milestone design, or acceptance criteria unless implementation
+finds a direct contradiction that prevents work. Use a separate plan-review task to change those
+decisions.
 
-Use sequential delegation when the runtime supports model-specific subagents:
+## Execution model
 
-1. Use `gpt-5.6-sol` with `high` reasoning for the plan review.
-2. Use a fresh `gpt-5.6-luna` agent with `xhigh` reasoning to start the epic.
-3. Use a fresh `gpt-5.6-luna` agent with `xhigh` reasoning for each implementation milestone.
+Use one agent for the full workflow. Do not create subagents or switch models. The user chooses the
+model and reasoning level before invoking the skill.
 
-Run only one delegate at a time because all delegates share the worktree. Invoking this skill
-authorizes this repo-local delegation, but it does not expand the user's requested scope or permit
-external changes. Do not silently substitute another model or reasoning level. If the runtime
-cannot create the requested delegate, stop before that phase and give the user the exact model,
-reasoning level, epic path, and next phase to run in a new task.
+There are two execution modes:
 
-Discard each delegate after its phase commit. For every review-to-start, start-to-milestone,
-milestone-to-milestone, and milestone-to-closure handoff, give the next agent:
+- In an ordinary task, run the loop below through completion.
+- In an unattended runner checkpoint, perform exactly one milestone or closure action and return
+  the runner's required structured result. The runner starts the next turn after compaction.
 
-- the phase and milestone ID, when applicable;
-- the skill path and current epic path;
-- the current `HEAD` and last verification result; and
-- all still-applicable user constraints and decisions, or the committed plan section that records
-  them.
+The user can run the unattended mode from the repository root:
 
-The repository, epic progress, and commits are the durable handoff. Do not carry a long
-implementation narrative. The coordinator must inspect every delegate's commit, verification
-result, and post-phase worktree before starting the next delegate.
+```sh
+mise exec -- ./.agents/skills/implement-epic/scripts/run_epic.py run 0021
+```
 
-Tell the user when this skill starts a review, starts a milestone, creates a commit, or pauses for
-human work.
+The runner uses `gpt-5.6-luna` with medium reasoning by default. It resumes one Codex thread and
+calls app-server compaction after each successful milestone commit. Use `--resume THREAD_ID` after
+an interruption. It respects the user's configured sandbox and approval policy. The script also
+exposes the missing CLI primitive as `compact THREAD_ID`.
+
+Do not invoke the runner recursively from an active Codex implementation task unless the user
+explicitly asks you to launch it.
+
+Run this loop until the epic closes or needs a human:
+
+```text
+while not done:
+    derive the next action from the epic status and recorded progress
+    start the epic, implement one milestone, or close the epic
+    verify the work
+    update the epic
+    commit the owned paths
+```
+
+Route by committed epic state:
+
+| State | Next action |
+| --- | --- |
+| `Ready` | Start the epic. |
+| `In Progress` | Implement the earliest milestone not recorded complete. |
+| `In Progress` with all milestones complete | Close the epic. |
+| `Closed` | Finish without changes. |
+| `Backlog`, `To Specify`, or `Blocked` | Use the human handoff. |
+
+The root selects the next milestone only from recorded epic progress. It does not inspect code to
+skip ahead. If implementation exists but the epic does not record the milestone as complete,
+verify it and commit the missing progress evidence without reimplementing it.
 
 ## Repository invariants
 
@@ -44,11 +69,14 @@ Before any change, read `AGENTS.md`, `docs/plans/README.md`, `docs/glossary.md`,
 epic. Follow narrower `AGENTS.md` files for files below their directory.
 
 - Work directly on `main`. Do not create a branch unless the user asks for one.
-- Preserve all unrelated changes. Inspect `git status` before every phase.
-- If a file that the phase must edit already has uncommitted changes, stop and ask the user how to
-  handle that overlap. Do not include it in a commit by assumption.
+- Preserve all unrelated changes. Inspect `git status` before every milestone.
+- If a file that the milestone must edit already has uncommitted changes, stop and ask the user how
+  to handle that overlap. Do not include it in a commit by assumption.
+- Exception: when the user explicitly says this resumes an interrupted `implement-epic` run,
+  inspect the dirty paths and continue only changes that clearly belong to the current milestone.
+  Preserve every other change. Use the human handoff when ownership is mixed or uncertain.
 - Stage explicit paths. Never use `git add -A`, `git add .`, or an equivalent broad command.
-- Inspect the staged diff before every commit. Commit only files owned by the current phase.
+- Inspect the staged diff before every commit. Commit only files owned by the current action.
 - Keep commits focused. Do not amend, squash, rebase, push, or discard user changes unless the user
   asks.
 - Treat closed epic files as immutable, except for the narrow exceptions in `AGENTS.md`.
@@ -57,110 +85,75 @@ epic. Follow narrower `AGENTS.md` files for files below their directory.
 - Do not add compatibility code unless the user explicitly requests compatibility.
 - Keep milestones sequential unless the epic explicitly makes later work independent of the
   unverified result.
+- Never switch to or advance a different epic during the run.
 
-## Phase 1: Review the epic
-
-The Sol review agent must:
-
-1. Resolve the epic from the user-supplied number or path. Confirm that the board entry, epic path,
-   and `Status` field agree.
-2. Inspect the implementation, tests, contracts, reports, relevant active epics, dependencies, and
-   recent history that can change the plan's assumptions.
-3. Check that the outcome is still useful, dependencies are correct, milestones are small and in a
-   valid order, acceptance criteria are testable, and verification distinguishes automated work
-   from required human work. Resolve contradictions between acceptance criteria and verification.
-   Split an oversized milestone before implementation so each milestone remains a focused,
-   verifiable change.
-4. Update the active epic to match current reality. Remove obsolete work instead of adding a
-   compatibility layer. Record a dated `Reviewed` entry that names the baseline reviewed.
-5. Update the board when the epic title, status, dependency, outcome, or closure data changes. Move
-   the epic and repair relative links in the same change when its status changes.
-6. Check local Markdown links affected by the edit.
-7. Stage only the review files, inspect the staged diff, and commit with a focused message such as
-   `docs(epic): review 0021 plan`.
-
-The initial review must produce a commit. If the plan needs no substantive correction, update its
-dated review record with the current baseline. Do not create an empty commit. On a resume request,
-reuse the existing review when no intervening change affects the epic's assumptions. Re-run the Sol
-review when relevant external code, plans, dependencies, or user decisions changed. Ignore
-unrelated intervening commits. Do not create a baseline-only review commit on every resume.
-
-Do not begin implementation when the review shows an unmet dependency, an unresolved product
-decision, or insufficient evidence. Put the epic in the correct board state, commit that review,
-and use the human handoff format below.
-
-## Phase 2: Start the epic
-
-The first Luna agent starts implementation only when the reviewed epic is `Ready` or already
-`In Progress`.
-
-For a `Ready` epic:
+## Start a Ready epic
 
 1. Change its `Status` to `In Progress`.
 2. Move the file to `docs/plans/3-in-progress/`.
-3. Move its board row to `In Progress` and preserve its current outcome and dependencies.
+3. Move its board row to `In Progress` and preserve its outcome and dependencies.
 4. Repair links to and from the moved file and check affected local Markdown links.
 5. Stage only these plan files, inspect the staged diff, and commit with a message such as
    `docs(epic): start 0021`.
 
 If the epic is already `In Progress`, verify the board and path and do not create an empty start
-commit. A `Backlog`, `To Specify`, `Blocked`, or `Closed` epic must not enter the milestone loop
-until its state is resolved according to the board policy.
+commit.
 
-## Phase 3: Implement one milestone per fresh context
+## Implement one milestone
 
-Choose the earliest incomplete milestone in document order. Determine completion from the current
-code, checked items, progress evidence, acceptance criteria, and definition of done. Do not trust a
-heading or checkbox alone.
+Choose the earliest milestone in document order that the epic does not record as complete.
 
-For each milestone, the fresh Luna agent must:
-
-1. Read the milestone and the code it owns. Recheck the current worktree for overlapping changes.
-2. Implement only that milestone. Use a lightweight test-first workflow when practical.
-3. Run the relevant automated tests plus applicable formatting, lint, type, static, build, or link
+1. Read the milestone and the code it owns. Recheck the worktree for overlapping changes.
+2. Determine actual completion from the code, progress evidence, acceptance criteria, and
+   definition of done. Do not trust a heading or checkbox alone.
+3. Implement only that milestone. Use a lightweight test-first workflow when practical.
+4. Run the relevant automated tests plus applicable formatting, lint, type, static, build, or link
    checks. Use `mise` and the versions declared by the repository.
-4. Update the epic's existing checklist or progress structure and add concise progress evidence.
-   Do not mechanically convert numbered requirements into checkboxes. Mark only work that the
-   implementation and verification actually prove. Record remaining manual evidence explicitly.
-5. Review the full diff for scope, then stage explicit owned paths and inspect the staged diff.
-6. Commit the implementation and its epic progress in one focused commit. Mention the milestone in
-   the message when useful.
+5. Update the epic's existing checklist or progress structure and add concise evidence. Mark only
+   work that implementation and verification prove. Record remaining manual evidence explicitly.
+6. Review the full diff for scope. Stage explicit owned paths and inspect the staged diff.
+7. Commit the implementation and epic progress together. Mention the milestone in the message when
+   useful.
 
-If the repository already implements a milestone, verify it and commit the plan progress that
-records the evidence. Do not reimplement it merely to create a code diff.
+If the repository already implements the milestone, verify it and commit only the plan progress
+that records the evidence.
 
-After the commit, the coordinator verifies the new `HEAD`, confirms the worktree still preserves
-unrelated changes, records the commands and results, and starts a fresh Luna agent for the next
-milestone.
+After the commit, confirm the new `HEAD` and preserve unrelated worktree changes. In an ordinary
+task, continue with the next recorded-incomplete milestone. In a runner checkpoint, return after
+this commit.
+
+An agent following the skill in an ordinary task cannot issue the interactive `/compact` command.
+The external runner calls `thread/compact/start` and waits for its completion notification. If the
+user requests manual milestone checkpoints without the runner, stop after the commit and ask them
+to run `/compact`, then resume the same epic. Do not claim that compaction occurred unless the
+runtime reports it.
 
 ## Human handoff
 
-Continue all safe agent-doable work first. Pause only when the next required result needs a person,
-real hardware, credentials, unavailable infrastructure, or a user decision. Do not mark that work
+Continue all safe agent-doable work first. Pause only when the next result needs a person, real
+hardware, credentials, unavailable infrastructure, or a user decision. Do not mark that work
 complete and do not close the epic.
 
-Leave the epic `In Progress` when a person can perform the next step as part of active delivery. Use
-`Blocked` only when a named unmet dependency prevents further work; update the status, folder,
+Leave the epic `In Progress` when a person can perform the next step as part of active delivery.
+Use `Blocked` only when a named unmet dependency prevents further work; update the status, folder,
 board, links, and `Depends on` field in one focused commit.
 
-Give the user a self-contained handoff with:
+Give the user:
 
 1. the last completed milestone and commit;
 2. the exact remaining manual actions, in order;
-3. commands, UI path, hardware, or credentials required;
+3. required commands, UI path, hardware, or credentials;
 4. the expected observation and pass criteria;
-5. the artifact or epic section where the evidence must be recorded; and
+5. the artifact or epic section where evidence must be recorded; and
 6. a resume prompt such as
    `Use $implement-epic to resume epic 0021 after the required accelerator verification.`
 
 State which checks ran and which did not run. Do not use a generic request such as "please test it."
 
-## Phase 4: Close the epic
+## Close the epic
 
-Close the epic only when every required milestone, acceptance criterion, verification item, and
-definition-of-done item is satisfied, and no human work or verification remains.
-
-The final Luna agent must:
+Close only when every milestone, acceptance criterion, verification item, and definition-of-done
+item is satisfied, and no human work remains.
 
 1. Run the final relevant automated verification and inspect the accumulated milestone evidence.
 2. Set `Status` to `Closed` and `Closure reason` to `Complete`.
@@ -172,8 +165,8 @@ The final Luna agent must:
    `docs(epic): close 0021`.
 
 Do not choose `Won't Do`, `Superseded`, `Duplicate`, or `Invalid` without an explicit user decision
-or clear prior plan authority. If any required check cannot run, use the human handoff instead of
-closing the epic.
+or clear prior plan authority. If a required check cannot run, use the human handoff instead of
+closing.
 
-Finish with the epic outcome, the review/start/milestone/closure commits, verification results, and
-any remaining manual steps. A completed epic must say that no manual steps remain.
+Finish with the epic outcome, milestone and closure commits, verification results, and remaining
+manual steps. A completed epic must say that no manual steps remain.
