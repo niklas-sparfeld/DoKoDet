@@ -66,7 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Parse one command and report that implementation is pending."""
+    """Run one offline analyzer command."""
 
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -75,6 +75,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "data" and args.data_command is None:
         parser.parse_args(["data", "--help"])
+    if args.command == "data" and args.data_command == "validate":
+        from .data import (
+            load_artifact_index,
+            load_dataset_manifest,
+            load_split_manifest,
+            validate_dataset,
+        )
+
+        report = validate_dataset(
+            load_dataset_manifest(args.dataset),
+            split=load_split_manifest(args.split),
+            artifacts=load_artifact_index(args.artifacts),
+        )
+        print(report.to_mapping())
+        return 0 if report.valid else 1
+    from .training import evaluate, load_config, train
+
+    if args.command == "train":
+        print(train(load_config(args.config)))
+        return 0
+    if args.command == "evaluate":
+        print(evaluate(args.run, args.split))
+        return 0
     parser.exit(2, f"error: command '{_command_name(args)}' is not implemented yet.\n")
 
 

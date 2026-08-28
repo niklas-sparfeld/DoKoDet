@@ -388,6 +388,14 @@ Acceptance:
 - the expected fixture metric is asserted;
 - training and evaluation use the same class and preprocessing contracts.
 
+Progress (2026-08-28): M3 is complete. Added a dependency-free RGB centroid crop-classification
+adapter, deterministic PPM preprocessing, seeded configuration snapshots, CPU smoke training, a
+run report with environment and dataset/split digests, train sample predictions, and named-split
+evaluation reports. The generated fixture overfits its training sample (top-1 accuracy 1.0) and
+evaluation writes sample-linked top-k predictions. Verification: `mise exec -- uv run pytest`
+(17 passed), `mise exec -- uv run ruff check src tests`, and `mise exec -- uv run ruff format
+--check src tests`; no weights or data were downloaded.
+
 ### M4 — Checkpoint, resume, and failure records
 
 1. Save last and best checkpoints.
