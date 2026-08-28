@@ -255,9 +255,6 @@ struct RecordView: View {
                 )
                 .foregroundStyle(appState.trainingRecordingState == .recording ? .red : .primary)
                 Spacer()
-                if appState.trainingRecordingUploadRunning {
-                    ProgressView().controlSize(.small)
-                }
             }
 
             TextField("Recording notes", text: $recordingNotes, axis: .vertical)
@@ -270,6 +267,11 @@ struct RecordView: View {
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            }
+
+            if appState.trainingRecordingUploadRunning
+                || appState.trainingRecordingUploadProgress != nil {
+                trainingRecordingUploadProgressView
             }
 
             Button(
@@ -322,6 +324,41 @@ struct RecordView: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private var trainingRecordingUploadProgressView: some View {
+        if let progress = appState.trainingRecordingUploadProgress,
+           progress.phase == .uploading {
+            uploadTransferProgressView(progress)
+        } else {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Preparing upload")
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Preparing upload")
+        }
+    }
+
+    private func uploadTransferProgressView(
+        _ progress: TrainingRecordingUploadProgress
+    ) -> some View {
+        let percentage = progress.percentage
+        let sentBytes = formattedBytes(progress.bytesSent)
+        let expectedBytes = formattedBytes(progress.expectedBytes)
+        return VStack(alignment: .leading, spacing: 4) {
+            ProgressView(value: progress.fraction)
+                .accessibilityLabel("Uploading training recording")
+                .accessibilityValue("\(percentage) percent")
+            Text("Uploading \(percentage)% · \(sentBytes) of \(expectedBytes)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(
+                    "Uploading \(percentage) percent, \(sentBytes) of \(expectedBytes)"
+                )
+        }
     }
 
     private func loadSelectedProfile() {

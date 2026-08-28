@@ -4,11 +4,14 @@
 
 - **Summary:** Show useful preparation and upload progress after an operator stops a training
   recording
-- **Status:** Backlog
+- **Status:** Closed
 - **Depends on:** Completed plan 0019
 - **Priority:** Nice to have
 - **Boundary:** This epic changes app upload feedback. It does not change recording capture,
   repository-bundle identity, or backend intake.
+- **Closure reason:** Complete
+- **Closure note:** Implemented preparation and byte-accurate foreground upload progress in the iOS
+  Record view, with queue, retry, and accessibility coverage.
 
 ## 1. Outcome
 

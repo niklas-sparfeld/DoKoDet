@@ -43,6 +43,51 @@ public struct PreparedTrainingRecordingUpload: Sendable {
     }
 }
 
+public enum TrainingRecordingUploadPhase: String, Codable, Equatable, Sendable {
+    case preparing
+    case uploading
+}
+
+public struct TrainingRecordingUploadProgress: Codable, Equatable, Sendable {
+    public typealias Phase = TrainingRecordingUploadPhase
+
+    public let recordingID: String
+    public let phase: TrainingRecordingUploadPhase
+    public let bytesSent: Int64
+    public let expectedBytes: Int64
+    public let fraction: Double
+
+    public init(
+        recordingID: String,
+        phase: TrainingRecordingUploadPhase,
+        bytesSent: Int64 = 0,
+        expectedBytes: Int64 = 0,
+        fraction: Double? = nil
+    ) {
+        precondition(!recordingID.isEmpty, "recording ID must not be empty")
+        precondition(bytesSent >= 0, "sent bytes must not be negative")
+        precondition(expectedBytes >= 0, "expected bytes must not be negative")
+        let calculatedFraction = expectedBytes > 0
+            ? Double(bytesSent) / Double(expectedBytes)
+            : 0.0
+        let value = fraction ?? calculatedFraction
+        precondition(value.isFinite, "progress fraction must be finite")
+        precondition((0.0...1.0).contains(value), "progress fraction must be between zero and one")
+        self.recordingID = recordingID
+        self.phase = phase
+        self.bytesSent = bytesSent
+        self.expectedBytes = expectedBytes
+        self.fraction = value
+    }
+
+    public var percentage: Int {
+        Int((fraction * 100.0).rounded())
+    }
+}
+
+public typealias TrainingRecordingUploadProgressHandler =
+    @Sendable (TrainingRecordingUploadProgress) -> Void
+
 /// Builds the file-backed multipart request for one immutable recording bundle.
 public struct TrainingRecordingMultipartRequestBuilder: Sendable {
     public let boundary: String
@@ -339,7 +384,7 @@ public enum TrainingRecordingUploadError: LocalizedError, Sendable {
 
 /// Sends one recording with a foreground, file-backed URLSession upload task.
 public final class TrainingRecordingUploadClient: @unchecked Sendable {
-    private let session: URLSession
+    private let sessionConfiguration: URLSessionConfiguration
     private let builder: TrainingRecordingMultipartRequestBuilder
 
     public init(
@@ -347,7 +392,8 @@ public final class TrainingRecordingUploadClient: @unchecked Sendable {
         boundary: String = trainingRecordingMultipartDefaultBoundary,
         bodyDirectory: URL = FileManager.default.temporaryDirectory
     ) throws {
-        self.session = session ?? Self.makeSession()
+        let session = session ?? Self.makeSession()
+        sessionConfiguration = session.configuration
         builder = try TrainingRecordingMultipartRequestBuilder(
             boundary: boundary,
             bodyDirectory: bodyDirectory
@@ -363,13 +409,37 @@ public final class TrainingRecordingUploadClient: @unchecked Sendable {
 
     public func upload(
         recordingAt recordingURL: URL,
-        using configuration: BackendConfiguration
+        using configuration: BackendConfiguration,
+        progress: TrainingRecordingUploadProgressHandler? = nil
     ) async throws -> TrainingRecordingUploadResponse {
+        let recordingID = recordingURL.lastPathComponent
+        progress?(
+            TrainingRecordingUploadProgress(
+                recordingID: recordingID,
+                phase: .preparing
+            )
+        )
         let prepared = try prepare(recordingAt: recordingURL, baseURL: configuration.baseURL)
         defer { prepared.removeBodyFile() }
-        let (data, response) = try await session.upload(
-            for: prepared.request,
-            fromFile: prepared.bodyFileURL
+        progress?(
+            TrainingRecordingUploadProgress(
+                recordingID: recordingID,
+                phase: .uploading,
+                expectedBytes: prepared.contentLength
+            )
+        )
+        let (data, response) = try await performUpload(
+            prepared: prepared,
+            recordingID: recordingID,
+            progress: progress
+        )
+        progress?(
+            TrainingRecordingUploadProgress(
+                recordingID: recordingID,
+                phase: .uploading,
+                bytesSent: prepared.contentLength,
+                expectedBytes: prepared.contentLength
+            )
         )
         guard let response = response as? HTTPURLResponse else {
             throw TrainingRecordingUploadError.invalidResponse
@@ -391,6 +461,40 @@ public final class TrainingRecordingUploadClient: @unchecked Sendable {
             )
         }
         return decoded
+    }
+
+    private func performUpload(
+        prepared: PreparedTrainingRecordingUpload,
+        recordingID: String,
+        progress: TrainingRecordingUploadProgressHandler?
+    ) async throws -> (Data, URLResponse) {
+        let delegate = TrainingRecordingUploadDelegate(
+            recordingID: recordingID,
+            expectedBytes: prepared.contentLength,
+            progress: progress
+        )
+        let session = URLSession(
+            configuration: sessionConfiguration,
+            delegate: delegate,
+            delegateQueue: nil
+        )
+        defer { session.finishTasksAndInvalidate() }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let task = session.uploadTask(
+                with: prepared.request,
+                fromFile: prepared.bodyFileURL
+            ) { data, response, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let response {
+                    continuation.resume(returning: (data ?? Data(), response))
+                } else {
+                    continuation.resume(throwing: TrainingRecordingUploadError.invalidResponse)
+                }
+            }
+            task.resume()
+        }
     }
 
     private static let decoder: JSONDecoder = {
@@ -440,6 +544,42 @@ public final class TrainingRecordingUploadClient: @unchecked Sendable {
     }
 }
 
+private final class TrainingRecordingUploadDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let recordingID: String
+    private let expectedBytes: Int64
+    private let progress: TrainingRecordingUploadProgressHandler?
+
+    init(
+        recordingID: String,
+        expectedBytes: Int64,
+        progress: TrainingRecordingUploadProgressHandler?
+    ) {
+        self.recordingID = recordingID
+        self.expectedBytes = expectedBytes
+        self.progress = progress
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64,
+        totalBytesExpectedToSend: Int64
+    ) {
+        _ = bytesSent
+        _ = totalBytesExpectedToSend
+        let sent = min(max(0, totalBytesSent), expectedBytes)
+        progress?(
+            TrainingRecordingUploadProgress(
+                recordingID: recordingID,
+                phase: .uploading,
+                bytesSent: sent,
+                expectedBytes: expectedBytes
+            )
+        )
+    }
+}
+
 public enum TrainingRecordingUploadDisposition: String, Codable, Sendable {
     case acknowledged
     case retryableFailure
@@ -477,18 +617,20 @@ public actor TrainingRecordingUploadQueue {
     }
 
     public func uploadQueued(
-        using configuration: BackendConfiguration
+        using configuration: BackendConfiguration,
+        progress: TrainingRecordingUploadProgressHandler? = nil
     ) async -> [TrainingRecordingUploadAttempt] {
         guard !isRunning else { return [] }
         isRunning = true
         defer { isRunning = false }
         _ = try? store.recover()
         guard let recordingURLs = try? store.recordingURLs(in: .queued) else { return [] }
-        return await upload(recordingURLs, using: configuration)
+        return await upload(recordingURLs, using: configuration, progress: progress)
     }
 
     public func retryFailed(
-        using configuration: BackendConfiguration
+        using configuration: BackendConfiguration,
+        progress: TrainingRecordingUploadProgressHandler? = nil
     ) async -> [TrainingRecordingUploadAttempt] {
         guard !isRunning else { return [] }
         isRunning = true
@@ -501,12 +643,13 @@ public actor TrainingRecordingUploadQueue {
             return []
         }
         guard let recordingURLs = try? store.recordingURLs(in: .queued) else { return [] }
-        return await upload(recordingURLs, using: configuration)
+        return await upload(recordingURLs, using: configuration, progress: progress)
     }
 
     private func upload(
         _ recordingURLs: [URL],
-        using configuration: BackendConfiguration
+        using configuration: BackendConfiguration,
+        progress: TrainingRecordingUploadProgressHandler?
     ) async -> [TrainingRecordingUploadAttempt] {
         var attempts: [TrainingRecordingUploadAttempt] = []
         attempts.reserveCapacity(recordingURLs.count)
@@ -516,7 +659,8 @@ public actor TrainingRecordingUploadQueue {
             do {
                 let response = try await client.upload(
                     recordingAt: recordingURL,
-                    using: configuration
+                    using: configuration,
+                    progress: progress
                 )
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601

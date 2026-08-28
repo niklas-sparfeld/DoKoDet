@@ -16,7 +16,7 @@ public enum TrainingRecordingWorkflowState: Equatable, Sendable {
         case .recording:
             return "Recording"
         case .finalizing:
-            return "Finalizing"
+            return "Finalizing recording"
         case .queued:
             return "Queued"
         case .uploading:

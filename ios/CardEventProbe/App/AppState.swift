@@ -80,6 +80,7 @@ final class AppState: ObservableObject {
     @Published private(set) var trainingRecordingError: String?
     @Published private(set) var trainingRecordingUploadError: String?
     @Published private(set) var trainingRecordingUploadRunning = false
+    @Published private(set) var trainingRecordingUploadProgress: TrainingRecordingUploadProgress?
     @Published private(set) var latestTrainingRecordingID: String?
     @Published private(set) var trainingRecordingStartedAt: Date?
     @Published private(set) var trainingRecordingElapsedSeconds = 0.0
@@ -120,6 +121,7 @@ final class AppState: ObservableObject {
     private var sessionLog: SessionLog?
     private var activeDiagnosticSource: DiagnosticSource?
     private var latestFrame: VideoFrame?
+    private var lastTrainingRecordingUploadProgressUpdateAt: Date?
 
     private let trainingRecordingMaximumDurationSeconds: Double
     private let trainingRecordingMaximumSizeBytes: Int64
@@ -248,8 +250,16 @@ final class AppState: ObservableObject {
         }
         trainingRecordingUploadRunning = true
         trainingRecordingUploadError = nil
+        let progressHandler: TrainingRecordingUploadProgressHandler = { [weak self] progress in
+            Task { @MainActor [weak self] in
+                self?.applyTrainingRecordingUploadProgress(progress)
+            }
+        }
         trainingRecordingUploadTask = Task { [weak self] in
-            let attempts = await trainingRecordingUploadQueue.uploadQueued(using: configuration)
+            let attempts = await trainingRecordingUploadQueue.uploadQueued(
+                using: configuration,
+                progress: progressHandler
+            )
             await MainActor.run {
                 guard let self else { return }
                 self.trainingRecordingUploadTask = nil
@@ -278,8 +288,18 @@ final class AppState: ObservableObject {
         trainingRecordingState = .uploading
         trainingRecordingUploadRunning = true
         trainingRecordingUploadError = nil
+        trainingRecordingUploadProgress = nil
+        lastTrainingRecordingUploadProgressUpdateAt = nil
+        let progressHandler: TrainingRecordingUploadProgressHandler = { [weak self] progress in
+            Task { @MainActor [weak self] in
+                self?.applyTrainingRecordingUploadProgress(progress)
+            }
+        }
         trainingRecordingUploadTask = Task { [weak self] in
-            let attempts = await trainingRecordingUploadQueue.retryFailed(using: configuration)
+            let attempts = await trainingRecordingUploadQueue.retryFailed(
+                using: configuration,
+                progress: progressHandler
+            )
             await MainActor.run {
                 guard let self else { return }
                 self.trainingRecordingUploadTask = nil
@@ -409,6 +429,8 @@ final class AppState: ObservableObject {
         trainingRecordingMetrics = coordinator.metrics
         trainingRecordingError = nil
         trainingRecordingUploadError = nil
+        trainingRecordingUploadProgress = nil
+        lastTrainingRecordingUploadProgressUpdateAt = nil
         trainingRecordingState = .recording
         evidencePackageCoordinator?.setRecordingID(recordingID)
     }
@@ -995,6 +1017,17 @@ final class AppState: ObservableObject {
         }
         switch attempt.disposition {
         case .acknowledged:
+            if let progress = trainingRecordingUploadProgress,
+               progress.recordingID == recordingID,
+               progress.phase == .uploading,
+               progress.fraction < 1.0 {
+                trainingRecordingUploadProgress = TrainingRecordingUploadProgress(
+                    recordingID: recordingID,
+                    phase: .uploading,
+                    bytesSent: progress.expectedBytes,
+                    expectedBytes: progress.expectedBytes
+                )
+            }
             trainingRecordingState = .acknowledged
             trainingRecordingError = nil
         case .retryableFailure, .permanentFailure:
@@ -1002,6 +1035,27 @@ final class AppState: ObservableObject {
             trainingRecordingState = .failed(message)
             trainingRecordingError = message
         }
+    }
+
+    private func applyTrainingRecordingUploadProgress(
+        _ progress: TrainingRecordingUploadProgress
+    ) {
+        latestTrainingRecordingID = progress.recordingID
+        if trainingRecordingState != .recording && trainingRecordingState != .finalizing {
+            trainingRecordingState = .uploading
+        }
+
+        let now = Date()
+        let isBoundary = progress.phase == .preparing
+            || progress.fraction == 0.0
+            || progress.fraction >= 1.0
+        if !isBoundary,
+           let lastUpdate = lastTrainingRecordingUploadProgressUpdateAt,
+           now.timeIntervalSince(lastUpdate) < 0.1 {
+            return
+        }
+        trainingRecordingUploadProgress = progress
+        lastTrainingRecordingUploadProgressUpdateAt = now
     }
 
     private func stopTrainingRecordingForSession() {

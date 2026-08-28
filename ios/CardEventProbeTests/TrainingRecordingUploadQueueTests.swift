@@ -7,6 +7,11 @@ import FoundationNetworking
 #endif
 
 final class TrainingRecordingUploadQueueTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        RecordingUploadURLProtocol.reset()
+    }
+
     func testRecoverFindsQueuedBundleAfterLaunch() throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -46,6 +51,73 @@ final class TrainingRecordingUploadQueueTests: XCTestCase {
         XCTAssertTrue(bodyText.contains("name=\"video\"; filename=\"video-both.mov\""))
         XCTAssertTrue(bodyText.contains("name=\"proposal\"; filename=\"proposal-both.json\""))
         XCTAssertGreaterThan(prepared.contentLength, 0)
+    }
+
+    func testUploadReportsPreparationAndByteAccurateTransferProgress() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = TrainingRecordingStore(root: root)
+        let recordingURL = try installFixture(in: store, state: .queued)
+        let client = try makeClient(bodyDirectory: root)
+        let configuration = try BackendConfiguration.simulatorLocalhost()
+        let recorder = UploadProgressRecorder()
+
+        _ = try await client.upload(
+            recordingAt: recordingURL,
+            using: configuration,
+            progress: { recorder.append($0) }
+        )
+
+        let progress = recorder.values
+        XCTAssertEqual(progress.first?.recordingID, "recording-both")
+        XCTAssertEqual(progress.first?.phase, .preparing)
+        let transferProgress = progress.filter { $0.phase == .uploading }
+        XCTAssertGreaterThanOrEqual(transferProgress.count, 2)
+        XCTAssertEqual(transferProgress.first?.bytesSent, 0)
+        XCTAssertEqual(transferProgress.last?.bytesSent, transferProgress.last?.expectedBytes)
+        XCTAssertTrue(transferProgress.allSatisfy { (0...1).contains($0.fraction) })
+        XCTAssertEqual(
+            transferProgress.map(\.bytesSent),
+            transferProgress.map(\.bytesSent).sorted()
+        )
+        XCTAssertTrue(transferProgress.allSatisfy { $0.recordingID == "recording-both" })
+    }
+
+    func testQueueForwardsProgressAndRetryStartsAtZero() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = TrainingRecordingStore(root: root)
+        _ = try installFixture(in: store, state: .queued)
+        let queue = TrainingRecordingUploadQueue(
+            store: store,
+            client: try makeClient(bodyDirectory: root)
+        )
+        let configuration = try BackendConfiguration.simulatorLocalhost()
+        let recorder = UploadProgressRecorder()
+
+        RecordingUploadURLProtocol.statusCode = 503
+        let failed = await queue.uploadQueued(
+            using: configuration,
+            progress: { recorder.append($0) }
+        )
+
+        XCTAssertEqual(failed.map(\.disposition), [.retryableFailure])
+        XCTAssertEqual(recorder.values.first?.phase, .preparing)
+        XCTAssertEqual(recorder.values.first?.recordingID, "recording-both")
+        XCTAssertEqual(recorder.values.last?.phase, .uploading)
+        XCTAssertEqual(recorder.values.last?.fraction, 1.0)
+
+        recorder.removeAll()
+        RecordingUploadURLProtocol.statusCode = 201
+        let acknowledged = await queue.retryFailed(
+            using: configuration,
+            progress: { recorder.append($0) }
+        )
+
+        XCTAssertEqual(acknowledged.map(\.disposition), [.acknowledged])
+        XCTAssertEqual(recorder.values.first?.phase, .preparing)
+        XCTAssertEqual(recorder.values.first?.bytesSent, 0)
+        XCTAssertEqual(recorder.values.last?.bytesSent, recorder.values.last?.expectedBytes)
     }
 
     func testUploadFailurePreservesBundleAndRetryAcknowledgesOnce() async throws {
@@ -118,8 +190,15 @@ final class TrainingRecordingUploadQueueTests: XCTestCase {
 
 private final class RecordingUploadURLProtocol: URLProtocol {
     private static let lock = NSLock()
-    private static var storedStatusCode = 201
-    private static var storedRequestCount = 0
+    nonisolated(unsafe) private static var storedStatusCode = 201
+    nonisolated(unsafe) private static var storedRequestCount = 0
+
+    static func reset() {
+        lock.lock()
+        storedStatusCode = 201
+        storedRequestCount = 0
+        lock.unlock()
+    }
 
     static var statusCode: Int {
         get {
@@ -175,4 +254,27 @@ private final class RecordingUploadURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
+}
+
+private final class UploadProgressRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValues: [TrainingRecordingUploadProgress] = []
+
+    var values: [TrainingRecordingUploadProgress] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedValues
+    }
+
+    func append(_ value: TrainingRecordingUploadProgress) {
+        lock.lock()
+        storedValues.append(value)
+        lock.unlock()
+    }
+
+    func removeAll() {
+        lock.lock()
+        storedValues.removeAll()
+        lock.unlock()
+    }
 }
