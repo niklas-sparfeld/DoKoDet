@@ -16,6 +16,12 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .holdout import (
+    SystemHoldoutError,
+    empty_system_holdout_registry,
+    validate_split_against_system_holdout,
+    validate_system_holdout_registry,
+)
 from .review import ReviewInput, ReviewItem, ReviewRunError, TaskArtifacts
 
 TABLE_EVIDENCE_TASK = "table_evidence_analysis"
@@ -219,6 +225,7 @@ class TableEvidenceReviewAdapter:
             candidate_window_s, "candidate_window_s", minimum=0.001
         )
         self._reviewer = "review-run"
+        self._system_holdout_registry = empty_system_holdout_registry()
         intervals: Any = operator_intervals
         if operator_selection_file is not None:
             intervals = _read_json(
@@ -233,6 +240,10 @@ class TableEvidenceReviewAdapter:
         if not isinstance(reviewer, str) or not reviewer.strip():
             raise ReviewRunError("Table-observation reviewer must be a non-empty string.")
         self._reviewer = reviewer
+
+    def set_system_holdout_registry(self, registry: Mapping[str, Any]) -> None:
+        validate_system_holdout_registry(registry)
+        self._system_holdout_registry = dict(registry)
 
     def discover(self, task: str, inputs: Sequence[ReviewInput]) -> Sequence[ReviewItem]:
         if task != TABLE_EVIDENCE_TASK:
@@ -389,11 +400,22 @@ class TableEvidenceReviewAdapter:
             staging_dir / "table-evidence" / "review-report.json",
             staging_dir / "table-evidence" / "review-report.md",
         )
-        return tuple(
+        errors = list(
             f"missing staged table-evidence output: {path}"
             for path in required
             if not path.is_file()
         )
+        if errors:
+            return tuple(errors)
+        try:
+            dataset = _read_json(required[4], "table-evidence dataset")
+            split = _read_json(required[7], "table-evidence split")
+            validate_split_against_system_holdout(
+                dataset, split, self._system_holdout_registry, TABLE_EVIDENCE_TASK
+            )
+        except (OSError, SystemHoldoutError, ReviewRunError) as exc:
+            errors.append(f"Table-evidence split validation failed: {exc}")
+        return tuple(errors)
 
     def _reviewed_annotations(
         self, candidates: Sequence[_Candidate], items: Sequence[Mapping[str, Any]]

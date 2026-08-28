@@ -7,6 +7,13 @@ from pathlib import Path
 import pytest
 
 from doko_operations.cli import main
+from doko_operations.holdout import (
+    SystemHoldoutError,
+    load_system_holdout_registry,
+    seal_system_holdout_group,
+    validate_split_against_system_holdout,
+    validate_system_holdout_registry,
+)
 from doko_operations.intake import discover_bundle_paths, inspect_repository
 from doko_operations.review import (
     REVIEW_RUN_SCHEMA_VERSION,
@@ -713,6 +720,132 @@ def test_deferred_table_evidence_enrollment_creates_no_review_work(tmp_path: Pat
     assert state["tasks"][0]["inputs"] == []
     assert state["tasks"][0]["items"] == []
     assert not (tmp_path / "artifacts" / "published").exists()
+
+
+def test_system_holdout_seal_is_explicit_reviewed_and_versioned(tmp_path: Path) -> None:
+    registry_path = tmp_path / "system-holdout-registry.json"
+
+    assert not registry_path.exists()
+    sealed = seal_system_holdout_group(
+        registry_path,
+        group_name="session_id",
+        group_value="session-held-out",
+        reviewer="holdout-reviewer",
+        review_id="review-holdout-1",
+        reason="Reserve one complete session for end-to-end evaluation.",
+    )
+
+    validate_system_holdout_registry(sealed)
+    loaded = load_system_holdout_registry(registry_path)
+    assert loaded == sealed
+    assert loaded["registry_version"] == 1
+    assert loaded["seals"][0]["review_state"] == "reviewed"
+    assert loaded["seals"][0]["review_id"] == "review-holdout-1"
+    with pytest.raises(SystemHoldoutError, match="already sealed"):
+        seal_system_holdout_group(
+            registry_path,
+            group_name="session_id",
+            group_value="session-held-out",
+            reviewer="holdout-reviewer",
+            reason="Duplicate seal must be rejected.",
+        )
+
+
+def test_system_holdout_validation_rejects_training_and_group_leakage(tmp_path: Path) -> None:
+    registry_path = tmp_path / "system-holdout-registry.json"
+    registry = seal_system_holdout_group(
+        registry_path,
+        group_name="session_id",
+        group_value="session-held-out",
+        reviewer="holdout-reviewer",
+        reason="Reserve the session for system evaluation.",
+    )
+    dataset = {
+        "entries": [
+            {
+                "dataset_item_id": "item-held-out",
+                "group_keys": [["session_id", "session-held-out"]],
+            },
+            {
+                "dataset_item_id": "item-other",
+                "group_keys": [["session_id", "session-other"]],
+            },
+        ]
+    }
+    with pytest.raises(SystemHoldoutError, match="system holdout group"):
+        validate_split_against_system_holdout(
+            dataset,
+            {
+                "train": ["item-held-out"],
+                "validation": [],
+                "test": [],
+                "unassigned": ["item-other"],
+            },
+            registry,
+            "cardevent_event_detection",
+        )
+    leakage_dataset = {
+        "entries": [
+            {"dataset_item_id": "item-one", "group_keys": [["session_id", "session-shared"]]},
+            {"dataset_item_id": "item-two", "group_keys": [["session_id", "session-shared"]]},
+        ]
+    }
+    with pytest.raises(SystemHoldoutError, match="crosses group"):
+        validate_split_against_system_holdout(
+            leakage_dataset,
+            {
+                "train": ["item-one"],
+                "validation": ["item-two"],
+                "test": [],
+                "unassigned": [],
+            },
+            registry,
+            "cardevent_event_detection",
+        )
+
+
+def test_component_publication_is_frozen_and_records_holdout_registry(tmp_path: Path) -> None:
+    artifacts = tmp_path / "artifacts"
+    registry_path = artifacts / "system-holdout-registry.json"
+    registry = seal_system_holdout_group(
+        registry_path,
+        group_name="source_lineage",
+        group_value="source-cardevent-only",
+        reviewer="holdout-reviewer",
+        reason="Reserve the fixture source lineage for end-to-end evaluation.",
+    )
+
+    first = run_review(
+        REPOSITORY_ROOT,
+        task="cardevent_event_detection",
+        reviewer="frozen-publication-reviewer",
+        bundle_root=FIXTURE_ROOT / "cardevent-only",
+        artifacts_root=artifacts,
+        decision_provider=lambda item: {"outcome": "accepted"},
+    )
+    assert first.state == "in_progress"
+    completed = run_review(
+        REPOSITORY_ROOT,
+        task="cardevent_event_detection",
+        reviewer="frozen-publication-reviewer",
+        bundle_root=FIXTURE_ROOT / "cardevent-only",
+        artifacts_root=artifacts,
+        split_approval_provider=lambda task, state: True,
+    )
+
+    assert completed.state == "complete"
+    published = artifacts / "published" / "cardevent_event_detection" / "cardevent"
+    dataset = json.loads((published / "dataset" / "cardevent-dataset-version.json").read_text())
+    split = json.loads((published / "split-proposal" / "cardevent-split-proposal.json").read_text())
+    frozen_dataset = json.loads((published / "dataset" / "frozen-dataset-version.json").read_text())
+    publication = json.loads((published / "publication.json").read_text())
+    assert dataset["dirty_state"] is False
+    assert split["unassigned"] == ["source-cardevent-only"]
+    assert frozen_dataset == dataset
+    assert publication["state"] == "frozen"
+    assert publication["system_holdout_registry_digest"] == registry["registry_digest"]
+    assert publication["dataset_version_digest"] == dataset["dataset_version_digest"]
+    assert publication["split_version_digest"] == split["split_version_digest"]
 
 
 def test_review_contract_rejects_unknown_state_fields() -> None:

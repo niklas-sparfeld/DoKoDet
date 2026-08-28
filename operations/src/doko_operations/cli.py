@@ -1,4 +1,4 @@
-"""The read-only ``doko`` repository operations command."""
+"""The ``doko`` repository operations command."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .config import ConfigurationError, RepositoryConfig
+from .holdout import SystemHoldoutError, seal_system_holdout_group
 from .intake import inspect_repository
 from .review import (
     REVIEW_TASK_ALL,
@@ -84,8 +85,32 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="JSON file containing explicit operator-selected intervals.",
     )
+    review.add_argument(
+        "--holdout-registry",
+        type=Path,
+        default=None,
+        help="Path to the shared system holdout registry.",
+    )
     review.add_argument("--format", choices=("human", "json"), default="human")
     review.add_argument("--json", action="store_true", help="Alias for --format json.")
+    holdout = data_commands.add_parser("holdout", help="Manage the shared system holdout registry.")
+    holdout_commands = holdout.add_subparsers(dest="holdout_command", metavar="COMMAND")
+    seal = holdout_commands.add_parser(
+        "seal", help="Seal one reviewed group for end-to-end system evaluation."
+    )
+    _add_path_options(seal, suppress_defaults=True)
+    seal.add_argument(
+        "--group-name",
+        choices=("session_id", "game_id", "table_setup", "source_lineage"),
+        required=True,
+    )
+    seal.add_argument("--group-value", required=True)
+    seal.add_argument("--reviewer", required=True, help="Reviewer who approved the seal.")
+    seal.add_argument("--review-id", default=None, help="Existing review identifier, if any.")
+    seal.add_argument("--reason", required=True)
+    seal.add_argument("--holdout-registry", type=Path, default=None)
+    seal.add_argument("--format", choices=("human", "json"), default="human")
+    seal.add_argument("--json", action="store_true", help="Alias for --format json.")
     return parser
 
 
@@ -129,6 +154,46 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         data_parser.choices["data"].print_help()
         return 0
+    if args.command == "data" and args.data_command == "holdout":
+        if args.holdout_command != "seal":
+            parser.parse_args(["data", "holdout", "--help"])
+            return 0
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                artifacts_root=args.artifacts_root,
+            )
+            registry_path = args.holdout_registry or (
+                config.derived_artifact_root / "system-holdout-registry.json"
+            )
+            if not registry_path.is_absolute():
+                registry_path = config.repository_root / registry_path
+            result = seal_system_holdout_group(
+                registry_path,
+                group_name=args.group_name,
+                group_value=args.group_value,
+                reviewer=args.reviewer,
+                review_id=args.review_id,
+                reason=args.reason,
+            )
+        except (ConfigurationError, OSError, SystemHoldoutError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            import json
+
+            sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        else:
+            seal = result["seals"][-1]
+            sys.stdout.write(
+                "System holdout group sealed\n"
+                f"registry: {registry_path}\n"
+                f"version: {result['registry_version']}\n"
+                f"group: {seal['group_key']['name']}:{seal['group_key']['value']}\n"
+                f"seal: {seal['seal_id']}\n"
+            )
+        return 0
     if args.command == "data" and args.data_command == "review":
         try:
             config = RepositoryConfig.from_environment(
@@ -157,6 +222,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 decision_provider=provider,
                 split_approval_provider=split_provider,
                 adapters=adapters,
+                holdout_registry_path=args.holdout_registry,
             )
         except (ConfigurationError, OSError, ReviewRunError) as error:
             print(f"error: {error}", file=sys.stderr)

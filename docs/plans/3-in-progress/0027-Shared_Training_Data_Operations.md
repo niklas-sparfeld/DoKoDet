@@ -684,6 +684,22 @@ Acceptance:
 - sealing a group is explicit, reviewed, versioned, and never a review side effect;
 - split approval changes no source, enrollment, annotation, or review artifact.
 
+#### M9 progress evidence — 2026-08-28
+
+- Added a versioned `system-holdout-registry/v1` with an explicit reviewed seal operation. The
+  Python API and `doko data holdout seal` command append immutable seal records and do not create a
+  registry as a review side effect.
+- Added shared group-isolation validation to both component adapters. A sealed session, game, table
+  setup, or source-lineage group can remain unassigned or enter test, but cannot enter training or
+  validation. Group overlap across partitions fails validation.
+- Publication now freezes the independently staged dataset and split manifests only after explicit
+  split approval. It records a separate frozen manifest pair and a publication receipt that names
+  the exact holdout registry version and digest. New component groups remain unassigned by default.
+- Preserved independent `--task all` publication: one complete task stays published when the other
+  task is incomplete or invalid.
+- Verification: operations `mise exec -- uv run --offline pytest` (25 passed), Ruff check and
+  format checks pass, and `git diff --check` passes.
+
 ### M10 — Cross-task permission and retirement impact
 
 1. Extend source permission and retirement impact analysis across both data tasks.

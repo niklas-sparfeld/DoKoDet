@@ -1,7 +1,20 @@
-"""Read-only repository data operations for DokoDetector."""
+"""Repository data operations for DokoDetector."""
 
 from .cardevent import CARD_EVENT_TASK, CardEventNetReviewAdapter
 from .config import ConfigurationError, RepositoryConfig, discover_repository_root
+from .holdout import (
+    SYSTEM_HOLDOUT_GROUP_NAMES,
+    SYSTEM_HOLDOUT_REGISTRY_ID,
+    SYSTEM_HOLDOUT_REGISTRY_SCHEMA_VERSION,
+    SystemHoldoutError,
+    empty_system_holdout_registry,
+    freeze_task_publication,
+    load_system_holdout_registry,
+    seal_system_holdout_group,
+    sealed_group_keys,
+    validate_split_against_system_holdout,
+    validate_system_holdout_registry,
+)
 from .intake import (
     BundleInspection,
     Failure,
@@ -50,14 +63,21 @@ __all__ = [
     "COVERAGE_SCHEMA_VERSION",
     "DATASET_VERSION_SCHEMA_VERSION",
     "ConfigurationError",
+    "SYSTEM_HOLDOUT_GROUP_NAMES",
+    "SYSTEM_HOLDOUT_REGISTRY_ID",
+    "SYSTEM_HOLDOUT_REGISTRY_SCHEMA_VERSION",
     "Failure",
+    "SystemHoldoutError",
     "InspectionResult",
     "RepositoryConfig",
     "ReviewWork",
     "TaskState",
     "discover_bundle_paths",
     "discover_repository_root",
+    "empty_system_holdout_registry",
+    "freeze_task_publication",
     "inspect_repository",
+    "load_system_holdout_registry",
     "render_human",
     "render_json",
     "GenericReviewAdapter",
@@ -81,8 +101,12 @@ __all__ = [
     "render_review_human",
     "render_review_json",
     "run_review",
+    "seal_system_holdout_group",
+    "sealed_group_keys",
     "status_mapping",
     "validate_review_report",
     "validate_review_run",
+    "validate_split_against_system_holdout",
+    "validate_system_holdout_registry",
     "VALID_SELECTION_SOURCES",
 ]
