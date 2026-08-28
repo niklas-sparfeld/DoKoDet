@@ -1,5 +1,6 @@
 """Read-only repository data operations for DokoDetector."""
 
+from .cardevent import CARD_EVENT_TASK, CardEventNetReviewAdapter
 from .config import ConfigurationError, RepositoryConfig, discover_repository_root
 from .intake import (
     BundleInspection,
@@ -29,6 +30,8 @@ from .status import render_human, render_json, status_mapping
 
 __all__ = [
     "BundleInspection",
+    "CARD_EVENT_TASK",
+    "CardEventNetReviewAdapter",
     "ConfigurationError",
     "Failure",
     "InspectionResult",

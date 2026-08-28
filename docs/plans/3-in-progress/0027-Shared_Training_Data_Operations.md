@@ -583,6 +583,21 @@ Acceptance:
 - deferred or excluded CardEventNet enrollment creates no review work;
 - no TableEvidenceAnalyzer enrollment, lifecycle state, or artifact changes.
 
+#### M6 progress evidence — 2026-08-28
+
+- Added the repository-backed CardEventNet adapter. It discovers one complete video-wide pass,
+  proposal-candidate, and hard-negative review item per selected source as applicable. Proposal
+  items retain generator-run lineage, and a candidate-only decision set cannot finalize the task.
+- The adapter resolves canonical videos and proposal JSON from each accepted bundle. It stages
+  CardEventNet annotations, cache-refresh metadata, dataset and split proposal artifacts,
+  validation output, and a valid lifecycle receipt without copying media into an operations or
+  component raw directory.
+- Deferred CardEventNet enrollments produce no review inputs. CardEventNet task state and output
+  paths remain separate from the TableEvidenceAnalyzer enrollment.
+- Verification: operations `mise exec -- uv run --offline pytest` (15 passed), Ruff check and
+  format checks pass, and the adapter tests cover staged direct-source output, required video-wide
+  review, deferred enrollment, resume, and no-media-copy behavior.
+
 ### M7 — Table-evidence candidate selection
 
 1. Discover selected recordings and evidence packages.

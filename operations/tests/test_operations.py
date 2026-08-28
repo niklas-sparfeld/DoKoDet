@@ -10,6 +10,7 @@ from doko_operations.cli import main
 from doko_operations.intake import discover_bundle_paths, inspect_repository
 from doko_operations.review import (
     REVIEW_RUN_SCHEMA_VERSION,
+    GenericReviewAdapter,
     ReviewItem,
     ReviewRunError,
     TaskArtifacts,
@@ -183,12 +184,13 @@ def test_review_run_interrupts_after_saved_decision_and_resumes(tmp_path: Path) 
         bundle_root=FIXTURE_ROOT,
         artifacts_root=tmp_path / "artifacts",
         decision_provider=interrupting_provider,
+        adapters={"cardevent_event_detection": GenericReviewAdapter()},
     )
     assert first.state == "interrupted"
     interrupted = load_review_run(first.run_path)
     items = interrupted["tasks"][0]["items"]
     assert sum(item["state"] == "complete" for item in items) == 1
-    assert sum(item["state"] == "pending" for item in items) == 1
+    assert sum(item["state"] == "pending" for item in items) == len(items) - 1
 
     resumed = run_review(
         REPOSITORY_ROOT,
@@ -197,6 +199,7 @@ def test_review_run_interrupts_after_saved_decision_and_resumes(tmp_path: Path) 
         bundle_root=FIXTURE_ROOT,
         artifacts_root=tmp_path / "artifacts",
         decision_provider=lambda item: {"outcome": "accepted"},
+        adapters={"cardevent_event_detection": GenericReviewAdapter()},
     )
     assert resumed.state == "complete"
     assert resumed.next_action is None
@@ -212,6 +215,7 @@ def test_completed_rerun_is_idempotent_and_does_not_call_provider(tmp_path: Path
         bundle_root=FIXTURE_ROOT,
         artifacts_root=tmp_path / "artifacts",
         decision_provider=lambda item: {"outcome": "accepted"},
+        adapters={"cardevent_event_detection": GenericReviewAdapter()},
     )
     files = {
         path: path.read_bytes() for path in (first.run_path, first.report_path) if path.is_file()
@@ -229,6 +233,7 @@ def test_completed_rerun_is_idempotent_and_does_not_call_provider(tmp_path: Path
         bundle_root=FIXTURE_ROOT,
         artifacts_root=tmp_path / "artifacts",
         decision_provider=unexpected_provider,
+        adapters={"cardevent_event_detection": GenericReviewAdapter()},
     )
     assert second.state == "complete"
     assert {path: path.read_bytes() for path in published_files} == published_files
@@ -276,7 +281,10 @@ def test_all_tasks_keep_completed_and_failed_state_separate(tmp_path: Path) -> N
         bundle_root=FIXTURE_ROOT,
         artifacts_root=tmp_path / "artifacts",
         decision_provider=lambda item: {"outcome": "accepted"},
-        adapters={"table_evidence_analysis": FailingValidationAdapter()},
+        adapters={
+            "cardevent_event_detection": GenericReviewAdapter(),
+            "table_evidence_analysis": FailingValidationAdapter(),
+        },
     )
 
     assert result.state == "failed"
@@ -288,6 +296,106 @@ def test_all_tasks_keep_completed_and_failed_state_separate(tmp_path: Path) -> N
     }
     assert (tmp_path / "artifacts" / "published" / "cardevent_event_detection").is_dir()
     assert not (tmp_path / "artifacts" / "published" / "table_evidence_analysis").exists()
+
+
+def test_cardevent_adapter_stages_wide_review_and_direct_source_outputs(tmp_path: Path) -> None:
+    result = run_review(
+        REPOSITORY_ROOT,
+        task="cardevent_event_detection",
+        reviewer="cardevent-reviewer",
+        bundle_root=FIXTURE_ROOT,
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: {"outcome": "accepted"},
+    )
+
+    assert result.state == "in_progress"
+    state = load_review_run(result.run_path)
+    task_state = state["tasks"][0]
+    assert {item["kind"] for item in task_state["items"]} == {
+        "video_wide_pass",
+        "proposal_candidate",
+        "hard_negative",
+    }
+    assert task_state["split_approval_required"]
+    assert task_state["staged_outputs"]
+    assert not (tmp_path / "artifacts" / "published").exists()
+    review_manifest = next(
+        Path(path)
+        for path in task_state["staged_outputs"]
+        if Path(path).name == "cardevent-review-manifest.json"
+    )
+    manifest = json.loads(review_manifest.read_text(encoding="utf-8"))
+    assert all(
+        item["canonical_video_path"].endswith(
+            "/videos/" + item["source_asset_id"].replace("source-", "video-") + ".mov"
+        )
+        for item in manifest["source_assets"]
+    )
+    annotation = next(
+        Path(path) for path in task_state["staged_outputs"] if Path(path).name == "source-both.json"
+    )
+    assert set(json.loads(annotation.read_text(encoding="utf-8"))) == {
+        "schema_version",
+        "video",
+        "events",
+    }
+
+    completed = run_review(
+        REPOSITORY_ROOT,
+        task="cardevent_event_detection",
+        reviewer="cardevent-reviewer",
+        bundle_root=FIXTURE_ROOT,
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: (_ for _ in ()).throw(
+            AssertionError(f"unexpected repeated decision {item.item_id}")
+        ),
+        split_approval_provider=lambda task, state: True,
+    )
+    assert completed.state == "complete"
+    published = tmp_path / "artifacts" / "published" / "cardevent_event_detection"
+    assert published.is_dir()
+    assert not any(path.suffix == ".mov" for path in published.rglob("*"))
+
+
+def test_cardevent_candidate_decisions_do_not_replace_video_wide_review(tmp_path: Path) -> None:
+    def candidate_only(item: ReviewItem) -> dict[str, str] | None:
+        if item.kind == "video_wide_pass":
+            return None
+        return {"outcome": "accepted"}
+
+    result = run_review(
+        REPOSITORY_ROOT,
+        task="cardevent_event_detection",
+        reviewer="wide-pass-reviewer",
+        bundle_root=FIXTURE_ROOT,
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=candidate_only,
+    )
+
+    state = load_review_run(result.run_path)
+    assert result.state == "in_progress"
+    assert state["tasks"][0]["items"][-1]["kind"] == "video_wide_pass"
+    assert state["tasks"][0]["items"][-1]["state"] == "pending"
+    assert not (tmp_path / "artifacts" / "published").exists()
+
+
+def test_deferred_cardevent_enrollment_creates_no_review_work(tmp_path: Path) -> None:
+    result = run_review(
+        REPOSITORY_ROOT,
+        task="cardevent_event_detection",
+        reviewer="deferred-reviewer",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: (_ for _ in ()).throw(
+            AssertionError(f"deferred source created {item.item_id}")
+        ),
+    )
+
+    assert result.state == "complete"
+    state = load_review_run(result.run_path)
+    assert state["tasks"][0]["inputs"] == []
+    assert state["tasks"][0]["items"] == []
+    assert not (tmp_path / "artifacts" / "published").exists()
 
 
 def test_review_contract_rejects_unknown_state_fields() -> None:

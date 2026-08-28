@@ -261,7 +261,12 @@ class GenericReviewAdapter:
 def default_adapters() -> dict[str, ReviewAdapter]:
     """Return the deterministic default adapters for both data tasks."""
 
-    return {task: GenericReviewAdapter() for task in TASKS}
+    from .cardevent import CardEventNetReviewAdapter
+
+    return {
+        "cardevent_event_detection": CardEventNetReviewAdapter(),
+        "table_evidence_analysis": GenericReviewAdapter(),
+    }
 
 
 def _atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:
