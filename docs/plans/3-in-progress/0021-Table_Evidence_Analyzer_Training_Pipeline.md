@@ -409,6 +409,14 @@ Acceptance:
 - best-checkpoint selection uses validation only;
 - corrupt checkpoints fail without damaging prior artifacts.
 
+Progress (2026-08-28): M4 is complete. Added atomic `checkpoint-last.json` and
+`checkpoint-best.json` artifacts with checkpoint format, progress, model state, and
+validation-selected metric metadata. Resume validates the task, seed, dataset, and split
+digests before loading state. Failed validation or resume attempts write structured failed-run
+metadata without overwriting an existing checkpoint. Verification: `mise exec -- uv run pytest`
+(19 passed), `mise exec -- uv run ruff check src tests`, and `mise exec -- uv run ruff format
+--check src tests`; no weights or data were downloaded.
+
 ### M5 — Export and table-observation capability
 
 1. Export the smoke model bundle.

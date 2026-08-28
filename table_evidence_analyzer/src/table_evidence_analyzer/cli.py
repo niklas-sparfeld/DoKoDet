@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -37,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Train a model from a resolved configuration.",
     )
     train_parser.add_argument("--config", type=Path, required=True)
+    train_parser.add_argument("--resume", type=Path, help="Resume from a checkpoint.")
 
     evaluate_parser = commands.add_parser(
         "evaluate",
@@ -93,7 +95,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     from .training import evaluate, load_config, train
 
     if args.command == "train":
-        print(train(load_config(args.config)))
+        config = load_config(args.config)
+        if args.resume:
+            config = replace(config, resume=args.resume)
+        print(train(config))
         return 0
     if args.command == "evaluate":
         print(evaluate(args.run, args.split))
