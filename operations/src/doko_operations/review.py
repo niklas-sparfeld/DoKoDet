@@ -17,6 +17,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+from .holdout import (
+    SystemHoldoutError,
+    freeze_task_publication,
+    load_system_holdout_registry,
+)
 from .intake import TASKS, BundleInspection, InspectionResult, inspect_repository
 
 REVIEW_RUN_SCHEMA_VERSION = "doko-review-run/v1"
@@ -262,10 +267,11 @@ def default_adapters() -> dict[str, ReviewAdapter]:
     """Return the deterministic default adapters for both data tasks."""
 
     from .cardevent import CardEventNetReviewAdapter
+    from .table_evidence import TableObservationReviewAdapter
 
     return {
         "cardevent_event_detection": CardEventNetReviewAdapter(),
-        "table_evidence_analysis": GenericReviewAdapter(),
+        "table_evidence_analysis": TableObservationReviewAdapter(),
     }
 
 
@@ -1035,6 +1041,7 @@ def run_review(
     decision_provider: DecisionProvider | None = None,
     split_approval_provider: SplitApprovalProvider | None = None,
     adapters: Mapping[str, ReviewAdapter] | None = None,
+    holdout_registry_path: str | Path | None = None,
 ) -> ReviewResult:
     """Create or resume a review run and process safe deterministic decisions.
 
@@ -1070,6 +1077,24 @@ def run_review(
     if not artifact_path.is_absolute():
         artifact_path = repository / artifact_path
     artifact_path = artifact_path.resolve()
+    registry_path = (
+        Path(holdout_registry_path).expanduser()
+        if holdout_registry_path is not None
+        else artifact_path / "system-holdout-registry.json"
+    )
+    if not registry_path.is_absolute():
+        registry_path = repository / registry_path
+    try:
+        holdout_registry = load_system_holdout_registry(registry_path.resolve())
+    except SystemHoldoutError as exc:
+        raise ReviewRunError(str(exc)) from exc
+    for adapter in adapter_map.values():
+        set_reviewer = getattr(adapter, "set_reviewer", None)
+        if callable(set_reviewer):
+            set_reviewer(reviewer)
+        set_registry = getattr(adapter, "set_system_holdout_registry", None)
+        if callable(set_registry):
+            set_registry(holdout_registry)
     review_root = artifact_path / "review-runs"
     requested_run_id = run_id or _run_id(reviewer, requested_tasks, input_digest)
     _safe_identifier(requested_run_id, "run_id")
@@ -1173,6 +1198,7 @@ def run_review(
             validation_errors = tuple(adapter.validate(task_name, task_staging))
             if validation_errors:
                 raise ReviewRunError("; ".join(validation_errors))
+            freeze_task_publication(task_name, task_staging, holdout_registry)
             _publish_task(
                 task_state,
                 task_staging=task_staging,

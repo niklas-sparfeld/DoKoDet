@@ -15,6 +15,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .holdout import (
+    SystemHoldoutError,
+    empty_system_holdout_registry,
+    validate_split_against_system_holdout,
+    validate_system_holdout_registry,
+)
 from .review import ReviewInput, ReviewItem, ReviewRunError, TaskArtifacts
 
 CARD_EVENT_TASK = "cardevent_event_detection"
@@ -184,6 +190,13 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
 class CardEventNetReviewAdapter:
     """Use repository proposals to seed a complete video-wide CardEventNet review."""
 
+    def __init__(self) -> None:
+        self._system_holdout_registry = empty_system_holdout_registry()
+
+    def set_system_holdout_registry(self, registry: Mapping[str, Any]) -> None:
+        validate_system_holdout_registry(registry)
+        self._system_holdout_registry = dict(registry)
+
     def discover(self, task: str, inputs: Sequence[ReviewInput]) -> Sequence[ReviewItem]:
         if task != CARD_EVENT_TASK:
             raise ReviewRunError(f"CardEventNet adapter cannot process {task}")
@@ -287,28 +300,60 @@ class CardEventNetReviewAdapter:
             proposal_runs.setdefault(source_id, [])
             proposal_runs[source_id] = sorted(set(proposal_runs[source_id]))
             del proposals
+        entries = [
+            {
+                "dataset_item_id": item.source_asset_id,
+                "source_asset_id": item.source_asset_id,
+                "source_sha256": item.source_sha256,
+                "annotation": f"annotations/{item.source_asset_id}.json",
+                "review_state": "reviewed",
+                "group_keys": _group_keys(source_details[item.source_asset_id][1]),
+            }
+            for item in inputs
+        ]
+        entries.sort(key=lambda value: value["dataset_item_id"])
+        group_key_names = sorted({key for entry in entries for key, _ in entry["group_keys"]})
+        dataset_core = {
+            "schema_version": "cardevent-dataset-version/v1",
+            "task": CARD_EVENT_TASK,
+            "source_assets": [
+                {"source_asset_id": item.source_asset_id, "source_sha256": item.source_sha256}
+                for item in inputs
+            ],
+            "annotations": [str(path.relative_to(output_root)) for path in annotation_paths],
+            "entries": entries,
+            "group_key_names": group_key_names,
+            "review_complete": True,
+            "dirty_state": True,
+        }
         dataset_path = output_root / "dataset" / "cardevent-dataset-version.json"
         _write_json(
             dataset_path,
             {
-                "schema_version": "cardevent-dataset-version/v1",
-                "task": CARD_EVENT_TASK,
-                "source_assets": [
-                    {"source_asset_id": item.source_asset_id, "source_sha256": item.source_sha256}
-                    for item in inputs
-                ],
-                "annotations": [str(path.relative_to(output_root)) for path in annotation_paths],
-                "review_complete": True,
+                **dataset_core,
+                "dataset_version_id": "cardevent-" + _digest(dataset_core)[:20],
+                "dataset_version_digest": _digest(dataset_core),
             },
         )
         split_path = output_root / "split-proposal" / "cardevent-split-proposal.json"
+        split_core = {
+            "schema_version": "cardevent-split-proposal/v1",
+            "task": CARD_EVENT_TASK,
+            "dataset_version_id": "cardevent-" + _digest(dataset_core)[:20],
+            "dataset_version_digest": _digest(dataset_core),
+            "group_key_names": group_key_names,
+            "seed": 42,
+            "train": [],
+            "validation": [],
+            "test": [],
+            "unassigned": [entry["dataset_item_id"] for entry in entries],
+        }
         _write_json(
             split_path,
             {
-                "schema_version": "cardevent-split-proposal/v1",
-                "task": CARD_EVENT_TASK,
-                "unassigned": [item.source_asset_id for item in inputs],
-                "source_sha256": [item.source_sha256 for item in inputs],
+                **split_core,
+                "split_version_id": "cardevent-split-" + _digest(split_core)[:20],
+                "split_version_digest": _digest(split_core),
             },
         )
         validation_path = output_root / "validation" / "cardevent-validation.json"
@@ -396,9 +441,29 @@ class CardEventNetReviewAdapter:
             staging_dir / "cardevent" / "cardevent-review-manifest.json",
             staging_dir / "cardevent" / "lifecycle-receipt.json",
         )
-        return tuple(
+        errors = list(
             f"missing staged CardEventNet output: {path}" for path in required if not path.is_file()
         )
+        if errors:
+            return tuple(errors)
+        try:
+            dataset = _read_json(required[0])
+            split = _read_json(required[1])
+            validate_split_against_system_holdout(
+                dataset, split, self._system_holdout_registry, CARD_EVENT_TASK
+            )
+        except (OSError, SystemHoldoutError, ReviewRunError) as exc:
+            errors.append(f"CardEventNet split validation failed: {exc}")
+        return tuple(errors)
+
+
+def _group_keys(source: Mapping[str, Any]) -> list[list[str]]:
+    values = [("source_lineage", str(source["source_asset_id"]))]
+    for field in ("session_id", "game_id", "table_setup"):
+        value = source.get(field)
+        if isinstance(value, str) and value:
+            values.append((field, value))
+    return [list(value) for value in sorted(values)]
 
 
 __all__ = ["CARD_EVENT_TASK", "CardEventNetReviewAdapter"]

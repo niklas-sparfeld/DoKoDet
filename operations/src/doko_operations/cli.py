@@ -1,13 +1,22 @@
-"""The read-only ``doko`` repository operations command."""
+"""The ``doko`` repository operations command."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 from .config import ConfigurationError, RepositoryConfig
+from .holdout import SystemHoldoutError, seal_system_holdout_group
+from .impact import (
+    RETIREMENT_STATES,
+    SourceImpactError,
+    analyze_repository_impacts,
+    analyze_source_impact,
+    retire_source,
+)
 from .intake import inspect_repository
 from .review import (
     REVIEW_TASK_ALL,
@@ -17,6 +26,7 @@ from .review import (
     run_review,
 )
 from .status import render_human, render_json
+from .table_evidence import TABLE_EVIDENCE_TASK, TableObservationReviewAdapter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -63,8 +73,76 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument(
         "--approve-split", action="store_true", help="Approve any staged split proposal."
     )
+    review.add_argument(
+        "--evidence-root",
+        action="append",
+        type=Path,
+        default=[],
+        help="Read-only root containing accepted evidence packages (repeatable).",
+    )
+    review.add_argument(
+        "--reviewed-events-root",
+        action="append",
+        type=Path,
+        default=[],
+        help="Read-only root containing reviewed event documents (repeatable).",
+    )
+    review.add_argument(
+        "--operator-selection-file",
+        type=Path,
+        default=None,
+        help="JSON file containing explicit operator-selected intervals.",
+    )
+    review.add_argument(
+        "--holdout-registry",
+        type=Path,
+        default=None,
+        help="Path to the shared system holdout registry.",
+    )
     review.add_argument("--format", choices=("human", "json"), default="human")
     review.add_argument("--json", action="store_true", help="Alias for --format json.")
+    holdout = data_commands.add_parser("holdout", help="Manage the shared system holdout registry.")
+    holdout_commands = holdout.add_subparsers(dest="holdout_command", metavar="COMMAND")
+    seal = holdout_commands.add_parser(
+        "seal", help="Seal one reviewed group for end-to-end system evaluation."
+    )
+    _add_path_options(seal, suppress_defaults=True)
+    seal.add_argument(
+        "--group-name",
+        choices=("session_id", "game_id", "table_setup", "source_lineage"),
+        required=True,
+    )
+    seal.add_argument("--group-value", required=True)
+    seal.add_argument("--reviewer", required=True, help="Reviewer who approved the seal.")
+    seal.add_argument("--review-id", default=None, help="Existing review identifier, if any.")
+    seal.add_argument("--reason", required=True)
+    seal.add_argument("--holdout-registry", type=Path, default=None)
+    seal.add_argument("--format", choices=("human", "json"), default="human")
+    seal.add_argument("--json", action="store_true", help="Alias for --format json.")
+    impact = data_commands.add_parser(
+        "impact",
+        help="Report source permission and retirement impact.",
+        description="Report source permission and retirement impact.",
+    )
+    _add_path_options(impact, suppress_defaults=True)
+    impact.add_argument("--source-asset-id", default=None)
+    impact.add_argument("--retention-state", choices=tuple(sorted(RETIREMENT_STATES | {"active"})))
+    impact.add_argument("--format", choices=("human", "json"), default="human")
+    impact.add_argument("--json", action="store_true", help="Alias for --format json.")
+    source = data_commands.add_parser("source", help="Write versioned source lifecycle state.")
+    source_commands = source.add_subparsers(dest="source_command", metavar="COMMAND")
+    retire = source_commands.add_parser(
+        "retire", help="Withdraw permission or retire one source asset."
+    )
+    _add_path_options(retire, suppress_defaults=True)
+    retire.add_argument("--source-asset-id", required=True)
+    retire.add_argument(
+        "--retention-state", choices=tuple(sorted(RETIREMENT_STATES)), required=True
+    )
+    retire.add_argument("--operator", required=True)
+    retire.add_argument("--reason", required=True)
+    retire.add_argument("--format", choices=("human", "json"), default="human")
+    retire.add_argument("--json", action="store_true", help="Alias for --format json.")
     return parser
 
 
@@ -108,6 +186,121 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         data_parser.choices["data"].print_help()
         return 0
+    if args.command == "data" and args.data_command == "impact":
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                artifacts_root=args.artifacts_root,
+            )
+            if args.source_asset_id:
+                result = analyze_source_impact(
+                    config.repository_root,
+                    args.source_asset_id,
+                    bundle_root=config.bundle_root,
+                    artifacts_root=config.derived_artifact_root,
+                    requested_retention_state=args.retention_state,
+                )
+            else:
+                if args.retention_state is not None:
+                    raise SourceImpactError(
+                        "--retention-state requires --source-asset-id for an impact preview."
+                    )
+                result = {
+                    "schema_version": "source-impact-index/v1",
+                    "reports": list(
+                        analyze_repository_impacts(
+                            config.repository_root,
+                            bundle_root=config.bundle_root,
+                            artifacts_root=config.derived_artifact_root,
+                        )
+                    ),
+                }
+        except (ConfigurationError, OSError, SourceImpactError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(
+                json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+            )
+        else:
+            sys.stdout.write(_render_impact_human(result))
+        return 0
+    if args.command == "data" and args.data_command == "source":
+        if args.source_command != "retire":
+            parser.parse_args(["data", "source", "--help"])
+            return 0
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                artifacts_root=args.artifacts_root,
+            )
+            result = retire_source(
+                config.repository_root,
+                args.source_asset_id,
+                bundle_root=config.bundle_root,
+                artifacts_root=config.derived_artifact_root,
+                retention_state=args.retention_state,
+                operator=args.operator,
+                reason=args.reason,
+            )
+        except (ConfigurationError, OSError, SourceImpactError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(
+                json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+            )
+        else:
+            state = result["source_state"]
+            receipt = result["stale_receipt"]
+            sys.stdout.write(
+                "Source lifecycle state recorded\n"
+                f"source: {state['source_asset_id']}\n"
+                f"retention state: {state['retention_state']}\n"
+                f"state version: {state['version']}\n"
+                f"stale receipt: {receipt['receipt_id']}\n"
+            )
+        return 0
+    if args.command == "data" and args.data_command == "holdout":
+        if args.holdout_command != "seal":
+            parser.parse_args(["data", "holdout", "--help"])
+            return 0
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                artifacts_root=args.artifacts_root,
+            )
+            registry_path = args.holdout_registry or (
+                config.derived_artifact_root / "system-holdout-registry.json"
+            )
+            if not registry_path.is_absolute():
+                registry_path = config.repository_root / registry_path
+            result = seal_system_holdout_group(
+                registry_path,
+                group_name=args.group_name,
+                group_value=args.group_value,
+                reviewer=args.reviewer,
+                review_id=args.review_id,
+                reason=args.reason,
+            )
+        except (ConfigurationError, OSError, SystemHoldoutError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        else:
+            seal = result["seals"][-1]
+            sys.stdout.write(
+                "System holdout group sealed\n"
+                f"registry: {registry_path}\n"
+                f"version: {result['registry_version']}\n"
+                f"group: {seal['group_key']['name']}:{seal['group_key']['value']}\n"
+                f"seal: {seal['seal_id']}\n"
+            )
+        return 0
     if args.command == "data" and args.data_command == "review":
         try:
             config = RepositoryConfig.from_environment(
@@ -117,6 +310,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             provider = _decision_provider(args.decision_file)
             split_provider = (lambda task, state: True) if args.approve_split else None
+            adapters = None
+            if args.evidence_root or args.reviewed_events_root or args.operator_selection_file:
+                adapters = {
+                    TABLE_EVIDENCE_TASK: TableObservationReviewAdapter(
+                        evidence_roots=args.evidence_root,
+                        reviewed_event_roots=args.reviewed_events_root,
+                        operator_selection_file=args.operator_selection_file,
+                    )
+                }
             result = run_review(
                 config.repository_root,
                 task=args.task,
@@ -126,6 +328,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_id=args.run_id,
                 decision_provider=provider,
                 split_approval_provider=split_provider,
+                adapters=adapters,
+                holdout_registry_path=args.holdout_registry,
             )
         except (ConfigurationError, OSError, ReviewRunError) as error:
             print(f"error: {error}", file=sys.stderr)
@@ -189,6 +393,21 @@ def _decision_provider(path: Path | None):
         return decision
 
     return provide
+
+
+def _render_impact_human(result: dict) -> str:
+    reports = result.get("reports") if "reports" in result else [result]
+    lines = ["DokoDetector source impact"]
+    for report in reports:
+        lines.append(
+            f"source: {report['source_asset_id']} ({report['retention_state']}), "
+            f"{sum(report['artifact_counts'].values())} affected artifacts"
+        )
+        for task in report["task_impacts"]:
+            lines.append(f"  - {task['task']}: {task['impact_state']}")
+        for artifact in report["affected_artifacts"]:
+            lines.append(f"    - {artifact['kind']}: {artifact['path']}")
+    return "\n".join(lines) + "\n"
 
 
 __all__ = ["build_parser", "main"]

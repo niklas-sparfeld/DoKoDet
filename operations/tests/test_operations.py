@@ -7,10 +7,24 @@ from pathlib import Path
 import pytest
 
 from doko_operations.cli import main
+from doko_operations.holdout import (
+    SystemHoldoutError,
+    load_system_holdout_registry,
+    seal_system_holdout_group,
+    validate_split_against_system_holdout,
+    validate_system_holdout_registry,
+)
+from doko_operations.impact import (
+    analyze_source_impact,
+    load_current_source_state,
+    retire_source,
+    validate_stale_artifact_receipt,
+)
 from doko_operations.intake import discover_bundle_paths, inspect_repository
 from doko_operations.review import (
     REVIEW_RUN_SCHEMA_VERSION,
     GenericReviewAdapter,
+    ReviewInput,
     ReviewItem,
     ReviewRunError,
     TaskArtifacts,
@@ -22,9 +36,28 @@ from doko_operations.review import (
     validate_review_run,
 )
 from doko_operations.status import render_json
+from doko_operations.table_evidence import (
+    TABLE_EVIDENCE_TASK,
+    TableEvidenceReviewAdapter,
+    TableObservationReviewAdapter,
+)
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXTURE_ROOT = REPOSITORY_ROOT / "fixtures" / "repository-bundle" / "v1"
+
+
+def _table_review_input(bundle: Path) -> ReviewInput:
+    source = json.loads((bundle / "source-record.json").read_text())
+    enrollment = json.loads((bundle / "initial-task-enrollment.json").read_text())
+    table = next(item for item in enrollment["enrollments"] if item["task"] == TABLE_EVIDENCE_TASK)
+    return ReviewInput(
+        task=TABLE_EVIDENCE_TASK,
+        source_asset_id=source["source_asset_id"],
+        recording_id=source["recording_id"],
+        source_sha256=source["sha256"],
+        bundle_path=str(bundle),
+        task_enrollment_id=table["task_enrollment_id"],
+    )
 
 
 def test_fixture_discovery_is_deterministic_and_includes_all_three_cases() -> None:
@@ -398,8 +431,649 @@ def test_deferred_cardevent_enrollment_creates_no_review_work(tmp_path: Path) ->
     assert not (tmp_path / "artifacts" / "published").exists()
 
 
+def test_table_evidence_selection_has_proposal_independent_coverage() -> None:
+    item = _table_review_input(FIXTURE_ROOT / "both")
+    selected = TableEvidenceReviewAdapter(coverage_interval_s=10).discover(
+        TABLE_EVIDENCE_TASK, [item]
+    )
+
+    assert {candidate.kind for candidate in selected} == {
+        "mac_event_proposal",
+        "negative_sample",
+        "coverage_sample",
+    }
+    coverage = next(candidate for candidate in selected if candidate.kind == "coverage_sample")
+    assert "coverage_sample" in coverage.prompt
+    assert "1.000s" not in coverage.prompt
+
+
+def test_table_evidence_selection_classifies_device_proposals_and_operator_events(
+    tmp_path: Path,
+) -> None:
+    bundle = tmp_path / "bundle"
+    shutil.copytree(FIXTURE_ROOT / "table-evidence-only", bundle)
+    proposal_path = next((bundle / "predictions").glob("*.json"))
+    proposal = json.loads(proposal_path.read_text())
+    proposal["execution_environment"]["platform"] = "ios"
+    proposal_path.write_text(json.dumps(proposal))
+    reviewed_path = tmp_path / "reviewed-events.json"
+    reviewed_path.write_text(
+        json.dumps(
+            {
+                "source_asset_id": "source-table-evidence-only",
+                "review_state": "reviewed",
+                "events": [{"time_s": 3.5, "type": "card_played"}],
+            }
+        )
+    )
+    adapter = TableEvidenceReviewAdapter(
+        reviewed_event_roots=[reviewed_path],
+        operator_intervals={
+            "source-table-evidence-only": [
+                {"start_s": 5.0, "end_s": 7.0, "label": "difficult transition"}
+            ]
+        },
+    )
+
+    selected = adapter.discover(TABLE_EVIDENCE_TASK, [_table_review_input(bundle)])
+
+    assert "device_event_proposal" in {candidate.kind for candidate in selected}
+    assert "reviewed_event" in {candidate.kind for candidate in selected}
+    assert "operator_selected" in {candidate.kind for candidate in selected}
+    assert all("selected by " in candidate.prompt for candidate in selected)
+
+
+def test_table_evidence_materializes_frames_and_allows_missing_optional_snippet(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "frame-only-package"
+    shutil.copytree(REPOSITORY_ROOT / "fixtures" / "evidence" / "v2" / "example-complete", package)
+    (package / "snippet.mp4").unlink()
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["video_snippet"] = None
+    manifest_path.write_text(json.dumps(manifest))
+    adapter = TableEvidenceReviewAdapter(evidence_roots=[package])
+
+    selected = adapter.discover(
+        TABLE_EVIDENCE_TASK, [_table_review_input(FIXTURE_ROOT / "table-evidence-only")]
+    )
+    package_id = manifest["package_id"]
+    assert selected
+
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="table-evidence-fixture",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: {"outcome": "reviewed"},
+        adapters={TABLE_EVIDENCE_TASK: adapter},
+    )
+
+    assert result.state == "complete"
+    output = (
+        tmp_path
+        / "artifacts"
+        / "published"
+        / TABLE_EVIDENCE_TASK
+        / "table-evidence"
+        / "candidate-selection.json"
+    )
+    payload = json.loads(output.read_text())
+    selected_package = next(
+        item for item in payload["selections"] if item["evidence_package_id"] == package_id
+    )
+    assert len(selected_package["evidence"]["frame_references"]) == 6
+    assert selected_package["evidence"]["video_snippet"] is None
+    assert (
+        payload["proposal_generator_runs"][0]["proposal_generator_run_id"]
+        == "proposal-table-evidence-only"
+    )
+    coverage = json.loads(
+        (
+            tmp_path
+            / "artifacts"
+            / "published"
+            / TABLE_EVIDENCE_TASK
+            / "table-evidence"
+            / "selection-coverage.json"
+        ).read_text()
+    )
+    assert {item["selection_source"] for item in coverage["selection_sources"]} >= {
+        "mac_event_proposal",
+        "coverage_sample",
+        "negative_sample",
+    }
+
+
+def test_table_evidence_selection_digest_and_order_are_repeatable(tmp_path: Path) -> None:
+    adapter = TableEvidenceReviewAdapter(
+        operator_intervals={"source-table-evidence-only": [{"start_s": 5.0, "end_s": 7.0}]}
+    )
+    common = {
+        "repository_root": REPOSITORY_ROOT,
+        "task": TABLE_EVIDENCE_TASK,
+        "reviewer": "repeatable-selection",
+        "bundle_root": FIXTURE_ROOT / "table-evidence-only",
+        "decision_provider": lambda item: {"outcome": "reviewed"},
+        "adapters": {TABLE_EVIDENCE_TASK: adapter},
+    }
+    first = run_review(artifacts_root=tmp_path / "first", **common)
+    second = run_review(artifacts_root=tmp_path / "second", **common)
+    first_path = (
+        tmp_path
+        / "first"
+        / "published"
+        / TABLE_EVIDENCE_TASK
+        / "table-evidence"
+        / "candidate-selection.json"
+    )
+    second_path = (
+        tmp_path
+        / "second"
+        / "published"
+        / TABLE_EVIDENCE_TASK
+        / "table-evidence"
+        / "candidate-selection.json"
+    )
+    first_payload = json.loads(first_path.read_text())
+    second_payload = json.loads(second_path.read_text())
+
+    assert first.state == second.state == "complete"
+    assert first_payload["selection_digest"] == second_payload["selection_digest"]
+    assert [item["selection_id"] for item in first_payload["selections"]] == [
+        item["selection_id"] for item in second_payload["selections"]
+    ]
+
+
+def test_table_observation_review_stages_immutable_outputs_and_keeps_false_proposal_cards(
+    tmp_path: Path,
+) -> None:
+    evidence = tmp_path / "evidence"
+    shutil.copytree(REPOSITORY_ROOT / "fixtures" / "evidence" / "v2" / "example-complete", evidence)
+    manifest_path = evidence / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["event"]["event_time_ms"] = 1000
+    manifest_path.write_text(json.dumps(manifest))
+    source_before = (FIXTURE_ROOT / "table-evidence-only" / "source-record.json").read_bytes()
+    adapter = TableObservationReviewAdapter(evidence_roots=[evidence])
+
+    def decide(item: ReviewItem) -> dict[str, object]:
+        if item.kind == "mac_event_proposal":
+            return {
+                "event_decision": "reject_event",
+                "observed_cards": [
+                    {
+                        "visual_card_identity": "HEARTS_QUEEN",
+                        "bbox": [10, 20, 110, 140],
+                        "became_newly_visible": True,
+                        "active_area_class": "inside",
+                        "tags": ["glare"],
+                    }
+                ],
+            }
+        return {"event_decision": "reject_event"}
+
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="table-observation-reviewer",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=decide,
+        adapters={TABLE_EVIDENCE_TASK: adapter},
+    )
+
+    assert result.state == "in_progress"
+    assert (
+        result.next_action
+        == "Approve the proposed split for table_evidence_analysis before publication."
+    )
+    staging = result.run_path.parent / "staging" / TABLE_EVIDENCE_TASK / "table-evidence"
+    assert (staging / "review-report.json").is_file()
+    assert not (tmp_path / "artifacts" / "published").exists()
+
+    published_result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="table-observation-reviewer",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: (_ for _ in ()).throw(
+            AssertionError(f"resumed review requested {item.item_id}")
+        ),
+        split_approval_provider=lambda task, state: (
+            task == TABLE_EVIDENCE_TASK and not state["split_approved"]
+        ),
+        adapters={TABLE_EVIDENCE_TASK: adapter},
+    )
+
+    assert published_result.state == "complete"
+    published = tmp_path / "artifacts" / "published" / TABLE_EVIDENCE_TASK / "table-evidence"
+    report = json.loads((published / "review-report.json").read_text())
+    proposal = next(
+        item
+        for item in report["annotation_sets"]
+        if item["selection_source"] == "mac_event_proposal"
+    )
+    annotation = json.loads(
+        (published / "annotations" / f"{proposal['annotation_set_id']}.json").read_text()
+    )
+    assert annotation["review_state"] == "reviewed"
+    assert annotation["event_review"] == "false_event_proposal"
+    assert annotation["observed_cards"][0]["visual_card_identity"] == "HEARTS_QUEEN"
+    assert len(annotation["observed_cards"][0]["frame_observations"]) == 6
+    assert report["lifecycle_state"] == "eligible"
+
+    dataset = json.loads(
+        (published / "dataset" / "table-evidence-dataset-version.json").read_text()
+    )
+    assert dataset["schema_version"] == "dataset-version/v1"
+    assert len(dataset["entries"]) == 6
+    assert json.loads((published / "validation" / "table-evidence-validation.json").read_text())[
+        "valid"
+    ]
+    split = json.loads(
+        (published / "split-proposal" / "table-evidence-split-proposal.json").read_text()
+    )
+    assert split["unassigned"] == [entry["dataset_item_id"] for entry in dataset["entries"]]
+    receipt = json.loads((published / "lifecycle-receipt.json").read_text())
+    assert receipt["metadata"]["lifecycle_state"] == "eligible"
+    assert (
+        FIXTURE_ROOT / "table-evidence-only" / "source-record.json"
+    ).read_bytes() == source_before
+    assert not any(path.name == "cardevent-review-manifest.json" for path in published.rglob("*"))
+
+
+def test_incomplete_table_observation_review_does_not_publish_reviewed_or_eligible_state(
+    tmp_path: Path,
+) -> None:
+    adapter = TableObservationReviewAdapter(
+        evidence_roots=[REPOSITORY_ROOT / "fixtures" / "evidence" / "v2" / "example-complete"]
+    )
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="incomplete-table-reviewer",
+        bundle_root=FIXTURE_ROOT / "table-evidence-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: None,
+        adapters={TABLE_EVIDENCE_TASK: adapter},
+    )
+
+    assert result.state == "in_progress"
+    assert not (tmp_path / "artifacts" / "published").exists()
+    assert not list((result.run_path.parent / "staging").rglob("annotations"))
+    state = load_review_run(result.run_path)
+    assert all(item["state"] == "pending" for item in state["tasks"][0]["items"])
+
+
+def test_deferred_table_evidence_enrollment_creates_no_review_work(tmp_path: Path) -> None:
+    result = run_review(
+        REPOSITORY_ROOT,
+        task=TABLE_EVIDENCE_TASK,
+        reviewer="deferred-table-reviewer",
+        bundle_root=FIXTURE_ROOT / "cardevent-only",
+        artifacts_root=tmp_path / "artifacts",
+        decision_provider=lambda item: (_ for _ in ()).throw(
+            AssertionError(f"deferred source created {item.item_id}")
+        ),
+    )
+
+    assert result.state == "complete"
+    state = load_review_run(result.run_path)
+    assert state["tasks"][0]["inputs"] == []
+    assert state["tasks"][0]["items"] == []
+    assert not (tmp_path / "artifacts" / "published").exists()
+
+
+def test_system_holdout_seal_is_explicit_reviewed_and_versioned(tmp_path: Path) -> None:
+    registry_path = tmp_path / "system-holdout-registry.json"
+
+    assert not registry_path.exists()
+    sealed = seal_system_holdout_group(
+        registry_path,
+        group_name="session_id",
+        group_value="session-held-out",
+        reviewer="holdout-reviewer",
+        review_id="review-holdout-1",
+        reason="Reserve one complete session for end-to-end evaluation.",
+    )
+
+    validate_system_holdout_registry(sealed)
+    loaded = load_system_holdout_registry(registry_path)
+    assert loaded == sealed
+    assert loaded["registry_version"] == 1
+    assert loaded["seals"][0]["review_state"] == "reviewed"
+    assert loaded["seals"][0]["review_id"] == "review-holdout-1"
+    with pytest.raises(SystemHoldoutError, match="already sealed"):
+        seal_system_holdout_group(
+            registry_path,
+            group_name="session_id",
+            group_value="session-held-out",
+            reviewer="holdout-reviewer",
+            reason="Duplicate seal must be rejected.",
+        )
+
+
+def test_system_holdout_validation_rejects_training_and_group_leakage(tmp_path: Path) -> None:
+    registry_path = tmp_path / "system-holdout-registry.json"
+    registry = seal_system_holdout_group(
+        registry_path,
+        group_name="session_id",
+        group_value="session-held-out",
+        reviewer="holdout-reviewer",
+        reason="Reserve the session for system evaluation.",
+    )
+    dataset = {
+        "entries": [
+            {
+                "dataset_item_id": "item-held-out",
+                "group_keys": [["session_id", "session-held-out"]],
+            },
+            {
+                "dataset_item_id": "item-other",
+                "group_keys": [["session_id", "session-other"]],
+            },
+        ]
+    }
+    with pytest.raises(SystemHoldoutError, match="system holdout group"):
+        validate_split_against_system_holdout(
+            dataset,
+            {
+                "train": ["item-held-out"],
+                "validation": [],
+                "test": [],
+                "unassigned": ["item-other"],
+            },
+            registry,
+            "cardevent_event_detection",
+        )
+    leakage_dataset = {
+        "entries": [
+            {"dataset_item_id": "item-one", "group_keys": [["session_id", "session-shared"]]},
+            {"dataset_item_id": "item-two", "group_keys": [["session_id", "session-shared"]]},
+        ]
+    }
+    with pytest.raises(SystemHoldoutError, match="crosses group"):
+        validate_split_against_system_holdout(
+            leakage_dataset,
+            {
+                "train": ["item-one"],
+                "validation": ["item-two"],
+                "test": [],
+                "unassigned": [],
+            },
+            registry,
+            "cardevent_event_detection",
+        )
+
+
+def test_component_publication_is_frozen_and_records_holdout_registry(tmp_path: Path) -> None:
+    artifacts = tmp_path / "artifacts"
+    registry_path = artifacts / "system-holdout-registry.json"
+    registry = seal_system_holdout_group(
+        registry_path,
+        group_name="source_lineage",
+        group_value="source-cardevent-only",
+        reviewer="holdout-reviewer",
+        reason="Reserve the fixture source lineage for end-to-end evaluation.",
+    )
+
+    first = run_review(
+        REPOSITORY_ROOT,
+        task="cardevent_event_detection",
+        reviewer="frozen-publication-reviewer",
+        bundle_root=FIXTURE_ROOT / "cardevent-only",
+        artifacts_root=artifacts,
+        decision_provider=lambda item: {"outcome": "accepted"},
+    )
+    assert first.state == "in_progress"
+    completed = run_review(
+        REPOSITORY_ROOT,
+        task="cardevent_event_detection",
+        reviewer="frozen-publication-reviewer",
+        bundle_root=FIXTURE_ROOT / "cardevent-only",
+        artifacts_root=artifacts,
+        split_approval_provider=lambda task, state: True,
+    )
+
+    assert completed.state == "complete"
+    published = artifacts / "published" / "cardevent_event_detection" / "cardevent"
+    dataset = json.loads((published / "dataset" / "cardevent-dataset-version.json").read_text())
+    split = json.loads((published / "split-proposal" / "cardevent-split-proposal.json").read_text())
+    frozen_dataset = json.loads((published / "dataset" / "frozen-dataset-version.json").read_text())
+    publication = json.loads((published / "publication.json").read_text())
+    assert dataset["dirty_state"] is False
+    assert split["unassigned"] == ["source-cardevent-only"]
+    assert frozen_dataset == dataset
+    assert publication["state"] == "frozen"
+    assert publication["system_holdout_registry_digest"] == registry["registry_digest"]
+    assert publication["dataset_version_digest"] == dataset["dataset_version_digest"]
+    assert publication["split_version_digest"] == split["split_version_digest"]
+
+
 def test_review_contract_rejects_unknown_state_fields() -> None:
     with pytest.raises(ReviewRunError, match="unknown fields"):
         validate_review_run({"schema_version": REVIEW_RUN_SCHEMA_VERSION, "unexpected": True})
     with pytest.raises(ReviewRunError, match="unknown fields"):
         validate_review_report({"schema_version": "doko-review-report/v1", "unexpected": True})
+
+
+def test_source_retirement_reports_cross_task_artifacts_and_writes_only_new_receipts(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "intake"
+    shutil.copytree(FIXTURE_ROOT, intake)
+    artifacts = tmp_path / "artifacts"
+    source_id = "source-both"
+    source_digest = "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8"
+
+    def write(relative: str, payload: dict[str, object]) -> None:
+        path = artifacts / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+    write(
+        "published/cardevent_event_detection/cardevent/annotations/annotation-both.json",
+        {
+            "schema_version": "cardevent-annotation/v2",
+            "source_asset_id": source_id,
+            "source_sha256": source_digest,
+        },
+    )
+    write(
+        "published/cardevent_event_detection/cardevent/dataset/cardevent-dataset.json",
+        {
+            "schema_version": "cardevent-dataset-version/v1",
+            "task": "cardevent_event_detection",
+            "dataset_version_id": "dataset-cardevent-both",
+            "source_assets": [{"source_asset_id": source_id, "source_sha256": source_digest}],
+        },
+    )
+    write(
+        "published/cardevent_event_detection/cardevent/split/cardevent-split.json",
+        {
+            "schema_version": "cardevent-split-proposal/v1",
+            "task": "cardevent_event_detection",
+            "dataset_version_id": "dataset-cardevent-both",
+        },
+    )
+    write(
+        "published/cardevent_event_detection/cardevent/cache/cache.json",
+        {
+            "schema_version": "cardevent-cache-refresh/v1",
+            "task": "cardevent_event_detection",
+            "source_assets": [{"source_asset_id": source_id, "source_sha256": source_digest}],
+        },
+    )
+    write(
+        "published/table_evidence_analysis/table-evidence/annotations/annotation-both.json",
+        {
+            "schema_version": "table-observation-annotation/v1",
+            "source_asset_id": source_id,
+            "source_sha256": source_digest,
+        },
+    )
+    write(
+        "published/table_evidence_analysis/table-evidence/dataset/table-dataset.json",
+        {
+            "schema_version": "dataset-version/v1",
+            "task": "table_evidence_analysis",
+            "dataset_version_id": "dataset-table-both",
+            "source_assets": [{"source_asset_id": source_id, "source_sha256": source_digest}],
+        },
+    )
+    write(
+        "published/table_evidence_analysis/table-evidence/split/table-split.json",
+        {
+            "schema_version": "table-dataset-split/v1",
+            "task": "table_evidence_analysis",
+            "dataset_version_id": "dataset-table-both",
+        },
+    )
+    write(
+        "runs/table-run.json",
+        {
+            "schema_version": "training-run/v1",
+            "run_id": "table-run-both",
+            "task": "table_evidence_analysis",
+            "dataset_version_id": "dataset-table-both",
+        },
+    )
+    write(
+        "models/table-model.json",
+        {
+            "schema_version": "model-bundle/v1",
+            "model_bundle_id": "table-model-both",
+            "task": "table_evidence_analysis",
+            "training_run_id": "table-run-both",
+        },
+    )
+    write("published/unrelated.json", {"schema_version": "unrelated/v1", "valid": True})
+
+    source_before = (intake / "both" / "source-record.json").read_bytes()
+    enrollment_before = (intake / "both" / "initial-task-enrollment.json").read_bytes()
+    video_before = (intake / "both" / "videos" / "video-both.mov").read_bytes()
+
+    preview = analyze_source_impact(
+        tmp_path,
+        source_id,
+        bundle_root=intake,
+        artifacts_root=artifacts,
+        requested_retention_state="retired",
+    )
+    assert {task["task"] for task in preview["task_impacts"]} == {
+        "cardevent_event_detection",
+        "table_evidence_analysis",
+    }
+    assert preview["artifact_counts"] == {
+        "annotations": 2,
+        "caches": 1,
+        "datasets": 2,
+        "model_bundles": 1,
+        "runs": 1,
+        "splits": 2,
+    }
+    assert "published/unrelated.json" not in {
+        item["path"] for item in preview["affected_artifacts"]
+    }
+
+    result = retire_source(
+        tmp_path,
+        source_id,
+        bundle_root=intake,
+        artifacts_root=artifacts,
+        retention_state="retired",
+        operator="m10-reviewer",
+        reason="Permission withdrawn by source owner.",
+    )
+    assert result["source_state"]["retention_state"] == "retired"
+    validate_stale_artifact_receipt(result["stale_receipt"])
+    assert load_current_source_state(artifacts, source_id)["retention_state"] == "retired"
+    assert (intake / "both" / "source-record.json").read_bytes() == source_before
+    assert (intake / "both" / "initial-task-enrollment.json").read_bytes() == enrollment_before
+    assert (intake / "both" / "videos" / "video-both.mov").read_bytes() == video_before
+
+    status = inspect_repository(tmp_path, bundle_root=intake, artifacts_root=artifacts)
+    assert not status.valid
+    assert len(status.source_impacts) == 3
+    assert {item["source_asset_id"] for item in status.source_impacts} == {
+        "source-both",
+        "source-cardevent-only",
+        "source-table-evidence-only",
+    }
+    stale = set(status.stale_derived_artifacts)
+    assert (
+        "artifacts/published/cardevent_event_detection/cardevent/dataset/cardevent-dataset.json"
+        in stale
+    )
+    assert (
+        "artifacts/published/table_evidence_analysis/table-evidence/dataset/table-dataset.json"
+        in stale
+    )
+    assert sum(failure.kind == "cross_task_impact" for failure in status.failures) >= 2
+    assert all(item.source_asset_id != source_id for item in status.pending_review)
+
+    repeated = analyze_source_impact(
+        tmp_path,
+        source_id,
+        bundle_root=intake,
+        artifacts_root=artifacts,
+    )
+    assert repeated == analyze_source_impact(
+        tmp_path,
+        source_id,
+        bundle_root=intake,
+        artifacts_root=artifacts,
+    )
+
+
+def test_source_retirement_is_idempotent_and_cli_reports_impact(tmp_path: Path, capsys) -> None:
+    intake = tmp_path / "intake"
+    shutil.copytree(FIXTURE_ROOT, intake)
+    artifacts = tmp_path / "artifacts"
+    first = retire_source(
+        tmp_path,
+        "source-cardevent-only",
+        bundle_root=intake,
+        artifacts_root=artifacts,
+        retention_state="deletion_requested",
+        operator="m10-reviewer",
+        reason="Permission withdrawn.",
+    )
+    second = retire_source(
+        tmp_path,
+        "source-cardevent-only",
+        bundle_root=intake,
+        artifacts_root=artifacts,
+        retention_state="deletion_requested",
+        operator="m10-reviewer",
+        reason="Permission withdrawn.",
+    )
+    assert second == first
+    assert len(list((artifacts / "stale-artifact-receipts").glob("*.json"))) == 1
+
+    assert (
+        main(
+            [
+                "data",
+                "impact",
+                "--repository-root",
+                str(tmp_path),
+                "--intake-root",
+                str(intake),
+                "--artifacts-root",
+                str(artifacts),
+                "--source-asset-id",
+                "source-cardevent-only",
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["source_asset_id"] == "source-cardevent-only"
+    assert output["retention_state"] == "deletion_requested"

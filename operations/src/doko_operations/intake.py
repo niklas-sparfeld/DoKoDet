@@ -110,6 +110,7 @@ class InspectionResult:
     failures: tuple[Failure, ...]
     unassigned_eligible_groups: tuple[str, ...]
     stale_derived_artifacts: tuple[str, ...]
+    source_impacts: tuple[dict[str, Any], ...]
 
     @property
     def valid(self) -> bool:
@@ -125,6 +126,7 @@ class InspectionResult:
             "failures": [item.to_mapping() for item in self.failures],
             "unassigned_eligible_groups": list(self.unassigned_eligible_groups),
             "stale_derived_artifacts": list(self.stale_derived_artifacts),
+            "source_impacts": list(self.source_impacts),
             "valid": self.valid,
         }
 
@@ -195,7 +197,7 @@ def inspect_repository(
     for item in inspections:
         if item.state != "complete":
             continue
-        if _bundle_permission_failure(item, repo):
+        if _bundle_permission_failure(item, repo, artifact_path):
             failures.append(
                 Failure(
                     item.path, "permission", "source retention state does not permit processing"
@@ -205,21 +207,56 @@ def inspect_repository(
     unassigned = _unassigned_groups(inspections, artifact_path)
     stale = _stale_artifacts(inspections, artifact_path, repo)
     failures.extend(Failure(path, "stale_artifact", "derived artifact is stale") for path in stale)
+    try:
+        from .impact import SourceImpactError, analyze_repository_impacts
+
+        source_impacts = analyze_repository_impacts(
+            repo, bundle_root=root, artifacts_root=artifact_path
+        )
+    except SourceImpactError as error:
+        source_impacts = ()
+        failures.append(
+            Failure(_relative_path(artifact_path, repo), "cross_task_impact", str(error))
+        )
+    for impact in source_impacts:
+        if impact["retention_state"] == "active":
+            continue
+        for task in impact["task_impacts"]:
+            failures.append(
+                Failure(
+                    f"{impact['source_bundle']}::{task['task']}",
+                    "cross_task_impact",
+                    f"source {impact['source_asset_id']} is {impact['retention_state']} "
+                    "for both data tasks",
+                )
+            )
     return InspectionResult(
         bundles=tuple(inspections),
         pending_review=tuple(pending),
         failures=tuple(sorted(failures, key=lambda item: (item.path, item.kind, item.message))),
         unassigned_eligible_groups=tuple(unassigned),
         stale_derived_artifacts=tuple(stale),
+        source_impacts=tuple(source_impacts),
     )
 
 
 def _looks_like_bundle(path: Path) -> bool:
     if not path.is_dir():
         return False
+    manifest_path = path / "manifest.json"
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            manifest = None
+        if (
+            isinstance(manifest, Mapping)
+            and manifest.get("schema_version") == "cardevent-evidence/v2"
+        ):
+            return False
     return any(
         (
-            (path / "manifest.json").exists(),
+            manifest_path.exists(),
             (path / "source-record.json").exists(),
             (path / "initial-task-enrollment.json").exists(),
             (path / "videos").is_dir(),
@@ -890,20 +927,37 @@ def _relative_path(path: Path, root: Path) -> str:
         return path.resolve().as_posix()
 
 
-def _bundle_permission_failure(inspection: BundleInspection, repository_root: Path) -> bool:
+def _bundle_permission_failure(
+    inspection: BundleInspection, repository_root: Path, artifacts_root: Path
+) -> bool:
     bundle = repository_root / inspection.path
     try:
         source = json.loads((bundle / "source-record.json").read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return False
-    return source.get("retention_state") != "active"
+    if not isinstance(source, Mapping) or not isinstance(source.get("source_asset_id"), str):
+        return False
+    try:
+        from .impact import load_current_source_state
+
+        state = load_current_source_state(
+            artifacts_root, source["source_asset_id"], source_record=source
+        )
+    except ValueError:
+        return True
+    return state.get("retention_state") != "active"
 
 
 def _pending_review(
     inspections: Iterable[BundleInspection], artifacts_root: Path, repository_root: Path
 ) -> list[ReviewWork]:
     result: dict[tuple[str, str], ReviewWork] = {}
+    blocked_sources: set[str] = set()
     for bundle in inspections:
+        if _bundle_permission_failure(bundle, repository_root, artifacts_root):
+            if bundle.source_asset_id is not None:
+                blocked_sources.add(bundle.source_asset_id)
+            continue
         for task in bundle.tasks:
             if task.disposition == "selected" and task.lifecycle_state in SELECTED_LIFECYCLE_STATES:
                 key = (task.source_asset_id, task.task)
@@ -934,6 +988,7 @@ def _pending_review(
             result[key] = ReviewWork(
                 source_id, task, str(state), True, _relative_path(path, repository_root)
             )
+    result = {key: value for key, value in result.items() if key[0] not in blocked_sources}
     return sorted(
         result.values(), key=lambda item: (item.source_asset_id, item.task, item.run_path or "")
     )
@@ -1028,6 +1083,13 @@ def _stale_artifacts(
     for path in sorted(artifacts_root.rglob("*.json"), key=lambda item: item.as_posix()):
         payload = _read_optional_json(path)
         if not isinstance(payload, Mapping):
+            continue
+        if payload.get("schema_version") == "stale-artifact-receipt/v1":
+            affected = payload.get("affected_artifacts")
+            if isinstance(affected, list):
+                for item in affected:
+                    if isinstance(item, Mapping) and isinstance(item.get("path"), str):
+                        stale.add(item["path"])
             continue
         if payload.get("stale") is True or payload.get("status") == "stale":
             stale.add(_relative_path(path, repository_root))

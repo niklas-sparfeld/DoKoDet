@@ -215,6 +215,8 @@ doko data status
 doko data review --task cardevent_event_detection --reviewer <name>
 doko data review --task table_evidence_analysis --reviewer <name>
 doko data review --task all --reviewer <name>
+doko data impact --source-asset-id <id>
+doko data source retire --source-asset-id <id> --retention-state <state> --operator <name> --reason <text>
 doko data validate
 ```
 
@@ -614,6 +616,24 @@ Acceptance:
 - missing optional snippets do not invalidate selected frames;
 - repeated selection with the same inputs has the same order and digest.
 
+#### M7 progress evidence — 2026-08-28
+
+- Added the repository-backed `TableEvidenceReviewAdapter`. It discovers selected recordings,
+  proposal-generator runs, reviewed event documents, accepted evidence packages, deterministic
+  coverage samples, low-probability negatives, and explicit operator intervals without copying
+  source media.
+- Classifies `ios` and `macos` proposal runs as device and Mac event sources. Each selected item
+  records its selection source, recording range, proposal-generator run lineage, and immutable
+  frame and optional snippet references. Frame-only evidence remains valid when the optional
+  snippet is absent.
+- Added deterministic selection and coverage artifacts, CLI roots for evidence and reviewed-event
+  inputs, and operator interval-file support. The repository intake scanner does not mistake an
+  embedded V2 evidence package for a shared recording bundle.
+- Verification: operations `mise exec -- uv run --offline pytest` (19 passed), Ruff check, Ruff
+  format check, and a headless CLI review invocation pass. Selection tests cover device and Mac
+  provenance, reviewed events, proposal-independent coverage, explicit intervals, frame-only
+  evidence, proposal lineage, and repeated selection digests.
+
 ### M8 — Table-observation review adapter
 
 1. Open or resume review for each selected table-evidence item.
@@ -629,6 +649,25 @@ Acceptance:
 - incomplete review never receives `reviewed` or `eligible` lifecycle state;
 - deferred or excluded table-evidence enrollment creates no review work;
 - no CardEventNet dataset membership, review state, or artifact changes.
+
+#### M8 progress evidence — 2026-08-28
+
+- Extended the repository-backed table-evidence adapter into a resumable table-observation review
+  adapter. A complete decision set writes new `table-observation-annotation/v1` annotations and
+  `table-observation-review/v1` artifacts. A rejected event proposal keeps its reviewed visible-card
+  evidence and never turns the proposal into a card label.
+- Staged deterministic dataset-version, coverage, unassigned split-proposal, validation, lifecycle
+  receipt, and review-report artifacts. Review output stays under the table-evidence task and does
+  not write CardEventNet annotations, datasets, or review state. No output is created until every
+  selected item has a human decision; reviewed evidence without an identity-usable card remains
+  explicitly reviewed and unassigned.
+- Bound the review-run reviewer to the immutable table-observation review artifact and exposed the
+  named `TableObservationReviewAdapter` through the package and CLI. Complete evidence packages,
+  frame-only packages, and deferred table-evidence enrollments remain supported.
+- Verification: operations `mise exec -- uv run --offline pytest` (22 passed), Ruff check and
+  format checks pass. Regression tests cover false-proposal visible-card retention, staged dataset
+  and split outputs, incomplete review without reviewed or eligible publication, and deferred
+  table-evidence enrollment without review work.
 
 ### M9 — Independent publication and system holdout
 
@@ -647,6 +686,22 @@ Acceptance:
 - sealing a group is explicit, reviewed, versioned, and never a review side effect;
 - split approval changes no source, enrollment, annotation, or review artifact.
 
+#### M9 progress evidence — 2026-08-28
+
+- Added a versioned `system-holdout-registry/v1` with an explicit reviewed seal operation. The
+  Python API and `doko data holdout seal` command append immutable seal records and do not create a
+  registry as a review side effect.
+- Added shared group-isolation validation to both component adapters. A sealed session, game, table
+  setup, or source-lineage group can remain unassigned or enter test, but cannot enter training or
+  validation. Group overlap across partitions fails validation.
+- Publication now freezes the independently staged dataset and split manifests only after explicit
+  split approval. It records a separate frozen manifest pair and a publication receipt that names
+  the exact holdout registry version and digest. New component groups remain unassigned by default.
+- Preserved independent `--task all` publication: one complete task stays published when the other
+  task is incomplete or invalid.
+- Verification: operations `mise exec -- uv run --offline pytest` (25 passed), Ruff check and
+  format checks pass, and `git diff --check` passes.
+
 ### M10 — Cross-task permission and retirement impact
 
 1. Extend source permission and retirement impact analysis across both data tasks.
@@ -662,6 +717,23 @@ Acceptance:
 - source retirement does not modify source bytes or historical artifacts;
 - unrelated valid intake and unassigned groups remain usable;
 - repeated impact analysis is deterministic.
+
+#### M10 progress evidence — 2026-08-28
+
+- Added deterministic cross-task source impact analysis. It follows shared source IDs and digests
+  through CardEventNet and TableEvidenceAnalyzer annotations, dataset versions, splits, caches,
+  runs, and model bundles, including dataset, split, run, and model reference chains.
+- Added `doko data impact` and `doko data source retire`. Retirement and permission withdrawal write
+  immutable `source-record-state/v1`, `source-impact-report/v1`, and
+  `stale-artifact-receipt/v1` documents. They never edit source bytes, task enrollment, or
+  historical derived artifacts, and repeated identical operations return the existing receipt.
+- Extended status and validation output with both task impacts, cross-task permission failures,
+  and stale artifact paths from immutable receipts. Active unrelated sources and unassigned groups
+  remain unchanged.
+- Verification: `mise exec -- uv run --offline pytest` in `operations/` (27 passed), Ruff check and
+  format checks pass, and `git diff --check` passes. Regression tests cover both task branches,
+  all affected artifact categories, graph-linked run and model artifacts, immutable source
+  preservation, stale status/validation output, CLI impact reporting, and idempotent analysis.
 
 ### M11 — Clean-room workflow and operator exercise
 
@@ -692,6 +764,24 @@ Acceptance:
 - the human exercise needs only the local app or simulator, local backend, saved fixture, and review
   interfaces;
 - the operator invokes no manual import, cache, apply-review, dataset-build, or split command.
+
+#### M11 progress evidence — 2026-08-28
+
+- Added a headless clean-room integration test that drives the Swift saved-video collection-profile
+  simulator, retryable repository-bundle upload, SQLite index rebuild, and both independent
+  `doko data review` task branches. The first review run pauses, the second publishes only
+  CardEventNet, and the third resumes and publishes TableEvidenceAnalyzer.
+- The test approves both split proposals, runs `doko data validate`, checks that every published
+  JSON source digest matches the one accepted source asset, and checks that task outputs contain no
+  media copy. It invokes no manual import, cache, apply-review, dataset-build, or split command.
+- Added the required exercise record at
+  `docs/reports/0027-Shared_Training_Data_Operations_Exercise.md`. The automated gate passed;
+  the local interactive human exercise remains explicitly recorded as pending because it cannot be
+  performed by the headless test.
+- Verification: the clean-room test passes; the full backend suite passes (87 passed); operations
+  tests pass (27 passed); relevant Swift collection, Record-tab, capture, and upload tests pass
+  (13 passed); backend and operations Ruff check and format checks pass; and `git diff --check`
+  passes.
 
 ## 10. Out of scope
 
