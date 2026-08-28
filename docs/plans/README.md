@@ -53,7 +53,6 @@ No epics.
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0021 — TableEvidenceAnalyzer model training](3-in-progress/0021-Table_Evidence_Analyzer_Training_Pipeline.md) | 0020 | Build the train, evaluate, checkpoint, and export loop for analyzer model components. |
 | [0027 — Shared training data operations](3-in-progress/0027-Shared_Training_Data_Operations.md) | 0019 and 0020 | Capture source material once and process it independently for CardEventNet and the TableEvidenceAnalyzer. |
 
 ### Blocked
@@ -64,6 +63,7 @@ No epics.
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0021 — TableEvidenceAnalyzer model training](5-closed/0021-Table_Evidence_Analyzer_Training_Pipeline.md) | Complete | Build the train, evaluate, checkpoint, and export loop for analyzer model components. |
 | [0001 — CardEventNet v1](5-closed/0001-CardEventNet_v1.md) | Complete | Initial CardEventNet pipeline. |
 | [0002 — iOS CardEventNet PoC](5-closed/0002-iOS_CardEventNet_PoC.md) | Complete | iOS inference PoC. |
 | [0003 — iOS evidence upload](5-closed/0003-iOS_EvidenceUpload.md) | Complete | Evidence package and V1 upload contract. |
