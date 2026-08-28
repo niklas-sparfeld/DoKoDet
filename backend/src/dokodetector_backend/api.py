@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 from datetime import datetime, timezone
 from uuid import UUID
@@ -27,7 +28,7 @@ from dokodetector_backend.contract import (
     parse_manifest_bytes,
     validate_package_id,
 )
-from dokodetector_backend.errors import ContractError
+from dokodetector_backend.errors import APIErrorDetail, ContractError
 from dokodetector_backend.repository import (
     EvidenceRepository,
     LogicalEventConflict,
@@ -50,6 +51,7 @@ MULTIPART_MEDIA_TYPE = "multipart/form-data"
 SUPPORTED_FRAME_MEDIA_TYPE = "image/jpeg"
 VIDEO_FRAME_RATE_TOLERANCE_FPS = 0.05
 VIDEO_DURATION_TOLERANCE_MS = 50
+LOGGER = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -62,6 +64,17 @@ router = APIRouter()
 async def upload_evidence_package(package_id: str, request: Request) -> JSONResponse:
     """Validate and persist one immutable multipart evidence package."""
 
+    upload_id = request.headers.get("x-dokodetector-upload-id", "-")
+    LOGGER.info(
+        "evidence_upload_started method=%s path=%s package_id=%s upload_id=%s "
+        "content_type=%s content_length=%s",
+        request.method,
+        request.url.path,
+        package_id,
+        upload_id,
+        request.headers.get("content-type", "-"),
+        request.headers.get("content-length", "-"),
+    )
     requested_package_id = _parse_package_id(package_id)
     settings: Settings = request.app.state.settings
     if _media_type(request.headers.get("content-type")) != MULTIPART_MEDIA_TYPE:
@@ -78,13 +91,23 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
             max_part_size=settings.max_manifest_bytes,
         ) as form:
             manifest_upload, frame_uploads = _collect_uploads(form)
-            _require_media_type(manifest_upload, MANIFEST_MEDIA_TYPE)
+            _require_media_type(manifest_upload, MANIFEST_MEDIA_TYPE, field="manifest")
             manifest_bytes = await manifest_upload.read(settings.max_manifest_bytes + 1)
             manifest = parse_manifest_bytes(
                 manifest_bytes,
                 max_bytes=settings.max_manifest_bytes,
             )
             validate_package_id(requested_package_id, manifest)
+            LOGGER.info(
+                "evidence_upload_manifest_validated package_id=%s upload_id=%s "
+                "session_id=%s event_sequence=%s frame_count=%s video_snippet_complete=%s",
+                manifest.package_id,
+                upload_id,
+                manifest.session.session_id,
+                manifest.session.event_sequence,
+                len(manifest.frames),
+                manifest.video_snippet is not None and manifest.video_snippet.capture_complete,
+            )
             video_upload = None
             if manifest.video_snippet is not None and manifest.video_snippet.capture_complete:
                 video_part_name = manifest.video_snippet.part_name
@@ -95,6 +118,12 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                         "invalid_request",
                         "The declared video snippet part is missing.",
                         status_code=400,
+                        details=[
+                            APIErrorDetail(
+                                field="video_snippet.part_name",
+                                message=f"missing multipart part {video_part_name!r}.",
+                            )
+                        ],
                     )
             _validate_frame_parts(manifest, frame_uploads)
 
@@ -107,7 +136,11 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                 )
             for frame in manifest.frames:
                 upload = frame_uploads[frame.part_name]
-                _require_media_type(upload, SUPPORTED_FRAME_MEDIA_TYPE)
+                _require_media_type(
+                    upload,
+                    SUPPORTED_FRAME_MEDIA_TYPE,
+                    field=f"frames.{frame.part_name}",
+                )
                 byte_length, digest = await _inspect_frame(
                     upload,
                     max_frame_bytes=settings.max_frame_bytes,
@@ -123,12 +156,25 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     raise ContractError(
                         "hash_mismatch",
                         "The frame bytes do not match the manifest.",
-                        details=[],
+                        details=[
+                            APIErrorDetail(
+                                field=f"frames.{frame.part_name}",
+                                message=(
+                                    f"manifest byte_length={frame.byte_length}, received "
+                                    f"byte_length={byte_length}; manifest sha256={frame.sha256}, "
+                                    f"received sha256={digest}."
+                                ),
+                            )
+                        ],
                     )
 
             if manifest.video_snippet is not None and manifest.video_snippet.capture_complete:
                 assert video_upload is not None
-                _require_media_type(video_upload, SUPPORTED_VIDEO_CONTENT_TYPE)
+                _require_media_type(
+                    video_upload,
+                    SUPPORTED_VIDEO_CONTENT_TYPE,
+                    field="video_snippet",
+                )
                 video_length, video_digest = await _inspect_video(
                     video_upload,
                     manifest.video_snippet,
@@ -148,7 +194,17 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     raise ContractError(
                         "hash_mismatch",
                         "The video snippet bytes do not match the manifest.",
-                        details=[],
+                        details=[
+                            APIErrorDetail(
+                                field="video_snippet",
+                                message=(
+                                    f"manifest byte_length={manifest.video_snippet.byte_length}, "
+                                    f"received byte_length={video_length}; "
+                                    f"manifest sha256={manifest.video_snippet.sha256}, "
+                                    f"received sha256={video_digest}."
+                                ),
+                            )
+                        ],
                     )
 
             fingerprint = calculate_package_fingerprint(
@@ -224,6 +280,14 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     status_code=500,
                 ) from error
 
+            LOGGER.info(
+                "evidence_upload_accepted package_id=%s upload_id=%s created=true frame_count=%s "
+                "video_snippet_complete=%s",
+                manifest.package_id,
+                upload_id,
+                len(manifest.frames),
+                manifest.video_snippet is not None and manifest.video_snippet.capture_complete,
+            )
             return _upload_response(stored, created=True)
     except MultiPartException as error:
         raise ContractError(
@@ -439,26 +503,47 @@ def _collect_uploads(form: FormData) -> tuple[UploadFile, dict[str, UploadFile]]
 def _validate_frame_parts(manifest: EvidenceManifest, frame_uploads: dict[str, UploadFile]) -> None:
     declared_names = {frame.part_name for frame in manifest.frames}
     received_names = set(frame_uploads)
-    if declared_names - received_names:
+    missing_names = sorted(declared_names - received_names)
+    extra_names = sorted(received_names - declared_names)
+    if missing_names:
         raise ContractError(
             "invalid_request",
             "A declared frame part is missing.",
             status_code=400,
+            details=[
+                APIErrorDetail(
+                    field="frames",
+                    message=f"missing multipart parts: {', '.join(missing_names)}.",
+                )
+            ],
         )
-    if received_names - declared_names:
+    if extra_names:
         raise ContractError(
             "invalid_request",
             "The request contains an undeclared frame part.",
             status_code=400,
+            details=[
+                APIErrorDetail(
+                    field="frames",
+                    message=f"undeclared multipart parts: {', '.join(extra_names)}.",
+                )
+            ],
         )
 
 
-def _require_media_type(upload: UploadFile, expected: str) -> None:
-    if _media_type(upload.content_type) != expected:
+def _require_media_type(upload: UploadFile, expected: str, *, field: str) -> None:
+    actual = _media_type(upload.content_type)
+    if actual != expected:
         raise ContractError(
             "unsupported_media_type",
             f"The multipart part must use {expected}.",
             status_code=415,
+            details=[
+                APIErrorDetail(
+                    field=field,
+                    message=f"received {actual or '<missing>'}; expected {expected}.",
+                )
+            ],
         )
 
 
@@ -510,7 +595,16 @@ async def _inspect_video(
         raise ContractError(
             "hash_mismatch",
             "The video snippet bytes do not match the manifest.",
-            details=[],
+            details=[
+                APIErrorDetail(
+                    field="video_snippet",
+                    message=(
+                        f"manifest byte_length={snippet.byte_length}, received "
+                        f"byte_length={byte_length}; manifest sha256={snippet.sha256}, "
+                        f"received sha256={digest_hex}."
+                    ),
+                )
+            ],
         )
 
     try:
@@ -520,37 +614,71 @@ async def _inspect_video(
             "unsupported_media_type",
             "The video snippet uses unsupported media.",
             status_code=415,
+            details=[APIErrorDetail(field="video_snippet", message=str(error))],
         ) from error
     except VideoProbeError as error:
         raise ContractError(
             "invalid_video",
             "The video snippet could not be decoded.",
             status_code=422,
+            details=[APIErrorDetail(field="video_snippet", message=str(error))],
         ) from error
     except VideoProbeUnavailable as error:
         raise ContractError(
             "internal_error",
             "The video probe is not available.",
             status_code=500,
+            details=[APIErrorDetail(field="video_snippet", message=str(error))],
         ) from error
 
-    if (
-        probe.container != snippet.container
-        or probe.video_codec != snippet.video_codec
-        or probe.width != snippet.width
-        or probe.height != snippet.height
-        or snippet.nominal_frame_rate is None
-        or not math.isclose(
-            probe.nominal_frame_rate,
-            snippet.nominal_frame_rate,
-            abs_tol=VIDEO_FRAME_RATE_TOLERANCE_FPS,
-        )
-        or abs(probe.duration_ms - snippet.duration_ms) > VIDEO_DURATION_TOLERANCE_MS
+    mismatches: list[APIErrorDetail] = []
+    for field, expected, actual in (
+        ("container", snippet.container, probe.container),
+        ("video_codec", snippet.video_codec, probe.video_codec),
+        ("width", snippet.width, probe.width),
+        ("height", snippet.height, probe.height),
     ):
+        if expected != actual:
+            mismatches.append(
+                APIErrorDetail(
+                    field=f"video_snippet.{field}",
+                    message=f"manifest={expected!r}; actual={actual!r}.",
+                )
+            )
+
+    if snippet.nominal_frame_rate is None or not math.isclose(
+        probe.nominal_frame_rate,
+        snippet.nominal_frame_rate,
+        abs_tol=VIDEO_FRAME_RATE_TOLERANCE_FPS,
+    ):
+        mismatches.append(
+            APIErrorDetail(
+                field="video_snippet.nominal_frame_rate",
+                message=(
+                    f"manifest={snippet.nominal_frame_rate!r}; "
+                    f"actual={probe.nominal_frame_rate!r}; "
+                    f"tolerance={VIDEO_FRAME_RATE_TOLERANCE_FPS!r}."
+                ),
+            )
+        )
+
+    if abs(probe.duration_ms - snippet.duration_ms) > VIDEO_DURATION_TOLERANCE_MS:
+        mismatches.append(
+            APIErrorDetail(
+                field="video_snippet.duration_ms",
+                message=(
+                    f"manifest={snippet.duration_ms!r}; actual={probe.duration_ms!r}; "
+                    f"tolerance={VIDEO_DURATION_TOLERANCE_MS!r} ms."
+                ),
+            )
+        )
+
+    if mismatches:
         raise ContractError(
             "invalid_video",
             "The video stream metadata does not match the manifest.",
             status_code=422,
+            details=mismatches,
         )
     return byte_length, digest_hex
 

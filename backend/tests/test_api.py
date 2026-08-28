@@ -1,7 +1,9 @@
 import copy
 import hashlib
 import json
+import logging
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
@@ -9,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
+from dokodetector_backend.errors import APIErrorDetail, ContractError, _log_rejection
 from dokodetector_backend.repository import EvidenceRepository, upgrade_database
 from dokodetector_backend.storage import EvidenceStorage
 
@@ -157,6 +160,49 @@ def test_get_unknown_package_returns_stable_not_found_error(backend) -> None:
             "details": [],
         }
     }
+
+
+def test_invalid_manifest_logs_upload_id_and_validation_details(backend, monkeypatch) -> None:
+    client, repository, storage = backend
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-incomplete")
+    payload.pop("client")
+    manifest_bytes = json.dumps(payload, separators=(",", ":")).encode()
+
+    response = client.put(
+        f"/v1/evidence-packages/{payload['package_id']}",
+        files=multipart_parts(manifest_bytes, frame_sources, video_source),
+        headers={"X-DokoDetector-Upload-ID": "upload-attempt-123"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"] == [{"field": "client", "message": "Field required"}]
+    assert repository.get_package(payload["package_id"]) is None
+    assert not storage.package_path(payload["package_id"]).exists()
+    rejection_logger = logging.getLogger("dokodetector_backend.errors")
+    messages: list[str] = []
+    monkeypatch.setattr(
+        rejection_logger,
+        "warning",
+        lambda template, *arguments: messages.append(template % arguments),
+    )
+    _log_rejection(
+        SimpleNamespace(
+            method="PUT",
+            url=SimpleNamespace(path=f"/v1/evidence-packages/{payload['package_id']}"),
+            path_params={"package_id": payload["package_id"]},
+            headers={"x-dokodetector-upload-id": "upload-attempt-123"},
+        ),
+        ContractError(
+            "invalid_manifest",
+            "The manifest failed validation.",
+            details=[APIErrorDetail(field="client", message="Field required")],
+        ),
+    )
+    rejection_log = messages[0]
+    assert "upload_id=upload-attempt-123" in rejection_log
+    assert "status_code=422" in rejection_log
+    assert "code=invalid_manifest" in rejection_log
+    assert "client: Field required" in rejection_log
 
 
 def test_identical_replay_returns_original_receipt_without_duplicate_files(backend) -> None:

@@ -105,6 +105,36 @@ final class EvidenceUploadQueueTests: XCTestCase {
         )
     }
 
+    func testValidationFailureIncludesServerDetailsInStoredFailure() async throws {
+        let package = try makePackage(packageID: makePackageID(4))
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = EvidencePackageStore(root: root)
+        _ = try store.persist(package)
+        M2URLProtocol.handler = { _, _ in
+            (
+                422,
+                Data(
+                    "{\"error\":{\"code\":\"invalid_manifest\",\"message\":\"The manifest failed validation.\",\"details\":[{\"field\":\"client\",\"message\":\"Field required\"}]}}".utf8
+                )
+            )
+        }
+        defer { M2URLProtocol.handler = nil }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [M2URLProtocol.self]
+        let client = try EvidenceUploadClient(session: URLSession(configuration: configuration))
+        let queue = EvidenceUploadQueue(store: store, client: client)
+        let backend = try BackendConfiguration(baseURL: URL(string: "http://backend.local:8000")!)
+
+        let attempts = await queue.uploadQueued(using: backend)
+
+        XCTAssertEqual(attempts.map(\.disposition), [.permanentFailure])
+        let failure = try XCTUnwrap(store.failure(for: package.manifest.packageID))
+        XCTAssertTrue(failure.message.contains("invalid_manifest"))
+        XCTAssertTrue(failure.message.contains("client: Field required"))
+    }
+
     func testTemporaryFailureCanBeRetried() async throws {
         let package = try makePackage(packageID: makePackageID(3))
         let root = temporaryDirectory()

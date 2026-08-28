@@ -151,6 +151,7 @@ final class EvidenceMultipartUploadTests: XCTestCase {
         RecordingURLProtocol.lastBody = nil
         RecordingURLProtocol.handler = { request, body in
             XCTAssertEqual(request.httpMethod, "PUT")
+            XCTAssertNotNil(request.value(forHTTPHeaderField: "X-DokoDetector-Upload-ID"))
             XCTAssertEqual(
                 request.url?.path,
                 "/v1/evidence-packages/550e8400-e29b-41d4-a716-446655440010"

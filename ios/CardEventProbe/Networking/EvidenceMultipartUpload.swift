@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import os
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -423,7 +424,10 @@ public enum EvidenceUploadError: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case let .nonSuccessResponse(status, _):
+        case let .nonSuccessResponse(status, data):
+            if let summary = Self.serverErrorSummary(data) {
+                return "The evidence upload failed with HTTP status \(status): \(summary)"
+            }
             return "The evidence upload failed with HTTP status \(status)."
         case let .packageIDMismatch(expected, received):
             return "The evidence upload acknowledged package \(received), expected \(expected)."
@@ -447,10 +451,46 @@ public enum EvidenceUploadError: LocalizedError, Equatable, Sendable {
         guard case let .nonSuccessResponse(status, _) = self else { return nil }
         return status
     }
+
+    private struct ServerErrorResponse: Decodable {
+        let error: ServerError
+    }
+
+    private struct ServerError: Decodable {
+        let code: String?
+        let message: String?
+        let details: [ServerErrorDetail]?
+    }
+
+    private struct ServerErrorDetail: Decodable {
+        let field: String
+        let message: String
+    }
+
+    private static func serverErrorSummary(_ data: Data) -> String? {
+        guard let response = try? JSONDecoder().decode(ServerErrorResponse.self, from: data) else {
+            return nil
+        }
+        let codeAndMessage = [response.error.code, response.error.message]
+            .compactMap { $0 }
+            .joined(separator: ": ")
+        guard !codeAndMessage.isEmpty else { return nil }
+        let details = response.error.details ?? []
+        guard !details.isEmpty else { return codeAndMessage }
+        let detailText = details.map { "\($0.field): \($0.message)" }.joined(separator: "; ")
+        return "\(codeAndMessage) [\(detailText)]"
+    }
 }
 
 /// Sends one prepared package with a foreground URLSession upload task.
 public final class EvidenceUploadClient: @unchecked Sendable {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.dokodetector.CardEventProbe",
+        category: "EvidenceUpload"
+    )
+    private static let uploadIDHeader = "X-DokoDetector-Upload-ID"
+    private static let maxLoggedResponseCharacters = 4096
+
     private let session: URLSession
     private let builder: EvidenceMultipartRequestBuilder
 
@@ -500,17 +540,11 @@ public final class EvidenceUploadClient: @unchecked Sendable {
     ) async throws -> EvidenceUploadResponse {
         let prepared = try prepare(package: package, baseURL: baseURL)
         defer { prepared.removeBodyFile() }
-        let (data, response) = try await session.upload(
-            for: prepared.request,
-            fromFile: prepared.bodyFileURL
+        return try await performUpload(
+            prepared: prepared,
+            expectedPackageID: package.manifest.packageID,
+            source: "in-memory-package"
         )
-        guard let response = response as? HTTPURLResponse else {
-            throw EvidenceUploadError.invalidResponse
-        }
-        guard response.statusCode == 200 || response.statusCode == 201 else {
-            throw EvidenceUploadError.nonSuccessResponse(response.statusCode, data)
-        }
-        return try Self.decodeResponse(data, expectedPackageID: package.manifest.packageID)
     }
 
     public func upload(
@@ -519,57 +553,111 @@ public final class EvidenceUploadClient: @unchecked Sendable {
     ) async throws -> EvidenceUploadResponse {
         let prepared = try prepare(package: package, configuration: configuration)
         defer { prepared.removeBodyFile() }
-        let (data, response) = try await session.upload(
-            for: prepared.request,
-            fromFile: prepared.bodyFileURL
+        return try await performUpload(
+            prepared: prepared,
+            expectedPackageID: package.manifest.packageID,
+            source: "in-memory-package"
         )
-        guard let response = response as? HTTPURLResponse else {
-            throw EvidenceUploadError.invalidResponse
-        }
-        guard response.statusCode == 200 || response.statusCode == 201 else {
-            throw EvidenceUploadError.nonSuccessResponse(response.statusCode, data)
-        }
-        return try Self.decodeResponse(data, expectedPackageID: package.manifest.packageID)
     }
 
     public func upload(
         packageAt packageURL: URL,
         to baseURL: URL
     ) async throws -> EvidenceUploadResponse {
+        let packageID = try Self.packageID(from: packageURL)
         let prepared = try prepare(packageAt: packageURL, baseURL: baseURL)
         defer { prepared.removeBodyFile() }
-        let (data, response) = try await session.upload(
-            for: prepared.request,
-            fromFile: prepared.bodyFileURL
+        return try await performUpload(
+            prepared: prepared,
+            expectedPackageID: packageID,
+            source: "stored-package"
         )
-        guard let response = response as? HTTPURLResponse else {
-            throw EvidenceUploadError.invalidResponse
-        }
-        guard response.statusCode == 200 || response.statusCode == 201 else {
-            throw EvidenceUploadError.nonSuccessResponse(response.statusCode, data)
-        }
-        let packageID = try Self.packageID(from: packageURL)
-        return try Self.decodeResponse(data, expectedPackageID: packageID)
     }
 
     public func upload(
         packageAt packageURL: URL,
         using configuration: BackendConfiguration
     ) async throws -> EvidenceUploadResponse {
+        let packageID = try Self.packageID(from: packageURL)
         let prepared = try prepare(packageAt: packageURL, configuration: configuration)
         defer { prepared.removeBodyFile() }
-        let (data, response) = try await session.upload(
-            for: prepared.request,
-            fromFile: prepared.bodyFileURL
+        return try await performUpload(
+            prepared: prepared,
+            expectedPackageID: packageID,
+            source: "stored-package"
         )
+    }
+
+    private func performUpload(
+        prepared: PreparedEvidenceUpload,
+        expectedPackageID: UUID,
+        source: String
+    ) async throws -> EvidenceUploadResponse {
+        let uploadID = UUID().uuidString.lowercased()
+        var request = prepared.request
+        request.setValue(uploadID, forHTTPHeaderField: Self.uploadIDHeader)
+        Self.logger.info(
+            "evidence_upload_started upload_id=\(uploadID, privacy: .public) package_id=\(expectedPackageID.uuidString.lowercased(), privacy: .public)"
+        )
+        Self.logger.info(
+            "evidence_upload_request source=\(source, privacy: .public) url=\(request.url?.absoluteString ?? "-", privacy: .public) content_length=\(prepared.contentLength, privacy: .public)"
+        )
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.upload(
+                for: request,
+                fromFile: prepared.bodyFileURL
+            )
+        } catch {
+            Self.logger.error(
+                "evidence_upload_transport_failed upload_id=\(uploadID, privacy: .public) package_id=\(expectedPackageID.uuidString.lowercased(), privacy: .public)"
+            )
+            Self.logger.error(
+                "evidence_upload_transport_error upload_id=\(uploadID, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
+
         guard let response = response as? HTTPURLResponse else {
+            Self.logger.error(
+                "evidence_upload_invalid_response upload_id=\(uploadID, privacy: .public) package_id=\(expectedPackageID.uuidString.lowercased(), privacy: .public)"
+            )
+            Self.logger.error(
+                "evidence_upload_response_type upload_id=\(uploadID, privacy: .public) response_type=\(String(describing: type(of: response)), privacy: .public)"
+            )
             throw EvidenceUploadError.invalidResponse
         }
         guard response.statusCode == 200 || response.statusCode == 201 else {
+            let responseBody = Self.responseBodyForLogging(data)
+            Self.logger.error(
+                "evidence_upload_rejected upload_id=\(uploadID, privacy: .public) package_id=\(expectedPackageID.uuidString.lowercased(), privacy: .public) status_code=\(response.statusCode, privacy: .public)"
+            )
+            Self.logger.error(
+                "evidence_upload_response_body upload_id=\(uploadID, privacy: .public) response_body=\(responseBody, privacy: .public)"
+            )
             throw EvidenceUploadError.nonSuccessResponse(response.statusCode, data)
         }
-        let packageID = try Self.packageID(from: packageURL)
-        return try Self.decodeResponse(data, expectedPackageID: packageID)
+
+        do {
+            let decoded = try Self.decodeResponse(data, expectedPackageID: expectedPackageID)
+            Self.logger.info(
+                "evidence_upload_acknowledged upload_id=\(uploadID, privacy: .public) package_id=\(expectedPackageID.uuidString.lowercased(), privacy: .public) status_code=\(response.statusCode, privacy: .public)"
+            )
+            Self.logger.info(
+                "evidence_upload_result upload_id=\(uploadID, privacy: .public) created=\(decoded.created, privacy: .public)"
+            )
+            return decoded
+        } catch {
+            Self.logger.error(
+                "evidence_upload_invalid_success_body upload_id=\(uploadID, privacy: .public) package_id=\(expectedPackageID.uuidString.lowercased(), privacy: .public) status_code=\(response.statusCode, privacy: .public)"
+            )
+            Self.logger.error(
+                "evidence_upload_success_body_error upload_id=\(uploadID, privacy: .public) response_body=\(Self.responseBodyForLogging(data), privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
     }
 
     public static func failureKind(for error: Error) -> EvidencePackageFailureKind {
@@ -621,6 +709,19 @@ public final class EvidenceUploadClient: @unchecked Sendable {
             )
         }
         return response
+    }
+
+    private static func responseBodyForLogging(_ data: Data) -> String {
+        guard !data.isEmpty else { return "<empty>" }
+        let text = String(data: data, encoding: .utf8)
+            ?? "<non-UTF8 response (\(data.count) bytes)>"
+        let singleLine = text
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        if singleLine.count <= maxLoggedResponseCharacters {
+            return singleLine
+        }
+        return String(singleLine.prefix(maxLoggedResponseCharacters)) + "…<truncated>"
     }
 
     private static let decoder: JSONDecoder = {

@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public enum EvidenceUploadDisposition: String, Codable, Sendable {
     case acknowledged
@@ -27,6 +28,11 @@ public struct EvidenceUploadAttempt: Equatable, Sendable {
 
 /// Owns package state transitions for foreground uploads.
 public actor EvidenceUploadQueue {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.dokodetector.CardEventProbe",
+        category: "EvidenceUploadQueue"
+    )
+
     private let store: EvidencePackageStore
     private let client: EvidenceUploadClient
     private var isRunning = false
@@ -48,6 +54,7 @@ public actor EvidenceUploadQueue {
 
         _ = try? store.recover()
         guard let packageURLs = try? store.packageURLs(in: .queued) else { return [] }
+        Self.logger.info("evidence_upload_queue_started mode=queued package_count=\(packageURLs.count, privacy: .public)")
         return await upload(packageURLs, using: configuration)
     }
 
@@ -68,6 +75,7 @@ public actor EvidenceUploadQueue {
         }
 
         guard let packageURLs = try? store.packageURLs(in: .queued) else { return [] }
+        Self.logger.info("evidence_upload_queue_started mode=retry package_count=\(packageURLs.count, privacy: .public)")
         return await upload(packageURLs, using: configuration)
     }
 
@@ -80,6 +88,9 @@ public actor EvidenceUploadQueue {
 
         for packageURL in packageURLs {
             guard let packageID = UUID(uuidString: packageURL.lastPathComponent) else { continue }
+            Self.logger.info(
+                "evidence_upload_package_started package_id=\(packageID.uuidString.lowercased(), privacy: .public)"
+            )
             do {
                 let response = try await client.upload(
                     packageAt: packageURL,
@@ -101,6 +112,9 @@ public actor EvidenceUploadQueue {
             } catch {
                 let uploadError = error
                 let kind = EvidenceUploadClient.failureKind(for: uploadError)
+                Self.logger.error(
+                    "evidence_upload_package_failed package_id=\(packageID.uuidString.lowercased(), privacy: .public) failure_kind=\(kind.rawValue, privacy: .public) status_code=\(EvidenceUploadClient.statusCode(for: uploadError) ?? 0, privacy: .public) error=\(uploadError.localizedDescription, privacy: .public)"
+                )
                 let failure = EvidencePackageFailure(
                     kind: kind,
                     statusCode: EvidenceUploadClient.statusCode(for: uploadError),
