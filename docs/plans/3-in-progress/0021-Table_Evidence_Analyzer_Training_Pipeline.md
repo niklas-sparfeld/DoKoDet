@@ -367,6 +367,14 @@ Acceptance:
 - tests do not download weights or data;
 - training code does not scan annotation or raw-source directories.
 
+Progress (2026-08-28): M2 is complete. Added the offline `sample-artifact-index/v1` resolver,
+strict dataset and split validation, a three-sample generated PPM fixture with independent
+session, game, table-setup, and source-lineage groups, and a deterministic crop cache with full
+source-frame, annotation, review, box, transform, partition, and content-digest lineage. Added
+the materialized crop loader and regression tests for changed frame bytes, stale caches, and split
+leakage. Verification: `mise exec -- uv run pytest` (16 passed); no weights or data were
+downloaded.
+
 ### M3 — Minimal train and evaluate loop
 
 1. Add the first crop-classification adapter.
