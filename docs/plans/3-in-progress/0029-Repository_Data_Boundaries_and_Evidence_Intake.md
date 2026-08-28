@@ -128,6 +128,21 @@ reports conflicts. Do not retain a permanent dual-reader or a second writable ev
 3. Add the operator completion operation and atomic promotion into recording intake.
 4. Extend status and validation with pending, invalid, and ready-to-complete results.
 
+### M1 implementation evidence — 2026-08-28
+
+- Added `PUT /v1/pending-videos/{upload_id}`. The route streams one bounded video below
+  `data/incoming/videos`, probes H.264/MP4 facts with FFprobe, writes a strict receipt, and
+  publishes the upload directory by atomic rename.
+- Added idempotent pending-video retries and conflict protection. A failed probe, size check, or
+  interrupted write leaves no final pending directory.
+- Added `doko data complete-video`. It validates strict operator metadata and both task enrollments,
+  copies the source bytes into a private recording bundle, validates the bundle, and promotes it by
+  atomic rename. It removes the pending upload only after successful promotion.
+- Extended `doko data status` and `doko data validate` with pending-video receipt, byte-integrity,
+  invalid, and ready-to-complete results.
+- Verification passed: backend 100 tests, operations 34 tests, backend and operations Ruff check and
+  format checks, and JSON parsing for the new completion schema.
+
 ### M2 — Evidence-package intake
 
 1. Change accepted evidence-package storage from runtime-only storage to the repository bundle.

@@ -18,6 +18,7 @@ from .impact import (
     retire_source,
 )
 from .intake import inspect_repository
+from .pending_video import PendingVideoCompletionError, complete_pending_video
 from .review import (
     REVIEW_TASK_ALL,
     ReviewRunError,
@@ -52,6 +53,21 @@ def build_parser() -> argparse.ArgumentParser:
             action="store_true",
             help="Alias for --format json.",
         )
+    complete = data_commands.add_parser(
+        "complete-video",
+        help="Complete one pending video and publish a recording bundle.",
+        description="Complete one pending video and publish a recording bundle.",
+    )
+    _add_path_options(complete, suppress_defaults=True)
+    complete.add_argument("--upload-id", required=True)
+    complete.add_argument(
+        "--metadata",
+        type=Path,
+        required=True,
+        help="Strict pending-video-completion/v1 JSON metadata file.",
+    )
+    complete.add_argument("--format", choices=("human", "json"), default="human")
+    complete.add_argument("--json", action="store_true", help="Alias for --format json.")
     review = data_commands.add_parser(
         "review",
         help="Create or resume one task review run.",
@@ -164,6 +180,13 @@ def _add_path_options(parser: argparse.ArgumentParser, *, suppress_defaults: boo
         help="Override the repository intake root; useful for a fixture or temporary root.",
     )
     parser.add_argument(
+        "--pending-video-root",
+        dest="pending_video_root",
+        type=Path,
+        default=default,
+        help="Override the raw pending-video root.",
+    )
+    parser.add_argument(
         "--artifacts-root",
         dest="artifacts_root",
         type=Path,
@@ -191,6 +214,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
             if args.source_asset_id:
@@ -234,6 +258,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
             result = retire_source(
@@ -271,6 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
             registry_path = args.holdout_registry or (
@@ -301,11 +327,49 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"seal: {seal['seal_id']}\n"
             )
         return 0
+    if args.command == "data" and args.data_command == "complete-video":
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            result = complete_pending_video(
+                config.repository_root,
+                args.upload_id,
+                args.metadata,
+                pending_video_root=config.pending_root,
+                intake_root=config.intake_root,
+            )
+        except (ConfigurationError, OSError, PendingVideoCompletionError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(
+                json.dumps(
+                    result.to_mapping(config.repository_root),
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        else:
+            sys.stdout.write(
+                "Pending video completed\n"
+                f"upload: {result.upload_id}\n"
+                f"recording: {result.recording_id}\n"
+                f"bundle: {result.to_mapping(config.repository_root)['bundle_path']}\n"
+                f"source SHA-256: {result.source_sha256}\n"
+            )
+        return 0
     if args.command == "data" and args.data_command == "review":
         try:
             config = RepositoryConfig.from_environment(
                 args.repository_root,
                 intake_root=args.intake_root,
+                pending_video_root=args.pending_video_root,
                 artifacts_root=args.artifacts_root,
             )
             provider = _decision_provider(args.decision_file)
@@ -343,11 +407,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = RepositoryConfig.from_environment(
             args.repository_root,
             intake_root=args.intake_root,
+            pending_video_root=args.pending_video_root,
             artifacts_root=args.artifacts_root,
         )
         result = inspect_repository(
             config.repository_root,
             bundle_root=config.bundle_root,
+            pending_video_root=config.pending_root,
             artifacts_root=config.derived_artifact_root,
         )
     except (ConfigurationError, OSError) as error:

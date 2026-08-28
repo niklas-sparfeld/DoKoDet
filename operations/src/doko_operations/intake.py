@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping
 
+from .intake_contract import IntakeContractError, parse_pending_video
+
 TASKS = ("cardevent_event_detection", "table_evidence_analysis")
 SELECTED_LIFECYCLE_STATES = ("intake", "annotating", "review_required")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -70,6 +72,30 @@ class BundleInspection:
 
 
 @dataclass(frozen=True, slots=True)
+class PendingVideoInspection:
+    """Inspection result for one raw video waiting for operator metadata."""
+
+    path: str
+    upload_id: str | None
+    state: str
+    original_filename: str | None
+    byte_length: int | None
+    sha256: str | None
+    errors: tuple[str, ...]
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "upload_id": self.upload_id,
+            "state": self.state,
+            "original_filename": self.original_filename,
+            "byte_length": self.byte_length,
+            "sha256": self.sha256,
+            "errors": list(self.errors),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewWork:
     """Pending task work found from enrollment or a review-run state file."""
 
@@ -106,6 +132,7 @@ class InspectionResult:
     """All deterministic read-only observations for one repository root."""
 
     bundles: tuple[BundleInspection, ...]
+    pending_videos: tuple[PendingVideoInspection, ...]
     pending_review: tuple[ReviewWork, ...]
     failures: tuple[Failure, ...]
     unassigned_eligible_groups: tuple[str, ...]
@@ -122,6 +149,7 @@ class InspectionResult:
             "repository_root": ".",
             "bundle_root": _relative_path(bundle_root, repository_root),
             "bundles": [item.to_mapping() for item in self.bundles],
+            "pending_videos": [item.to_mapping() for item in self.pending_videos],
             "pending_review": [item.to_mapping() for item in self.pending_review],
             "failures": [item.to_mapping() for item in self.failures],
             "unassigned_eligible_groups": list(self.unassigned_eligible_groups),
@@ -166,6 +194,7 @@ def inspect_repository(
     repository_root: str | Path,
     *,
     bundle_root: str | Path | None = None,
+    pending_video_root: str | Path | None = None,
     artifacts_root: str | Path | None = None,
 ) -> InspectionResult:
     """Inspect bundles, pending work, permissions, splits, and stale artifacts.
@@ -187,6 +216,12 @@ def inspect_repository(
         else Path(artifacts_root or repo / "data/operations")
     )
     artifact_path = artifact_path.expanduser().resolve()
+    pending_root = (
+        repo / pending_video_root
+        if pending_video_root is not None and not Path(pending_video_root).is_absolute()
+        else Path(pending_video_root or repo / "data/incoming/videos")
+    )
+    pending_root = pending_root.expanduser().resolve()
     inspections: list[BundleInspection] = []
     for candidate in discover_bundle_paths(root):
         inspections.append(_inspect_bundle(candidate, repo))
@@ -194,6 +229,12 @@ def inspect_repository(
     failures = [
         Failure(item.path, "validation", message) for item in inspections for message in item.errors
     ]
+    pending_inspections = _inspect_pending_videos(pending_root, repo)
+    failures.extend(
+        Failure(item.path, "pending_video", message)
+        for item in pending_inspections
+        for message in item.errors
+    )
     for item in inspections:
         if item.state != "complete":
             continue
@@ -232,11 +273,100 @@ def inspect_repository(
             )
     return InspectionResult(
         bundles=tuple(inspections),
+        pending_videos=tuple(pending_inspections),
         pending_review=tuple(pending),
         failures=tuple(sorted(failures, key=lambda item: (item.path, item.kind, item.message))),
         unassigned_eligible_groups=tuple(unassigned),
         stale_derived_artifacts=tuple(stale),
         source_impacts=tuple(source_impacts),
+    )
+
+
+def _inspect_pending_videos(root: Path, repository_root: Path) -> list[PendingVideoInspection]:
+    if not root.exists():
+        return []
+    if not root.is_dir():
+        return [
+            PendingVideoInspection(
+                _relative_path(root, repository_root),
+                None,
+                "invalid",
+                None,
+                None,
+                None,
+                ("pending video root is not a directory",),
+            )
+        ]
+    result: list[PendingVideoInspection] = []
+    try:
+        entries = sorted(root.iterdir(), key=lambda item: item.name)
+    except OSError as error:
+        return [
+            PendingVideoInspection(
+                _relative_path(root, repository_root),
+                None,
+                "invalid",
+                None,
+                None,
+                None,
+                (str(error),),
+            )
+        ]
+    for entry in entries:
+        if entry.name.startswith("."):
+            continue
+        if not entry.is_dir():
+            result.append(
+                PendingVideoInspection(
+                    _relative_path(entry, repository_root),
+                    None,
+                    "invalid",
+                    None,
+                    None,
+                    None,
+                    ("pending video entry is not a directory",),
+                )
+            )
+            continue
+        result.append(_inspect_pending_video(entry, repository_root))
+    return result
+
+
+def _inspect_pending_video(path: Path, repository_root: Path) -> PendingVideoInspection:
+    errors: list[str] = []
+    receipt_path = path / "manifest.json"
+    pending = None
+    try:
+        pending = parse_pending_video(receipt_path.read_bytes())
+    except (OSError, IntakeContractError) as error:
+        errors.append(f"invalid pending receipt: {error}")
+    if pending is not None:
+        if pending.upload_id != path.name:
+            errors.append("pending receipt upload_id differs from directory")
+        video_path = path / pending.original_filename
+        if not video_path.is_file():
+            errors.append("pending video bytes are missing")
+        else:
+            try:
+                if video_path.stat().st_size != pending.byte_length:
+                    errors.append("pending video byte_length differs from receipt")
+                if _sha256_file(video_path) != pending.sha256:
+                    errors.append("pending video digest differs from receipt")
+            except OSError as error:
+                errors.append(f"pending video could not be read: {error}")
+        expected = {"manifest.json", pending.original_filename}
+        actual = {item.name for item in path.iterdir() if item.is_file()}
+        if actual != expected:
+            errors.append("pending upload contains unexpected or missing files")
+    state = "invalid" if errors else "ready_to_complete"
+    return PendingVideoInspection(
+        _relative_path(path, repository_root),
+        pending.upload_id if pending is not None else None,
+        state,
+        pending.original_filename if pending is not None else None,
+        pending.byte_length if pending is not None else None,
+        pending.sha256 if pending is not None else None,
+        tuple(sorted(set(errors))),
     )
 
 
@@ -1146,6 +1276,7 @@ __all__ = [
     "Failure",
     "InspectionResult",
     "IntakeInspectionError",
+    "PendingVideoInspection",
     "ReviewWork",
     "TaskState",
     "discover_bundle_paths",

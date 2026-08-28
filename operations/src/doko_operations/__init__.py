@@ -36,6 +36,7 @@ from .intake import (
     BundleInspection,
     Failure,
     InspectionResult,
+    PendingVideoInspection,
     ReviewWork,
     TaskState,
     discover_bundle_paths,
@@ -54,6 +55,11 @@ from .intake_contract import (
     parse_evidence_package_lineage,
     parse_evidence_package_record,
     parse_pending_video,
+)
+from .pending_video import (
+    PendingVideoCompletion,
+    PendingVideoCompletionError,
+    complete_pending_video,
 )
 from .review import (
     GenericReviewAdapter,
@@ -107,6 +113,10 @@ __all__ = [
     "SystemHoldoutError",
     "SourceImpactError",
     "InspectionResult",
+    "PendingVideoInspection",
+    "PendingVideoCompletion",
+    "PendingVideoCompletionError",
+    "complete_pending_video",
     "RepositoryConfig",
     "ReviewWork",
     "TaskState",

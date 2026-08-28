@@ -64,6 +64,9 @@ def test_factory_resolves_default_storage_from_repository_root(
     assert app.state.repository_bundle_storage.root == (
         BACKEND_ROOT.parent / "data" / "intake" / "recordings"
     )
+    assert app.state.pending_video_storage.root == (
+        BACKEND_ROOT.parent / "data" / "incoming" / "videos"
+    )
     assert not (BACKEND_ROOT / "backend" / "data" / "intake").exists()
 
 

@@ -41,6 +41,7 @@ class RepositoryConfig:
 
     repository_root: Path
     intake_root: Path | None = None
+    pending_video_root: Path | None = None
     artifacts_root: Path | None = None
 
     def __post_init__(self) -> None:
@@ -48,7 +49,7 @@ class RepositoryConfig:
         if not root.is_dir():
             raise ConfigurationError(f"Repository root is not a directory: {root}")
         object.__setattr__(self, "repository_root", root)
-        for name in ("intake_root", "artifacts_root"):
+        for name in ("intake_root", "pending_video_root", "artifacts_root"):
             value = getattr(self, name)
             if value is None:
                 continue
@@ -63,13 +64,19 @@ class RepositoryConfig:
         repository_root: str | Path | None = None,
         *,
         intake_root: str | Path | None = None,
+        pending_video_root: str | Path | None = None,
         artifacts_root: str | Path | None = None,
     ) -> "RepositoryConfig":
         """Build configuration from arguments, then ``DOKO_REPOSITORY_ROOT``."""
 
         root_value = repository_root or os.environ.get("DOKO_REPOSITORY_ROOT")
         root = discover_repository_root() if root_value is None else Path(root_value)
-        return cls(root, intake_root=intake_root, artifacts_root=artifacts_root)
+        return cls(
+            root,
+            intake_root=intake_root,
+            pending_video_root=pending_video_root,
+            artifacts_root=artifacts_root,
+        )
 
     @property
     def bundle_root(self) -> Path:
@@ -95,6 +102,12 @@ class RepositoryConfig:
         """Return the explicit operations artifact area, if it exists or is configured."""
 
         return self.artifacts_root or (self.repository_root / "data" / "operations")
+
+    @property
+    def pending_root(self) -> Path:
+        """Return the raw-video area that waits for operator completion."""
+
+        return self.pending_video_root or (self.repository_root / "data" / "incoming" / "videos")
 
 
 __all__ = ["ConfigurationError", "RepositoryConfig", "discover_repository_root"]

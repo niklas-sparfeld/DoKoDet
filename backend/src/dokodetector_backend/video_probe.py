@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from fractions import Fraction
+from pathlib import Path
 from typing import Any
 
 
@@ -42,6 +43,19 @@ def probe_video_bytes(source: bytes, *, timeout_seconds: float = 5.0) -> VideoPr
     if not isinstance(source, bytes):
         raise TypeError("Video sources must be bytes.")
 
+    return _probe_video("pipe:0", source, timeout_seconds=timeout_seconds)
+
+
+def probe_video_path(path: str | Path, *, timeout_seconds: float = 5.0) -> VideoProbe:
+    """Probe and count decoded frames from a local file without loading it into memory."""
+
+    video_path = Path(path)
+    if not video_path.is_file():
+        raise VideoProbeError("The video file does not exist.")
+    return _probe_video(str(video_path), None, timeout_seconds=timeout_seconds)
+
+
+def _probe_video(input_path: str, source: bytes | None, *, timeout_seconds: float) -> VideoProbe:
     ffprobe = shutil.which("ffprobe")
     if ffprobe is None:
         raise VideoProbeUnavailable("The local video probe tool is not installed.")
@@ -60,7 +74,7 @@ def probe_video_bytes(source: bytes, *, timeout_seconds: float = 5.0) -> VideoPr
                 "-show_streams",
                 "-count_frames",
                 "-i",
-                "pipe:0",
+                input_path,
             ],
             input=source,
             capture_output=True,
@@ -171,4 +185,5 @@ __all__ = [
     "VideoProbeError",
     "VideoProbeUnavailable",
     "probe_video_bytes",
+    "probe_video_path",
 ]

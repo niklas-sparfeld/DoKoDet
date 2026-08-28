@@ -44,6 +44,7 @@ from doko_operations.table_evidence import (
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXTURE_ROOT = REPOSITORY_ROOT / "fixtures" / "repository-bundle" / "v1"
+PENDING_FIXTURE_ROOT = REPOSITORY_ROOT / "fixtures" / "repository-intake" / "v1" / "pending-video"
 
 
 def _table_review_input(bundle: Path) -> ReviewInput:
@@ -84,6 +85,57 @@ def test_status_reports_independent_task_enrollment_and_pending_work() -> None:
         ("source-table-evidence-only", "table_evidence_analysis"),
     }
     assert {(item.source_asset_id, item.task) for item in result.pending_review} == selected
+
+
+def test_status_reports_ready_and_invalid_pending_videos(tmp_path: Path) -> None:
+    pending_root = tmp_path / "incoming" / "videos"
+    shutil.copytree(PENDING_FIXTURE_ROOT, pending_root / "upload-pending-001")
+    shutil.copytree(PENDING_FIXTURE_ROOT, pending_root / "upload-pending-002")
+    (pending_root / "upload-pending-002" / "manifest.json").write_text(
+        (pending_root / "upload-pending-002" / "manifest.json")
+        .read_text()
+        .replace("upload-pending-001", "upload-pending-002")
+    )
+    (pending_root / "upload-pending-002" / "video-pending.mov").write_bytes(b"changed")
+
+    result = inspect_repository(
+        REPOSITORY_ROOT,
+        bundle_root=FIXTURE_ROOT,
+        pending_video_root=pending_root,
+    )
+
+    assert {item.state for item in result.pending_videos} == {"invalid", "ready_to_complete"}
+    assert not result.valid
+    assert any("digest differs" in failure.message for failure in result.failures)
+
+
+def test_complete_video_command_publishes_a_recording_bundle(tmp_path: Path, capsys) -> None:
+    from test_pending_video import _metadata, _write_pending
+
+    _write_pending(tmp_path / "data" / "incoming" / "videos")
+    metadata = tmp_path / "completion.json"
+    metadata.write_text(json.dumps(_metadata()))
+
+    assert (
+        main(
+            [
+                "data",
+                "complete-video",
+                "--repository-root",
+                str(tmp_path),
+                "--upload-id",
+                "upload-001",
+                "--metadata",
+                str(metadata),
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["recording_id"] == "recording-upload-001"
+    assert (tmp_path / "data" / "intake" / "recordings" / "recording-upload-001").is_dir()
 
 
 def test_incomplete_bundle_is_reported_without_writing_the_bundle(tmp_path: Path) -> None:

@@ -12,6 +12,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
+from dokodetector_backend.pending_video_api import router as pending_video_router
+from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
 from dokodetector_backend.repository import (
     EvidenceRepository,
@@ -39,10 +41,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.repository_bundle_storage = RepositoryBundleStorage(
         app_settings.repository_intake_root
     )
+    app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)
     register_error_handlers(app)
     app.include_router(router)
     app.include_router(repository_bundle_router)
+    app.include_router(pending_video_router)
 
     @app.get("/health/live")
     def liveness() -> dict[str, str]:
@@ -59,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 connection.execute(text("SELECT 1"))
             _check_evidence_directory(app.state.storage.evidence_root)
             _check_evidence_directory(app.state.repository_bundle_storage.root)
+            _check_evidence_directory(app.state.pending_video_storage.root)
         except (OSError, SQLAlchemyError):
             return JSONResponse(status_code=503, content={"status": "not_ready"})
 

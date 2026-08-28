@@ -37,12 +37,16 @@ def render_human(result: InspectionResult, *, repository_root: Path, bundle_root
     complete = sum(item.state == "complete" for item in result.bundles)
     incomplete = sum(item.state == "incomplete" for item in result.bundles)
     invalid = sum(item.state == "invalid" for item in result.bundles)
+    pending = sum(item.state == "ready_to_complete" for item in result.pending_videos)
+    pending_invalid = sum(item.state == "invalid" for item in result.pending_videos)
     lines = [
         "DokoDetector data status",
         f"repository root: {repository_root}",
         f"bundle root: {_relative(bundle_root, repository_root)}",
         f"bundles: {len(result.bundles)} "
         f"({complete} complete, {incomplete} incomplete, {invalid} invalid)",
+        f"pending videos: {len(result.pending_videos)} "
+        f"({pending} pending, {pending} ready-to-complete, {pending_invalid} invalid)",
         f"pending review: {len(result.pending_review)}",
         f"failures: {len(result.failures)}",
         f"unassigned eligible groups: {len(result.unassigned_eligible_groups)}",
@@ -56,6 +60,13 @@ def render_human(result: InspectionResult, *, repository_root: Path, bundle_root
             lines.append(f"  - {bundle.path}: {bundle.state} ({identity})")
             for task in bundle.tasks:
                 lines.append(f"    {task.task}: {task.disposition}/{task.lifecycle_state}")
+    if result.pending_videos:
+        lines.append("pending video details:")
+        for item in result.pending_videos:
+            identity = item.upload_id or "unknown-upload"
+            lines.append(f"  - {item.path}: {item.state} ({identity})")
+            for error in item.errors:
+                lines.append(f"    {error}")
     if result.pending_review:
         lines.append("pending work:")
         for item in result.pending_review:
