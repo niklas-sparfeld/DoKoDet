@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from .export import CapabilityBundle, load_bundle
+from .visible_card_observation import adapt_visible_card_result, write_observation
 from .visible_cards import (
     DEFAULT_MODEL,
     CachedVisibleCardProvider,
@@ -39,6 +41,8 @@ class VisibleCardBatchConfig:
     target_offset_ms: int = 0
     fake_prediction: Path | None = None
     overlay_dir: Path | None = None
+    identity_bundle: Path | None = None
+    observation_dir: Path | None = None
     resume: bool = False
 
     def __post_init__(self) -> None:
@@ -140,9 +144,15 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
     extraction_manifest = _load_extraction_manifest(config.evidence_root)
     extraction_manifest_path = config.evidence_root / "extraction-manifest.json"
     provider = CachedVisibleCardProvider(_provider(config), config.cache_dir)
+    identity_bundle: CapabilityBundle | None = (
+        load_bundle(config.identity_bundle) if config.identity_bundle else None
+    )
+    observation_dir = config.observation_dir or config.output_dir / "observations"
     config.output_dir.mkdir(parents=True, exist_ok=True)
     if config.overlay_dir:
         config.overlay_dir.mkdir(parents=True, exist_ok=True)
+    if identity_bundle:
+        observation_dir.mkdir(parents=True, exist_ok=True)
     results: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
     skipped_count = 0
@@ -225,16 +235,53 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
             total_output_tokens += result.usage.output_tokens
             total_cost += result.estimated_cost_usd
             total_retries += result.retry_count
-            results.append(
-                {
-                    "package_id": package_id,
-                    "frame_part_name": frame_part_name,
-                    "target_offset_ms": config.target_offset_ms,
-                    "request_key": request.request_key,
-                    "status": result.status,
-                    "result": str(result_path),
-                }
-            )
+            result_row = {
+                "package_id": package_id,
+                "frame_part_name": frame_part_name,
+                "target_offset_ms": config.target_offset_ms,
+                "request_key": request.request_key,
+                "status": result.status,
+                "result": str(result_path),
+            }
+            if identity_bundle:
+                package_manifest = json.loads(
+                    (package_root / "manifest.json").read_text(encoding="utf-8")
+                )
+                session = package_manifest.get("session")
+                event = package_manifest.get("event")
+                if not isinstance(session, dict) or not isinstance(event, dict):
+                    raise VisibleCardError(
+                        f"evidence package lacks session or event metadata: {package_root}"
+                    )
+                session_id = session.get("session_id")
+                event_sequence = session.get("event_sequence")
+                event_time_ms = event.get("event_time_ms")
+                if (
+                    not isinstance(session_id, str)
+                    or not session_id
+                    or isinstance(event_sequence, bool)
+                    or not isinstance(event_sequence, int)
+                    or event_sequence < 1
+                    or isinstance(event_time_ms, bool)
+                    or not isinstance(event_time_ms, int)
+                    or event_time_ms < 0
+                ):
+                    raise VisibleCardError(
+                        f"evidence package has invalid session or event metadata: {package_root}"
+                    )
+                observation_path = observation_dir / f"{package_id}-{frame_part_name}.json"
+                observation = adapt_visible_card_result(
+                    request,
+                    result,
+                    identity_bundle,
+                    observed_at_ms=event_time_ms,
+                    session_id=session_id,
+                    event_sequence=event_sequence,
+                    actual_offset_ms=frame.get("actual_offset_ms", config.target_offset_ms),
+                )
+                write_observation(observation, observation_path)
+                result_row["observation"] = str(observation_path)
+            results.append(result_row)
         except (OSError, ValueError, VisibleCardError, json.JSONDecodeError) as error:
             failures.append({"package_id": package_id, "error": str(error)})
         _atomic_write_json(
@@ -263,6 +310,10 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
         "output_tokens": total_output_tokens,
         "estimated_cost_usd": round(total_cost, 10),
         "retry_count": total_retries,
+        "identity_bundle": (
+            str(config.identity_bundle) if config.identity_bundle is not None else None
+        ),
+        "observation_count": sum("observation" in result for result in results),
         "results": sorted(results, key=lambda result: result["package_id"]),
         "failures": sorted(failures, key=lambda failure: failure["package_id"]),
     }

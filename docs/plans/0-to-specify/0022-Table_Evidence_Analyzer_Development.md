@@ -606,3 +606,37 @@ Acceptance:
 - Verification: TableEvidenceAnalyzer 32 tests and Ruff checks pass. CardEventNet focused
   extraction and CLI tests pass; the package-wide Ruff check still reports one pre-existing line
   length issue in `cardevent/vision_annotation.py`.
+
+### M3 — Visible-card identity observation adapter
+
+1. Decode each exact-event source frame and derive a deterministic pixel crop from each normalized
+   visible-card polygon.
+2. Classify each crop with an exported plan 0021 identity bundle. Preserve its declared calibration
+   state and ranked canonical card candidates.
+3. Emit one validated `table-observation/v1` record with identity-only capability. Keep provider
+   polygons and usage data in the detector artifacts and record adapter provenance in observation
+   diagnostics.
+4. Keep unavailable provider results and unusable crops distinct from an observed empty card list.
+5. Add an optional identity-bundle path to the resumable visible-card batch command and write one
+   observation artifact beside each provider result.
+
+Acceptance:
+
+- one deterministic fake-provider frame produces a schema-valid `table-observation/v1` artifact;
+- polygon crops use decoded source dimensions and fail safely when a crop is not usable;
+- identity candidate cards are canonical, ranked, and normalized by the exported bundle;
+- bundle calibration is copied without claiming measured calibration;
+- provider-unavailable, no-card, and unusable-crop outcomes remain distinct;
+- the single-frame and batch CLI paths write canonical observations atomically;
+- the adapter, batch path, and existing package tests pass locally without cloud calls.
+
+#### M3 implementation evidence — 2026-08-29
+
+- Added `visible-card-observation/v1` with JPEG/PPM polygon-bound crop extraction, exported-bundle
+  identity classification, deterministic observed-card IDs, provider and crop diagnostics, and
+  schema-valid canonical observations.
+- Added `visible-card-observe` for one frame and optional `--identity-bundle` and
+  `--observation-dir` support to `visible-card-batch`.
+- Added atomic observation writes and local fake-provider coverage for successful, unavailable,
+  empty, and unusable-crop paths. The adapter remains identity-only and uncalibrated until held-out
+  evidence measures calibration.

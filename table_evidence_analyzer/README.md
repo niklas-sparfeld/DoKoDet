@@ -55,6 +55,7 @@ table-analyzer identity-evaluate --help
 table-analyzer visible-cards --help
 table-analyzer visible-card-evaluate --help
 table-analyzer visible-card-batch --help
+table-analyzer visible-card-observe --help
 table-analyzer visible-card-queue --help
 table-analyzer review-visible-card --help
 ```
@@ -130,3 +131,21 @@ table-analyzer visible-card-batch \
   --cache-dir data/cache/visible-cards \
   --provider fake
 ```
+
+Join visible-card proposals to the exported identity capability and write canonical
+`table-observation/v1` artifacts. The bundle must declare `identity_candidates`; its calibration
+state is copied to each observation. The adapter uses an axis-aligned bounding crop of each
+provider polygon and records crop and provider provenance in diagnostics. It does not add presence,
+tracking, or game-state claims:
+
+```bash
+table-analyzer visible-card-batch \
+  --evidence-root ../card_event_net/data/outputs/annotation-evidence-0ms-v1 \
+  --output-dir data/outputs/visible-card-batch/observations \
+  --cache-dir data/cache/visible-cards \
+  --identity-bundle data/outputs/identity-bundle \
+  --provider fake
+```
+
+For one frame, use `visible-card-observe`. Use `--provider gemini` only when the runtime
+environment contains `GEMINI_API_KEY` and the request cost is approved.

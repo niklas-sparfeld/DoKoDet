@@ -37,7 +37,12 @@ class CapabilityBundle:
     centroids: dict[str, list[float]]
 
     def classify(self, image: str | Path) -> list[IdentityCandidate]:
-        point = _feature(Path(image).read_bytes())
+        return self.classify_bytes(Path(image).read_bytes())
+
+    def classify_bytes(self, image_bytes: bytes) -> list[IdentityCandidate]:
+        """Classify one deterministic PPM crop without requiring a temporary file."""
+
+        point = _feature(image_bytes)
         distances = {
             label: sum((point[i] - centroid[i]) ** 2 for i in range(3))
             for label, centroid in self.centroids.items()
@@ -50,7 +55,7 @@ class CapabilityBundle:
         total = sum(weights.values())
         return [
             IdentityCandidate(card=label, probability=weight / total)
-            for label, weight in sorted(weights.items(), key=lambda pair: pair[1], reverse=True)
+            for label, weight in sorted(weights.items(), key=lambda pair: (-pair[1], pair[0]))
         ]
 
 

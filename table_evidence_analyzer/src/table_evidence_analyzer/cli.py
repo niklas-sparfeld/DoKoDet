@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import replace
@@ -137,7 +138,47 @@ def build_parser() -> argparse.ArgumentParser:
     visible_card_batch_parser.add_argument("--target-offset-ms", type=int, default=0)
     visible_card_batch_parser.add_argument("--fake-prediction", type=Path)
     visible_card_batch_parser.add_argument("--overlay-dir", type=Path)
+    visible_card_batch_parser.add_argument(
+        "--identity-bundle",
+        type=Path,
+        help="Classify each detected polygon with an exported identity bundle.",
+    )
+    visible_card_batch_parser.add_argument(
+        "--observation-dir",
+        type=Path,
+        help="Directory for table-observation/v1 artifacts.",
+    )
     visible_card_batch_parser.add_argument("--resume", action="store_true")
+
+    visible_card_observe_parser = commands.add_parser(
+        "visible-card-observe",
+        help="Detect visible cards, classify their crops, and write a table observation.",
+        description=(
+            "Run one visible-card provider request, classify each polygon crop with an exported "
+            "identity bundle, and write a validated table-observation/v1 artifact."
+        ),
+    )
+    visible_card_observe_parser.add_argument("--image", type=Path, required=True)
+    visible_card_observe_parser.add_argument("--package-id", required=True)
+    visible_card_observe_parser.add_argument("--bundle", type=Path, required=True)
+    visible_card_observe_parser.add_argument("--output", type=Path, required=True)
+    visible_card_observe_parser.add_argument("--event-time-ms", type=int, default=0)
+    visible_card_observe_parser.add_argument("--actual-offset-ms", type=int, default=0)
+    visible_card_observe_parser.add_argument("--session-id")
+    visible_card_observe_parser.add_argument("--event-sequence", type=int, default=1)
+    visible_card_observe_parser.add_argument("--width", type=int)
+    visible_card_observe_parser.add_argument("--height", type=int)
+    visible_card_observe_parser.add_argument("--frame-part-name", default="frame_00")
+    visible_card_observe_parser.add_argument(
+        "--cache-dir", type=Path, default=Path("data/cache/visible-cards")
+    )
+    visible_card_observe_parser.add_argument(
+        "--provider", choices=("fake", "gemini"), default="fake"
+    )
+    visible_card_observe_parser.add_argument("--fake-prediction", type=Path)
+    visible_card_observe_parser.add_argument("--model", default=DEFAULT_MODEL)
+    visible_card_observe_parser.add_argument("--timeout", type=float, default=120.0)
+    visible_card_observe_parser.add_argument("--max-retries", type=int, default=2)
 
     visible_cards_parser = commands.add_parser(
         "visible-cards",
@@ -291,6 +332,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     target_offset_ms=args.target_offset_ms,
                     fake_prediction=args.fake_prediction,
                     overlay_dir=args.overlay_dir,
+                    identity_bundle=args.identity_bundle,
+                    observation_dir=args.observation_dir,
                     resume=args.resume,
                 )
             )
@@ -300,6 +343,62 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"Processed {report['result_count']}/{report['package_count']} package(s); "
             f"{report['failure_count']} failure(s): {args.output_dir}"
         )
+        return 0
+    if args.command == "visible-card-observe":
+        from uuid import UUID
+
+        from PIL import Image
+
+        from .analyzer import AnalyzerEvidence, AnalyzerFrame
+        from .export import load_bundle
+        from .visible_card_observation import VisibleCardTableAnalyzer, write_observation
+
+        try:
+            with Image.open(args.image) as image:
+                width, height = image.size
+            width = args.width or width
+            height = args.height or height
+            image_bytes = args.image.read_bytes()
+            provider: object
+            if args.provider == "fake":
+                predictions = {}
+                if args.fake_prediction:
+                    prediction = json.loads(args.fake_prediction.read_text(encoding="utf-8"))
+                    if not isinstance(prediction, dict):
+                        raise VisibleCardError("fake prediction must be an object")
+                    predictions[hashlib.sha256(image_bytes).hexdigest()] = prediction
+                provider = FakeVisibleCardProvider(predictions)
+            else:
+                provider = GeminiVisibleCardProvider.from_environment(
+                    timeout_s=args.timeout,
+                    max_retries=args.max_retries,
+                )
+            analyzer = VisibleCardTableAnalyzer(
+                CachedVisibleCardProvider(provider, args.cache_dir),
+                load_bundle(args.bundle),
+                model=args.model,
+                session_id=args.session_id,
+                event_sequence=args.event_sequence,
+            )
+            observation = analyzer.analyze(
+                AnalyzerEvidence(
+                    package_id=UUID(args.package_id),
+                    event_time_ms=args.event_time_ms,
+                    frames=[
+                        AnalyzerFrame(
+                            part_name=args.frame_part_name,
+                            actual_offset_ms=args.actual_offset_ms,
+                            width=width,
+                            height=height,
+                            local_reference=str(args.image),
+                        )
+                    ],
+                )
+            )
+            write_observation(observation, args.output)
+        except (OSError, ValueError, VisibleCardError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote table observation: {args.output}")
         return 0
     if args.command == "visible-cards":
         try:
