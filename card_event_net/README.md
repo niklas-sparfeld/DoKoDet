@@ -122,6 +122,33 @@ For queue-based visual review, use `cardevent review`. See the
 [CardEventNet review workflow](../docs/CardEventNet_ReviewWorkflow.md) for the full validation
 and training process.
 
+## Extract evidence from reviewed annotations
+
+Create source-resolution evidence packages around reviewed `card_played` timestamps:
+
+```bash
+uv run cardevent extract-evidence \
+  --videos-dir data/raw \
+  --annotations-dir data/annotations \
+  --manifest data/dataset-manifest.v1.yaml \
+  --split data/splits/batch-2026-08-24.yaml \
+  --partition train val \
+  --out data/outputs/annotation-evidence-v1
+```
+
+The command extracts the six target offsets `[-800, -400, -100, 150, 400, 700] ms`. It includes
+card-play events whose confidence is absent or `confirmed`. It excludes uncertain, ignored,
+proposed, and non-card-play events.
+
+Each output package contains a `cardevent-evidence/v2` manifest and source-resolution JPEGs. The
+root `extraction-manifest.json` records source-video, annotation, event, session, split,
+configuration, and digest lineage. The example excludes the test partition. Annotation-derived
+packages are local derived artifacts. This command does not put them into repository intake or
+label their visual card identities.
+
+Use `--video-id IMG_0654 IMG_0655` to extract a subset. The command refuses to replace an existing
+output directory. Use a new versioned directory for another run.
+
 ## Review an accepted evidence package
 
 The backend stores each accepted evidence package as one immutable source bundle under

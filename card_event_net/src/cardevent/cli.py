@@ -16,6 +16,7 @@ from .evaluate import (
     evaluate_checkpoint_from_files,
     format_report,
 )
+from .evidence_extraction import EvidenceExtractionError, extract_annotation_evidence
 from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
@@ -211,6 +212,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inference or review JSON with model candidates to review.",
     )
     annotate_parser.set_defaults(command_name="annotate")
+
+    extract_evidence_parser = subparsers.add_parser(
+        "extract-evidence",
+        help=_PLACEHOLDER_COMMANDS["extract-evidence"],
+        description=(
+            "Create source-resolution evidence packages from reviewed card-play annotations."
+        ),
+    )
+    extract_evidence_parser.add_argument("--videos-dir", type=Path, required=True)
+    extract_evidence_parser.add_argument("--annotations-dir", type=Path, required=True)
+    extract_evidence_parser.add_argument("--manifest", type=Path, required=True)
+    extract_evidence_parser.add_argument("--out", type=Path, required=True)
+    extract_evidence_parser.add_argument(
+        "--split",
+        type=Path,
+        default=None,
+        help="Optional split used to exclude sealed partitions.",
+    )
+    extract_evidence_parser.add_argument(
+        "--partition",
+        nargs="+",
+        choices=("train", "val", "test", "unassigned"),
+        default=("train", "val"),
+        help="Partitions to extract when --split is present (default: train val).",
+    )
+    extract_evidence_parser.add_argument(
+        "--video-id",
+        nargs="+",
+        default=(),
+        help="Extract only these manifest video IDs (default: all records).",
+    )
+    extract_evidence_parser.add_argument(
+        "--jpeg-quality",
+        type=float,
+        default=0.85,
+        help="JPEG quality from 0 to 1 (default: 0.85).",
+    )
+    extract_evidence_parser.set_defaults(command_name="extract-evidence")
 
     prepare_parser = subparsers.add_parser(
         "prepare",
@@ -965,6 +1004,7 @@ def build_parser() -> argparse.ArgumentParser:
     for name, help_text in _PLACEHOLDER_COMMANDS.items():
         if name in {
             "annotate",
+            "extract-evidence",
             "prepare",
             "make-split",
             "train",
@@ -1064,6 +1104,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             annotate_video(args.video, annotations_dir=args.annotations_dir, proposals=proposals)
         except (AnnotationError, VideoError, RuntimeError) as exc:
             parser.exit(1, f"error: {exc}\n")
+        return 0
+
+    if command_name == "extract-evidence":
+        try:
+            result = extract_annotation_evidence(
+                videos_dir=args.videos_dir,
+                annotations_dir=args.annotations_dir,
+                dataset_manifest=args.manifest,
+                output_dir=args.out,
+                video_ids=args.video_id,
+                split_path=args.split,
+                partitions=args.partition,
+                jpeg_quality=args.jpeg_quality,
+            )
+        except (
+            AnnotationError,
+            EvidenceExtractionError,
+            ManifestError,
+            VideoError,
+            RuntimeError,
+            OSError,
+            ValueError,
+        ) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote {result.package_count} annotation evidence packages: {result.output_dir}")
+        print(
+            f"Excluded events: {result.excluded_event_count}; "
+            f"incomplete packages: {result.incomplete_package_count}"
+        )
         return 0
 
     if command_name == "prepare":

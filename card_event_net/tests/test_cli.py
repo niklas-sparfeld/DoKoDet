@@ -62,6 +62,39 @@ def test_annotate_command_parses_model_proposals() -> None:
     assert args.proposals == Path("predictions.json")
 
 
+def test_extract_evidence_command_parses_annotation_inputs() -> None:
+    args = build_parser().parse_args(
+        [
+            "extract-evidence",
+            "--videos-dir",
+            "data/raw",
+            "--annotations-dir",
+            "data/annotations",
+            "--manifest",
+            "data/dataset-manifest.v1.yaml",
+            "--out",
+            "data/outputs/annotation-evidence",
+            "--split",
+            "data/splits/batch.yaml",
+            "--partition",
+            "train",
+            "val",
+            "--video-id",
+            "IMG_0654",
+            "IMG_0655",
+        ]
+    )
+
+    assert args.command_name == "extract-evidence"
+    assert args.videos_dir == Path("data/raw")
+    assert args.annotations_dir == Path("data/annotations")
+    assert args.manifest == Path("data/dataset-manifest.v1.yaml")
+    assert args.out == Path("data/outputs/annotation-evidence")
+    assert args.split == Path("data/splits/batch.yaml")
+    assert args.partition == ["train", "val"]
+    assert args.video_id == ["IMG_0654", "IMG_0655"]
+
+
 def test_vision_commands_parse_contract_paths() -> None:
     import_args = build_parser().parse_args(
         ["vision-import", "package/manifest.json", "--out-dir", "annotations"]

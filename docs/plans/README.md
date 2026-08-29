@@ -95,16 +95,20 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Put corrected 0025 packages through the completed 0027 table-evidence review path. Use the
-   resulting coverage and failure measurements to specify 0022. Do not treat the three 0025 M6
-   packages as a sufficient recognition dataset by themselves.
-2. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+1. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the fixed
+   selected-frame binary review and bounded alternate-frame audit over that trusted event-time
+   corpus. Add CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed
+   system-holdout groups out of development review. Do not treat the three 0025 M6 packages as a
+   sufficient recognition dataset by themselves.
+2. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
+   proposal corpus. Use the resulting coverage and failure measurements to specify 0022.
+3. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
    to specify 0023.
-3. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-4. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+4. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+5. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
    without replacing the identity-only oracle baseline.
-5. Specify 0026 after focused review cases and correction behavior are measured.
-6. Specify 0024 only after end-to-end product and operational measurements exist.
+6. Specify 0026 after focused review cases and correction behavior are measured.
+7. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 
