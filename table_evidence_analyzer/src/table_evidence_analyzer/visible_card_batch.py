@@ -8,8 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from .export import CapabilityBundle, load_bundle
-from .visible_card_observation import adapt_visible_card_result, write_observation
+from .card_classification import CachedCardClassifier, GeminiCardClassifier
+from .export import load_bundle
+from .visible_card_observation import (
+    BundleCardClassifier,
+    adapt_visible_card_result,
+    write_observation,
+)
 from .visible_cards import (
     DEFAULT_MODEL,
     CachedVisibleCardProvider,
@@ -42,6 +47,8 @@ class VisibleCardBatchConfig:
     fake_prediction: Path | None = None
     overlay_dir: Path | None = None
     identity_bundle: Path | None = None
+    identity_classifier: Literal["bundle", "gemini"] | None = None
+    identity_cache_dir: Path | None = None
     observation_dir: Path | None = None
     resume: bool = False
 
@@ -52,6 +59,8 @@ class VisibleCardBatchConfig:
             raise VisibleCardError("model must be a non-empty string")
         if isinstance(self.target_offset_ms, bool) or not isinstance(self.target_offset_ms, int):
             raise VisibleCardError("target_offset_ms must be an integer")
+        if self.identity_classifier == "bundle" and self.identity_bundle is None:
+            raise VisibleCardError("identity_bundle is required for the bundle identity classifier")
 
 
 def _sha256_file(path: Path) -> str:
@@ -144,14 +153,23 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
     extraction_manifest = _load_extraction_manifest(config.evidence_root)
     extraction_manifest_path = config.evidence_root / "extraction-manifest.json"
     provider = CachedVisibleCardProvider(_provider(config), config.cache_dir)
-    identity_bundle: CapabilityBundle | None = (
-        load_bundle(config.identity_bundle) if config.identity_bundle else None
-    )
+    identity_classifier: Any | None = None
+    if config.identity_classifier == "gemini":
+        identity_classifier = CachedCardClassifier(
+            GeminiCardClassifier.from_environment(
+                model=config.model,
+                timeout_s=config.timeout_s,
+                max_retries=config.max_retries,
+            ),
+            config.identity_cache_dir or config.cache_dir.parent / "card-classification",
+        )
+    elif config.identity_bundle is not None:
+        identity_classifier = BundleCardClassifier(load_bundle(config.identity_bundle))
     observation_dir = config.observation_dir or config.output_dir / "observations"
     config.output_dir.mkdir(parents=True, exist_ok=True)
     if config.overlay_dir:
         config.overlay_dir.mkdir(parents=True, exist_ok=True)
-    if identity_bundle:
+    if identity_classifier:
         observation_dir.mkdir(parents=True, exist_ok=True)
     results: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
@@ -243,7 +261,7 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
                 "status": result.status,
                 "result": str(result_path),
             }
-            if identity_bundle:
+            if identity_classifier:
                 package_manifest = json.loads(
                     (package_root / "manifest.json").read_text(encoding="utf-8")
                 )
@@ -273,7 +291,7 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
                 observation = adapt_visible_card_result(
                     request,
                     result,
-                    identity_bundle,
+                    identity_classifier,
                     observed_at_ms=event_time_ms,
                     session_id=session_id,
                     event_sequence=event_sequence,
@@ -310,8 +328,9 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
         "output_tokens": total_output_tokens,
         "estimated_cost_usd": round(total_cost, 10),
         "retry_count": total_retries,
-        "identity_bundle": (
-            str(config.identity_bundle) if config.identity_bundle is not None else None
+        "identity_classifier": (
+            config.identity_classifier
+            or ("bundle" if config.identity_bundle is not None else None)
         ),
         "observation_count": sum("observation" in result for result in results),
         "results": sorted(results, key=lambda result: result["package_id"]),

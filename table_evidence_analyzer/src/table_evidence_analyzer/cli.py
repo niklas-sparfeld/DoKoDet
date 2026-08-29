@@ -144,6 +144,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Classify each detected polygon with an exported identity bundle.",
     )
     visible_card_batch_parser.add_argument(
+        "--identity-classifier",
+        choices=("bundle", "gemini"),
+        help="Use the exported bundle or Gemini for each transformed card crop.",
+    )
+    visible_card_batch_parser.add_argument(
+        "--identity-cache-dir", type=Path, default=Path("data/cache/card-classification")
+    )
+    visible_card_batch_parser.add_argument(
         "--observation-dir",
         type=Path,
         help="Directory for table-observation/v1 artifacts.",
@@ -154,13 +162,21 @@ def build_parser() -> argparse.ArgumentParser:
         "visible-card-observe",
         help="Detect visible cards, classify their crops, and write a table observation.",
         description=(
-            "Run one visible-card provider request, classify each polygon crop with an exported "
-            "identity bundle, and write a validated table-observation/v1 artifact."
+            "Run one visible-card provider request, classify each transformed polygon crop with "
+            "an exported identity bundle or Gemini, and write a validated table-observation/v1 "
+            "artifact."
         ),
     )
     visible_card_observe_parser.add_argument("--image", type=Path, required=True)
     visible_card_observe_parser.add_argument("--package-id", required=True)
-    visible_card_observe_parser.add_argument("--bundle", type=Path, required=True)
+    visible_card_observe_parser.add_argument(
+        "--bundle",
+        type=Path,
+        help="Exported local identity bundle, required when --identity-classifier=bundle.",
+    )
+    visible_card_observe_parser.add_argument(
+        "--identity-classifier", choices=("bundle", "gemini"), default="bundle"
+    )
     visible_card_observe_parser.add_argument("--output", type=Path, required=True)
     visible_card_observe_parser.add_argument("--event-time-ms", type=int, default=0)
     visible_card_observe_parser.add_argument("--actual-offset-ms", type=int, default=0)
@@ -179,6 +195,9 @@ def build_parser() -> argparse.ArgumentParser:
     visible_card_observe_parser.add_argument("--model", default=DEFAULT_MODEL)
     visible_card_observe_parser.add_argument("--timeout", type=float, default=120.0)
     visible_card_observe_parser.add_argument("--max-retries", type=int, default=2)
+    visible_card_observe_parser.add_argument(
+        "--identity-cache-dir", type=Path, default=Path("data/cache/card-classification")
+    )
 
     visible_cards_parser = commands.add_parser(
         "visible-cards",
@@ -333,6 +352,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     fake_prediction=args.fake_prediction,
                     overlay_dir=args.overlay_dir,
                     identity_bundle=args.identity_bundle,
+                    identity_classifier=args.identity_classifier,
+                    identity_cache_dir=args.identity_cache_dir,
                     observation_dir=args.observation_dir,
                     resume=args.resume,
                 )
@@ -350,6 +371,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         from PIL import Image
 
         from .analyzer import AnalyzerEvidence, AnalyzerFrame
+        from .card_classification import CachedCardClassifier, GeminiCardClassifier
         from .export import load_bundle
         from .visible_card_observation import VisibleCardTableAnalyzer, write_observation
 
@@ -373,9 +395,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                     timeout_s=args.timeout,
                     max_retries=args.max_retries,
                 )
+            if args.identity_classifier == "bundle":
+                if args.bundle is None:
+                    raise VisibleCardError("--bundle is required for --identity-classifier=bundle")
+                classifier = load_bundle(args.bundle)
+            else:
+                classifier = CachedCardClassifier(
+                    GeminiCardClassifier.from_environment(
+                        model=args.model,
+                        timeout_s=args.timeout,
+                        max_retries=args.max_retries,
+                    ),
+                    args.identity_cache_dir,
+                )
             analyzer = VisibleCardTableAnalyzer(
                 CachedVisibleCardProvider(provider, args.cache_dir),
-                load_bundle(args.bundle),
+                classifier,
                 model=args.model,
                 session_id=args.session_id,
                 event_sequence=args.event_sequence,

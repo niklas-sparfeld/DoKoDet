@@ -18,6 +18,7 @@ from typing import Any
 from PIL import Image, UnidentifiedImageError
 
 from .analyzer import AnalyzerEvidence, AnalyzerFrame
+from .card_classification import CardClassificationResult, CardIdentityClassifier
 from .export import CapabilityBundle
 from .table_observation import (
     OBSERVATION_SCHEMA_VERSION,
@@ -159,17 +160,46 @@ def _observation_id(request: VisibleCardRequest) -> str:
     return f"observation-{request.package_id}-{request.frame_part_name}"
 
 
-def _bundle_calibration(bundle: CapabilityBundle) -> str:
-    calibration = bundle.manifest.get("calibration")
+class BundleCardClassifier:
+    """Adapt the existing exported baseline to the transformed-card classifier boundary."""
+
+    name = "exported-identity-bundle"
+    version = "table-analyzer-bundle/v1"
+
+    def __init__(self, bundle: CapabilityBundle) -> None:
+        self.bundle = bundle
+        calibration = bundle.manifest.get("calibration")
+        if calibration not in {"fixture", "uncalibrated", "calibrated"}:
+            raise ObservationAdapterError("identity bundle has an unsupported calibration state")
+        self.calibration = calibration
+
+    def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
+        return CardClassificationResult(
+            status="ok", candidates=tuple(self.bundle.classify_bytes(crop_bytes))
+        )
+
+
+def _identity_classifier(
+    classifier: CardIdentityClassifier | CapabilityBundle,
+) -> CardIdentityClassifier:
+    if isinstance(classifier, CapabilityBundle):
+        return BundleCardClassifier(classifier)
+    if not isinstance(classifier, CardIdentityClassifier):
+        raise ObservationAdapterError("identity classifier must classify binary PPM crops")
+    return classifier
+
+
+def _classifier_calibration(classifier: CardIdentityClassifier) -> str:
+    calibration = classifier.calibration
     if calibration not in {"fixture", "uncalibrated", "calibrated"}:
-        raise ObservationAdapterError("identity bundle has an unsupported calibration state")
+        raise ObservationAdapterError("identity classifier has an unsupported calibration state")
     return calibration
 
 
 def _diagnostics(
     request: VisibleCardRequest,
     result: ProviderResult,
-    bundle: CapabilityBundle,
+    classifier: CardIdentityClassifier,
     *,
     actual_offset_ms: int,
     classified: list[dict[str, Any]],
@@ -194,10 +224,10 @@ def _diagnostics(
         "prediction_schema_version": PREDICTION_SCHEMA_VERSION,
         "crop_schema_version": POLYGON_CROP_SCHEMA,
         "provider": provider,
-        "identity_bundle": {
-            "schema_version": bundle.manifest.get("schema_version"),
-            "run_id": bundle.manifest.get("run_id"),
-            "calibration": bundle.manifest.get("calibration"),
+        "identity_classifier": {
+            "name": classifier.name,
+            "version": classifier.version,
+            "calibration": classifier.calibration,
         },
         "frame_part_name": request.frame_part_name,
         "target_offset_ms": request.target_offset_ms,
@@ -217,7 +247,7 @@ def _diagnostics(
 def adapt_visible_card_result(
     request: VisibleCardRequest,
     result: ProviderResult,
-    bundle: CapabilityBundle,
+    classifier: CardIdentityClassifier | CapabilityBundle,
     *,
     observed_at_ms: int,
     session_id: str,
@@ -233,7 +263,8 @@ def adapt_visible_card_result(
         raise ObservationAdapterError("observation time and event sequence must be positive")
     if not session_id or not analyzer_name or not analyzer_version:
         raise ObservationAdapterError("session and analyzer identifiers must be non-empty")
-    calibration = _bundle_calibration(bundle)
+    identity_classifier = _identity_classifier(classifier)
+    calibration = _classifier_calibration(identity_classifier)
     observation_id = observation_id or _observation_id(request)
     cards: list[ObservedCard] = []
     classified: list[dict[str, Any]] = []
@@ -248,9 +279,14 @@ def adapt_visible_card_result(
                     width=request.width,
                     height=request.height,
                 )
-                candidates = bundle.classify_bytes(crop_bytes)
+                classification = identity_classifier.classify_ppm(crop_bytes)
+                if classification.status == "unavailable":
+                    raise ObservationAdapterError(
+                        classification.error or "identity classifier was unavailable"
+                    )
+                candidates = classification.candidates
                 if not candidates:
-                    raise ObservationAdapterError("identity bundle returned no candidates")
+                    raise ObservationAdapterError("identity classifier could not identify the crop")
             except (ObservationAdapterError, ValueError) as error:
                 dropped.append({"proposal_index": proposal_index, "reason": str(error)})
                 continue
@@ -268,6 +304,16 @@ def adapt_visible_card_result(
                     "side": proposal.side,
                     "crop_bounds": bounds.to_mapping(),
                     "crop_sha256": _sha256(crop_bytes),
+                    "classifier": {
+                        "status": classification.status,
+                        "input_tokens": classification.usage.input_tokens,
+                        "output_tokens": classification.usage.output_tokens,
+                        "total_tokens": classification.usage.total_tokens,
+                        "latency_ms": classification.latency_ms,
+                        "retry_count": classification.retry_count,
+                        "estimated_cost_usd": classification.estimated_cost_usd,
+                        "cache_hit": classification.cache_hit,
+                    },
                 }
             )
 
@@ -295,7 +341,7 @@ def adapt_visible_card_result(
         diagnostics=_diagnostics(
             request,
             result,
-            bundle,
+            identity_classifier,
             actual_offset_ms=actual_offset_ms,
             classified=classified,
             dropped=dropped,
@@ -314,7 +360,7 @@ class VisibleCardTableAnalyzer:
     def __init__(
         self,
         provider: VisibleCardProvider,
-        bundle: CapabilityBundle,
+        classifier: CardIdentityClassifier | CapabilityBundle,
         *,
         model: str = DEFAULT_MODEL,
         session_id: str | None = None,
@@ -325,7 +371,7 @@ class VisibleCardTableAnalyzer:
         if event_sequence < 1:
             raise ObservationAdapterError("event_sequence must be positive")
         self.provider = provider
-        self.bundle = bundle
+        self.classifier = _identity_classifier(classifier)
         self.model = model
         self.session_id = session_id
         self.event_sequence = event_sequence
@@ -353,7 +399,7 @@ class VisibleCardTableAnalyzer:
         return adapt_visible_card_result(
             request,
             result,
-            self.bundle,
+            self.classifier,
             observed_at_ms=evidence.event_time_ms,
             session_id=self.session_id or str(evidence.package_id),
             event_sequence=self.event_sequence,
@@ -377,7 +423,7 @@ class VisibleCardTableAnalyzer:
             status="insufficient_evidence",
             capabilities=["identity_candidates"],
             cards=[],
-            calibration=_bundle_calibration(self.bundle),
+            calibration=_classifier_calibration(self.classifier),
             analyzer=AnalyzerMetadata(name=self.name, version=self.version),
             diagnostics={
                 "adapter_schema_version": OBSERVATION_ADAPTER_SCHEMA,
@@ -409,6 +455,7 @@ def write_observation(observation: TableObservation, path: str | Path) -> Path:
 __all__ = [
     "DEFAULT_ANALYZER_NAME",
     "DEFAULT_ANALYZER_VERSION",
+    "BundleCardClassifier",
     "OBSERVATION_ADAPTER_SCHEMA",
     "POLYGON_CROP_SCHEMA",
     "ObservationAdapterError",

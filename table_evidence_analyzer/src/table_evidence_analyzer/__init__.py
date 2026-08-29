@@ -1,6 +1,17 @@
 """Shared domain types for the DokoDetector table-evidence boundary."""
 
 from table_evidence_analyzer.analyzer import AnalyzerEvidence, AnalyzerFrame, TableEvidenceAnalyzer
+from table_evidence_analyzer.card_classification import (
+    CARD_CLASSIFICATION_CACHE_SCHEMA,
+    CARD_CLASSIFICATION_SCHEMA,
+    UNKNOWN_CARD,
+    CachedCardClassifier,
+    CardClassificationError,
+    CardClassificationRequest,
+    CardClassificationResult,
+    CardIdentityClassifier,
+    GeminiCardClassifier,
+)
 from table_evidence_analyzer.cards import (
     CARD_IDENTITIES,
     CARD_SET_ID,
@@ -110,12 +121,19 @@ __all__ = [
     "CARD_IDENTITIES",
     "CARD_SET_ID",
     "CardIdentity",
+    "CARD_CLASSIFICATION_CACHE_SCHEMA",
+    "CARD_CLASSIFICATION_SCHEMA",
     "CardSetManifest",
     "DeckCard",
     "DeckManifest",
     "AnalyzerEvidence",
     "AnalyzerFrame",
     "ContractError",
+    "CachedCardClassifier",
+    "CardClassificationError",
+    "CardClassificationRequest",
+    "CardClassificationResult",
+    "CardIdentityClassifier",
     "IdentityCandidate",
     "OBSERVATION_SCHEMA_VERSION",
     "ObservationSession",
@@ -147,6 +165,7 @@ __all__ = [
     "IDENTITY_METHODS",
     "IdentityEvaluationConfig",
     "IdentityEvaluationError",
+    "GeminiCardClassifier",
     "evaluate_identity_crops",
     "DEFAULT_ANALYZER_NAME",
     "DEFAULT_ANALYZER_VERSION",
@@ -185,6 +204,7 @@ __all__ = [
     "VisibleCardReviewItem",
     "VisibleCardReviewQueue",
     "VisibleCardValidationError",
+    "UNKNOWN_CARD",
     "build_request_from_image",
     "build_review_queue",
     "load_review_queue",
