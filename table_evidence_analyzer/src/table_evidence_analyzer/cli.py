@@ -104,6 +104,19 @@ def build_parser() -> argparse.ArgumentParser:
     identity_parser.add_argument("--top-k", type=int, nargs="+", default=[1, 3, 5])
     identity_parser.add_argument("--cache-dir", type=Path)
 
+    visible_card_evaluation_parser = commands.add_parser(
+        "visible-card-evaluate",
+        help="Evaluate visible-card proposals against reviewed polygons.",
+        description=(
+            "Evaluate strict visible-card provider results against reviewed polygon references. "
+            "This measures localization, not event truth."
+        ),
+    )
+    visible_card_evaluation_parser.add_argument("--result", type=Path, nargs="+", required=True)
+    visible_card_evaluation_parser.add_argument("--reference", type=Path, required=True)
+    visible_card_evaluation_parser.add_argument("--output", type=Path, required=True)
+    visible_card_evaluation_parser.add_argument("--iou-threshold", type=float, default=0.5)
+
     visible_cards_parser = commands.add_parser(
         "visible-cards",
         help="Propose visible cards for one exact-event frame.",
@@ -217,9 +230,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                     cache_dir=args.cache_dir,
                 )
             )
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
+        except (OSError, VisibleCardError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Wrote identity evaluation for {report['partition']} partition: {args.output}")
+        return 0
+    if args.command == "visible-card-evaluate":
+        from .visible_card_evaluation import (
+            VisibleCardEvaluationConfig,
+            evaluate_visible_card_runs,
+        )
+
+        try:
+            report = evaluate_visible_card_runs(
+                VisibleCardEvaluationConfig(
+                    results=tuple(args.result),
+                    references=args.reference,
+                    output=args.output,
+                    iou_threshold=args.iou_threshold,
+                )
+            )
+        except (OSError, VisibleCardError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote visible-card evaluation for {report['result_count']} frame(s): {args.output}")
         return 0
     if args.command == "visible-cards":
         try:

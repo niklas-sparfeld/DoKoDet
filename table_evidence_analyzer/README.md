@@ -53,6 +53,7 @@ table-analyzer export --help
 table-analyzer classify-crop --help
 table-analyzer identity-evaluate --help
 table-analyzer visible-cards --help
+table-analyzer visible-card-evaluate --help
 table-analyzer visible-card-queue --help
 table-analyzer review-visible-card --help
 ```
@@ -105,4 +106,14 @@ table-analyzer identity-evaluate \
   --artifacts ../data/derived/table-evidence/artifacts/index.json \
   --partition validation \
   --output data/outputs/identity-feasibility/m1.json
+```
+
+After reviewed polygon references exist, evaluate one or more cached provider runs. The reference
+file must use `visible-card-reference/v1` and must cover every supplied result exactly once:
+
+```bash
+table-analyzer visible-card-evaluate \
+  --result data/outputs/visible-card-run/<package-id>.json \
+  --reference data/outputs/visible-card-review/m2-references.json \
+  --output data/outputs/visible-card-evaluation/m2.json
 ```

@@ -552,6 +552,39 @@ Acceptance:
 - Verification: TableEvidenceAnalyzer full tests (38 passed), Ruff, and formatting checks pass;
   no model weights or cloud calls are required.
 
+### M2 — Visible-card proposal evaluation boundary
+
+1. Define a strict reviewed reference set for one exact-event frame. Keep visible-card references
+   separate from event review, visual card identity, and table-observation output.
+2. Match normalized provider polygons to reviewed polygons with deterministic one-to-one matching
+   at a declared IoU threshold.
+3. Report instance recall overall and by side, false and duplicate proposals per frame, visible
+   boundary IoU, usable-crop recall, unavailable rate, retries, latency, token use, and estimated
+   cost.
+4. Require complete provider-run coverage for the reference set. Reject duplicate, missing, stale,
+   or malformed inputs instead of silently treating them as negative examples.
+
+Acceptance:
+
+- a local fake-provider fixture produces a schema-valid visible-card evaluation report;
+- matching is deterministic and preserves one-to-one card accounting;
+- the report distinguishes matched, false, duplicate, and unavailable outcomes and includes side
+  and usable-crop metrics;
+- result and reference digests, IoU threshold, per-frame records, and provider usage metrics are
+  recorded;
+- the evaluator does not infer event truth, visual card identity, tracking, or a table observation;
+- strict input failures do not publish a partial report, and tests remain local.
+
+#### M2 implementation evidence — 2026-08-29
+
+- Added `visible-card-reference/v1` loading and `visible-card-evaluate` for strict provider-run
+  evaluation. The evaluator uses deterministic polygon IoU matching and reports recall, side
+  breakdowns, false and duplicate proposals, usable-crop recall, unavailable results, latency,
+  retries, tokens, and estimated cost.
+- Added synthetic fake-provider coverage for exact matches, duplicate and false proposals,
+  unavailable results, reference validation, and the CLI path. No human labels or cloud calls were
+  used.
+
 #### M0 implementation evidence — 2026-08-29
 
 - Added the reusable visible-card request, normalized polygon, provider, cache, artifact, overlay,
