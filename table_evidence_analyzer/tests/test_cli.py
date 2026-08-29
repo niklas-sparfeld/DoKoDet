@@ -12,6 +12,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "evaluate" in help_text
     assert "export" in help_text
     assert "classify-crop" in help_text
+    assert "identity-evaluate" in help_text
     assert "visible-cards" in help_text
     assert "visible-card-queue" in help_text
     assert "review-visible-card" in help_text
@@ -110,3 +111,32 @@ def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path:
         == 0
     )
     assert json.loads(queue.read_text(encoding="utf-8"))["items"][0]["decision"] == "GOOD"
+
+
+def test_identity_evaluate_command_writes_feasibility_report(tmp_path: Path) -> None:
+    from table_evidence_analyzer.data import build_smoke_fixture
+
+    fixture = build_smoke_fixture(tmp_path / "fixture")
+    output = tmp_path / "identity-evaluation.json"
+
+    assert (
+        main(
+            [
+                "identity-evaluate",
+                "--dataset",
+                str(fixture.dataset_path),
+                "--split",
+                str(fixture.split_path),
+                "--artifacts",
+                str(fixture.artifact_index_path),
+                "--partition",
+                "train",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["task"] == "oracle_crop_identity_feasibility"
+    assert set(report["methods"]) == {"rgb-centroid", "rgb-prototype"}

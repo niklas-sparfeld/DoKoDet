@@ -520,6 +520,38 @@ Acceptance:
 - the TableEvidenceAnalyzer tests, CardEventNet extraction tests, and applicable Ruff checks pass
   locally without downloading model weights or calling Gemini.
 
+### M1 — Oracle-crop identity feasibility
+
+1. Consume the frozen plan 0020 dataset, split, and sample-artifact contracts. Use reviewed oracle
+   boxes as the crop boundary so this milestone measures identity and not localization.
+2. Freeze one deterministic crop feature contract and compare two local baselines: an identity
+   centroid and nearest training prototype. Train both methods from the train partition only.
+3. Evaluate an explicit validation or held-out partition. Report top-1 and top-k identity accuracy,
+   sample-linked predictions, a confusion matrix, and results by quality tag.
+4. Keep the result uncalibrated and separate from visible-card proposals. Do not use this report to
+   claim visible-card detection, tracking, table observations, or production support.
+
+Acceptance:
+
+- one generated, group-safe fixture run produces a deterministic identity-feasibility report;
+- both baselines use only train-partition crops and emit sample-linked top-k predictions;
+- the report includes dataset, split, crop-cache, feature, partition, and method provenance;
+- top-1, requested top-k, confusion, and quality-tag metrics are present, including the explicit
+  untagged group;
+- malformed or empty evaluation inputs fail without publishing a partial report;
+- the identity evaluation command and package tests run locally without model weights or cloud
+  calls.
+
+#### M1 implementation evidence — 2026-08-29
+
+- Added `identity-evaluate` with the `ppm-grid-4/v1` feature contract, deterministic nearest
+  centroid and nearest prototype baselines, train-only fitting, validation/test partition choice,
+  top-k predictions, confusion counts, and quality-tag metrics.
+- Fixed the deterministic PPM reader so a whitespace-valued first pixel channel is not discarded.
+  The regression test covers the previously unsafe header/pixel boundary.
+- Verification: TableEvidenceAnalyzer full tests (38 passed), Ruff, and formatting checks pass;
+  no model weights or cloud calls are required.
+
 #### M0 implementation evidence — 2026-08-29
 
 - Added the reusable visible-card request, normalized polygon, provider, cache, artifact, overlay,

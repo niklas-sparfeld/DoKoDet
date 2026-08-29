@@ -1066,7 +1066,11 @@ def _ppm_tokens(value: bytes) -> tuple[int, int, int, int]:
         raise DataContractError("source frame has an invalid PPM header.") from exc
     if width <= 0 or height <= 0 or max_value != 255:
         raise DataContractError("source frame must be a positive 8-bit PPM image.")
-    while index < len(value) and value[index] in b" \t\r\n":
+    if index >= len(value) or value[index] not in b" \t\r\n":
+        raise DataContractError("source frame has no PPM pixel separator.")
+    if value[index] == ord("\r") and index + 1 < len(value) and value[index + 1] == ord("\n"):
+        index += 2
+    else:
         index += 1
     expected = width * height * 3
     if len(value) - index != expected:

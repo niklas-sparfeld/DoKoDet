@@ -79,6 +79,31 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--bundle", type=Path, required=True)
     classify_parser.add_argument("--image", type=Path, required=True)
 
+    identity_parser = commands.add_parser(
+        "identity-evaluate",
+        help="Evaluate identity baselines on oracle crops.",
+        description=(
+            "Evaluate deterministic identity baselines on a frozen dataset partition. "
+            "This measures identity feasibility, not visible-card localization."
+        ),
+    )
+    identity_parser.add_argument("--dataset", type=Path, required=True)
+    identity_parser.add_argument("--split", type=Path, required=True)
+    identity_parser.add_argument("--artifacts", type=Path, required=True)
+    identity_parser.add_argument("--output", type=Path, required=True)
+    identity_parser.add_argument(
+        "--partition",
+        choices=("train", "validation", "test", "unassigned"),
+        default="validation",
+    )
+    identity_parser.add_argument(
+        "--method",
+        choices=("all", "rgb-centroid", "rgb-prototype"),
+        default="all",
+    )
+    identity_parser.add_argument("--top-k", type=int, nargs="+", default=[1, 3, 5])
+    identity_parser.add_argument("--cache-dir", type=Path)
+
     visible_cards_parser = commands.add_parser(
         "visible-cards",
         help="Propose visible cards for one exact-event frame.",
@@ -174,6 +199,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for candidate in load_bundle(args.bundle).classify(args.image)
             ]
         )
+        return 0
+    if args.command == "identity-evaluate":
+        from .identity import IdentityEvaluationConfig, evaluate_identity_crops
+
+        methods = ("rgb-centroid", "rgb-prototype") if args.method == "all" else (args.method,)
+        try:
+            report = evaluate_identity_crops(
+                IdentityEvaluationConfig(
+                    dataset=args.dataset,
+                    split=args.split,
+                    artifacts=args.artifacts,
+                    output=args.output,
+                    partition=args.partition,
+                    methods=methods,
+                    top_k=tuple(args.top_k),
+                    cache_dir=args.cache_dir,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote identity evaluation for {report['partition']} partition: {args.output}")
         return 0
     if args.command == "visible-cards":
         try:

@@ -51,6 +51,7 @@ table-analyzer train --help
 table-analyzer evaluate --help
 table-analyzer export --help
 table-analyzer classify-crop --help
+table-analyzer identity-evaluate --help
 table-analyzer visible-cards --help
 table-analyzer visible-card-queue --help
 table-analyzer review-visible-card --help
@@ -91,3 +92,17 @@ table-analyzer review-visible-card \
 ```
 
 All contract tests run locally and do not download weights, data, or call Gemini.
+
+Evaluate identity feasibility with reviewed oracle crops. The command fits both deterministic
+baselines from the train partition and writes top-1/top-k, confusion, and quality-tag metrics for
+the selected partition. This is an identity measurement only; it does not measure visible-card
+localization or produce a table observation:
+
+```bash
+table-analyzer identity-evaluate \
+  --dataset ../data/derived/table-evidence/dataset.json \
+  --split ../data/derived/table-evidence/split.json \
+  --artifacts ../data/derived/table-evidence/artifacts/index.json \
+  --partition validation \
+  --output data/outputs/identity-feasibility/m1.json
+```

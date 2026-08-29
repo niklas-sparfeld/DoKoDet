@@ -11,6 +11,14 @@ from table_evidence_analyzer.cards import (
     load_card_set,
     load_deck_manifest,
 )
+from table_evidence_analyzer.identity import (
+    IDENTITY_EVALUATION_SCHEMA,
+    IDENTITY_FEATURE_SCHEMA,
+    IDENTITY_METHODS,
+    IdentityEvaluationConfig,
+    IdentityEvaluationError,
+    evaluate_identity_crops,
+)
 from table_evidence_analyzer.repository_intake import (
     EvidencePackageBundle,
     EvidencePackageFile,
@@ -101,6 +109,12 @@ __all__ = [
     "parse_evidence_package_lineage",
     "parse_evidence_package_record",
     "parse_pending_video",
+    "IDENTITY_EVALUATION_SCHEMA",
+    "IDENTITY_FEATURE_SCHEMA",
+    "IDENTITY_METHODS",
+    "IdentityEvaluationConfig",
+    "IdentityEvaluationError",
+    "evaluate_identity_crops",
     "CachedVisibleCardProvider",
     "FakeVisibleCardProvider",
     "GeminiVisibleCardProvider",
