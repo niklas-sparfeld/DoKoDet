@@ -46,6 +46,11 @@ from table_evidence_analyzer.table_observation import (
     parse_observation_bytes,
     validate_observation,
 )
+from table_evidence_analyzer.visible_card_batch import (
+    VISIBLE_CARD_BATCH_SCHEMA,
+    VisibleCardBatchConfig,
+    run_visible_card_batch,
+)
 from table_evidence_analyzer.visible_card_evaluation import (
     VISIBLE_CARD_EVALUATION_SCHEMA,
     VISIBLE_CARD_REFERENCE_SCHEMA,
@@ -110,6 +115,9 @@ __all__ = [
     "load_deck_manifest",
     "parse_observation_bytes",
     "validate_observation",
+    "VISIBLE_CARD_BATCH_SCHEMA",
+    "VisibleCardBatchConfig",
+    "run_visible_card_batch",
     "EvidencePackageBundle",
     "EvidencePackageFile",
     "EvidencePackageFiles",

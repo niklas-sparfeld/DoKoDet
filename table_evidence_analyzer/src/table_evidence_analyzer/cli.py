@@ -117,6 +117,28 @@ def build_parser() -> argparse.ArgumentParser:
     visible_card_evaluation_parser.add_argument("--output", type=Path, required=True)
     visible_card_evaluation_parser.add_argument("--iou-threshold", type=float, default=0.5)
 
+    visible_card_batch_parser = commands.add_parser(
+        "visible-card-batch",
+        help="Run visible-card proposals over an evidence extraction.",
+        description=(
+            "Run one exact-event visible-card request per evidence package. "
+            "The batch is resumable and defaults to the local fake provider."
+        ),
+    )
+    visible_card_batch_parser.add_argument("--evidence-root", type=Path, required=True)
+    visible_card_batch_parser.add_argument("--output-dir", type=Path, required=True)
+    visible_card_batch_parser.add_argument(
+        "--cache-dir", type=Path, default=Path("data/cache/visible-cards")
+    )
+    visible_card_batch_parser.add_argument("--provider", choices=("fake", "gemini"), default="fake")
+    visible_card_batch_parser.add_argument("--model", default=DEFAULT_MODEL)
+    visible_card_batch_parser.add_argument("--timeout", type=float, default=120.0)
+    visible_card_batch_parser.add_argument("--max-retries", type=int, default=2)
+    visible_card_batch_parser.add_argument("--target-offset-ms", type=int, default=0)
+    visible_card_batch_parser.add_argument("--fake-prediction", type=Path)
+    visible_card_batch_parser.add_argument("--overlay-dir", type=Path)
+    visible_card_batch_parser.add_argument("--resume", action="store_true")
+
     visible_cards_parser = commands.add_parser(
         "visible-cards",
         help="Propose visible cards for one exact-event frame.",
@@ -252,6 +274,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, VisibleCardError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Wrote visible-card evaluation for {report['result_count']} frame(s): {args.output}")
+        return 0
+    if args.command == "visible-card-batch":
+        from .visible_card_batch import VisibleCardBatchConfig, run_visible_card_batch
+
+        try:
+            report = run_visible_card_batch(
+                VisibleCardBatchConfig(
+                    evidence_root=args.evidence_root,
+                    output_dir=args.output_dir,
+                    cache_dir=args.cache_dir,
+                    provider=args.provider,
+                    model=args.model,
+                    timeout_s=args.timeout,
+                    max_retries=args.max_retries,
+                    target_offset_ms=args.target_offset_ms,
+                    fake_prediction=args.fake_prediction,
+                    overlay_dir=args.overlay_dir,
+                    resume=args.resume,
+                )
+            )
+        except (OSError, VisibleCardError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(
+            f"Processed {report['result_count']}/{report['package_count']} package(s); "
+            f"{report['failure_count']} failure(s): {args.output_dir}"
+        )
         return 0
     if args.command == "visible-cards":
         try:

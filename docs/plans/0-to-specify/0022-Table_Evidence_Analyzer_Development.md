@@ -563,6 +563,8 @@ Acceptance:
    cost.
 4. Require complete provider-run coverage for the reference set. Reject duplicate, missing, stale,
    or malformed inputs instead of silently treating them as negative examples.
+5. Add a resumable batch runner for one exact-event request per extracted package. Keep the fake
+   provider as the default local path and record each result or failure.
 
 Acceptance:
 
@@ -572,6 +574,8 @@ Acceptance:
   and usable-crop metrics;
 - result and reference digests, IoU threshold, per-frame records, and provider usage metrics are
   recorded;
+- a batch run can resume valid completed results without repeating them and records missing-frame
+  failures separately;
 - the evaluator does not infer event truth, visual card identity, tracking, or a table observation;
 - strict input failures do not publish a partial report, and tests remain local.
 
@@ -581,6 +585,9 @@ Acceptance:
   evaluation. The evaluator uses deterministic polygon IoU matching and reports recall, side
   breakdowns, false and duplicate proposals, usable-crop recall, unavailable results, latency,
   retries, tokens, and estimated cost.
+- Added resumable `visible-card-batch` execution over annotation-evidence extraction outputs. It
+  records one result per exact-event package, preserves atomic batch state, and defaults to the fake
+  provider for local runs.
 - Added synthetic fake-provider coverage for exact matches, duplicate and false proposals,
   unavailable results, reference validation, and the CLI path. No human labels or cloud calls were
   used.

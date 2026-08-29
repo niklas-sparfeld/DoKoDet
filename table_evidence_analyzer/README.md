@@ -54,6 +54,7 @@ table-analyzer classify-crop --help
 table-analyzer identity-evaluate --help
 table-analyzer visible-cards --help
 table-analyzer visible-card-evaluate --help
+table-analyzer visible-card-batch --help
 table-analyzer visible-card-queue --help
 table-analyzer review-visible-card --help
 ```
@@ -116,4 +117,16 @@ table-analyzer visible-card-evaluate \
   --result data/outputs/visible-card-run/<package-id>.json \
   --reference data/outputs/visible-card-review/m2-references.json \
   --output data/outputs/visible-card-evaluation/m2.json
+```
+
+Run one exact-event request per extracted package. The default fake provider is local and
+credential-free. Add `--resume` after an interrupted run. Use `--provider gemini` only when the
+runtime environment contains `GEMINI_API_KEY` and the request cost is approved:
+
+```bash
+table-analyzer visible-card-batch \
+  --evidence-root ../card_event_net/data/outputs/annotation-evidence-0ms-v1 \
+  --output-dir data/outputs/visible-card-batch/m2 \
+  --cache-dir data/cache/visible-cards \
+  --provider fake
 ```

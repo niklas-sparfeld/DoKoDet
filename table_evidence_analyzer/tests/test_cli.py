@@ -14,6 +14,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "classify-crop" in help_text
     assert "identity-evaluate" in help_text
     assert "visible-card-evaluate" in help_text
+    assert "visible-card-batch" in help_text
     assert "visible-cards" in help_text
     assert "visible-card-queue" in help_text
     assert "review-visible-card" in help_text
