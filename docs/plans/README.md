@@ -33,7 +33,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0022 — TableEvidenceAnalyzer capability development](0-to-specify/0022-Table_Evidence_Analyzer_Development.md) | 0020, 0021, and reviewed real evidence; tracking also needs 0025 | Select measured visible-card, transition, spatial, and tracking methods. |
+| [0022 — TableEvidenceAnalyzer capability development](0-to-specify/0022-Table_Evidence_Analyzer_Development.md) | 0020, 0021, and reviewed real evidence; tracking also needs 0025 | Establish a cloud visible-card baseline, then select measured transition, spatial, and tracking methods. |
 | [0023 — Scalable game reconstruction](0-to-specify/0023-Game_Reconstruction_Development.md) | 0006 search measurements | Scale observation inference to uncertain rounds and complete games. |
 | [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Integration, snippet, observation, reconstruction, and review measurements | Select production work from measured requirements. |
 | [0026 — Reconstruction review workflow](0-to-specify/0026-Reconstruction_Review_Workflow.md) | 0006 and 0023 review contracts and measured cases | Build focused review and complete human correction. |
@@ -95,11 +95,11 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the fixed
-   selected-frame binary review and bounded alternate-frame audit over that trusted event-time
-   corpus. Add CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed
-   system-holdout groups out of development review. Do not treat the three 0025 M6 packages as a
-   sufficient recognition dataset by themselves.
+1. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
+   `0 ms` binary review and the cloud visible-card baseline over that trusted event-time corpus. Add
+   CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed system-holdout
+   groups out of development review. Do not treat the three 0025 M6 packages as a sufficient
+   recognition dataset by themselves.
 2. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
    proposal corpus. Use the resulting coverage and failure measurements to specify 0022.
 3. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed

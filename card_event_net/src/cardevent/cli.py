@@ -16,7 +16,11 @@ from .evaluate import (
     evaluate_checkpoint_from_files,
     format_report,
 )
-from .evidence_extraction import EvidenceExtractionError, extract_annotation_evidence
+from .evidence_extraction import (
+    DEFAULT_TARGET_OFFSETS_MS,
+    EvidenceExtractionError,
+    extract_annotation_evidence,
+)
 from .export_coreml import CoreMLExportError, export_checkpoint_to_coreml
 from .hard_negatives import HardNegativeError, mine_hard_negatives_from_files
 from .infer import InferenceError, infer_from_files
@@ -248,6 +252,17 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.85,
         help="JPEG quality from 0 to 1 (default: 0.85).",
+    )
+    extract_evidence_parser.add_argument(
+        "--target-offset-ms",
+        dest="target_offsets_ms",
+        action="append",
+        type=int,
+        default=None,
+        help=(
+            "Target offset in milliseconds; repeat for multiple targets. "
+            f"Default: {list(DEFAULT_TARGET_OFFSETS_MS)}."
+        ),
     )
     extract_evidence_parser.set_defaults(command_name="extract-evidence")
 
@@ -1116,6 +1131,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 video_ids=args.video_id,
                 split_path=args.split,
                 partitions=args.partition,
+                target_offsets_ms=(
+                    DEFAULT_TARGET_OFFSETS_MS
+                    if args.target_offsets_ms is None
+                    else args.target_offsets_ms
+                ),
                 jpeg_quality=args.jpeg_quality,
             )
         except (

@@ -3,9 +3,24 @@
 from __future__ import annotations
 
 import argparse
+import json
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
+
+from .visible_cards import (
+    DEFAULT_MODEL,
+    CachedVisibleCardProvider,
+    FakeVisibleCardProvider,
+    GeminiVisibleCardProvider,
+    VisibleCardError,
+    build_request_from_image,
+    build_review_queue,
+    load_run_artifact,
+    record_review,
+    write_overlay_svg,
+    write_run_artifact,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -64,6 +79,48 @@ def build_parser() -> argparse.ArgumentParser:
     classify_parser.add_argument("--bundle", type=Path, required=True)
     classify_parser.add_argument("--image", type=Path, required=True)
 
+    visible_cards_parser = commands.add_parser(
+        "visible-cards",
+        help="Propose visible cards for one exact-event frame.",
+        description=(
+            "Run the visible-card provider for one exact-event source frame. "
+            "The result is a proposal, not a reviewed event."
+        ),
+    )
+    visible_cards_parser.add_argument("--image", type=Path, required=True)
+    visible_cards_parser.add_argument("--package-id", required=True)
+    visible_cards_parser.add_argument("--frame-part-name", default="frame_00")
+    visible_cards_parser.add_argument("--target-offset-ms", type=int, default=0)
+    visible_cards_parser.add_argument("--output", type=Path, required=True)
+    visible_cards_parser.add_argument("--overlay", type=Path)
+    visible_cards_parser.add_argument(
+        "--cache-dir", type=Path, default=Path("data/cache/visible-cards")
+    )
+    visible_cards_parser.add_argument("--provider", choices=("fake", "gemini"), default="fake")
+    visible_cards_parser.add_argument("--fake-prediction", type=Path)
+    visible_cards_parser.add_argument("--model", default=None)
+    visible_cards_parser.add_argument("--width", type=int)
+    visible_cards_parser.add_argument("--height", type=int)
+    visible_cards_parser.add_argument("--timeout", type=float, default=120.0)
+    visible_cards_parser.add_argument("--max-retries", type=int, default=2)
+
+    queue_parser = commands.add_parser(
+        "visible-card-queue",
+        help="Create a resumable visible-card review queue.",
+    )
+    queue_parser.add_argument("--result", type=Path, nargs="+", required=True)
+    queue_parser.add_argument("--run-id", required=True)
+    queue_parser.add_argument("--output", type=Path, required=True)
+
+    review_parser = commands.add_parser(
+        "review-visible-card",
+        help="Record one GOOD or BAD visible-card review decision.",
+    )
+    review_parser.add_argument("--queue", type=Path, required=True)
+    review_parser.add_argument("--item-id", required=True)
+    review_parser.add_argument("--decision", choices=("GOOD", "BAD"), required=True)
+    review_parser.add_argument("--reviewer", required=True)
+
     return parser
 
 
@@ -117,6 +174,79 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for candidate in load_bundle(args.bundle).classify(args.image)
             ]
         )
+        return 0
+    if args.command == "visible-cards":
+        try:
+            request = build_request_from_image(
+                args.image,
+                package_id=args.package_id,
+                frame_part_name=args.frame_part_name,
+                target_offset_ms=args.target_offset_ms,
+                width=args.width,
+                height=args.height,
+                model=args.model or DEFAULT_MODEL,
+                provider=args.provider,
+            )
+            if args.provider == "fake":
+                predictions = {}
+                if args.fake_prediction:
+                    predictions[request.image_sha256] = json.loads(
+                        args.fake_prediction.read_text(encoding="utf-8")
+                    )
+                provider = FakeVisibleCardProvider(predictions)
+            else:
+                provider = GeminiVisibleCardProvider.from_environment(
+                    timeout_s=args.timeout,
+                    max_retries=args.max_retries,
+                )
+            result = CachedVisibleCardProvider(provider, args.cache_dir).propose(request)
+            overlay = None
+            if args.overlay:
+                write_overlay_svg(request, result.prediction, args.overlay)
+                overlay = str(args.overlay)
+            write_run_artifact(
+                request,
+                result,
+                args.output,
+                image=str(args.image),
+                overlay=overlay,
+            )
+        except (VisibleCardError, OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote visible-card result: {args.output}")
+        return 0
+    if args.command == "visible-card-queue":
+        try:
+            results = []
+            for result_path in args.result:
+                value = load_run_artifact(result_path)
+                request = value["request"]
+                results.append(
+                    {
+                        "package_id": request["package_id"],
+                        "frame_part_name": request["frame_part_name"],
+                        "target_offset_ms": request["target_offset_ms"],
+                        "image": value.get("image"),
+                        "overlay": value.get("overlay"),
+                        "prediction": value["prediction"],
+                    }
+                )
+            queue = build_review_queue(results, args.output, run_id=args.run_id)
+        except (VisibleCardError, OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Wrote {len(queue.items)} visible-card review items: {args.output}")
+        return 0
+    if args.command == "review-visible-card":
+        try:
+            queue = record_review(
+                args.queue,
+                args.item_id,
+                args.decision,
+                reviewer=args.reviewer,
+            )
+        except (VisibleCardError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Recorded review; {len(queue.pending_items)} item(s) remain")
         return 0
     parser.exit(2, f"error: command '{_command_name(args)}' is not implemented yet.\n")
 

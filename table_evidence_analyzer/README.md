@@ -40,8 +40,9 @@ mise exec -- uv sync
 
 ## Command line
 
-The `table-analyzer` command currently exposes the planned command shape. Training, evaluation,
-export, classification, and dataset validation behavior will land in later milestones.
+The `table-analyzer` command exposes the local visible-card baseline and the planned training
+command shape. Training, evaluation, export, classification, and dataset validation behavior will
+land in later milestones.
 
 ```bash
 table-analyzer --help
@@ -50,6 +51,43 @@ table-analyzer train --help
 table-analyzer evaluate --help
 table-analyzer export --help
 table-analyzer classify-crop --help
+table-analyzer visible-cards --help
+table-analyzer visible-card-queue --help
+table-analyzer review-visible-card --help
 ```
 
-All contract tests run locally and do not download weights or data.
+Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
+`GEMINI_API_KEY` is present in the process environment. The fake provider is deterministic and
+does not need credentials:
+
+```bash
+table-analyzer visible-cards \
+  --image ../card_event_net/data/outputs/annotation-evidence-0ms/<package-id>/frames/frame_00.jpg \
+  --package-id <package-id> \
+  --frame-part-name frame_00 \
+  --target-offset-ms 0 \
+  --provider gemini \
+  --output data/outputs/visible-card-run/<package-id>.json \
+  --overlay data/outputs/visible-card-run/<package-id>.svg
+```
+
+The output contains the request contract, request key, normalized proposals, raw provider response,
+token counts, latency, retry count, and estimated cost. Cache files are keyed by the full request
+contract. Credentials are read at runtime and are never written to the result or cache.
+
+Create and update a resumable review queue from one or more run artifacts:
+
+```bash
+table-analyzer visible-card-queue \
+  --result data/outputs/visible-card-run/<package-id>.json \
+  --run-id visible-card-m0-v1 \
+  --output data/outputs/visible-card-review/m0.json
+
+table-analyzer review-visible-card \
+  --queue data/outputs/visible-card-review/m0.json \
+  --item-id <package-id>:frame_00 \
+  --decision GOOD \
+  --reviewer <name>
+```
+
+All contract tests run locally and do not download weights, data, or call Gemini.

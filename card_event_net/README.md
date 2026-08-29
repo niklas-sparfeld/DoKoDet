@@ -136,9 +136,11 @@ uv run cardevent extract-evidence \
   --out data/outputs/annotation-evidence-v1
 ```
 
-The command extracts the six target offsets `[-800, -400, -100, 150, 400, 700] ms`. It includes
-card-play events whose confidence is absent or `confirmed`. It excludes uncertain, ignored,
-proposed, and non-card-play events.
+The command extracts the six target offsets `[-800, -400, -100, 150, 400, 700] ms` by default. Use
+`--target-offset-ms 0` for the exact reviewed event frame used by the first TableEvidenceAnalyzer
+visible-card baseline. Repeat the option to select several offsets. The command includes card-play
+events whose confidence is absent or `confirmed`. It excludes uncertain, ignored, proposed, and
+non-card-play events.
 
 Each output package contains a `cardevent-evidence/v2` manifest and source-resolution JPEGs. The
 root `extraction-manifest.json` records source-video, annotation, event, session, split,

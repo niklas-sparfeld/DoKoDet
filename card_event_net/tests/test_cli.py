@@ -82,6 +82,8 @@ def test_extract_evidence_command_parses_annotation_inputs() -> None:
             "--video-id",
             "IMG_0654",
             "IMG_0655",
+            "--target-offset-ms",
+            "0",
         ]
     )
 
@@ -93,6 +95,7 @@ def test_extract_evidence_command_parses_annotation_inputs() -> None:
     assert args.split == Path("data/splits/batch.yaml")
     assert args.partition == ["train", "val"]
     assert args.video_id == ["IMG_0654", "IMG_0655"]
+    assert args.target_offsets_ms == [0]
 
 
 def test_vision_commands_parse_contract_paths() -> None:

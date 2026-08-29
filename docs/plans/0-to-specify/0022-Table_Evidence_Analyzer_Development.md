@@ -2,7 +2,8 @@
 
 ## Plan status
 
-- **Summary:** Produce measured table observations from reviewed real frames and video snippets
+- **Summary:** Establish a cloud visible-card baseline, then produce measured table observations
+  from reviewed real frames and video snippets
 - **Status:** To Specify
 - **Depends on:** Plans 0020 and 0021, with enough reviewed real evidence for held-out
   evaluation
@@ -36,22 +37,24 @@ Before writing concrete implementation milestones, record:
 - the first operator workflow and compute budget;
 - the plan 0006 reconstruction scenarios and feature-ablation interface.
 
-The current six target frame offsets remain an unvalidated capture hypothesis:
+The current evidence packages contain six target frame offsets:
 
 ```text
 [-800, -400, -100, 150, 400, 700] ms
 ```
 
-Plan 0025 adds a bounded snippet around the same proposal. First confirm that the frames and snippet
-show enough of the visible cards and transition. Change capture configuration or version the
-evidence contract when required pixels are absent. Do not compensate for missing evidence with
-model complexity.
+They remain an unvalidated capture hypothesis. Do not use `+150 ms` for the first cloud
+visible-card experiment. Extract a new frame at the exact reviewed event time (`0 ms`) from the
+source recording. Plan 0025 adds a bounded snippet around the same proposal. First confirm that the
+exact-event frame and snippet show enough of the visible cards and transition. Change capture
+configuration or version the evidence contract when required pixels are absent. Do not compensate
+for missing evidence with model complexity.
 
-## 3. First specification experiment: fixed selected-frame suitability
+## 3. First specification experiment: exact-event frame suitability
 
-Test the cheapest path to real analyzer input before card localization or visual card identity
-work. Extract one evidence package for each reviewed `card_played` annotation. Then review one fixed
-selected frame from each package.
+Test the cheapest path to real analyzer input before visual card identity work. Extract one evidence
+package for each reviewed `card_played` annotation. Then review the exact-event frame and the cloud
+visible-card proposals for that frame.
 
 Keep two source classes separate:
 
@@ -64,8 +67,8 @@ Do not mix the two classes in the first frame-suitability measurement.
 
 This experiment answers two bounded questions:
 
-1. Does one fixed selected-frame target provide usable visual card evidence often enough for the
-   first proof of concept?
+1. Does the exact-event frame provide usable visible-card evidence often enough for the first proof
+   of concept?
 2. Does the run provide a diverse set of real frames for the card localization and visual card
    identity experiments?
 
@@ -84,9 +87,10 @@ Before extraction or review, record:
 - the fixed target under review;
 - one run identifier and deterministic output location.
 
-For the first run, define the fixed frame as the selected frame with target offset `+150 ms`. Do not
-silently substitute another frame when that target is missing. Record the package as incomplete for
-this experiment.
+For the first run, define the fixed frame at target offset `0 ms`. Extract it from the source
+recording at the reviewed event time. Do not reuse or rename the nearest existing selected frame.
+Do not silently substitute another frame when the exact-event frame is missing. Record the package
+as incomplete for this experiment.
 
 Extract packages for all eligible annotated recordings. Do not extract or review sealed system-
 holdout groups during development. Exclude those groups from the review queue and from the next
@@ -104,6 +108,7 @@ uv run cardevent extract-evidence \
   --manifest data/dataset-manifest.v1.yaml \
   --split data/splits/batch-2026-08-24.yaml \
   --partition train val \
+  --target-offset-ms 0 \
   --out data/outputs/annotation-evidence-<version>
 ```
 
@@ -114,7 +119,8 @@ The command must:
 3. select only `card_played` events whose confidence is absent or `confirmed`;
 4. exclude `uncertain`, `ignore`, `proposed`, and non-card-play events;
 5. create one evidence package per selected annotation;
-6. extract the six selected frames from the original source resolution;
+6. accept explicit target offsets and extract `0 ms` from the original source resolution for this
+   experiment;
 7. preserve source-video, annotation, event, recording, session, and configuration lineage in the
    extraction manifest;
 8. record missing targets instead of substituting another target;
@@ -127,14 +133,14 @@ the existing table-observation tooling.
 
 ### 3.3 Run a fast binary review
 
-Create a resumable review queue containing exactly the `+150 ms` selected frame from each complete,
-non-holdout package. Keep the reviewer blind to the other frames, video snippet, model probability,
-and event truth during this pass.
+Create a resumable review queue containing exactly the `0 ms` frame from each complete,
+non-holdout package. Keep the reviewer blind to the other frames, video snippet, CardEventNet
+probability, and event truth during this pass.
 
 Ask one question:
 
-> Does this exact frame contain at least one face-up card whose boundary and visual card identity
-> you can recognize without another frame?
+> Does this exact frame contain at least one visible physical card whose visible boundary you can
+> recognize without another frame?
 
 The only decisions are:
 
@@ -143,7 +149,8 @@ GOOD
 BAD
 ```
 
-`GOOD` means that the frame can enter the first positive localization and identity experiments.
+`GOOD` means that the frame can enter the first visible-card localization experiment. Include
+face-up and face-down cards. It does not mean that a visual card identity is readable.
 `BAD` means only that this frame does not meet the criterion. It does not revoke the reviewed event,
 mean that the package contains no useful frame, or make the image a reviewed negative.
 
@@ -154,25 +161,26 @@ wording and discard the pilot decisions if the criterion changes.
 
 ### 3.4 Audit the binary result
 
-The central-frame-only review measures yield, but it cannot explain a `BAD` result. After the fast
-pass, select a deterministic, session-stratified audit sample of:
+The exact-event review measures yield, but it cannot explain a `BAD` result. After the fast pass,
+select a deterministic, session-stratified audit sample of:
 
 - at least 30 `BAD` packages;
 - at least 20 `GOOD` packages;
-- every package with a missing `+150 ms` target, up to a separately reported cap.
+- every package with a missing `0 ms` target, up to a separately reported cap.
 
-Inspect all selected frames and the video snippet when present. Record whether:
+Inspect the `0 ms` source frame and the cloud proposal overlay. Do not inspect alternate target
+offsets in this pass. Record whether:
 
 ```text
-FIXED_FRAME_GOOD
-OTHER_SELECTED_FRAME_GOOD
-NO_SELECTED_FRAME_GOOD
+CLOUD_PROPOSAL_GOOD
+FRAME_GOOD_PROPOSAL_BAD
+NO_VISIBLE_CARD_AT_0MS
 PACKAGE_INCOMPLETE
 ```
 
-For `OTHER_SELECTED_FRAME_GOOD`, record every usable target offset. This audit estimates how much
-yield the fixed target loses and whether another single target would work better. It is not a full
-table-observation review.
+For `FRAME_GOOD_PROPOSAL_BAD`, record missed, false, duplicate, and poor-boundary card proposals.
+This audit estimates cloud localization quality at the exact event time. It is not a full table-
+observation review.
 
 ### 3.5 Report and publish the candidate frame set
 
@@ -181,10 +189,10 @@ Write one machine-readable result and one short report. Include:
 - source recording, session, and package counts;
 - selected-annotation and package counts per recording and session;
 - complete, incomplete, `GOOD`, and `BAD` counts;
-- fixed-frame good rate overall and by session, table setup, and deck design;
+- exact-event good rate overall and by session, table setup, and deck design;
 - missing-target and processing failure rates;
-- audit outcomes and usable rate for every selected-frame target;
-- the number of `BAD` fixed frames recovered by another target;
+- audit outcomes and cloud proposal failure counts;
+- visible-card counts and sides for the audited frames;
 - review throughput and median decision time;
 - repeated or near-duplicate package concentration;
 - the exact source, annotation, extractor, queue, review, and report digests.
@@ -195,13 +203,14 @@ the visual card identities yet.
 
 Use these decisions:
 
-- Continue with the fixed-frame proof of concept when the review yields at least 100 `GOOD` frames
+- Continue with the exact-event proof of concept when the review yields at least 100 `GOOD` frames
   from at least five sessions and no one session supplies more than 40% of them.
-- Keep the `+150 ms` target when the audit does not show another single target that improves usable
-  package yield by more than 10 percentage points.
-- Select and repeat the binary review for a better fixed target when one target clears that margin.
-- Stop the fixed-frame approach when no single target supplies the minimum candidate set. Plan a
-  multi-frame input instead.
+- Keep the `0 ms` target for the cloud baseline unless reviewed failures show that event timing is a
+  material cause. Do not run an alternate-offset comparison before that result.
+- If event timing is a material failure cause, specify a separate alternate-offset or multi-frame
+  experiment before selecting another target.
+- Stop the exact-event approach when the exact-event target does not supply the minimum candidate
+  set and the timing failure is not recoverable.
 
 These are proof-of-concept gates. They do not claim production coverage. Keep all observed rates in
 the report even when the absolute candidate-frame gate passes.
@@ -210,6 +219,98 @@ the report even when the absolute candidate-frame gate passes.
 
 Add one capability at a time. Preserve the identity-only reconstruction baseline. Run plan 0006
 ablation scenarios before and after each addition.
+
+### Cloud VLM visible-card baseline
+
+Use the working Gemini polygon proposal as the first visible-card baseline. Defer training a local
+visible-card model until measured cost, latency, data handling, reliability, or quality requires it.
+The cloud output remains an event proposal. It does not become a reviewed event, an annotation, or
+a table observation without the declared adapter and review steps.
+
+Move the reusable implementation from the CardEventNet exploratory module into the
+`table_evidence_analyzer` package. Keep CardEventNet responsible only for event proposals. Add:
+
+1. a provider boundary that accepts one exact-event source frame and returns visible-card polygon
+   proposals;
+2. a versioned request contract for the model, prompt, structured-output schema, image digest, and
+   target offset;
+3. cached raw responses and normalized proposals keyed by all request inputs;
+4. bounded retries, timeouts, malformed-response handling, and an explicit unavailable result;
+5. per-request input tokens, output tokens, latency, retry count, and estimated cost;
+6. overlays and a resumable human review queue;
+7. credentials loaded at runtime and never written to an artifact;
+8. a deterministic fake provider for the normal local development loop.
+
+The first provider is `gemini-3.6-flash` with minimal thinking and named polygon coordinates. Ask
+for every separately visible physical card. Include face-up and face-down cards. Trace only the
+visible boundary. Do not infer the hidden part of an occluded card.
+
+Evaluate the frozen provider first on annotation-derived `0 ms` frames. Stratify the review set by
+session, table setup, deck design, visible-card count, face-up or face-down side, occlusion, blur,
+glare, and human-hand overlap. Add reviewed CardEventNet false event proposals as a separate set.
+Do not evaluate `+150 ms` unless reviewed `0 ms` failures identify event timing as a material cause.
+
+Measure:
+
+- visible-card instance recall for face-up and face-down cards;
+- false and duplicate card proposals per frame;
+- visible-boundary mask intersection over union;
+- usable-crop recall;
+- malformed, unavailable, timeout, and retry rates;
+- latency median and p95;
+- input and output tokens per request;
+- cost per event proposal and projected cost per 24-round game.
+
+Use these provisional proof-of-concept gates:
+
+- visible-card instance recall is at least 0.95 overall and at least 0.90 for each reported side;
+- median visible-boundary mask intersection over union is at least 0.85;
+- false and duplicate card proposals total at most 0.25 per reviewed frame;
+- malformed and unavailable results total at most 1%;
+- projected paid standard cost is at most USD 10 per 24-round game;
+- projected paid batch cost is at most USD 5 per 24-round game when delayed processing is allowed.
+
+These gates select a cloud baseline. They do not authorize unattended labels or production use.
+If the provider clears them, use it as the first visible-card proposal generator and continue with
+identity and multi-frame experiments. If it fails a quality gate, test one Gemini-to-SAM mask
+refinement before local model training. If it fails only a cost or latency gate, test batch or flex
+inference and event-proposal filtering first.
+
+#### Initial cost projection
+
+The 2026-08-29 local proof of concept used three exact-event frames. Each request used 1,295 input
+tokens. Output ranged from 178 to 1,382 tokens, with a mean of 812.33 tokens. The latest CardEventNet
+validation artifact reports 251 detected true events and 41 false event proposals from 255 reviewed
+events at the selected threshold. This is 292 cloud requests per 255 reviewed events.
+
+A 24-round game contains 960 card plays. Scale the validation ratio as follows:
+
+```text
+detected true event proposals = 960 × 251 / 255 = 944.94
+false event proposals         = 960 ×  41 / 255 = 154.35
+cloud requests                = 1,099.29
+```
+
+At the Gemini 3.6 Flash prices published for the period through 2026-12-31, standard inference costs
+USD 0.75 per million input tokens and USD 3.75 per million output tokens. The measured mean request
+cost is USD 0.0040175. This gives:
+
+```text
+paid standard estimate = USD 4.42 per 24-round game
+paid batch estimate    = USD 2.21 per 24-round game
+20% standard reserve   = USD 5.30 per 24-round game
+```
+
+The free tier has no token charge, but its active project quota can limit one complete game. Do not
+promise zero cost until the project quota is recorded.
+
+The validation recordings contain compressed staged activity. Their 311.29 false events per hour
+must not be treated as a measured real-game rate. If that literal hourly rate transfers, a
+three-hour game costs about USD 7.55 and a four-hour game costs about USD 8.80 at the measured mean
+request size. Record one complete real-game request count and token report before replacing the
+USD 10 safety ceiling with a lower gate.
+
+Pricing source: [Gemini Developer API pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
 ### Identity feasibility with oracle crops
 
@@ -388,3 +489,48 @@ Completion will require:
 
 Do not use crop accuracy, visible-card average precision, tracking accuracy, or a model name alone
 as proof of completion.
+
+## 8. Small implementation milestones
+
+### M0 — Cloud visible-card baseline boundary
+
+1. Move the reusable Gemini visible-card proposal path into the `table_evidence_analyzer` package.
+2. Freeze strict request, normalized polygon, provider-result, cache, run, and review-queue
+   contracts. Include the model, prompt, response schema, image digest, and target offset in the
+   request key.
+3. Add the Gemini provider with minimal thinking, named polygon coordinates, bounded retries,
+   timeout handling, malformed-response handling, runtime credentials, usage metrics, and cost
+   estimates.
+4. Add a deterministic fake provider, atomic cache and artifact writes, self-contained overlays,
+   and resumable `GOOD`/`BAD` review state.
+5. Add the exact-event `0 ms` extractor option to the existing annotation-derived evidence command.
+
+Acceptance:
+
+- one local fake-provider run writes a schema-valid result and self-contained overlay without
+  network access or credentials;
+- Gemini requests use the declared structured-output schema and return an explicit unavailable
+  result after the configured retry bound;
+- cache hits require an exact request-key match and preserve both raw and normalized output;
+- result and cache artifacts contain no provider credential;
+- a review queue is deterministic, refuses accidental replacement, records one decision at a time,
+  and resumes without losing prior decisions;
+- `cardevent extract-evidence --target-offset-ms 0` produces only the exact-event target when
+  requested, while the default six targets remain unchanged;
+- the TableEvidenceAnalyzer tests, CardEventNet extraction tests, and applicable Ruff checks pass
+  locally without downloading model weights or calling Gemini.
+
+#### M0 implementation evidence — 2026-08-29
+
+- Added the reusable visible-card request, normalized polygon, provider, cache, artifact, overlay,
+  and review-queue implementation to `table_evidence_analyzer`.
+- Added Gemini structured output with runtime `GEMINI_API_KEY` loading, bounded retries, explicit
+  unavailable results, usage and latency metrics, and the provisional standard-inference cost
+  formula. Added a deterministic fake provider for local tests.
+- Added `visible-cards`, `visible-card-queue`, and `review-visible-card` commands. Cache and output
+  writes are atomic, and request artifacts omit credentials.
+- Added repeated `--target-offset-ms` support to the CardEventNet evidence extractor. Its default
+  target list is unchanged; `--target-offset-ms 0` selects the exact reviewed event frame.
+- Verification: TableEvidenceAnalyzer 32 tests and Ruff checks pass. CardEventNet focused
+  extraction and CLI tests pass; the package-wide Ruff check still reports one pre-existing line
+  length issue in `cardevent/vision_annotation.py`.
