@@ -1,4 +1,4 @@
-import type { paths } from "./openapi";
+import type { components, paths } from "./openapi";
 
 type JsonResponse<Response> = Response extends { content: infer Content }
   ? Content extends { "application/json": infer Payload }
@@ -11,6 +11,11 @@ export type RoundAnalysisStatus = JsonResponse<
 >;
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
+>;
+export type RoundCounterfactualCreateRequest =
+  components["schemas"]["RoundCounterfactualCreateRequest"];
+export type RoundCounterfactualResponse = JsonResponse<
+  paths["/v1/round-analyses/{analysis_id}/counterfactuals"]["post"]["responses"][201]
 >;
 
 export class ApiError extends Error {
@@ -40,6 +45,16 @@ export interface DokoDetectorClient {
     partName: string,
     init?: RequestInit,
   ): Promise<Blob>;
+  createRoundCounterfactual(
+    analysisId: string,
+    payload: RoundCounterfactualCreateRequest,
+    init?: RequestInit,
+  ): Promise<RoundCounterfactualResponse>;
+  getRoundCounterfactual(
+    analysisId: string,
+    counterfactualId: string,
+    init?: RequestInit,
+  ): Promise<RoundCounterfactualResponse>;
 }
 
 export function createDokoDetectorClient(
@@ -68,6 +83,23 @@ export function createDokoDetectorClient(
       }
       return response.blob();
     },
+    createRoundCounterfactual: (analysisId, payload, init) =>
+      requestJson<RoundCounterfactualResponse>(
+        fetchImplementation,
+        roundCounterfactualPath(analysisId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    getRoundCounterfactual: (analysisId, counterfactualId, init) =>
+      requestJson<RoundCounterfactualResponse>(
+        fetchImplementation,
+        roundCounterfactualReadPath(analysisId, counterfactualId),
+        init,
+      ),
   };
 }
 
@@ -87,6 +119,17 @@ function roundAnalysisTimelinePath(analysisId: string): string {
   return `${roundAnalysisStatusPath(analysisId)}/timeline`;
 }
 
+export function roundCounterfactualPath(analysisId: string): string {
+  return `${roundAnalysisStatusPath(analysisId)}/counterfactuals`;
+}
+
+export function roundCounterfactualReadPath(
+  analysisId: string,
+  counterfactualId: string,
+): string {
+  return `${roundCounterfactualPath(analysisId)}/${encodeURIComponent(counterfactualId)}`;
+}
+
 async function requestJson<Response>(
   fetchImplementation: typeof fetch,
   path: string,
@@ -102,6 +145,13 @@ async function requestJson<Response>(
     throw new ApiError(response.status, await readResponseBody(response));
   }
   return (await response.json()) as Response;
+}
+
+function jsonHeaders(headers: HeadersInit | undefined): Headers {
+  const result = new Headers(headers);
+  result.set("Accept", "application/json");
+  result.set("Content-Type", "application/json");
+  return result;
 }
 
 async function readResponseBody(response: Response): Promise<unknown> {

@@ -368,6 +368,352 @@ h2 {
   background: #fbf5ec;
 }
 
+.counterfactualPanel {
+  margin-top: 0.8rem;
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.counterfactualControls {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.counterfactualRow {
+  min-width: 0;
+  margin: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.counterfactualRow legend {
+  padding: 0 0.35rem;
+  color: var(--ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.checkboxLabel,
+.overrideControl {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink);
+  font-size: 0.75rem;
+}
+
+.checkboxLabel input,
+.overrideControl input {
+  accent-color: var(--accent);
+}
+
+.counterfactualCard {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--surface) 55%, var(--panel));
+}
+
+.overrideList {
+  display: grid;
+  gap: 0.45rem;
+  padding-left: 1.35rem;
+}
+
+.overrideControl {
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--muted-ink);
+}
+
+.overrideControl input {
+  width: 5.5rem;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.counterfactualActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 2.45rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.45rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.primaryButton {
+  background: var(--accent);
+  color: #fff;
+}
+
+.secondaryButton {
+  background: var(--panel);
+  color: var(--accent);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.primaryButton:hover:not(:disabled),
+.primaryButton:focus-visible,
+.secondaryButton:hover:not(:disabled),
+.secondaryButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.errorMessage {
+  margin: 0.8rem 0 0;
+  color: #8b2e1d;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.comparison {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.comparisonHeading,
+.comparisonSummaries {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.comparisonHeading {
+  align-items: start;
+}
+
+.comparisonHeading h3,
+.comparisonBlock h4,
+.comparisonSummary h4 {
+  margin: 0;
+  color: var(--ink);
+}
+
+.comparisonHeading h3 {
+  margin-top: 0.3rem;
+  font-size: 1.05rem;
+}
+
+.comparisonBlock h4,
+.comparisonSummary h4 {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.counterfactualId {
+  max-width: 16rem;
+  color: var(--muted-ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.comparisonSummaries {
+  align-items: stretch;
+  margin-top: 0.9rem;
+}
+
+.comparisonSummary {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: var(--surface);
+}
+
+.comparisonSummary .status {
+  margin-top: 0.65rem;
+}
+
+.comparisonWarning {
+  margin: 0.9rem 0 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #d7a23b;
+  border-radius: 0.45rem;
+  background: #fff5d8;
+  color: #6c5116;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.comparisonStats {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.8rem 0 0;
+}
+
+.comparisonStats div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--line);
+}
+
+.comparisonStats dt {
+  color: var(--muted-ink);
+  font-size: 0.7rem;
+}
+
+.comparisonStats dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.comparisonDetails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+}
+
+.comparisonBlock {
+  min-width: 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.comparisonBlock:first-child {
+  grid-column: 1 / -1;
+}
+
+.changeTable {
+  width: 100%;
+  margin-top: 0.7rem;
+  border-collapse: collapse;
+  color: var(--ink);
+  font-size: 0.72rem;
+}
+
+.changeTable th,
+.changeTable td {
+  padding: 0.55rem 0.35rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.changeTable thead th {
+  color: var(--muted-ink);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.changeMarker {
+  display: inline-block;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid #b65b47;
+  border-radius: 0.25rem;
+  color: #8b2e1d;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.changeList {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.7rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--ink);
+  font-size: 0.75rem;
+}
+
+.changeDetail {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted-ink);
+  font-size: 0.7rem;
+}
+
+.changedText {
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.mutedNote {
+  margin: 0.7rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.diagnosticsComparison {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.7rem 0 0;
+}
+
+.diagnosticsComparison div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 0.75rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.diagnosticsComparison dt,
+.diagnosticsComparison dd {
+  font-size: 0.7rem;
+}
+
+.diagnosticsComparison dt {
+  color: var(--muted-ink);
+}
+
+.diagnosticsComparison dd {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
 .hypothesisButton {
   padding: 0.2rem 0.3rem;
   border: 1px solid transparent;
@@ -851,6 +1197,10 @@ progress {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .comparisonDetails {
+    grid-template-columns: 1fr;
+  }
+
   .timelineHeader {
     display: none;
   }
@@ -882,6 +1232,19 @@ progress {
   .summaryStats,
   .stats {
     grid-template-columns: 1fr;
+  }
+
+  .comparisonSummaries {
+    grid-template-columns: 1fr;
+  }
+
+  .comparisonHeading {
+    flex-direction: column;
+  }
+
+  .counterfactualId {
+    max-width: none;
+    text-align: left;
   }
 
   .rowControls {

@@ -54,7 +54,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0033 — Round analysis timeline and counterfactual explorer](3-in-progress/0033-Round_Analysis_Timeline.md) | Completed 0031 and 0032 | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M7 complete; M8 pending. |
 | [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
 
 ### Blocked
@@ -67,6 +66,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0033 — Round analysis timeline and counterfactual explorer](5-closed/0033-Round_Analysis_Timeline.md) | Complete | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M8 complete. |
 | [0034 — Gemini round analysis integration](5-closed/0034-Gemini_Round_Analysis_Integration.md) | Complete | Make the normal round-analysis backend use Gemini for every evidence package and require its runtime credential. |
 | [0032 — Round recording analysis PoC](5-closed/0032-Round_Recording_Analysis_PoC.md) | Complete | Use one iOS recording to create the complete video and its evidence packages; M0–M5 provide the reusable backend boundary, durable analysis lifecycle, worker, APIs, runtime artifacts, unified iOS recording boundary, upload gating, durable submission, polling, concise result UI, deterministic fixtures, and local flow documentation. |
 | [0031 — Round reconstruction integration harness](5-closed/0031-Round_Reconstruction_Integration_Harness.md) | Complete | Reproducibly assemble stored table observations into one explicit round input and record the reconstruction result, with analyzer persistence integration and four scenario outcomes. |
@@ -99,7 +99,8 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Continue epic 0033 one milestone at a time. Its 0031 and 0032 dependencies are complete.
+1. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
+   baseline for later review work.
 2. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
    `0 ms` binary review and the cloud visible-card baseline over that trusted event-time corpus. Add
    CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed system-holdout

@@ -1,4 +1,8 @@
-import type { RoundAnalysisStatus, RoundAnalysisTimeline } from "../api/client";
+import type {
+  RoundAnalysisStatus,
+  RoundAnalysisTimeline,
+  RoundCounterfactualResponse,
+} from "../api/client";
 
 export const ANALYSIS_ID = "550e8400-e29b-41d4-a716-446655440033";
 
@@ -342,3 +346,101 @@ function statusForTimeline(
 export const ambiguousStatus = statusForTimeline(ambiguousTimeline);
 export const incompleteStatus = statusForTimeline(incompleteTimeline);
 export const impossibleStatus = statusForTimeline(impossibleTimeline);
+
+const CHANGED_COUNTERFACTUAL_ID = "550e8400-e29b-41d4-a716-446655440036";
+const UNCHANGED_COUNTERFACTUAL_ID = "550e8400-e29b-41d4-a716-446655440037";
+
+function counterfactualResult(
+  counterfactualId: string,
+  timeline: RoundAnalysisTimeline,
+): Record<string, unknown> {
+  return {
+    schema_version: "round-reconstruction-result/v2",
+    run_id: counterfactualId,
+    operations_version: "fixture-v1",
+    request_sha256: "d".repeat(64),
+    sources: [],
+    search: timeline.search,
+    status: timeline.reconstruction_status,
+    hypotheses: timeline.hypotheses,
+    focused_decisions: timeline.focused_decisions,
+    diagnostics: timeline.diagnostics,
+  };
+}
+
+function counterfactualResponse(
+  counterfactualId: string,
+  result: Record<string, unknown>,
+): RoundCounterfactualResponse {
+  const request = {
+    schema_version: "round-analysis-counterfactual/v1" as const,
+    counterfactual_id: counterfactualId,
+    source_analysis_id: ANALYSIS_ID,
+    source_input_sha256: "a".repeat(64),
+    source_result_sha256: "b".repeat(64),
+    excluded_observation_ids: ["observation-001"],
+    excluded_observed_cards: [],
+    candidate_probability_overrides: [],
+  };
+  const artifact = (name: string) => ({
+    relative_path:
+      "round-analyses/" +
+      ANALYSIS_ID +
+      "/counterfactuals/" +
+      counterfactualId +
+      "/" +
+      name +
+      ".json",
+    byte_length: 1,
+    sha256: "e".repeat(64),
+  });
+  return {
+    schema_version: "round-analysis-counterfactual-response/v1",
+    counterfactual_id: counterfactualId,
+    source_analysis_id: ANALYSIS_ID,
+    request,
+    artifacts: {
+      request: artifact("request"),
+      input: artifact("input"),
+      result: artifact("result"),
+    },
+    result,
+  };
+}
+
+const changedBestHypothesis = {
+  ...resolvedTimeline.hypotheses[1],
+  rank: 1,
+  total_score: -1.386294361,
+};
+const changedSecondHypothesis = {
+  ...resolvedTimeline.hypotheses[0],
+  rank: 2,
+  total_score: -0.287682072,
+};
+
+const changedCounterfactualTimeline = {
+  ...resolvedTimeline,
+  reconstruction_status: "ambiguous" as const,
+  hypotheses: [changedBestHypothesis, changedSecondHypothesis],
+  focused_decisions: [],
+  diagnostics: {
+    ...resolvedTimeline.diagnostics,
+    search_nodes: 2,
+    complete_branches: 1,
+    truncated: true,
+  },
+};
+
+export const changedCounterfactualResponse = counterfactualResponse(
+  CHANGED_COUNTERFACTUAL_ID,
+  counterfactualResult(
+    CHANGED_COUNTERFACTUAL_ID,
+    changedCounterfactualTimeline,
+  ),
+);
+
+export const unchangedCounterfactualResponse = counterfactualResponse(
+  UNCHANGED_COUNTERFACTUAL_ID,
+  counterfactualResult(UNCHANGED_COUNTERFACTUAL_ID, resolvedTimeline),
+);

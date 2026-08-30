@@ -6,12 +6,14 @@ import {
   ANALYSIS_ID,
   ambiguousStatus,
   ambiguousTimeline,
+  changedCounterfactualResponse,
   impossibleStatus,
   impossibleTimeline,
   incompleteStatus,
   incompleteTimeline,
   resolvedStatus,
   resolvedTimeline,
+  unchangedCounterfactualResponse,
 } from "./test/roundAnalysisFixture";
 import type { RoundAnalysisStatus, RoundAnalysisTimeline } from "./api/client";
 
@@ -64,8 +66,8 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: "Reconstruction hypothesis" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Diamonds Jack")).toBeInTheDocument();
-    expect(screen.getByText("Hearts Ten")).toBeInTheDocument();
+    expect(screen.getAllByText("Diamonds Jack").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Hearts Ten").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("heading", { name: "Hypothesis comparison" }),
     ).toBeInTheDocument();
@@ -97,8 +99,80 @@ describe("App", () => {
     expect(
       screen.getByRole("progressbar", { name: "Diamonds Jack confidence" }),
     ).toHaveValue(0.75);
-    expect(screen.getByText("Clubs Nine")).toBeInTheDocument();
+    expect(screen.getAllByText("Clubs Nine").length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("runs a changed counterfactual and marks baseline differences", async () => {
+    stubTimelineWithCounterfactual(
+      resolvedTimeline,
+      resolvedStatus,
+      changedCounterfactualResponse,
+    );
+    render(<App />);
+
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "Evidence" });
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Exclude observation observation-001",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Run counterfactual" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Baseline versus counterfactual",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Changed observations and cards"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Changed card plays" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Changed").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "Search truncation makes this comparison incomplete. The displayed hypotheses may not include every legal sequence.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 baseline decision.*0 counterfactual decision/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows stable no-change states for an unchanged counterfactual", async () => {
+    stubTimelineWithCounterfactual(
+      resolvedTimeline,
+      resolvedStatus,
+      unchangedCounterfactualResponse,
+    );
+    render(<App />);
+
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "Evidence" });
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Exclude observation observation-001",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Run counterfactual" }),
+    );
+
+    await screen.findByRole("heading", {
+      name: "Baseline versus counterfactual",
+    });
+    expect(screen.getByText("No card-play changes.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No selected or ignored source actions changed."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No focused decisions changed."),
+    ).toBeInTheDocument();
   });
 
   it("restores deep-linked row and hypothesis and moves rows with the keyboard", async () => {
@@ -132,7 +206,7 @@ describe("App", () => {
     expect(screen.getByRole("combobox", { name: "Hypothesis" })).toHaveValue(
       "2",
     );
-    expect(screen.getByText("Clubs Nine")).toBeInTheDocument();
+    expect(screen.getAllByText("Clubs Nine").length).toBeGreaterThan(0);
 
     await user.click(selectedRow);
     await user.keyboard("{ArrowUp}");
@@ -189,5 +263,34 @@ function stubTimeline(
         ),
       ),
     ),
+  );
+}
+
+function stubTimelineWithCounterfactual(
+  timeline: RoundAnalysisTimeline,
+  status: RoundAnalysisStatus,
+  counterfactual: typeof changedCounterfactualResponse,
+) {
+  window.history.pushState({}, "", "/round-analyses/" + ANALYSIS_ID);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(counterfactual), {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input).endsWith("/timeline") ? timeline : status,
+          ),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }),
   );
 }

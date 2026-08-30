@@ -4,12 +4,14 @@ import {
   ANALYSIS_ID,
   ambiguousStatus,
   ambiguousTimeline,
+  changedCounterfactualResponse,
   impossibleStatus,
   impossibleTimeline,
   incompleteStatus,
   incompleteTimeline,
   resolvedStatus,
   resolvedTimeline,
+  unchangedCounterfactualResponse,
 } from "../../src/test/roundAnalysisFixture";
 
 test("loads the frontend foundation shell", async ({ page }) => {
@@ -33,6 +35,21 @@ test.beforeEach(async ({ page }) => {
       fixture === null ? null : variants[fixture as keyof typeof variants];
     const status = selected?.status ?? resolvedStatus;
     const timeline = selected?.timeline ?? resolvedTimeline;
+    if (
+      route.request().method() === "POST" &&
+      route.request().url().includes("/counterfactuals")
+    ) {
+      const counterfactual =
+        new URL(page.url()).searchParams.get("counterfactual") === "unchanged"
+          ? unchangedCounterfactualResponse
+          : changedCounterfactualResponse;
+      await route.fulfill({
+        contentType: "application/json",
+        status: 201,
+        body: JSON.stringify(counterfactual),
+      });
+      return;
+    }
     if (route.request().url().endsWith("/timeline")) {
       await route.fulfill({
         contentType: "application/json",
@@ -140,4 +157,53 @@ test("shows retained alternatives and search truncation as text cues", async ({
   await expect(
     page.getByRole("button", { name: "Jump to observation-001" }),
   ).toBeVisible();
+});
+
+test("runs a changed counterfactual and marks the derived differences", async ({
+  page,
+}) => {
+  await page.goto("/round-analyses/" + ANALYSIS_ID + "?counterfactual=changed");
+
+  await expect(
+    page.getByRole("heading", { name: "Counterfactual run" }),
+  ).toBeVisible();
+  await page
+    .getByRole("checkbox", { name: "Exclude observation observation-001" })
+    .check();
+  await page.getByRole("button", { name: "Run counterfactual" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Baseline versus counterfactual" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Changed observations and cards" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Changed", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByText("Clubs Nine").last()).toBeVisible();
+  await expect(
+    page.getByText(
+      "Search truncation makes this comparison incomplete. The displayed hypotheses may not include every legal sequence.",
+    ),
+  ).toBeVisible();
+});
+
+test("shows stable no-change markers for an unchanged counterfactual", async ({
+  page,
+}) => {
+  await page.goto(
+    "/round-analyses/" + ANALYSIS_ID + "?counterfactual=unchanged",
+  );
+
+  await page
+    .getByRole("checkbox", { name: "Exclude observation observation-001" })
+    .check();
+  await page.getByRole("button", { name: "Run counterfactual" }).click();
+
+  await expect(page.getByText("No card-play changes.")).toBeVisible();
+  await expect(
+    page.getByText("No selected or ignored source actions changed."),
+  ).toBeVisible();
+  await expect(page.getByText("No focused decisions changed.")).toBeVisible();
 });

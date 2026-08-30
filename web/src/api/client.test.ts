@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createDokoDetectorClient, roundAnalysisFramePath } from "./client";
+import {
+  createDokoDetectorClient,
+  roundAnalysisFramePath,
+  roundCounterfactualPath,
+  roundCounterfactualReadPath,
+} from "./client";
 
 describe("DokoDetector API client", () => {
   it("uses generated timeline types at the API boundary", async () => {
@@ -56,6 +61,55 @@ describe("DokoDetector API client", () => {
   it("encodes every frame path segment", () => {
     expect(roundAnalysisFramePath("analysis/1", "package/2", "frame 03")).toBe(
       "/v1/round-analyses/analysis%2F1/evidence-packages/package%2F2/frames/frame%2003",
+    );
+  });
+
+  it("creates and reads a counterfactual through the generated API paths", async () => {
+    const response = {
+      counterfactual_id: "counterfactual-1",
+      source_analysis_id: "analysis-1",
+      request: {},
+      artifacts: {},
+      result: {},
+      schema_version: "round-analysis-counterfactual-response/v1",
+    };
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(response), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+    const payload = {
+      schema_version: "round-analysis-counterfactual/v1" as const,
+      counterfactual_id: "counterfactual-1",
+      source_analysis_id: "analysis-1",
+      source_input_sha256: "a".repeat(64),
+      source_result_sha256: "b".repeat(64),
+      excluded_observation_ids: ["observation-1"],
+      excluded_observed_cards: [],
+      candidate_probability_overrides: [],
+    };
+
+    await client.createRoundCounterfactual("analysis-1", payload);
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      roundCounterfactualPath("analysis-1"),
+    );
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(
+      new Headers(fetchImplementation.mock.calls[0]?.[1]?.headers).get(
+        "Content-Type",
+      ),
+    ).toBe("application/json");
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[0]?.[1]?.body)),
+    ).toEqual(payload);
+
+    await client.getRoundCounterfactual("analysis-1", "counterfactual-1");
+    expect(fetchImplementation.mock.calls[1]?.[0]).toBe(
+      roundCounterfactualReadPath("analysis-1", "counterfactual-1"),
     );
   });
 });

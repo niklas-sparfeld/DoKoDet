@@ -4,7 +4,10 @@
 
 - **Summary:** Explain one completed round analysis as synchronized evidence, table-observation,
   and reconstruction-hypothesis rows, then support immutable counterfactual comparisons.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M8 are complete. The local frontend now supports immutable
+  counterfactual drafting, execution, and baseline comparison with changed and unchanged fixtures.
 - **Depends on:** Completed [Plan 0031](../5-closed/0031-Round_Reconstruction_Integration_Harness.md)
   and completed [Plan 0032](../5-closed/0032-Round_Recording_Analysis_PoC.md).
 - **Related:** [Plan 0026](../0-to-specify/0026-Reconstruction_Review_Workflow.md) owns correction
@@ -25,7 +28,7 @@
 - **M5:** Complete — explain alternatives, incomplete input, impossible input, and diagnostics.
 - **M6:** Complete — derive and recompute strict counterfactual inputs without source mutation.
 - **M7:** Complete — persist and serve immutable counterfactual results.
-- **M8:** Pending — compare the baseline and counterfactual results with visual change markers.
+- **M8:** Complete — compare the baseline and counterfactual results with visual change markers.
 
 ## 1. Outcome
 
@@ -461,6 +464,23 @@ The operator can return to the exact baseline without deleting the counterfactua
 - Show baseline and derived hypotheses side by side with changed rows, plays, decisions, scores,
   and diagnostics.
 - Add end-to-end fixture cases for a changed result and an unchanged result.
+
+**Status: Complete (2026-08-30).**
+
+- Added typed client operations for creating and reading counterfactuals from the generated
+  OpenAPI contract.
+- Added a counterfactual workbench with observation and observed-card exclusions, existing
+  candidate-probability overrides, explicit Run and Restore baseline actions, validation, and
+  source-hash payloads. Nested card and probability changes are cleared when their observation is
+  excluded.
+- Added a side-by-side comparison for baseline and derived status, retained hypotheses, best score,
+  truncation, changed card plays, changed source actions, focused decisions, score contributions,
+  hypothesis scores, and diagnostics. Inserted, removed, and changed play markers are text-based as
+  well as color-based. Truncated searches show an explicit incomplete-comparison warning.
+- Added changed and unchanged component and Playwright fixtures, plus API client path and request
+  tests. The browser cases cover the Run action and stable no-change states.
+- Verification: npm run check, npm run build, npm run test:e2e (7 browser tests), and
+  git diff --check pass. The frontend has 13 Vitest tests.
 
 ## 8. Tests and acceptance criteria
 

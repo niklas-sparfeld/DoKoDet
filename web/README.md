@@ -28,5 +28,14 @@ npm run test:e2e
 - Use a focused-decision link to jump to its source observation row.
 - Expand score details, engine diagnostics, or raw JSON when the compact explanation is not enough.
 
+## Counterfactual comparison
+
+- Exclude an observation or one of its observed cards, or edit an existing candidate probability.
+- Run the drafted changes to create an immutable derived reconstruction.
+- Read the baseline and counterfactual side by side. Change markers cover plays, source actions,
+  focused decisions, hypothesis scores, and diagnostics.
+- Use Restore baseline to clear the draft and return to the source analysis view. Counterfactual
+  artifacts are not corrections and do not change the source evidence.
+
 The `ambiguous`, `incomplete`, and `impossible` query fixtures used by Playwright are local test
 fixtures only. They are not backend API modes.
