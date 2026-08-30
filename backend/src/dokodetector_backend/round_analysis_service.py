@@ -24,6 +24,7 @@ from dokodetector_backend.intake_contract import (
     IntakeContractError,
     parse_evidence_package_lineage,
 )
+from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.repository import (
     EvidenceRepository,
     RoundAnalysisNotFound,
@@ -97,7 +98,7 @@ class RoundAnalysisService:
             evidence_storage,
             artifact_storage,
         )
-        self._queue: asyncio.Queue[UUID | None] = asyncio.Queue()
+        self._queue: asyncio.Queue[tuple[UUID, str] | None] = asyncio.Queue()
         self._worker_task: asyncio.Task[None] | None = None
 
     @property
@@ -147,6 +148,7 @@ class RoundAnalysisService:
         if self._worker_task is not None and not self._worker_task.done():
             return
         self._worker_task = asyncio.create_task(self._worker_loop(), name="round-analysis-worker")
+        _log_worker_event("round_analysis_worker_started", queue_depth=self._queue.qsize())
 
     async def stop(self) -> None:
         """Drain queued work and wait for the worker to stop cleanly."""
@@ -159,28 +161,46 @@ class RoundAnalysisService:
             await task
         finally:
             self._worker_task = None
+            _log_worker_event("round_analysis_worker_stopped", queue_depth=self._queue.qsize())
 
-    def enqueue(self, analysis_id: UUID) -> None:
+    def enqueue(self, analysis_id: UUID, request_id: str) -> None:
         """Queue one newly created analysis for the lifespan worker."""
 
-        self._queue.put_nowait(analysis_id)
+        self._queue.put_nowait((analysis_id, request_id))
+        log_event(
+            LOGGER,
+            logging.DEBUG,
+            "round_analysis_queued",
+            request_id=request_id,
+            analysis_id=str(analysis_id),
+            queue_depth=self._queue.qsize(),
+        )
 
-    def run_synchronously(self, analysis_id: UUID) -> None:
+    def run_synchronously(self, analysis_id: UUID, request_id: str) -> None:
         """Execute one analysis immediately for the test-only API hook."""
 
-        self._run_one(analysis_id)
+        self._run_one(analysis_id, request_id)
 
     async def _worker_loop(self) -> None:
         while True:
-            analysis_id = await self._queue.get()
+            queued = await self._queue.get()
             try:
-                if analysis_id is None:
+                if queued is None:
                     return
-                await asyncio.to_thread(self._run_one, analysis_id)
+                analysis_id, request_id = queued
+                log_event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "round_analysis_worker_dequeued",
+                    request_id=request_id,
+                    analysis_id=str(analysis_id),
+                    queue_depth=self._queue.qsize(),
+                )
+                await asyncio.to_thread(self._run_one, analysis_id, request_id)
             finally:
                 self._queue.task_done()
 
-    def _run_one(self, analysis_id: UUID) -> None:
+    def _run_one(self, analysis_id: UUID, request_id: str) -> None:
         analysis = self.repository.get(analysis_id)
         if analysis is None or analysis.state in {"complete", "failed"}:
             return
@@ -189,35 +209,97 @@ class RoundAnalysisService:
                 analysis.request_json.encode("utf-8")
             )
             selected = self.validate_request(request)
-            self.repository.update_progress(
+            log_event(
+                LOGGER,
+                logging.DEBUG,
+                "round_analysis_input_validated",
+                request_id=request_id,
+                analysis_id=str(analysis_id),
+                recording_id=selected.request.recording_id,
+                package_count=len(selected.packages),
+            )
+            updated = self.repository.update_progress(
                 analysis_id,
                 state="analyzing_evidence",
                 completed=0,
             )
+            _log_state_change(analysis, updated, request_id)
+            analysis = updated
             observations: list[StoredTableObservation] = []
             for index, package in enumerate(selected.packages, start=1):
+                log_event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "round_analysis_package_started",
+                    **_analysis_context(analysis, request_id),
+                    package_id=str(package.package_id),
+                    package_index=index,
+                    total_packages=len(selected.packages),
+                )
                 observation = self.analyzer_runner.run_once(package.package_id)
                 if observation is None:
                     raise RuntimeError("The selected evidence package could not be analyzed.")
                 observations.append(observation)
-                self.repository.update_progress(
+                log_event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "round_analysis_package_completed",
+                    **_analysis_context(analysis, request_id),
+                    package_id=str(package.package_id),
+                    package_index=index,
+                    total_packages=len(selected.packages),
+                    analyzer=observation.analyzer_name,
+                    analyzer_version=observation.analyzer_version,
+                    analysis_status=observation.status,
+                )
+                analysis = self.repository.update_progress(
                     analysis_id,
                     state="analyzing_evidence",
                     completed=index,
                 )
 
-            self.repository.update_progress(
+            updated = self.repository.update_progress(
                 analysis_id,
                 state="reconstructing",
                 completed=len(observations),
             )
+            _log_state_change(analysis, updated, request_id)
+            analysis = updated
+            log_event(
+                LOGGER,
+                logging.DEBUG,
+                "round_analysis_reconstruction_started",
+                **_analysis_context(analysis, request_id),
+                observation_count=len(observations),
+            )
             result, artifacts = self._run_reconstruction(selected, observations)
+            log_event(
+                LOGGER,
+                logging.DEBUG,
+                "round_analysis_reconstruction_completed",
+                **_analysis_context(analysis, request_id),
+                observation_count=len(observations),
+                result_status=result.status,
+                hypothesis_count=len(result.hypotheses),
+            )
             published = self.artifact_storage.publish(
                 analysis_id,
                 artifacts[0],
                 artifacts[1],
             )
-            self.repository.mark_complete(
+            log_event(
+                LOGGER,
+                logging.DEBUG,
+                "round_analysis_artifacts_published",
+                **_analysis_context(analysis, request_id),
+                input_artifact_id=published.input.relative_path,
+                input_byte_length=published.input.byte_length,
+                input_sha256=published.input.sha256,
+                result_artifact_id=published.result.relative_path,
+                result_byte_length=published.result.byte_length,
+                result_sha256=published.result.sha256,
+            )
+            completed = self.repository.mark_complete(
                 analysis_id,
                 result_status=result.status,
                 result_json=artifacts[1].decode("utf-8"),
@@ -226,13 +308,36 @@ class RoundAnalysisService:
                 result_artifact_id=published.result.relative_path,
                 result_artifact_sha256=published.result.sha256,
             )
-        except Exception:
-            LOGGER.exception("round_analysis_failed analysis_id=%s", analysis_id)
+            log_event(
+                LOGGER,
+                logging.INFO,
+                "round_analysis_completed",
+                **_analysis_fields(completed, request_id),
+                state="complete",
+                result_status=result.status,
+            )
+        except Exception as error:
+            failure_info = _exception_info(error)
             try:
-                self.repository.mark_failed(analysis_id, ANALYSIS_WORKER_FAILURE)
-            except (RoundAnalysisNotFound, ValueError):
-                LOGGER.exception(
-                    "round_analysis_failure_persist_failed analysis_id=%s", analysis_id
+                failed = self.repository.mark_failed(analysis_id, ANALYSIS_WORKER_FAILURE)
+            except (RoundAnalysisNotFound, ValueError) as persistence_error:
+                log_event(
+                    LOGGER,
+                    logging.ERROR,
+                    "round_analysis_failure_persist_failed",
+                    exc_info=_exception_info(persistence_error),
+                    **_analysis_fields(analysis, request_id),
+                    cause=type(error).__name__,
+                )
+            else:
+                log_event(
+                    LOGGER,
+                    logging.ERROR,
+                    "round_analysis_failed",
+                    exc_info=failure_info,
+                    **_analysis_fields(failed, request_id),
+                    state="failed",
+                    error=failed.error,
                 )
 
     def _run_reconstruction(
@@ -347,6 +452,63 @@ def json_loads(value: str) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError("stored result JSON must be an object")
     return payload
+
+
+def _analysis_context(analysis: StoredRoundAnalysis, request_id: str) -> dict[str, object]:
+    """Return stable identifiers for one analysis trace event."""
+
+    return {
+        "request_id": request_id,
+        "analysis_id": str(analysis.analysis_id),
+    }
+
+
+def _analysis_fields(analysis: StoredRoundAnalysis, request_id: str) -> dict[str, object]:
+    """Return stable identifiers and bounded progress for one lifecycle event."""
+
+    return {
+        **_analysis_context(analysis, request_id),
+        "recording_id": analysis.recording_id,
+        "round_id": analysis.round_id,
+        "session_id": str(analysis.session_id),
+        "completed_evidence_packages": analysis.completed_evidence_packages,
+        "total_evidence_packages": analysis.total_evidence_packages,
+    }
+
+
+def _log_state_change(
+    previous: StoredRoundAnalysis,
+    current: StoredRoundAnalysis,
+    request_id: str,
+) -> None:
+    """Log only meaningful non-terminal state transitions at INFO."""
+
+    if previous.state == current.state:
+        return
+    log_event(
+        LOGGER,
+        logging.INFO,
+        "round_analysis_state_changed",
+        **_analysis_fields(current, request_id),
+        previous_state=previous.state,
+        state=current.state,
+    )
+
+
+def _log_worker_event(event: str, *, queue_depth: int) -> None:
+    """Log process-level worker lifecycle events."""
+
+    log_event(LOGGER, logging.INFO, event, queue_depth=queue_depth)
+
+
+def _exception_info(
+    error: BaseException,
+) -> tuple[type[BaseException], BaseException, object] | None:
+    """Return traceback information for one failed worker operation."""
+
+    if error.__traceback__ is None:
+        return None
+    return type(error), error, error.__traceback__
 
 
 __all__ = [

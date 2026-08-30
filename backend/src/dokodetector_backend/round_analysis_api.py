@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from uuid import UUID
 
@@ -10,7 +11,12 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from dokodetector_backend.errors import ContractError
-from dokodetector_backend.repository import RoundAnalysisConflict, RoundAnalysisNotFound
+from dokodetector_backend.logging_config import get_or_create_request_id, log_event
+from dokodetector_backend.repository import (
+    RoundAnalysisConflict,
+    RoundAnalysisNotFound,
+    StoredRoundAnalysis,
+)
 from dokodetector_backend.round_analysis_contract import (
     RoundAnalysisCreateRequest,
     RoundAnalysisStatus,
@@ -30,6 +36,7 @@ from dokodetector_backend.round_analysis_timeline import (
 )
 
 router = APIRouter()
+LOGGER = logging.getLogger(__name__)
 
 
 @router.post(
@@ -67,10 +74,14 @@ async def create_round_analysis(
             status_code=409,
         ) from error
 
+    request_id = get_or_create_request_id(request)
+    if created.created:
+        _log_round_analysis_created(request_id, created.analysis)
+
     if created.created and request.app.state.run_round_analysis_synchronously:
-        service.run_synchronously(payload.analysis_id)
+        service.run_synchronously(payload.analysis_id, request_id)
     elif created.created:
-        service.enqueue(payload.analysis_id)
+        service.enqueue(payload.analysis_id, request_id)
     return service.status(payload.analysis_id)
 
 
@@ -210,6 +221,23 @@ def _parse_package_id(value: str) -> UUID:
             "invalid_package_id",
             "The package ID is not a valid UUID.",
         ) from error
+
+
+def _log_round_analysis_created(request_id: str, analysis: StoredRoundAnalysis) -> None:
+    """Log the durable queued state without logging the immutable request body."""
+
+    log_event(
+        LOGGER,
+        logging.INFO,
+        "round_analysis_created",
+        request_id=request_id,
+        analysis_id=str(analysis.analysis_id),
+        recording_id=analysis.recording_id,
+        round_id=analysis.round_id,
+        session_id=str(analysis.session_id),
+        state=analysis.state,
+        total_evidence_packages=analysis.total_evidence_packages,
+    )
 
 
 __all__ = ["router"]

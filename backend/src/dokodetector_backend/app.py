@@ -95,7 +95,21 @@ def create_app(
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     app.state.repository.rebuild_from_intake(app.state.evidence_package_storage)
     app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)
-    app.state.round_analysis_repository.fail_non_terminal()
+    recovered_analysis_count = app.state.round_analysis_repository.fail_non_terminal()
+    log_event(
+        LOGGER,
+        logging.DEBUG,
+        "round_analysis_recovery_checked",
+        failed_count=recovered_analysis_count,
+    )
+    if recovered_analysis_count:
+        log_event(
+            LOGGER,
+            logging.WARNING,
+            "round_analysis_recovery_failed",
+            analysis_count=recovered_analysis_count,
+            reason="backend_restarted",
+        )
     app.state.round_analysis_service = RoundAnalysisService(
         app.state.round_analysis_repository,
         app.state.repository,

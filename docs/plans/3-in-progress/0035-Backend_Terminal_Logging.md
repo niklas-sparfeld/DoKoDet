@@ -11,7 +11,7 @@
 
 - **M0:** Complete — define the logging contract and make server startup configure it reliably.
 - **M1:** Complete — log the request and storage business lifecycle at `INFO` and rejections at `WARNING`.
-- **M2:** Pending — log the round-analysis lifecycle at `INFO` and its technical trace at `DEBUG`.
+- **M2:** Complete — log the round-analysis lifecycle at `INFO` and its technical trace at `DEBUG`.
 - **M3:** Pending — document local log control and verify normal and debug runs end to end.
 
 ## 1. Outcome
@@ -91,6 +91,23 @@ Apply the contract to application startup recovery, queueing, worker start and s
 Add lifecycle tests for a successful synchronous fixture analysis, an asynchronous queued analysis, and a failed analysis. Assert that normal-level records give the state sequence and debug-only records expose the per-package trace.
 
 Completion condition: an operator can correlate a round-analysis request with its final state and failure reason from terminal output alone.
+
+#### M2 implementation evidence — 2026-08-30
+
+- Added `INFO` events for analysis creation, non-terminal state changes, completion, and worker
+  start and stop. The events carry the request, analysis, recording, round, and session IDs where
+  the lifecycle has those values.
+- Added `DEBUG` events for queue dispatch, worker dequeue, validated input, per-package analyzer
+  progress, reconstruction, and artifact publication. Debug events include counts and artifact
+  digests, not request or media content.
+- Added startup recovery events. A recovery check is `DEBUG`; interrupted analyses produce one
+  `WARNING` event with a count and the fixed restart reason.
+- Replaced the worker's unstructured exception messages with a structured `ERROR` failure event.
+  The event keeps the original traceback and exposes only the safe terminal failure message in
+  its structured fields. Failure persistence errors have a separate structured event.
+- Added lifecycle tests for synchronous success, asynchronous queue execution, worker failure, and
+  startup recovery. The tests assert the `INFO` state sequence, `DEBUG` package trace, stable IDs,
+  and traceback routing.
 
 ### M3 — Local operation guide and end-to-end verification
 
