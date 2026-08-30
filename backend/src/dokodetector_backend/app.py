@@ -93,7 +93,10 @@ def create_app(
     app.state.readiness_state = "unknown"
     app.state.analyzer = analyzer or create_gemini_analyzer(app_settings)
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
-    app.state.repository.rebuild_from_intake(app.state.evidence_package_storage)
+    app.state.repository.rebuild_from_intake(
+        app.state.evidence_package_storage,
+        observation_storage=app.state.storage,
+    )
     app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)
     recovered_analysis_count = app.state.round_analysis_repository.fail_non_terminal()
     log_event(

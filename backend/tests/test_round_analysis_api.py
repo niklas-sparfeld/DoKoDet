@@ -550,6 +550,9 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
     assert conflict.status_code == 409
     assert conflict.json()["error"]["code"] == "counterfactual_conflict"
 
+    for package_id in package_ids:
+        assert app.state.repository.delete_table_observation(f"{package_id}-observation")
+
     database_url = f"sqlite:///{backend_tmp_path / 'round-analysis.sqlite'}"
     restarted_app = create_test_app(
         Settings(
@@ -561,11 +564,15 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
         ),
         run_round_analysis_synchronously=True,
     )
-    restarted = TestClient(restarted_app).get(
+    restarted_client = TestClient(restarted_app)
+    restarted = restarted_client.get(
         f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals/{counterfactual_id}"
     )
+    source_timeline = restarted_client.get(f"/v1/round-analyses/{ANALYSIS_ID}/timeline")
     assert restarted.status_code == 200
     assert restarted.json() == first.json()
+    assert source_timeline.status_code == 200
+    assert len(source_timeline.json()["rows"]) == 2
 
 
 def test_counterfactual_can_replace_a_one_candidate_card_identity(
@@ -613,9 +620,7 @@ def test_counterfactual_can_replace_a_one_candidate_card_identity(
     ]
     derived_input = json.loads(
         (
-            app.state.round_analysis_storage.counterfactual_path(
-                ANALYSIS_ID, counterfactual_id
-            )
+            app.state.round_analysis_storage.counterfactual_path(ANALYSIS_ID, counterfactual_id)
             / "input.json"
         ).read_text(encoding="utf-8")
     )

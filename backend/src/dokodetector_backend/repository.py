@@ -13,7 +13,7 @@ from alembic.config import Config
 from sqlalchemy import Engine, and_, create_engine, event, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
-from table_evidence_analyzer import TableObservation
+from table_evidence_analyzer import TableObservation, canonical_json_bytes, parse_observation_bytes
 
 from alembic import command
 from dokodetector_backend.contract import (
@@ -44,6 +44,7 @@ from dokodetector_backend.round_analysis_contract import (
     canonical_analysis_request_bytes,
     canonical_analysis_request_sha256,
 )
+from dokodetector_backend.storage import EvidenceStorage
 
 
 @dataclass(frozen=True, slots=True)
@@ -399,7 +400,12 @@ class EvidenceRepository:
             )
             return tuple(_package_from_model(row) for row in rows)
 
-    def rebuild_from_intake(self, storage: EvidencePackageStorage) -> tuple[StoredPackage, ...]:
+    def rebuild_from_intake(
+        self,
+        storage: EvidencePackageStorage,
+        *,
+        observation_storage: EvidenceStorage | None = None,
+    ) -> tuple[StoredPackage, ...]:
         """Rebuild package search rows from canonical repository bundles."""
 
         rebuilt: list[StoredPackage] = []
@@ -464,16 +470,98 @@ class EvidenceRepository:
                     f"Canonical evidence package {package_path.name} is invalid: {error}"
                 ) from error
 
+        rebuilt_by_id = {str(item.package_id): item for item in rebuilt}
         try:
             with self._session_factory.begin() as session:
+                if observation_storage is None:
+                    existing_fingerprints = {
+                        row.package_id: row.package_fingerprint
+                        for row in session.scalars(select(EvidencePackage))
+                    }
+                    observations = tuple(session.scalars(select(TableObservationRow)))
+                else:
+                    existing_fingerprints = {}
+                    observations = self._read_table_observations(
+                        observation_storage,
+                        rebuilt_by_id,
+                    )
                 session.query(TableObservationRow).delete()
                 session.query(EvidencePackage).delete()
                 session.add_all(_package_to_model(item) for item in rebuilt)
+                session.flush()
+                session.add_all(
+                    _table_observation_to_model(observation)
+                    for observation in observations
+                    if (
+                        str(observation.package_id) in rebuilt_by_id
+                        and (
+                            observation_storage is not None
+                            or existing_fingerprints.get(str(observation.package_id))
+                            == rebuilt_by_id[str(observation.package_id)].package_fingerprint
+                        )
+                    )
+                )
         except IntegrityError as error:
             raise RepositoryRebuildError(
                 "The evidence package index could not be rebuilt."
             ) from error
         return tuple(rebuilt)
+
+    @staticmethod
+    def _read_table_observations(
+        storage: EvidenceStorage,
+        packages: dict[str, StoredPackage],
+    ) -> tuple[StoredTableObservation, ...]:
+        """Read valid observation metadata from the durable observation files."""
+
+        root = storage.table_observations_root
+        if not root.is_dir():
+            return ()
+        observations: list[StoredTableObservation] = []
+        for observation_path in sorted(root.iterdir(), key=lambda item: item.name):
+            if (
+                not observation_path.is_dir()
+                or observation_path.is_symlink()
+                or observation_path.name.startswith(".")
+            ):
+                continue
+            observation_file = observation_path / "observation.json"
+            try:
+                observation_bytes = observation_file.read_bytes()
+                observation = parse_observation_bytes(observation_bytes)
+                if (
+                    observation.observation_id != observation_path.name
+                    or observation_bytes != canonical_json_bytes(observation)
+                ):
+                    raise ValueError("the observation ID or canonical bytes are invalid")
+                package_id = UUID(observation.source.package_id)
+                if str(package_id) not in packages:
+                    continue
+                observations.append(
+                    StoredTableObservation(
+                        observation_id=observation.observation_id,
+                        package_id=package_id,
+                        schema_version=observation.schema_version,
+                        analyzer_name=observation.analyzer.name,
+                        analyzer_version=observation.analyzer.version,
+                        status=observation.status,
+                        calibration=observation.calibration,
+                        observation_json=observation_bytes.decode("utf-8"),
+                        observation_sha256=_sha256(observation_bytes),
+                        relative_path=(
+                            f"table-observations/{observation.observation_id}/observation.json"
+                        ),
+                        created_at=datetime.fromtimestamp(
+                            observation_file.stat().st_mtime,
+                            tz=timezone.utc,
+                        ),
+                    )
+                )
+            except (OSError, UnicodeError, TypeError, ValueError) as error:
+                raise RepositoryRebuildError(
+                    f"Stored table observation {observation_path.name} is invalid."
+                ) from error
+        return tuple(observations)
 
     def get_table_observation(self, observation_id: str) -> StoredTableObservation | None:
         """Read one stored table observation."""
@@ -941,6 +1029,22 @@ def _table_observation_from_model(row: TableObservationRow) -> StoredTableObserv
         observation_sha256=row.observation_sha256,
         relative_path=row.relative_path,
         created_at=_as_utc(row.created_at),
+    )
+
+
+def _table_observation_to_model(observation: StoredTableObservation) -> TableObservationRow:
+    return TableObservationRow(
+        observation_id=observation.observation_id,
+        package_id=str(observation.package_id),
+        schema_version=observation.schema_version,
+        analyzer_name=observation.analyzer_name,
+        analyzer_version=observation.analyzer_version,
+        status=observation.status,
+        calibration=observation.calibration,
+        observation_json=observation.observation_json,
+        observation_sha256=observation.observation_sha256,
+        relative_path=observation.relative_path,
+        created_at=observation.created_at,
     )
 
 
