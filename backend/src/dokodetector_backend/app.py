@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.staticfiles import StaticFiles
 
 from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
@@ -96,6 +97,7 @@ def create_app(
     app.include_router(repository_bundle_router)
     app.include_router(pending_video_router)
     app.include_router(round_analysis_router)
+    _mount_frontend(app, app_settings.frontend_dist)
 
     @app.get("/health/live")
     def liveness() -> dict[str, str]:
@@ -121,6 +123,32 @@ def create_app(
         return {"status": "ok"}
 
     return app
+
+
+def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
+    """Serve the built browser application when its package is present."""
+
+    entrypoint = frontend_dist / "index.html"
+    assets = frontend_dist / "assets"
+    if not entrypoint.is_file() or not assets.is_dir():
+        return
+
+    app.mount(
+        "/round-analyses/assets",
+        StaticFiles(directory=assets),
+        name="frontend-assets",
+    )
+
+    @app.get("/round-analyses/{analysis_id}", include_in_schema=False)
+    def frontend_entrypoint(analysis_id: str) -> FileResponse:
+        """Return the SPA entry document for a direct analysis load or refresh."""
+
+        del analysis_id
+        return FileResponse(
+            entrypoint,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
 
 
 def _check_evidence_directory(directory: os.PathLike[str] | str) -> None:

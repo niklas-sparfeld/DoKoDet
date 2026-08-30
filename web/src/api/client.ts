@@ -6,10 +6,10 @@ type JsonResponse<Response> = Response extends { content: infer Content }
     : never
   : never;
 
-type RoundAnalysisStatus = JsonResponse<
+export type RoundAnalysisStatus = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}"]["get"]["responses"][200]
 >;
-type RoundAnalysisTimeline = JsonResponse<
+export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
 

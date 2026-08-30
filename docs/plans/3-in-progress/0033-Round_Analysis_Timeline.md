@@ -20,7 +20,7 @@
 - **M0:** Complete — replace the operations result with a scored per-action explanation contract.
 - **M1:** Complete — project one immutable analysis into timeline data and serve its central frames.
 - **M2:** Complete — establish the frontend toolchain, generated API types, and typed client.
-- **M3:** Pending — package and serve a production frontend with one API smoke view.
+- **M3:** Complete — package and serve a production frontend with one API smoke view.
 - **M4:** Pending — render the first synchronized three-column timeline for a resolved fixture.
 - **M5:** Pending — explain alternatives, incomplete input, impossible input, and diagnostics.
 - **M6:** Pending — derive and recompute strict counterfactual inputs without source mutation.
@@ -345,6 +345,23 @@ The operator can return to the exact baseline without deleting the counterfactua
 - Package the build with the backend and serve direct loads and refreshes of the analysis entry
   route without a Node.js process.
 - Verify development and packaged production modes.
+
+### M3 implementation evidence — 2026-08-30
+
+- Added a route-aware React smoke view that reads the explicit analysis ID from
+  `/round-analyses/{analysis_id}`, loads status and the immutable timeline through the generated
+  API client, and shows stable loading, progress, error, and connected states.
+- Configured Vite with the `/round-analyses/` base path so production JavaScript and CSS use hashed
+  same-origin asset URLs under `/round-analyses/assets/`.
+- Added a configurable `FRONTEND_DIST` backend boundary. FastAPI serves the packaged entry document
+  for direct analysis loads and refreshes and serves the hashed assets without a Node.js process.
+  The default source-checkout path also works when the backend has its own nested mise config.
+- Added backend package-route tests, React tests, a production-preview browser test, and local
+  frontend run instructions. The browser test verifies the hashed asset URL and the smoke API
+  state. A real Vite build was requested through FastAPI `TestClient`.
+- Verification: `npm ci`, `npm run check`, `npm run build`, and `npm run test:e2e` pass; the
+  frontend has 6 unit/integration tests and 2 browser tests. The focused backend round-analysis
+  and packaged-frontend tests pass. The existing FastAPI test-client deprecation warning remains.
 
 ### M4 — Resolved timeline UI
 

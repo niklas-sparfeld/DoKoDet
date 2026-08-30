@@ -39,6 +39,17 @@ def _resolve_path(value: Path, root: Path) -> Path:
     return path if path.is_absolute() else (root / path).resolve()
 
 
+def _resolve_frontend_dist(value: Path, root: Path) -> Path:
+    """Resolve the source-checkout frontend when the backend has its own mise root."""
+
+    resolved = _resolve_path(value, root)
+    if value == Path("web/dist") and not resolved.exists():
+        checkout_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
+        if checkout_dist.is_dir():
+            return checkout_dist
+    return resolved
+
+
 def _resolve_database_url(value: str, root: Path) -> str:
     """Resolve relative SQLite filenames without changing non-local database URLs."""
 
@@ -62,6 +73,7 @@ class Settings(BaseSettings):
     )
     database_url: str = "sqlite:///./.runtime/dokodetector.db"
     evidence_root: Path = Path(".runtime")
+    frontend_dist: Path = Path("web/dist")
     repository_intake_root: Path = Path("data/intake/recordings")
     evidence_package_intake_root: Path = Path("data/intake/evidence-packages")
     pending_video_root: Path = Path("data/incoming/videos")
@@ -97,6 +109,7 @@ class Settings(BaseSettings):
         self.repository_root = root
         self.database_url = _resolve_database_url(self.database_url, root)
         self.evidence_root = _resolve_path(self.evidence_root, root)
+        self.frontend_dist = _resolve_frontend_dist(self.frontend_dist, root)
         self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
         self.evidence_package_intake_root = _resolve_path(self.evidence_package_intake_root, root)
         self.pending_video_root = _resolve_path(self.pending_video_root, root)

@@ -24,6 +24,18 @@ uv sync
 uv run alembic upgrade head
 ```
 
+Build the browser package once before starting the backend:
+
+```bash
+cd ../web
+npm ci
+npm run build
+```
+
+The build writes hashed assets to `web/dist`. The backend serves that package at
+`/round-analyses/` and does not need a Node.js process after the build. For frontend development,
+run `npm run dev` in `web/`; its `/v1` requests use the local backend proxy.
+
 ## Checks
 
 Run the local checks from `backend/`:
@@ -132,6 +144,7 @@ MAX_RECORDING_BYTES=1100000000
 REPOSITORY_INTAKE_ROOT=data/intake/recordings
 EVIDENCE_PACKAGE_INTAKE_ROOT=data/intake/evidence-packages
 PENDING_VIDEO_ROOT=data/incoming/videos
+FRONTEND_DIST=web/dist
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8000
 BONJOUR_ENABLED=true

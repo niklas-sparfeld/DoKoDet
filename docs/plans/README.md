@@ -55,7 +55,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0033 — Round analysis timeline and counterfactual explorer](3-in-progress/0033-Round_Analysis_Timeline.md) | Completed 0031 and 0032 | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M2 complete; M3–M8 pending. |
+| [0033 — Round analysis timeline and counterfactual explorer](3-in-progress/0033-Round_Analysis_Timeline.md) | Completed 0031 and 0032 | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M3 complete; M4–M8 pending. |
 
 ### Blocked
 

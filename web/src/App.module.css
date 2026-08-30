@@ -1,7 +1,7 @@
 .shell {
   box-sizing: border-box;
   min-height: 100vh;
-  padding: 8rem clamp(1.5rem, 8vw, 8rem);
+  padding: 5rem clamp(1.5rem, 8vw, 8rem);
   background: var(--surface);
 }
 
@@ -15,10 +15,10 @@
 }
 
 h1 {
-  max-width: 12ch;
+  max-width: 14ch;
   margin: 0;
   color: var(--ink);
-  font-size: clamp(3rem, 8vw, 7rem);
+  font-size: clamp(3rem, 8vw, 6rem);
   line-height: 0.94;
 }
 
@@ -28,4 +28,121 @@ h1 {
   color: var(--muted-ink);
   font-size: 1.1rem;
   line-height: 1.6;
+}
+
+.analysisId {
+  max-width: 48rem;
+  margin: 1.5rem 0 0;
+  color: var(--muted-ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.analysisId span {
+  margin-right: 0.5rem;
+  color: var(--ink);
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.loading {
+  margin-top: 3rem;
+  color: var(--muted-ink);
+}
+
+.panel {
+  max-width: 42rem;
+  margin-top: 3rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: var(--panel);
+  box-shadow: 0 1.5rem 4rem rgb(77 56 36 / 10%);
+}
+
+.statusHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.statusLabel {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.status {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: var(--status-surface);
+  color: var(--status-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status[data-state="failed"] {
+  --status-surface: #f7d9d2;
+  --status-ink: #8b2e1d;
+}
+
+.status[data-state="complete"] {
+  --status-surface: #dceadd;
+  --status-ink: #245b35;
+}
+
+.status:not([data-state="failed"]):not([data-state="complete"]) {
+  --status-surface: #eee5cc;
+  --status-ink: #725a18;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 0;
+}
+
+.stats div {
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.stats dt {
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+}
+
+.stats dd {
+  margin: 0.35rem 0 0;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.connected {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.connected p:not(.statusLabel) {
+  margin-bottom: 0;
+  color: var(--muted-ink);
+}
+
+@media (max-width: 600px) {
+  .shell {
+    padding-top: 3rem;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
 }

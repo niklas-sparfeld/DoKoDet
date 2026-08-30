@@ -5,7 +5,13 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/", "node_modules/", "src/api/openapi.ts"],
+    ignores: [
+      "dist/",
+      "node_modules/",
+      "playwright-report/",
+      "src/api/openapi.ts",
+      "test-results/",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
