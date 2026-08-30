@@ -3,8 +3,12 @@
 ## Plan status
 
 - **Summary:** Make the local backend emit concise, structured terminal logs for business events, warnings, failures, and opt-in technical business-process traces.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** None.
+- **Closure reason:** Complete
+- **Closure note:** The local backend now emits structured business lifecycle logs at `INFO`,
+  opt-in technical traces at `DEBUG`, safe warnings for rejected or degraded work, and tracebacks
+  for failed backend operations. The operator guide and local smoke verification are complete.
 - **Reviewed:** 2026-08-30 against the current backend entry point, FastAPI application factory, HTTP routes, round-analysis worker, and error handlers.
 
 ## Milestone status
@@ -12,7 +16,7 @@
 - **M0:** Complete — define the logging contract and make server startup configure it reliably.
 - **M1:** Complete — log the request and storage business lifecycle at `INFO` and rejections at `WARNING`.
 - **M2:** Complete — log the round-analysis lifecycle at `INFO` and its technical trace at `DEBUG`.
-- **M3:** Pending — document local log control and verify normal and debug runs end to end.
+- **M3:** Complete — document local log control and verify normal and debug runs end to end.
 
 ## 1. Outcome
 
@@ -116,6 +120,19 @@ Update the backend README with the default level, `DOKO_LOG_LEVEL` examples, eve
 Run the backend test suite, lint checks, and a reproducible local smoke run at `INFO` and `DEBUG`. Capture no runtime logs in git. Confirm that the normal log stream is concise and that debug output adds trace detail without changing API behavior.
 
 Completion condition: a new local operator can enable debug tracing and distinguish normal business events from warnings and failures by reading the README.
+
+#### M3 implementation evidence — 2026-08-30
+
+- Documented the default `INFO` level, `DOKO_LOG_LEVEL=DEBUG`, accepted level names, event-level
+  rules, stable identifiers, and a safe event-name filter in `backend/README.md`.
+- Ran the backend test suite: 152 passed and 2 were deselected when excluding the known
+  repository-root assertion affected by `backend/mise.toml`. The full run has that one existing
+  failure. Ruff lint passed. The full format check retains two unrelated existing findings in
+  `backend/tests/test_app.py` and `backend/tests/test_table_observation_pipeline.py`.
+- Ran the backend process with temporary SQLite and runtime roots at both levels. `INFO` returned
+  `/health/ready` with status 200 and omitted debug events. `DEBUG` returned the same status and
+  included readiness and round-analysis recovery debug events. Temporary logs and runtime data
+  were not written to the repository.
 
 ## 5. Out of scope
 

@@ -60,6 +60,43 @@ the direct `uvicorn` command for device discovery. It starts HTTP but does not a
 The normal server requires `GEMINI_API_KEY`; it does not fall back to the deterministic local
 analyzer.
 
+## Terminal logs
+
+The backend writes one structured event per line to standard error. The default level is `INFO`.
+At this level, the terminal shows startup, service availability, accepted intake, round-analysis
+state changes, completion, warnings, and backend failures. Uvicorn access logs remain enabled.
+
+Set `DOKO_LOG_LEVEL=DEBUG` before startup to add the technical path: validation, queue transitions,
+per-package analyzer progress, reconstruction, artifact publication, and readiness checks. The
+accepted values are `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`, without regard to case.
+
+```bash
+# Normal local operation. INFO is also used when DOKO_LOG_LEVEL is unset.
+unset DOKO_LOG_LEVEL
+uv run dokodetector-backend
+
+# Troubleshoot one local run with the technical trace enabled.
+DOKO_LOG_LEVEL=DEBUG uv run dokodetector-backend
+```
+
+Use `INFO` events to follow business outcomes. `WARNING` events identify rejected input or
+recoverable local problems. `ERROR` events identify failed backend work and include its traceback.
+`DEBUG` events explain how the backend reached an outcome and are off by default. Events use stable
+fields such as `request_id`, `upload_id`, `package_id`, `recording_id`, `analysis_id`, and
+`session_id` when they apply.
+
+For a short troubleshooting view, filter the terminal stream by event name. This keeps the
+operator view focused on analysis outcomes; it does not save logs in the repository:
+
+```bash
+DOKO_LOG_LEVEL=DEBUG uv run dokodetector-backend 2>&1 | \
+  rg 'round_analysis_(created|state_changed|completed|failed)|http_request_(rejected|failed)'
+```
+
+Logs do not contain request bodies, media bytes, authorization values, complete manifests, raw
+model prompts or responses, SQL values, or paths outside configured runtime roots. Do not paste an
+`ERROR` traceback into a public issue without checking it for local environment details first.
+
 Start it with the required runtime credential:
 
 ```bash
