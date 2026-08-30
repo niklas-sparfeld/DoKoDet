@@ -48,6 +48,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0035 — Backend terminal logging](2-ready/0035-Backend_Terminal_Logging.md) | None | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. |
 | None | — | — |
 
 ### In Progress
