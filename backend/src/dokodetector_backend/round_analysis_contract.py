@@ -9,8 +9,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
+from doko_operations.counterfactual import (
+    ROUND_COUNTERFACTUAL_SCHEMA_VERSION,
+    CounterfactualObservedCardReference,
+    CounterfactualProbabilityOverride,
+    RoundCounterfactualRequest,
+)
 from doko_operations.round_reconstruction import (
     RoundReconstructionContractError,
+    RoundReconstructionRunResult,
     RoundSetup,
     SearchLimits,
 )
@@ -190,6 +197,116 @@ class RoundAnalysisStatus(ContractModel):
         return self
 
 
+class CounterfactualObservedCardReferenceModel(ContractModel):
+    """An observed-card reference supplied by a counterfactual request."""
+
+    observation_id: Identifier
+    observed_card_id: Identifier
+
+    def to_shared(self) -> CounterfactualObservedCardReference:
+        """Return the validated operations-library reference value."""
+
+        return CounterfactualObservedCardReference(
+            observation_id=self.observation_id,
+            observed_card_id=self.observed_card_id,
+        )
+
+
+class CounterfactualProbabilityOverrideModel(ContractModel):
+    """A candidate probability change supplied by a counterfactual request."""
+
+    observation_id: Identifier
+    observed_card_id: Identifier
+    card: str = Field(min_length=1, max_length=64)
+    probability: float
+
+    def to_shared(self) -> CounterfactualProbabilityOverride:
+        """Return the validated operations-library override value."""
+
+        return CounterfactualProbabilityOverride(
+            observation_id=self.observation_id,
+            observed_card_id=self.observed_card_id,
+            card=self.card,
+            probability=self.probability,
+        )
+
+
+class RoundCounterfactualCreateRequest(ContractModel):
+    """Client-created request for one immutable derived reconstruction."""
+
+    schema_version: Literal["round-analysis-counterfactual/v1"] = (
+        ROUND_COUNTERFACTUAL_SCHEMA_VERSION
+    )
+    counterfactual_id: UUID
+    source_analysis_id: UUID
+    source_input_sha256: Sha256
+    source_result_sha256: Sha256
+    excluded_observation_ids: list[Identifier] = Field(default_factory=list)
+    excluded_observed_cards: list[CounterfactualObservedCardReferenceModel] = Field(
+        default_factory=list
+    )
+    candidate_probability_overrides: list[CounterfactualProbabilityOverrideModel] = Field(
+        default_factory=list
+    )
+
+    def to_shared(self) -> RoundCounterfactualRequest:
+        """Validate and convert this HTTP payload with the shared operations contract."""
+
+        return RoundCounterfactualRequest.from_mapping(self.model_dump(mode="json"))
+
+    def to_mapping(self) -> dict[str, Any]:
+        """Return the JSON object used for canonical persistence."""
+
+        return self.model_dump(mode="json")
+
+
+class CounterfactualArtifact(ContractModel):
+    """Identity and digest for one counterfactual runtime artifact."""
+
+    relative_path: str = Field(min_length=1, max_length=512)
+    byte_length: int = Field(ge=0)
+    sha256: Sha256
+
+
+class RoundCounterfactualArtifacts(ContractModel):
+    """The request, input, and result artifacts for one counterfactual."""
+
+    request: CounterfactualArtifact
+    input: CounterfactualArtifact
+    result: CounterfactualArtifact
+
+
+class RoundCounterfactualResponse(ContractModel):
+    """The strict response for one stored counterfactual reconstruction."""
+
+    schema_version: Literal["round-analysis-counterfactual-response/v1"] = (
+        "round-analysis-counterfactual-response/v1"
+    )
+    counterfactual_id: UUID
+    source_analysis_id: UUID
+    request: RoundCounterfactualCreateRequest
+    artifacts: RoundCounterfactualArtifacts
+    result: dict[str, Any]
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, value: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return RoundReconstructionRunResult.from_mapping(value).to_mapping()
+        except (TypeError, ValueError) as error:
+            raise ValueError("counterfactual result is invalid.") from error
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> RoundCounterfactualResponse:
+        if self.request.counterfactual_id != self.counterfactual_id:
+            raise ValueError("request.counterfactual_id must match counterfactual_id.")
+        if self.request.source_analysis_id != self.source_analysis_id:
+            raise ValueError("request.source_analysis_id must match source_analysis_id.")
+        if self.result.get("run_id") != str(self.counterfactual_id):
+            raise ValueError("result.run_id must match counterfactual_id.")
+        return self
+
+
 def canonical_analysis_request_bytes(request: RoundAnalysisCreateRequest) -> bytes:
     """Serialize an analysis request as deterministic compact UTF-8 JSON."""
 
@@ -228,9 +345,15 @@ __all__ = [
     "AnalysisRoundRuleset",
     "AnalysisRoundSetup",
     "AnalysisSearchLimits",
+    "CounterfactualArtifact",
+    "CounterfactualObservedCardReferenceModel",
+    "CounterfactualProbabilityOverrideModel",
     "ROUND_ANALYSIS_SCHEMA_VERSION",
     "ROUND_ANALYSIS_STATES",
     "ROUND_ANALYSIS_TERMINAL_STATES",
+    "RoundCounterfactualArtifacts",
+    "RoundCounterfactualCreateRequest",
+    "RoundCounterfactualResponse",
     "RoundAnalysisCreateRequest",
     "RoundAnalysisResult",
     "RoundAnalysisStatus",

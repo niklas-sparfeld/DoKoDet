@@ -196,6 +196,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/round-analyses/{analysis_id}/counterfactuals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Round Counterfactual
+         * @description Synchronously create or reuse one immutable counterfactual.
+         */
+        post: operations["create_round_counterfactual_v1_round_analyses__analysis_id__counterfactuals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/round-analyses/{analysis_id}/counterfactuals/{counterfactual_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Round Counterfactual
+         * @description Return one immutable counterfactual from its runtime artifacts.
+         */
+        get: operations["get_round_counterfactual_v1_round_analyses__analysis_id__counterfactuals__counterfactual_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/round-analyses/{analysis_id}/evidence-packages/{package_id}/frames/{part_name}": {
         parameters: {
             query?: never;
@@ -329,6 +369,42 @@ export interface components {
             observed_card_id: string;
             /** Score */
             score: number;
+        };
+        /**
+         * CounterfactualArtifact
+         * @description Identity and digest for one counterfactual runtime artifact.
+         */
+        CounterfactualArtifact: {
+            /** Byte Length */
+            byte_length: number;
+            /** Relative Path */
+            relative_path: string;
+            /** Sha256 */
+            sha256: string;
+        };
+        /**
+         * CounterfactualObservedCardReferenceModel
+         * @description An observed-card reference supplied by a counterfactual request.
+         */
+        CounterfactualObservedCardReferenceModel: {
+            /** Observation Id */
+            observation_id: string;
+            /** Observed Card Id */
+            observed_card_id: string;
+        };
+        /**
+         * CounterfactualProbabilityOverrideModel
+         * @description A candidate probability change supplied by a counterfactual request.
+         */
+        CounterfactualProbabilityOverrideModel: {
+            /** Card */
+            card: string;
+            /** Observation Id */
+            observation_id: string;
+            /** Observed Card Id */
+            observed_card_id: string;
+            /** Probability */
+            probability: number;
         };
         /**
          * EventMetadata
@@ -673,6 +749,75 @@ export interface components {
             session_id: string;
             /** Warnings */
             warnings: components["schemas"]["TimelineWarning"][];
+        };
+        /**
+         * RoundCounterfactualArtifacts
+         * @description The request, input, and result artifacts for one counterfactual.
+         */
+        RoundCounterfactualArtifacts: {
+            input: components["schemas"]["CounterfactualArtifact"];
+            request: components["schemas"]["CounterfactualArtifact"];
+            result: components["schemas"]["CounterfactualArtifact"];
+        };
+        /**
+         * RoundCounterfactualCreateRequest
+         * @description Client-created request for one immutable derived reconstruction.
+         */
+        RoundCounterfactualCreateRequest: {
+            /** Candidate Probability Overrides */
+            candidate_probability_overrides?: components["schemas"]["CounterfactualProbabilityOverrideModel"][];
+            /**
+             * Counterfactual Id
+             * Format: uuid
+             */
+            counterfactual_id: string;
+            /** Excluded Observation Ids */
+            excluded_observation_ids?: string[];
+            /** Excluded Observed Cards */
+            excluded_observed_cards?: components["schemas"]["CounterfactualObservedCardReferenceModel"][];
+            /**
+             * Schema Version
+             * @default round-analysis-counterfactual/v1
+             * @constant
+             */
+            schema_version: "round-analysis-counterfactual/v1";
+            /**
+             * Source Analysis Id
+             * Format: uuid
+             */
+            source_analysis_id: string;
+            /** Source Input Sha256 */
+            source_input_sha256: string;
+            /** Source Result Sha256 */
+            source_result_sha256: string;
+        };
+        /**
+         * RoundCounterfactualResponse
+         * @description The strict response for one stored counterfactual reconstruction.
+         */
+        RoundCounterfactualResponse: {
+            artifacts: components["schemas"]["RoundCounterfactualArtifacts"];
+            /**
+             * Counterfactual Id
+             * Format: uuid
+             */
+            counterfactual_id: string;
+            request: components["schemas"]["RoundCounterfactualCreateRequest"];
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+            /**
+             * Schema Version
+             * @default round-analysis-counterfactual-response/v1
+             * @constant
+             */
+            schema_version: "round-analysis-counterfactual-response/v1";
+            /**
+             * Source Analysis Id
+             * Format: uuid
+             */
+            source_analysis_id: string;
         };
         /**
          * SessionMetadata
@@ -1327,6 +1472,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoundAnalysisStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_round_counterfactual_v1_round_analyses__analysis_id__counterfactuals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoundCounterfactualCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundCounterfactualResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_round_counterfactual_v1_round_analyses__analysis_id__counterfactuals__counterfactual_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: string;
+                counterfactual_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundCounterfactualResponse"];
                 };
             };
             /** @description Validation Error */

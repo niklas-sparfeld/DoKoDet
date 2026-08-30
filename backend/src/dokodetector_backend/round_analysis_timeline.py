@@ -406,6 +406,72 @@ class RoundAnalysisTimelineProjector:
             packages=packages,
         )
 
+    def load_verified_artifacts(self, analysis: StoredRoundAnalysis) -> VerifiedRoundAnalysis:
+        """Read analysis artifacts without requiring the rebuildable source index."""
+
+        if analysis.state != "complete":
+            raise RoundAnalysisNotCompleteError("The round analysis is not complete.")
+        if (
+            analysis.input_artifact_id is None
+            or analysis.input_artifact_sha256 is None
+            or analysis.result_artifact_id is None
+            or analysis.result_artifact_sha256 is None
+            or analysis.result_json is None
+            or analysis.result_status is None
+        ):
+            raise RoundAnalysisTimelineError("The stored round analysis result is incomplete.")
+
+        expected_input_id = f"round-analyses/{analysis.analysis_id}/input.json"
+        expected_result_id = f"round-analyses/{analysis.analysis_id}/result.json"
+        if (
+            analysis.input_artifact_id != expected_input_id
+            or analysis.result_artifact_id != expected_result_id
+        ):
+            raise RoundAnalysisTimelineError("The stored analysis artifact identity is invalid.")
+        directory = self.artifact_storage.analysis_path(analysis.analysis_id)
+        if not directory.is_dir() or directory.is_symlink():
+            raise RoundAnalysisTimelineError(
+                "The stored analysis artifact directory is unavailable."
+            )
+        input_bytes = self._read_artifact(directory / "input.json", analysis.input_artifact_sha256)
+        result_bytes = self._read_artifact(
+            directory / "result.json", analysis.result_artifact_sha256
+        )
+        if result_bytes.decode("utf-8") != analysis.result_json:
+            raise RoundAnalysisTimelineError(
+                "The stored result database row differs from result.json."
+            )
+        try:
+            request = parse_round_analysis_create_request_bytes(
+                analysis.request_json.encode("utf-8")
+            )
+            reconstruction_input = parse_reconstruction_input_bytes(input_bytes)
+            result = parse_round_reconstruction_result_bytes(result_bytes)
+        except (UnicodeError, ValueError, RoundReconstructionContractError) as error:
+            raise RoundAnalysisTimelineError(
+                "The stored analysis artifacts failed validation."
+            ) from error
+        if request.analysis_id != analysis.analysis_id or result.run_id != str(
+            analysis.analysis_id
+        ):
+            raise RoundAnalysisTimelineError(
+                "The stored analysis artifacts do not match the analysis ID."
+            )
+        if result.status != analysis.result_status:
+            raise RoundAnalysisTimelineError(
+                "The stored result status does not match the analysis row."
+            )
+        self._validate_input_identity(request, reconstruction_input)
+        self._validate_result_request(request, result)
+        self._validate_result_links(reconstruction_input, result)
+        return VerifiedRoundAnalysis(
+            analysis=analysis,
+            request=request,
+            input=reconstruction_input,
+            result=result,
+            packages={},
+        )
+
     def frame(
         self,
         analysis: StoredRoundAnalysis,

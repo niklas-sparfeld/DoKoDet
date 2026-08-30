@@ -7,14 +7,24 @@ import json
 import logging
 import tempfile
 from dataclasses import dataclass
+from threading import Lock
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from doko_operations.counterfactual import (
+    RoundCounterfactualRequest,
+    canonical_counterfactual_bytes,
+    derive_counterfactual_input,
+    parse_round_counterfactual_request_bytes,
+    recompute_counterfactual,
+)
 from doko_operations.round_reconstruction import (
     RoundReconstructionRunRequest,
     RoundReconstructionRunResult,
     run_round_reconstruction_values,
 )
+from game_engine import canonical_json_bytes as canonical_engine_json_bytes
+from game_engine import parse_reconstruction_input_bytes
 from table_evidence_analyzer import TableEvidenceAnalyzer
 
 from dokodetector_backend.analyzer_runner import AnalyzerRunner
@@ -39,7 +49,11 @@ from dokodetector_backend.round_analysis_contract import (
     RoundAnalysisStatus,
     parse_round_analysis_create_request_bytes,
 )
-from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
+from dokodetector_backend.round_analysis_storage import (
+    RoundAnalysisArtifactStorage,
+    StoredCounterfactualArtifacts,
+    StoredCounterfactualContents,
+)
 from dokodetector_backend.round_analysis_timeline import (
     RoundAnalysisTimeline,
     RoundAnalysisTimelineProjector,
@@ -59,12 +73,33 @@ class RoundAnalysisValidationError(ValueError):
     """The selected recording and evidence do not form a valid analysis input."""
 
 
+class RoundCounterfactualConflict(ValueError):
+    """A counterfactual ID is already stored with different request content."""
+
+
+class RoundCounterfactualNotFound(LookupError):
+    """The requested counterfactual artifact directory does not exist."""
+
+
+class RoundCounterfactualIntegrityError(RuntimeError):
+    """A stored counterfactual artifact set failed validation."""
+
+
 @dataclass(frozen=True, slots=True)
 class ValidatedRoundAnalysisInput:
     """The immutable packages selected by one validated analysis request."""
 
     request: RoundAnalysisCreateRequest
     packages: tuple[StoredPackage, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class StoredRoundCounterfactual:
+    """A parsed counterfactual response backed by immutable runtime artifacts."""
+
+    request: RoundCounterfactualRequest
+    artifacts: StoredCounterfactualArtifacts
+    result: RoundReconstructionRunResult
 
 
 class RoundAnalysisService:
@@ -100,6 +135,7 @@ class RoundAnalysisService:
         )
         self._queue: asyncio.Queue[tuple[UUID, str] | None] = asyncio.Queue()
         self._worker_task: asyncio.Task[None] | None = None
+        self._counterfactual_lock = Lock()
 
     @property
     def worker_task(self) -> asyncio.Task[None] | None:
@@ -408,6 +444,158 @@ class RoundAnalysisService:
         if analysis is None:
             raise RoundAnalysisNotFound("The round analysis was not found.")
         return self.timeline_projector.frame(analysis, package_id, part_name)
+
+    def create_counterfactual(
+        self,
+        analysis_id: UUID,
+        request: RoundCounterfactualRequest,
+    ) -> StoredRoundCounterfactual:
+        """Synchronously derive and atomically publish one counterfactual."""
+
+        if request.source_analysis_id != analysis_id:
+            raise RoundCounterfactualConflict(
+                "source_analysis_id must match the analysis ID in the request path."
+            )
+        with self._counterfactual_lock:
+            analysis, verified = self._load_verified_source(analysis_id)
+            request_bytes = canonical_counterfactual_bytes(request)
+            existing = self._read_existing_counterfactual(
+                analysis_id,
+                request.counterfactual_id,
+                analysis,
+                verified.input,
+                verified.result,
+            )
+            if existing is not None:
+                if existing.request_bytes != request_bytes:
+                    raise RoundCounterfactualConflict(
+                        "The counterfactual ID is already stored with different request content."
+                    )
+                return self._counterfactual_from_contents(existing)
+
+            if (
+                request.source_input_sha256 != analysis.input_artifact_sha256
+                or request.source_result_sha256 != analysis.result_artifact_sha256
+            ):
+                raise ValueError("counterfactual source artifact hashes do not match the analysis.")
+            try:
+                run = recompute_counterfactual(request, verified.input, verified.result)
+                published = self.artifact_storage.publish_counterfactual(
+                    analysis_id,
+                    request.counterfactual_id,
+                    request_bytes,
+                    run.input_bytes,
+                    run.result_bytes,
+                )
+            except FileExistsError as error:
+                existing = self._read_existing_counterfactual(
+                    analysis_id,
+                    request.counterfactual_id,
+                    analysis,
+                    verified.input,
+                    verified.result,
+                )
+                if existing is None:
+                    raise
+                if existing.request_bytes != request_bytes:
+                    raise RoundCounterfactualConflict(
+                        "The counterfactual ID is already stored with different request content."
+                    ) from error
+                return self._counterfactual_from_contents(existing)
+            return StoredRoundCounterfactual(
+                request=request,
+                artifacts=published,
+                result=run.result,
+            )
+
+    def get_counterfactual(
+        self,
+        analysis_id: UUID,
+        counterfactual_id: UUID,
+    ) -> StoredRoundCounterfactual:
+        """Read one immutable counterfactual after validating its source analysis."""
+
+        analysis, verified = self._load_verified_source(analysis_id)
+        contents = self._read_existing_counterfactual(
+            analysis_id,
+            counterfactual_id,
+            analysis,
+            verified.input,
+            verified.result,
+        )
+        if contents is None:
+            raise RoundCounterfactualNotFound("The counterfactual was not found.")
+        return self._counterfactual_from_contents(contents)
+
+    def _load_verified_source(self, analysis_id: UUID):
+        analysis = self.repository.get(analysis_id)
+        if analysis is None:
+            raise RoundAnalysisNotFound("The round analysis was not found.")
+        verified = self.timeline_projector.load_verified_artifacts(analysis)
+        return analysis, verified
+
+    def _read_existing_counterfactual(
+        self,
+        analysis_id: UUID,
+        counterfactual_id: UUID,
+        analysis: StoredRoundAnalysis,
+        source_input,
+        source_result: RoundReconstructionRunResult,
+    ) -> StoredCounterfactualContents | None:
+        path = self.artifact_storage.counterfactual_path(analysis_id, counterfactual_id)
+        if not path.exists() and not path.is_symlink():
+            return None
+        try:
+            contents = self.artifact_storage.read_counterfactual(analysis_id, counterfactual_id)
+            request = parse_round_counterfactual_request_bytes(contents.request_bytes)
+            input_value = parse_reconstruction_input_bytes(contents.input_bytes)
+            result = RoundReconstructionRunResult.from_mapping(
+                json_loads(contents.result_bytes.decode("utf-8"))
+            )
+            if (
+                request.source_analysis_id != analysis_id
+                or request.counterfactual_id != counterfactual_id
+                or request.source_input_sha256 != analysis.input_artifact_sha256
+                or request.source_result_sha256 != analysis.result_artifact_sha256
+                or result.run_id != str(counterfactual_id)
+                or contents.request_bytes != canonical_counterfactual_bytes(request)
+            ):
+                raise ValueError("counterfactual artifact identity is invalid")
+            expected_input = derive_counterfactual_input(request, source_input)
+            if input_value != expected_input or contents.input_bytes != canonical_engine_json_bytes(
+                expected_input
+            ):
+                raise ValueError("counterfactual input does not match its request")
+            retained_ids = {item.observation_id for item in expected_input.observations}
+            expected_sources = tuple(
+                record for record in source_result.sources if record.observation_id in retained_ids
+            )
+            if result.search != source_result.search or result.sources != expected_sources:
+                raise ValueError("counterfactual result sources do not match its request")
+        except (OSError, UnicodeError, ValueError, TypeError) as error:
+            raise RoundCounterfactualIntegrityError(
+                "The stored counterfactual artifacts failed integrity validation."
+            ) from error
+        return contents
+
+    @staticmethod
+    def _counterfactual_from_contents(
+        contents: StoredCounterfactualContents,
+    ) -> StoredRoundCounterfactual:
+        try:
+            request = parse_round_counterfactual_request_bytes(contents.request_bytes)
+            result = RoundReconstructionRunResult.from_mapping(
+                json_loads(contents.result_bytes.decode("utf-8"))
+            )
+        except (OSError, UnicodeError, ValueError, TypeError) as error:
+            raise RoundCounterfactualIntegrityError(
+                "The stored counterfactual artifacts failed integrity validation."
+            ) from error
+        return StoredRoundCounterfactual(
+            request=request,
+            artifacts=contents.artifacts,
+            result=result,
+        )
 
     def _result_from_analysis(self, analysis: StoredRoundAnalysis) -> RoundAnalysisResult | None:
         if analysis.state != "complete":

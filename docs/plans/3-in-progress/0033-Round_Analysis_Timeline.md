@@ -24,7 +24,7 @@
 - **M4:** Complete — render the first synchronized three-column timeline for a resolved fixture.
 - **M5:** Complete — explain alternatives, incomplete input, impossible input, and diagnostics.
 - **M6:** Complete — derive and recompute strict counterfactual inputs without source mutation.
-- **M7:** Pending — persist and serve immutable counterfactual results.
+- **M7:** Complete — persist and serve immutable counterfactual results.
 - **M8:** Pending — compare the baseline and counterfactual results with visual change markers.
 
 ## 1. Outcome
@@ -435,6 +435,25 @@ The operator can return to the exact baseline without deleting the counterfactua
 - Add atomic immutable runtime artifacts, source hashes, and canonical idempotency.
 - Add the synchronous create and read APIs. Prove retry behavior after a failed publication.
 - Prove conflict handling and retrieval after an application restart.
+
+**Status: Complete (2026-08-30).**
+
+- Added manifest-backed atomic runtime storage for `request.json`, derived `input.json`, and
+  `result.json` under the source analysis. Each artifact has a recorded byte length and SHA-256
+  digest. Failed publication removes its staging directory and does not create a final directory.
+- Added synchronous create and read endpoints with strict request and response contracts. The
+  service validates the complete source analysis artifacts, reuses the source search limits, and
+  returns the counterfactual UUID as the derived reconstruction run ID.
+- Added canonical idempotency and conflict handling. A repeated request returns the stored
+  response without rerunning reconstruction. Different content for one counterfactual UUID is a
+  conflict. Reads validate artifact digests and remain available after a fresh application
+  instance starts.
+- Added API and storage tests for immutable source bytes, atomic publication failure and retry,
+  idempotent replay, conflict handling, artifact integrity, and restart-safe retrieval. Updated
+  the generated frontend OpenAPI declarations for both counterfactual endpoints.
+- Verification: 24 focused backend tests, backend Ruff checks, frontend `npm run check`, and
+  `git diff --check` pass. The full backend suite retains four unrelated clean-room/configuration
+  failures outside this milestone.
 
 ### M8 — Visual counterfactual comparison
 

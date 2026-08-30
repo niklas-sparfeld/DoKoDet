@@ -6,6 +6,7 @@ import logging
 import re
 from uuid import UUID
 
+from doko_operations.round_reconstruction import RoundReconstructionContractError
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
@@ -18,14 +19,21 @@ from dokodetector_backend.repository import (
     StoredRoundAnalysis,
 )
 from dokodetector_backend.round_analysis_contract import (
+    CounterfactualArtifact,
     RoundAnalysisCreateRequest,
     RoundAnalysisStatus,
+    RoundCounterfactualArtifacts,
+    RoundCounterfactualCreateRequest,
+    RoundCounterfactualResponse,
     canonical_analysis_request_bytes,
     canonical_analysis_request_sha256,
 )
 from dokodetector_backend.round_analysis_service import (
     RoundAnalysisService,
     RoundAnalysisValidationError,
+    RoundCounterfactualConflict,
+    RoundCounterfactualIntegrityError,
+    RoundCounterfactualNotFound,
 )
 from dokodetector_backend.round_analysis_timeline import (
     FRAME_PART_PATTERN,
@@ -37,6 +45,122 @@ from dokodetector_backend.round_analysis_timeline import (
 
 router = APIRouter()
 LOGGER = logging.getLogger(__name__)
+
+
+@router.post(
+    "/v1/round-analyses/{analysis_id}/counterfactuals",
+    response_model=RoundCounterfactualResponse,
+    status_code=201,
+)
+def create_round_counterfactual(
+    analysis_id: str,
+    payload: RoundCounterfactualCreateRequest,
+    request: Request,
+) -> RoundCounterfactualResponse:
+    """Synchronously create or reuse one immutable counterfactual."""
+
+    parsed_analysis_id = _parse_analysis_id(analysis_id)
+    try:
+        shared_request = payload.to_shared()
+    except (RoundReconstructionContractError, TypeError, ValueError) as error:
+        raise ContractError(
+            "invalid_counterfactual_request",
+            "The counterfactual request is invalid.",
+        ) from error
+    service: RoundAnalysisService = request.app.state.round_analysis_service
+    try:
+        stored = service.create_counterfactual(parsed_analysis_id, shared_request)
+    except RoundAnalysisNotFound as error:
+        raise ContractError(
+            "analysis_not_found",
+            "The round analysis was not found.",
+            status_code=404,
+        ) from error
+    except RoundAnalysisNotCompleteError as error:
+        raise ContractError(
+            "analysis_not_complete",
+            "The round analysis is not complete.",
+            status_code=409,
+        ) from error
+    except RoundCounterfactualConflict as error:
+        raise ContractError(
+            "counterfactual_conflict",
+            str(error),
+            status_code=409,
+        ) from error
+    except RoundCounterfactualIntegrityError as error:
+        raise ContractError(
+            "counterfactual_integrity_error",
+            "The stored counterfactual failed integrity validation.",
+            status_code=500,
+        ) from error
+    except RoundAnalysisTimelineError as error:
+        raise ContractError(
+            "analysis_integrity_error",
+            "The stored round analysis failed integrity validation.",
+            status_code=500,
+        ) from error
+    except (RoundReconstructionContractError, TypeError, ValueError) as error:
+        raise ContractError(
+            "invalid_counterfactual_request",
+            "The counterfactual request is invalid.",
+        ) from error
+    except OSError as error:
+        raise ContractError(
+            "internal_error",
+            "The counterfactual could not be published.",
+            status_code=500,
+        ) from error
+    return _counterfactual_response(stored)
+
+
+@router.get(
+    "/v1/round-analyses/{analysis_id}/counterfactuals/{counterfactual_id}",
+    response_model=RoundCounterfactualResponse,
+)
+def get_round_counterfactual(
+    analysis_id: str,
+    counterfactual_id: str,
+    request: Request,
+) -> RoundCounterfactualResponse:
+    """Return one immutable counterfactual from its runtime artifacts."""
+
+    parsed_analysis_id = _parse_analysis_id(analysis_id)
+    parsed_counterfactual_id = _parse_counterfactual_id(counterfactual_id)
+    service: RoundAnalysisService = request.app.state.round_analysis_service
+    try:
+        stored = service.get_counterfactual(parsed_analysis_id, parsed_counterfactual_id)
+    except RoundAnalysisNotFound as error:
+        raise ContractError(
+            "analysis_not_found",
+            "The round analysis was not found.",
+            status_code=404,
+        ) from error
+    except RoundCounterfactualNotFound as error:
+        raise ContractError(
+            "counterfactual_not_found",
+            "The counterfactual was not found.",
+            status_code=404,
+        ) from error
+    except RoundAnalysisNotCompleteError as error:
+        raise ContractError(
+            "analysis_not_complete",
+            "The round analysis is not complete.",
+            status_code=409,
+        ) from error
+    except RoundCounterfactualIntegrityError as error:
+        raise ContractError(
+            "counterfactual_integrity_error",
+            "The stored counterfactual failed integrity validation.",
+            status_code=500,
+        ) from error
+    except RoundAnalysisTimelineError as error:
+        raise ContractError(
+            "analysis_integrity_error",
+            "The stored round analysis failed integrity validation.",
+            status_code=500,
+        ) from error
+    return _counterfactual_response(stored)
 
 
 @router.post(
@@ -237,6 +361,41 @@ def _log_round_analysis_created(request_id: str, analysis: StoredRoundAnalysis) 
         session_id=str(analysis.session_id),
         state=analysis.state,
         total_evidence_packages=analysis.total_evidence_packages,
+    )
+
+
+def _parse_counterfactual_id(value: str) -> UUID:
+    try:
+        return UUID(value)
+    except (AttributeError, TypeError, ValueError) as error:
+        raise ContractError(
+            "invalid_counterfactual_id",
+            "The counterfactual ID is not a valid UUID.",
+        ) from error
+
+
+def _counterfactual_response(stored) -> RoundCounterfactualResponse:
+    """Convert one service result to the strict public response contract."""
+
+    request = RoundCounterfactualCreateRequest.model_validate(stored.request.to_mapping())
+
+    def artifact(value) -> CounterfactualArtifact:
+        return CounterfactualArtifact(
+            relative_path=value.relative_path,
+            byte_length=value.byte_length,
+            sha256=value.sha256,
+        )
+
+    return RoundCounterfactualResponse(
+        counterfactual_id=stored.request.counterfactual_id,
+        source_analysis_id=stored.request.source_analysis_id,
+        request=request,
+        artifacts=RoundCounterfactualArtifacts(
+            request=artifact(stored.artifacts.request),
+            input=artifact(stored.artifacts.input),
+            result=artifact(stored.artifacts.result),
+        ),
+        result=stored.result.to_mapping(),
     )
 
 

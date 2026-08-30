@@ -392,6 +392,236 @@ def test_lifespan_worker_processes_queued_analysis(backend_tmp_path: Path) -> No
         assert status.json()["state"] == "complete"
 
 
+def _install_two_observation_analyzer(app, package_ids: list[str]) -> None:
+    observation_fixture = (
+        Path(__file__).parents[2]
+        / "fixtures"
+        / "game-engine"
+        / "v1"
+        / "observations"
+        / "minimal.json"
+    )
+    calls = 0
+
+    class TwoObservationAnalyzer:
+        name = "deterministic-local"
+        version = "v1"
+
+        def analyze(self, evidence: object) -> TableObservation:
+            nonlocal calls
+            package_id = package_ids[calls]
+            calls += 1
+            source = parse_observation_bytes(observation_fixture.read_bytes())
+            payload = source.model_dump(mode="python", exclude_none=True)
+            payload["observation_id"] = f"{package_id}-observation"
+            payload["source"] = {"package_id": package_id}
+            payload["session"] = {
+                "session_id": SESSION_ID,
+                "event_sequence": calls,
+            }
+            payload["analyzer"] = {"name": self.name, "version": self.version}
+            return TableObservation.model_validate(payload)
+
+    app.state.round_analysis_service.analyzer_runner.analyzer = TwoObservationAnalyzer()
+
+
+def _counterfactual_payload(
+    source: dict[str, object],
+    *,
+    counterfactual_id: str,
+    excluded_observation_ids: list[str],
+) -> dict[str, object]:
+    result = source["result"]
+    assert isinstance(result, dict)
+    return {
+        "schema_version": "round-analysis-counterfactual/v1",
+        "counterfactual_id": counterfactual_id,
+        "source_analysis_id": ANALYSIS_ID,
+        "source_input_sha256": result["input_artifact_sha256"],
+        "source_result_sha256": result["result_artifact_sha256"],
+        "excluded_observation_ids": excluded_observation_ids,
+        "excluded_observed_cards": [],
+        "candidate_probability_overrides": [],
+    }
+
+
+def _snapshot_files(root: Path) -> dict[Path, bytes]:
+    return {path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+
+
+def test_counterfactual_create_read_is_idempotent_and_restart_safe(
+    backend_tmp_path: Path,
+) -> None:
+    client, app = _backend(backend_tmp_path)
+    package_ids = [
+        _upload_linked_package(client, event_sequence=1),
+        _upload_linked_package(
+            client,
+            package_id="550e8400-e29b-41d4-a716-446655440098",
+            event_sequence=2,
+        ),
+    ]
+    _install_two_observation_analyzer(app, package_ids)
+    created_analysis = client.post(
+        "/v1/round-analyses",
+        json=_analysis_payload(package_ids=package_ids),
+    )
+    assert created_analysis.status_code == 202
+    source = created_analysis.json()
+    source_input = (
+        app.state.round_analysis_storage.analysis_path(ANALYSIS_ID) / "input.json"
+    ).read_bytes()
+    source_result = (
+        app.state.round_analysis_storage.analysis_path(ANALYSIS_ID) / "result.json"
+    ).read_bytes()
+    source_package_files = {
+        package_id: _snapshot_files(app.state.evidence_package_storage.package_path(package_id))
+        for package_id in package_ids
+    }
+    source_observation_files = {
+        observation_id: _snapshot_files(app.state.storage.table_observation_path(observation_id))
+        for observation_id in (f"{package_id}-observation" for package_id in package_ids)
+    }
+    counterfactual_id = "550e8400-e29b-41d4-a716-446655440097"
+    payload = _counterfactual_payload(
+        source,
+        counterfactual_id=counterfactual_id,
+        excluded_observation_ids=[f"{package_ids[0]}-observation"],
+    )
+
+    first = client.post(
+        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
+        json=payload,
+    )
+    replay = client.post(
+        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
+        json=payload,
+    )
+    read = client.get(f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals/{counterfactual_id}")
+
+    assert first.status_code == 201
+    assert replay.status_code == 201
+    assert read.status_code == 200
+    assert replay.json() == first.json()
+    assert read.json() == first.json()
+    body = first.json()
+    assert body["counterfactual_id"] == counterfactual_id
+    assert body["result"]["run_id"] == counterfactual_id
+    assert body["result"]["search"] == {
+        "max_missing_plays": 40,
+        "max_hypotheses": 8,
+        "max_search_nodes": 1000,
+    }
+    assert body["artifacts"]["request"]["relative_path"].endswith(
+        f"/counterfactuals/{counterfactual_id}/request.json"
+    )
+    counterfactual_path = app.state.round_analysis_storage.counterfactual_path(
+        ANALYSIS_ID, counterfactual_id
+    )
+    assert {path.name for path in counterfactual_path.iterdir()} == {
+        "manifest.json",
+        "request.json",
+        "input.json",
+        "result.json",
+    }
+    assert (
+        app.state.round_analysis_storage.analysis_path(ANALYSIS_ID) / "input.json"
+    ).read_bytes() == source_input
+    assert (
+        app.state.round_analysis_storage.analysis_path(ANALYSIS_ID) / "result.json"
+    ).read_bytes() == source_result
+    assert source_package_files == {
+        package_id: _snapshot_files(app.state.evidence_package_storage.package_path(package_id))
+        for package_id in package_ids
+    }
+    assert source_observation_files == {
+        observation_id: _snapshot_files(app.state.storage.table_observation_path(observation_id))
+        for observation_id in (f"{package_id}-observation" for package_id in package_ids)
+    }
+
+    changed = dict(payload)
+    changed["excluded_observation_ids"] = [f"{package_ids[1]}-observation"]
+    conflict = client.post(
+        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
+        json=changed,
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "counterfactual_conflict"
+
+    database_url = f"sqlite:///{backend_tmp_path / 'round-analysis.sqlite'}"
+    restarted_app = create_test_app(
+        Settings(
+            _env_file=None,
+            database_url=database_url,
+            evidence_root=backend_tmp_path / "runtime",
+            evidence_package_intake_root=backend_tmp_path / "intake" / "evidence-packages",
+            repository_intake_root=backend_tmp_path / "intake" / "recordings",
+        ),
+        run_round_analysis_synchronously=True,
+    )
+    restarted = TestClient(restarted_app).get(
+        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals/{counterfactual_id}"
+    )
+    assert restarted.status_code == 200
+    assert restarted.json() == first.json()
+
+
+def test_counterfactual_failed_publication_can_be_retried(
+    backend_tmp_path: Path,
+    monkeypatch,
+) -> None:
+    client, app = _backend(backend_tmp_path)
+    package_ids = [
+        _upload_linked_package(client, event_sequence=1),
+        _upload_linked_package(
+            client,
+            package_id="550e8400-e29b-41d4-a716-446655440096",
+            event_sequence=2,
+        ),
+    ]
+    _install_two_observation_analyzer(app, package_ids)
+    source_response = client.post(
+        "/v1/round-analyses",
+        json=_analysis_payload(package_ids=package_ids),
+    )
+    assert source_response.status_code == 202
+    counterfactual_id = "550e8400-e29b-41d4-a716-446655440095"
+    payload = _counterfactual_payload(
+        source_response.json(),
+        counterfactual_id=counterfactual_id,
+        excluded_observation_ids=[f"{package_ids[0]}-observation"],
+    )
+    storage = app.state.round_analysis_storage
+    original_rename = storage._rename
+
+    def fail_once(source, destination):
+        monkeypatch.setattr(storage, "_rename", original_rename)
+        raise OSError("simulated counterfactual publication failure")
+
+    monkeypatch.setattr(storage, "_rename", fail_once)
+    failed = client.post(
+        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
+        json=payload,
+    )
+    assert failed.status_code == 500
+    assert failed.json()["error"]["code"] == "internal_error"
+    assert not storage.counterfactual_path(ANALYSIS_ID, counterfactual_id).exists()
+    assert (
+        list(
+            storage.counterfactual_path(ANALYSIS_ID, counterfactual_id).parent.glob(
+                f".{counterfactual_id}-*"
+            )
+        )
+        == []
+    )
+
+    retried = client.post(
+        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
+        json=payload,
+    )
+    assert retried.status_code == 201
+
+
 @pytest.fixture()
 def backend_tmp_path(tmp_path: Path) -> Path:
     return tmp_path
