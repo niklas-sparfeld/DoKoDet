@@ -48,7 +48,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0036 — iOS recording workspace simplification](2-ready/0036-iOS_Recording_UI_Simplification.md) | 0032 (complete) | Replace the separate Live and Record flows with one profile-based recording workspace and keep the existing durable upload and analysis lifecycle. |
 
 ### In Progress
 
