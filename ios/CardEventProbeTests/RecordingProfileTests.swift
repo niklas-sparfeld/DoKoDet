@@ -151,6 +151,67 @@ final class RecordingProfileTests: XCTestCase {
         XCTAssertTrue(enrollments.allSatisfy { $0.operator == "alice" })
     }
 
+    func testRecordingProfileStoreLoadsValidFilesAndReportsObsoleteFiles() throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingProfileStore(directory: directory)
+        let profile = validProfile()
+
+        try store.save(profile)
+        try Data("{\"schema_version\":\"collection-profile/v1\"}".utf8)
+            .write(to: directory.appendingPathComponent("obsolete.json"))
+        try Data("not json".utf8)
+            .write(to: directory.appendingPathComponent("corrupt.json"))
+
+        let result = try store.loadAllResult()
+        XCTAssertEqual(result.profiles, [profile])
+        XCTAssertEqual(result.obsoleteFileCount, 1)
+        XCTAssertEqual(store.obsoleteFileNotice, result.obsoleteFileNotice)
+        XCTAssertTrue(result.obsoleteFileNotice?.lowercased().contains("recreate") == true)
+    }
+
+    func testRecordingStartSnapshotRoundTripsAllStartInputsWithoutOverrides() throws {
+        let context = AppRunContext(
+            sessionID: UUID(uuidString: "550e8400-e29b-41d4-a716-446655440010")!
+        )
+        let profile = validProfile(purpose: .realGame)
+        let settings = OperatorSettings(operatorName: "alice")
+        let snapshot = try RecordingStartSnapshot(
+            recordingID: "recording-001",
+            startedAtUTC: "2026-08-31T10:00:00Z",
+            profile: profile,
+            operatorSettings: settings,
+            appRunContext: context
+        )
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = RecordingStartSnapshotStore(directory: directory)
+
+        try store.save(snapshot)
+        let recovered = try XCTUnwrap(
+            RecordingStartSnapshotStore(directory: directory).load()
+        )
+
+        XCTAssertEqual(recovered, snapshot)
+        XCTAssertEqual(recovered.profile, profile)
+        XCTAssertEqual(recovered.operatorSettings, settings)
+        XCTAssertEqual(recovered.appRunContext, context)
+        XCTAssertEqual(recovered.collectionMetadata.operatorName, "alice")
+        XCTAssertEqual(recovered.collectionMetadata.gameID, "game-550e8400-e29b-41d4-a716-446655440010")
+        XCTAssertTrue(recovered.taskEnrollments.allSatisfy { $0.operator == "alice" })
+        XCTAssertThrowsError(
+            try RecordingStartSnapshot(
+                recordingID: "recording-002",
+                startedAtUTC: "2026-08-31T10:00:00Z",
+                profile: profile,
+                operatorSettings: OperatorSettings(),
+                appRunContext: context
+            )
+        ) { error in
+            XCTAssertEqual(error as? RecordingProfileError, .operatorNameMissing)
+        }
+    }
+
     private func validProfile(
         purpose: RecordingPurpose = .approximateFortyCardSetup
     ) -> RecordingProfile {
@@ -164,5 +225,10 @@ final class RecordingProfileTests: XCTestCase {
                 RecordingTaskSetting(task: .tableEvidenceAnalysis),
             ]
         )
+    }
+
+    private func temporaryDirectory() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
     }
 }

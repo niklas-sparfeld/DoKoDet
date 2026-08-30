@@ -13,16 +13,15 @@ final class RecordTabStateTests: XCTestCase {
     }
 
     func testRecordTabExposesFieldLevelValidationBeforeUpload() {
-        var profile = CollectionProfile.newDraft()
-        profile.operatorName = ""
+        var profile = RecordingProfile.newDraft()
         var state = RecordTabState(profile: profile)
 
         XCTAssertFalse(state.canFinalize)
-        XCTAssertEqual(state.message(for: .operatorName), "Enter the operator name.")
+        XCTAssertEqual(state.message(for: .name), "Enter a profile name.")
 
-        profile.operatorName = "operator"
+        profile.name = "profile"
         state.update(profile: profile)
 
-        XCTAssertNil(state.message(for: .operatorName))
+        XCTAssertNil(state.message(for: .name))
     }
 }

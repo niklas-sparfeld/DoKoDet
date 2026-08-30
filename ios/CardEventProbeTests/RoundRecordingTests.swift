@@ -107,35 +107,15 @@ final class RoundRecordingTests: XCTestCase {
         XCTAssertTrue(restarted.allEvidencePackagesAcknowledged)
     }
 
-    func testRoundProfileRequiresRealGameAndUUIDSession() {
-        var profile = CollectionProfile(
+    func testRecordingProfilePurposeDoesNotRequireRoundSetupInput() {
+        let profile = RecordingProfile(
             profileID: "profile-fixture-001",
             name: "Fixture profile",
-            operatorName: "fixture-operator",
-            sessionID: "session-fixture-001",
-            activity: .stagedActivity,
-            gameID: nil,
-            tableSetup: "table-fixture-v1",
-            cardDeck: "doko-40-v1",
-            cameraView: "overhead",
-            cameraMotion: "fixed",
-            cameraFraming: "table_fills_frame",
-            lighting: ["room_light"],
-            background: "wood table",
-            scenarioTags: ["normal_card_play"],
-            knownLimitations: ["single_actor"],
-            sourcePermission: "training_and_evaluation"
+            purpose: .plausibleStagedRound,
+            tags: ["normal_card_play"]
         )
 
-        XCTAssertFalse(profile.isCompleteRoundRecordingProfile)
-        XCTAssertTrue(profile.roundRecordingValidationIssues.contains { $0.field == .activity })
-        XCTAssertTrue(profile.roundRecordingValidationIssues.contains { $0.field == .sessionID })
-
-        profile.activity = .realGame
-        profile.gameID = "game-fixture-001"
-        profile.sessionID = UUID().uuidString
-
-        XCTAssertTrue(profile.isCompleteRoundRecordingProfile)
+        XCTAssertTrue(profile.isComplete)
     }
 
     func testEvidenceCoordinatorDoesNotReserveOrPersistOutsideActiveRecording() throws {

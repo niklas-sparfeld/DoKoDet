@@ -62,8 +62,8 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
         XCTAssertEqual(proposal.probabilities[1].timeS, 0.1, accuracy: 0.000001)
         XCTAssertEqual(proposal.eventProposals.count, 1)
         XCTAssertEqual(proposal.eventProposals[0].emittedAtS, 0.1, accuracy: 0.000001)
-        XCTAssertEqual(source.gameID, "game-fixture-001")
-        XCTAssertEqual(source.tableSetup, "table-fixture-v1")
+        XCTAssertEqual(source.gameID, "game-550e8400-e29b-41d4-a716-446655440010")
+        XCTAssertEqual(source.tableSetup, "default_table_setup")
         XCTAssertEqual(
             enrollments.enrollments.map(\.task),
             RepositoryDataTask.allCases
@@ -210,10 +210,22 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
 
     private func configuration(root: URL) -> TrainingRecordingConfiguration {
         let profile = validProfile()
+        let operatorSettings = OperatorSettings(operatorName: "fixture-operator")
+        let context = AppRunContext(
+            sessionID: UUID(uuidString: "550e8400-e29b-41d4-a716-446655440010")!
+        )
+        let fixedMetadata = FixedRecordingMetadata(sourcePermission: "training_and_evaluation")
+        let collectionMetadata = try! RecordingMetadataAdapter(
+            fixedMetadata: fixedMetadata
+        ).makeCollectionMetadata(
+            profile: profile,
+            operatorSettings: operatorSettings,
+            appRunContext: context
+        )
         return TrainingRecordingConfiguration(
             outputRoot: root,
             recordingID: "recording-fixture-001",
-            sessionID: "session-fixture-001",
+            sessionID: "550e8400-e29b-41d4-a716-446655440010",
             videoID: "video-fixture-001",
             startedAtUTC: Date(timeIntervalSince1970: 1_756_000_000),
             model: TrainingRecordingModel(
@@ -235,34 +247,23 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
                 osVersion: "macOS 15"
             ),
             sourcePermission: "training_and_evaluation",
-            collectionMetadata: TrainingRecordingCollectionMetadata(profile: profile),
+            collectionMetadata: collectionMetadata,
             taskEnrollments: try! profile.makeTaskEnrollments(
                 recordingID: "recording-fixture-001",
-                createdAtUTC: "2026-08-28T08:00:00Z"
+                createdAtUTC: "2026-08-28T08:00:00Z",
+                operatorSettings: operatorSettings
             ),
             frameRate: 10.0
         )
     }
 
-    private func validProfile() -> CollectionProfile {
-        var profile = CollectionProfile.newDraft(
+    private func validProfile() -> RecordingProfile {
+        RecordingProfile(
             profileID: "profile-fixture-001",
-            sessionID: "session-fixture-001"
+            name: "Fixture collection",
+            purpose: .realGame,
+            tags: ["normal_card_play"]
         )
-        profile.name = "Fixture collection"
-        profile.operatorName = "fixture-operator"
-        profile.activity = .realGame
-        profile.gameID = "game-fixture-001"
-        profile.tableSetup = "table-fixture-v1"
-        profile.cardDeck = "doko-48-v1"
-        profile.cameraView = "overhead"
-        profile.cameraMotion = "fixed"
-        profile.cameraFraming = "table_fills_frame"
-        profile.lighting = ["room_light"]
-        profile.background = "wood table"
-        profile.scenarioTags = ["normal_card_play"]
-        profile.sourcePermission = "training_and_evaluation"
-        return profile
     }
 
     private func frame(at timestamp: Double) -> VideoFrame {

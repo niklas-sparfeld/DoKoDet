@@ -16,7 +16,7 @@
 
 - **M0:** Complete — freeze the recording profile, purpose mapping, operator settings, app-run
   context, fixed metadata, and default round-analysis setup contracts.
-- **M1:** Pending — replace profile storage and snapshots.
+- **M1:** Complete — replace profile storage and snapshots.
 - **M2:** Pending — create one recording-workspace lifecycle.
 - **M3:** Pending — build the focused operator surface.
 - **M4:** Pending — connect default analysis and verify the complete flow.
@@ -235,6 +235,23 @@ and narrow adapters.
 - Snapshot operator identity, app-run identity, profile values, fixed metadata, and task
   enrollments at Start. Remove recording-level overrides.
 - Update storage, validation, metadata, enrollment, and relaunch-recovery tests.
+
+#### M1 implementation evidence — 2026-08-31
+
+- Replaced `CollectionProfileStore` with per-file `RecordingProfileStore` for strict
+  `recording-profile/v1` files. The store ignores corrupt files, rejects obsolete
+  `collection-profile/v1` files without migration, scans the previous profile directory for an
+  obsolete-file notice, and keeps other valid profiles available.
+- Moved operator identity to a separate `OperatorSettingsStore`. The app loads one app-run UUID in
+  memory and uses the selected recording profile plus operator settings at Start.
+- Added a durable `RecordingStartSnapshot` and store. The snapshot keeps the profile, operator
+  identity, app-run identity, fixed metadata, derived collection metadata, and task enrollments
+  together until complete-video finalization. Stop uses this snapshot and does not accept
+  recording-level tags, notes, task overrides, dealer input, or first-trick-leader input.
+- Updated the app start path, recording UI call sites, local pipeline fixture, and tests. The
+  focused profile, storage, snapshot, round, and coordinator tests pass. The iOS Simulator build
+  succeeds. The full Swift package suite runs 103 tests with 99 passing; four existing evidence
+  manifest/video timing tests fail outside this milestone.
 
 ### M2 — Create one recording-workspace lifecycle
 

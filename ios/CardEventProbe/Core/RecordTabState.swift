@@ -8,11 +8,11 @@ public enum AppTab: String, CaseIterable, Sendable {
 
 public struct RecordTabState: Equatable, Sendable {
     public private(set) var selectedTab: AppTab
-    public private(set) var profile: CollectionProfile
+    public private(set) var profile: RecordingProfile
 
     public init(
         selectedTab: AppTab = .live,
-        profile: CollectionProfile = .newDraft()
+        profile: RecordingProfile = .newDraft()
     ) {
         self.selectedTab = selectedTab
         self.profile = profile
@@ -25,11 +25,11 @@ public struct RecordTabState: Equatable, Sendable {
         selectedTab = tab
     }
 
-    public mutating func update(profile: CollectionProfile) {
+    public mutating func update(profile: RecordingProfile) {
         self.profile = profile
     }
 
-    public func message(for field: CollectionProfileValidationField) -> String? {
+    public func message(for field: RecordingProfileValidationField) -> String? {
         profile.validationIssues.first { $0.field == field }?.message
     }
 }

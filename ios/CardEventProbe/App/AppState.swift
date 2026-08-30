@@ -88,10 +88,14 @@ final class AppState: ObservableObject {
     @Published private(set) var roundRecordingState: RoundRecordingState?
     @Published private(set) var roundAnalysisState: RoundAnalysisDisplayState = .idle
     @Published private(set) var roundAnalysisSubmissionState: RoundAnalysisSubmissionState?
-    @Published private(set) var collectionProfiles: [CollectionProfile] = []
-    @Published private(set) var selectedCollectionProfileID: String?
-    @Published private(set) var collectionProfileError: String?
-    @Published private(set) var activeCollectionProfile: CollectionProfile?
+    @Published private(set) var recordingProfiles: [RecordingProfile] = []
+    @Published private(set) var selectedRecordingProfileID: String?
+    @Published private(set) var recordingProfileError: String?
+    @Published private(set) var obsoleteRecordingProfileNotice: String?
+    @Published private(set) var activeRecordingProfile: RecordingProfile?
+    @Published private(set) var operatorSettings = OperatorSettings()
+
+    let appRunContext: AppRunContext
 
     let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
@@ -127,7 +131,11 @@ final class AppState: ObservableObject {
         directory: trainingRecordingRoot()
     )
     private let roundAnalysisClient = RoundAnalysisClient()
-    private var activeTaskEnrollments: [RepositoryTaskEnrollment] = []
+    private var activeRecordingSnapshot: RecordingStartSnapshot?
+    private lazy var recordingStartSnapshotStore = RecordingStartSnapshotStore(
+        directory: trainingRecordingRoot()
+    )
+    private let operatorSettingsStore: OperatorSettingsStore
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
     private var activeDiagnosticSource: DiagnosticSource?
@@ -139,7 +147,7 @@ final class AppState: ObservableObject {
     private let trainingRecordingMaximumDurationSeconds: Double
     private let trainingRecordingMaximumSizeBytes: Int64
     private let trainingRecordingMinimumFreeBytes: Int64
-    private let collectionProfileStore: CollectionProfileStore
+    private let recordingProfileStore: RecordingProfileStore
 
     var actualPredictionRateHz: Double? {
         guard let first = scoreHistory.first,
@@ -166,22 +174,39 @@ final class AppState: ObservableObject {
         maximumTrainingRecordingDurationSeconds: Double = 15.0 * 60.0,
         maximumTrainingRecordingSizeBytes: Int64 = 2 * 1024 * 1024 * 1024,
         minimumTrainingRecordingFreeBytes: Int64 = 256 * 1024 * 1024,
-        collectionProfileDirectory: URL? = nil
+        recordingProfileDirectory: URL? = nil,
+        operatorSettingsDirectory: URL? = nil,
+        appRunContext: AppRunContext = AppRunContext()
     ) {
+        self.appRunContext = appRunContext
         trainingRecordingMaximumDurationSeconds = maximumTrainingRecordingDurationSeconds
         trainingRecordingMaximumSizeBytes = maximumTrainingRecordingSizeBytes
         trainingRecordingMinimumFreeBytes = minimumTrainingRecordingFreeBytes
-        collectionProfileStore = CollectionProfileStore(
-            directory: collectionProfileDirectory ?? Self.collectionProfileRoot()
+        recordingProfileStore = RecordingProfileStore(
+            directory: recordingProfileDirectory ?? Self.recordingProfileRoot(),
+            obsoleteDirectories: recordingProfileDirectory == nil
+                ? [Self.legacyCollectionProfileRoot()]
+                : []
+        )
+        operatorSettingsStore = OperatorSettingsStore(
+            directory: operatorSettingsDirectory ?? Self.operatorSettingsRoot()
         )
         do {
-            collectionProfiles = try collectionProfileStore.loadAll()
-            selectedCollectionProfileID = collectionProfiles.first?.profileID
+            let result = try recordingProfileStore.loadAllResult()
+            recordingProfiles = result.profiles
+            selectedRecordingProfileID = recordingProfiles.first?.profileID
+            obsoleteRecordingProfileNotice = result.obsoleteFileNotice
         } catch {
-            collectionProfileError = error.localizedDescription
+            recordingProfileError = error.localizedDescription
+        }
+        do {
+            operatorSettings = try operatorSettingsStore.load() ?? OperatorSettings()
+        } catch {
+            recordingProfileError = error.localizedDescription
         }
         recoverEvidencePackages()
         recoverRoundRecordingState()
+        recoverRecordingStartSnapshot()
         recoverRoundAnalysisState()
         recoverTrainingRecordings()
         loadModel()
@@ -361,44 +386,55 @@ final class AppState: ObservableObject {
         roundAnalysisPollingTask = nil
     }
 
-    var selectedCollectionProfile: CollectionProfile? {
-        guard let selectedCollectionProfileID else { return nil }
-        return collectionProfiles.first { $0.profileID == selectedCollectionProfileID }
+    var selectedRecordingProfile: RecordingProfile? {
+        guard let selectedRecordingProfileID else { return nil }
+        return recordingProfiles.first { $0.profileID == selectedRecordingProfileID }
     }
 
-    func newCollectionProfileDraft() -> CollectionProfile {
-        CollectionProfile.newDraft()
+    func newRecordingProfileDraft() -> RecordingProfile {
+        RecordingProfile.newDraft()
     }
 
-    func selectCollectionProfile(_ profileID: String?) {
-        guard profileID == nil || collectionProfiles.contains(where: { $0.profileID == profileID }) else {
+    func selectRecordingProfile(_ profileID: String?) {
+        guard profileID == nil || recordingProfiles.contains(where: { $0.profileID == profileID }) else {
             return
         }
-        selectedCollectionProfileID = profileID
-        collectionProfileError = nil
+        selectedRecordingProfileID = profileID
+        recordingProfileError = nil
     }
 
-    func saveCollectionProfile(_ profile: CollectionProfile) {
+    func saveRecordingProfile(_ profile: RecordingProfile) {
         do {
-            try collectionProfileStore.save(profile)
-            collectionProfiles = try collectionProfileStore.loadAll()
-            selectedCollectionProfileID = profile.profileID
-            collectionProfileError = nil
+            try recordingProfileStore.save(profile)
+            let result = try recordingProfileStore.loadAllResult()
+            recordingProfiles = result.profiles
+            selectedRecordingProfileID = profile.profileID
+            obsoleteRecordingProfileNotice = result.obsoleteFileNotice
+            recordingProfileError = nil
         } catch {
-            collectionProfileError = error.localizedDescription
+            recordingProfileError = error.localizedDescription
         }
     }
 
-    func startTrainingRecording(
-        profile: CollectionProfile,
-        dealer: String = RoundRecordingSetup.fixedSeatIDs[0],
-        firstTrickLeader: String = RoundRecordingSetup.fixedSeatIDs[0],
-        overrides: [CollectionTaskDispositionOverride] = []
-    ) {
-        guard profile.isCompleteRoundRecordingProfile else {
-            trainingRecordingError = profile.roundRecordingValidationIssues
+    func updateOperatorSettings(_ settings: OperatorSettings) {
+        do {
+            try operatorSettingsStore.save(settings)
+            operatorSettings = settings
+            recordingProfileError = nil
+        } catch {
+            recordingProfileError = error.localizedDescription
+        }
+    }
+
+    func startTrainingRecording(profile: RecordingProfile) {
+        guard profile.isComplete else {
+            trainingRecordingError = profile.validationIssues
                 .map { "\($0.field.rawValue): \($0.message)" }
                 .joined(separator: " ")
+            return
+        }
+        guard operatorSettings.isComplete else {
+            trainingRecordingError = "Enter the operator name in settings before recording."
             return
         }
         guard canStartTrainingRecording else {
@@ -412,36 +448,31 @@ final class AppState: ObservableObject {
 
         let recordingID = UUID().uuidString.lowercased()
         let startedAt = Date()
-        guard let profileSessionID = UUID(uuidString: profile.sessionID) else {
-            trainingRecordingError = "Use a UUID session identifier for a round recording."
+        let startedAtUTC = Self.utcTimestamp(startedAt)
+        let snapshot: RecordingStartSnapshot
+        do {
+            snapshot = try RecordingStartSnapshot(
+                recordingID: recordingID,
+                startedAtUTC: startedAtUTC,
+                profile: profile,
+                operatorSettings: operatorSettings,
+                appRunContext: appRunContext
+            )
+            try recordingStartSnapshotStore.save(snapshot)
+        } catch {
+            trainingRecordingError = "The recording start snapshot could not be saved: \(error.localizedDescription)"
             return
         }
         let roundSetup: RoundRecordingSetup
         do {
-            roundSetup = try RoundRecordingSetup(
-                gameID: profile.gameID ?? "",
-                recordingID: recordingID,
-                dealer: dealer,
-                firstTrickLeader: firstTrickLeader
-            )
+            roundSetup = try snapshot.makeRoundSetup()
         } catch {
-            trainingRecordingError = error.localizedDescription
-            return
-        }
-        let collectionMetadata: TrainingRecordingCollectionMetadata
-        let taskEnrollments: [RepositoryTaskEnrollment]
-        do {
-            collectionMetadata = try profile.recordingMetadata()
-            taskEnrollments = try profile.makeTaskEnrollments(
-                recordingID: recordingID,
-                createdAtUTC: Self.utcTimestamp(startedAt),
-                overrides: overrides
-            )
-        } catch {
+            try? recordingStartSnapshotStore.remove()
             trainingRecordingError = error.localizedDescription
             return
         }
         guard let evidenceSampler else {
+            try? recordingStartSnapshotStore.remove()
             trainingRecordingError = "Evidence capture is not ready."
             return
         }
@@ -451,11 +482,12 @@ final class AppState: ObservableObject {
         let recordingCaptureSession: CaptureSession
         do {
             recordingCaptureSession = try captureSessionIdentityStore.startSession(
-                sessionID: profileSessionID,
+                sessionID: appRunContext.sessionID,
                 startedAtUTC: startedAt,
                 clock: sessionClock
             )
         } catch {
+            try? recordingStartSnapshotStore.remove()
             trainingRecordingError = "The recording session could not be started: \(error.localizedDescription)"
             return
         }
@@ -463,13 +495,14 @@ final class AppState: ObservableObject {
         do {
             roundRecordingState = try RoundRecordingState(
                 recordingID: recordingID,
-                sessionID: profileSessionID,
+                sessionID: appRunContext.sessionID,
                 roundSetup: roundSetup,
                 startedAtUTC: startedAt
             )
             try roundRecordingStateStore.save(roundRecordingState)
         } catch {
-            try? captureSessionIdentityStore.endSession(sessionID: profileSessionID)
+            try? recordingStartSnapshotStore.remove()
+            try? captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
             trainingRecordingError = "The round recording state could not be saved: \(error.localizedDescription)"
             return
         }
@@ -477,7 +510,8 @@ final class AppState: ObservableObject {
             try roundAnalysisSubmissionStore.remove()
         } catch {
             try? roundRecordingStateStore.remove()
-            try? captureSessionIdentityStore.endSession(sessionID: profileSessionID)
+            try? recordingStartSnapshotStore.remove()
+            try? captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
             trainingRecordingError = "The previous round analysis state could not be cleared: \(error.localizedDescription)"
             return
         }
@@ -508,15 +542,15 @@ final class AppState: ObservableObject {
         let configuration = TrainingRecordingConfiguration(
             outputRoot: trainingRecordingStore.directoryURL(for: .queued),
             recordingID: recordingID,
-            sessionID: profileSessionID.uuidString.lowercased(),
+            sessionID: appRunContext.sessionIDString,
             videoID: "video-\(recordingID)",
             startedAtUTC: startedAt,
             model: model,
             decoder: decoder,
             client: client,
-            sourcePermission: profile.sourcePermission,
-            collectionMetadata: collectionMetadata,
-            taskEnrollments: taskEnrollments,
+            sourcePermission: snapshot.collectionMetadata.sourcePermission,
+            collectionMetadata: snapshot.collectionMetadata,
+            taskEnrollments: snapshot.taskEnrollments,
             frameRate: 30.0,
             maximumDurationSeconds: trainingRecordingMaximumDurationSeconds,
             maximumSizeBytes: trainingRecordingMaximumSizeBytes
@@ -526,13 +560,14 @@ final class AppState: ObservableObject {
             try coordinator.start()
         } catch {
             try? roundRecordingStateStore.remove()
-            try? captureSessionIdentityStore.endSession(sessionID: profileSessionID)
+            try? recordingStartSnapshotStore.remove()
+            try? captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
             trainingRecordingError = error.localizedDescription
             return
         }
 
         captureSession = recordingCaptureSession
-        captureSessionID = profileSessionID
+        captureSessionID = appRunContext.sessionID
         captureSessionIsPersisted = true
         evidencePackageCoordinator = makeEvidencePackageCoordinator(
             captureSession: recordingCaptureSession,
@@ -543,8 +578,8 @@ final class AppState: ObservableObject {
         )
         trainingRecordingCoordinator = coordinator
         self.roundRecordingState = roundRecordingState
-        activeCollectionProfile = profile
-        activeTaskEnrollments = taskEnrollments
+        activeRecordingProfile = profile
+        activeRecordingSnapshot = snapshot
         liveCoordinator?.attachTrainingRecording(coordinator)
         latestTrainingRecordingID = recordingID
         trainingRecordingStartedAt = Date()
@@ -558,7 +593,7 @@ final class AppState: ObservableObject {
         trainingRecordingState = .recording
     }
 
-    func stopTrainingRecording(scenarioTags: [String]? = nil, notes: String? = nil) {
+    func stopTrainingRecording() {
         guard trainingRecordingState == .recording else { return }
         guard let coordinator = trainingRecordingCoordinator else {
             trainingRecordingState = .failed("The training recording coordinator is not available.")
@@ -570,20 +605,11 @@ final class AppState: ObservableObject {
             trainingRecordingError = "The round recording ID is not available."
             return
         }
-        guard let activeCollectionProfile else {
-            trainingRecordingError = "The active collection profile is not available."
+        guard let activeRecordingSnapshot else {
+            trainingRecordingError = "The recording start snapshot is not available."
             return
         }
-        let collectionMetadata: TrainingRecordingCollectionMetadata
-        do {
-            collectionMetadata = try activeCollectionProfile.recordingMetadata(
-                scenarioTags: scenarioTags,
-                notes: notes
-            )
-        } catch {
-            trainingRecordingError = error.localizedDescription
-            return
-        }
+        let collectionMetadata = activeRecordingSnapshot.collectionMetadata
         do {
             _ = try roundRecordingStateStore.closeEvidenceMembership(recordingID: recordingID)
             roundRecordingState = try roundRecordingStateStore.load()
@@ -606,10 +632,11 @@ final class AppState: ObservableObject {
                 self.trainingRecordingElapsedSeconds = 0.0
                 self.trainingRecordingEstimatedSizeBytes = coordinator?.estimatedStoredSizeBytes ?? 0
                 self.trainingRecordingCoordinator = nil
-                self.activeCollectionProfile = nil
-                self.activeTaskEnrollments = []
+                self.activeRecordingProfile = nil
                 switch result {
                 case let .success(url):
+                    try? self.recordingStartSnapshotStore.remove()
+                    self.activeRecordingSnapshot = nil
                     if let state = try? self.roundRecordingStateStore.markRecordingBundleFinalized(
                         recordingID: recordingID
                     ) {
@@ -628,7 +655,7 @@ final class AppState: ObservableObject {
             }
             },
             collectionMetadata: collectionMetadata,
-            taskEnrollments: activeTaskEnrollments
+            taskEnrollments: activeRecordingSnapshot.taskEnrollments
         )
     }
 
@@ -1146,6 +1173,22 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func recoverRecordingStartSnapshot() {
+        do {
+            guard let snapshot = try recordingStartSnapshotStore.load() else { return }
+            guard let roundRecordingState,
+                  roundRecordingState.recordingID == snapshot.recordingID,
+                  roundRecordingState.sessionID == snapshot.appRunContext.sessionID else {
+                try recordingStartSnapshotStore.remove()
+                return
+            }
+            activeRecordingSnapshot = snapshot
+            activeRecordingProfile = snapshot.profile
+        } catch {
+            trainingRecordingError = error.localizedDescription
+        }
+    }
+
     private func recoverRoundAnalysisState() {
         do {
             guard let state = try roundAnalysisSubmissionStore.load() else { return }
@@ -1580,7 +1623,27 @@ final class AppState: ObservableObject {
             .appendingPathComponent("repository-bundles", isDirectory: true)
     }
 
-    private static func collectionProfileRoot() -> URL {
+    private static func recordingProfileRoot() -> URL {
+        let baseURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return baseURL
+            .appendingPathComponent("DokoDetector", isDirectory: true)
+            .appendingPathComponent("recording-profiles", isDirectory: true)
+    }
+
+    private static func operatorSettingsRoot() -> URL {
+        let baseURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return baseURL
+            .appendingPathComponent("DokoDetector", isDirectory: true)
+            .appendingPathComponent("settings", isDirectory: true)
+    }
+
+    private static func legacyCollectionProfileRoot() -> URL {
         let baseURL = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
