@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 from game_engine import (
@@ -15,6 +16,9 @@ from game_engine import (
     ScoreBreakdown,
     TrickResult,
     VisualEvidenceScore,
+    canonical_json_bytes,
+    load_round_scenario,
+    parse_observation_bytes,
     parse_reconstruction_input_bytes,
 )
 
@@ -33,6 +37,10 @@ from doko_operations.round_reconstruction import (
     parse_round_reconstruction_result_bytes,
     run_round_reconstruction,
     serialize_engine_result,
+)
+
+GAME_ENGINE_SCENARIO_ROOT = (
+    Path(__file__).parents[2] / "fixtures" / "game-engine" / "v1" / "rounds"
 )
 
 
@@ -250,6 +258,56 @@ def write_observation_request(
     request_path = request_directory / "request.json"
     request_path.write_bytes(json.dumps(request_payload_value).encode("utf-8"))
     return request, request_path, observation_bytes
+
+
+def write_scenario_request(
+    tmp_path: Path,
+    scenario_name: str,
+    *,
+    insufficient_evidence: bool = False,
+) -> Path:
+    """Adapt one game-engine scenario into separate harness observation files."""
+
+    scenario = load_round_scenario(GAME_ENGINE_SCENARIO_ROOT / f"{scenario_name}.json")
+    scenario_directory = tmp_path / scenario_name
+    observation_directory = scenario_directory / "observations"
+    observation_directory.mkdir(parents=True)
+    observations = list(scenario.input.observations)
+    if insufficient_evidence:
+        observations[0] = observations[0].model_copy(
+            update={"cards": [], "status": "insufficient_evidence"}
+        )
+
+    observation_paths: list[str] = []
+    for index, observation in enumerate(observations, start=1):
+        observation_path = observation_directory / f"observation-{index:03d}.json"
+        observation_path.write_bytes(canonical_json_bytes(observation))
+        observation_paths.append(f"observations/{observation_path.name}")
+
+    input_value = scenario.input
+    request_payload = {
+        "schema_version": "round-reconstruction-run/v1",
+        "run_id": f"{scenario_name}-harness",
+        "round_setup": {
+            "game_id": input_value.game_id,
+            "round_id": input_value.round_id,
+            "ruleset": input_value.ruleset.model_dump(mode="json"),
+            "deck_variant": input_value.deck_variant,
+            "active_players": list(input_value.active_players),
+            "dealer": input_value.dealer,
+            "first_trick_leader": input_value.first_trick_leader,
+        },
+        "observation_paths": observation_paths,
+        "search": {
+            "max_missing_plays": 1,
+            "max_hypotheses": 256,
+            "max_search_nodes": 250000,
+        },
+        "output_root": "artifacts",
+    }
+    request_path = scenario_directory / "request.json"
+    request_path.write_text(json.dumps(request_payload, indent=2), encoding="utf-8")
+    return request_path
 
 
 def test_request_is_strict_and_canonical() -> None:
@@ -614,3 +672,47 @@ def test_round_reconstruction_cli_reports_contract_errors(tmp_path, capsys) -> N
     output = capsys.readouterr()
     assert output.out == ""
     assert "error:" in output.err
+
+
+@pytest.mark.parametrize(
+    ("scenario_name", "expected_status", "insufficient_evidence"),
+    (
+        ("unambiguous", "resolved", False),
+        ("ambiguous", "ambiguous", False),
+        ("incomplete", "incomplete", True),
+        ("impossible", "impossible", False),
+    ),
+)
+def test_round_harness_adapts_scenario_fixtures_to_all_result_statuses(
+    tmp_path: Path,
+    scenario_name: str,
+    expected_status: str,
+    insufficient_evidence: bool,
+) -> None:
+    request_path = write_scenario_request(
+        tmp_path,
+        scenario_name,
+        insufficient_evidence=insufficient_evidence,
+    )
+
+    artifacts = run_round_reconstruction(request_path)
+
+    assert artifacts.result.status == expected_status
+    input_value = parse_reconstruction_input_bytes(artifacts.input_path.read_bytes())
+    request = parse_round_reconstruction_request_bytes(request_path.read_bytes())
+    assert len(input_value.observations) == len(artifacts.result.sources) == len(
+        request.observation_paths
+    )
+    assert all(
+        (request_path.parent / observation_path).is_file()
+        for observation_path in request.observation_paths
+    )
+    assert parse_round_reconstruction_result_bytes(
+        artifacts.result_path.read_bytes()
+    ).to_mapping() == artifacts.result.to_mapping()
+    if expected_status == "ambiguous":
+        assert artifacts.result.focused_decisions
+    if insufficient_evidence:
+        first_source = request_path.parent / "observations/observation-001.json"
+        assert parse_observation_bytes(first_source.read_bytes()).status == "insufficient_evidence"
+        assert artifacts.result.diagnostics.incomplete_observations == ("observation-001",)

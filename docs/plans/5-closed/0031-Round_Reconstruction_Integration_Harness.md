@@ -4,9 +4,12 @@
 
 - **Summary:** Reproducibly assemble stored table observations into one explicit round input and
   record a round-reconstruction result.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Plan 0006 contracts and rules core; the existing `table-observation/v1` producer
   and backend persistence path.
+- **Closure reason:** Complete
+- **Closure note:** Implemented all seven phases, including deterministic local artifacts, the
+  analyzer-to-persistence integration path, and four harness scenario outcomes.
 - **Builds on:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md) and
   [Plan 0023](../0-to-specify/0023-Game_Reconstruction_Development.md).
@@ -19,8 +22,9 @@
 - **M2 (phase 3):** Complete — engine-result serialization with source provenance.
 - **M3 (phase 4):** Complete — atomic artifact publication and the `doko reconstruct round` command.
 - **M4 (phase 5):** Complete — analyzer-to-backend-persistence-to-harness integration fixture.
-- **M5 (phase 6):** Pending — separate resolved, ambiguous, incomplete, and impossible scenario
-  fixtures.
+- **M5 (phase 6):** Complete — separate observation files adapted from the game-engine fixtures,
+  covering resolved, ambiguous, incomplete, and impossible harness outcomes. The incomplete case
+  includes an `insufficient_evidence` observation.
 - **M6 (phase 7):** Complete — local command, request, artifact, error, and ambiguous-result
   inspection documentation.
 
