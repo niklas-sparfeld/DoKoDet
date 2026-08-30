@@ -37,19 +37,32 @@ worktree:
 
 1. Commit the work on the secondary worktree's detached `HEAD`.
 2. Use `git worktree list` to find the worktree that has `main` checked out.
-3. Confirm that the main worktree has no tracked changes and that no other Git operation is in
-   progress there. Unrelated untracked files may remain if the incoming commits cannot overwrite,
-   move, or otherwise affect them.
+3. Inspect the main worktree status and the paths changed by the incoming commits. Confirm that no
+   other Git operation is in progress. Tracked and untracked changes may remain when their paths do
+   not overlap with the incoming commits and the integration cannot overwrite, move, or otherwise
+   affect them.
 4. Run `git -C <main-worktree-path> cherry-pick <commit>` for each completed commit, in order.
-5. Confirm that `main` contains the commits, has no tracked changes, and still contains any allowed
-   untracked files.
+5. If a cherry-pick conflicts, inspect the base, current, and incoming versions. Resolve the
+   conflict when the intended combined behavior is clear. Preserve valid changes from both sides.
+   For example, keep new logging around updated logic instead of choosing one side wholesale.
+6. Run checks that cover the resolved paths and combined behavior. Continue the cherry-pick after
+   the checks pass.
+7. Confirm that `main` contains the commits and that all pre-existing tracked and untracked changes
+   remain intact.
 
 Do not use push and pull to move commits between local worktrees. Do not update the `main` ref
-directly. Only one agent can integrate into the main worktree at a time. If the main worktree has
-tracked changes, related or overlapping untracked files, an in-progress Git operation, or a
-cherry-pick conflict, stop and report the problem. Before you integrate with untracked files
-present, list their paths and compare them with every path changed by the incoming commits. Do not
-modify, add, move, or discard the user's untracked files.
+directly. Only one agent can run a Git integration operation in the main worktree at a time. Work
+by another agent does not by itself block integration. Proceed when its changes are unrelated or
+when a conflict has a small, clear resolution. Before integration, record the existing worktree
+status and compare all changed paths with every path changed by the incoming commits. Do not
+modify, add, move, stage, or discard unrelated worktree changes.
+
+Stop and report the problem only when safe integration is unclear. Examples include overlapping
+uncommitted changes, ambiguous differences in intended behavior, incompatible API or data model
+changes, large rewrites of the same code, conflicts in generated or binary files, failing checks
+whose correct fix is unclear, or an in-progress Git operation owned by another agent. If a
+cherry-pick reaches such a conflict, preserve the evidence and describe the competing changes and
+the decision that needs human input.
 
 ## Planning workflow
 
