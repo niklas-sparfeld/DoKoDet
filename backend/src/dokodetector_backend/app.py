@@ -1,8 +1,12 @@
 """FastAPI application factory."""
 
+from __future__ import annotations
+
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING, AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -26,16 +30,35 @@ from dokodetector_backend.repository import (
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
 from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
+from dokodetector_backend.round_analysis_api import router as round_analysis_router
+from dokodetector_backend.round_analysis_service import RoundAnalysisService
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.storage import EvidenceStorage
 
+if TYPE_CHECKING:
+    from table_evidence_analyzer import TableEvidenceAnalyzer
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+
+def create_app(
+    settings: Settings | None = None,
+    *,
+    run_round_analysis_synchronously: bool = False,
+    analyzer: TableEvidenceAnalyzer | None = None,
+) -> FastAPI:
     """Create the local backend application."""
 
     app_settings = settings or Settings()
     upgrade_database(Path(__file__).resolve().parents[2], app_settings.database_url)
-    app = FastAPI(title="DokoDetector Backend", version="0.1.0")
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        await application.state.round_analysis_service.start()
+        try:
+            yield
+        finally:
+            await application.state.round_analysis_service.stop()
+
+    app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
     app.state.settings = app_settings
     app.state.engine = create_database_engine(app_settings.database_url)
     app.state.repository = EvidenceRepository(app.state.engine)
@@ -54,14 +77,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app_settings.repository_intake_root
     )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
-    app.state.analyzer = create_local_poc_analyzer()
+    app.state.analyzer = analyzer or create_local_poc_analyzer()
+    app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     app.state.repository.rebuild_from_intake(app.state.evidence_package_storage)
     app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)
     app.state.round_analysis_repository.fail_non_terminal()
+    app.state.round_analysis_service = RoundAnalysisService(
+        app.state.round_analysis_repository,
+        app.state.repository,
+        app.state.evidence_package_storage,
+        app.state.storage,
+        app.state.round_analysis_storage,
+        app.state.repository_bundle_repository,
+        app.state.analyzer,
+    )
     register_error_handlers(app)
     app.include_router(router)
     app.include_router(repository_bundle_router)
     app.include_router(pending_video_router)
+    app.include_router(round_analysis_router)
 
     @app.get("/health/live")
     def liveness() -> dict[str, str]:

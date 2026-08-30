@@ -15,7 +15,7 @@
 - **M0:** Complete — freeze the reusable reconstruction and PoC analyzer boundaries.
 - **M1:** Complete — add the backend analysis contract, persistence, restart conversion, and
   artifact storage.
-- **M2:** Pending — add the backend worker, lifecycle handling, and APIs.
+- **M2:** Complete — add the backend worker, lifecycle handling, and APIs.
 - **M3:** Pending — make one iOS recording own video, evidence, lineage, and package tracking.
 - **M4:** Pending — add iOS upload gating, durable analysis submission, and polling.
 - **M5:** Pending — add the result UI, end-to-end fixtures, and local documentation.
@@ -193,6 +193,20 @@ support multiple simultaneous round recordings or a history screen in this epic.
 
 - Implement the lifespan-owned single worker and its clean shutdown behavior.
 - Add the two routes, synchronous test hook, validation, idempotency, and failure handling.
+
+#### M2 implementation evidence — 2026-08-30
+
+- Added the lifespan-owned process-local queue and one worker task. The worker analyzes each
+  selected package once through the configured analyzer runner, reuses immutable observations, and
+  drains queued work during clean shutdown.
+- Added `POST /v1/round-analyses` and `GET /v1/round-analyses/{analysis_id}` with strict request
+  handling, recording/package/session/lineage validation, canonical idempotency conflicts, and
+  compact terminal results.
+- Added the synchronous test hook, safe terminal worker failures, and an integration test for the
+  analyzer-to-observation-to-Plan-0031 artifact path. Runtime artifacts retain the exact Plan 0031
+  input and result bytes with their hashes.
+- Verification: full backend tests, focused API/worker tests, Ruff checks, lock checks, and
+  whitespace checks pass.
 
 ### M3 — Unified iOS recording
 
