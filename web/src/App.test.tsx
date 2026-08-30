@@ -66,6 +66,16 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: "Reconstruction hypothesis" }),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Diagnostic comparison")).not.toBeInTheDocument();
+    const counterfactualGroups = screen.getAllByRole("group", {
+      name: "Counterfactual",
+    });
+    expect(counterfactualGroups).toHaveLength(2);
+    expect(
+      screen
+        .getByRole("option", { name: /observation-001/ })
+        .querySelector("fieldset"),
+    ).toBe(counterfactualGroups[0]);
     expect(screen.getAllByText("Diamonds Jack").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Hearts Ten").length).toBeGreaterThan(0);
     expect(

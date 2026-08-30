@@ -77,6 +77,11 @@ test("renders a resolved analysis in synchronized desktop columns", async ({
   await expect(
     page.getByRole("heading", { name: "Reconstruction hypothesis" }),
   ).toBeVisible();
+  await expect(
+    page
+      .getByRole("option", { name: /observation-001/ })
+      .getByRole("group", { name: "Counterfactual" }),
+  ).toBeVisible();
   await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(2);
   await expect(page.getByText("No central frame available")).toBeVisible();
 

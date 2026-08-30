@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   ApiError,
@@ -287,76 +287,94 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
         onSelectHypothesis={selectHypothesis}
       />
 
-      <CounterfactualWorkbench timeline={timeline} />
+      <CounterfactualWorkbench timeline={timeline}>
+        {(counterfactual) => (
+          <>
+            <div className={styles.rowControls} aria-label="Row navigation">
+              <button
+                type="button"
+                onClick={() => moveRow(selectedRowIndex - 1)}
+                disabled={selectedRowIndex <= 0}
+              >
+                ← Previous row
+              </button>
+              <span>
+                Row {displayRows.length === 0 ? 0 : selectedRowIndex + 1} of{" "}
+                {displayRows.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => moveRow(selectedRowIndex + 1)}
+                disabled={selectedRowIndex >= displayRows.length - 1}
+              >
+                Next row →
+              </button>
+            </div>
 
-      <div className={styles.rowControls} aria-label="Row navigation">
-        <button
-          type="button"
-          onClick={() => moveRow(selectedRowIndex - 1)}
-          disabled={selectedRowIndex <= 0}
-        >
-          ← Previous row
-        </button>
-        <span>
-          Row {displayRows.length === 0 ? 0 : selectedRowIndex + 1} of{" "}
-          {displayRows.length}
-        </span>
-        <button
-          type="button"
-          onClick={() => moveRow(selectedRowIndex + 1)}
-          disabled={selectedRowIndex >= displayRows.length - 1}
-        >
-          Next row →
-        </button>
-      </div>
+            <div className={styles.timelineHeader}>
+              <h2>Evidence</h2>
+              <h2>Table observation</h2>
+              <h2>Reconstruction hypothesis</h2>
+            </div>
+            <ol
+              className={styles.timeline}
+              aria-label="Synchronized round timeline"
+              role="listbox"
+            >
+              {displayRows.map((row, index) => (
+                <TimelineRowView
+                  key={row.id}
+                  row={row}
+                  index={index}
+                  selected={row.id === selectedRow?.id}
+                  hypothesis={selectedHypothesis}
+                  counterfactual={counterfactual}
+                  onSelect={() => selectRow(row.id)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) {
+                      return;
+                    }
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      moveRow(index + 1);
+                    } else if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      moveRow(index - 1);
+                    } else if (event.key === "Home") {
+                      event.preventDefault();
+                      moveRow(0);
+                    } else if (event.key === "End") {
+                      event.preventDefault();
+                      moveRow(displayRows.length - 1);
+                    }
+                  }}
+                />
+              ))}
+            </ol>
+            {displayRows.length === 0 ? (
+              <p className={styles.emptyState}>
+                No evidence rows are available.
+              </p>
+            ) : null}
+            <p className={styles.keyboardHint}>
+              Select a row, then use ↑ and ↓ to move through the timeline.
+            </p>
+            <span className={styles.visuallyHidden} aria-live="polite">
+              {selectedRow === undefined
+                ? "No row selected"
+                : `Selected ${selectedRow.id}`}
+            </span>
 
-      <div className={styles.timelineHeader}>
-        <h2>Evidence</h2>
-        <h2>Table observation</h2>
-        <h2>Reconstruction hypothesis</h2>
-      </div>
-      <ol
-        className={styles.timeline}
-        aria-label="Synchronized round timeline"
-        role="listbox"
-      >
-        {displayRows.map((row, index) => (
-          <TimelineRowView
-            key={row.id}
-            row={row}
-            index={index}
-            selected={row.id === selectedRow?.id}
-            hypothesis={selectedHypothesis}
-            onSelect={() => selectRow(row.id)}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                moveRow(index + 1);
-              } else if (event.key === "ArrowUp") {
-                event.preventDefault();
-                moveRow(index - 1);
-              } else if (event.key === "Home") {
-                event.preventDefault();
-                moveRow(0);
-              } else if (event.key === "End") {
-                event.preventDefault();
-                moveRow(displayRows.length - 1);
-              }
-            }}
-          />
-        ))}
-      </ol>
-      {displayRows.length === 0 ? (
-        <p className={styles.emptyState}>No evidence rows are available.</p>
-      ) : null}
-      <p className={styles.keyboardHint}>
-        Select a row, then use ↑ and ↓ to move through the timeline.
-      </p>
-      <span className={styles.visuallyHidden} aria-live="polite">
-        {selectedRow === undefined
-          ? "No row selected"
-          : `Selected ${selectedRow.id}`}
-      </span>
+            <CounterfactualRunControls counterfactual={counterfactual} />
+            {counterfactual.response !== null ? (
+              <CounterfactualComparison
+                response={counterfactual.response}
+                timeline={timeline}
+              />
+            ) : null}
+          </>
+        )}
+      </CounterfactualWorkbench>
     </div>
   );
 }
@@ -582,6 +600,29 @@ type CounterfactualDraft = {
   overrides: CounterfactualOverride[];
 };
 
+type CounterfactualController = {
+  draft: CounterfactualDraft;
+  excludedObservations: ReadonlySet<string>;
+  excludedCards: ReadonlySet<string>;
+  submitting: boolean;
+  response: RoundCounterfactualResponse | null;
+  error: string | null;
+  effectiveOverrides: CounterfactualOverride[];
+  hasInvalidOverride: boolean;
+  changeCount: number;
+  allObservationsExcluded: boolean;
+  toggleObservation: (observationId: string) => void;
+  toggleObservedCard: (reference: CounterfactualObservedCard) => void;
+  setCandidateProbability: (
+    observationId: string,
+    observedCardId: string,
+    candidate: TimelineCandidate,
+    value: string,
+  ) => void;
+  runCounterfactual: () => Promise<void>;
+  restoreBaseline: () => void;
+};
+
 const EMPTY_COUNTERFACTUAL_DRAFT: CounterfactualDraft = {
   excludedObservationIds: [],
   excludedObservedCards: [],
@@ -590,8 +631,10 @@ const EMPTY_COUNTERFACTUAL_DRAFT: CounterfactualDraft = {
 
 function CounterfactualWorkbench({
   timeline,
+  children,
 }: {
   timeline: RoundAnalysisTimeline;
+  children: (counterfactual: CounterfactualController) => ReactNode;
 }) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [draft, setDraft] = useState<CounterfactualDraft>(
@@ -730,6 +773,30 @@ function CounterfactualWorkbench({
     setError(null);
   }
 
+  return children({
+    draft,
+    excludedObservations,
+    excludedCards,
+    submitting,
+    response,
+    error,
+    effectiveOverrides,
+    hasInvalidOverride,
+    changeCount,
+    allObservationsExcluded,
+    toggleObservation,
+    toggleObservedCard,
+    setCandidateProbability,
+    runCounterfactual,
+    restoreBaseline,
+  });
+}
+
+function CounterfactualRunControls({
+  counterfactual,
+}: {
+  counterfactual: CounterfactualController;
+}) {
   return (
     <section
       className={styles.counterfactualPanel}
@@ -737,145 +804,45 @@ function CounterfactualWorkbench({
     >
       <div className={styles.sectionHeading}>
         <div>
-          <p className={styles.statusLabel}>Diagnostic comparison</p>
+          <p className={styles.statusLabel}>Counterfactual analysis</p>
           <h2>Counterfactual run</h2>
         </div>
         <span className={styles.countLabel}>
-          {changeCount} change{changeCount === 1 ? "" : "s"} drafted
+          {counterfactual.changeCount} change
+          {counterfactual.changeCount === 1 ? "" : "s"} drafted
         </span>
       </div>
       <p className={styles.explanationText}>
-        Derive a diagnostic result from this immutable baseline. Choose at least
-        one observation, card, or existing candidate probability to change.
+        Adjust an observation above, then run a comparison against the immutable
+        baseline.
       </p>
-      <div className={styles.counterfactualControls}>
-        {timeline.rows.map((row) => {
-          const observation = row.table_observation;
-          const observationExcluded = excludedObservations.has(
-            row.observation_id,
-          );
-          return (
-            <fieldset
-              className={styles.counterfactualRow}
-              key={row.observation_id}
-            >
-              <legend>{row.observation_id}</legend>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={observationExcluded}
-                  onChange={() => toggleObservation(row.observation_id)}
-                  aria-label={`Exclude observation ${row.observation_id}`}
-                />
-                Exclude observation
-              </label>
-              {(observation.cards ?? []).map((card) => {
-                const reference = {
-                  observation_id: row.observation_id,
-                  observed_card_id: card.observed_card_id,
-                } satisfies CounterfactualObservedCard;
-                const cardExcluded = excludedCards.has(
-                  counterfactualReferenceKey(reference),
-                );
-                return (
-                  <div
-                    className={styles.counterfactualCard}
-                    key={card.observed_card_id}
-                  >
-                    <label className={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        checked={cardExcluded}
-                        disabled={observationExcluded}
-                        onChange={() => toggleObservedCard(reference)}
-                        aria-label={`Exclude observed card ${card.observed_card_id}`}
-                      />
-                      Exclude card {card.observed_card_id}
-                    </label>
-                    {card.identity_candidates.length < 2 ? (
-                      <p className={styles.emptyInline}>
-                        A probability override needs at least two candidates.
-                      </p>
-                    ) : null}
-                    <div className={styles.overrideList}>
-                      {card.identity_candidates.map((candidate) => {
-                        const override = draft.overrides.find(
-                          (current) =>
-                            current.observation_id === row.observation_id &&
-                            current.observed_card_id ===
-                              card.observed_card_id &&
-                            current.card === candidate.card,
-                        );
-                        return (
-                          <label
-                            className={styles.overrideControl}
-                            key={candidate.card}
-                          >
-                            <span>{formatCardIdentity(candidate.card)}</span>
-                            <input
-                              type="number"
-                              min="0.000001"
-                              max="1"
-                              step="0.001"
-                              value={
-                                override?.probability ?? candidate.probability
-                              }
-                              disabled={
-                                observationExcluded ||
-                                cardExcluded ||
-                                card.identity_candidates.length < 2
-                              }
-                              onChange={(event) =>
-                                setCandidateProbability(
-                                  row.observation_id,
-                                  card.observed_card_id,
-                                  candidate,
-                                  event.target.value,
-                                )
-                              }
-                              aria-label={`Probability for ${formatCardIdentity(candidate.card)} in ${card.observed_card_id}`}
-                            />
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </fieldset>
-          );
-        })}
-      </div>
       <div className={styles.counterfactualActions}>
         <button
           type="button"
           className={styles.primaryButton}
-          onClick={() => void runCounterfactual()}
+          onClick={() => void counterfactual.runCounterfactual()}
           disabled={
-            submitting ||
-            changeCount === 0 ||
-            hasInvalidOverride ||
-            allObservationsExcluded
+            counterfactual.submitting ||
+            counterfactual.changeCount === 0 ||
+            counterfactual.hasInvalidOverride ||
+            counterfactual.allObservationsExcluded
           }
         >
-          {submitting ? "Running…" : "Run counterfactual"}
+          {counterfactual.submitting ? "Running…" : "Run counterfactual"}
         </button>
         <button
           type="button"
           className={styles.secondaryButton}
-          onClick={restoreBaseline}
-          disabled={submitting}
+          onClick={counterfactual.restoreBaseline}
+          disabled={counterfactual.submitting}
         >
           Restore baseline
         </button>
       </div>
-      {error !== null ? (
+      {counterfactual.error !== null ? (
         <p className={styles.errorMessage} role="alert">
-          {error}
+          {counterfactual.error}
         </p>
-      ) : null}
-      {response !== null ? (
-        <CounterfactualComparison response={response} timeline={timeline} />
       ) : null}
     </section>
   );
@@ -1516,6 +1483,7 @@ function TimelineRowView({
   index,
   selected,
   hypothesis,
+  counterfactual,
   onSelect,
   onKeyDown,
 }: {
@@ -1523,13 +1491,13 @@ function TimelineRowView({
   index: number;
   selected: boolean;
   hypothesis: RoundAnalysisTimeline["hypotheses"][number] | undefined;
+  counterfactual: CounterfactualController;
   onSelect: () => void;
-  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }) {
   return (
     <li>
-      <button
-        type="button"
+      <div
         className={`${styles.timelineRow} ${selected ? styles.selectedRow : ""}`}
         aria-label={`${row.id} timeline row`}
         aria-selected={selected}
@@ -1544,7 +1512,7 @@ function TimelineRowView({
           <InferenceEvidenceCell play={row.play} />
         )}
         {row.kind === "evidence" ? (
-          <ObservationCell observation={row.row.table_observation} />
+          <ObservationCell row={row.row} counterfactual={counterfactual} />
         ) : (
           <InferenceObservationCell />
         )}
@@ -1557,7 +1525,7 @@ function TimelineRowView({
             actions={actionsForInferredPlay(hypothesis, row.play.play_index)}
           />
         )}
-      </button>
+      </div>
       <span className={styles.visuallyHidden}>
         Timeline position {index + 1}
       </span>
@@ -1608,10 +1576,13 @@ function InferenceEvidenceCell({ play }: { play: TimelineInferredPlay }) {
 }
 
 function ObservationCell({
-  observation,
+  row,
+  counterfactual,
 }: {
-  observation: TimelineEvidenceRow["table_observation"];
+  row: TimelineEvidenceRow;
+  counterfactual: CounterfactualController;
 }) {
+  const observation = row.table_observation;
   const cards = observation.cards ?? [];
 
   return (
@@ -1655,7 +1626,109 @@ function ObservationCell({
           ))}
         </div>
       )}
+      <CounterfactualObservationControls
+        row={row}
+        counterfactual={counterfactual}
+      />
     </div>
+  );
+}
+
+function CounterfactualObservationControls({
+  row,
+  counterfactual,
+}: {
+  row: TimelineEvidenceRow;
+  counterfactual: CounterfactualController;
+}) {
+  const observation = row.table_observation;
+  const observationExcluded = counterfactual.excludedObservations.has(
+    row.observation_id,
+  );
+
+  return (
+    <fieldset className={styles.counterfactualInline}>
+      <legend>Counterfactual</legend>
+      <label className={styles.checkboxLabel}>
+        <input
+          type="checkbox"
+          checked={observationExcluded}
+          onChange={() => counterfactual.toggleObservation(row.observation_id)}
+          aria-label={`Exclude observation ${row.observation_id}`}
+        />
+        Exclude observation
+      </label>
+      {(observation.cards ?? []).map((card) => {
+        const reference = {
+          observation_id: row.observation_id,
+          observed_card_id: card.observed_card_id,
+        } satisfies CounterfactualObservedCard;
+        const cardExcluded = counterfactual.excludedCards.has(
+          counterfactualReferenceKey(reference),
+        );
+        return (
+          <div
+            className={styles.counterfactualCard}
+            key={card.observed_card_id}
+          >
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={cardExcluded}
+                disabled={observationExcluded}
+                onChange={() => counterfactual.toggleObservedCard(reference)}
+                aria-label={`Exclude observed card ${card.observed_card_id}`}
+              />
+              Exclude card {card.observed_card_id}
+            </label>
+            {card.identity_candidates.length < 2 ? (
+              <p className={styles.emptyInline}>
+                A probability override needs at least two candidates.
+              </p>
+            ) : null}
+            <div className={styles.overrideList}>
+              {card.identity_candidates.map((candidate) => {
+                const override = counterfactual.draft.overrides.find(
+                  (current) =>
+                    current.observation_id === row.observation_id &&
+                    current.observed_card_id === card.observed_card_id &&
+                    current.card === candidate.card,
+                );
+                return (
+                  <label
+                    className={styles.overrideControl}
+                    key={candidate.card}
+                  >
+                    <span>{formatCardIdentity(candidate.card)}</span>
+                    <input
+                      type="number"
+                      min="0.000001"
+                      max="1"
+                      step="0.001"
+                      value={override?.probability ?? candidate.probability}
+                      disabled={
+                        observationExcluded ||
+                        cardExcluded ||
+                        card.identity_candidates.length < 2
+                      }
+                      onChange={(event) =>
+                        counterfactual.setCandidateProbability(
+                          row.observation_id,
+                          card.observed_card_id,
+                          candidate,
+                          event.target.value,
+                        )
+                      }
+                      aria-label={`Probability for ${formatCardIdentity(candidate.card)} in ${card.observed_card_id}`}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </fieldset>
   );
 }
 
