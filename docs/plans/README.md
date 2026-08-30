@@ -48,13 +48,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0032 — Round recording analysis PoC](2-ready/0032-Round_Recording_Analysis_PoC.md) | 0031 (assumed complete) | Record one round in iOS, run local backend analysis after upload, and show its progress and reconstruction result. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0031 — Round reconstruction integration harness](3-in-progress/0031-Round_Reconstruction_Integration_Harness.md) | 0006 and the existing `table-observation/v1` persistence path | Reproducibly assemble stored table observations into one explicit round input and record the reconstruction result. |
 
 ### Blocked
 

@@ -44,6 +44,10 @@ from .review import (
     render_review_json,
     run_review,
 )
+from .round_reconstruction import (
+    RoundReconstructionContractError,
+    run_round_reconstruction,
+)
 from .status import render_human, render_json
 from .system_holdout import (
     FAILURE_BOUNDARIES,
@@ -343,6 +347,23 @@ def build_parser() -> argparse.ArgumentParser:
         choices=FAILURE_BOUNDARIES,
         default=None,
         help="Inject one local fixture failure for attribution tests.",
+    )
+    reconstruct = commands.add_parser(
+        "reconstruct",
+        help="Run local game reconstruction.",
+        description="Run local game reconstruction.",
+    )
+    reconstruct_commands = reconstruct.add_subparsers(dest="reconstruct_command", metavar="COMMAND")
+    round_command = reconstruct_commands.add_parser(
+        "round",
+        help="Reconstruct one round from a strict local request file.",
+        description="Reconstruct one round from a strict local request file.",
+    )
+    round_command.add_argument(
+        "--request",
+        type=Path,
+        required=True,
+        help="Path to a round-reconstruction-run/v1 JSON request.",
     )
     return parser
 
@@ -855,6 +876,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         ) as error:
             print(f"error: {error}", file=sys.stderr)
             return 2
+    if args.command == "reconstruct":
+        if args.reconstruct_command != "round":
+            reconstruct_parser = next(
+                action for action in parser._subparsers._group_actions if action.dest == "command"
+            )
+            reconstruct_parser.choices["reconstruct"].print_help()
+            return 0
+        try:
+            artifacts = run_round_reconstruction(args.request)
+        except (OSError, RoundReconstructionContractError, ValueError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        sys.stdout.write(
+            f"artifact directory: {artifacts.directory}\n"
+            f"status: {artifacts.result.status}\n"
+        )
+        return 0
     try:
         config = RepositoryConfig.from_environment(
             args.repository_root,

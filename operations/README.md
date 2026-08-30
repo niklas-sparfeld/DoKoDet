@@ -103,3 +103,84 @@ It writes a separate system report under `data/model-system-evaluations/`. It do
 component campaign, start a candidate, or change the champion registry. Use `--runner` only through
 the fixture path in local tests; `--fail-boundary event`, `--fail-boundary observation`, and
 `--fail-boundary reconstruction` exercise report attribution.
+
+## Round reconstruction harness
+
+The local harness reconstructs one round from explicit round setup and stored
+`table-observation/v1` documents. It does not stream, query the backend, or infer round membership.
+Run it from the `operations` directory:
+
+```bash
+cd operations
+mise exec -- uv run --no-sync doko reconstruct round \
+  --request /path/to/round-request.json
+```
+
+The request file is strict JSON. Relative observation paths and `output_root` are resolved from the
+request file's parent directory, so the command does not depend on the current working directory.
+The following is a complete request shape:
+
+```json
+{
+  "schema_version": "round-reconstruction-run/v1",
+  "run_id": "example-round-01",
+  "round_setup": {
+    "game_id": "game-01",
+    "round_id": "game-01-round-01",
+    "ruleset": {"name": "doko-normal", "version": "v1"},
+    "deck_variant": "doko-40-v1",
+    "active_players": ["player-01", "player-02", "player-03", "player-04"],
+    "dealer": "player-04",
+    "first_trick_leader": "player-01"
+  },
+  "observation_paths": [
+    "observations/observation-001.json",
+    "observations/observation-002.json"
+  ],
+  "search": {
+    "max_missing_plays": 1,
+    "max_hypotheses": 256,
+    "max_search_nodes": 250000
+  },
+  "output_root": "artifacts/round-reconstruction"
+}
+```
+
+Each observation path must identify an unchanged, valid `table-observation/v1` document. A
+backend-persisted document is normally at
+`<runtime-root>/table-observations/<observation-id>/observation.json`. The request must contain at
+least one unique path. Observations must use one session, have unique observation IDs, strictly
+increasing `session.event_sequence` values, and nondecreasing `observed_at_ms` values. The request
+order is preserved; invalid order is reported instead of sorted. The three search limits are
+required: `max_missing_plays` is nonnegative, and `max_hypotheses` and `max_search_nodes` are
+positive.
+
+The command publishes `<output_root>/<run_id>/` with these files:
+
+| File | Contents |
+| --- | --- |
+| `input.json` | Canonical `round-reconstruction-input/v1` assembled from the setup and observations. |
+| `result.json` | Canonical `round-reconstruction-result/v1` with `schema_version`, `run_id`, `operations_version`, the canonical request SHA-256, ordered `sources`, requested `search` limits, engine `status`, `hypotheses`, `focused_decisions`, and `diagnostics`. |
+
+Each `sources` entry records the request path, observation ID, exact source byte length, and
+source-byte SHA-256. The artifacts contain no absolute paths, timestamps, host data, or generated
+confidence values. The source observations are not rewritten or copied. A clean rerun with the same
+request content and source bytes produces byte-identical artifacts.
+
+All four engine outcomes—`resolved`, `ambiguous`, `incomplete`, and `impossible`—use exit code `0`.
+The command prints the artifact directory and status. Invalid request or source data, grouping or
+ordering errors, an existing target directory, and other publication failures use exit code `2`
+with one error on standard error. A failed run does not leave its final artifact directory, and an
+existing directory is never replaced.
+
+For an `ambiguous` result, inspect `focused_decisions` first. It lists the smallest decisions that
+differ between retained reconstruction hypotheses. Use `jq` to inspect those decisions together
+with the relevant hypothesis summaries:
+
+```bash
+jq '{status, focused_decisions,
+     hypotheses: [.hypotheses[] | {
+       gameplay, source_observation_ids, missing_play_indices, score_breakdown
+     }]}' \
+  artifacts/round-reconstruction/example-round-01/result.json
+```

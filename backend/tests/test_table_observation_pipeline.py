@@ -218,6 +218,72 @@ def test_observation_crosses_analyzer_backend_reconstruction_boundary(backend) -
     assert response.json() == [direct.json()]
 
 
+def test_persisted_analyzer_observation_runs_through_round_reconstruction_harness(
+    backend, monkeypatch
+) -> None:
+    client, repository, storage = backend
+    payload, _ = upload_fixture(client, "example-complete")
+    stored = AnalyzerRunner(
+        repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+    ).run_once(payload["package_id"])
+    assert stored is not None
+
+    request_path = client.app.state.storage.root / "round-reconstruction-request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "round-reconstruction-run/v1",
+                "run_id": "persisted-observation-round-01",
+                "round_setup": {
+                    "game_id": "game-01",
+                    "round_id": "game-01-round-01",
+                    "ruleset": {"name": "doko-normal", "version": "v1"},
+                    "deck_variant": "doko-40-v1",
+                    "active_players": [
+                        "player-01",
+                        "player-02",
+                        "player-03",
+                        "player-04",
+                    ],
+                    "dealer": "player-04",
+                    "first_trick_leader": "player-01",
+                },
+                "observation_paths": [stored.relative_path],
+                "search": {
+                    "max_missing_plays": 1,
+                    "max_hypotheses": 256,
+                    "max_search_nodes": 250000,
+                },
+                "output_root": "artifacts/round-reconstruction",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    repository_root = Path(__file__).parents[2]
+    monkeypatch.syspath_prepend(str(repository_root / "operations" / "src"))
+    monkeypatch.syspath_prepend(str(repository_root / "game_engine" / "src"))
+    from doko_operations.round_reconstruction import (
+        parse_round_reconstruction_result_bytes,
+        run_round_reconstruction,
+    )
+
+    monkeypatch.chdir(repository_root / "backend")
+    artifacts = run_round_reconstruction(request_path)
+
+    persisted_path = client.app.state.storage.root / stored.relative_path
+    assert persisted_path.read_bytes() == stored.observation_json.encode()
+    assert artifacts.result.status == "incomplete"
+    assert artifacts.result.sources[0].observation_path == stored.relative_path
+    assert artifacts.result.sources[0].observation_id == stored.observation_id
+    assert artifacts.result.sources[0].sha256 == hashlib.sha256(
+        persisted_path.read_bytes()
+    ).hexdigest()
+    assert parse_round_reconstruction_result_bytes(
+        artifacts.result_path.read_bytes()
+    ).to_mapping() == artifacts.result.to_mapping()
+
+
 def test_runner_is_idempotent_and_processes_pending_packages(backend) -> None:
     client, repository, storage = backend
     first_payload, _ = upload_fixture(client, "example-complete")
