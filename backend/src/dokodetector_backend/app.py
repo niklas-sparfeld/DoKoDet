@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import tempfile
 from contextlib import asynccontextmanager
@@ -19,6 +20,7 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.gemini_analyzer import create_gemini_analyzer
+from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
@@ -40,6 +42,9 @@ if TYPE_CHECKING:
     from table_evidence_analyzer import TableEvidenceAnalyzer
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -54,6 +59,13 @@ def create_app(
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         await application.state.round_analysis_service.start()
+        log_event(
+            LOGGER,
+            logging.INFO,
+            "backend_started",
+            host=app_settings.server_host,
+            port=app_settings.server_port,
+        )
         try:
             yield
         finally:

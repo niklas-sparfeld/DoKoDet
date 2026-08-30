@@ -12,6 +12,7 @@ from dokodetector_backend.bonjour import (
     discover_local_ipv4_address,
 )
 from dokodetector_backend.config import Settings
+from dokodetector_backend.logging_config import configure_logging, log_event
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,21 +34,30 @@ def run() -> None:
 
     with advertisement:
         if settings.bonjour_enabled:
-            LOGGER.info(
-                "Advertised DokoDetector backend: service=%s type=%s endpoint=%s",
-                info.name,
-                info.type,
-                info.properties[b"url"].decode(),
+            log_event(
+                LOGGER,
+                logging.INFO,
+                "bonjour_advertised",
+                service_name=info.name,
+                service_type=info.type,
+                endpoint=info.properties[b"url"].decode(),
             )
             if endpoint_host is None:
-                LOGGER.warning(
-                    "Could not find a private IPv4 address. "
-                    "The advertised endpoint uses the .local hostname. "
-                    "Set BONJOUR_ADDRESS to a reachable private IPv4 address if needed."
+                log_event(
+                    LOGGER,
+                    logging.WARNING,
+                    "bonjour_endpoint_fallback",
+                    reason="private_ipv4_unavailable",
                 )
         else:
-            LOGGER.warning("Bonjour advertisement is disabled.")
-        LOGGER.info("Starting HTTP server on %s:%s", settings.server_host, settings.server_port)
+            log_event(LOGGER, logging.WARNING, "bonjour_disabled")
+        log_event(
+            LOGGER,
+            logging.INFO,
+            "backend_http_starting",
+            host=settings.server_host,
+            port=settings.server_port,
+        )
         uvicorn.run(
             "dokodetector_backend.app:create_app",
             factory=True,
@@ -57,14 +67,9 @@ def run() -> None:
 
 
 def _configure_logging() -> None:
-    """Enable useful startup logs before Uvicorn configures its own loggers."""
+    """Configure backend logging before Uvicorn constructs the application."""
 
-    if logging.getLogger().handlers:
-        return
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    configure_logging()
 
 
 if __name__ == "__main__":

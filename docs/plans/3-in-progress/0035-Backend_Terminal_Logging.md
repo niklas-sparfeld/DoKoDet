@@ -3,13 +3,13 @@
 ## Plan status
 
 - **Summary:** Make the local backend emit concise, structured terminal logs for business events, warnings, failures, and opt-in technical business-process traces.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** None.
 - **Reviewed:** 2026-08-30 against the current backend entry point, FastAPI application factory, HTTP routes, round-analysis worker, and error handlers.
 
 ## Milestone status
 
-- **M0:** Pending — define the logging contract and make server startup configure it reliably.
+- **M0:** Complete — define the logging contract and make server startup configure it reliably.
 - **M1:** Pending — log the request and storage business lifecycle at `INFO` and rejections at `WARNING`.
 - **M2:** Pending — log the round-analysis lifecycle at `INFO` and its technical trace at `DEBUG`.
 - **M3:** Pending — document local log control and verify normal and debug runs end to end.
