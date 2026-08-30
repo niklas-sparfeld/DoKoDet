@@ -4,7 +4,7 @@
 
 - **Summary:** Explain one completed round analysis as synchronized evidence, table-observation,
   and reconstruction-hypothesis rows, then support immutable counterfactual comparisons.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed [Plan 0031](../5-closed/0031-Round_Reconstruction_Integration_Harness.md)
   and completed [Plan 0032](../5-closed/0032-Round_Recording_Analysis_PoC.md).
 - **Related:** [Plan 0026](../0-to-specify/0026-Reconstruction_Review_Workflow.md) owns correction
@@ -17,7 +17,7 @@
 
 ## Milestone status
 
-- **M0:** Pending — replace the operations result with a scored per-action explanation contract.
+- **M0:** Complete — replace the operations result with a scored per-action explanation contract.
 - **M1:** Pending — project one immutable analysis into timeline data and serve its central frames.
 - **M2:** Pending — establish the frontend toolchain, generated API types, and typed client.
 - **M3:** Pending — package and serve a production frontend with one API smoke view.
@@ -276,6 +276,19 @@ The operator can return to the exact baseline without deleting the counterfactua
   tolerance.
 - Replace the operations result with `round-reconstruction-result/v2` and update its scenario and
   compact API fixtures and tests.
+
+#### M0 implementation evidence — 2026-08-30
+
+- Added selected, ignored, and inferred action records to each retained engine hypothesis. Each
+  selected and ignored source action uses its observation ID and observed-card ID together.
+- Added per-action identity, visual-evidence, ignore, and missing-play score contributions. The
+  operations contract validates action alignment, fixed penalties, and `total_score` arithmetic
+  within `1e-9`.
+- Replaced the operations result artifact with `round-reconstruction-result/v2`. Updated the four
+  status scenarios, the compact round-analysis fixture, and the relevant engine, operations, and
+  backend tests.
+- Verification: 73 game-engine tests, 98 operations tests, 126 backend tests, and Ruff checks for
+  all three Python packages pass. The existing FastAPI test-client deprecation warning remains.
 
 ### M1 — Timeline projection and frame delivery
 

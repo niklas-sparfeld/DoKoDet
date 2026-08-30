@@ -48,13 +48,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0033 — Round analysis timeline and counterfactual explorer](2-ready/0033-Round_Analysis_Timeline.md) | Completed 0031 and 0032 | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. |
+| None | — | — |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0033 — Round analysis timeline and counterfactual explorer](3-in-progress/0033-Round_Analysis_Timeline.md) | Completed 0031 and 0032 | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. |
 
 ### Blocked
 
@@ -98,7 +98,7 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Implement ready epic 0033 one milestone at a time. Its 0031 and 0032 dependencies are complete.
+1. Continue epic 0033 one milestone at a time. Its 0031 and 0032 dependencies are complete.
 2. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
    `0 ms` binary review and the cloud visible-card baseline over that trusted event-time corpus. Add
    CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed system-holdout

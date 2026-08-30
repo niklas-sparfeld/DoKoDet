@@ -164,7 +164,7 @@ The command publishes `<output_root>/<run_id>/` with these files:
 | File | Contents |
 | --- | --- |
 | `input.json` | Canonical `round-reconstruction-input/v1` assembled from the setup and observations. |
-| `result.json` | Canonical `round-reconstruction-result/v1` with `schema_version`, `run_id`, `operations_version`, the canonical request SHA-256, ordered `sources`, requested `search` limits, engine `status`, `hypotheses`, `focused_decisions`, and `diagnostics`. |
+| `result.json` | Canonical `round-reconstruction-result/v2` with `schema_version`, `run_id`, `operations_version`, the canonical request SHA-256, ordered `sources`, requested `search` limits, engine `status`, scored per-action hypothesis explanations, `focused_decisions`, and `diagnostics`. |
 
 Each `sources` entry records the request path, observation ID, exact source byte length, and
 source-byte SHA-256. The artifacts contain no absolute paths, timestamps, host data, or generated
@@ -184,7 +184,8 @@ with the relevant hypothesis summaries:
 ```bash
 jq '{status, focused_decisions,
      hypotheses: [.hypotheses[] | {
-       gameplay, source_observation_ids, missing_play_indices, score_breakdown
+       gameplay, source_observation_ids, missing_play_indices, actions, total_score,
+       score_breakdown
      }]}' \
   artifacts/round-reconstruction/example-round-01/result.json
 ```

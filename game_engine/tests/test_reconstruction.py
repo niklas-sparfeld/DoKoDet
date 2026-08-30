@@ -48,6 +48,47 @@ def test_identity_only_oracle_reconstructs_canonical_scenarios(
         assert not result.hypotheses
 
 
+@pytest.mark.parametrize(
+    ("scenario_name", "expected_status"),
+    (
+        ("unambiguous", "resolved"),
+        ("ambiguous", "ambiguous"),
+        ("incomplete", "incomplete"),
+        ("impossible", "impossible"),
+    ),
+)
+def test_four_status_scenarios_retain_complete_action_explanations(
+    scenario_name: str,
+    expected_status: str,
+) -> None:
+    scenario = load_round_scenario(FIXTURE_ROOT / "rounds" / f"{scenario_name}.json")
+    result = reconstruct_round(scenario.input)
+
+    assert result.status == expected_status
+    if expected_status in {"incomplete", "impossible"}:
+        assert result.hypotheses == ()
+        return
+
+    assert result.hypotheses
+    for hypothesis in result.hypotheses:
+        observed_card_count = sum(
+            len(observation.cards) for observation in scenario.input.observations
+        )
+        assert len(hypothesis.actions) == observed_card_count
+        assert {action.play_index for action in hypothesis.actions if action.kind == "selected"} | {
+            action.play_index for action in hypothesis.actions if action.kind == "inferred"
+        } == set(range(1, len(hypothesis.plays) + 1))
+        observed_refs = [
+            (action.observation_id, action.observed_card_id)
+            for action in hypothesis.actions
+            if action.kind in {"selected", "ignored"}
+        ]
+        assert len(observed_refs) == len(set(observed_refs))
+        assert sum(action.score_contribution for action in hypothesis.actions) == pytest.approx(
+            hypothesis.total_score, abs=1e-9
+        )
+
+
 def test_lower_ranked_identity_survives_an_illegal_top_candidate() -> None:
     scenario = load_round_scenario(FIXTURE_ROOT / "rounds" / "late-resolution.json")
 
@@ -73,6 +114,11 @@ def test_one_missing_observation_is_inferred_from_the_remaining_deck() -> None:
     assert result.status == "resolved"
     assert result.hypotheses[0].missing_play_indices
     assert result.hypotheses[0].plays == synthetic_round.replay.plays
+    inferred = [action for action in result.hypotheses[0].actions if action.kind == "inferred"]
+    assert len(inferred) == 1
+    assert inferred[0].play_index == result.hypotheses[0].missing_play_indices[0]
+    assert inferred[0].card == synthetic_round.replay.plays[inferred[0].play_index - 1].card
+    assert inferred[0].score_contribution == -0.75
 
 
 def test_focused_decisions_describe_tied_legal_results() -> None:

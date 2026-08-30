@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -10,10 +11,13 @@ from game_engine import (
     CardPlay,
     FocusedDecision,
     GameplayResult,
+    IgnoredAction,
+    InferredAction,
     ReconstructionDiagnostics,
     ReconstructionHypothesis,
     ReconstructionResult,
     ScoreBreakdown,
+    SelectedAction,
     TrickResult,
     VisualEvidenceScore,
     canonical_json_bytes,
@@ -103,7 +107,7 @@ def diagnostics_payload() -> dict[str, object]:
 
 def result_payload() -> dict[str, object]:
     return {
-        "schema_version": "round-reconstruction-result/v1",
+        "schema_version": "round-reconstruction-result/v2",
         "run_id": "example-round-01",
         "operations_version": "0.1.0",
         "request_sha256": "0" * 64,
@@ -160,6 +164,66 @@ def engine_result() -> ReconstructionResult:
                 source_observed_card_ids=("observed-card-001",),
                 ignored_observed_card_ids=("observed-card-ignored",),
                 missing_play_indices=(2,),
+                actions=(
+                    SelectedAction(
+                        kind="selected",
+                        observation_id="observation-001",
+                        observed_card_id="observed-card-001",
+                        play_index=1,
+                        player="player-01",
+                        card="CLUBS_ACE",
+                        candidate_probability=math.exp(-0.25),
+                        identity_log_score_contribution=-0.25,
+                        visual_evidence_score=VisualEvidenceScore(
+                            presence=0.1,
+                            newly_visible=0.2,
+                            predecessor=0.3,
+                            active_area=0.4,
+                            tracklet=0.5,
+                        ),
+                        score_contribution=1.25,
+                    ),
+                    InferredAction(
+                        kind="inferred",
+                        play_index=2,
+                        player="player-02",
+                        card="CLUBS_NINE",
+                        missing_play_penalty=-0.75,
+                        score_contribution=-0.75,
+                    ),
+                    SelectedAction(
+                        kind="selected",
+                        observation_id="observation-002",
+                        observed_card_id="observed-card-002",
+                        play_index=3,
+                        player="player-03",
+                        card="SPADES_NINE",
+                        candidate_probability=1.0,
+                        identity_log_score_contribution=0.0,
+                        visual_evidence_score=VisualEvidenceScore(),
+                        score_contribution=0.0,
+                    ),
+                    SelectedAction(
+                        kind="selected",
+                        observation_id="observation-002",
+                        observed_card_id="observed-card-003",
+                        play_index=4,
+                        player="player-04",
+                        card="HEARTS_NINE",
+                        candidate_probability=1.0,
+                        identity_log_score_contribution=0.0,
+                        visual_evidence_score=VisualEvidenceScore(),
+                        score_contribution=0.0,
+                    ),
+                    IgnoredAction(
+                        kind="ignored",
+                        observation_id="observation-001",
+                        observed_card_id="observed-card-ignored",
+                        ignore_penalty=-0.35,
+                        visual_evidence_score=VisualEvidenceScore(),
+                        score_contribution=-0.35,
+                    ),
+                ),
                 score_breakdown=ScoreBreakdown(
                     identity_candidate_log_score=-0.25,
                     ignored_observed_card_count=1,
@@ -387,6 +451,11 @@ def test_result_is_strict_canonical_and_finite() -> None:
     with pytest.raises(RoundReconstructionContractError, match="invalid fields"):
         parse_round_reconstruction_result_bytes(json.dumps(unknown).encode())
 
+    legacy = result_payload()
+    legacy["schema_version"] = "round-reconstruction-result/v1"
+    with pytest.raises(RoundReconstructionContractError, match="unsupported"):
+        parse_round_reconstruction_result_bytes(json.dumps(legacy).encode())
+
     non_finite = copy.deepcopy(payload)
     non_finite["diagnostics"]["search_nodes"] = float("nan")  # type: ignore[index]
     with pytest.raises(RoundReconstructionContractError, match="non-negative integer"):
@@ -442,6 +511,14 @@ def test_engine_result_serialization_preserves_engine_data_and_provenance() -> N
     assert result.sources == sources
     assert result.hypotheses[0].gameplay.tricks[0].winning_card == "CLUBS_ACE"
     assert result.hypotheses[0].score_breakdown.visual_evidence_score.tracklet == 0.5
+    assert result.hypotheses[0].total_score == pytest.approx(0.15)
+    assert [action.kind for action in result.hypotheses[0].actions] == [
+        "selected",
+        "inferred",
+        "selected",
+        "selected",
+        "ignored",
+    ]
     assert result.focused_decisions[0].alternatives == (
         "player-02:CLUBS_NINE",
         "player-02:SPADES_NINE",
@@ -452,6 +529,11 @@ def test_engine_result_serialization_preserves_engine_data_and_provenance() -> N
     assert serialized == canonical_result_bytes(result)
     reparsed = parse_round_reconstruction_result_bytes(serialized)
     assert reparsed.to_mapping() == result.to_mapping()
+
+    invalid = result.to_mapping()
+    invalid["hypotheses"][0]["total_score"] = 0.16  # type: ignore[index]
+    with pytest.raises(RoundReconstructionContractError, match="sum of action contributions"):
+        parse_round_reconstruction_result_bytes(json.dumps(invalid).encode())
 
 
 def test_engine_result_serialization_requires_request_ordered_sources() -> None:
@@ -737,6 +819,16 @@ def test_round_harness_adapts_scenario_fixtures_to_all_result_statuses(
     )
     if expected_status == "ambiguous":
         assert artifacts.result.focused_decisions
+    if expected_status in {"resolved", "ambiguous"}:
+        observed_card_count = sum(
+            len(observation.cards) for observation in input_value.observations
+        )
+        assert artifacts.result.hypotheses
+        for hypothesis in artifacts.result.hypotheses:
+            assert len(hypothesis.actions) == observed_card_count
+            assert sum(action.score_contribution for action in hypothesis.actions) == pytest.approx(
+                hypothesis.total_score, abs=1e-9
+            )
     if insufficient_evidence:
         first_source = request_path.parent / "observations/observation-001.json"
         assert parse_observation_bytes(first_source.read_bytes()).status == "insufficient_evidence"

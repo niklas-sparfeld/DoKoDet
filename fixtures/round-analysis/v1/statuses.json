@@ -55,7 +55,9 @@
       "reconstruction_status": "resolved",
       "hypotheses": [
         {
-          "fixture": "resolved"
+          "fixture": "resolved",
+          "actions": [],
+          "total_score": 0.0
         }
       ],
       "focused_decisions": [],
@@ -86,10 +88,14 @@
       "reconstruction_status": "ambiguous",
       "hypotheses": [
         {
-          "fixture": "ambiguous-a"
+          "fixture": "ambiguous-a",
+          "actions": [],
+          "total_score": 0.0
         },
         {
-          "fixture": "ambiguous-b"
+          "fixture": "ambiguous-b",
+          "actions": [],
+          "total_score": 0.0
         }
       ],
       "focused_decisions": [

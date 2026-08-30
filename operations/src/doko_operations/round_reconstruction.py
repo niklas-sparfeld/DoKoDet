@@ -16,9 +16,14 @@ from typing import Any, Literal
 
 from game_engine import (
     CARD_IDENTITIES,
+    IGNORED_OBSERVED_CARD_PENALTY,
+    INFERRED_MISSING_PLAY_PENALTY,
     RECONSTRUCTION_INPUT_SCHEMA_VERSION,
     DokoNormalRuleset,
+    IgnoredAction,
+    InferredAction,
     ReconstructionInput,
+    SelectedAction,
     TableObservation,
     load_deck_manifest,
     parse_observation_bytes,
@@ -29,8 +34,9 @@ from game_engine import ReconstructionResult as EngineReconstructionResult
 from game_engine import canonical_json_bytes as canonical_engine_json_bytes
 
 ROUND_RECONSTRUCTION_RUN_SCHEMA_VERSION = "round-reconstruction-run/v1"
-ROUND_RECONSTRUCTION_RESULT_SCHEMA_VERSION = "round-reconstruction-result/v1"
+ROUND_RECONSTRUCTION_RESULT_SCHEMA_VERSION = "round-reconstruction-result/v2"
 OPERATIONS_PACKAGE_VERSION = "0.1.0"
+ACTION_SCORE_TOLERANCE = 1e-9
 
 IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -128,6 +134,15 @@ def _finite_number(value: Any, field: str) -> float:
     result = float(value)
     if not math.isfinite(result):
         raise RoundReconstructionContractError(f"{field} must be a finite number.")
+    return result
+
+
+def _probability(value: Any, field: str) -> float:
+    result = _finite_number(value, field)
+    if result <= 0.0 or result > 1.0:
+        raise RoundReconstructionContractError(
+            f"{field} must be greater than zero and at most one."
+        )
     return result
 
 
@@ -735,6 +750,12 @@ class VisualEvidenceScoreRecord:
     active_area: float
     tracklet: float
 
+    @property
+    def total(self) -> float:
+        """Return the sum of the serialized visual-evidence contributions."""
+
+        return sum(_visual_score_values(self))
+
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any], context: str) -> VisualEvidenceScoreRecord:
         data = _mapping(raw, context)
@@ -811,6 +832,204 @@ class ScoreBreakdownRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class SelectedActionRecord:
+    """Serialized observed-card selection and its score contributions."""
+
+    kind: Literal["selected"]
+    observation_id: str
+    observed_card_id: str
+    play_index: int
+    player: str
+    card: str
+    candidate_probability: float
+    identity_log_score_contribution: float
+    visual_evidence_score: VisualEvidenceScoreRecord
+    score_contribution: float
+
+    @classmethod
+    def from_mapping(cls, raw: Mapping[str, Any], context: str) -> SelectedActionRecord:
+        data = _mapping(raw, context)
+        _strict(
+            data,
+            {
+                "kind",
+                "observation_id",
+                "observed_card_id",
+                "play_index",
+                "player",
+                "card",
+                "candidate_probability",
+                "identity_log_score_contribution",
+                "visual_evidence_score",
+                "score_contribution",
+            },
+            context,
+        )
+        if data["kind"] != "selected":
+            raise RoundReconstructionContractError(f"{context}.kind must be selected.")
+        return cls(
+            kind="selected",
+            observation_id=_identifier(data["observation_id"], f"{context}.observation_id"),
+            observed_card_id=_identifier(
+                data["observed_card_id"], f"{context}.observed_card_id"
+            ),
+            play_index=_positive_int(data["play_index"], f"{context}.play_index"),
+            player=_identifier(data["player"], f"{context}.player"),
+            card=_card(data["card"], f"{context}.card"),
+            candidate_probability=_probability(
+                data["candidate_probability"], f"{context}.candidate_probability"
+            ),
+            identity_log_score_contribution=_finite_number(
+                data["identity_log_score_contribution"],
+                f"{context}.identity_log_score_contribution",
+            ),
+            visual_evidence_score=VisualEvidenceScoreRecord.from_mapping(
+                data["visual_evidence_score"], f"{context}.visual_evidence_score"
+            ),
+            score_contribution=_finite_number(
+                data["score_contribution"], f"{context}.score_contribution"
+            ),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "observation_id": self.observation_id,
+            "observed_card_id": self.observed_card_id,
+            "play_index": self.play_index,
+            "player": self.player,
+            "card": self.card,
+            "candidate_probability": self.candidate_probability,
+            "identity_log_score_contribution": self.identity_log_score_contribution,
+            "visual_evidence_score": self.visual_evidence_score.to_mapping(),
+            "score_contribution": self.score_contribution,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class IgnoredActionRecord:
+    """Serialized observed-card ignore and its score contributions."""
+
+    kind: Literal["ignored"]
+    observation_id: str
+    observed_card_id: str
+    ignore_penalty: float
+    visual_evidence_score: VisualEvidenceScoreRecord
+    score_contribution: float
+
+    @classmethod
+    def from_mapping(cls, raw: Mapping[str, Any], context: str) -> IgnoredActionRecord:
+        data = _mapping(raw, context)
+        _strict(
+            data,
+            {
+                "kind",
+                "observation_id",
+                "observed_card_id",
+                "ignore_penalty",
+                "visual_evidence_score",
+                "score_contribution",
+            },
+            context,
+        )
+        if data["kind"] != "ignored":
+            raise RoundReconstructionContractError(f"{context}.kind must be ignored.")
+        return cls(
+            kind="ignored",
+            observation_id=_identifier(data["observation_id"], f"{context}.observation_id"),
+            observed_card_id=_identifier(
+                data["observed_card_id"], f"{context}.observed_card_id"
+            ),
+            ignore_penalty=_finite_number(data["ignore_penalty"], f"{context}.ignore_penalty"),
+            visual_evidence_score=VisualEvidenceScoreRecord.from_mapping(
+                data["visual_evidence_score"], f"{context}.visual_evidence_score"
+            ),
+            score_contribution=_finite_number(
+                data["score_contribution"], f"{context}.score_contribution"
+            ),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "observation_id": self.observation_id,
+            "observed_card_id": self.observed_card_id,
+            "ignore_penalty": self.ignore_penalty,
+            "visual_evidence_score": self.visual_evidence_score.to_mapping(),
+            "score_contribution": self.score_contribution,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class InferredActionRecord:
+    """Serialized missing card play and its score contribution."""
+
+    kind: Literal["inferred"]
+    play_index: int
+    player: str
+    card: str
+    missing_play_penalty: float
+    score_contribution: float
+
+    @classmethod
+    def from_mapping(cls, raw: Mapping[str, Any], context: str) -> InferredActionRecord:
+        data = _mapping(raw, context)
+        _strict(
+            data,
+            {
+                "kind",
+                "play_index",
+                "player",
+                "card",
+                "missing_play_penalty",
+                "score_contribution",
+            },
+            context,
+        )
+        if data["kind"] != "inferred":
+            raise RoundReconstructionContractError(f"{context}.kind must be inferred.")
+        return cls(
+            kind="inferred",
+            play_index=_positive_int(data["play_index"], f"{context}.play_index"),
+            player=_identifier(data["player"], f"{context}.player"),
+            card=_card(data["card"], f"{context}.card"),
+            missing_play_penalty=_finite_number(
+                data["missing_play_penalty"], f"{context}.missing_play_penalty"
+            ),
+            score_contribution=_finite_number(
+                data["score_contribution"], f"{context}.score_contribution"
+            ),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "play_index": self.play_index,
+            "player": self.player,
+            "card": self.card,
+            "missing_play_penalty": self.missing_play_penalty,
+            "score_contribution": self.score_contribution,
+        }
+
+
+ReconstructionActionRecord = SelectedActionRecord | IgnoredActionRecord | InferredActionRecord
+
+
+def _action_record(raw: Mapping[str, Any], context: str) -> ReconstructionActionRecord:
+    data = _mapping(raw, context)
+    kind = data.get("kind")
+    if kind == "selected":
+        return SelectedActionRecord.from_mapping(data, context)
+    if kind == "ignored":
+        return IgnoredActionRecord.from_mapping(data, context)
+    if kind == "inferred":
+        return InferredActionRecord.from_mapping(data, context)
+    raise RoundReconstructionContractError(
+        f"{context}.kind must be selected, ignored, or inferred."
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class ReconstructionHypothesisRecord:
     """Serialized legal gameplay result and its source explanation."""
 
@@ -819,6 +1038,8 @@ class ReconstructionHypothesisRecord:
     source_observed_card_ids: tuple[str, ...]
     ignored_observed_card_ids: tuple[str, ...]
     missing_play_indices: tuple[int, ...]
+    actions: tuple[ReconstructionActionRecord, ...]
+    total_score: float
     score_breakdown: ScoreBreakdownRecord
 
     @classmethod
@@ -832,6 +1053,8 @@ class ReconstructionHypothesisRecord:
                 "source_observed_card_ids",
                 "ignored_observed_card_ids",
                 "missing_play_indices",
+                "actions",
+                "total_score",
                 "score_breakdown",
             },
             context,
@@ -849,7 +1072,14 @@ class ReconstructionHypothesisRecord:
             raise RoundReconstructionContractError(
                 f"{context}.missing_play_indices must be unique and ordered."
             )
-        return cls(
+        raw_actions = data["actions"]
+        if not isinstance(raw_actions, list):
+            raise RoundReconstructionContractError(f"{context}.actions must be a list.")
+        actions = tuple(
+            _action_record(action, f"{context}.actions[{index}]")
+            for index, action in enumerate(raw_actions)
+        )
+        record = cls(
             gameplay=GameplayResultRecord.from_mapping(data["gameplay"], f"{context}.gameplay"),
             source_observation_ids=_unique(
                 _string_list(
@@ -859,27 +1089,25 @@ class ReconstructionHypothesisRecord:
                 ),
                 f"{context}.source_observation_ids",
             ),
-            source_observed_card_ids=_unique(
-                _string_list(
-                    data["source_observed_card_ids"],
-                    f"{context}.source_observed_card_ids",
-                    identifiers=True,
-                ),
+            source_observed_card_ids=_string_list(
+                data["source_observed_card_ids"],
                 f"{context}.source_observed_card_ids",
+                identifiers=True,
             ),
-            ignored_observed_card_ids=_unique(
-                _string_list(
-                    data["ignored_observed_card_ids"],
-                    f"{context}.ignored_observed_card_ids",
-                    identifiers=True,
-                ),
+            ignored_observed_card_ids=_string_list(
+                data["ignored_observed_card_ids"],
                 f"{context}.ignored_observed_card_ids",
+                identifiers=True,
             ),
             missing_play_indices=indices,
+            actions=actions,
+            total_score=_finite_number(data["total_score"], f"{context}.total_score"),
             score_breakdown=ScoreBreakdownRecord.from_mapping(
                 data["score_breakdown"], f"{context}.score_breakdown"
             ),
         )
+        _validate_hypothesis_actions(record, context)
+        return record
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -888,8 +1116,177 @@ class ReconstructionHypothesisRecord:
             "source_observed_card_ids": list(self.source_observed_card_ids),
             "ignored_observed_card_ids": list(self.ignored_observed_card_ids),
             "missing_play_indices": list(self.missing_play_indices),
+            "actions": [action.to_mapping() for action in self.actions],
+            "total_score": self.total_score,
             "score_breakdown": self.score_breakdown.to_mapping(),
         }
+
+
+def _visual_score_values(score: VisualEvidenceScoreRecord) -> tuple[float, ...]:
+    return (
+        score.presence,
+        score.newly_visible,
+        score.predecessor,
+        score.active_area,
+        score.tracklet,
+    )
+
+
+def _scores_match(actual: float, expected: float) -> bool:
+    return math.isclose(actual, expected, rel_tol=0.0, abs_tol=ACTION_SCORE_TOLERANCE)
+
+
+def _validate_hypothesis_actions(
+    hypothesis: ReconstructionHypothesisRecord,
+    context: str,
+) -> None:
+    """Validate action provenance, gameplay alignment, and score arithmetic."""
+
+    ignored_actions = tuple(
+        action for action in hypothesis.actions if isinstance(action, IgnoredActionRecord)
+    )
+    inferred_actions = tuple(
+        action for action in hypothesis.actions if isinstance(action, InferredActionRecord)
+    )
+    observed_refs: list[tuple[str, str]] = []
+    selected_indices: set[int] = set()
+    inferred_indices: set[int] = set()
+    identity_score = 0.0
+    visual_score = [0.0] * 5
+    action_score = 0.0
+
+    for index, action in enumerate(hypothesis.actions):
+        action_context = f"{context}.actions[{index}]"
+        action_score += action.score_contribution
+        if isinstance(action, SelectedActionRecord):
+            reference = (action.observation_id, action.observed_card_id)
+            if reference in observed_refs:
+                raise RoundReconstructionContractError(
+                    f"{action_context} duplicates source observed-card reference."
+                )
+            observed_refs.append(reference)
+            if action.play_index > len(hypothesis.gameplay.plays):
+                raise RoundReconstructionContractError(
+                    f"{action_context}.play_index is outside gameplay.plays."
+                )
+            if action.play_index in selected_indices:
+                raise RoundReconstructionContractError(
+                    f"{action_context}.play_index is duplicated."
+                )
+            selected_indices.add(action.play_index)
+            play = hypothesis.gameplay.plays[action.play_index - 1]
+            if (action.player, action.card) != (play.player, play.card):
+                raise RoundReconstructionContractError(
+                    f"{action_context} does not match gameplay.plays[{action.play_index}]."
+                )
+            expected_identity_score = math.log(action.candidate_probability)
+            if not _scores_match(
+                action.identity_log_score_contribution, expected_identity_score
+            ):
+                raise RoundReconstructionContractError(
+                    f"{action_context}.identity_log_score_contribution does not match "
+                    "candidate_probability."
+                )
+            visual_values = _visual_score_values(action.visual_evidence_score)
+            visual_score = [
+                actual + value for actual, value in zip(visual_score, visual_values, strict=True)
+            ]
+            identity_score += action.identity_log_score_contribution
+            expected_action_score = (
+                action.identity_log_score_contribution + action.visual_evidence_score.total
+            )
+            if not _scores_match(action.score_contribution, expected_action_score):
+                raise RoundReconstructionContractError(
+                    f"{action_context}.score_contribution does not match its components."
+                )
+        elif isinstance(action, IgnoredActionRecord):
+            reference = (action.observation_id, action.observed_card_id)
+            if reference in observed_refs:
+                raise RoundReconstructionContractError(
+                    f"{action_context} duplicates source observed-card reference."
+                )
+            observed_refs.append(reference)
+            if not _scores_match(action.ignore_penalty, IGNORED_OBSERVED_CARD_PENALTY):
+                raise RoundReconstructionContractError(
+                    f"{action_context}.ignore_penalty must be the engine ignore penalty."
+                )
+            visual_values = _visual_score_values(action.visual_evidence_score)
+            visual_score = [
+                actual + value for actual, value in zip(visual_score, visual_values, strict=True)
+            ]
+            expected_action_score = action.ignore_penalty + action.visual_evidence_score.total
+            if not _scores_match(action.score_contribution, expected_action_score):
+                raise RoundReconstructionContractError(
+                    f"{action_context}.score_contribution does not match its components."
+                )
+        else:
+            if action.play_index > len(hypothesis.gameplay.plays):
+                raise RoundReconstructionContractError(
+                    f"{action_context}.play_index is outside gameplay.plays."
+                )
+            if action.play_index in inferred_indices:
+                raise RoundReconstructionContractError(
+                    f"{action_context}.play_index is duplicated."
+                )
+            inferred_indices.add(action.play_index)
+            play = hypothesis.gameplay.plays[action.play_index - 1]
+            if (action.player, action.card) != (play.player, play.card):
+                raise RoundReconstructionContractError(
+                    f"{action_context} does not match gameplay.plays[{action.play_index}]."
+                )
+            if not _scores_match(action.missing_play_penalty, INFERRED_MISSING_PLAY_PENALTY):
+                raise RoundReconstructionContractError(
+                    f"{action_context}.missing_play_penalty must be the engine "
+                    "missing-play penalty."
+                )
+            if not _scores_match(action.score_contribution, action.missing_play_penalty):
+                raise RoundReconstructionContractError(
+                    f"{action_context}.score_contribution does not match its penalty."
+                )
+
+    if selected_indices & inferred_indices:
+        raise RoundReconstructionContractError(
+            f"{context}.actions cannot select and infer the same play index."
+        )
+    expected_play_indices = set(range(1, len(hypothesis.gameplay.plays) + 1))
+    if selected_indices | inferred_indices != expected_play_indices:
+        raise RoundReconstructionContractError(
+            f"{context}.actions must account for every gameplay play exactly once."
+        )
+    score = hypothesis.score_breakdown
+    if len(ignored_actions) != score.ignored_observed_card_count:
+        raise RoundReconstructionContractError(
+            f"{context}.score_breakdown.ignored_observed_card_count must match actions."
+        )
+    if len(inferred_actions) != score.inferred_missing_play_count:
+        raise RoundReconstructionContractError(
+            f"{context}.score_breakdown.inferred_missing_play_count must match actions."
+        )
+    if not _scores_match(score.identity_candidate_log_score, identity_score):
+        raise RoundReconstructionContractError(
+            f"{context}.score_breakdown.identity_candidate_log_score must match actions."
+        )
+    if any(
+        not _scores_match(actual, expected)
+        for actual, expected in zip(
+            _visual_score_values(score.visual_evidence_score), visual_score, strict=True
+        )
+    ):
+        raise RoundReconstructionContractError(
+            f"{context}.score_breakdown.visual_evidence_score must match actions."
+        )
+    expected_total_score = (
+        identity_score
+        + sum(action.ignore_penalty for action in ignored_actions)
+        + sum(action.missing_play_penalty for action in inferred_actions)
+        + sum(visual_score)
+    )
+    if not _scores_match(hypothesis.total_score, action_score) or not _scores_match(
+        hypothesis.total_score, expected_total_score
+    ):
+        raise RoundReconstructionContractError(
+            f"{context}.total_score must equal the sum of action contributions."
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1193,12 +1590,13 @@ class RoundReconstructionRunResult:
         )
         search = SearchLimits.from_mapping(data["search"])
         diagnostics = ReconstructionDiagnosticsRecord.from_mapping(data["diagnostics"])
+        source_observation_ids = {source.observation_id for source in sources}
         for field in ("max_missing_plays", "max_hypotheses", "max_search_nodes"):
             if diagnostics.search_limits[field] != getattr(search, field):
                 raise RoundReconstructionContractError(
                     f"diagnostics.search_limits.{field} must match search.{field}."
                 )
-        return cls(
+        result = cls(
             run_id=_identifier(data["run_id"], "run_id"),
             operations_version=_text(data["operations_version"], "operations_version"),
             request_sha256=_digest(data["request_sha256"], "request_sha256"),
@@ -1215,6 +1613,17 @@ class RoundReconstructionRunResult:
             ),
             diagnostics=diagnostics,
         )
+        for hypothesis_index, hypothesis in enumerate(result.hypotheses):
+            for action_index, action in enumerate(hypothesis.actions):
+                if isinstance(action, (SelectedActionRecord, IgnoredActionRecord)) and (
+                    action.observation_id not in source_observation_ids
+                ):
+                    raise RoundReconstructionContractError(
+                        "hypotheses[{}].actions[{}].observation_id must occur in sources.".format(
+                            hypothesis_index, action_index
+                        )
+                    )
+        return result
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -1291,6 +1700,55 @@ def _serialize_engine_gameplay(gameplay: Any) -> GameplayResultRecord:
     )
 
 
+def _serialize_engine_action(action: Any) -> ReconstructionActionRecord:
+    if isinstance(action, SelectedAction):
+        visual = action.visual_evidence_score
+        return SelectedActionRecord(
+            kind="selected",
+            observation_id=action.observation_id,
+            observed_card_id=action.observed_card_id,
+            play_index=action.play_index,
+            player=action.player,
+            card=action.card,
+            candidate_probability=action.candidate_probability,
+            identity_log_score_contribution=action.identity_log_score_contribution,
+            visual_evidence_score=VisualEvidenceScoreRecord(
+                presence=visual.presence,
+                newly_visible=visual.newly_visible,
+                predecessor=visual.predecessor,
+                active_area=visual.active_area,
+                tracklet=visual.tracklet,
+            ),
+            score_contribution=action.score_contribution,
+        )
+    if isinstance(action, IgnoredAction):
+        visual = action.visual_evidence_score
+        return IgnoredActionRecord(
+            kind="ignored",
+            observation_id=action.observation_id,
+            observed_card_id=action.observed_card_id,
+            ignore_penalty=action.ignore_penalty,
+            visual_evidence_score=VisualEvidenceScoreRecord(
+                presence=visual.presence,
+                newly_visible=visual.newly_visible,
+                predecessor=visual.predecessor,
+                active_area=visual.active_area,
+                tracklet=visual.tracklet,
+            ),
+            score_contribution=action.score_contribution,
+        )
+    if isinstance(action, InferredAction):
+        return InferredActionRecord(
+            kind="inferred",
+            play_index=action.play_index,
+            player=action.player,
+            card=action.card,
+            missing_play_penalty=action.missing_play_penalty,
+            score_contribution=action.score_contribution,
+        )
+    raise TypeError("actions must contain game-engine reconstruction action values.")
+
+
 def _serialize_engine_hypothesis(hypothesis: Any) -> ReconstructionHypothesisRecord:
     score = hypothesis.score_breakdown
     visual = score.visual_evidence_score
@@ -1300,6 +1758,8 @@ def _serialize_engine_hypothesis(hypothesis: Any) -> ReconstructionHypothesisRec
         source_observed_card_ids=tuple(hypothesis.source_observed_card_ids),
         ignored_observed_card_ids=tuple(hypothesis.ignored_observed_card_ids),
         missing_play_indices=tuple(hypothesis.missing_play_indices),
+        actions=tuple(_serialize_engine_action(action) for action in hypothesis.actions),
+        total_score=hypothesis.total_score,
         score_breakdown=ScoreBreakdownRecord(
             identity_candidate_log_score=score.identity_candidate_log_score,
             ignored_observed_card_count=score.ignored_observed_card_count,
@@ -1548,7 +2008,7 @@ def validate_round_reconstruction_request(
 def validate_round_reconstruction_result(
     payload: Mapping[str, Any],
 ) -> RoundReconstructionRunResult:
-    """Validate one decoded round-reconstruction-result/v1 object."""
+    """Validate one decoded round-reconstruction-result/v2 object."""
 
     return RoundReconstructionRunResult.from_mapping(payload)
 
@@ -1570,7 +2030,7 @@ def parse_round_reconstruction_request_bytes(raw: bytes) -> RoundReconstructionR
 
 
 def parse_round_reconstruction_result_bytes(raw: bytes) -> RoundReconstructionRunResult:
-    """Parse one UTF-8 round-reconstruction-result/v1 document."""
+    """Parse one UTF-8 round-reconstruction-result/v2 document."""
 
     return _parse_bytes(raw, "round-reconstruction-result", validate_round_reconstruction_result)
 
@@ -1648,10 +2108,13 @@ validate_run_result = validate_round_reconstruction_result
 __all__ = [
     "CAPABILITIES",
     "CALIBRATION_STATES",
+    "ACTION_SCORE_TOLERANCE",
     "CardPlayRecord",
     "EVIDENCE_FAMILIES",
     "FocusedDecisionRecord",
     "GameplayResultRecord",
+    "IgnoredActionRecord",
+    "InferredActionRecord",
     "LoadedObservation",
     "OPERATIONS_PACKAGE_VERSION",
     "ObservationSourceRecord",
@@ -1660,6 +2123,7 @@ __all__ = [
     "ROUND_RECONSTRUCTION_RUN_SCHEMA_VERSION",
     "ReconstructionDiagnosticsRecord",
     "ReconstructionHypothesisRecord",
+    "ReconstructionActionRecord",
     "RoundReconstructionContractError",
     "RoundReconstructionArtifacts",
     "RoundReconstructionInputBundle",
@@ -1670,6 +2134,7 @@ __all__ = [
     "RoundReconstructionRunResult",
     "RoundRuleset",
     "RoundSetup",
+    "SelectedActionRecord",
     "ScoreBreakdownRecord",
     "SearchLimits",
     "SourceRecord",

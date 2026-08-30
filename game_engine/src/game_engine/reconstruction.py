@@ -21,6 +21,9 @@ from .rules import CardPlay, RulesError, Ruleset
 
 ReconstructionStatus = Literal["resolved", "ambiguous", "impossible", "incomplete"]
 
+IGNORED_OBSERVED_CARD_PENALTY = -0.35
+INFERRED_MISSING_PLAY_PENALTY = -0.75
+
 
 @dataclass(frozen=True, slots=True)
 class GameplayResult:
@@ -52,10 +55,53 @@ class ScoreBreakdown:
 
         return (
             self.identity_candidate_log_score
-            - 0.35 * self.ignored_observed_card_count
-            - 0.75 * self.inferred_missing_play_count
+            + IGNORED_OBSERVED_CARD_PENALTY * self.ignored_observed_card_count
+            + INFERRED_MISSING_PLAY_PENALTY * self.inferred_missing_play_count
             + self.visual_evidence_score.total
         )
+
+
+@dataclass(frozen=True, slots=True)
+class SelectedAction:
+    """One observed card selected as one logical card play."""
+
+    kind: Literal["selected"]
+    observation_id: str
+    observed_card_id: str
+    play_index: int
+    player: str
+    card: str
+    candidate_probability: float
+    identity_log_score_contribution: float
+    visual_evidence_score: VisualEvidenceScore
+    score_contribution: float
+
+
+@dataclass(frozen=True, slots=True)
+class IgnoredAction:
+    """One observed card ignored by one reconstruction hypothesis."""
+
+    kind: Literal["ignored"]
+    observation_id: str
+    observed_card_id: str
+    ignore_penalty: float
+    visual_evidence_score: VisualEvidenceScore
+    score_contribution: float
+
+
+@dataclass(frozen=True, slots=True)
+class InferredAction:
+    """One missing card play inserted by one reconstruction hypothesis."""
+
+    kind: Literal["inferred"]
+    play_index: int
+    player: str
+    card: str
+    missing_play_penalty: float
+    score_contribution: float
+
+
+ReconstructionAction = SelectedAction | IgnoredAction | InferredAction
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +113,7 @@ class ReconstructionHypothesis:
     source_observed_card_ids: tuple[str, ...]
     ignored_observed_card_ids: tuple[str, ...]
     missing_play_indices: tuple[int, ...]
+    actions: tuple[ReconstructionAction, ...]
     score_breakdown: ScoreBreakdown
 
     @property
@@ -84,6 +131,12 @@ class ReconstructionHypothesis:
     @property
     def score(self) -> float:
         """Return the total deterministic branch score."""
+
+        return self.total_score
+
+    @property
+    def total_score(self) -> float:
+        """Return the explicit total score retained for this hypothesis."""
 
         return self.score_breakdown.total_score
 
@@ -243,6 +296,7 @@ def reconstruct_round(
         source_card_ids: tuple[str, ...],
         ignored_card_ids: tuple[str, ...],
         missing_play_indices: tuple[int, ...],
+        actions: tuple[ReconstructionAction, ...],
         used_tracklet_ids: frozenset[str],
         identity_log_score: float,
         visual_evidence_score: VisualEvidenceScore,
@@ -261,9 +315,35 @@ def reconstruct_round(
 
         if len(plays) == expected_plays:
             complete_branches += 1
-            trailing_card_ids = tuple(token.observed_card_id for token in tokens[token_index:])
+            trailing_tokens = tokens[token_index:]
+            trailing_card_ids = tuple(token.observed_card_id for token in trailing_tokens)
             all_ignored_card_ids = ignored_card_ids + trailing_card_ids
-            ignored_observation_ids.update(token.observation_id for token in tokens[token_index:])
+            trailing_actions: list[ReconstructionAction] = []
+            trailing_visual_evidence_score = visual_evidence_score
+            for token in trailing_tokens:
+                ignored_card_evidence = score_observed_card(
+                    token.observed_card,
+                    action="ignore",
+                    selected_observed_card_ids=frozenset(source_card_ids),
+                    selected_tracklet_ids=used_tracklet_ids,
+                    weights=selected_evidence_weights,
+                )
+                trailing_visual_evidence_score = trailing_visual_evidence_score.add(
+                    ignored_card_evidence
+                )
+                trailing_actions.append(
+                    IgnoredAction(
+                        kind="ignored",
+                        observation_id=token.observation_id,
+                        observed_card_id=token.observed_card_id,
+                        ignore_penalty=IGNORED_OBSERVED_CARD_PENALTY,
+                        visual_evidence_score=ignored_card_evidence,
+                        score_contribution=(
+                            IGNORED_OBSERVED_CARD_PENALTY + ignored_card_evidence.total
+                        ),
+                    )
+                )
+            ignored_observation_ids.update(token.observation_id for token in trailing_tokens)
             _retain_complete_branch(
                 hypotheses,
                 plays=plays,
@@ -271,8 +351,9 @@ def reconstruct_round(
                 source_card_ids=source_card_ids,
                 ignored_card_ids=all_ignored_card_ids,
                 missing_play_indices=missing_play_indices,
+                actions=actions + tuple(trailing_actions),
                 identity_log_score=identity_log_score,
-                visual_evidence_score=visual_evidence_score,
+                visual_evidence_score=trailing_visual_evidence_score,
                 active_players=players,
                 first_trick_leader=reconstruction_input.first_trick_leader,
                 ruleset=selected_ruleset,
@@ -346,6 +427,22 @@ def reconstruct_round(
                     source_card_ids + (token.observed_card_id,),
                     ignored_card_ids,
                     missing_play_indices,
+                    actions
+                    + (
+                        SelectedAction(
+                            kind="selected",
+                            observation_id=token.observation_id,
+                            observed_card_id=token.observed_card_id,
+                            play_index=len(plays) + 1,
+                            player=next_play.player,
+                            card=card,
+                            candidate_probability=probability,
+                            identity_log_score_contribution=math.log(probability),
+                            visual_evidence_score=selected_card_evidence,
+                            score_contribution=math.log(probability)
+                            + selected_card_evidence.total,
+                        ),
+                    ),
                     next_tracklet_ids,
                     identity_log_score + math.log(probability),
                     visual_evidence_score.add(selected_card_evidence),
@@ -369,6 +466,19 @@ def reconstruct_round(
                 source_card_ids,
                 ignored_card_ids + (token.observed_card_id,),
                 missing_play_indices,
+                actions
+                + (
+                    IgnoredAction(
+                        kind="ignored",
+                        observation_id=token.observation_id,
+                        observed_card_id=token.observed_card_id,
+                        ignore_penalty=IGNORED_OBSERVED_CARD_PENALTY,
+                        visual_evidence_score=ignored_card_evidence,
+                        score_contribution=(
+                            IGNORED_OBSERVED_CARD_PENALTY + ignored_card_evidence.total
+                        ),
+                    ),
+                ),
                 used_tracklet_ids,
                 identity_log_score,
                 visual_evidence_score.add(ignored_card_evidence),
@@ -400,6 +510,17 @@ def reconstruct_round(
                     source_card_ids,
                     ignored_card_ids,
                     missing_play_indices + (len(plays) + 1,),
+                    actions
+                    + (
+                        InferredAction(
+                            kind="inferred",
+                            play_index=len(plays) + 1,
+                            player=next_play.player,
+                            card=card,
+                            missing_play_penalty=INFERRED_MISSING_PLAY_PENALTY,
+                            score_contribution=INFERRED_MISSING_PLAY_PENALTY,
+                        ),
+                    ),
                     used_tracklet_ids,
                     identity_log_score,
                     visual_evidence_score,
@@ -417,6 +538,7 @@ def reconstruct_round(
         (),
         reconstruction_input.first_trick_leader,
         initial_counts,
+        (),
         (),
         (),
         (),
@@ -565,6 +687,47 @@ def reconstruct_manual_sequence(
         tricks=replay.tricks,
         initial_hands={player: tuple(cards) for player, cards in initial_hands.items()},
     )
+    tokens, _ = _flatten_observations(reconstruction_input.observations)
+    selected_count = min(len(tokens), len(resolved_plays))
+    actions: list[ReconstructionAction] = []
+    for index, play in enumerate(resolved_plays[:selected_count]):
+        token = tokens[index]
+        actions.append(
+            SelectedAction(
+                kind="selected",
+                observation_id=token.observation_id,
+                observed_card_id=token.observed_card_id,
+                play_index=index + 1,
+                player=play.player,
+                card=play.card,
+                candidate_probability=1.0,
+                identity_log_score_contribution=0.0,
+                visual_evidence_score=VisualEvidenceScore(),
+                score_contribution=0.0,
+            )
+        )
+    for index, play in enumerate(resolved_plays[selected_count:], start=selected_count + 1):
+        actions.append(
+            InferredAction(
+                kind="inferred",
+                play_index=index,
+                player=play.player,
+                card=play.card,
+                missing_play_penalty=INFERRED_MISSING_PLAY_PENALTY,
+                score_contribution=INFERRED_MISSING_PLAY_PENALTY,
+            )
+        )
+    for token in tokens[selected_count:]:
+        actions.append(
+            IgnoredAction(
+                kind="ignored",
+                observation_id=token.observation_id,
+                observed_card_id=token.observed_card_id,
+                ignore_penalty=IGNORED_OBSERVED_CARD_PENALTY,
+                visual_evidence_score=VisualEvidenceScore(),
+                score_contribution=IGNORED_OBSERVED_CARD_PENALTY,
+            )
+        )
     hypothesis = ReconstructionHypothesis(
         gameplay=gameplay,
         source_observation_ids=tuple(
@@ -575,12 +738,15 @@ def reconstruct_manual_sequence(
             for observation in reconstruction_input.observations
             for card in observation.cards
         ),
-        ignored_observed_card_ids=(),
-        missing_play_indices=(),
+        ignored_observed_card_ids=tuple(
+            token.observed_card_id for token in tokens[selected_count:]
+        ),
+        missing_play_indices=tuple(range(selected_count + 1, len(resolved_plays) + 1)),
+        actions=tuple(actions),
         score_breakdown=ScoreBreakdown(
             identity_candidate_log_score=0.0,
-            ignored_observed_card_count=0,
-            inferred_missing_play_count=0,
+            ignored_observed_card_count=max(0, len(tokens) - selected_count),
+            inferred_missing_play_count=max(0, len(resolved_plays) - selected_count),
         ),
     )
     diagnostics = ReconstructionDiagnostics(
@@ -664,6 +830,7 @@ def _retain_complete_branch(
     source_card_ids: tuple[str, ...],
     ignored_card_ids: tuple[str, ...],
     missing_play_indices: tuple[int, ...],
+    actions: tuple[ReconstructionAction, ...],
     identity_log_score: float,
     visual_evidence_score: VisualEvidenceScore,
     active_players: Sequence[str],
@@ -706,9 +873,10 @@ def _retain_complete_branch(
     hypothesis = ReconstructionHypothesis(
         gameplay=gameplay,
         source_observation_ids=tuple(dict.fromkeys(source_observation_ids)),
-        source_observed_card_ids=tuple(dict.fromkeys(source_card_ids)),
-        ignored_observed_card_ids=tuple(dict.fromkeys(ignored_card_ids)),
+        source_observed_card_ids=tuple(source_card_ids),
+        ignored_observed_card_ids=tuple(ignored_card_ids),
         missing_play_indices=missing_play_indices,
+        actions=actions,
         score_breakdown=score_breakdown,
     )
     if key in hypotheses:
@@ -729,6 +897,7 @@ def _retain_complete_branch(
                 source_observed_card_ids=merged_source_cards,
                 ignored_observed_card_ids=hypothesis.ignored_observed_card_ids,
                 missing_play_indices=hypothesis.missing_play_indices,
+                actions=hypothesis.actions,
                 score_breakdown=hypothesis.score_breakdown,
             )
         else:
@@ -738,6 +907,7 @@ def _retain_complete_branch(
                 source_observed_card_ids=merged_source_cards,
                 ignored_observed_card_ids=existing.ignored_observed_card_ids,
                 missing_play_indices=existing.missing_play_indices,
+                actions=existing.actions,
                 score_breakdown=existing.score_breakdown,
             )
         return
@@ -830,11 +1000,17 @@ def _default_ruleset() -> Ruleset:
 __all__ = [
     "FocusedDecision",
     "GameplayResult",
+    "IGNORED_OBSERVED_CARD_PENALTY",
+    "INFERRED_MISSING_PLAY_PENALTY",
+    "IgnoredAction",
+    "InferredAction",
+    "ReconstructionAction",
     "ReconstructionAblation",
     "ReconstructionDiagnostics",
     "ReconstructionHypothesis",
     "ReconstructionResult",
     "ReconstructionStatus",
+    "SelectedAction",
     "ScoreBreakdown",
     "reconstruct",
     "reconstruct_manual_sequence",

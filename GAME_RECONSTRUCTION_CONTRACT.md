@@ -207,10 +207,13 @@ player-and-card play sequence. Different legal sequences remain `ambiguous`; no 
 is `impossible` when the evidence count is complete and `incomplete` when evidence is missing.
 
 The result keeps the best source explanation, identity-candidate log score, ignored observed-card
-IDs, inferred play slots, focused first differences, and bounded search diagnostics. Optional
-capabilities remain declared and preserved. Exact reuse of one declared card tracklet as two card
-plays is rejected as an inconsistent association. The oracle does not use optional score families
-as calibrated probabilities.
+IDs, inferred play slots, focused first differences, and bounded search diagnostics. Each retained
+hypothesis also keeps an ordered action explanation: selected and ignored observed-card references
+use the observation ID and observed-card ID together, and inferred actions use their one-based play
+index. Each action keeps its score contribution, and the action sum equals the hypothesis
+`total_score` within `1e-9`. Optional capabilities remain declared and preserved. Exact reuse of
+one declared card tracklet as two card plays is rejected as an inconsistent association. The oracle
+does not use optional score families as calibrated probabilities.
 
 ## M4 additive visual evidence
 

@@ -143,5 +143,13 @@ def test_status_fixtures_cover_lifecycle_and_all_reconstruction_outcomes() -> No
         "incomplete",
         "impossible",
     }
+    resolved = next(
+        status
+        for status in completed
+        if status.result and status.result.reconstruction_status == "resolved"
+    )
+    assert resolved.result is not None
+    assert resolved.result.hypotheses[0]["actions"] == []
+    assert resolved.result.hypotheses[0]["total_score"] == 0.0
     failed = next(status for status in statuses if status.state == "failed")
     assert failed.error == "The analysis did not finish before the backend restarted."
