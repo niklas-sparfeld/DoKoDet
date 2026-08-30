@@ -18,7 +18,7 @@
 ## Milestone status
 
 - **M0:** Complete — replace the operations result with a scored per-action explanation contract.
-- **M1:** Pending — project one immutable analysis into timeline data and serve its central frames.
+- **M1:** Complete — project one immutable analysis into timeline data and serve its central frames.
 - **M2:** Pending — establish the frontend toolchain, generated API types, and typed client.
 - **M3:** Pending — package and serve a production frontend with one API smoke view.
 - **M4:** Pending — render the first synchronized three-column timeline for a resolved fixture.
@@ -296,6 +296,22 @@ The operator can return to the exact baseline without deleting the counterfactua
 - Add the strict timeline projection and central-frame selection.
 - Add the analysis-scoped immutable stored-frame endpoint and contract tests for foreign, missing,
   and invalid media.
+
+#### M1 implementation evidence — 2026-08-30
+
+- Added a strict backend timeline projection that hash-checks the exact stored input and result
+  artifacts, validates their analysis identity and source records, and verifies the referenced
+  table observations and evidence packages before projection.
+- Added deterministic central-frame selection for each evidence row. The selected frame uses the
+  smallest absolute `actual_offset_ms`, then `actual_offset_ms`, then `part_name`, and includes its
+  immutable URL, timestamp, digest, and dimensions. Missing frames produce an explicit warning.
+- Added analysis-scoped JPEG delivery with package ownership checks, safe part-name validation,
+  source-file digest verification, digest ETags, and immutable cache headers. Integrity failures
+  return the typed `analysis_integrity_error` response.
+- Added warnings, ranked hypothesis action mappings, focused-decision links, and inferred-play
+  rows anchored before, between, or after evidence rows.
+- Verification: 129 backend tests and Ruff checks pass. The existing FastAPI test-client
+  deprecation warning remains.
 
 ### M2 — Frontend foundation
 

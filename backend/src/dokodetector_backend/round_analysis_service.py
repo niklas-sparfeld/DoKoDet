@@ -39,6 +39,11 @@ from dokodetector_backend.round_analysis_contract import (
     parse_round_analysis_create_request_bytes,
 )
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
+from dokodetector_backend.round_analysis_timeline import (
+    RoundAnalysisTimeline,
+    RoundAnalysisTimelineProjector,
+    TimelineFrameFile,
+)
 from dokodetector_backend.storage import EvidenceStorage
 
 if TYPE_CHECKING:
@@ -85,6 +90,12 @@ class RoundAnalysisService:
             package_storage,
             analyzer,
             observation_storage=evidence_storage,
+        )
+        self.timeline_projector = RoundAnalysisTimelineProjector(
+            evidence_repository,
+            package_storage,
+            evidence_storage,
+            artifact_storage,
         )
         self._queue: asyncio.Queue[UUID | None] = asyncio.Queue()
         self._worker_task: asyncio.Task[None] | None = None
@@ -276,6 +287,22 @@ class RoundAnalysisService:
             started_at=analysis.started_at,
             completed_at=analysis.completed_at,
         )
+
+    def timeline(self, analysis_id: UUID) -> RoundAnalysisTimeline:
+        """Return the verified immutable timeline for one completed analysis."""
+
+        analysis = self.repository.get(analysis_id)
+        if analysis is None:
+            raise RoundAnalysisNotFound("The round analysis was not found.")
+        return self.timeline_projector.project(analysis)
+
+    def frame(self, analysis_id: UUID, package_id: UUID, part_name: str) -> TimelineFrameFile:
+        """Return one verified frame owned by one completed analysis."""
+
+        analysis = self.repository.get(analysis_id)
+        if analysis is None:
+            raise RoundAnalysisNotFound("The round analysis was not found.")
+        return self.timeline_projector.frame(analysis, package_id, part_name)
 
     def _result_from_analysis(self, analysis: StoredRoundAnalysis) -> RoundAnalysisResult | None:
         if analysis.state != "complete":
