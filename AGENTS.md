@@ -56,6 +56,23 @@ modify, add, move, or discard the user's untracked files.
 Use the [epic board](docs/plans/README.md) for project plans. Each numbered Markdown file is one
 epic. The file can contain both the specification and its work items.
 
+Structure each epic into small implementation milestones named `M0`, `M1`, and so on. Each
+milestone must be small enough for Luna to implement in one phase.
+
+Implement an epic one milestone at a time. When the user says `start epic 1234`, begin with `M0`
+of epic 1234. When the user says `next phase`, implement the next incomplete milestone. Do not
+require the user to repeat the commit rules, request a status overview, or specify a milestone
+number.
+
+After each completed milestone:
+
+* commit the milestone directly to `main`,
+* update the epic and the epic board to show the current state,
+* give the user a summary, and
+* include a current status overview with one line for each milestone.
+
+After the summary, compact the working context before the next milestone.
+
 When you add or edit an epic:
 
 * use the next unused four-digit epic number for a new file,
