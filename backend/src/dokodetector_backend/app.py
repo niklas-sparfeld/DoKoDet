@@ -19,12 +19,14 @@ from dokodetector_backend.persistence import EvidencePackagePersister
 from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
 from dokodetector_backend.repository import (
     EvidenceRepository,
+    RoundAnalysisRepository,
     create_database_engine,
     upgrade_database,
 )
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
 from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
+from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.storage import EvidenceStorage
 
 
@@ -37,7 +39,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = app_settings
     app.state.engine = create_database_engine(app_settings.database_url)
     app.state.repository = EvidenceRepository(app.state.engine)
+    app.state.round_analysis_repository = RoundAnalysisRepository(app.state.engine)
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
+    app.state.round_analysis_storage = RoundAnalysisArtifactStorage(app_settings.evidence_root)
     app.state.evidence_package_storage = EvidencePackageStorage(
         app_settings.evidence_package_intake_root
     )
@@ -53,6 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.analyzer = create_local_poc_analyzer()
     app.state.repository.rebuild_from_intake(app.state.evidence_package_storage)
     app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)
+    app.state.round_analysis_repository.fail_non_terminal()
     register_error_handlers(app)
     app.include_router(router)
     app.include_router(repository_bundle_router)
@@ -72,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             with app.state.engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
             _check_evidence_directory(app.state.storage.table_observations_root)
+            _check_evidence_directory(app.state.round_analysis_storage.root)
             _check_evidence_directory(app.state.evidence_package_storage.root)
             _check_evidence_directory(app.state.repository_bundle_storage.root)
             _check_evidence_directory(app.state.pending_video_storage.root)

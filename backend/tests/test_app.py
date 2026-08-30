@@ -14,6 +14,13 @@ from dokodetector_backend.poc_analyzer import (
     LOCAL_POC_ANALYZER_NAME,
     LOCAL_POC_ANALYZER_VERSION,
 )
+from dokodetector_backend.repository import (
+    RoundAnalysisRepository,
+    StoredRoundAnalysis,
+    create_database_engine,
+    upgrade_database,
+)
+from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 
 BACKEND_ROOT = Path(__file__).parents[1]
 
@@ -98,6 +105,51 @@ def test_factory_applies_pending_repository_bundle_migration(tmp_path: Path) -> 
     app = create_app(settings)
 
     assert inspect(app.state.engine).has_table("repository_bundles")
+
+
+def test_factory_converts_interrupted_round_analysis_to_failed(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
+    upgrade_database(BACKEND_ROOT, database_url)
+    request = RoundAnalysisCreateRequest.model_validate(
+        {
+            "analysis_id": "00000000-0000-0000-0000-000000000032",
+            "recording_id": "recording-0032",
+            "round_id": "round-0032",
+            "session_id": "00000000-0000-0000-0000-000000000033",
+            "round_setup": {
+                "game_id": "game-0032",
+                "round_id": "round-0032",
+                "ruleset": {"name": "doko-normal", "version": "v1"},
+                "deck_variant": "doko-40-v1",
+                "active_players": ["seat-1", "seat-2", "seat-3", "seat-4"],
+                "dealer": "seat-1",
+                "first_trick_leader": "seat-2",
+            },
+            "evidence_package_ids": ["00000000-0000-0000-0000-000000000034"],
+            "search": {
+                "max_missing_plays": 2,
+                "max_hypotheses": 8,
+                "max_search_nodes": 1000,
+            },
+        }
+    )
+    repository = RoundAnalysisRepository(create_database_engine(database_url))
+    repository.insert(StoredRoundAnalysis.from_request(request))
+
+    app = create_app(
+        Settings(
+            _env_file=None,
+            database_url=database_url,
+            evidence_root=tmp_path / "runtime",
+            repository_intake_root=tmp_path / "recordings",
+            evidence_package_intake_root=tmp_path / "evidence-packages",
+        )
+    )
+
+    stored = app.state.round_analysis_repository.get(request.analysis_id)
+    assert stored is not None
+    assert stored.state == "failed"
+    assert stored.error == "The analysis did not finish before the backend restarted."
 
 
 def test_contract_errors_use_a_stable_response_shape() -> None:

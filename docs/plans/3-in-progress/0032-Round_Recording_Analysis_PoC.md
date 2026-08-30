@@ -13,7 +13,8 @@
 ## Milestone status
 
 - **M0:** Complete — freeze the reusable reconstruction and PoC analyzer boundaries.
-- **M1:** Pending — add the backend analysis contract, persistence, and artifact storage.
+- **M1:** Complete — add the backend analysis contract, persistence, restart conversion, and
+  artifact storage.
 - **M2:** Pending — add the backend worker, lifecycle handling, and APIs.
 - **M3:** Pending — make one iOS recording own video, evidence, lineage, and package tracking.
 - **M4:** Pending — add iOS upload gating, durable analysis submission, and polling.
@@ -172,6 +173,21 @@ support multiple simultaneous round recordings or a history screen in this epic.
 
 - Add strict create, status, and result models with the client-generated `analysis_id`.
 - Add the migration, repository methods, restart conversion, and atomic runtime artifact storage.
+
+#### M1 implementation evidence — 2026-08-30
+
+- Added strict `round-analysis/v1` create, status, and compact result models. Canonical create
+  request bytes and their SHA-256 include the explicit round setup, ordered package IDs, and all
+  three Plan 0031 search limits.
+- Added the `round_analyses` Alembic migration and repository lifecycle methods for queued,
+  analyzing, reconstructing, complete, and failed rows. Backend creation converts interrupted
+  non-terminal rows to a clear restart failure.
+- Added atomic runtime publication for exact `input.json` and `result.json` bytes below
+  `.runtime/round-analyses` and wired its directory into readiness checks.
+- Added focused contract, repository, storage, migration, and startup regression tests.
+- Verification: full backend and operations test suites, Ruff checks, both lock checks, and diff
+  whitespace checks pass. The existing backend repository-wide format check still reports one
+  unrelated pre-existing assertion layout in `tests/test_table_observation_pipeline.py`.
 
 ### M2 — Worker and APIs
 

@@ -131,10 +131,37 @@ class RepositoryBundleIndex(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class RoundAnalysis(Base):
+    """Durable status and result metadata for one round analysis."""
+
+    __tablename__ = "round_analyses"
+
+    analysis_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    recording_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    round_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    session_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    request_json: Mapped[str] = mapped_column(Text, nullable=False)
+    request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    total_evidence_packages: Mapped[int] = mapped_column(Integer, nullable=False)
+    completed_evidence_packages: Mapped[int] = mapped_column(Integer, nullable=False)
+    result_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    input_artifact_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    input_artifact_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result_artifact_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    result_artifact_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 __all__ = [
     "Base",
     "EvidenceFrame",
     "EvidencePackage",
     "RepositoryBundleIndex",
+    "RoundAnalysis",
     "TableObservation",
 ]

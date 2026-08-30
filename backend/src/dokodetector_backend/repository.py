@@ -34,9 +34,15 @@ from dokodetector_backend.intake_contract import (
 from dokodetector_backend.models import (
     EvidenceFrame,
     EvidencePackage,
+    RoundAnalysis,
 )
 from dokodetector_backend.models import (
     TableObservation as TableObservationRow,
+)
+from dokodetector_backend.round_analysis_contract import (
+    RoundAnalysisCreateRequest,
+    canonical_analysis_request_bytes,
+    canonical_analysis_request_sha256,
 )
 
 
@@ -139,6 +145,73 @@ class TableObservationInsert:
     created: bool
 
 
+@dataclass(frozen=True, slots=True)
+class StoredRoundAnalysis:
+    """Durable analysis status and artifact metadata stored in SQLite."""
+
+    analysis_id: UUID
+    recording_id: str
+    round_id: str
+    session_id: UUID
+    request_json: str
+    request_sha256: str
+    state: str
+    total_evidence_packages: int
+    completed_evidence_packages: int
+    result_status: str | None
+    result_json: str | None
+    error: str | None
+    input_artifact_id: str | None
+    input_artifact_sha256: str | None
+    result_artifact_id: str | None
+    result_artifact_sha256: str | None
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+
+    @classmethod
+    def from_request(
+        cls,
+        request: RoundAnalysisCreateRequest,
+        *,
+        created_at: datetime | None = None,
+    ) -> StoredRoundAnalysis:
+        """Build a queued row from one validated client request."""
+
+        if created_at is None:
+            created_at = datetime.now(timezone.utc)
+        request_bytes = canonical_analysis_request_bytes(request)
+        return cls(
+            analysis_id=request.analysis_id,
+            recording_id=request.recording_id,
+            round_id=request.round_id,
+            session_id=request.session_id,
+            request_json=request_bytes.decode("utf-8"),
+            request_sha256=canonical_analysis_request_sha256(request),
+            state="queued",
+            total_evidence_packages=len(request.evidence_package_ids),
+            completed_evidence_packages=0,
+            result_status=None,
+            result_json=None,
+            error=None,
+            input_artifact_id=None,
+            input_artifact_sha256=None,
+            result_artifact_id=None,
+            result_artifact_sha256=None,
+            created_at=created_at,
+            started_at=None,
+            completed_at=None,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RoundAnalysisInsert:
+    """The result of an idempotent analysis insert."""
+
+    analysis: StoredRoundAnalysis
+    created: bool
+
+
 class RepositoryError(RuntimeError):
     """Unexpected database failure."""
 
@@ -157,6 +230,14 @@ class LogicalEventConflict(RepositoryConflict):
 
 class TableObservationConflict(RepositoryConflict):
     """An analyzer observation key is already used by different content."""
+
+
+class RoundAnalysisConflict(RepositoryConflict):
+    """An analysis ID is already stored with different request content."""
+
+
+class RoundAnalysisNotFound(RepositoryError):
+    """The requested round analysis does not exist."""
 
 
 class RepositoryRebuildError(RepositoryError):
@@ -502,6 +583,249 @@ class EvidenceRepository:
             return True
 
 
+class RoundAnalysisRepository:
+    """Persist the lifecycle and result metadata for round analyses."""
+
+    def __init__(self, engine: Engine) -> None:
+        self.engine = engine
+        self._session_factory = sessionmaker(
+            bind=engine,
+            class_=Session,
+            expire_on_commit=False,
+        )
+
+    def get(self, analysis_id: UUID | str) -> StoredRoundAnalysis | None:
+        """Read one analysis row."""
+
+        with self._session_factory() as session:
+            row = session.get(RoundAnalysis, str(UUID(str(analysis_id))))
+            return _round_analysis_from_model(row) if row is not None else None
+
+    def create(
+        self,
+        request: RoundAnalysisCreateRequest,
+        *,
+        created_at: datetime | None = None,
+    ) -> RoundAnalysisInsert:
+        """Canonicalize and insert one validated client request."""
+
+        return_value, created = self.insert(
+            StoredRoundAnalysis.from_request(request, created_at=created_at)
+        )
+        return RoundAnalysisInsert(analysis=return_value, created=created)
+
+    def insert(self, analysis: StoredRoundAnalysis) -> tuple[StoredRoundAnalysis, bool]:
+        """Insert one analysis or return an identical existing request."""
+
+        try:
+            with self._session_factory.begin() as session:
+                existing = session.get(RoundAnalysis, str(analysis.analysis_id))
+                if existing is not None:
+                    stored = _round_analysis_from_model(existing)
+                    if (
+                        stored.request_sha256 != analysis.request_sha256
+                        or stored.request_json != analysis.request_json
+                    ):
+                        raise RoundAnalysisConflict(
+                            "The analysis ID is already stored with different request content."
+                        )
+                    return stored, False
+                row = _round_analysis_to_model(analysis)
+                session.add(row)
+                session.flush()
+                return _round_analysis_from_model(row), True
+        except RoundAnalysisConflict:
+            raise
+        except IntegrityError as error:
+            existing = self.get(analysis.analysis_id)
+            if existing is not None and (
+                existing.request_sha256 == analysis.request_sha256
+                and existing.request_json == analysis.request_json
+            ):
+                return existing, False
+            if existing is not None:
+                raise RoundAnalysisConflict(
+                    "The analysis ID is already stored with different request content."
+                ) from error
+            raise RepositoryError("The round analysis could not be stored.") from error
+
+    def update_progress(
+        self,
+        analysis_id: UUID | str,
+        *,
+        state: str,
+        completed: int,
+        started_at: datetime | None = None,
+    ) -> StoredRoundAnalysis:
+        """Update a non-terminal state and its completed package count."""
+
+        if state not in {"queued", "analyzing_evidence", "reconstructing"}:
+            raise ValueError("progress state must be non-terminal.")
+        if completed < 0:
+            raise ValueError("completed evidence packages must not be negative.")
+        with self._session_factory.begin() as session:
+            row = _get_round_analysis_row(session, analysis_id)
+            if row.state in {"complete", "failed"}:
+                raise ValueError("a terminal analysis cannot receive progress updates.")
+            allowed_states = {
+                "queued": {"queued", "analyzing_evidence"},
+                "analyzing_evidence": {"analyzing_evidence", "reconstructing"},
+                "reconstructing": {"reconstructing"},
+            }
+            if state not in allowed_states[row.state]:
+                raise ValueError(f"analysis state cannot change from {row.state} to {state}.")
+            if completed > row.total_evidence_packages:
+                raise ValueError("completed evidence packages cannot exceed the total.")
+            row.state = state
+            row.completed_evidence_packages = completed
+            if started_at is not None:
+                row.started_at = started_at
+            elif state != "queued" and row.started_at is None:
+                row.started_at = datetime.now(timezone.utc)
+            return _round_analysis_from_model(row)
+
+    def mark_complete(
+        self,
+        analysis_id: UUID | str,
+        *,
+        result_status: str,
+        result_json: str,
+        input_artifact_id: str,
+        input_artifact_sha256: str,
+        result_artifact_id: str,
+        result_artifact_sha256: str,
+        completed_at: datetime | None = None,
+    ) -> StoredRoundAnalysis:
+        """Store a complete reconstruction result and its artifact references."""
+
+        if result_status not in {"resolved", "ambiguous", "incomplete", "impossible"}:
+            raise ValueError("invalid reconstruction result status.")
+        if not result_json:
+            raise ValueError("a complete analysis needs a result status and JSON.")
+        if completed_at is None:
+            completed_at = datetime.now(timezone.utc)
+        with self._session_factory.begin() as session:
+            row = _get_round_analysis_row(session, analysis_id)
+            if row.state in {"complete", "failed"}:
+                raise ValueError("a terminal analysis cannot be completed again.")
+            row.state = "complete"
+            row.completed_evidence_packages = row.total_evidence_packages
+            row.result_status = result_status
+            row.result_json = result_json
+            row.error = None
+            row.input_artifact_id = input_artifact_id
+            row.input_artifact_sha256 = input_artifact_sha256
+            row.result_artifact_id = result_artifact_id
+            row.result_artifact_sha256 = result_artifact_sha256
+            row.completed_at = completed_at
+            return _round_analysis_from_model(row)
+
+    def mark_failed(
+        self,
+        analysis_id: UUID | str,
+        error: str,
+        *,
+        completed_at: datetime | None = None,
+    ) -> StoredRoundAnalysis:
+        """Store a short safe terminal failure message."""
+
+        if not error or len(error) > 512:
+            raise ValueError("analysis errors must contain 1 to 512 characters.")
+        if completed_at is None:
+            completed_at = datetime.now(timezone.utc)
+        with self._session_factory.begin() as session:
+            row = _get_round_analysis_row(session, analysis_id)
+            if row.state in {"complete", "failed"}:
+                raise ValueError("a terminal analysis cannot be failed again.")
+            row.state = "failed"
+            row.result_status = None
+            row.result_json = None
+            row.error = error
+            row.result_artifact_id = None
+            row.result_artifact_sha256 = None
+            row.completed_at = completed_at
+            return _round_analysis_from_model(row)
+
+    def fail_non_terminal(self, *, now: datetime | None = None) -> int:
+        """Convert all interrupted analyses to a clear restart failure."""
+
+        if now is None:
+            now = datetime.now(timezone.utc)
+        converted = 0
+        with self._session_factory.begin() as session:
+            rows = session.scalars(
+                select(RoundAnalysis).where(RoundAnalysis.state.not_in(("complete", "failed")))
+            )
+            for row in rows:
+                row.state = "failed"
+                row.result_status = None
+                row.result_json = None
+                row.error = RESTART_ANALYSIS_ERROR
+                row.result_artifact_id = None
+                row.result_artifact_sha256 = None
+                row.completed_at = now
+                converted += 1
+        return converted
+
+
+RESTART_ANALYSIS_ERROR = "The analysis did not finish before the backend restarted."
+
+
+def _get_round_analysis_row(session: Session, analysis_id: UUID | str) -> RoundAnalysis:
+    row = session.get(RoundAnalysis, str(UUID(str(analysis_id))))
+    if row is None:
+        raise RoundAnalysisNotFound("The round analysis was not found.")
+    return row
+
+
+def _round_analysis_to_model(analysis: StoredRoundAnalysis) -> RoundAnalysis:
+    return RoundAnalysis(
+        analysis_id=str(analysis.analysis_id),
+        recording_id=analysis.recording_id,
+        round_id=analysis.round_id,
+        session_id=str(analysis.session_id),
+        request_json=analysis.request_json,
+        request_sha256=analysis.request_sha256,
+        state=analysis.state,
+        total_evidence_packages=analysis.total_evidence_packages,
+        completed_evidence_packages=analysis.completed_evidence_packages,
+        result_status=analysis.result_status,
+        result_json=analysis.result_json,
+        error=analysis.error,
+        input_artifact_id=analysis.input_artifact_id,
+        input_artifact_sha256=analysis.input_artifact_sha256,
+        result_artifact_id=analysis.result_artifact_id,
+        result_artifact_sha256=analysis.result_artifact_sha256,
+        created_at=analysis.created_at,
+        started_at=analysis.started_at,
+        completed_at=analysis.completed_at,
+    )
+
+
+def _round_analysis_from_model(row: RoundAnalysis) -> StoredRoundAnalysis:
+    return StoredRoundAnalysis(
+        analysis_id=UUID(row.analysis_id),
+        recording_id=row.recording_id,
+        round_id=row.round_id,
+        session_id=UUID(row.session_id),
+        request_json=row.request_json,
+        request_sha256=row.request_sha256,
+        state=row.state,
+        total_evidence_packages=row.total_evidence_packages,
+        completed_evidence_packages=row.completed_evidence_packages,
+        result_status=row.result_status,
+        result_json=row.result_json,
+        error=row.error,
+        input_artifact_id=row.input_artifact_id,
+        input_artifact_sha256=row.input_artifact_sha256,
+        result_artifact_id=row.result_artifact_id,
+        result_artifact_sha256=row.result_artifact_sha256,
+        created_at=_as_utc(row.created_at),
+        started_at=_as_utc(row.started_at) if row.started_at is not None else None,
+        completed_at=_as_utc(row.completed_at) if row.completed_at is not None else None,
+    )
+
+
 def _package_to_model(package: StoredPackage) -> EvidencePackage:
     return EvidencePackage(
         package_id=str(package.package_id),
@@ -664,8 +988,14 @@ __all__ = [
     "RepositoryConflict",
     "RepositoryError",
     "RepositoryRebuildError",
+    "RESTART_ANALYSIS_ERROR",
+    "RoundAnalysisConflict",
+    "RoundAnalysisInsert",
+    "RoundAnalysisNotFound",
+    "RoundAnalysisRepository",
     "StoredFrame",
     "StoredPackage",
+    "StoredRoundAnalysis",
     "StoredTableObservation",
     "TableObservationConflict",
     "TableObservationInsert",
