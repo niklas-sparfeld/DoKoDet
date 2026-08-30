@@ -4,13 +4,22 @@
 
 - **Summary:** Replace the separate Live and Record flows with one profile-based recording
   workspace.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0032 (complete)
 - **Priority:** High
 - **Boundary:** This epic changes the iOS recording UI, its local recording-profile contract, and
   the adapters that create existing recording and analysis inputs. It keeps the evidence-package,
   upload, repository-intake, and round-analysis HTTP contracts. It does not integrate the future
   seating and dealer app.
+
+## Milestone status
+
+- **M0:** Complete — freeze the recording profile, purpose mapping, operator settings, app-run
+  context, fixed metadata, and default round-analysis setup contracts.
+- **M1:** Pending — replace profile storage and snapshots.
+- **M2:** Pending — create one recording-workspace lifecycle.
+- **M3:** Pending — build the focused operator surface.
+- **M4:** Pending — connect default analysis and verify the complete flow.
 
 ## 1. Outcome
 
@@ -203,6 +212,20 @@ and narrow adapters.
 - Define the purpose-to-source mapping and the different real-game and staged analysis game IDs.
 - Replace profile validation with validation for name, purpose, tags, and complete task settings.
 - Add focused model and adapter tests before replacing existing UI call sites.
+
+#### M0 implementation evidence — 2026-08-31
+
+- Added the strict `recording-profile/v1` model with the four stable purposes, profile tags, and
+  one validated task setting for each repository data task.
+- Added in-memory operator settings and app-run context contracts. The app-run context exposes one
+  lower-case UUID string for purpose-derived game IDs.
+- Added purpose mapping, fixed intake metadata, purpose tagging, operator enrollment snapshots,
+  and the default round-analysis setup. Staged recordings keep source `game_id` empty and use an
+  `analysis-game-<app-run-session-uuid>` analysis ID; real recordings use `game-<app-run-session-uuid>`
+  for both.
+- Added six focused model and adapter tests. The focused suite passes. The simulator app build
+  succeeds. The full Swift package suite runs 102 tests with 98 passing; four existing evidence
+  manifest/video timing tests fail outside this milestone.
 
 ### M1 — Replace profile storage and snapshots
 
