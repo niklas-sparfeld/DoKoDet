@@ -196,6 +196,88 @@ final class RoundAnalysisTests: XCTestCase {
         }
     }
 
+    func testTerminalResultSummaryCoversResolvedAndAmbiguousResults() {
+        let analysisID = UUID()
+        let resolved = RoundAnalysisResult(
+            analysisID: analysisID,
+            reconstructionStatus: .resolved,
+            hypotheses: [[
+                "gameplay": .object([
+                    "tricks": .array(Array(repeating: .object([:]), count: 10)),
+                ]),
+            ]],
+            focusedDecisions: [],
+            diagnostics: [:],
+            inputArtifactID: "round-analyses/analysis/input.json",
+            inputArtifactSHA256: String(repeating: "a", count: 64),
+            resultArtifactID: "round-analyses/analysis/result.json",
+            resultArtifactSHA256: String(repeating: "b", count: 64)
+        )
+        XCTAssertEqual(
+            RoundAnalysisResultSummary(result: resolved).text,
+            "Resolved hypothesis with 10 tricks"
+        )
+
+        let ambiguous = RoundAnalysisResult(
+            analysisID: analysisID,
+            reconstructionStatus: .ambiguous,
+            hypotheses: [[:], [:], [:]],
+            focusedDecisions: [[:], [:]],
+            diagnostics: [:],
+            inputArtifactID: "round-analyses/analysis/input.json",
+            inputArtifactSHA256: String(repeating: "a", count: 64),
+            resultArtifactID: "round-analyses/analysis/result.json",
+            resultArtifactSHA256: String(repeating: "b", count: 64)
+        )
+        XCTAssertEqual(
+            RoundAnalysisResultSummary(result: ambiguous).text,
+            "Ambiguous: 3 hypotheses, 2 focused decisions"
+        )
+    }
+
+    func testTerminalResultSummaryUsesEngineDiagnosticsAndKeepsEmptyEvidenceFailureExplicit() {
+        let analysisID = UUID()
+        let incomplete = RoundAnalysisResult(
+            analysisID: analysisID,
+            reconstructionStatus: .incomplete,
+            hypotheses: [],
+            focusedDecisions: [],
+            diagnostics: [
+                "incomplete_observations": .array([.string("observation-001")]),
+            ],
+            inputArtifactID: "round-analyses/analysis/input.json",
+            inputArtifactSHA256: String(repeating: "a", count: 64),
+            resultArtifactID: "round-analyses/analysis/result.json",
+            resultArtifactSHA256: String(repeating: "b", count: 64)
+        )
+        XCTAssertEqual(
+            RoundAnalysisResultSummary(result: incomplete).text,
+            "Incomplete: 1 incomplete observation"
+        )
+
+        let impossible = RoundAnalysisResult(
+            analysisID: analysisID,
+            reconstructionStatus: .impossible,
+            hypotheses: [],
+            focusedDecisions: [],
+            diagnostics: [
+                "rejected_branches": .array([.string("rejected")]),
+            ],
+            inputArtifactID: "round-analyses/analysis/input.json",
+            inputArtifactSHA256: String(repeating: "a", count: 64),
+            resultArtifactID: "round-analyses/analysis/result.json",
+            resultArtifactSHA256: String(repeating: "b", count: 64)
+        )
+        XCTAssertEqual(
+            RoundAnalysisResultSummary(result: impossible).text,
+            "Impossible: 1 rejected branch"
+        )
+
+        let failure = RoundAnalysisDisplayState.failed("No evidence packages captured")
+        XCTAssertTrue(failure.isFailure)
+        XCTAssertEqual(failure.detail, "No evidence packages captured")
+    }
+
     fileprivate static func statusJSON(analysisID: UUID, extraField: Bool = false) -> Data {
         var object: [String: Any] = [
             "analysis_id": analysisID.uuidString.lowercased(),

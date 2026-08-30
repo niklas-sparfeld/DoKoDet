@@ -100,8 +100,9 @@ uv run pytest tests/test_local_pipeline.py
 The gate starts the real local HTTP API with temporary SQLite and filesystem stores. It uses the
 Swift `CardEventProbeLocalPipeline` client to upload complete, incomplete, and metadata-only
 packages, then checks idempotent replay, conflict retention, transport retry, and queue recovery
-after an app restart. The saved-video test also checks the replacement repository bundle and its
-canonical member hashes. It does not require Docker, a phone, or cloud services.
+after an app restart. The saved-video test also submits one linked round analysis and checks the
+terminal deterministic result, the replacement repository bundle, and its canonical member
+hashes. It does not require Docker, a phone, or cloud services.
 
 The default local runtime directory is `.runtime/`. It is ignored by Git. Settings use these
 environment variables:
@@ -126,6 +127,48 @@ BONJOUR_NAME=DokoDetector
 BONJOUR_HOSTNAME=
 BONJOUR_ADDRESS=
 ```
+
+## Round recording analysis
+
+The round-recording PoC uses the Record view and one local backend process:
+
+1. Select a complete real-game collection profile. Set the dealer and first trick leader.
+2. Start and stop one round recording. The app gives the recording and all evidence packages the
+   same recording and session identity.
+3. The app uploads the complete recording bundle and its evidence packages. It submits analysis
+   only after every upload has a successful backend acknowledgement.
+4. The app stores the client-generated analysis ID beside the recording queue metadata. It can
+   retry a lost create response after relaunch without creating a second analysis.
+5. While Record is visible and the app is active, the app polls the analysis once per second. It
+   shows "Waiting for uploads", "Queued", "Analyzing evidence", "Reconstructing", "Complete", or
+   a safe failure message. A complete result shows a short reconstruction summary. It does not
+   show the full result JSON.
+
+The analysis API has two JSON endpoints:
+
+    POST /v1/round-analyses
+    GET  /v1/round-analyses/{analysis_id}
+
+The create request contains the recording ID, recording-derived round ID, UUID session ID, fixed
+four-seat setup, ordered evidence package UUIDs, and the three explicit Plan 0031 search limits.
+The create response is 202 and the status endpoint returns 200. The backend rejects an empty
+package list, duplicate or unknown packages, mixed sessions, mismatched recording lineage, and a
+recording bundle that is not stored.
+
+The local PoC analyzer is deterministic-local/v1. It consumes each accepted evidence package and
+emits a valid insufficient_evidence table observation. This proves the upload, worker,
+observation, and reconstruction boundaries. It is not a measured card-recognition capability.
+The analyzer can be replaced through the existing TableEvidenceAnalyzer boundary.
+
+The worker is process-local and does not resume interrupted analysis. On backend restart, each
+non-terminal analysis row becomes failed with "The analysis did not finish before the backend
+restarted." The app displays that terminal failure. Start a new recording to run a new analysis.
+The client does resume a pending upload or a lost create response after an app relaunch; this does
+not resume work that the backend already interrupted.
+
+Deterministic status documents for the UI and contract tests are in
+../fixtures/round-analysis/v1/statuses.json. They cover every progress state and all four
+successful reconstruction statuses: resolved, ambiguous, incomplete, and impossible.
 
 Set `BONJOUR_ENABLED=false` when local discovery is not required. Set `BONJOUR_HOSTNAME` only
 when the automatic macOS local host name is not correct. By default, the backend advertises the

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -21,6 +22,7 @@ PACKAGE_IDS = [
     UUID("00000000-0000-0000-0000-000000000034"),
     UUID("00000000-0000-0000-0000-000000000035"),
 ]
+STATUS_FIXTURE = Path(__file__).parents[2] / "fixtures" / "round-analysis" / "v1" / "statuses.json"
 
 
 def create_payload() -> dict[str, object]:
@@ -123,3 +125,23 @@ def test_create_request_bytes_are_utf8_json() -> None:
     request = RoundAnalysisCreateRequest.model_validate(create_payload())
 
     assert json.loads(canonical_analysis_request_bytes(request)) == request.model_dump(mode="json")
+
+
+def test_status_fixtures_cover_lifecycle_and_all_reconstruction_outcomes() -> None:
+    payloads = json.loads(STATUS_FIXTURE.read_text(encoding="utf-8"))
+    statuses = [RoundAnalysisStatus.model_validate(payload) for payload in payloads]
+
+    assert [status.state for status in statuses[:3]] == [
+        "queued",
+        "analyzing_evidence",
+        "reconstructing",
+    ]
+    completed = [status for status in statuses if status.state == "complete"]
+    assert {status.result.reconstruction_status for status in completed if status.result} == {
+        "resolved",
+        "ambiguous",
+        "incomplete",
+        "impossible",
+    }
+    failed = next(status for status in statuses if status.state == "failed")
+    assert failed.error == "The analysis did not finish before the backend restarted."

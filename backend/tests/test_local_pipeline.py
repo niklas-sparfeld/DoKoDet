@@ -407,10 +407,49 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
 
     recording_id = "recording-phase5-sim"
     session_id = "550e8400-e29b-41d4-a716-446655440010"
+    analysis_id = "550e8400-e29b-41d4-a716-446655440025"
     with httpx.Client(base_url=local_backend.base_url, timeout=5) as client:
         recording_response = client.get(f"/v1/repository-bundles/{recording_id}")
+        analysis_response = client.post(
+            "/v1/round-analyses",
+            json={
+                "schema_version": "round-analysis/v1",
+                "analysis_id": analysis_id,
+                "recording_id": recording_id,
+                "round_id": f"round-{recording_id}",
+                "session_id": session_id,
+                "round_setup": {
+                    "game_id": "game-phase5-sim",
+                    "round_id": f"round-{recording_id}",
+                    "ruleset": {"name": "doko-normal", "version": "v1"},
+                    "deck_variant": "doko-40-v1",
+                    "active_players": ["seat-1", "seat-2", "seat-3", "seat-4"],
+                    "dealer": "seat-1",
+                    "first_trick_leader": "seat-1",
+                },
+                "evidence_package_ids": [evidence_package_id],
+                "search": {
+                    "max_missing_plays": 1,
+                    "max_hypotheses": 256,
+                    "max_search_nodes": 250000,
+                },
+            },
+        )
     assert recording_response.status_code == 200
+    assert analysis_response.status_code == 202
     recording_metadata = recording_response.json()
+    analysis_status = analysis_response.json()
+    assert analysis_status["analysis_id"] == analysis_id
+    assert analysis_status["state"] == "queued"
+    deadline = time.monotonic() + 5
+    with httpx.Client(base_url=local_backend.base_url, timeout=5) as client:
+        while time.monotonic() < deadline:
+            analysis_status = client.get(f"/v1/round-analyses/{analysis_id}").json()
+            if analysis_status["state"] == "complete":
+                break
+            time.sleep(0.01)
+    assert analysis_status["state"] == "complete"
+    assert analysis_status["result"]["reconstruction_status"] == "incomplete"
     assert recording_metadata["session_id"] == session_id
     assert recording_metadata["source_sha256"] == simulation["recording_video_sha256"]
     assert (

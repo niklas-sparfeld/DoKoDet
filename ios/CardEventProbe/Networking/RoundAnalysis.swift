@@ -147,6 +147,30 @@ public struct RoundAnalysisResult: Codable, Equatable, Sendable {
         case resultArtifactSHA256 = "result_artifact_sha256"
     }
 
+    public init(
+        analysisID: UUID,
+        terminalStatus: String = "complete",
+        reconstructionStatus: RoundAnalysisReconstructionStatus,
+        hypotheses: [[String: RoundAnalysisJSONValue]],
+        focusedDecisions: [[String: RoundAnalysisJSONValue]],
+        diagnostics: [String: RoundAnalysisJSONValue],
+        inputArtifactID: String,
+        inputArtifactSHA256: String,
+        resultArtifactID: String,
+        resultArtifactSHA256: String
+    ) {
+        self.analysisID = analysisID
+        self.terminalStatus = terminalStatus
+        self.reconstructionStatus = reconstructionStatus
+        self.hypotheses = hypotheses
+        self.focusedDecisions = focusedDecisions
+        self.diagnostics = diagnostics
+        self.inputArtifactID = inputArtifactID
+        self.inputArtifactSHA256 = inputArtifactSHA256
+        self.resultArtifactID = resultArtifactID
+        self.resultArtifactSHA256 = resultArtifactSHA256
+    }
+
     public init(from decoder: Decoder) throws {
         try roundAnalysisRequireExactKeys(decoder, CodingKeys.self)
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -366,6 +390,55 @@ public enum RoundAnalysisSubmissionReadiness: Equatable, Sendable {
     case ready
 }
 
+/// A short, user-facing explanation of a completed reconstruction result.
+public struct RoundAnalysisResultSummary: Equatable, Sendable {
+    public let reconstructionStatus: RoundAnalysisReconstructionStatus
+    public let text: String
+
+    public init(result: RoundAnalysisResult) {
+        reconstructionStatus = result.reconstructionStatus
+        text = Self.makeText(for: result)
+    }
+
+    private static func makeText(for result: RoundAnalysisResult) -> String {
+        switch result.reconstructionStatus {
+        case .resolved:
+            var trickCount: Int?
+            if let hypothesis = result.hypotheses.first,
+               case let .object(gameplay)? = hypothesis["gameplay"],
+               case let .array(tricks)? = gameplay["tricks"] {
+                trickCount = tricks.count
+            }
+            if let trickCount {
+                return "Resolved hypothesis with \(trickCount) tricks"
+            }
+            return "Resolved hypothesis"
+        case .ambiguous:
+            let hypothesisCount = result.hypotheses.count
+            let decisionCount = result.focusedDecisions.count
+            return "Ambiguous: \(hypothesisCount) hypotheses, \(decisionCount) focused decisions"
+        case .incomplete:
+            if let count = arrayCount(in: result.diagnostics, forKey: "incomplete_observations") {
+                return "Incomplete: \(count) incomplete observation\(count == 1 ? "" : "s")"
+            }
+            return "Incomplete: inspect engine diagnostics"
+        case .impossible:
+            if let count = arrayCount(in: result.diagnostics, forKey: "rejected_branches") {
+                return "Impossible: \(count) rejected branch\(count == 1 ? "" : "es")"
+            }
+            return "Impossible: inspect engine diagnostics"
+        }
+    }
+
+    private static func arrayCount(
+        in values: [String: RoundAnalysisJSONValue],
+        forKey key: String
+    ) -> Int? {
+        guard case let .array(values)? = values[key] else { return nil }
+        return values.count
+    }
+}
+
 public extension RoundRecordingState {
     var roundAnalysisSubmissionReadiness: RoundAnalysisSubmissionReadiness {
         guard evidenceMembershipClosed,
@@ -563,8 +636,13 @@ public enum RoundAnalysisDisplayState: Equatable, Sendable {
     case queued
     case analyzingEvidence(completed: Int, total: Int)
     case reconstructing
-    case complete(RoundAnalysisReconstructionStatus)
+    case complete(RoundAnalysisResultSummary)
     case failed(String)
+
+    public var isFailure: Bool {
+        if case .failed = self { return true }
+        return false
+    }
 
     public var title: String {
         switch self {
@@ -584,8 +662,8 @@ public enum RoundAnalysisDisplayState: Equatable, Sendable {
             return nil
         case let .analyzingEvidence(completed, total):
             return "Analyzing evidence \(completed) of \(total)"
-        case let .complete(status):
-            return "Reconstruction: \(status.rawValue)"
+        case let .complete(summary):
+            return summary.text
         case let .failed(message):
             return message
         }

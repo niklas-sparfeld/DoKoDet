@@ -364,14 +364,31 @@ struct RecordView: View {
                     .font(.subheadline.weight(.medium))
                 Text(appState.roundAnalysisState.title)
                     .font(.subheadline)
-                if let detail = appState.roundAnalysisState.detail {
-                    Text(detail)
+                switch appState.roundAnalysisState {
+                case let .complete(summary):
+                    Text("Result: \(summary.text)")
                         .font(.caption)
-                        .foregroundStyle(
-                            appState.roundAnalysisState.title == "Failed" ? .red : .secondary
-                        )
+                        .foregroundStyle(.secondary)
+                case let .failed(message):
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                default:
+                    if let detail = appState.roundAnalysisState.detail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                appState.roundAnalysisState.isFailure
+                    ? Color.red.opacity(0.10)
+                    : Color.accentColor.opacity(0.08),
+                in: RoundedRectangle(cornerRadius: 10)
+            )
             .accessibilityElement(children: .combine)
         }
     }

@@ -1486,9 +1486,10 @@ final class AppState: ObservableObject {
         case .reconstructing:
             return .reconstructing
         case .complete:
-            return .complete(
-                remoteStatus.result?.reconstructionStatus ?? .incomplete
-            )
+            guard let result = remoteStatus.result else {
+                return .failed("The completed round analysis status is missing.")
+            }
+            return .complete(RoundAnalysisResultSummary(result: result))
         case .failed:
             return .failed(remoteStatus.error ?? "The round analysis failed.")
         }

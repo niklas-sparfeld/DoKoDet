@@ -4,8 +4,11 @@
 
 - **Summary:** Let an operator record one round in the iOS app, then show the backend analysis
   progress and reconstruction result.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Completed Plan 0031.
+- **Closure reason:** Complete
+- **Closure note:** The local iOS simulator client and backend complete the round-recording analysis
+  flow. Deterministic result fixtures and the PoC restart limitation are documented.
 - **Boundary:** This is a local, foreground-polling proof of concept. It reuses the current live
   preview, evidence-package, and repository-bundle paths. One recording owns both the complete
   video and its evidence packages. The app does not create evidence packages outside a recording.
@@ -18,7 +21,7 @@
 - **M2:** Complete — add the backend worker, lifecycle handling, and APIs.
 - **M3:** Complete — make one iOS recording own video, evidence, lineage, and package tracking.
 - **M4:** Complete — add iOS upload gating, durable analysis submission, and polling.
-- **M5:** Pending — add the result UI, end-to-end fixtures, and local documentation.
+- **M5:** Complete — add the result UI, end-to-end fixtures, and local documentation.
 
 ## 1. Outcome
 
@@ -258,6 +261,22 @@ support multiple simultaneous round recordings or a history screen in this epic.
 - Add the concise result and failure UI, including the empty-evidence outcome.
 - Extend deterministic local fixtures and document the flow, endpoints, polling behavior, PoC
   analyzer limitation, and backend restart limitation.
+
+#### M5 implementation evidence — 2026-08-30
+
+- Added concise Record view result rendering. Resolved results show the resolved hypothesis and
+  trick count when present, ambiguous results show hypothesis and focused-decision counts, and
+  incomplete or impossible results show a small engine-diagnostics summary. The empty-evidence
+  message remains the explicit terminal failure "No evidence packages captured".
+- Added deterministic status fixtures for every analysis lifecycle state and all four successful
+  reconstruction statuses under fixtures/round-analysis/v1.
+- Extended the saved-video local HTTP pipeline test to submit a linked round analysis and verify
+  the deterministic terminal result after the recording and evidence uploads are acknowledged.
+- Documented the Record view flow, API endpoints, one-second foreground polling, deterministic
+  analyzer boundary, and backend restart failure behavior in backend/README.md.
+- Verification: focused Swift round-analysis tests, focused backend round-analysis tests, the
+  saved-video local HTTP pipeline test, the iOS Simulator build, JSON validation, and whitespace
+  checks pass. The full Swift package suite retains the four baseline failures recorded under M3.
 
 ## 6. Tests and acceptance criteria
 
