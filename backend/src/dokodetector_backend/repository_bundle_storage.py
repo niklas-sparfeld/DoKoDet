@@ -47,7 +47,9 @@ class RepositoryBundleStorage:
         if not bundle_path.is_dir():
             raise FileNotFoundError(bundle_path)
         files: dict[str, StoredRepositoryFile] = {}
-        for path in sorted(path for path in bundle_path.rglob("*") if path.is_file()):
+        for path in sorted(
+            path for path in bundle_path.rglob("*") if path.is_file() and path.name != ".DS_Store"
+        ):
             relative_path = path.relative_to(bundle_path).as_posix()
             files[relative_path] = _hash_file(path, relative_path)
         return files

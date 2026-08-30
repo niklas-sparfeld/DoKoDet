@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -11,11 +12,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from dokodetector_backend.intake_contract import parse_repository_bundle, validate_repository_bundle
+from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.models import RepositoryBundleIndex
 from dokodetector_backend.repository_bundle_storage import (
     RepositoryBundleStorage,
     bundle_fingerprint,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,10 +144,22 @@ class RepositoryBundleRepository:
                         received_at=received_at,
                     )
                 )
-            except (OSError, KeyError, ValueError) as error:
-                raise RepositoryBundleRebuildError(
-                    f"Canonical repository bundle {bundle_path.name} is invalid: {error}"
-                ) from error
+            except RepositoryBundleRebuildError as error:
+                log_event(
+                    LOGGER,
+                    logging.WARNING,
+                    "repository_bundle_rebuild_skipped",
+                    recording_id=bundle_path.name,
+                    reason=str(error),
+                )
+            except (OSError, KeyError, TypeError, ValueError) as error:
+                log_event(
+                    LOGGER,
+                    logging.WARNING,
+                    "repository_bundle_rebuild_skipped",
+                    recording_id=bundle_path.name,
+                    reason=str(error),
+                )
 
         with self._session_factory.begin() as session:
             session.query(RepositoryBundleIndex).delete()
