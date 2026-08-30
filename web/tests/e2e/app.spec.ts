@@ -2,6 +2,12 @@ import { expect, test } from "@playwright/test";
 
 import {
   ANALYSIS_ID,
+  ambiguousStatus,
+  ambiguousTimeline,
+  impossibleStatus,
+  impossibleTimeline,
+  incompleteStatus,
+  incompleteTimeline,
   resolvedStatus,
   resolvedTimeline,
 } from "../../src/test/roundAnalysisFixture";
@@ -17,16 +23,26 @@ test("loads the frontend foundation shell", async ({ page }) => {
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/v1/round-analyses/**", async (route) => {
+    const fixture = new URL(page.url()).searchParams.get("fixture");
+    const variants = {
+      ambiguous: { status: ambiguousStatus, timeline: ambiguousTimeline },
+      incomplete: { status: incompleteStatus, timeline: incompleteTimeline },
+      impossible: { status: impossibleStatus, timeline: impossibleTimeline },
+    } as const;
+    const selected =
+      fixture === null ? null : variants[fixture as keyof typeof variants];
+    const status = selected?.status ?? resolvedStatus;
+    const timeline = selected?.timeline ?? resolvedTimeline;
     if (route.request().url().endsWith("/timeline")) {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify(resolvedTimeline),
+        body: JSON.stringify(timeline),
       });
       return;
     }
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify(resolvedStatus),
+      body: JSON.stringify(status),
     });
   });
 });
@@ -87,4 +103,41 @@ test("restores deep links and moves the selected row with keyboard navigation", 
   ).toBeVisible();
 
   await expect(page.getByText("Clubs Nine").first()).toBeVisible();
+});
+
+test("explains failure states and stacks the timeline at the narrow test width", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/round-analyses/${ANALYSIS_ID}?fixture=incomplete`);
+
+  await expect(page.getByText("Incomplete input")).toBeVisible();
+  await expect(page.getByText("No retained hypotheses.")).toBeVisible();
+  await expect(page.getByText("Missing Frame:")).toBeVisible();
+
+  const rowDisplay = await page
+    .getByRole("option", { name: /observation-001/ })
+    .evaluate((element) => getComputedStyle(element).display);
+  expect(rowDisplay).toBe("block");
+
+  const horizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(horizontalOverflow).toBeLessThanOrEqual(0);
+  await expect(page.getByText("Raw reconstruction-result JSON")).toBeVisible();
+});
+
+test("shows retained alternatives and search truncation as text cues", async ({
+  page,
+}) => {
+  await page.goto(`/round-analyses/${ANALYSIS_ID}?fixture=ambiguous`);
+
+  await expect(
+    page.getByText(/This result is ambiguous\. Each retained hypothesis/),
+  ).toBeVisible();
+  await expect(page.getByText("Search Truncated:")).toBeVisible();
+  await expect(page.getByText("Player 01 · Clubs Nine")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Jump to observation-001" }),
+  ).toBeVisible();
 });

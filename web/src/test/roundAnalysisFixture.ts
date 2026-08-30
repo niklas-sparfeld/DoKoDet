@@ -88,7 +88,30 @@ export const resolvedTimeline = {
     max_hypotheses: 8,
     max_search_nodes: 1000,
   },
-  diagnostics: { truncated: false },
+  diagnostics: {
+    ruleset: "doko-normal/v1",
+    deck_variant: "doko-40-v1",
+    capabilities: ["identity_candidates"],
+    calibration_states: ["fixture"],
+    observations_seen: 2,
+    card_proposals_seen: 2,
+    search_nodes: 4,
+    complete_branches: 2,
+    merged_branches: 0,
+    rejected_branches: [],
+    ignored_observations: [],
+    incomplete_observations: [],
+    search_limits: {
+      max_missing_plays: 40,
+      effective_missing_play_budget: 40,
+      missing_play_slots: -1,
+      max_hypotheses: 8,
+      max_search_nodes: 1000,
+    },
+    truncated: false,
+    evidence_families: ["identity_candidates"],
+    ablated_evidence: [],
+  },
   artifact_hashes: {
     input_artifact_id: `round-analyses/${ANALYSIS_ID}/input.json`,
     input_sha256: "a".repeat(64),
@@ -183,9 +206,96 @@ export const resolvedTimeline = {
       inferred_plays: [],
     },
   ],
-  focused_decisions: [],
+  focused_decisions: [
+    {
+      kind: "card_play",
+      play_index: 1,
+      player: "player-01",
+      alternatives: ["player-01:CLUBS_NINE", "player-01:DIAMONDS_JACK"],
+      source_observation_ids: ["observation-001"],
+      description:
+        "card play 1 has retained legal alternatives: player-01:CLUBS_NINE, player-01:DIAMONDS_JACK",
+    },
+  ],
   inferred_plays: [],
   warnings: [],
+} satisfies RoundAnalysisTimeline;
+
+export const ambiguousTimeline = {
+  ...resolvedTimeline,
+  reconstruction_status: "ambiguous" as const,
+  diagnostics: {
+    ...resolvedTimeline.diagnostics,
+    rejected_branches: [
+      "search result truncated: maximum retained hypotheses reached (x2)",
+    ],
+    truncated: true,
+  },
+  warnings: [
+    {
+      code: "search_truncated",
+      message:
+        "The search reached a configured limit. Retained hypotheses may not include every legal sequence.",
+    },
+  ],
+} satisfies RoundAnalysisTimeline;
+
+const incompleteObservation = (() => {
+  return {
+    ...resolvedTimeline.rows[0],
+    table_observation: {
+      ...resolvedTimeline.rows[0].table_observation,
+      status: "insufficient_evidence" as const,
+      cards: undefined,
+      diagnostics: { reason: "The frame did not contain enough evidence." },
+    },
+  };
+})();
+
+export const incompleteTimeline = {
+  ...resolvedTimeline,
+  reconstruction_status: "incomplete" as const,
+  rows: [incompleteObservation, resolvedTimeline.rows[1]],
+  hypotheses: [],
+  focused_decisions: [],
+  diagnostics: {
+    ...resolvedTimeline.diagnostics,
+    card_proposals_seen: 1,
+    incomplete_observations: ["observation-001"],
+    rejected_branches: [
+      "incomplete result: fewer card proposals than the complete card-play count (1 < 2) (x1)",
+    ],
+  },
+  warnings: [
+    {
+      code: "insufficient_evidence",
+      message: "One or more table observations do not contain enough evidence.",
+    },
+    {
+      code: "missing_frame",
+      message: "One or more evidence packages have no usable central frame.",
+    },
+  ],
+} satisfies RoundAnalysisTimeline;
+
+export const impossibleTimeline = {
+  ...resolvedTimeline,
+  reconstruction_status: "impossible" as const,
+  hypotheses: [],
+  focused_decisions: [],
+  diagnostics: {
+    ...resolvedTimeline.diagnostics,
+    rejected_branches: [
+      "impossible result: no legal complete hypothesis survived replay (x3)",
+    ],
+  },
+  warnings: [
+    {
+      code: "impossible_input",
+      message:
+        "No legal complete hypothesis survived replay under the selected ruleset.",
+    },
+  ],
 } satisfies RoundAnalysisTimeline;
 
 export const resolvedStatus = {
@@ -213,3 +323,22 @@ export const resolvedStatus = {
   started_at: "2026-08-30T12:00:01Z",
   completed_at: "2026-08-30T12:00:02Z",
 } satisfies RoundAnalysisStatus;
+
+function statusForTimeline(
+  timeline: RoundAnalysisTimeline,
+): RoundAnalysisStatus {
+  return {
+    ...resolvedStatus,
+    result: {
+      ...resolvedStatus.result,
+      reconstruction_status: timeline.reconstruction_status,
+      diagnostics: timeline.diagnostics,
+      focused_decisions: timeline.focused_decisions,
+      hypotheses: timeline.hypotheses,
+    },
+  };
+}
+
+export const ambiguousStatus = statusForTimeline(ambiguousTimeline);
+export const incompleteStatus = statusForTimeline(incompleteTimeline);
+export const impossibleStatus = statusForTimeline(impossibleTimeline);

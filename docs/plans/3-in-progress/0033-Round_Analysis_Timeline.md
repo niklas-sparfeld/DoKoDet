@@ -22,7 +22,7 @@
 - **M2:** Complete — establish the frontend toolchain, generated API types, and typed client.
 - **M3:** Complete — package and serve a production frontend with one API smoke view.
 - **M4:** Complete — render the first synchronized three-column timeline for a resolved fixture.
-- **M5:** Pending — explain alternatives, incomplete input, impossible input, and diagnostics.
+- **M5:** Complete — explain alternatives, incomplete input, impossible input, and diagnostics.
 - **M6:** Pending — derive and recompute strict counterfactual inputs without source mutation.
 - **M7:** Pending — persist and serve immutable counterfactual results.
 - **M8:** Pending — compare the baseline and counterfactual results with visual change markers.
@@ -389,6 +389,22 @@ The operator can return to the exact baseline without deleting the counterfactua
 - Cover ambiguous, incomplete, impossible, missing-frame, insufficient-evidence, and truncated
   fixtures.
 - Complete narrow-width layout, accessible labels, non-color status cues, and local documentation.
+
+**Status: Complete (2026-08-30).**
+
+- Added focused-decision cards with retained alternatives, the selected play, and source-row jump
+  links. Added a retained-hypothesis comparison table with selected, ignored, and inferred action
+  counts.
+- Added state-aware explanations for ambiguous, incomplete, and impossible results. Added stable
+  empty states for no hypotheses and no focused decisions. Warning codes and status labels keep
+  missing frames, insufficient evidence, and search truncation visible without relying on color.
+- Added expandable score contributions, engine diagnostics, selected table-observation JSON, and
+  reconstruction-result JSON. Added local frontend instructions in `web/README.md`.
+- Added typed ambiguous, incomplete, and impossible fixtures and component/browser coverage for
+  terminal explanations, warning cues, source links, disclosures, keyboard navigation, and the
+  stacked `390 × 844` layout with no page overflow.
+- Verification: `npm run check`, `npm run test:e2e` (5 browser tests), and `git diff --check`
+  pass.
 
 ### M6 — Counterfactual derivation
 

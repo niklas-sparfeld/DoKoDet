@@ -54,7 +54,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0033 — Round analysis timeline and counterfactual explorer](3-in-progress/0033-Round_Analysis_Timeline.md) | Completed 0031 and 0032 | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M4 complete; M5–M8 pending. |
+| [0033 — Round analysis timeline and counterfactual explorer](3-in-progress/0033-Round_Analysis_Timeline.md) | Completed 0031 and 0032 | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M5 complete; M6–M8 pending. |
 | [0035 — Backend terminal logging](3-in-progress/0035-Backend_Terminal_Logging.md) | None | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0 complete; M1–M3 pending. |
 
 ### Blocked

@@ -10,6 +10,7 @@ import styles from "./App.module.css";
 
 type TimelineAction =
   RoundAnalysisTimeline["hypotheses"][number]["actions"][number];
+type TimelineHypothesis = RoundAnalysisTimeline["hypotheses"][number];
 type TimelineEvidenceRow = RoundAnalysisTimeline["rows"][number];
 type TimelineInferredPlay = RoundAnalysisTimeline["inferred_plays"][number];
 
@@ -234,12 +235,24 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
           <ul className={styles.warningList} aria-label="Analysis warnings">
             {timeline.warnings.map((warning) => (
               <li key={warning.code}>
-                <span aria-hidden="true">!</span> {warning.message}
+                <span aria-hidden="true">!</span>{" "}
+                <span className={styles.warningCode}>
+                  {formatIdentifier(warning.code)}:
+                </span>{" "}
+                {warning.message}
               </li>
             ))}
           </ul>
         ) : null}
       </section>
+
+      <AnalysisExplanation
+        timeline={timeline}
+        selectedHypothesis={selectedHypothesis}
+        selectedRow={selectedRow}
+        onSelectRow={selectRow}
+        onSelectHypothesis={selectHypothesis}
+      />
 
       <div className={styles.rowControls} aria-label="Row navigation">
         <button
@@ -309,6 +322,351 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
           ? "No row selected"
           : `Selected ${selectedRow.id}`}
       </span>
+    </div>
+  );
+}
+
+function AnalysisExplanation({
+  timeline,
+  selectedHypothesis,
+  selectedRow,
+  onSelectRow,
+  onSelectHypothesis,
+}: {
+  timeline: RoundAnalysisTimeline;
+  selectedHypothesis: RoundAnalysisTimeline["hypotheses"][number] | undefined;
+  selectedRow: DisplayRow | undefined;
+  onSelectRow: (rowId: string) => void;
+  onSelectHypothesis: (rank: number) => void;
+}) {
+  return (
+    <section
+      className={styles.explanationArea}
+      aria-label="Analysis explanations"
+    >
+      <section className={styles.explanationPanel}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Interpretation guide</p>
+            <h2>What the analysis says</h2>
+          </div>
+          <StatusBadge value={timeline.reconstruction_status} />
+        </div>
+        <p className={styles.explanationText}>
+          {statusExplanation(timeline.reconstruction_status)}
+        </p>
+        {timeline.reconstruction_status === "incomplete" ||
+        timeline.reconstruction_status === "impossible" ? (
+          <FailureDetails timeline={timeline} />
+        ) : null}
+        <FocusedDecisionList
+          decisions={timeline.focused_decisions}
+          hypothesis={selectedHypothesis}
+          onSelectRow={onSelectRow}
+        />
+      </section>
+
+      <section className={styles.explanationPanel}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Retained possibilities</p>
+            <h2>Hypothesis comparison</h2>
+          </div>
+          <span className={styles.countLabel}>
+            {timeline.hypotheses.length} retained
+          </span>
+        </div>
+        <HypothesisComparison
+          hypotheses={timeline.hypotheses}
+          selectedRank={selectedHypothesis?.rank ?? null}
+          focusedDecisionCount={timeline.focused_decisions.length}
+          onSelect={onSelectHypothesis}
+        />
+        {selectedHypothesis === undefined ? (
+          <p className={styles.emptyState}>
+            No retained hypotheses are available for comparison.
+          </p>
+        ) : (
+          <ScoreDetails hypothesis={selectedHypothesis} />
+        )}
+      </section>
+
+      <section className={styles.explanationPanel}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Runtime facts</p>
+            <h2>Diagnostics and source data</h2>
+          </div>
+        </div>
+        <DiagnosticsDetails diagnostics={timeline.diagnostics} />
+        <RawDataDetails timeline={timeline} selectedRow={selectedRow} />
+      </section>
+    </section>
+  );
+}
+
+function FocusedDecisionList({
+  decisions,
+  hypothesis,
+  onSelectRow,
+}: {
+  decisions: RoundAnalysisTimeline["focused_decisions"];
+  hypothesis: RoundAnalysisTimeline["hypotheses"][number] | undefined;
+  onSelectRow: (rowId: string) => void;
+}) {
+  if (decisions.length === 0) {
+    return (
+      <div className={styles.subsection}>
+        <h3>Focused decisions</h3>
+        <p className={styles.emptyState}>
+          No focused decisions were retained for this result.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.subsection}>
+      <h3>Focused decisions</h3>
+      <ol className={styles.decisionList}>
+        {decisions.map((decision, index) => {
+          const playIndex = recordNumber(decision, "play_index");
+          const actualPlay =
+            playIndex === null ? null : gameplayPlayAt(hypothesis, playIndex);
+          const sourceObservationIds = recordStringArray(
+            decision,
+            "source_observation_ids",
+          );
+          const alternatives = recordStringArray(decision, "alternatives");
+          return (
+            <li
+              className={styles.decision}
+              key={`${playIndex ?? index}-${index}`}
+            >
+              <strong>
+                {playIndex === null
+                  ? "Card-play decision"
+                  : `Play ${playIndex}`}
+                {recordString(decision, "player") === null
+                  ? ""
+                  : ` · ${formatIdentifier(recordString(decision, "player") ?? "")}`}
+              </strong>
+              <p>
+                {recordString(decision, "description") ??
+                  "Retained legal alternatives."}
+              </p>
+              <div
+                className={styles.alternativeList}
+                aria-label="Legal alternatives"
+              >
+                {alternatives.map((alternative) => (
+                  <span className={styles.alternative} key={alternative}>
+                    {formatAlternative(alternative)}
+                  </span>
+                ))}
+              </div>
+              <p className={styles.decisionOutcome}>
+                Selected in this hypothesis:{" "}
+                <strong>
+                  {actualPlay === null
+                    ? "No play available"
+                    : `${formatCardIdentity(actualPlay.card)} · ${formatIdentifier(actualPlay.player)}`}
+                </strong>
+              </p>
+              <div className={styles.sourceLinks}>
+                <span className={styles.mutedLabel}>Source rows</span>
+                {sourceObservationIds.length === 0 ? (
+                  <span className={styles.emptyInline}>None</span>
+                ) : (
+                  sourceObservationIds.map((observationId) => (
+                    <button
+                      className={styles.sourceLink}
+                      key={observationId}
+                      type="button"
+                      onClick={() => onSelectRow(observationId)}
+                    >
+                      Jump to {observationId}
+                    </button>
+                  ))
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function HypothesisComparison({
+  hypotheses,
+  selectedRank,
+  focusedDecisionCount,
+  onSelect,
+}: {
+  hypotheses: RoundAnalysisTimeline["hypotheses"];
+  selectedRank: number | null;
+  focusedDecisionCount: number;
+  onSelect: (rank: number) => void;
+}) {
+  if (hypotheses.length === 0) {
+    return <p className={styles.emptyState}>No retained hypotheses.</p>;
+  }
+
+  return (
+    <div className={styles.tableScroller}>
+      <table className={styles.comparisonTable}>
+        <caption className={styles.visuallyHidden}>
+          Retained reconstruction hypotheses
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Score</th>
+            <th scope="col">Actions</th>
+            <th scope="col">Focus</th>
+          </tr>
+        </thead>
+        <tbody>
+          {hypotheses.map((hypothesis) => {
+            const selected = hypothesis.rank === selectedRank;
+            const counts = actionCounts(hypothesis);
+            return (
+              <tr key={hypothesis.rank} data-selected={selected}>
+                <th scope="row">
+                  <button
+                    className={styles.hypothesisButton}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => onSelect(hypothesis.rank)}
+                  >
+                    Rank {hypothesis.rank}
+                    {selected ? " · Selected" : ""}
+                  </button>
+                </th>
+                <td>{formatScore(hypothesis.total_score)}</td>
+                <td>{`${counts.selected} selected · ${counts.ignored} ignored · ${counts.inferred} inferred`}</td>
+                <td>
+                  {focusedDecisionCount > 0
+                    ? `${focusedDecisionCount} decision${focusedDecisionCount === 1 ? "" : "s"}`
+                    : "None"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ScoreDetails({
+  hypothesis,
+}: {
+  hypothesis: RoundAnalysisTimeline["hypotheses"][number];
+}) {
+  return (
+    <details className={styles.disclosure}>
+      <summary>Score details for hypothesis rank {hypothesis.rank}</summary>
+      <dl className={styles.breakdownList}>
+        {Object.entries(hypothesis.score_breakdown).map(([key, value]) => (
+          <div key={key}>
+            <dt>{formatIdentifier(key)}</dt>
+            <dd>{formatDiagnosticValue(value)}</dd>
+          </div>
+        ))}
+      </dl>
+      <h3>Action contributions</h3>
+      <ol className={styles.contributionList}>
+        {hypothesis.actions.map((action, index) => (
+          <li key={`${actionKey(action)}-${index}`}>
+            <span>{actionDescription(action)}</span>
+            <strong>
+              {formatScore(actionNumber(action, "score_contribution") ?? 0)}
+            </strong>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
+function DiagnosticsDetails({
+  diagnostics,
+}: {
+  diagnostics: Record<string, unknown>;
+}) {
+  return (
+    <details className={styles.disclosure}>
+      <summary>Engine diagnostics</summary>
+      <dl className={styles.breakdownList}>
+        {Object.entries(diagnostics).map(([key, value]) => (
+          <div key={key}>
+            <dt>{formatIdentifier(key)}</dt>
+            <dd>{formatDiagnosticValue(value)}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
+function RawDataDetails({
+  timeline,
+  selectedRow,
+}: {
+  timeline: RoundAnalysisTimeline;
+  selectedRow: DisplayRow | undefined;
+}) {
+  const tableObservation =
+    selectedRow?.kind === "evidence" ? selectedRow.row.table_observation : null;
+  return (
+    <div className={styles.rawDataList}>
+      <details className={styles.disclosure}>
+        <summary>Raw table-observation JSON</summary>
+        {tableObservation === null ? (
+          <p className={styles.emptyState}>
+            Select an evidence row to inspect its observation.
+          </p>
+        ) : (
+          <pre className={styles.rawJson}>{formatJson(tableObservation)}</pre>
+        )}
+      </details>
+      <details className={styles.disclosure}>
+        <summary>Raw reconstruction-result JSON</summary>
+        <pre className={styles.rawJson}>
+          {formatJson(reconstructionResultSnapshot(timeline))}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
+function FailureDetails({ timeline }: { timeline: RoundAnalysisTimeline }) {
+  const diagnostics = timeline.diagnostics;
+  const incompleteObservations = recordStringArray(
+    diagnostics,
+    "incomplete_observations",
+  );
+  const rejectedBranches = recordStringArray(diagnostics, "rejected_branches");
+  return (
+    <div className={styles.failureDetails}>
+      <strong>
+        {timeline.reconstruction_status === "incomplete"
+          ? "Incomplete input"
+          : "Impossible input"}
+      </strong>
+      <p>
+        {timeline.reconstruction_status === "incomplete"
+          ? "The engine did not receive enough card proposals to build a complete legal sequence."
+          : "No legal complete hypothesis survived replay under the selected ruleset."}
+      </p>
+      {incompleteObservations.length > 0 ? (
+        <p>Incomplete observations: {incompleteObservations.join(", ")}.</p>
+      ) : null}
+      {rejectedBranches.length > 0 ? (
+        <p>Rejected branches: {rejectedBranches.join("; ")}.</p>
+      ) : null}
     </div>
   );
 }
@@ -529,6 +887,141 @@ function Stat({ label, value }: { label: string; value: string }) {
       <dd>{value}</dd>
     </div>
   );
+}
+
+function statusExplanation(
+  status: RoundAnalysisTimeline["reconstruction_status"],
+): string {
+  switch (status) {
+    case "ambiguous":
+      return "This result is ambiguous. Each retained hypothesis is one possible legal sequence; none is treated as truth.";
+    case "incomplete":
+      return "This result is incomplete. The available evidence does not provide enough card proposals for a complete legal sequence.";
+    case "impossible":
+      return "This result is impossible under the selected ruleset. No legal complete hypothesis survived replay.";
+    default:
+      return "This result contains a retained legal sequence. A hypothesis is an interpretation of the evidence, not ground truth.";
+  }
+}
+
+function actionCounts(hypothesis: TimelineHypothesis): {
+  selected: number;
+  ignored: number;
+  inferred: number;
+} {
+  type ActionCounts = { selected: number; ignored: number; inferred: number };
+  return hypothesis.actions.reduce<ActionCounts>(
+    (counts, action) => {
+      const kind = actionString(action, "kind");
+      if (kind === "selected") {
+        counts.selected += 1;
+      } else if (kind === "ignored") {
+        counts.ignored += 1;
+      } else if (kind === "inferred") {
+        counts.inferred += 1;
+      }
+      return counts;
+    },
+    { selected: 0, ignored: 0, inferred: 0 },
+  );
+}
+
+function actionDescription(action: TimelineAction): string {
+  const kind = actionString(action, "kind");
+  const playIndex = actionNumber(action, "play_index");
+  const card = actionString(action, "card");
+  const prefix = playIndex === null ? "Action" : `Play ${playIndex}`;
+  if (kind === "ignored") {
+    return `${prefix}: observed card ignored`;
+  }
+  if (kind === "inferred") {
+    return `${prefix}: engine-inferred ${card === null ? "card play" : formatCardIdentity(card)}`;
+  }
+  return `${prefix}: ${card === null ? "selected card" : formatCardIdentity(card)}`;
+}
+
+function gameplayPlayAt(
+  hypothesis: RoundAnalysisTimeline["hypotheses"][number] | undefined,
+  playIndex: number,
+): { player: string; card: string } | null {
+  const plays = hypothesis?.gameplay["plays"];
+  if (!Array.isArray(plays)) {
+    return null;
+  }
+  const play = plays[playIndex - 1];
+  if (!isRecord(play)) {
+    return null;
+  }
+  const player = recordString(play, "player");
+  const card = recordString(play, "card");
+  return player === null || card === null ? null : { player, card };
+}
+
+function formatAlternative(value: string): string {
+  const separator = value.indexOf(":");
+  return separator < 0
+    ? formatIdentifier(value)
+    : `${formatIdentifier(value.slice(0, separator))} · ${formatCardIdentity(value.slice(separator + 1))}`;
+}
+
+function recordString(
+  value: Record<string, unknown>,
+  key: string,
+): string | null {
+  const item = value[key];
+  return typeof item === "string" ? item : null;
+}
+
+function recordNumber(
+  value: Record<string, unknown>,
+  key: string,
+): number | null {
+  const item = value[key];
+  return typeof item === "number" ? item : null;
+}
+
+function recordStringArray(
+  value: Record<string, unknown>,
+  key: string,
+): string[] {
+  const item = value[key];
+  return Array.isArray(item) && item.every((entry) => typeof entry === "string")
+    ? item
+    : [];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function formatDiagnosticValue(value: unknown): string {
+  if (value === null) {
+    return "None";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return formatJson(value).replaceAll("\n", " ");
+}
+
+function formatJson(value: unknown): string {
+  return JSON.stringify(value, null, 2) ?? "null";
+}
+
+function reconstructionResultSnapshot(
+  timeline: RoundAnalysisTimeline,
+): Record<string, unknown> {
+  return {
+    schema_version: "round-reconstruction-result/v2",
+    status: timeline.reconstruction_status,
+    search: timeline.search,
+    hypotheses: timeline.hypotheses,
+    focused_decisions: timeline.focused_decisions,
+    diagnostics: timeline.diagnostics,
+  };
 }
 
 function StatusBadge({ value }: { value: string }) {
