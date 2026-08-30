@@ -82,6 +82,20 @@ test("renders a resolved analysis in synchronized desktop columns", async ({
       .getByRole("option", { name: /observation-001/ })
       .getByRole("group", { name: "Counterfactual" }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Open evidence frame for event 1" })
+    .click();
+  const frameDialog = page.getByRole("dialog", { name: /Event 1/ });
+  await expect(frameDialog).toBeVisible();
+  await expect(
+    frameDialog.getByRole("img", {
+      name: "Enlarged evidence frame for event 1",
+    }),
+  ).toHaveCount(1);
+  await frameDialog
+    .getByRole("button", { name: "Close enlarged evidence frame" })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(2);
   await expect(page.getByText("No central frame available")).toBeVisible();
 

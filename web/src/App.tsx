@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   ApiError,
@@ -17,6 +24,7 @@ type TimelineEvidenceRow = RoundAnalysisTimeline["rows"][number];
 type TimelineInferredPlay = RoundAnalysisTimeline["inferred_plays"][number];
 type GameplayPlay = { player: string; card: string };
 type TimelineObservation = TimelineEvidenceRow["table_observation"];
+type TimelineFrame = NonNullable<TimelineEvidenceRow["central_frame"]>;
 type TimelineCard = NonNullable<TimelineObservation["cards"]>[number];
 type TimelineCandidate = TimelineCard["identity_candidates"][number];
 type CounterfactualObservedCard = NonNullable<
@@ -25,6 +33,11 @@ type CounterfactualObservedCard = NonNullable<
 type CounterfactualOverride = NonNullable<
   RoundCounterfactualCreateRequest["candidate_probability_overrides"]
 >[number];
+type ExpandedFrame = {
+  frame: TimelineFrame;
+  eventSequence: number;
+  observationId: string;
+};
 
 type CounterfactualSnapshot = {
   status: "resolved" | "ambiguous" | "incomplete" | "impossible";
@@ -171,6 +184,9 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
   const [selectedHypothesisRank, setSelectedHypothesisRank] = useState(() =>
     readInitialHypothesisRank(hypothesisRanks),
   );
+  const [expandedFrame, setExpandedFrame] = useState<ExpandedFrame | null>(
+    null,
+  );
   const selectedHypothesis =
     timeline.hypotheses.find(
       (hypothesis) => hypothesis.rank === selectedHypothesisRank,
@@ -201,6 +217,10 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
       selectRow(nextRow.id);
     }
   }
+
+  const closeExpandedFrame = useCallback(() => {
+    setExpandedFrame(null);
+  }, []);
 
   return (
     <div className={styles.analysisPage}>
@@ -329,12 +349,16 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
                   selected={row.id === selectedRow?.id}
                   hypothesis={selectedHypothesis}
                   counterfactual={counterfactual}
+                  onOpenFrame={setExpandedFrame}
                   onSelect={() => selectRow(row.id)}
                   onKeyDown={(event) => {
                     if (event.target !== event.currentTarget) {
                       return;
                     }
-                    if (event.key === "ArrowDown") {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectRow(row.id);
+                    } else if (event.key === "ArrowDown") {
                       event.preventDefault();
                       moveRow(index + 1);
                     } else if (event.key === "ArrowUp") {
@@ -375,6 +399,10 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
           </>
         )}
       </CounterfactualWorkbench>
+      <EvidenceFrameLightbox
+        frame={expandedFrame}
+        onClose={closeExpandedFrame}
+      />
     </div>
   );
 }
@@ -1484,6 +1512,7 @@ function TimelineRowView({
   selected,
   hypothesis,
   counterfactual,
+  onOpenFrame,
   onSelect,
   onKeyDown,
 }: {
@@ -1492,6 +1521,7 @@ function TimelineRowView({
   selected: boolean;
   hypothesis: RoundAnalysisTimeline["hypotheses"][number] | undefined;
   counterfactual: CounterfactualController;
+  onOpenFrame: (frame: ExpandedFrame) => void;
   onSelect: () => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }) {
@@ -1507,7 +1537,7 @@ function TimelineRowView({
         onKeyDown={onKeyDown}
       >
         {row.kind === "evidence" ? (
-          <EvidenceCell row={row.row} />
+          <EvidenceCell row={row.row} onOpenFrame={onOpenFrame} />
         ) : (
           <InferenceEvidenceCell play={row.play} />
         )}
@@ -1533,21 +1563,42 @@ function TimelineRowView({
   );
 }
 
-function EvidenceCell({ row }: { row: TimelineEvidenceRow }) {
+function EvidenceCell({
+  row,
+  onOpenFrame,
+}: {
+  row: TimelineEvidenceRow;
+  onOpenFrame: (frame: ExpandedFrame) => void;
+}) {
+  const frame = row.central_frame;
+
   return (
     <div className={styles.cell}>
       <div className={styles.cellEyebrow}>
         Event {row.event_sequence} · {formatMilliseconds(row.event_time_ms)}
       </div>
-      {row.central_frame === null ? (
+      {frame === null ? (
         <div className={styles.missingFrame}>No central frame available</div>
       ) : (
-        <img
-          className={styles.frame}
-          src={row.central_frame.url}
-          alt={`Evidence frame for event ${row.event_sequence}`}
-          loading="lazy"
-        />
+        <button
+          type="button"
+          className={styles.frameButton}
+          aria-label={`Open evidence frame for event ${row.event_sequence}`}
+          onClick={() =>
+            onOpenFrame({
+              frame,
+              eventSequence: row.event_sequence,
+              observationId: row.observation_id,
+            })
+          }
+        >
+          <img
+            className={styles.frame}
+            src={frame.url}
+            alt={`Evidence frame for event ${row.event_sequence}`}
+            loading="lazy"
+          />
+        </button>
       )}
       <dl className={styles.cellMeta}>
         <div>
@@ -1559,6 +1610,88 @@ function EvidenceCell({ row }: { row: TimelineEvidenceRow }) {
           <dd>{row.package_id}</dd>
         </div>
       </dl>
+    </div>
+  );
+}
+
+function EvidenceFrameLightbox({
+  frame,
+  onClose,
+}: {
+  frame: ExpandedFrame | null;
+  onClose: () => void;
+}) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (frame === null) {
+      return;
+    }
+    const previousActiveElement = document.activeElement as HTMLElement | null;
+    const previousBodyOverflow = document.body.style.overflow;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+      previousActiveElement?.focus();
+    };
+  }, [frame, onClose]);
+
+  if (frame === null) {
+    return null;
+  }
+
+  const titleId = `expanded-frame-${frame.eventSequence}-title`;
+  return (
+    <div
+      className={styles.frameOverlay}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      onClick={onClose}
+    >
+      <div
+        className={styles.frameDialog}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className={styles.frameDialogHeader}>
+          <div>
+            <p className={styles.statusLabel}>Evidence frame</p>
+            <h2 id={titleId}>
+              Event {frame.eventSequence} ·{" "}
+              {formatMilliseconds(frame.frame.actual_offset_ms)}
+            </h2>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className={styles.frameDialogClose}
+            aria-label="Close enlarged evidence frame"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+        <img
+          className={styles.frameDialogImage}
+          src={frame.frame.url}
+          alt={`Enlarged evidence frame for event ${frame.eventSequence}`}
+        />
+        <p className={styles.frameDialogMeta}>
+          Observation <span>{frame.observationId}</span>
+        </p>
+      </div>
     </div>
   );
 }

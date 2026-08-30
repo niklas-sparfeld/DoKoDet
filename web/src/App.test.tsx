@@ -113,6 +113,30 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("opens an evidence frame in a dismissible lightbox", async () => {
+    stubTimeline(resolvedTimeline, resolvedStatus);
+    render(<App />);
+
+    const user = userEvent.setup();
+    const frameButton = await screen.findByRole("button", {
+      name: "Open evidence frame for event 1",
+    });
+    await user.click(frameButton);
+
+    expect(screen.getByRole("dialog", { name: /Event 1/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Enlarged evidence frame for event 1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Close enlarged evidence frame" }),
+    ).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(frameButton).toHaveFocus();
+  });
+
   it("runs a changed counterfactual and marks baseline differences", async () => {
     stubTimelineWithCounterfactual(
       resolvedTimeline,
