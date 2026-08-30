@@ -17,7 +17,7 @@
   artifact storage.
 - **M2:** Complete — add the backend worker, lifecycle handling, and APIs.
 - **M3:** Complete — make one iOS recording own video, evidence, lineage, and package tracking.
-- **M4:** Pending — add iOS upload gating, durable analysis submission, and polling.
+- **M4:** Complete — add iOS upload gating, durable analysis submission, and polling.
 - **M5:** Pending — add the result UI, end-to-end fixtures, and local documentation.
 
 ## 1. Outcome
@@ -235,6 +235,23 @@ support multiple simultaneous round recordings or a history screen in this epic.
 - Add upload acknowledgement gating and the empty-evidence terminal state.
 - Add the client-generated analysis ID, durable idempotent submission, relaunch recovery, and
   foreground polling.
+
+#### M4 implementation evidence — 2026-08-30
+
+- Added the strict iOS round-analysis/v1 request and status client with the fixed Plan 0031
+  search limits, canonical endpoint paths, UUID identity checks, and unknown-field rejection.
+- Added durable round-analysis.json state beside the repository-bundle queue. The state keeps the
+  client-generated analysis ID, immutable request inputs, the latest backend status, and safe
+  retry information across app relaunch.
+- Added the submission gate. It requires a closed evidence boundary, a finalized and acknowledged
+  recording bundle, and successful acknowledgements for every ordered evidence package. A closed
+  recording with no packages becomes the durable local failure No evidence packages captured
+  without sending an invalid request.
+- Wired create retry and status recovery into AppState. Record view polling runs once per second
+  only while the view is visible and the app is active. The view exposes waiting, queued,
+  evidence-progress, reconstruction, complete, and failed states.
+- Added focused request, strict-decoding, persistence, readiness, empty-evidence, endpoint, and
+  relaunch-state tests. The iOS core test filter and generic iOS Simulator build pass.
 
 ### M5 — Result UI and end-to-end verification
 

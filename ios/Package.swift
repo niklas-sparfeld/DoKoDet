@@ -66,6 +66,7 @@ let package = Package(
                 "Networking/TableObservationClient.swift",
                 "Networking/EvidenceUploadQueue.swift",
                 "Networking/TrainingRecordingUpload.swift",
+                "Networking/RoundAnalysis.swift",
             ]
         ),
         .executableTarget(

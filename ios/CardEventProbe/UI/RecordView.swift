@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RecordView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var camera = CameraSession()
     @State private var profile: CollectionProfile
     @State private var selectedProfileID: String?
@@ -33,6 +34,7 @@ struct RecordView: View {
         .navigationTitle("Record")
         .onAppear {
             loadSelectedProfile()
+            appState.startRoundAnalysisPolling()
             if appState.captureActivity == .idle {
                 startCapture()
             }
@@ -45,6 +47,7 @@ struct RecordView: View {
                 )
             }
             endCapture()
+            appState.stopRoundAnalysisPolling()
         }
         .onChange(of: selectedProfileID) { _, newValue in
             guard let newValue else {
@@ -73,6 +76,13 @@ struct RecordView: View {
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { now in
             appState.updateTrainingRecordingClock(now: now)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                appState.startRoundAnalysisPolling()
+            } else {
+                appState.stopRoundAnalysisPolling()
+            }
         }
     }
 
@@ -290,6 +300,7 @@ struct RecordView: View {
                 || appState.trainingRecordingUploadProgress != nil {
                 trainingRecordingUploadProgressView
             }
+            roundAnalysisStatusView
 
             Button(
                 appState.trainingRecordingState == .recording
@@ -343,6 +354,26 @@ struct RecordView: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private var roundAnalysisStatusView: some View {
+        if appState.roundAnalysisState != .idle {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Round analysis", systemImage: "waveform.path.ecg")
+                    .font(.subheadline.weight(.medium))
+                Text(appState.roundAnalysisState.title)
+                    .font(.subheadline)
+                if let detail = appState.roundAnalysisState.detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(
+                            appState.roundAnalysisState.title == "Failed" ? .red : .secondary
+                        )
+                }
+            }
+            .accessibilityElement(children: .combine)
+        }
     }
 
     @ViewBuilder

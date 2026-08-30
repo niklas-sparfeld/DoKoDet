@@ -86,6 +86,8 @@ final class AppState: ObservableObject {
     @Published private(set) var trainingRecordingElapsedSeconds = 0.0
     @Published private(set) var trainingRecordingEstimatedSizeBytes: Int64 = 0
     @Published private(set) var roundRecordingState: RoundRecordingState?
+    @Published private(set) var roundAnalysisState: RoundAnalysisDisplayState = .idle
+    @Published private(set) var roundAnalysisSubmissionState: RoundAnalysisSubmissionState?
     @Published private(set) var collectionProfiles: [CollectionProfile] = []
     @Published private(set) var selectedCollectionProfileID: String?
     @Published private(set) var collectionProfileError: String?
@@ -121,12 +123,18 @@ final class AppState: ObservableObject {
     private lazy var roundRecordingStateStore = RoundRecordingStateStore(
         directory: trainingRecordingRoot()
     )
+    private lazy var roundAnalysisSubmissionStore = RoundAnalysisSubmissionStore(
+        directory: trainingRecordingRoot()
+    )
+    private let roundAnalysisClient = RoundAnalysisClient()
     private var activeTaskEnrollments: [RepositoryTaskEnrollment] = []
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
     private var activeDiagnosticSource: DiagnosticSource?
     private var latestFrame: VideoFrame?
     private var lastTrainingRecordingUploadProgressUpdateAt: Date?
+    private var roundAnalysisRequestInFlight = false
+    private var roundAnalysisPollingTask: Task<Void, Never>?
 
     private let trainingRecordingMaximumDurationSeconds: Double
     private let trainingRecordingMaximumSizeBytes: Int64
@@ -174,6 +182,7 @@ final class AppState: ObservableObject {
         }
         recoverEvidencePackages()
         recoverRoundRecordingState()
+        recoverRoundAnalysisState()
         recoverTrainingRecordings()
         loadModel()
     }
@@ -183,6 +192,7 @@ final class AppState: ObservableObject {
     }
 
     func uploadQueuedEvidence() {
+        maybeSubmitRoundAnalysis()
         guard case let .connected(service) = backendDiscovery.state,
               let configuration = try? BackendConfiguration(baseURL: service.baseURL),
               let evidenceUploadQueue else {
@@ -204,6 +214,7 @@ final class AppState: ObservableObject {
     }
 
     func retryFailedEvidence() {
+        maybeSubmitRoundAnalysis()
         guard case let .connected(service) = backendDiscovery.state else {
             evidenceUploadError = "Connect to a backend before retrying evidence uploads."
             return
@@ -252,6 +263,7 @@ final class AppState: ObservableObject {
     }
 
     func uploadQueuedTrainingRecordings() {
+        maybeSubmitRoundAnalysis()
         guard case let .connected(service) = backendDiscovery.state,
               let configuration = try? BackendConfiguration(baseURL: service.baseURL),
               let trainingRecordingUploadQueue else {
@@ -288,6 +300,7 @@ final class AppState: ObservableObject {
     }
 
     func retryFailedTrainingRecordings() {
+        maybeSubmitRoundAnalysis()
         guard case let .connected(service) = backendDiscovery.state else {
             trainingRecordingUploadError = "Connect to a backend before retrying training recording uploads."
             return
@@ -322,6 +335,30 @@ final class AppState: ObservableObject {
                 self.applyTrainingRecordingUploadAttempts(attempts)
             }
         }
+    }
+
+    /// Starts foreground polling while the Record view is visible.
+    func startRoundAnalysisPolling() {
+        guard roundAnalysisPollingTask == nil else { return }
+        roundAnalysisPollingTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                self.pollRoundAnalysisOnce()
+                do {
+                    try await Task.sleep(nanoseconds: 1_000_000_000)
+                } catch {
+                    break
+                }
+            }
+            if self.roundAnalysisPollingTask != nil {
+                self.roundAnalysisPollingTask = nil
+            }
+        }
+    }
+
+    func stopRoundAnalysisPolling() {
+        roundAnalysisPollingTask?.cancel()
+        roundAnalysisPollingTask = nil
     }
 
     var selectedCollectionProfile: CollectionProfile? {
@@ -436,6 +473,16 @@ final class AppState: ObservableObject {
             trainingRecordingError = "The round recording state could not be saved: \(error.localizedDescription)"
             return
         }
+        do {
+            try roundAnalysisSubmissionStore.remove()
+        } catch {
+            try? roundRecordingStateStore.remove()
+            try? captureSessionIdentityStore.endSession(sessionID: profileSessionID)
+            trainingRecordingError = "The previous round analysis state could not be cleared: \(error.localizedDescription)"
+            return
+        }
+        roundAnalysisSubmissionState = nil
+        roundAnalysisState = .idle
         let model = TrainingRecordingModel(
             name: "CardEventNet",
             version: modelRunner?.contract.metadata["version"] ?? "transition-v2-run-20260825-235429",
@@ -1099,6 +1146,22 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func recoverRoundAnalysisState() {
+        do {
+            guard let state = try roundAnalysisSubmissionStore.load() else { return }
+            guard let recordingState = roundRecordingState,
+                  recordingState.recordingID == state.recordingID,
+                  recordingState.sessionID == state.sessionID else {
+                try roundAnalysisSubmissionStore.remove()
+                return
+            }
+            roundAnalysisSubmissionState = state
+            roundAnalysisState = displayState(for: state)
+        } catch {
+            roundAnalysisState = .failed(error.localizedDescription)
+        }
+    }
+
     private func recoverTrainingRecordings() {
         do {
             trainingRecordingQueueDiagnostics = try trainingRecordingStore.recover()
@@ -1134,6 +1197,7 @@ final class AppState: ObservableObject {
                 roundRecordingState = state
             }
         }
+        maybeSubmitRoundAnalysis()
     }
 
     private func applyTrainingRecordingUploadAttempts(
@@ -1176,10 +1240,12 @@ final class AppState: ObservableObject {
             ) {
                 roundRecordingState = state
             }
+            maybeSubmitRoundAnalysis()
         case .retryableFailure, .permanentFailure:
             let message = attempt.failure?.message ?? "The training recording upload failed."
             trainingRecordingState = .failed(message)
             trainingRecordingError = message
+            maybeSubmitRoundAnalysis()
         }
     }
 
@@ -1202,6 +1268,230 @@ final class AppState: ObservableObject {
         }
         trainingRecordingUploadProgress = progress
         lastTrainingRecordingUploadProgressUpdateAt = now
+    }
+
+    private func maybeSubmitRoundAnalysis() {
+        guard let recordingState = roundRecordingState else {
+            return
+        }
+        guard recordingState.roundAnalysisSubmissionReadiness != .noEvidence else {
+            persistEmptyEvidenceFailure(for: recordingState)
+            return
+        }
+        guard recordingState.roundAnalysisSubmissionReadiness == .ready else {
+            if roundRecordingState != nil,
+               trainingRecordingState != .recording,
+               trainingRecordingState != .idle {
+                roundAnalysisState = .waitingForUploads
+            }
+            return
+        }
+        guard case let .connected(service) = backendDiscovery.state,
+              let configuration = try? BackendConfiguration(baseURL: service.baseURL) else {
+            roundAnalysisState = .waitingForUploads
+            return
+        }
+        guard !roundAnalysisRequestInFlight else { return }
+
+        let currentSubmission = try? roundAnalysisSubmissionStore.load()
+        let submission: RoundAnalysisSubmissionState
+        if let currentSubmission,
+           currentSubmission.recordingID == recordingState.recordingID,
+           currentSubmission.sessionID == recordingState.sessionID,
+           currentSubmission.roundSetup == recordingState.roundSetup,
+           currentSubmission.evidencePackageIDs == recordingState.evidencePackageIDs {
+            submission = currentSubmission
+        } else {
+            do {
+                submission = try RoundAnalysisSubmissionState(
+                    recordingID: recordingState.recordingID,
+                    sessionID: recordingState.sessionID,
+                    roundSetup: recordingState.roundSetup,
+                    evidencePackageIDs: recordingState.evidencePackageIDs,
+                    analysisID: UUID(),
+                    phase: .submitting
+                )
+                try roundAnalysisSubmissionStore.save(submission)
+                roundAnalysisSubmissionState = submission
+            } catch {
+                roundAnalysisState = .failed(error.localizedDescription)
+                return
+            }
+        }
+
+        roundAnalysisSubmissionState = submission
+        if let remoteStatus = submission.remoteStatus {
+            roundAnalysisState = displayState(for: submission)
+            if remoteStatus.isTerminal {
+                return
+            }
+            return
+        }
+        guard let request = submission.createRequest else {
+            roundAnalysisState = .failed("The round-analysis request could not be created.")
+            return
+        }
+
+        roundAnalysisState = .queued
+        roundAnalysisRequestInFlight = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let status = try await self.roundAnalysisClient.create(
+                    request: request,
+                    using: configuration
+                )
+                self.applyRoundAnalysisStatus(status, to: submission)
+            } catch {
+                self.roundAnalysisState = .failed(error.localizedDescription)
+                if let failed = try? submission.updating(
+                    phase: .failed,
+                    error: error.localizedDescription
+                ) {
+                    self.roundAnalysisSubmissionState = failed
+                    try? self.roundAnalysisSubmissionStore.save(failed)
+                }
+            }
+            self.roundAnalysisRequestInFlight = false
+        }
+    }
+
+    private func persistEmptyEvidenceFailure(for recordingState: RoundRecordingState) {
+        let message = "No evidence packages captured"
+        if let existing = try? roundAnalysisSubmissionStore.load(),
+           existing.recordingID == recordingState.recordingID,
+           existing.error == message {
+            roundAnalysisSubmissionState = existing
+            roundAnalysisState = .failed(message)
+            return
+        }
+        do {
+            let state = try RoundAnalysisSubmissionState(
+                recordingID: recordingState.recordingID,
+                sessionID: recordingState.sessionID,
+                roundSetup: recordingState.roundSetup,
+                evidencePackageIDs: [],
+                phase: .failed,
+                error: message
+            )
+            try roundAnalysisSubmissionStore.save(state)
+            roundAnalysisSubmissionState = state
+            roundAnalysisState = .failed(message)
+        } catch {
+            roundAnalysisState = .failed(error.localizedDescription)
+        }
+    }
+
+    private func pollRoundAnalysisOnce() {
+        guard !roundAnalysisRequestInFlight,
+              let submission = try? roundAnalysisSubmissionStore.load(),
+              let analysisID = submission.analysisID else {
+            return
+        }
+        guard submission.remoteStatus?.isTerminal != true else {
+            roundAnalysisState = displayState(for: submission)
+            return
+        }
+        guard submission.remoteStatus != nil else {
+            maybeSubmitRoundAnalysis()
+            return
+        }
+        guard case let .connected(service) = backendDiscovery.state,
+              let configuration = try? BackendConfiguration(baseURL: service.baseURL) else {
+            return
+        }
+
+        roundAnalysisRequestInFlight = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let status = try await self.roundAnalysisClient.status(
+                    for: analysisID,
+                    using: configuration
+                )
+                self.applyRoundAnalysisStatus(status, to: submission)
+            } catch {
+                self.roundAnalysisState = .failed(error.localizedDescription)
+            }
+            self.roundAnalysisRequestInFlight = false
+        }
+    }
+
+    private func applyRoundAnalysisStatus(
+        _ status: RoundAnalysisStatus,
+        to submission: RoundAnalysisSubmissionState
+    ) {
+        guard let analysisID = submission.analysisID,
+              status.analysisID == analysisID,
+              status.recordingID == submission.recordingID,
+              status.roundID == submission.roundSetup.roundID,
+              status.sessionID == submission.sessionID else {
+            roundAnalysisState = .failed("The round-analysis response does not match the recording.")
+            return
+        }
+        let phase: RoundAnalysisSubmissionPhase
+        switch status.state {
+        case .queued:
+            phase = .queued
+        case .analyzingEvidence:
+            phase = .analyzingEvidence
+        case .reconstructing:
+            phase = .reconstructing
+        case .complete:
+            phase = .complete
+        case .failed:
+            phase = .failed
+        }
+        do {
+            let updated = try submission.updating(
+                phase: phase,
+                remoteStatus: status,
+                error: status.error
+            )
+            try roundAnalysisSubmissionStore.save(updated)
+            roundAnalysisSubmissionState = updated
+            roundAnalysisState = displayState(for: updated)
+        } catch {
+            roundAnalysisState = .failed(error.localizedDescription)
+        }
+    }
+
+    private func displayState(
+        for submission: RoundAnalysisSubmissionState
+    ) -> RoundAnalysisDisplayState {
+        guard let remoteStatus = submission.remoteStatus else {
+            switch submission.phase {
+            case .waitingForUploads:
+                return .waitingForUploads
+            case .submitting, .queued:
+                return .queued
+            case .analyzingEvidence:
+                return .analyzingEvidence(completed: 0, total: submission.evidencePackageIDs.count)
+            case .reconstructing:
+                return .reconstructing
+            case .complete:
+                return .failed("The completed round analysis status is missing.")
+            case .failed:
+                return .failed(submission.error ?? "The round analysis failed.")
+            }
+        }
+        switch remoteStatus.state {
+        case .queued:
+            return .queued
+        case .analyzingEvidence:
+            return .analyzingEvidence(
+                completed: remoteStatus.completedEvidencePackages,
+                total: remoteStatus.totalEvidencePackages
+            )
+        case .reconstructing:
+            return .reconstructing
+        case .complete:
+            return .complete(
+                remoteStatus.result?.reconstructionStatus ?? .incomplete
+            )
+        case .failed:
+            return .failed(remoteStatus.error ?? "The round analysis failed.")
+        }
     }
 
     private func stopTrainingRecordingForSession() {

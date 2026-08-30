@@ -54,7 +54,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0032 — Round recording analysis PoC](3-in-progress/0032-Round_Recording_Analysis_PoC.md) | Completed 0031 | Use one iOS recording to create the complete video and its evidence packages; M0–M3 now provide the reusable backend boundary, durable analysis lifecycle, worker, APIs, runtime artifacts, and unified iOS recording boundary before upload gating and analysis polling. |
+| [0032 — Round recording analysis PoC](3-in-progress/0032-Round_Recording_Analysis_PoC.md) | Completed 0031 | Use one iOS recording to create the complete video and its evidence packages; M0–M4 now provide the reusable backend boundary, durable analysis lifecycle, worker, APIs, runtime artifacts, unified iOS recording boundary, upload gating, durable submission, and polling before result UI. |
 
 ### Blocked
 
