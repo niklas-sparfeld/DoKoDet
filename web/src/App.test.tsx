@@ -215,6 +215,41 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps pending counterfactual changes reachable in a fixed status bar", async () => {
+    const fetchMock = stubTimelineWithCounterfactual(
+      resolvedTimeline,
+      resolvedStatus,
+      changedCounterfactualResponse,
+    );
+    render(<App />);
+
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "Evidence" });
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Exclude observation observation-001",
+      }),
+    );
+
+    const statusBar = screen.getByRole("status", {
+      name: "Counterfactual status",
+    });
+    expect(statusBar).toHaveTextContent("1 unapplied counterfactual change");
+    const applyButton = screen.getByRole("button", { name: "Apply now" });
+    expect(applyButton).toBeInTheDocument();
+
+    await user.click(applyButton);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Baseline versus counterfactual",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+    ).toBe(true);
+  });
+
   it("shows stable no-change states for an unchanged counterfactual", async () => {
     stubTimelineWithCounterfactual(
       resolvedTimeline,

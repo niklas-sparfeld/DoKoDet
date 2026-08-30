@@ -751,8 +751,16 @@ function CounterfactualWorkbench({
     timeline.rows.length > 0 &&
     timeline.rows.every((row) => excludedObservations.has(row.observation_id));
 
+  function updateDraft(
+    updater: (current: CounterfactualDraft) => CounterfactualDraft,
+  ) {
+    setDraft(updater);
+    setResponse(null);
+    setError(null);
+  }
+
   function toggleObservation(observationId: string) {
-    setDraft((current) => {
+    updateDraft((current) => {
       const excluding = !current.excludedObservationIds.includes(observationId);
       return {
         ...current,
@@ -780,7 +788,7 @@ function CounterfactualWorkbench({
 
   function toggleObservedCard(reference: CounterfactualObservedCard) {
     const key = counterfactualReferenceKey(reference);
-    setDraft((current) => ({
+    updateDraft((current) => ({
       ...current,
       excludedObservedCards: current.excludedObservedCards.some(
         (candidate) => counterfactualReferenceKey(candidate) === key,
@@ -804,7 +812,7 @@ function CounterfactualWorkbench({
     card: string,
   ) {
     const key = `${observationId}:${observedCardId}`;
-    setDraft((current) => ({
+    updateDraft((current) => ({
       ...current,
       cardIdentityOverrides:
         card.trim() === ""
@@ -835,7 +843,7 @@ function CounterfactualWorkbench({
   ) {
     const key = `${observationId}:${observedCardId}:${candidate.card}`;
     const probability = Number(value);
-    setDraft((current) => {
+    updateDraft((current) => {
       const withoutCurrent = current.overrides.filter(
         (override) =>
           `${override.observation_id}:${override.observed_card_id}:${override.card}` !==
@@ -896,7 +904,7 @@ function CounterfactualWorkbench({
     setError(null);
   }
 
-  return children({
+  const controller: CounterfactualController = {
     draft,
     excludedObservations,
     excludedCards,
@@ -914,7 +922,59 @@ function CounterfactualWorkbench({
     setCandidateProbability,
     runCounterfactual,
     restoreBaseline,
-  });
+  };
+
+  return (
+    <div
+      className={`${styles.counterfactualWorkbench} ${
+        controller.changeCount > 0 && controller.response === null
+          ? styles.hasPendingCounterfactual
+          : ""
+      }`}
+    >
+      <CounterfactualStatusBar counterfactual={controller} />
+      {children(controller)}
+    </div>
+  );
+}
+
+function CounterfactualStatusBar({
+  counterfactual,
+}: {
+  counterfactual: CounterfactualController;
+}) {
+  if (counterfactual.changeCount === 0 || counterfactual.response !== null) {
+    return null;
+  }
+
+  return (
+    <section
+      className={styles.counterfactualStatusBar}
+      role="status"
+      aria-label="Counterfactual status"
+      aria-live="polite"
+    >
+      <div>
+        <p className={styles.statusLabel}>Counterfactual status</p>
+        <strong>
+          {counterfactual.changeCount} unapplied counterfactual change
+          {counterfactual.changeCount === 1 ? "" : "s"}
+        </strong>
+      </div>
+      <button
+        type="button"
+        className={styles.primaryButton}
+        onClick={() => void counterfactual.runCounterfactual()}
+        disabled={
+          counterfactual.submitting ||
+          counterfactual.hasInvalidOverride ||
+          counterfactual.allObservationsExcluded
+        }
+      >
+        {counterfactual.submitting ? "Applying…" : "Apply now"}
+      </button>
+    </section>
+  );
 }
 
 function CounterfactualRunControls({

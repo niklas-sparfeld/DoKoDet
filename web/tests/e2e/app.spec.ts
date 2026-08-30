@@ -158,9 +158,7 @@ test("submits a direct card identity correction", async ({ page }) => {
       name: "Correct classification for observation-002-card-01",
     })
     .selectOption("CLUBS_TEN");
-  await expect(
-    page.getByText(/Derived input uses Clubs Ten/),
-  ).toBeVisible();
+  await expect(page.getByText(/Derived input uses Clubs Ten/)).toBeVisible();
   await page.getByRole("button", { name: "Run counterfactual" }).click();
 
   await expect
@@ -224,11 +222,18 @@ test("runs a changed counterfactual and marks the derived differences", async ({
   await page
     .getByRole("checkbox", { name: "Exclude observation observation-001" })
     .check();
-  await page.getByRole("button", { name: "Run counterfactual" }).click();
+
+  const statusBar = page.getByRole("status", {
+    name: "Counterfactual status",
+  });
+  await expect(statusBar).toContainText("1 unapplied counterfactual change");
+  await expect(statusBar).toHaveCSS("position", "fixed");
+  await statusBar.getByRole("button", { name: "Apply now" }).click();
 
   await expect(
     page.getByRole("heading", { name: "Baseline versus counterfactual" }),
   ).toBeVisible();
+  await expect(statusBar).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Changed observations and cards" }),
   ).toBeVisible();

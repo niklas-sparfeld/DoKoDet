@@ -376,6 +376,41 @@ h2 {
   background: var(--panel);
 }
 
+.hasPendingCounterfactual {
+  padding-bottom: 6.5rem;
+}
+
+.counterfactualStatusBar {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  width: min(calc(100% - 2rem), 52rem);
+  transform: translateX(-50%);
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--panel) 96%, var(--accent));
+  box-shadow: 0 1rem 2.5rem rgb(77 56 36 / 18%);
+  color: var(--ink);
+  backdrop-filter: blur(0.7rem);
+}
+
+.counterfactualStatusBar .statusLabel {
+  margin: 0;
+  color: var(--accent);
+}
+
+.counterfactualStatusBar strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.9rem;
+}
+
 .counterfactualInline {
   min-width: 0;
   margin: 1.1rem 0 0;
@@ -1391,5 +1426,20 @@ progress {
 
   .keyboardHint {
     text-align: left;
+  }
+
+  .counterfactualStatusBar {
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    width: auto;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.7rem;
+    transform: none;
+  }
+
+  .counterfactualStatusBar .primaryButton {
+    width: 100%;
   }
 }
