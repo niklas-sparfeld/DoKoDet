@@ -15,7 +15,7 @@ dependencies = [
 
 [tool.uv.sources]
 doko-game-engine = { path = "../game_engine" }
-table-evidence-analyzer = { path = "../table_evidence_analyzer" }
+table-evidence-analyzer = { path = "../table_evidence_analyzer", editable = true }
 
 [project.scripts]
 doko = "doko_operations.cli:main"

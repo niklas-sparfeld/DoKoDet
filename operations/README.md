@@ -118,6 +118,10 @@ mise exec -- uv run --no-sync doko reconstruct round \
 
 The request file is strict JSON. Relative observation paths and `output_root` are resolved from the
 request file's parent directory, so the command does not depend on the current working directory.
+Backend callers use the same orchestration through
+`doko_operations.run_round_reconstruction_values(request, source_paths, output_root)`. The
+validated request supplies stable source labels and search limits; the explicit paths identify the
+stored observation files and artifact root.
 The following is a complete request shape:
 
 ```json

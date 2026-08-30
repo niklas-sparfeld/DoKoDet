@@ -48,13 +48,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0032 — Round recording analysis PoC](2-ready/0032-Round_Recording_Analysis_PoC.md) | 0031 (assumed complete) | Record one round in iOS, run local backend analysis after upload, and show its progress and reconstruction result. |
+| None | — | — |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0032 — Round recording analysis PoC](3-in-progress/0032-Round_Recording_Analysis_PoC.md) | Completed 0031 | Use one iOS recording to create the complete video and its evidence packages, then run local backend analysis and show its progress and reconstruction result. |
 
 ### Blocked
 

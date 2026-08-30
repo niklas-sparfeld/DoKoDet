@@ -16,6 +16,7 @@ dependencies = [
   "python-multipart>=0.0.18,<1",
   "sqlalchemy>=2.0,<3",
   "uvicorn[standard]>=0.32,<1",
+  "doko-operations",
   "table-evidence-analyzer",
   "zeroconf>=0.150,<1",
 ]
@@ -36,6 +37,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.uv.sources]
+doko-operations = { path = "../operations", editable = true }
 table-evidence-analyzer = { path = "../table_evidence_analyzer", editable = true }
 
 [tool.pytest.ini_options]

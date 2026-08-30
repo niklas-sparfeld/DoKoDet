@@ -506,10 +506,34 @@ def load_round_reconstruction_observations(
 ) -> tuple[LoadedObservation, ...]:
     """Read, digest, and parse each requested table observation in request order."""
 
-    resolved_paths = resolve_observation_paths(request, request_path)
+    return load_round_reconstruction_observations_from_paths(
+        request,
+        resolve_observation_paths(request, request_path),
+    )
+
+
+def load_round_reconstruction_observations_from_paths(
+    request: RoundReconstructionRunRequest,
+    source_paths: Sequence[str | Path],
+) -> tuple[LoadedObservation, ...]:
+    """Read and validate observations from explicit paths in request order."""
+
+    if not isinstance(request, RoundReconstructionRunRequest):
+        raise TypeError("request must be a RoundReconstructionRunRequest.")
+    if isinstance(source_paths, (str, bytes)):
+        raise TypeError("source_paths must be a sequence of paths.")
+    try:
+        explicit_paths = tuple(Path(path).expanduser().resolve() for path in source_paths)
+    except (TypeError, ValueError) as error:
+        raise TypeError("source_paths must contain path values.") from error
+    if len(explicit_paths) != len(request.observation_paths):
+        raise RoundReconstructionContractError(
+            "source_paths must contain one path for each observation_paths entry."
+        )
+
     loaded: list[LoadedObservation] = []
     for index, (observation_path, resolved_path) in enumerate(
-        zip(request.observation_paths, resolved_paths, strict=True)
+        zip(request.observation_paths, explicit_paths, strict=True)
     ):
         try:
             observation_bytes = resolved_path.read_bytes()
@@ -1250,25 +1274,20 @@ def _result_source_records(
 
 def _serialize_engine_gameplay(gameplay: Any) -> GameplayResultRecord:
     return GameplayResultRecord(
-        plays=tuple(
-            CardPlayRecord(player=play.player, card=play.card) for play in gameplay.plays
-        ),
+        plays=tuple(CardPlayRecord(player=play.player, card=play.card) for play in gameplay.plays),
         tricks=tuple(
             TrickResultRecord(
                 index=trick.index,
                 leader=trick.leader,
                 plays=tuple(
-                    CardPlayRecord(player=play.player, card=play.card)
-                    for play in trick.plays
+                    CardPlayRecord(player=play.player, card=play.card) for play in trick.plays
                 ),
                 winner=trick.winner,
                 winning_card=trick.winning_card,
             )
             for trick in gameplay.tricks
         ),
-        initial_hands={
-            player: tuple(cards) for player, cards in gameplay.initial_hands.items()
-        },
+        initial_hands={player: tuple(cards) for player, cards in gameplay.initial_hands.items()},
     )
 
 
@@ -1448,16 +1467,45 @@ def _local_deck_manifest_path() -> Path:
 
 
 def run_round_reconstruction(request_path: str | Path) -> RoundReconstructionArtifacts:
-    """Run one local round reconstruction and atomically publish its artifacts."""
+    """Load a request file and run one local round reconstruction."""
 
     request_file = Path(request_path).expanduser().resolve()
     request = load_round_reconstruction_request(request_file)
-    bundle = load_round_reconstruction_input_bundle(request, request_file)
+    return run_round_reconstruction_values(
+        request,
+        resolve_observation_paths(request, request_file),
+        resolve_round_reconstruction_output_directory(request, request_file),
+    )
+
+
+def run_round_reconstruction_values(
+    request: RoundReconstructionRunRequest,
+    source_paths: Sequence[str | Path],
+    output_root: str | Path,
+    *,
+    deck_manifest_path: str | Path | None = None,
+) -> RoundReconstructionArtifacts:
+    """Run reconstruction from validated values and explicit source and output paths.
+
+    The request keeps the stable source labels and search values used in canonical artifacts.
+    ``source_paths`` identifies the corresponding files on the local filesystem. This split lets
+    the backend call the same orchestration without creating a command request file.
+    """
+
+    if not isinstance(request, RoundReconstructionRunRequest):
+        raise TypeError("request must be a RoundReconstructionRunRequest.")
+    loaded = load_round_reconstruction_observations_from_paths(request, source_paths)
+    reconstruction_input = assemble_round_reconstruction_input(request, loaded)
+    manifest_path = (
+        _local_deck_manifest_path()
+        if deck_manifest_path is None
+        else Path(deck_manifest_path).expanduser().resolve()
+    )
     try:
         engine_result = reconstruct_round(
-            bundle.reconstruction_input,
+            reconstruction_input,
             ruleset=DokoNormalRuleset(
-                load_deck_manifest("doko-40-v1", path=_local_deck_manifest_path())
+                load_deck_manifest(request.round_setup.deck_variant, path=manifest_path)
             ),
             max_missing_plays=request.search.max_missing_plays,
             max_hypotheses=request.search.max_hypotheses,
@@ -1468,11 +1516,15 @@ def run_round_reconstruction(request_path: str | Path) -> RoundReconstructionArt
             f"round reconstruction failed validation: {error}"
         ) from error
 
-    input_bytes = canonical_engine_json_bytes(bundle.reconstruction_input)
-    result = build_round_reconstruction_result(request, bundle, engine_result)
+    input_bytes = canonical_engine_json_bytes(reconstruction_input)
+    result = build_round_reconstruction_result(
+        request,
+        tuple(item.source_record for item in loaded),
+        engine_result,
+    )
     result_bytes = canonical_result_bytes(result)
     directory = publish_round_reconstruction_artifacts(
-        resolve_round_reconstruction_output_directory(request, request_file),
+        output_root,
         request.run_id,
         input_bytes,
         result_bytes,
@@ -1635,6 +1687,7 @@ __all__ = [
     "load_round_reconstruction_input",
     "load_round_reconstruction_input_bundle",
     "load_round_reconstruction_observations",
+    "load_round_reconstruction_observations_from_paths",
     "parse_round_reconstruction_request_bytes",
     "parse_round_reconstruction_result_bytes",
     "publish_round_reconstruction_artifacts",
@@ -1642,6 +1695,7 @@ __all__ = [
     "parse_run_result_bytes",
     "resolve_round_reconstruction_output_directory",
     "run_round_reconstruction",
+    "run_round_reconstruction_values",
     "sha256_bytes",
     "serialize_engine_result",
     "serialize_round_reconstruction_result",

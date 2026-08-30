@@ -36,12 +36,11 @@ from doko_operations.round_reconstruction import (
     parse_round_reconstruction_request_bytes,
     parse_round_reconstruction_result_bytes,
     run_round_reconstruction,
+    run_round_reconstruction_values,
     serialize_engine_result,
 )
 
-GAME_ENGINE_SCENARIO_ROOT = (
-    Path(__file__).parents[2] / "fixtures" / "game-engine" / "v1" / "rounds"
-)
+GAME_ENGINE_SCENARIO_ROOT = Path(__file__).parents[2] / "fixtures" / "game-engine" / "v1" / "rounds"
 
 
 def request_payload() -> dict[str, object]:
@@ -674,6 +673,29 @@ def test_round_reconstruction_cli_reports_contract_errors(tmp_path, capsys) -> N
     assert "error:" in output.err
 
 
+def test_value_orchestration_uses_explicit_sources_and_preserves_command_artifacts(
+    tmp_path: Path,
+) -> None:
+    request, request_path, _ = write_observation_request(
+        tmp_path,
+        [
+            observation_payload("observation-001", 1, 100),
+            observation_payload("observation-002", 2, 100),
+        ],
+    )
+
+    command_artifacts = run_round_reconstruction(request_path)
+    value_artifacts = run_round_reconstruction_values(
+        request,
+        [request_path.parent / path for path in request.observation_paths],
+        tmp_path / "value-artifacts",
+    )
+
+    assert value_artifacts.result.to_mapping() == command_artifacts.result.to_mapping()
+    assert value_artifacts.input_path.read_bytes() == command_artifacts.input_path.read_bytes()
+    assert value_artifacts.result_path.read_bytes() == command_artifacts.result_path.read_bytes()
+
+
 @pytest.mark.parametrize(
     ("scenario_name", "expected_status", "insufficient_evidence"),
     (
@@ -700,16 +722,19 @@ def test_round_harness_adapts_scenario_fixtures_to_all_result_statuses(
     assert artifacts.result.status == expected_status
     input_value = parse_reconstruction_input_bytes(artifacts.input_path.read_bytes())
     request = parse_round_reconstruction_request_bytes(request_path.read_bytes())
-    assert len(input_value.observations) == len(artifacts.result.sources) == len(
-        request.observation_paths
+    assert (
+        len(input_value.observations)
+        == len(artifacts.result.sources)
+        == len(request.observation_paths)
     )
     assert all(
         (request_path.parent / observation_path).is_file()
         for observation_path in request.observation_paths
     )
-    assert parse_round_reconstruction_result_bytes(
-        artifacts.result_path.read_bytes()
-    ).to_mapping() == artifacts.result.to_mapping()
+    assert (
+        parse_round_reconstruction_result_bytes(artifacts.result_path.read_bytes()).to_mapping()
+        == artifacts.result.to_mapping()
+    )
     if expected_status == "ambiguous":
         assert artifacts.result.focused_decisions
     if insufficient_evidence:

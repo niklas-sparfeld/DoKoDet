@@ -10,6 +10,10 @@ from alembic import command
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import ContractError
+from dokodetector_backend.poc_analyzer import (
+    LOCAL_POC_ANALYZER_NAME,
+    LOCAL_POC_ANALYZER_VERSION,
+)
 
 BACKEND_ROOT = Path(__file__).parents[1]
 
@@ -43,6 +47,13 @@ def test_factory_exposes_injected_settings() -> None:
     app = create_app(settings)
 
     assert app.state.settings is settings
+
+
+def test_factory_configures_the_local_poc_analyzer() -> None:
+    app = create_app(Settings(_env_file=None))
+
+    assert app.state.analyzer.name == LOCAL_POC_ANALYZER_NAME
+    assert app.state.analyzer.version == LOCAL_POC_ANALYZER_VERSION
 
 
 @pytest.mark.parametrize("working_directory", [BACKEND_ROOT.parent, BACKEND_ROOT])
