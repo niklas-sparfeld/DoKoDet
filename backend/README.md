@@ -45,6 +45,18 @@ uv run dokodetector-backend
 The default service listens on port `8000` and advertises `_dokodetector._tcp` with Bonjour for
 iOS local discovery. The startup log shows the advertised service type and endpoint. Do not use
 the direct `uvicorn` command for device discovery. It starts HTTP but does not advertise Bonjour.
+The normal server requires `GEMINI_API_KEY`; it does not fall back to the deterministic local
+analyzer.
+
+Start it with the required runtime credential:
+
+```bash
+export GEMINI_API_KEY='your-key'
+export GEMINI_MODEL='gemini-3.6-flash'
+export GEMINI_TIMEOUT_SECONDS=120
+export GEMINI_MAX_RETRIES=2
+uv run dokodetector-backend
+```
 
 In a second shell, upload the shared complete fixture:
 
@@ -126,6 +138,10 @@ BONJOUR_ENABLED=true
 BONJOUR_NAME=DokoDetector
 BONJOUR_HOSTNAME=
 BONJOUR_ADDRESS=
+GEMINI_API_KEY=<required at runtime>
+GEMINI_MODEL=gemini-3.6-flash
+GEMINI_TIMEOUT_SECONDS=120
+GEMINI_MAX_RETRIES=2
 ```
 
 ## Round recording analysis
@@ -155,10 +171,13 @@ The create response is 202 and the status endpoint returns 200. The backend reje
 package list, duplicate or unknown packages, mixed sessions, mismatched recording lineage, and a
 recording bundle that is not stored.
 
-The local PoC analyzer is deterministic-local/v1. It consumes each accepted evidence package and
-emits a valid insufficient_evidence table observation. This proves the upload, worker,
-observation, and reconstruction boundaries. It is not a measured card-recognition capability.
-The analyzer can be replaced through the existing TableEvidenceAnalyzer boundary.
+The normal backend analyzer is the existing `VisibleCardTableAnalyzer` with Gemini for both
+visible-card proposals and visual card identity classification. It uses the Gemini model and
+runtime settings above, and caches successful and unavailable responses below the runtime root.
+There is no runtime fallback to the deterministic local analyzer. A provider or classifier failure
+produces an insufficient-evidence observation and the round analysis continues with the existing
+uncertain reconstruction semantics. This integration does not claim measured card-recognition
+quality; the capability-development work remains responsible for that evidence.
 
 The worker is process-local and does not resume interrupted analysis. On backend restart, each
 non-terminal analysis row becomes failed with "The analysis did not finish before the backend

@@ -2,10 +2,10 @@ import hashlib
 import json
 from pathlib import Path
 
+from app_factory import create_test_app
 from fastapi.testclient import TestClient
 from test_api import load_upload_fixture, multipart_parts
 
-from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.repository import EvidenceRepository, upgrade_database
@@ -23,7 +23,7 @@ def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> 
         evidence_root=tmp_path / "runtime",
         evidence_package_intake_root=tmp_path / "repository-intake" / "evidence-packages",
     )
-    app = create_app(settings)
+    app = create_test_app(settings)
     repository = EvidenceRepository(app.state.engine)
     storage = EvidencePackageStorage(settings.evidence_package_intake_root)
     manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")

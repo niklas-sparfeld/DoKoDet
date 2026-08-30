@@ -6,10 +6,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from app_factory import create_test_app
 from fastapi.testclient import TestClient
 from test_api import load_upload_fixture, multipart_parts
 
-from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 from dokodetector_backend.repository import upgrade_database
 from dokodetector_backend.repository_bundle_repository import StoredRepositoryBundle
@@ -50,7 +50,7 @@ def _analysis_payload(
 def _backend(tmp_path: Path, *, synchronous: bool = True) -> tuple[TestClient, object]:
     database_url = f"sqlite:///{tmp_path / 'round-analysis.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
-    app = create_app(
+    app = create_test_app(
         Settings(
             _env_file=None,
             database_url=database_url,

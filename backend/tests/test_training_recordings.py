@@ -6,9 +6,9 @@ import json
 from pathlib import Path
 
 import pytest
+from app_factory import create_test_app
 from fastapi.testclient import TestClient
 
-from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 from dokodetector_backend.repository import upgrade_database
 from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
@@ -61,7 +61,7 @@ def backend(tmp_path: Path) -> tuple[TestClient, RepositoryBundleRepository, Pat
         evidence_root=tmp_path / "runtime",
         repository_intake_root=intake_root,
     )
-    app = create_app(settings)
+    app = create_test_app(settings)
     return TestClient(app), app.state.repository_bundle_repository, intake_root
 
 
@@ -212,12 +212,12 @@ def test_restart_reads_the_same_index_and_canonical_bundle(tmp_path: Path) -> No
     fixture = load_fixture()
     recording_id = fixture["manifest_object"]["recording_id"]
 
-    first = TestClient(create_app(settings))
+    first = TestClient(create_test_app(settings))
     assert (
         first.put(f"/v1/repository-bundles/{recording_id}", files=bundle_parts(fixture)).status_code
         == 201
     )
-    second = TestClient(create_app(settings))
+    second = TestClient(create_test_app(settings))
 
     response = second.put(f"/v1/repository-bundles/{recording_id}", files=bundle_parts(fixture))
 

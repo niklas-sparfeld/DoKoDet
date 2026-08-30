@@ -2,18 +2,15 @@ from pathlib import Path
 
 import pytest
 from alembic.config import Config
+from app_factory import create_test_app
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect
 from starlette.requests import ClientDisconnect
 
 from alembic import command
 from dokodetector_backend.app import create_app
-from dokodetector_backend.config import Settings
+from dokodetector_backend.config import ConfigurationError, Settings
 from dokodetector_backend.errors import ContractError
-from dokodetector_backend.poc_analyzer import (
-    LOCAL_POC_ANALYZER_NAME,
-    LOCAL_POC_ANALYZER_VERSION,
-)
 from dokodetector_backend.repository import (
     RoundAnalysisRepository,
     StoredRoundAnalysis,
@@ -26,7 +23,7 @@ BACKEND_ROOT = Path(__file__).parents[1]
 
 
 def test_health_routes_report_process_status() -> None:
-    client = TestClient(create_app(Settings(_env_file=None)))
+    client = TestClient(create_test_app(Settings(_env_file=None)))
 
     assert client.get("/health/live").json() == {"status": "ok"}
     assert client.get("/health/ready").json() == {"status": "ok"}
@@ -42,7 +39,7 @@ def test_readiness_reports_an_unusable_evidence_directory(tmp_path) -> None:
         evidence_root=evidence_root,
     )
 
-    response = TestClient(create_app(settings)).get("/health/ready")
+    response = TestClient(create_test_app(settings)).get("/health/ready")
 
     assert response.status_code == 503
     assert response.json() == {"status": "not_ready"}
@@ -51,16 +48,38 @@ def test_readiness_reports_an_unusable_evidence_directory(tmp_path) -> None:
 def test_factory_exposes_injected_settings() -> None:
     settings = Settings(_env_file=None, evidence_root=Path("test-evidence"))
 
-    app = create_app(settings)
+    app = create_test_app(settings)
 
     assert app.state.settings is settings
 
 
-def test_factory_configures_the_local_poc_analyzer() -> None:
-    app = create_app(Settings(_env_file=None))
+def test_factory_configures_the_gemini_analyzer(tmp_path: Path) -> None:
+    settings = Settings(
+        _env_file=None,
+        gemini_api_key="test-key",
+        database_url=f"sqlite:///{tmp_path / 'gemini.sqlite'}",
+        evidence_root=tmp_path / "runtime",
+        repository_intake_root=tmp_path / "recordings",
+        evidence_package_intake_root=tmp_path / "evidence-packages",
+    )
+    app = create_app(settings)
 
-    assert app.state.analyzer.name == LOCAL_POC_ANALYZER_NAME
-    assert app.state.analyzer.version == LOCAL_POC_ANALYZER_VERSION
+    assert app.state.analyzer.name == "visible-card-table-analyzer"
+    assert app.state.analyzer.provider.provider.name == "gemini"
+    assert app.state.analyzer.classifier.classifier.name == "gemini"
+
+
+def test_factory_requires_the_gemini_api_key(tmp_path: Path) -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url=f"sqlite:///{tmp_path / 'missing-key.sqlite'}",
+        evidence_root=tmp_path / "runtime",
+        repository_intake_root=tmp_path / "recordings",
+        evidence_package_intake_root=tmp_path / "evidence-packages",
+    )
+
+    with pytest.raises(ConfigurationError, match="GEMINI_API_KEY is required"):
+        create_app(settings)
 
 
 @pytest.mark.parametrize("working_directory", [BACKEND_ROOT.parent, BACKEND_ROOT])
@@ -75,7 +94,7 @@ def test_factory_resolves_default_storage_from_repository_root(
         repository_intake_root=Path("data/intake/recordings"),
     )
 
-    app = create_app(settings)
+    app = create_test_app(settings)
 
     assert settings.repository_root == BACKEND_ROOT.parent
     assert app.state.storage.evidence_root == BACKEND_ROOT.parent / ".runtime" / "evidence"
@@ -102,7 +121,7 @@ def test_factory_applies_pending_repository_bundle_migration(tmp_path: Path) -> 
         repository_intake_root=tmp_path / "intake",
     )
 
-    app = create_app(settings)
+    app = create_test_app(settings)
 
     assert inspect(app.state.engine).has_table("repository_bundles")
 
@@ -136,7 +155,7 @@ def test_factory_converts_interrupted_round_analysis_to_failed(tmp_path: Path) -
     repository = RoundAnalysisRepository(create_database_engine(database_url))
     repository.insert(StoredRoundAnalysis.from_request(request))
 
-    app = create_app(
+    app = create_test_app(
         Settings(
             _env_file=None,
             database_url=database_url,
@@ -153,7 +172,7 @@ def test_factory_converts_interrupted_round_analysis_to_failed(tmp_path: Path) -
 
 
 def test_contract_errors_use_a_stable_response_shape() -> None:
-    app = create_app(Settings(_env_file=None))
+    app = create_test_app(Settings(_env_file=None))
 
     @app.get("/test-contract-error")
     def contract_error_route() -> None:
@@ -172,7 +191,7 @@ def test_contract_errors_use_a_stable_response_shape() -> None:
 
 
 def test_client_disconnect_returns_499() -> None:
-    app = create_app(Settings(_env_file=None))
+    app = create_test_app(Settings(_env_file=None))
 
     @app.get("/test-client-disconnect")
     async def client_disconnect_route() -> None:

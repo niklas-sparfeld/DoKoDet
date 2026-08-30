@@ -17,10 +17,10 @@ from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
+from dokodetector_backend.gemini_analyzer import create_gemini_analyzer
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
-from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
 from dokodetector_backend.repository import (
     EvidenceRepository,
     RoundAnalysisRepository,
@@ -77,7 +77,7 @@ def create_app(
         app_settings.repository_intake_root
     )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
-    app.state.analyzer = analyzer or create_local_poc_analyzer()
+    app.state.analyzer = analyzer or create_gemini_analyzer(app_settings)
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     app.state.repository.rebuild_from_intake(app.state.evidence_package_storage)
     app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)

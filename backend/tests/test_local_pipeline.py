@@ -54,17 +54,24 @@ class LocalBackend:
         return f"http://127.0.0.1:{self.port}"
 
     def start(self) -> None:
+        server_script = """
+import uvicorn
+
+from dokodetector_backend.app import create_app
+from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
+
+uvicorn.run(
+    lambda: create_app(analyzer=create_local_poc_analyzer()),
+    factory=True,
+    host="127.0.0.1",
+    port=int(__import__("os").environ["SERVER_PORT"]),
+)
+"""
         self.process = subprocess.Popen(
             [
                 sys.executable,
-                "-m",
-                "uvicorn",
-                "dokodetector_backend.app:create_app",
-                "--factory",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                str(self.port),
+                "-c",
+                server_script,
             ],
             cwd=BACKEND_ROOT,
             env=self.environment,

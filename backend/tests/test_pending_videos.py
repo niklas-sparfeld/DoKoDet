@@ -5,9 +5,9 @@ import json
 from pathlib import Path
 
 import pytest
+from app_factory import create_test_app
 from fastapi.testclient import TestClient
 
-from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 
 FIXTURE = (
@@ -24,7 +24,7 @@ def pending_backend(tmp_path: Path) -> tuple[TestClient, Path]:
         repository_intake_root=tmp_path / "data" / "intake" / "recordings",
         pending_video_root=tmp_path / "data" / "incoming" / "videos",
     )
-    return TestClient(create_app(settings)), settings.pending_video_root
+    return TestClient(create_test_app(settings)), settings.pending_video_root
 
 
 def _parts(video: bytes = FIXTURE.read_bytes(), filename: str = "pending.mov"):
@@ -112,10 +112,10 @@ def test_pending_receipt_survives_backend_restart(tmp_path: Path) -> None:
     )
     video = FIXTURE.read_bytes()
 
-    first = TestClient(create_app(settings))
+    first = TestClient(create_test_app(settings))
     assert first.put("/v1/pending-videos/upload-restart", files=_parts(video)).status_code == 201
 
-    second = TestClient(create_app(settings))
+    second = TestClient(create_test_app(settings))
     response = second.get("/v1/pending-videos/upload-restart")
 
     assert response.status_code == 200

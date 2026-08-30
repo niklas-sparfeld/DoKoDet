@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from app_factory import create_test_app
 from fastapi.testclient import TestClient
 from table_evidence_analyzer import (
     AnalyzerEvidence,
@@ -15,7 +16,6 @@ from table_evidence_analyzer import (
 
 from dokodetector_backend.analyzer_adapter import EvidenceIntegrityError
 from dokodetector_backend.analyzer_runner import AnalyzerRunner, AnalyzerRunnerError
-from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.persistence import TableObservationPersister
@@ -135,7 +135,7 @@ def backend(tmp_path) -> tuple[TestClient, EvidenceRepository, EvidencePackageSt
         evidence_root=tmp_path / "runtime",
         evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
     )
-    app = create_app(settings)
+    app = create_test_app(settings)
     return TestClient(app), app.state.repository, app.state.evidence_package_storage
 
 
