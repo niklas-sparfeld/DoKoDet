@@ -361,6 +361,7 @@ public final class EvidenceFrameSampler: @unchecked Sendable {
     }
 
     public func reset() {
+        encoderQueue.sync {}
         lock.lock()
         generation += 1
         lastSampleTimestamp = nil
@@ -371,6 +372,7 @@ public final class EvidenceFrameSampler: @unchecked Sendable {
         framesEncoded = 0
         encodingFailures = 0
         ring.reset()
+        sessionClock.reset()
         lock.unlock()
     }
 

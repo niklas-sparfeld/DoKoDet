@@ -33,6 +33,13 @@ public final class EvidenceSessionClock: @unchecked Sendable {
         return CMTimeSubtract(timestamp, sourceTimestamp)
     }
 
+    /// Starts a fresh media timeline while keeping the descriptive UTC anchor.
+    public func reset() {
+        lock.lock()
+        sourceTimestamp = nil
+        lock.unlock()
+    }
+
     public func elapsedTime(for timestamp: CMTime) -> CMTime? {
         guard CMTimeGetSeconds(timestamp).isFinite else { return nil }
 
@@ -1107,7 +1114,8 @@ public struct EvidencePackageAssembler: Sendable {
         camera: EvidencePackageCameraMetadata,
         scoreTrace: [ModelPrediction] = [],
         videoSnippet: PackagedEvidenceVideo? = nil,
-        videoSnippetFailureReason: String? = nil
+        videoSnippetFailureReason: String? = nil,
+        parentRecordingID: String? = nil
     ) throws -> EvidencePackage {
         guard videoSnippet == nil || videoSnippetFailureReason == nil else {
             throw EvidencePackageError.videoDataMismatch("multiple video results")
@@ -1190,10 +1198,29 @@ public struct EvidencePackageAssembler: Sendable {
             scoreTrace: trace.sorted { $0.sessionElapsedMs < $1.sessionElapsedMs },
             client: client
         )
+        let repositoryMetadata: EvidencePackageRepositoryMetadata?
+        if let parentRecordingID {
+            let standardMetadata = try EvidencePackageRepositoryMetadata.standard(for: manifest)
+            let lineage = try RepositoryEvidencePackageLineage(
+                packageID: standardMetadata.lineage.packageID,
+                parentSourceAssetID: standardMetadata.lineage.parentSourceAssetID,
+                parentRecordingID: parentRecordingID,
+                parentVideoID: standardMetadata.lineage.parentVideoID,
+                sessionID: standardMetadata.lineage.sessionID
+            )
+            repositoryMetadata = try EvidencePackageRepositoryMetadata(
+                packageRecord: standardMetadata.packageRecord,
+                taskEnrollment: standardMetadata.taskEnrollment,
+                lineage: lineage
+            )
+        } else {
+            repositoryMetadata = nil
+        }
         return try EvidencePackage(
             manifest: manifest,
             frames: packagedFrames,
-            videoSnippet: videoSnippet
+            videoSnippet: videoSnippet,
+            repositoryMetadata: repositoryMetadata
         )
     }
 

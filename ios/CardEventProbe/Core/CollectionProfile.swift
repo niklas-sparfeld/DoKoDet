@@ -249,6 +249,32 @@ public struct CollectionProfile: Codable, Equatable, Identifiable, Sendable {
 
     public var isComplete: Bool { validationIssues.isEmpty }
 
+    /// Validation required before the Record view can start a round recording.
+    public var roundRecordingValidationIssues: [CollectionProfileValidationIssue] {
+        var issues = validationIssues
+        if activity != .realGame {
+            issues.append(
+                CollectionProfileValidationIssue(
+                    field: .activity,
+                    message: "Choose a real-game profile for a round recording."
+                )
+            )
+        }
+        if UUID(uuidString: sessionID) == nil {
+            issues.append(
+                CollectionProfileValidationIssue(
+                    field: .sessionID,
+                    message: "Use a UUID session identifier for a round recording."
+                )
+            )
+        }
+        return issues
+    }
+
+    public var isCompleteRoundRecordingProfile: Bool {
+        roundRecordingValidationIssues.isEmpty
+    }
+
     public func taskSetting(for task: RepositoryDataTask) -> CollectionTaskSetting? {
         taskSettings.first { $0.task == task }
     }

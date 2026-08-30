@@ -161,6 +161,11 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
         let pixelBuffer: CVPixelBuffer
     }
 
+    private struct PendingConversion {
+        let frame: VideoFrame
+        let generation: Int
+    }
+
     private let configuration: EvidenceVideoCaptureMetadata
     private let minimumCoverageStartOffsetMs: Int
     private let maximumCoverageEndOffsetMs: Int
@@ -176,12 +181,13 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
     private let condition = NSCondition()
     private let context = CIContext()
     private var frames: [BufferedFrame] = []
-    private var pendingConversions: [VideoFrame] = []
+    private var pendingConversions: [PendingConversion] = []
     private var conversionWorkerRunning = false
     private var latestTimestamp: CMTime?
     private var activeEventTimestamps: [CMTime] = []
     private var encodingInFlight = 0
     private var stopped = false
+    private var generation = 0
     private var completedCaptureCount = 0
     private var failedCaptureCount = 0
     private var acceptedFrameCount = 0
@@ -290,7 +296,9 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
             pendingConversions.removeFirst()
             framesReplacedBeforeConversion += 1
         }
-        pendingConversions.append(frame)
+        pendingConversions.append(
+            PendingConversion(frame: frame, generation: generation)
+        )
         let shouldStartWorker = !conversionWorkerRunning
         conversionWorkerRunning = true
         condition.unlock()
@@ -411,6 +419,28 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
         condition.unlock()
     }
 
+    /// Discards preview frames before a round recording starts.
+    public func reset() {
+        condition.lock()
+        generation += 1
+        cadenceSampler.reset()
+        frames.removeAll(keepingCapacity: false)
+        pendingConversions.removeAll(keepingCapacity: false)
+        activeEventTimestamps.removeAll(keepingCapacity: false)
+        latestTimestamp = nil
+        completedCaptureCount = 0
+        failedCaptureCount = 0
+        acceptedFrameCount = 0
+        rateLimitedFrameCount = 0
+        missedTargetCount = 0
+        framesReplacedBeforeConversion = 0
+        conversionFailureCount = 0
+        lastFailureReason = nil
+        stopped = false
+        condition.broadcast()
+        condition.unlock()
+    }
+
     private func append(pixelBuffer: CVPixelBuffer, timestamp: CMTime) {
         condition.lock()
         guard !stopped else {
@@ -444,12 +474,17 @@ public final class LiveEvidenceVideoSnippetProvider: @unchecked Sendable,
                 condition.unlock()
                 return
             }
-            let frame = pendingConversions.removeFirst()
+            let pending = pendingConversions.removeFirst()
             condition.unlock()
 
             do {
-                let pixelBuffer = try makeOutputPixelBuffer(from: frame.pixelBuffer)
-                append(pixelBuffer: pixelBuffer, timestamp: frame.timestamp)
+                let pixelBuffer = try makeOutputPixelBuffer(from: pending.frame.pixelBuffer)
+                condition.lock()
+                let shouldAppend = pending.generation == generation
+                condition.unlock()
+                if shouldAppend {
+                    append(pixelBuffer: pixelBuffer, timestamp: pending.frame.timestamp)
+                }
             } catch {
                 condition.lock()
                 conversionFailureCount += 1

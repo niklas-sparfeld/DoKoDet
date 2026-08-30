@@ -85,6 +85,7 @@ final class AppState: ObservableObject {
     @Published private(set) var trainingRecordingStartedAt: Date?
     @Published private(set) var trainingRecordingElapsedSeconds = 0.0
     @Published private(set) var trainingRecordingEstimatedSizeBytes: Int64 = 0
+    @Published private(set) var roundRecordingState: RoundRecordingState?
     @Published private(set) var collectionProfiles: [CollectionProfile] = []
     @Published private(set) var selectedCollectionProfileID: String?
     @Published private(set) var collectionProfileError: String?
@@ -116,6 +117,10 @@ final class AppState: ObservableObject {
     private var liveCoordinator: FrameInferenceCoordinator?
     private var liveVideoCapture: LiveEvidenceVideoSnippetProvider?
     private var trainingRecordingCoordinator: TrainingRecordingCoordinator?
+    private var captureSessionIsPersisted = false
+    private lazy var roundRecordingStateStore = RoundRecordingStateStore(
+        directory: trainingRecordingRoot()
+    )
     private var activeTaskEnrollments: [RepositoryTaskEnrollment] = []
     private var replayRunner: VideoReplayRunner?
     private var sessionLog: SessionLog?
@@ -168,6 +173,7 @@ final class AppState: ObservableObject {
             collectionProfileError = error.localizedDescription
         }
         recoverEvidencePackages()
+        recoverRoundRecordingState()
         recoverTrainingRecordings()
         loadModel()
     }
@@ -224,7 +230,6 @@ final class AppState: ObservableObject {
 
     var canStartTrainingRecording: Bool {
         guard captureActivity == .live,
-              captureSessionID != nil,
               case .ready = modelState,
               case .connected = backendDiscovery.state else {
             return false
@@ -233,6 +238,15 @@ final class AppState: ObservableObject {
         case .idle, .acknowledged, .failed:
             return trainingRecordingCoordinator == nil
         case .recording, .finalizing, .queued, .uploading:
+            return false
+        }
+    }
+
+    var isRoundRecordingLocked: Bool {
+        switch trainingRecordingState {
+        case .recording, .finalizing, .queued, .uploading:
+            return true
+        case .idle, .acknowledged, .failed:
             return false
         }
     }
@@ -340,15 +354,17 @@ final class AppState: ObservableObject {
 
     func startTrainingRecording(
         profile: CollectionProfile,
+        dealer: String = RoundRecordingSetup.fixedSeatIDs[0],
+        firstTrickLeader: String = RoundRecordingSetup.fixedSeatIDs[0],
         overrides: [CollectionTaskDispositionOverride] = []
     ) {
-        guard profile.isComplete else {
-            trainingRecordingError = profile.validationIssues
+        guard profile.isCompleteRoundRecordingProfile else {
+            trainingRecordingError = profile.roundRecordingValidationIssues
                 .map { "\($0.field.rawValue): \($0.message)" }
                 .joined(separator: " ")
             return
         }
-        guard canStartTrainingRecording, captureSessionID != nil else {
+        guard canStartTrainingRecording else {
             trainingRecordingError = "Start a live capture with a ready backend before recording."
             return
         }
@@ -359,6 +375,22 @@ final class AppState: ObservableObject {
 
         let recordingID = UUID().uuidString.lowercased()
         let startedAt = Date()
+        guard let profileSessionID = UUID(uuidString: profile.sessionID) else {
+            trainingRecordingError = "Use a UUID session identifier for a round recording."
+            return
+        }
+        let roundSetup: RoundRecordingSetup
+        do {
+            roundSetup = try RoundRecordingSetup(
+                gameID: profile.gameID ?? "",
+                recordingID: recordingID,
+                dealer: dealer,
+                firstTrickLeader: firstTrickLeader
+            )
+        } catch {
+            trainingRecordingError = error.localizedDescription
+            return
+        }
         let collectionMetadata: TrainingRecordingCollectionMetadata
         let taskEnrollments: [RepositoryTaskEnrollment]
         do {
@@ -370,6 +402,38 @@ final class AppState: ObservableObject {
             )
         } catch {
             trainingRecordingError = error.localizedDescription
+            return
+        }
+        guard let evidenceSampler else {
+            trainingRecordingError = "Evidence capture is not ready."
+            return
+        }
+        evidenceSampler.reset()
+        liveVideoCapture?.reset()
+        let sessionClock = evidenceSampler.sessionClock
+        let recordingCaptureSession: CaptureSession
+        do {
+            recordingCaptureSession = try captureSessionIdentityStore.startSession(
+                sessionID: profileSessionID,
+                startedAtUTC: startedAt,
+                clock: sessionClock
+            )
+        } catch {
+            trainingRecordingError = "The recording session could not be started: \(error.localizedDescription)"
+            return
+        }
+        let roundRecordingState: RoundRecordingState
+        do {
+            roundRecordingState = try RoundRecordingState(
+                recordingID: recordingID,
+                sessionID: profileSessionID,
+                roundSetup: roundSetup,
+                startedAtUTC: startedAt
+            )
+            try roundRecordingStateStore.save(roundRecordingState)
+        } catch {
+            try? captureSessionIdentityStore.endSession(sessionID: profileSessionID)
+            trainingRecordingError = "The round recording state could not be saved: \(error.localizedDescription)"
             return
         }
         let model = TrainingRecordingModel(
@@ -397,7 +461,7 @@ final class AppState: ObservableObject {
         let configuration = TrainingRecordingConfiguration(
             outputRoot: trainingRecordingStore.directoryURL(for: .queued),
             recordingID: recordingID,
-            sessionID: profile.sessionID,
+            sessionID: profileSessionID.uuidString.lowercased(),
             videoID: "video-\(recordingID)",
             startedAtUTC: startedAt,
             model: model,
@@ -414,11 +478,24 @@ final class AppState: ObservableObject {
         do {
             try coordinator.start()
         } catch {
+            try? roundRecordingStateStore.remove()
+            try? captureSessionIdentityStore.endSession(sessionID: profileSessionID)
             trainingRecordingError = error.localizedDescription
             return
         }
 
+        captureSession = recordingCaptureSession
+        captureSessionID = profileSessionID
+        captureSessionIsPersisted = true
+        evidencePackageCoordinator = makeEvidencePackageCoordinator(
+            captureSession: recordingCaptureSession,
+            ring: evidenceSampler.ring,
+            videoSnippetProvider: liveVideoCapture,
+            recordingID: recordingID,
+            requiresActiveRecording: true
+        )
         trainingRecordingCoordinator = coordinator
+        self.roundRecordingState = roundRecordingState
         activeCollectionProfile = profile
         activeTaskEnrollments = taskEnrollments
         liveCoordinator?.attachTrainingRecording(coordinator)
@@ -432,7 +509,6 @@ final class AppState: ObservableObject {
         trainingRecordingUploadProgress = nil
         lastTrainingRecordingUploadProgressUpdateAt = nil
         trainingRecordingState = .recording
-        evidencePackageCoordinator?.setRecordingID(recordingID)
     }
 
     func stopTrainingRecording(scenarioTags: [String]? = nil, notes: String? = nil) {
@@ -440,6 +516,11 @@ final class AppState: ObservableObject {
         guard let coordinator = trainingRecordingCoordinator else {
             trainingRecordingState = .failed("The training recording coordinator is not available.")
             trainingRecordingError = "The training recording coordinator is not available."
+            return
+        }
+        guard let recordingID = latestTrainingRecordingID else {
+            trainingRecordingState = .failed("The round recording ID is not available.")
+            trainingRecordingError = "The round recording ID is not available."
             return
         }
         guard let activeCollectionProfile else {
@@ -456,7 +537,17 @@ final class AppState: ObservableObject {
             trainingRecordingError = error.localizedDescription
             return
         }
+        do {
+            _ = try roundRecordingStateStore.closeEvidenceMembership(recordingID: recordingID)
+            roundRecordingState = try roundRecordingStateStore.load()
+        } catch {
+            trainingRecordingError = "The round recording state could not be closed: \(error.localizedDescription)"
+            return
+        }
         liveCoordinator?.attachTrainingRecording(nil)
+        evidencePackageCoordinator?.closeRecordingMembership()
+        finishEvidencePackageCoordinator()
+        finishPersistedCaptureSessionMarker()
         trainingRecordingState = .finalizing
         trainingRecordingMetrics = coordinator.metrics
         coordinator.stop(
@@ -472,6 +563,11 @@ final class AppState: ObservableObject {
                 self.activeTaskEnrollments = []
                 switch result {
                 case let .success(url):
+                    if let state = try? self.roundRecordingStateStore.markRecordingBundleFinalized(
+                        recordingID: recordingID
+                    ) {
+                        self.roundRecordingState = state
+                    }
                     self.trainingRecordingError = nil
                     self.trainingRecordingQueueDiagnostics = self.trainingRecordingStore.diagnostics
                     self.trainingRecordingState = .queued
@@ -556,7 +652,7 @@ final class AppState: ObservableObject {
         resetEvents()
         evidenceVideoCaptureConfigurationError = nil
         guard let runner = modelRunner else { return nil }
-        guard let captureSession = beginCaptureSession() else { return nil }
+        let captureSession = beginPreviewCaptureSession()
         activeDiagnosticSource = .live
         captureActivity = .live
         beginDiagnosticsSessionIfNeeded(source: .live)
@@ -579,11 +675,6 @@ final class AppState: ObservableObject {
         }
         self.liveVideoCapture = liveVideoCapture
         evidenceVideoCaptureStatus = liveVideoCapture?.status ?? .idle
-        evidencePackageCoordinator = makeEvidencePackageCoordinator(
-            captureSession: captureSession,
-            ring: evidenceSampler.ring,
-            videoSnippetProvider: liveVideoCapture
-        )
         let coordinator = FrameInferenceCoordinator(
             runner: runner,
             eventDecoder: eventDecoder,
@@ -884,7 +975,9 @@ final class AppState: ObservableObject {
     private func makeEvidencePackageCoordinator(
         captureSession: CaptureSession,
         ring: EvidenceFrameRing,
-        videoSnippetProvider: (any EvidenceVideoSnippetProviding)? = nil
+        videoSnippetProvider: (any EvidenceVideoSnippetProviding)? = nil,
+        recordingID: String? = nil,
+        requiresActiveRecording: Bool = false
     ) -> EvidencePackageCoordinator {
         let decoderConfiguration = eventDecoder.configuration
         let model = EvidencePackageModelMetadata(
@@ -917,12 +1010,33 @@ final class AppState: ObservableObject {
                 width: 1920,
                 height: 1080
             ),
+            recordingID: recordingID,
+            requiresActiveRecording: requiresActiveRecording,
             videoSnippetProvider: videoSnippetProvider
         ) { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
                 switch result {
-                case .success:
+                case let .success(url):
+                    if let recordingID {
+                        guard let package = try? self.evidencePackageStore.loadPackage(at: url),
+                              package.manifest.session.sessionID == captureSession.sessionID,
+                              package.repositoryMetadata?.lineage.packageID
+                                  == package.manifest.packageID.uuidString.lowercased(),
+                              package.repositoryMetadata?.lineage.parentRecordingID == recordingID,
+                              package.repositoryMetadata?.lineage.sessionID
+                                  == captureSession.sessionID.uuidString.lowercased(),
+                              let state = try? self.roundRecordingStateStore.appendEvidencePackage(
+                                  package.manifest.packageID,
+                                  recordingID: recordingID,
+                                  sessionID: captureSession.sessionID
+                              ) else {
+                            self.evidencePackageError = "A persisted evidence package has invalid recording lineage."
+                            self.evidenceQueueDiagnostics = self.evidencePackageStore.diagnostics
+                            return
+                        }
+                        self.roundRecordingState = state
+                    }
                     self.evidencePackageCount += 1
                     self.evidencePackageError = nil
                     self.evidenceQueueDiagnostics = self.evidencePackageStore.diagnostics
@@ -949,6 +1063,7 @@ final class AppState: ObservableObject {
                 ?? captureSessionIdentityStore.startSession()
             captureSession = session
             captureSessionID = session.sessionID
+            captureSessionIsPersisted = true
             latestEventSequence = nil
             return session
         } catch {
@@ -958,12 +1073,29 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func beginPreviewCaptureSession() -> CaptureSession {
+        let session = CaptureSession()
+        captureSession = session
+        captureSessionID = nil
+        captureSessionIsPersisted = false
+        latestEventSequence = nil
+        return session
+    }
+
     private func recoverEvidencePackages() {
         do {
             evidenceQueueDiagnostics = try evidencePackageStore.recover()
             evidencePackageError = evidenceQueueDiagnostics?.errors.first
         } catch {
             evidencePackageError = error.localizedDescription
+        }
+    }
+
+    private func recoverRoundRecordingState() {
+        do {
+            roundRecordingState = try roundRecordingStateStore.load()
+        } catch {
+            trainingRecordingError = error.localizedDescription
         }
     }
 
@@ -993,6 +1125,15 @@ final class AppState: ObservableObject {
         evidenceQueueDiagnostics = evidencePackageStore.diagnostics
         evidenceUploadError = attempts.compactMap { $0.failure?.message }.first
         latestEvidencePackageID = attempts.compactMap { $0.response?.packageID }.last
+        guard let recordingID = roundRecordingState?.recordingID else { return }
+        for attempt in attempts where attempt.disposition == .acknowledged {
+            if let state = try? roundRecordingStateStore.acknowledgeEvidencePackage(
+                attempt.packageID,
+                recordingID: recordingID
+            ) {
+                roundRecordingState = state
+            }
+        }
     }
 
     private func applyTrainingRecordingUploadAttempts(
@@ -1030,6 +1171,11 @@ final class AppState: ObservableObject {
             }
             trainingRecordingState = .acknowledged
             trainingRecordingError = nil
+            if let state = try? roundRecordingStateStore.markRecordingBundleAcknowledged(
+                recordingID: recordingID
+            ) {
+                roundRecordingState = state
+            }
         case .retryableFailure, .permanentFailure:
             let message = attempt.failure?.message ?? "The training recording upload failed."
             trainingRecordingState = .failed(message)
@@ -1083,14 +1229,27 @@ final class AppState: ObservableObject {
 
     private func finishCaptureSession() {
         guard let captureSession else { return }
-        do {
-            try captureSessionIdentityStore.endSession(sessionID: captureSession.sessionID)
-        } catch {
-            inferenceError = "The capture session could not be closed: \(error.localizedDescription)"
+        if captureSessionIsPersisted {
+            do {
+                try captureSessionIdentityStore.endSession(sessionID: captureSession.sessionID)
+            } catch {
+                inferenceError = "The capture session could not be closed: \(error.localizedDescription)"
+            }
         }
+        captureSessionIsPersisted = false
         self.captureSession = nil
         captureSessionID = nil
         captureActivity = .idle
+    }
+
+    private func finishPersistedCaptureSessionMarker() {
+        guard captureSessionIsPersisted, let captureSession else { return }
+        do {
+            try captureSessionIdentityStore.endSession(sessionID: captureSession.sessionID)
+            captureSessionIsPersisted = false
+        } catch {
+            inferenceError = "The recording session could not be closed: \(error.localizedDescription)"
+        }
     }
 
     private func finishEvidencePackageCoordinator() {

@@ -9,6 +9,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         let event: DetectionEvent
         let packageID: UUID
         let eventSequence: Int
+        let recordingID: String?
     }
 
     private enum VideoSnippetCaptureResult {
@@ -38,6 +39,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
     )
     private let onPackagePersisted: (Result<URL, EvidencePackageStoreError>) -> Void
     private let onEventSequenceReserved: (UUID, Int) -> Void
+    private let requiresActiveRecording: Bool
     private var pendingEvents: [PendingEvent] = []
     private var processedEventIDs = Set<UUID>()
     private var preparedVideoResults: [UUID: VideoSnippetCaptureResult] = [:]
@@ -56,6 +58,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         client: EvidencePackageClientMetadata,
         camera: EvidencePackageCameraMetadata,
         recordingID: String? = nil,
+        requiresActiveRecording: Bool = false,
         videoSnippetProvider: (any EvidenceVideoSnippetProviding)? = nil,
         onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in },
         onEventSequenceReserved: @escaping (UUID, Int) -> Void = { _, _ in }
@@ -76,6 +79,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         self.onEventSequenceReserved = onEventSequenceReserved
         self.camera = camera
         self.recordingID = recordingID
+        self.requiresActiveRecording = requiresActiveRecording
         self.videoSnippetProvider = videoSnippetProvider
     }
 
@@ -91,6 +95,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         client: EvidencePackageClientMetadata,
         camera: EvidencePackageCameraMetadata,
         recordingID: String? = nil,
+        requiresActiveRecording: Bool = false,
         videoSnippetProvider: (any EvidenceVideoSnippetProviding)? = nil,
         onPackagePersisted: @escaping (Result<URL, EvidencePackageStoreError>) -> Void = { _ in },
         onEventSequenceReserved: @escaping (UUID, Int) -> Void = { _, _ in }
@@ -109,6 +114,7 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
             client: client,
             camera: camera,
             recordingID: recordingID,
+            requiresActiveRecording: requiresActiveRecording,
             videoSnippetProvider: videoSnippetProvider,
             onPackagePersisted: onPackagePersisted,
             onEventSequenceReserved: onEventSequenceReserved
@@ -133,6 +139,13 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         queue.sync {
             guard !stopped else { return }
             self.recordingID = recordingID
+        }
+    }
+
+    /// Closes the membership boundary while retaining pending events for finalization.
+    public func closeRecordingMembership() {
+        queue.sync {
+            recordingID = nil
         }
     }
 
@@ -203,6 +216,8 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
 
     private func addPending(_ event: DetectionEvent) {
         guard !processedEventIDs.contains(event.id) else { return }
+        guard !requiresActiveRecording || recordingID != nil else { return }
+        let recordingID = self.recordingID
         let eventSequence: Int
         do {
             eventSequence = try captureSession.reserveEventSequence()
@@ -222,7 +237,8 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
         let pending = PendingEvent(
             event: event,
             packageID: UUID(),
-            eventSequence: eventSequence
+            eventSequence: eventSequence,
+            recordingID: recordingID
         )
         if videoSnippetProvider != nil {
             preparedVideoResults[pending.packageID] = captureVideoSnippet(for: event)
@@ -269,7 +285,8 @@ public final class EvidencePackageCoordinator: @unchecked Sendable {
                     camera: camera,
                     scoreTrace: scoreTrace,
                     videoSnippet: videoResult?.completeVideo,
-                    videoSnippetFailureReason: videoResult?.failureReason
+                    videoSnippetFailureReason: videoResult?.failureReason,
+                    parentRecordingID: pending.recordingID
                 )
                 let url = try store.persist(package)
                 onPackagePersisted(.success(url))

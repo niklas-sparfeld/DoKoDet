@@ -12,6 +12,8 @@ struct RecordView: View {
     @State private var cardEventOverride: RepositoryTaskDisposition?
     @State private var tableEvidenceOverride: RepositoryTaskDisposition?
     @State private var overrideReason = ""
+    @State private var dealer = RoundRecordingSetup.fixedSeatIDs[0]
+    @State private var firstTrickLeader = RoundRecordingSetup.fixedSeatIDs[0]
 
     init() {
         _profile = State(initialValue: CollectionProfile.newDraft())
@@ -194,7 +196,7 @@ struct RecordView: View {
             }
             .buttonStyle(.borderedProminent)
 
-            validationMessages(for: profile.validationIssues)
+            validationMessages(for: profile.roundRecordingValidationIssues)
             if let error = appState.collectionProfileError {
                 Text(error)
                     .font(.caption)
@@ -203,7 +205,7 @@ struct RecordView: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .disabled(appState.trainingRecordingState == .recording)
+        .disabled(appState.isRoundRecordingLocked)
     }
 
     private var taskPanel: some View {
@@ -241,7 +243,7 @@ struct RecordView: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .disabled(appState.trainingRecordingState == .recording)
+        .disabled(appState.isRoundRecordingLocked)
     }
 
     private var recordingPanel: some View {
@@ -256,6 +258,21 @@ struct RecordView: View {
                 .foregroundStyle(appState.trainingRecordingState == .recording ? .red : .primary)
                 Spacer()
             }
+
+            Text("Round setup")
+                .font(.headline)
+            Picker("Dealer", selection: $dealer) {
+                ForEach(RoundRecordingSetup.fixedSeatIDs, id: \.self) { seatID in
+                    Text(seatID).tag(seatID)
+                }
+            }
+            .disabled(appState.isRoundRecordingLocked)
+            Picker("First trick leader", selection: $firstTrickLeader) {
+                ForEach(RoundRecordingSetup.fixedSeatIDs, id: \.self) { seatID in
+                    Text(seatID).tag(seatID)
+                }
+            }
+            .disabled(appState.isRoundRecordingLocked)
 
             TextField("Recording notes", text: $recordingNotes, axis: .vertical)
                 .lineLimit(2...5)
@@ -276,8 +293,8 @@ struct RecordView: View {
 
             Button(
                 appState.trainingRecordingState == .recording
-                    ? "Stop training recording"
-                    : "Start training recording"
+                    ? "Stop round recording"
+                    : "Start round recording"
             ) {
                 applyTextFields()
                 if appState.trainingRecordingState == .recording {
@@ -288,6 +305,8 @@ struct RecordView: View {
                 } else {
                     appState.startTrainingRecording(
                         profile: profile,
+                        dealer: dealer,
+                        firstTrickLeader: firstTrickLeader,
                         overrides: recordingOverrides()
                     )
                 }
@@ -297,7 +316,7 @@ struct RecordView: View {
             .disabled(
                 appState.trainingRecordingState == .recording
                     ? false
-                    : !appState.canStartTrainingRecording
+                    : !appState.canStartTrainingRecording || !profile.isCompleteRoundRecordingProfile
             )
 
             if case .failed = appState.trainingRecordingState {

@@ -56,6 +56,7 @@ let package = Package(
                 "Core/SessionLog.swift",
                 "Core/TrainingRecording.swift",
                 "Core/RepositoryIntake.swift",
+                "Core/RoundRecording.swift",
                 "Core/TrainingRecordingCoordinator.swift",
                 "Core/TrainingRecordingQueue.swift",
                 "Inference/CardEventTensorBuilder.swift",

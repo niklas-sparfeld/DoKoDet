@@ -136,13 +136,17 @@ public final class CaptureSessionIdentityStore: @unchecked Sendable {
     }
 
     /// Starts a new session and replaces any stale active-session marker.
-    public func startSession(startedAtUTC: Date = Date()) throws -> CaptureSession {
+    public func startSession(
+        sessionID: UUID = UUID(),
+        startedAtUTC: Date = Date(),
+        clock: EvidenceSessionClock? = nil
+    ) throws -> CaptureSession {
         lock.lock()
         defer { lock.unlock() }
 
-        let state = CaptureSessionState(startedAtUTC: startedAtUTC)
+        let state = CaptureSessionState(sessionID: sessionID, startedAtUTC: startedAtUTC)
         try writeLocked(state)
-        return CaptureSession(state: state, store: self)
+        return CaptureSession(state: state, store: self, clock: clock)
     }
 
     /// Reopens the active session left by an interrupted process, if one exists.
@@ -305,10 +309,14 @@ public final class CaptureSession: @unchecked Sendable {
         inMemoryNextEventSequence = nextEventSequence
     }
 
-    fileprivate init(state: CaptureSessionState, store: CaptureSessionIdentityStore) {
+    fileprivate init(
+        state: CaptureSessionState,
+        store: CaptureSessionIdentityStore,
+        clock: EvidenceSessionClock? = nil
+    ) {
         sessionID = state.sessionID
         startedAtUTC = state.startedAtUTC
-        clock = EvidenceSessionClock(startedAtUTC: state.startedAtUTC)
+        self.clock = clock ?? EvidenceSessionClock(startedAtUTC: state.startedAtUTC)
         self.store = store
         inMemoryNextEventSequence = state.nextEventSequence
     }

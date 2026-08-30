@@ -16,7 +16,7 @@
 - **M1:** Complete — add the backend analysis contract, persistence, restart conversion, and
   artifact storage.
 - **M2:** Complete — add the backend worker, lifecycle handling, and APIs.
-- **M3:** Pending — make one iOS recording own video, evidence, lineage, and package tracking.
+- **M3:** Complete — make one iOS recording own video, evidence, lineage, and package tracking.
 - **M4:** Pending — add iOS upload gating, durable analysis submission, and polling.
 - **M5:** Pending — add the result UI, end-to-end fixtures, and local documentation.
 
@@ -213,6 +213,22 @@ support multiple simultaneous round recordings or a history screen in this epic.
 - Make Start and Stop own both complete-video and evidence-package creation.
 - Add snapshotted lineage, the shared session invariant, the stop boundary, and durable package
   tracking.
+
+#### M3 implementation evidence — 2026-08-30
+
+- Added the fixed real-game round setup contract with four seat IDs, dealer, first trick leader,
+  recording-derived round ID, and a durable ordered package and acknowledgement state file.
+- Made the live preview in-memory only. Start now resets the preview buffers, uses the profile UUID
+  as the shared capture session ID, saves round state before starting both coordinators, and creates
+  evidence packages only for the active recording.
+- Snapshotted the recording ID when evidence reserves an event sequence. Persisted packages carry
+  that recording in the existing lineage document. Stop closes membership, finalizes pending
+  evidence and the complete recording, and blocks later live events from joining it.
+- Added Record view setup pickers, round-profile validation, locked controls, Xcode target wiring,
+  and focused iOS core tests for setup, persistence, lineage, and the start boundary.
+- Verification: focused round-recording tests and the iOS Simulator Xcode build pass. The Swift
+  package suite still reports four baseline failures: two evidence-manifest contract checks, one
+  package-fixture date-precision equality check, and one live-video timing fixture check.
 
 ### M4 — Analysis submission and polling
 
