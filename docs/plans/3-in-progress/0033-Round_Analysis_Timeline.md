@@ -19,7 +19,7 @@
 
 - **M0:** Complete — replace the operations result with a scored per-action explanation contract.
 - **M1:** Complete — project one immutable analysis into timeline data and serve its central frames.
-- **M2:** Pending — establish the frontend toolchain, generated API types, and typed client.
+- **M2:** Complete — establish the frontend toolchain, generated API types, and typed client.
 - **M3:** Pending — package and serve a production frontend with one API smoke view.
 - **M4:** Pending — render the first synchronized three-column timeline for a resolved fixture.
 - **M5:** Pending — explain alternatives, incomplete input, impossible input, and diagnostics.
@@ -320,6 +320,24 @@ The operator can return to the exact baseline without deleting the counterfactua
 - Generate and verify the OpenAPI TypeScript declarations and add the typed `fetch` boundary.
 - Add the Vite-to-FastAPI development proxy and prove the typed development path with automated
   checks.
+
+#### M2 implementation evidence — 2026-08-30
+
+- Added Node.js `24.20.0` to `mise.toml` and scaffolded the root `web/` package with React
+  `19.2.8`, strict TypeScript `5.9.3`, Vite `8.2.2`, npm, ESLint `10.9.1`, Prettier `3.9.6`,
+  Vitest `4.1.11`, Testing Library, and Playwright `1.62.1`. Committed `package-lock.json` and
+  kept generated API output under `web/src/api/`.
+- Added an isolated backend OpenAPI export command. It creates the FastAPI app with local POC
+  analyzer and temporary SQLite and evidence paths, then writes the document used by
+  `openapi-typescript`. `npm run verify:api` regenerates into a temporary file and fails on any
+  declaration diff.
+- Added a typed browser `fetch` client for analysis status, timeline, and frame delivery. Its
+  response types derive directly from the generated operation schemas.
+- Added the Vite `/v1` proxy with `VITE_API_PROXY_TARGET` override, a local proxy integration
+  test, React Testing Library tests, and a Playwright production-preview smoke test.
+- Verification: clean `npm ci`, `npm run check`, `npm run build`, and `npm run test:e2e` pass;
+  the frontend has 5 unit/integration tests and 1 browser test. The backend suite remains green
+  at 130 tests. The existing FastAPI test-client deprecation warning remains.
 
 ### M3 — Production asset boundary
 

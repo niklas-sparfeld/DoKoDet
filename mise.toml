@@ -2,6 +2,7 @@
 python = "3.13"
 uv = "0.12"
 ffmpeg = "8.1.2"
+node = "24.20.0"
 
 [env]
 UV_CACHE_DIR = "{{config_root}}/.uv-cache"
