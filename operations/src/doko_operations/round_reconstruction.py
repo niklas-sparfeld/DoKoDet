@@ -1956,32 +1956,13 @@ def run_round_reconstruction_values(
         raise TypeError("request must be a RoundReconstructionRunRequest.")
     loaded = load_round_reconstruction_observations_from_paths(request, source_paths)
     reconstruction_input = assemble_round_reconstruction_input(request, loaded)
-    manifest_path = (
-        _local_deck_manifest_path()
-        if deck_manifest_path is None
-        else Path(deck_manifest_path).expanduser().resolve()
-    )
-    try:
-        engine_result = reconstruct_round(
-            reconstruction_input,
-            ruleset=DokoNormalRuleset(
-                load_deck_manifest(request.round_setup.deck_variant, path=manifest_path)
-            ),
-            max_missing_plays=request.search.max_missing_plays,
-            max_hypotheses=request.search.max_hypotheses,
-            max_search_nodes=request.search.max_search_nodes,
-        )
-    except ValueError as error:
-        raise RoundReconstructionContractError(
-            f"round reconstruction failed validation: {error}"
-        ) from error
-
-    input_bytes = canonical_engine_json_bytes(reconstruction_input)
-    result = build_round_reconstruction_result(
+    result = reconstruct_round_reconstruction_input(
         request,
+        reconstruction_input,
         tuple(item.source_record for item in loaded),
-        engine_result,
+        deck_manifest_path=deck_manifest_path,
     )
+    input_bytes = canonical_engine_json_bytes(reconstruction_input)
     result_bytes = canonical_result_bytes(result)
     directory = publish_round_reconstruction_artifacts(
         output_root,
@@ -1995,6 +1976,54 @@ def run_round_reconstruction_values(
         result_path=directory / "result.json",
         result=result,
     )
+
+
+def reconstruct_round_reconstruction_input(
+    request: RoundReconstructionRunRequest,
+    reconstruction_input: ReconstructionInput,
+    source_records: Sequence[ObservationSourceRecord],
+    *,
+    deck_manifest_path: str | Path | None = None,
+) -> RoundReconstructionRunResult:
+    """Reconstruct one already-materialized input without publishing artifacts."""
+
+    if not isinstance(request, RoundReconstructionRunRequest):
+        raise TypeError("request must be a RoundReconstructionRunRequest.")
+    if not isinstance(reconstruction_input, ReconstructionInput):
+        raise TypeError("reconstruction_input must be a ReconstructionInput.")
+    if isinstance(source_records, (str, bytes)):
+        raise TypeError("source_records must be a sequence of source records.")
+    records = tuple(source_records)
+    if len(records) != len(reconstruction_input.observations):
+        raise RoundReconstructionContractError(
+            "source_records must contain one record for each reconstruction input observation."
+        )
+    if tuple(record.observation_id for record in records) != tuple(
+        observation.observation_id for observation in reconstruction_input.observations
+    ):
+        raise RoundReconstructionContractError(
+            "source_records must use the reconstruction input observation order."
+        )
+    manifest_path = (
+        _local_deck_manifest_path()
+        if deck_manifest_path is None
+        else Path(deck_manifest_path).expanduser().resolve()
+    )
+    try:
+        engine_result = reconstruct_round(
+            reconstruction_input,
+            ruleset=DokoNormalRuleset(
+                load_deck_manifest(reconstruction_input.deck_variant, path=manifest_path)
+            ),
+            max_missing_plays=request.search.max_missing_plays,
+            max_hypotheses=request.search.max_hypotheses,
+            max_search_nodes=request.search.max_search_nodes,
+        )
+    except ValueError as error:
+        raise RoundReconstructionContractError(
+            f"round reconstruction failed validation: {error}"
+        ) from error
+    return build_round_reconstruction_result(request, records, engine_result)
 
 
 def validate_round_reconstruction_request(
@@ -2146,6 +2175,7 @@ __all__ = [
     "canonical_request_bytes",
     "canonical_request_sha256",
     "canonical_result_bytes",
+    "reconstruct_round_reconstruction_input",
     "assemble_round_reconstruction_input",
     "load_round_reconstruction_request",
     "load_round_reconstruction_result",

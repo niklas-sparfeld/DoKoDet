@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from game_engine import (
@@ -27,6 +28,15 @@ from game_engine import (
 )
 
 from doko_operations.cli import main
+from doko_operations.counterfactual import (
+    ROUND_COUNTERFACTUAL_SCHEMA_VERSION,
+    RoundCounterfactualRequest,
+    canonical_counterfactual_bytes,
+    canonical_counterfactual_sha256,
+    derive_counterfactual_input,
+    parse_round_counterfactual_request_bytes,
+    recompute_counterfactual,
+)
 from doko_operations.round_reconstruction import (
     ObservationSourceRecord,
     RoundReconstructionContractError,
@@ -42,6 +52,7 @@ from doko_operations.round_reconstruction import (
     run_round_reconstruction,
     run_round_reconstruction_values,
     serialize_engine_result,
+    sha256_bytes,
 )
 
 GAME_ENGINE_SCENARIO_ROOT = Path(__file__).parents[2] / "fixtures" / "game-engine" / "v1" / "rounds"
@@ -390,6 +401,277 @@ def test_request_is_strict_and_canonical() -> None:
     assert canonical_request_sha256(parsed) == canonical_request_sha256(
         parse_round_reconstruction_request_bytes(json.dumps(payload).encode())
     )
+
+
+def _counterfactual_request_payload(
+    input_value,
+    result,
+    *,
+    excluded_observation_ids: list[str] | None = None,
+    excluded_observed_cards: list[dict[str, str]] | None = None,
+    candidate_probability_overrides: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    return {
+        "schema_version": ROUND_COUNTERFACTUAL_SCHEMA_VERSION,
+        "counterfactual_id": "22222222-2222-4222-8222-222222222222",
+        "source_analysis_id": result.run_id,
+        "source_input_sha256": sha256_bytes(canonical_json_bytes(input_value)),
+        "source_result_sha256": sha256_bytes(canonical_result_bytes(result)),
+        "excluded_observation_ids": excluded_observation_ids or [],
+        "excluded_observed_cards": excluded_observed_cards or [],
+        "candidate_probability_overrides": candidate_probability_overrides or [],
+    }
+
+
+def _counterfactual_source(tmp_path: Path):
+    request_path = write_scenario_request(tmp_path, "ambiguous")
+    request_payload_value = json.loads(request_path.read_text(encoding="utf-8"))
+    request_payload_value["run_id"] = "11111111-1111-4111-8111-111111111111"
+    request_path.write_text(json.dumps(request_payload_value), encoding="utf-8")
+    artifacts = run_round_reconstruction(request_path)
+    input_value = parse_reconstruction_input_bytes(artifacts.input_path.read_bytes())
+    result = parse_round_reconstruction_result_bytes(artifacts.result_path.read_bytes())
+    return artifacts, input_value, result
+
+
+def test_counterfactual_request_is_strict_canonical_and_uuid_based() -> None:
+    payload = {
+        "schema_version": ROUND_COUNTERFACTUAL_SCHEMA_VERSION,
+        "counterfactual_id": "22222222-2222-4222-8222-222222222222",
+        "source_analysis_id": "11111111-1111-4111-8111-111111111111",
+        "source_input_sha256": "1" * 64,
+        "source_result_sha256": "2" * 64,
+        "excluded_observation_ids": ["observation-001"],
+        "excluded_observed_cards": [
+            {"observation_id": "observation-002", "observed_card_id": "card-01"}
+        ],
+        "candidate_probability_overrides": [
+            {
+                "observation_id": "observation-003",
+                "observed_card_id": "card-02",
+                "card": "CLUBS_ACE",
+                "probability": 0.75,
+            }
+        ],
+    }
+    parsed = parse_round_counterfactual_request_bytes(json.dumps(payload, indent=2).encode())
+
+    assert parsed.counterfactual_id == UUID("22222222-2222-4222-8222-222222222222")
+    assert canonical_counterfactual_bytes(parsed) == canonical_counterfactual_bytes(
+        parse_round_counterfactual_request_bytes(canonical_counterfactual_bytes(parsed))
+    )
+    assert canonical_counterfactual_sha256(parsed) == sha256_bytes(
+        canonical_counterfactual_bytes(parsed)
+    )
+
+    unknown = copy.deepcopy(payload)
+    unknown["unexpected"] = True
+    with pytest.raises(RoundReconstructionContractError, match="invalid fields"):
+        parse_round_counterfactual_request_bytes(json.dumps(unknown).encode())
+
+    empty = copy.deepcopy(payload)
+    empty["excluded_observation_ids"] = []
+    empty["excluded_observed_cards"] = []
+    empty["candidate_probability_overrides"] = []
+    with pytest.raises(RoundReconstructionContractError, match="at least one change"):
+        parse_round_counterfactual_request_bytes(json.dumps(empty).encode())
+
+
+def test_counterfactual_derivation_excludes_an_observation_without_mutating_source(
+    tmp_path: Path,
+) -> None:
+    artifacts, input_value, result = _counterfactual_source(tmp_path)
+    source_input_bytes = artifacts.input_path.read_bytes()
+    source_result_bytes = artifacts.result_path.read_bytes()
+    source_observations = {
+        path: path.read_bytes() for path in (tmp_path / "ambiguous" / "observations").glob("*.json")
+    }
+    request = RoundCounterfactualRequest.from_mapping(
+        _counterfactual_request_payload(
+            input_value,
+            result,
+            excluded_observation_ids=["observation-001"],
+        )
+    )
+
+    derived = derive_counterfactual_input(request, input_value)
+
+    assert [item.observation_id for item in derived.observations] == [
+        item.observation_id for item in input_value.observations[1:]
+    ]
+    assert canonical_json_bytes(input_value) == source_input_bytes
+    assert artifacts.result_path.read_bytes() == source_result_bytes
+    assert {
+        path: path.read_bytes() for path in (tmp_path / "ambiguous" / "observations").glob("*.json")
+    } == source_observations
+
+
+def test_counterfactual_derivation_excludes_card_and_rescales_existing_candidates(
+    tmp_path: Path,
+) -> None:
+    _, input_value, result = _counterfactual_source(tmp_path)
+    source_card = input_value.observations[0].cards[0]
+    request = RoundCounterfactualRequest.from_mapping(
+        _counterfactual_request_payload(
+            input_value,
+            result,
+            excluded_observed_cards=[
+                {
+                    "observation_id": input_value.observations[1].observation_id,
+                    "observed_card_id": input_value.observations[1].cards[0].observed_card_id,
+                }
+            ],
+            candidate_probability_overrides=[
+                {
+                    "observation_id": input_value.observations[0].observation_id,
+                    "observed_card_id": source_card.observed_card_id,
+                    "card": source_card.identity_candidates[0].card,
+                    "probability": 0.75,
+                }
+            ],
+        )
+    )
+
+    derived = derive_counterfactual_input(request, input_value)
+    derived_card = derived.observations[0].cards[0]
+
+    assert len(derived.observations[1].cards) == 0
+    assert [candidate.probability for candidate in derived_card.identity_candidates] == [
+        pytest.approx(0.75),
+        pytest.approx(0.25),
+    ]
+    assert derived_card.identity_candidates[0].card == source_card.identity_candidates[0].card
+
+
+def test_counterfactual_recomputation_is_deterministic_and_reuses_source_search_limits(
+    tmp_path: Path,
+) -> None:
+    artifacts, input_value, result = _counterfactual_source(tmp_path)
+    source_input_bytes = artifacts.input_path.read_bytes()
+    source_result_bytes = artifacts.result_path.read_bytes()
+    source_observation_bytes = {
+        path: path.read_bytes() for path in (tmp_path / "ambiguous" / "observations").glob("*.json")
+    }
+    source_card = input_value.observations[0].cards[0]
+    request = RoundCounterfactualRequest.from_mapping(
+        _counterfactual_request_payload(
+            input_value,
+            result,
+            candidate_probability_overrides=[
+                {
+                    "observation_id": input_value.observations[0].observation_id,
+                    "observed_card_id": source_card.observed_card_id,
+                    "card": source_card.identity_candidates[0].card,
+                    "probability": 0.75,
+                }
+            ],
+        )
+    )
+
+    first = recompute_counterfactual(request, input_value, result)
+    second = recompute_counterfactual(request, input_value, result)
+
+    assert first.result.run_id == str(request.counterfactual_id)
+    assert first.reconstruction_request.search == result.search
+    assert first.result.search == result.search
+    assert first.input_bytes == second.input_bytes
+    assert first.result_bytes == second.result_bytes
+    assert artifacts.input_path.read_bytes() == source_input_bytes
+    assert artifacts.result_path.read_bytes() == source_result_bytes
+    assert {
+        path: path.read_bytes() for path in (tmp_path / "ambiguous" / "observations").glob("*.json")
+    } == source_observation_bytes
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    (
+        ({"excluded_observation_ids": ["missing-observation"]}, "does not occur"),
+        (
+            {
+                "excluded_observation_ids": ["observation-001"],
+                "excluded_observed_cards": [
+                    {
+                        "observation_id": "observation-001",
+                        "observed_card_id": "observation-001-card-01",
+                    }
+                ],
+            },
+            "cannot belong",
+        ),
+    ),
+)
+def test_counterfactual_rejects_invalid_source_references(
+    tmp_path: Path,
+    change: dict[str, object],
+    message: str,
+) -> None:
+    _, input_value, result = _counterfactual_source(tmp_path)
+    payload = _counterfactual_request_payload(input_value, result, **change)
+    request = RoundCounterfactualRequest.from_mapping(payload)
+
+    with pytest.raises(RoundReconstructionContractError, match=message):
+        recompute_counterfactual(request, input_value, result)
+
+
+def test_counterfactual_rejects_equal_and_one_candidate_overrides(tmp_path: Path) -> None:
+    _, input_value, result = _counterfactual_source(tmp_path)
+    source_card = input_value.observations[0].cards[0]
+    base = _counterfactual_request_payload(input_value, result)
+
+    equal = copy.deepcopy(base)
+    equal["candidate_probability_overrides"] = [
+        {
+            "observation_id": input_value.observations[0].observation_id,
+            "observed_card_id": source_card.observed_card_id,
+            "card": source_card.identity_candidates[0].card,
+            "probability": source_card.identity_candidates[0].probability,
+        }
+    ]
+    with pytest.raises(RoundReconstructionContractError, match="differ"):
+        recompute_counterfactual(
+            RoundCounterfactualRequest.from_mapping(equal), input_value, result
+        )
+
+    one_candidate = copy.deepcopy(base)
+    one_candidate["candidate_probability_overrides"] = [
+        {
+            "observation_id": input_value.observations[1].observation_id,
+            "observed_card_id": input_value.observations[1].cards[0].observed_card_id,
+            "card": input_value.observations[1].cards[0].identity_candidates[0].card,
+            "probability": 0.75,
+        }
+    ]
+    with pytest.raises(RoundReconstructionContractError, match="one-candidate"):
+        recompute_counterfactual(
+            RoundCounterfactualRequest.from_mapping(one_candidate), input_value, result
+        )
+
+
+def test_counterfactual_rejects_source_hash_mismatch_and_removing_every_observation(
+    tmp_path: Path,
+) -> None:
+    _, input_value, result = _counterfactual_source(tmp_path)
+    base = _counterfactual_request_payload(input_value, result)
+
+    hash_mismatch = copy.deepcopy(base)
+    hash_mismatch["source_result_sha256"] = "0" * 64
+    hash_request = RoundCounterfactualRequest.from_mapping(
+        {
+            **hash_mismatch,
+            "excluded_observation_ids": ["observation-001"],
+        }
+    )
+    with pytest.raises(RoundReconstructionContractError, match="source_result_sha256"):
+        recompute_counterfactual(hash_request, input_value, result)
+
+    all_observations = copy.deepcopy(base)
+    all_observations["excluded_observation_ids"] = [
+        observation.observation_id for observation in input_value.observations
+    ]
+    all_request = RoundCounterfactualRequest.from_mapping(all_observations)
+    with pytest.raises(RoundReconstructionContractError, match="retain at least one"):
+        recompute_counterfactual(all_request, input_value, result)
 
 
 @pytest.mark.parametrize(

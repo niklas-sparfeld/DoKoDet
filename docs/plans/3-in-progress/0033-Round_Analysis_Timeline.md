@@ -23,7 +23,7 @@
 - **M3:** Complete — package and serve a production frontend with one API smoke view.
 - **M4:** Complete — render the first synchronized three-column timeline for a resolved fixture.
 - **M5:** Complete — explain alternatives, incomplete input, impossible input, and diagnostics.
-- **M6:** Pending — derive and recompute strict counterfactual inputs without source mutation.
+- **M6:** Complete — derive and recompute strict counterfactual inputs without source mutation.
 - **M7:** Pending — persist and serve immutable counterfactual results.
 - **M8:** Pending — compare the baseline and counterfactual results with visual change markers.
 
@@ -414,6 +414,21 @@ The operator can return to the exact baseline without deleting the counterfactua
   run ID.
 - Add tests that prove derivation and recomputation do not change source artifacts or stored table
   observations.
+
+**Status: Complete (2026-08-30).**
+
+- Added the strict `round-analysis-counterfactual/v1` operations contract with UUID identities,
+  source input and result SHA-256 checks, canonical request bytes, unique references, and
+  effective-change validation.
+- Added immutable in-memory derivation for observation exclusion, observed-card exclusion, and
+  existing-candidate probability overrides. Candidate distributions retain their candidate set,
+  rescale the non-overridden probabilities, reject invalid results, and preserve baseline order on
+  ties.
+- Added a non-publishing reconstruction entry point. Counterfactual recomputation reuses the
+  source result search limits and uses the counterfactual UUID as the reconstruction run ID.
+- Added fixture-backed tests for all three changes, strict source-reference failures, deterministic
+  bytes, and unchanged source input, result, and table-observation bytes.
+- Verification: 106 operations tests and Ruff checks pass.
 
 ### M7 — Counterfactual runtime
 
