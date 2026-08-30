@@ -11,6 +11,7 @@ from uuid import UUID
 
 from doko_operations.counterfactual import (
     ROUND_COUNTERFACTUAL_SCHEMA_VERSION,
+    CounterfactualCardIdentityOverride,
     CounterfactualObservedCardReference,
     CounterfactualProbabilityOverride,
     RoundCounterfactualRequest,
@@ -212,6 +213,23 @@ class CounterfactualObservedCardReferenceModel(ContractModel):
         )
 
 
+class CounterfactualCardIdentityOverrideModel(ContractModel):
+    """A corrected visual card identity supplied by a counterfactual request."""
+
+    observation_id: Identifier
+    observed_card_id: Identifier
+    card: str = Field(min_length=1, max_length=64)
+
+    def to_shared(self) -> CounterfactualCardIdentityOverride:
+        """Return the validated operations-library identity correction."""
+
+        return CounterfactualCardIdentityOverride(
+            observation_id=self.observation_id,
+            observed_card_id=self.observed_card_id,
+            card=self.card,
+        )
+
+
 class CounterfactualProbabilityOverrideModel(ContractModel):
     """A candidate probability change supplied by a counterfactual request."""
 
@@ -243,6 +261,9 @@ class RoundCounterfactualCreateRequest(ContractModel):
     source_result_sha256: Sha256
     excluded_observation_ids: list[Identifier] = Field(default_factory=list)
     excluded_observed_cards: list[CounterfactualObservedCardReferenceModel] = Field(
+        default_factory=list
+    )
+    card_identity_overrides: list[CounterfactualCardIdentityOverrideModel] = Field(
         default_factory=list
     )
     candidate_probability_overrides: list[CounterfactualProbabilityOverrideModel] = Field(
@@ -346,6 +367,7 @@ __all__ = [
     "AnalysisRoundSetup",
     "AnalysisSearchLimits",
     "CounterfactualArtifact",
+    "CounterfactualCardIdentityOverrideModel",
     "CounterfactualObservedCardReferenceModel",
     "CounterfactualProbabilityOverrideModel",
     "ROUND_ANALYSIS_SCHEMA_VERSION",

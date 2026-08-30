@@ -380,6 +380,7 @@ function counterfactualResponse(
     source_result_sha256: "b".repeat(64),
     excluded_observation_ids: ["observation-001"],
     excluded_observed_cards: [],
+    card_identity_overrides: [],
     candidate_probability_overrides: [],
   };
   const artifact = (name: string) => ({

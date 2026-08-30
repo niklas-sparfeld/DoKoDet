@@ -409,6 +409,7 @@ def _counterfactual_request_payload(
     *,
     excluded_observation_ids: list[str] | None = None,
     excluded_observed_cards: list[dict[str, str]] | None = None,
+    card_identity_overrides: list[dict[str, str]] | None = None,
     candidate_probability_overrides: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
@@ -419,6 +420,7 @@ def _counterfactual_request_payload(
         "source_result_sha256": sha256_bytes(canonical_result_bytes(result)),
         "excluded_observation_ids": excluded_observation_ids or [],
         "excluded_observed_cards": excluded_observed_cards or [],
+        "card_identity_overrides": card_identity_overrides or [],
         "candidate_probability_overrides": candidate_probability_overrides or [],
     }
 
@@ -444,6 +446,13 @@ def test_counterfactual_request_is_strict_canonical_and_uuid_based() -> None:
         "excluded_observation_ids": ["observation-001"],
         "excluded_observed_cards": [
             {"observation_id": "observation-002", "observed_card_id": "card-01"}
+        ],
+        "card_identity_overrides": [
+            {
+                "observation_id": "observation-003",
+                "observed_card_id": "card-03",
+                "card": "HEARTS_TEN",
+            }
         ],
         "candidate_probability_overrides": [
             {
@@ -472,6 +481,7 @@ def test_counterfactual_request_is_strict_canonical_and_uuid_based() -> None:
     empty = copy.deepcopy(payload)
     empty["excluded_observation_ids"] = []
     empty["excluded_observed_cards"] = []
+    empty["card_identity_overrides"] = []
     empty["candidate_probability_overrides"] = []
     with pytest.raises(RoundReconstructionContractError, match="at least one change"):
         parse_round_counterfactual_request_bytes(json.dumps(empty).encode())
@@ -541,6 +551,37 @@ def test_counterfactual_derivation_excludes_card_and_rescales_existing_candidate
         pytest.approx(0.25),
     ]
     assert derived_card.identity_candidates[0].card == source_card.identity_candidates[0].card
+
+
+def test_counterfactual_derivation_replaces_candidates_with_a_corrected_identity(
+    tmp_path: Path,
+) -> None:
+    _, input_value, result = _counterfactual_source(tmp_path)
+    source_card = input_value.observations[1].cards[0]
+    request = RoundCounterfactualRequest.from_mapping(
+        _counterfactual_request_payload(
+            input_value,
+            result,
+            card_identity_overrides=[
+                {
+                    "observation_id": input_value.observations[1].observation_id,
+                    "observed_card_id": source_card.observed_card_id,
+                    "card": "CLUBS_TEN",
+                }
+            ],
+        )
+    )
+
+    derived = derive_counterfactual_input(request, input_value)
+    derived_card = derived.observations[1].cards[0]
+
+    assert [
+        (candidate.card, candidate.probability)
+        for candidate in derived_card.identity_candidates
+    ] == [
+        ("CLUBS_TEN", 1.0)
+    ]
+    assert source_card.identity_candidates[0].card == "DIAMONDS_TEN"
 
 
 def test_counterfactual_recomputation_is_deterministic_and_reuses_source_search_limits(
@@ -645,6 +686,19 @@ def test_counterfactual_rejects_equal_and_one_candidate_overrides(tmp_path: Path
     with pytest.raises(RoundReconstructionContractError, match="one-candidate"):
         recompute_counterfactual(
             RoundCounterfactualRequest.from_mapping(one_candidate), input_value, result
+        )
+
+    same_identity = copy.deepcopy(base)
+    same_identity["card_identity_overrides"] = [
+        {
+            "observation_id": input_value.observations[1].observation_id,
+            "observed_card_id": input_value.observations[1].cards[0].observed_card_id,
+            "card": input_value.observations[1].cards[0].identity_candidates[0].card,
+        }
+    ]
+    with pytest.raises(RoundReconstructionContractError, match="differ"):
+        recompute_counterfactual(
+            RoundCounterfactualRequest.from_mapping(same_identity), input_value, result
         )
 
 

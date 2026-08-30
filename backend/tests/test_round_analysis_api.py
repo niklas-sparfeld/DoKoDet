@@ -430,6 +430,7 @@ def _counterfactual_payload(
     *,
     counterfactual_id: str,
     excluded_observation_ids: list[str],
+    card_identity_overrides: list[dict[str, str]] | None = None,
 ) -> dict[str, object]:
     result = source["result"]
     assert isinstance(result, dict)
@@ -441,6 +442,7 @@ def _counterfactual_payload(
         "source_result_sha256": result["result_artifact_sha256"],
         "excluded_observation_ids": excluded_observation_ids,
         "excluded_observed_cards": [],
+        "card_identity_overrides": card_identity_overrides or [],
         "candidate_probability_overrides": [],
     }
 
@@ -564,6 +566,62 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
     )
     assert restarted.status_code == 200
     assert restarted.json() == first.json()
+
+
+def test_counterfactual_can_replace_a_one_candidate_card_identity(
+    backend_tmp_path: Path,
+) -> None:
+    client, app = _backend(backend_tmp_path)
+    package_ids = [
+        _upload_linked_package(client, event_sequence=1),
+        _upload_linked_package(
+            client,
+            package_id="550e8400-e29b-41d4-a716-446655440098",
+            event_sequence=2,
+        ),
+    ]
+    _install_two_observation_analyzer(app, package_ids)
+    created_analysis = client.post(
+        "/v1/round-analyses",
+        json=_analysis_payload(package_ids=package_ids),
+    )
+    assert created_analysis.status_code == 202
+    source = created_analysis.json()
+    observation_id = f"{package_ids[0]}-observation"
+    counterfactual_id = "550e8400-e29b-41d4-a716-446655440096"
+    payload = _counterfactual_payload(
+        source,
+        counterfactual_id=counterfactual_id,
+        excluded_observation_ids=[],
+        card_identity_overrides=[
+            {
+                "observation_id": observation_id,
+                "observed_card_id": "observation-001-card-01",
+                "card": "CLUBS_TEN",
+            }
+        ],
+    )
+
+    response = client.post(
+        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
+        json=payload,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["request"]["card_identity_overrides"] == [
+        payload["card_identity_overrides"][0]
+    ]
+    derived_input = json.loads(
+        (
+            app.state.round_analysis_storage.counterfactual_path(
+                ANALYSIS_ID, counterfactual_id
+            )
+            / "input.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert derived_input["observations"][0]["cards"][0]["identity_candidates"] == [
+        {"card": "CLUBS_TEN", "probability": 1.0}
+    ]
 
 
 def test_counterfactual_failed_publication_can_be_retried(

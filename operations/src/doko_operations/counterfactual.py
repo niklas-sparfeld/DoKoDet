@@ -75,6 +75,36 @@ class CounterfactualObservedCardReference:
 
 
 @dataclass(frozen=True, slots=True)
+class CounterfactualCardIdentityOverride:
+    """A corrected visual card identity for one observed-card proposal."""
+
+    observation_id: str
+    observed_card_id: str
+    card: str
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw: Mapping[str, Any],
+        context: str,
+    ) -> CounterfactualCardIdentityOverride:
+        data = _mapping(raw, context)
+        _strict(data, {"observation_id", "observed_card_id", "card"}, context)
+        return cls(
+            observation_id=_identifier(data["observation_id"], f"{context}.observation_id"),
+            observed_card_id=_identifier(data["observed_card_id"], f"{context}.observed_card_id"),
+            card=_card(data["card"], f"{context}.card"),
+        )
+
+    def to_mapping(self) -> dict[str, str]:
+        return {
+            "observation_id": self.observation_id,
+            "observed_card_id": self.observed_card_id,
+            "card": self.card,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CounterfactualProbabilityOverride:
     """A requested probability for one existing identity candidate."""
 
@@ -117,6 +147,7 @@ class RoundCounterfactualRequest:
     source_result_sha256: str
     excluded_observation_ids: tuple[str, ...]
     excluded_observed_cards: tuple[CounterfactualObservedCardReference, ...]
+    card_identity_overrides: tuple[CounterfactualCardIdentityOverride, ...]
     candidate_probability_overrides: tuple[CounterfactualProbabilityOverride, ...]
 
     @classmethod
@@ -132,6 +163,7 @@ class RoundCounterfactualRequest:
                 "source_result_sha256",
                 "excluded_observation_ids",
                 "excluded_observed_cards",
+                "card_identity_overrides",
                 "candidate_probability_overrides",
             },
             "round-analysis-counterfactual",
@@ -163,6 +195,19 @@ class RoundCounterfactualRequest:
             tuple((item.observation_id, item.observed_card_id) for item in excluded_cards),
             "excluded_observed_cards",
         )
+        raw_identity_overrides = data["card_identity_overrides"]
+        if not isinstance(raw_identity_overrides, list):
+            raise RoundReconstructionContractError("card_identity_overrides must be a list.")
+        identity_overrides = tuple(
+            CounterfactualCardIdentityOverride.from_mapping(
+                value, f"card_identity_overrides[{index}]"
+            )
+            for index, value in enumerate(raw_identity_overrides)
+        )
+        _unique(
+            tuple((item.observation_id, item.observed_card_id) for item in identity_overrides),
+            "card_identity_overrides",
+        )
         raw_overrides = data["candidate_probability_overrides"]
         if not isinstance(raw_overrides, list):
             raise RoundReconstructionContractError(
@@ -178,7 +223,12 @@ class RoundCounterfactualRequest:
             tuple((item.observation_id, item.observed_card_id, item.card) for item in overrides),
             "candidate_probability_overrides",
         )
-        if not excluded_observations and not excluded_cards and not overrides:
+        if (
+            not excluded_observations
+            and not excluded_cards
+            and not identity_overrides
+            and not overrides
+        ):
             raise RoundReconstructionContractError(
                 "a counterfactual request must contain at least one change."
             )
@@ -189,6 +239,7 @@ class RoundCounterfactualRequest:
             source_result_sha256=_digest(data["source_result_sha256"], "source_result_sha256"),
             excluded_observation_ids=excluded_observations,
             excluded_observed_cards=excluded_cards,
+            card_identity_overrides=identity_overrides,
             candidate_probability_overrides=overrides,
         )
 
@@ -201,6 +252,9 @@ class RoundCounterfactualRequest:
             "source_result_sha256": self.source_result_sha256,
             "excluded_observation_ids": list(self.excluded_observation_ids),
             "excluded_observed_cards": [item.to_mapping() for item in self.excluded_observed_cards],
+            "card_identity_overrides": [
+                item.to_mapping() for item in self.card_identity_overrides
+            ],
             "candidate_probability_overrides": [
                 item.to_mapping() for item in self.candidate_probability_overrides
             ],
@@ -260,6 +314,7 @@ def _validate_counterfactual_references(
     if (
         not request.excluded_observation_ids
         and not request.excluded_observed_cards
+        and not request.card_identity_overrides
         and not request.candidate_probability_overrides
     ):
         raise RoundReconstructionContractError(
@@ -279,6 +334,23 @@ def _validate_counterfactual_references(
     if len(override_references) != len(set(override_references)):
         raise RoundReconstructionContractError(
             "candidate_probability_overrides must contain unique candidates."
+        )
+    identity_references = [
+        (item.observation_id, item.observed_card_id)
+        for item in request.card_identity_overrides
+    ]
+    if len(identity_references) != len(set(identity_references)):
+        raise RoundReconstructionContractError(
+            "card_identity_overrides must contain unique observed cards."
+        )
+    probability_references = {
+        (item.observation_id, item.observed_card_id)
+        for item in request.candidate_probability_overrides
+    }
+    if set(identity_references) & probability_references:
+        raise RoundReconstructionContractError(
+            "a card identity override cannot be combined with probability overrides for the same "
+            "observed card."
         )
     input_observations = {item.observation_id: item for item in source_input.observations}
     if len(request.excluded_observation_ids) >= len(input_observations):
@@ -311,6 +383,39 @@ def _validate_counterfactual_references(
             raise RoundReconstructionContractError(
                 f"excluded observed card {reference.observed_card_id!r} does not occur in "
                 f"observation {reference.observation_id!r}."
+            )
+    for override in request.card_identity_overrides:
+        observation = input_observations.get(override.observation_id)
+        if observation is None:
+            raise RoundReconstructionContractError(
+                f"identity override observation {override.observation_id!r} does not occur "
+                "in source input."
+            )
+        if override.observation_id in excluded_observation_ids:
+            raise RoundReconstructionContractError(
+                "a card identity override cannot belong to an excluded observation."
+            )
+        reference = (override.observation_id, override.observed_card_id)
+        if reference in excluded_cards:
+            raise RoundReconstructionContractError(
+                "a card identity override cannot target an excluded observed card."
+            )
+        card = next(
+            (
+                item
+                for item in observation.cards
+                if item.observed_card_id == override.observed_card_id
+            ),
+            None,
+        )
+        if card is None:
+            raise RoundReconstructionContractError(
+                f"identity override observed card {override.observed_card_id!r} does not occur "
+                f"in observation {override.observation_id!r}."
+            )
+        if len(card.identity_candidates) == 1 and card.identity_candidates[0].card == override.card:
+            raise RoundReconstructionContractError(
+                "a card identity override must differ from its baseline identity."
             )
     for override in request.candidate_probability_overrides:
         observation = input_observations.get(override.observation_id)
@@ -482,6 +587,10 @@ def derive_counterfactual_input(
     excluded_cards = {
         (item.observation_id, item.observed_card_id) for item in request.excluded_observed_cards
     }
+    identity_overrides_by_reference = {
+        (item.observation_id, item.observed_card_id): item
+        for item in request.card_identity_overrides
+    }
     overrides_by_reference: dict[tuple[str, str], list[CounterfactualProbabilityOverride]] = {}
     for override in request.candidate_probability_overrides:
         overrides_by_reference.setdefault(
@@ -498,9 +607,11 @@ def derive_counterfactual_input(
             if reference in excluded_cards:
                 continue
             card_payload = card.model_dump(mode="python", exclude_unset=True)
-            card_payload["identity_candidates"] = _derived_candidates(
-                card,
-                overrides_by_reference.get(reference, ()),
+            identity_override = identity_overrides_by_reference.get(reference)
+            card_payload["identity_candidates"] = (
+                [{"card": identity_override.card, "probability": 1.0}]
+                if identity_override is not None
+                else _derived_candidates(card, overrides_by_reference.get(reference, ()))
             )
             derived_cards.append(card_payload)
         observation_payload = observation.model_dump(mode="python", exclude_unset=True)
@@ -615,6 +726,7 @@ def recompute_counterfactual(
 
 __all__ = [
     "ROUND_COUNTERFACTUAL_SCHEMA_VERSION",
+    "CounterfactualCardIdentityOverride",
     "CounterfactualObservedCardReference",
     "CounterfactualProbabilityOverride",
     "RoundCounterfactualRequest",

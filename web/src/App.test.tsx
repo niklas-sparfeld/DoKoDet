@@ -137,6 +137,43 @@ describe("App", () => {
     expect(frameButton).toHaveFocus();
   });
 
+  it("allows a direct card identity correction outside analyzer candidates", async () => {
+    const fetchMock = stubTimelineWithCounterfactual(
+      resolvedTimeline,
+      resolvedStatus,
+      changedCounterfactualResponse,
+    );
+    render(<App />);
+
+    const user = userEvent.setup();
+    const identitySelect = await screen.findByRole("combobox", {
+      name: "Correct classification for observation-002-card-01",
+    });
+    await user.selectOptions(identitySelect, "CLUBS_TEN");
+
+    expect(identitySelect).toHaveValue("CLUBS_TEN");
+    expect(
+      screen.getByText(/Derived input uses Clubs Ten/),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Run counterfactual" }),
+    );
+
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(postCall).toBeDefined();
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      card_identity_overrides: [
+        {
+          observation_id: "observation-002",
+          observed_card_id: "observation-002-card-01",
+          card: "CLUBS_TEN",
+        },
+      ],
+    });
+  });
+
   it("runs a changed counterfactual and marks baseline differences", async () => {
     stubTimelineWithCounterfactual(
       resolvedTimeline,
@@ -304,27 +341,24 @@ function stubTimelineWithCounterfactual(
   timeline: RoundAnalysisTimeline,
   status: RoundAnalysisStatus,
   counterfactual: typeof changedCounterfactualResponse,
-) {
+): ReturnType<typeof vi.fn<typeof fetch>> {
   window.history.pushState({}, "", "/round-analyses/" + ANALYSIS_ID);
-  vi.stubGlobal(
-    "fetch",
-    vi.fn<typeof fetch>((input, init) => {
-      if (init?.method === "POST") {
-        return Promise.resolve(
-          new Response(JSON.stringify(counterfactual), {
-            status: 201,
-            headers: { "Content-Type": "application/json" },
-          }),
-        );
-      }
+  const fetchMock = vi.fn<typeof fetch>((input, init) => {
+    if (init?.method === "POST") {
       return Promise.resolve(
-        new Response(
-          JSON.stringify(
-            String(input).endsWith("/timeline") ? timeline : status,
-          ),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
+        new Response(JSON.stringify(counterfactual), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
       );
-    }),
-  );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify(String(input).endsWith("/timeline") ? timeline : status),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 }

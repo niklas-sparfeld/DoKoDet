@@ -96,7 +96,7 @@ test("renders a resolved analysis in synchronized desktop columns", async ({
     .getByRole("button", { name: "Close enlarged evidence frame" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(2);
+  await expect(page.getByRole("listbox").locator(":scope > li")).toHaveCount(2);
   await expect(page.getByText("No central frame available")).toBeVisible();
 
   const rowStyle = await page
@@ -139,6 +139,41 @@ test("restores deep links and moves the selected row with keyboard navigation", 
   ).toBeVisible();
 
   await expect(page.getByText("Clubs Nine").first()).toBeVisible();
+});
+
+test("submits a direct card identity correction", async ({ page }) => {
+  let postedPayload: Record<string, unknown> | null = null;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      request.url().includes("/counterfactuals")
+    ) {
+      postedPayload = request.postDataJSON() as Record<string, unknown>;
+    }
+  });
+
+  await page.goto(`/round-analyses/${ANALYSIS_ID}`);
+  await page
+    .getByRole("combobox", {
+      name: "Correct classification for observation-002-card-01",
+    })
+    .selectOption("CLUBS_TEN");
+  await expect(
+    page.getByText(/Derived input uses Clubs Ten/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Run counterfactual" }).click();
+
+  await expect
+    .poll(() => postedPayload)
+    .toMatchObject({
+      card_identity_overrides: [
+        {
+          observation_id: "observation-002",
+          observed_card_id: "observation-002-card-01",
+          card: "CLUBS_TEN",
+        },
+      ],
+    });
 });
 
 test("explains failure states and stacks the timeline at the narrow test width", async ({

@@ -411,6 +411,38 @@ h2 {
   background: color-mix(in srgb, var(--surface) 55%, var(--panel));
 }
 
+.identityOverrideControl {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.identityOverrideControl select {
+  width: 100%;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+.identityOverrideControl select:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.identityOverrideNote {
+  margin: -0.15rem 0 0;
+  color: var(--accent);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
 .checkboxLabel,
 .overrideControl {
   display: flex;

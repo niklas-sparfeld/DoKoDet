@@ -383,6 +383,18 @@ export interface components {
             sha256: string;
         };
         /**
+         * CounterfactualCardIdentityOverrideModel
+         * @description A corrected visual card identity supplied by a counterfactual request.
+         */
+        CounterfactualCardIdentityOverrideModel: {
+            /** Card */
+            card: string;
+            /** Observation Id */
+            observation_id: string;
+            /** Observed Card Id */
+            observed_card_id: string;
+        };
+        /**
          * CounterfactualObservedCardReferenceModel
          * @description An observed-card reference supplied by a counterfactual request.
          */
@@ -766,6 +778,8 @@ export interface components {
         RoundCounterfactualCreateRequest: {
             /** Candidate Probability Overrides */
             candidate_probability_overrides?: components["schemas"]["CounterfactualProbabilityOverrideModel"][];
+            /** Card Identity Overrides */
+            card_identity_overrides?: components["schemas"]["CounterfactualCardIdentityOverrideModel"][];
             /**
              * Counterfactual Id
              * Format: uuid

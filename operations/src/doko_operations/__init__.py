@@ -11,6 +11,7 @@ from .cardevent_campaign import (
 from .config import ConfigurationError, RepositoryConfig, discover_repository_root
 from .counterfactual import (
     ROUND_COUNTERFACTUAL_SCHEMA_VERSION,
+    CounterfactualCardIdentityOverride,
     CounterfactualObservedCardReference,
     CounterfactualProbabilityOverride,
     RoundCounterfactualRequest,
@@ -221,6 +222,7 @@ __all__ = [
     "DATASET_VERSION_SCHEMA_VERSION",
     "ConfigurationError",
     "ROUND_COUNTERFACTUAL_SCHEMA_VERSION",
+    "CounterfactualCardIdentityOverride",
     "CounterfactualObservedCardReference",
     "CounterfactualProbabilityOverride",
     "RoundCounterfactualRequest",

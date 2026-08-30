@@ -27,6 +27,9 @@ type TimelineObservation = TimelineEvidenceRow["table_observation"];
 type TimelineFrame = NonNullable<TimelineEvidenceRow["central_frame"]>;
 type TimelineCard = NonNullable<TimelineObservation["cards"]>[number];
 type TimelineCandidate = TimelineCard["identity_candidates"][number];
+type CounterfactualCardIdentityOverride = NonNullable<
+  RoundCounterfactualCreateRequest["card_identity_overrides"]
+>[number];
 type CounterfactualObservedCard = NonNullable<
   RoundCounterfactualCreateRequest["excluded_observed_cards"]
 >[number];
@@ -38,6 +41,33 @@ type ExpandedFrame = {
   eventSequence: number;
   observationId: string;
 };
+
+const CARD_IDENTITIES = [
+  "CLUBS_NINE",
+  "CLUBS_JACK",
+  "CLUBS_QUEEN",
+  "CLUBS_KING",
+  "CLUBS_TEN",
+  "CLUBS_ACE",
+  "SPADES_NINE",
+  "SPADES_JACK",
+  "SPADES_QUEEN",
+  "SPADES_KING",
+  "SPADES_TEN",
+  "SPADES_ACE",
+  "HEARTS_NINE",
+  "HEARTS_JACK",
+  "HEARTS_QUEEN",
+  "HEARTS_KING",
+  "HEARTS_TEN",
+  "HEARTS_ACE",
+  "DIAMONDS_NINE",
+  "DIAMONDS_JACK",
+  "DIAMONDS_QUEEN",
+  "DIAMONDS_KING",
+  "DIAMONDS_TEN",
+  "DIAMONDS_ACE",
+] as const;
 
 type CounterfactualSnapshot = {
   status: "resolved" | "ambiguous" | "incomplete" | "impossible";
@@ -420,22 +450,29 @@ function findCandidate(
   timeline: RoundAnalysisTimeline,
   override: CounterfactualOverride,
 ): TimelineCandidate | null {
-  for (const row of timeline.rows) {
-    if (row.observation_id !== override.observation_id) {
-      continue;
-    }
-    for (const card of row.table_observation.cards ?? []) {
-      if (card.observed_card_id !== override.observed_card_id) {
-        continue;
-      }
-      return (
-        card.identity_candidates.find(
-          (candidate) => candidate.card === override.card,
-        ) ?? null
-      );
-    }
-  }
-  return null;
+  const card = findObservedCard(timeline, override);
+  return (
+    card?.identity_candidates.find(
+      (candidate) => candidate.card === override.card,
+    ) ?? null
+  );
+}
+
+function findObservedCard(
+  timeline: RoundAnalysisTimeline,
+  reference: Pick<
+    CounterfactualObservedCard,
+    "observation_id" | "observed_card_id"
+  >,
+): TimelineCard | null {
+  const row = timeline.rows.find(
+    (candidate) => candidate.observation_id === reference.observation_id,
+  );
+  return (
+    row?.table_observation.cards?.find(
+      (card) => card.observed_card_id === reference.observed_card_id,
+    ) ?? null
+  );
 }
 
 function snapshotFromTimeline(
@@ -625,6 +662,7 @@ function formatHypothesisScore(
 type CounterfactualDraft = {
   excludedObservationIds: string[];
   excludedObservedCards: CounterfactualObservedCard[];
+  cardIdentityOverrides: CounterfactualCardIdentityOverride[];
   overrides: CounterfactualOverride[];
 };
 
@@ -635,12 +673,18 @@ type CounterfactualController = {
   submitting: boolean;
   response: RoundCounterfactualResponse | null;
   error: string | null;
+  effectiveCardIdentityOverrides: CounterfactualCardIdentityOverride[];
   effectiveOverrides: CounterfactualOverride[];
   hasInvalidOverride: boolean;
   changeCount: number;
   allObservationsExcluded: boolean;
   toggleObservation: (observationId: string) => void;
   toggleObservedCard: (reference: CounterfactualObservedCard) => void;
+  setCardIdentity: (
+    observationId: string,
+    observedCardId: string,
+    card: string,
+  ) => void;
   setCandidateProbability: (
     observationId: string,
     observedCardId: string,
@@ -654,6 +698,7 @@ type CounterfactualController = {
 const EMPTY_COUNTERFACTUAL_DRAFT: CounterfactualDraft = {
   excludedObservationIds: [],
   excludedObservedCards: [],
+  cardIdentityOverrides: [],
   overrides: [],
 };
 
@@ -678,6 +723,15 @@ function CounterfactualWorkbench({
   const excludedCards = new Set(
     draft.excludedObservedCards.map(counterfactualReferenceKey),
   );
+  const effectiveCardIdentityOverrides = draft.cardIdentityOverrides.filter(
+    (override) => {
+      const baseline = findObservedCard(timeline, override);
+      return !(
+        baseline?.identity_candidates.length === 1 &&
+        baseline.identity_candidates[0]?.card === override.card
+      );
+    },
+  );
   const effectiveOverrides = draft.overrides.filter((override) => {
     const baseline = findCandidate(timeline, override);
     return baseline !== null && baseline.probability !== override.probability;
@@ -689,7 +743,10 @@ function CounterfactualWorkbench({
       override.probability > 1,
   );
   const changeCount =
-    excludedObservations.size + excludedCards.size + effectiveOverrides.length;
+    excludedObservations.size +
+    excludedCards.size +
+    effectiveCardIdentityOverrides.length +
+    effectiveOverrides.length;
   const allObservationsExcluded =
     timeline.rows.length > 0 &&
     timeline.rows.every((row) => excludedObservations.has(row.observation_id));
@@ -707,6 +764,11 @@ function CounterfactualWorkbench({
               (reference) => reference.observation_id !== observationId,
             )
           : current.excludedObservedCards,
+        cardIdentityOverrides: excluding
+          ? current.cardIdentityOverrides.filter(
+              (override) => override.observation_id !== observationId,
+            )
+          : current.cardIdentityOverrides,
         overrides: excluding
           ? current.overrides.filter(
               (override) => override.observation_id !== observationId,
@@ -727,6 +789,38 @@ function CounterfactualWorkbench({
             (candidate) => counterfactualReferenceKey(candidate) !== key,
           )
         : [...current.excludedObservedCards, reference],
+      overrides: current.overrides.filter(
+        (override) => counterfactualReferenceKey(override) !== key,
+      ),
+      cardIdentityOverrides: current.cardIdentityOverrides.filter(
+        (override) => counterfactualReferenceKey(override) !== key,
+      ),
+    }));
+  }
+
+  function setCardIdentity(
+    observationId: string,
+    observedCardId: string,
+    card: string,
+  ) {
+    const key = `${observationId}:${observedCardId}`;
+    setDraft((current) => ({
+      ...current,
+      cardIdentityOverrides:
+        card.trim() === ""
+          ? current.cardIdentityOverrides.filter(
+              (override) => counterfactualReferenceKey(override) !== key,
+            )
+          : [
+              ...current.cardIdentityOverrides.filter(
+                (override) => counterfactualReferenceKey(override) !== key,
+              ),
+              {
+                observation_id: observationId,
+                observed_card_id: observedCardId,
+                card,
+              },
+            ],
       overrides: current.overrides.filter(
         (override) => counterfactualReferenceKey(override) !== key,
       ),
@@ -777,6 +871,7 @@ function CounterfactualWorkbench({
       source_result_sha256: timeline.artifact_hashes.result_sha256,
       excluded_observation_ids: draft.excludedObservationIds,
       excluded_observed_cards: draft.excludedObservedCards,
+      card_identity_overrides: effectiveCardIdentityOverrides,
       candidate_probability_overrides: effectiveOverrides,
     };
     setSubmitting(true);
@@ -808,12 +903,14 @@ function CounterfactualWorkbench({
     submitting,
     response,
     error,
+    effectiveCardIdentityOverrides,
     effectiveOverrides,
     hasInvalidOverride,
     changeCount,
     allObservationsExcluded,
     toggleObservation,
     toggleObservedCard,
+    setCardIdentity,
     setCandidateProbability,
     runCounterfactual,
     restoreBaseline,
@@ -1799,6 +1896,12 @@ function CounterfactualObservationControls({
         const cardExcluded = counterfactual.excludedCards.has(
           counterfactualReferenceKey(reference),
         );
+        const identityOverride =
+          counterfactual.draft.cardIdentityOverrides.find(
+            (override) =>
+              counterfactualReferenceKey(override) ===
+              counterfactualReferenceKey(reference),
+          );
         return (
           <div
             className={styles.counterfactualCard}
@@ -1814,6 +1917,34 @@ function CounterfactualObservationControls({
               />
               Exclude card {card.observed_card_id}
             </label>
+            <label className={styles.identityOverrideControl}>
+              <span>Correct classification</span>
+              <select
+                value={identityOverride?.card ?? ""}
+                disabled={observationExcluded || cardExcluded}
+                onChange={(event) =>
+                  counterfactual.setCardIdentity(
+                    row.observation_id,
+                    card.observed_card_id,
+                    event.target.value,
+                  )
+                }
+                aria-label={`Correct classification for ${card.observed_card_id}`}
+              >
+                <option value="">No correction</option>
+                {CARD_IDENTITIES.map((identity) => (
+                  <option key={identity} value={identity}>
+                    {formatCardIdentity(identity)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {identityOverride === undefined ? null : (
+              <p className={styles.identityOverrideNote}>
+                Derived input uses {formatCardIdentity(identityOverride.card)}
+                as the only identity.
+              </p>
+            )}
             {card.identity_candidates.length < 2 ? (
               <p className={styles.emptyInline}>
                 A probability override needs at least two candidates.
@@ -1842,7 +1973,8 @@ function CounterfactualObservationControls({
                       disabled={
                         observationExcluded ||
                         cardExcluded ||
-                        card.identity_candidates.length < 2
+                        card.identity_candidates.length < 2 ||
+                        identityOverride !== undefined
                       }
                       onChange={(event) =>
                         counterfactual.setCandidateProbability(

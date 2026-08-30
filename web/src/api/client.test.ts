@@ -90,6 +90,7 @@ describe("DokoDetector API client", () => {
       source_result_sha256: "b".repeat(64),
       excluded_observation_ids: ["observation-1"],
       excluded_observed_cards: [],
+      card_identity_overrides: [],
       candidate_probability_overrides: [],
     };
 
