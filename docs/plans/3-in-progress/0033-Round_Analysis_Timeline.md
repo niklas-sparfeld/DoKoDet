@@ -21,7 +21,7 @@
 - **M1:** Complete — project one immutable analysis into timeline data and serve its central frames.
 - **M2:** Complete — establish the frontend toolchain, generated API types, and typed client.
 - **M3:** Complete — package and serve a production frontend with one API smoke view.
-- **M4:** Pending — render the first synchronized three-column timeline for a resolved fixture.
+- **M4:** Complete — render the first synchronized three-column timeline for a resolved fixture.
 - **M5:** Pending — explain alternatives, incomplete input, impossible input, and diagnostics.
 - **M6:** Pending — derive and recompute strict counterfactual inputs without source mutation.
 - **M7:** Pending — persist and serve immutable counterfactual results.
@@ -367,6 +367,21 @@ The operator can return to the exact baseline without deleting the counterfactua
 
 - Render a resolved fixture in the three-column layout with row and hypothesis navigation.
 - Add focused browser-level tests for rendering, deep links, and keyboard navigation.
+
+**Status: Complete (2026-08-30).**
+
+- Replaced the M3 smoke panel with a typed resolved-analysis view. It renders evidence, table
+  observation, and reconstruction columns from the immutable timeline response. It keeps the
+  columns aligned on desktop and stacks their cells on narrow screens.
+- Added the sticky analysis summary, hypothesis selector, confidence bars, selected/ignored/
+  inferred action labels, central-frame and missing-frame states, explicit engine-inference rows,
+  row controls, and URL-backed row and hypothesis selection.
+- Added Home, End, ArrowUp, and ArrowDown row navigation. Switching hypotheses changes the
+  interpretation column while the evidence and table-observation columns stay fixed.
+- Added a typed resolved fixture, component tests for hypothesis switching and deep links, and
+  Playwright coverage at 1440×900 for the three-column layout plus keyboard navigation.
+- Verification: frontend typecheck, ESLint, Prettier, generated API drift check, Vitest (7 tests),
+  the production Vite build, and Playwright (3 browser tests) pass.
 
 ### M5 — Alternative and failure explanations
 

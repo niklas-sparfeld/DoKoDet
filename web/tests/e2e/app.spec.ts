@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+import {
+  ANALYSIS_ID,
+  resolvedStatus,
+  resolvedTimeline,
+} from "../../src/test/roundAnalysisFixture";
+
 test("loads the frontend foundation shell", async ({ page }) => {
   await page.goto("/");
 
@@ -9,51 +15,76 @@ test("loads the frontend foundation shell", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("loads an analysis entry route and its typed API smoke view", async ({
-  page,
-}) => {
-  const analysisId = "550e8400-e29b-41d4-a716-446655440033";
+test.beforeEach(async ({ page }) => {
   await page.route("**/v1/round-analyses/**", async (route) => {
     if (route.request().url().endsWith("/timeline")) {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify({
-          analysis_id: analysisId,
-          reconstruction_status: "resolved",
-          rows: [{}, {}],
-          hypotheses: [{}],
-          warnings: [],
-        }),
+        body: JSON.stringify(resolvedTimeline),
       });
       return;
     }
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({
-        analysis_id: analysisId,
-        recording_id: "recording-0033",
-        round_id: "round-0033",
-        session_id: "550e8400-e29b-41d4-a716-446655440034",
-        state: "complete",
-        total_evidence_packages: 2,
-        completed_evidence_packages: 2,
-        result: {},
-        error: null,
-        created_at: "2026-08-30T12:00:00Z",
-        started_at: "2026-08-30T12:00:01Z",
-        completed_at: "2026-08-30T12:00:02Z",
-      }),
+      body: JSON.stringify(resolvedStatus),
     });
   });
+});
 
-  await page.goto(`/round-analyses/${analysisId}`);
+test("renders a resolved analysis in synchronized desktop columns", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/round-analyses/${ANALYSIS_ID}`);
 
-  await expect(page.getByText("Timeline API connected")).toBeVisible();
-  await expect(page.getByText(/2 evidence rows/)).toBeVisible();
-  await expect(page.getByText(/1 retained hypothesis/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Evidence" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Table observation" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Reconstruction hypothesis" }),
+  ).toBeVisible();
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(2);
+  await expect(page.getByText("No central frame available")).toBeVisible();
+
+  const rowStyle = await page
+    .getByRole("option", { name: /observation-001/ })
+    .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+  expect(rowStyle.split(" ")).toHaveLength(3);
 
   const scriptSource = await page
     .locator('script[type="module"]')
     .getAttribute("src");
   expect(scriptSource).toMatch(/^\/round-analyses\/assets\/index-[^/]+\.js$/);
+});
+
+test("restores deep links and moves the selected row with keyboard navigation", async ({
+  page,
+}) => {
+  await page.goto(
+    `/round-analyses/${ANALYSIS_ID}?row=observation-002&hypothesis=2`,
+  );
+
+  const selectedRow = page.getByRole("option", {
+    name: /observation-002/,
+    selected: true,
+  });
+  await expect(selectedRow).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Hypothesis" })).toHaveValue(
+    "2",
+  );
+  await expect(
+    page.getByRole("option", { name: /observation-002/, selected: true }),
+  ).toContainText("Hearts Ten");
+
+  await selectedRow.press("ArrowUp");
+
+  await expect(page).toHaveURL(
+    `/round-analyses/${ANALYSIS_ID}?hypothesis=2&row=observation-001`,
+  );
+  await expect(
+    page.getByRole("option", { name: /observation-001/, selected: true }),
+  ).toBeVisible();
+
+  await expect(page.getByText("Clubs Nine").first()).toBeVisible();
 });
