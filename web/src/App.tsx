@@ -361,58 +361,63 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
               </button>
             </div>
 
-            <div className={styles.timelineHeader}>
-              <h2>Evidence</h2>
-              <h2>Table observation</h2>
-              <h2>Reconstruction hypothesis</h2>
+            <div className={styles.timelineWorkspace}>
+              <div className={styles.timelineContent}>
+                <div className={styles.timelineHeader}>
+                  <h2>Evidence</h2>
+                  <h2>Table observation</h2>
+                  <h2>Reconstruction hypothesis</h2>
+                </div>
+                <ol
+                  className={styles.timeline}
+                  aria-label="Synchronized round timeline"
+                  role="listbox"
+                >
+                  {displayRows.map((row, index) => (
+                    <TimelineRowView
+                      key={row.id}
+                      row={row}
+                      index={index}
+                      selected={row.id === selectedRow?.id}
+                      hypothesis={selectedHypothesis}
+                      counterfactual={counterfactual}
+                      onOpenFrame={setExpandedFrame}
+                      onSelect={() => selectRow(row.id)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) {
+                          return;
+                        }
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          selectRow(row.id);
+                        } else if (event.key === "ArrowDown") {
+                          event.preventDefault();
+                          moveRow(index + 1);
+                        } else if (event.key === "ArrowUp") {
+                          event.preventDefault();
+                          moveRow(index - 1);
+                        } else if (event.key === "Home") {
+                          event.preventDefault();
+                          moveRow(0);
+                        } else if (event.key === "End") {
+                          event.preventDefault();
+                          moveRow(displayRows.length - 1);
+                        }
+                      }}
+                    />
+                  ))}
+                </ol>
+                {displayRows.length === 0 ? (
+                  <p className={styles.emptyState}>
+                    No evidence rows are available.
+                  </p>
+                ) : null}
+                <p className={styles.keyboardHint}>
+                  Select a row, then use ↑ and ↓ to move through the timeline.
+                </p>
+              </div>
+              <SelectedEventVideo row={selectedRow} />
             </div>
-            <ol
-              className={styles.timeline}
-              aria-label="Synchronized round timeline"
-              role="listbox"
-            >
-              {displayRows.map((row, index) => (
-                <TimelineRowView
-                  key={row.id}
-                  row={row}
-                  index={index}
-                  selected={row.id === selectedRow?.id}
-                  hypothesis={selectedHypothesis}
-                  counterfactual={counterfactual}
-                  onOpenFrame={setExpandedFrame}
-                  onSelect={() => selectRow(row.id)}
-                  onKeyDown={(event) => {
-                    if (event.target !== event.currentTarget) {
-                      return;
-                    }
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      selectRow(row.id);
-                    } else if (event.key === "ArrowDown") {
-                      event.preventDefault();
-                      moveRow(index + 1);
-                    } else if (event.key === "ArrowUp") {
-                      event.preventDefault();
-                      moveRow(index - 1);
-                    } else if (event.key === "Home") {
-                      event.preventDefault();
-                      moveRow(0);
-                    } else if (event.key === "End") {
-                      event.preventDefault();
-                      moveRow(displayRows.length - 1);
-                    }
-                  }}
-                />
-              ))}
-            </ol>
-            {displayRows.length === 0 ? (
-              <p className={styles.emptyState}>
-                No evidence rows are available.
-              </p>
-            ) : null}
-            <p className={styles.keyboardHint}>
-              Select a row, then use ↑ and ↓ to move through the timeline.
-            </p>
             <span className={styles.visuallyHidden} aria-live="polite">
               {selectedRow === undefined
                 ? "No row selected"
@@ -1768,6 +1773,71 @@ function EvidenceCell({
         </div>
       </dl>
     </div>
+  );
+}
+
+function SelectedEventVideo({ row }: { row: DisplayRow | undefined }) {
+  if (row === undefined) {
+    return null;
+  }
+  if (row.kind === "inferred") {
+    return (
+      <aside className={styles.videoPanel} aria-label="Selected event media">
+        <h2>Event video</h2>
+        <p className={styles.videoUnavailable}>
+          An inferred card play has no source video snippet.
+        </p>
+      </aside>
+    );
+  }
+
+  const { central_frame: frame, video_snippet: snippet } = row.row;
+  const seekSeconds =
+    snippet === null
+      ? 0
+      : Math.min(
+          Math.max(-snippet.start_offset_ms / 1000, 0),
+          snippet.duration_ms / 1000,
+        );
+
+  return (
+    <aside className={styles.videoPanel} aria-label="Selected event media">
+      <div className={styles.videoHeading}>
+        <h2>Event video</h2>
+        <span>
+          Event {row.row.event_sequence} ·{" "}
+          {formatMilliseconds(row.row.event_time_ms)}
+        </span>
+      </div>
+      {snippet !== null ? (
+        <video
+          key={snippet.url}
+          className={styles.eventVideo}
+          src={snippet.url}
+          controls
+          preload="metadata"
+          aria-label={`Video snippet for event ${row.row.event_sequence}`}
+          onLoadedMetadata={(event) => {
+            event.currentTarget.currentTime = seekSeconds;
+          }}
+        />
+      ) : frame !== null ? (
+        <>
+          <img
+            className={styles.eventVideoFallback}
+            src={frame.url}
+            alt={`Evidence frame for event ${row.row.event_sequence}`}
+          />
+          <p className={styles.videoUnavailable}>
+            No video snippet is available for event {row.row.event_sequence}.
+          </p>
+        </>
+      ) : (
+        <p className={styles.videoUnavailable}>
+          No video snippet is available for event {row.row.event_sequence}.
+        </p>
+      )}
+    </aside>
   );
 }
 

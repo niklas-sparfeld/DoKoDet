@@ -91,6 +91,16 @@ class TimelineFrame(ContractModel):
     sha256: Sha256
 
 
+class TimelineVideoSnippet(ContractModel):
+    """The playable video snippet for one evidence row."""
+
+    url: str = Field(min_length=1, max_length=1024)
+    start_offset_ms: int
+    end_offset_ms: int
+    duration_ms: int = Field(gt=0)
+    content_type: Literal["video/mp4"]
+
+
 class TimelineEvidenceRow(ContractModel):
     """One ordered evidence and table-observation row."""
 
@@ -100,6 +110,7 @@ class TimelineEvidenceRow(ContractModel):
     event_time_ms: int = Field(ge=0)
     observed_at_ms: int = Field(ge=0)
     central_frame: TimelineFrame | None
+    video_snippet: TimelineVideoSnippet | None
     table_observation: TableObservation
 
 
@@ -259,6 +270,7 @@ class RoundAnalysisTimelineProjector:
             package_id = _package_uuid(observation.source.package_id)
             package = verified.packages[package_id]
             central_frame = self._central_frame(analysis.analysis_id, package)
+            video_snippet = self._video_snippet(package)
             rows.append(
                 TimelineEvidenceRow(
                     observation_id=observation.observation_id,
@@ -267,6 +279,7 @@ class RoundAnalysisTimelineProjector:
                     event_time_ms=package.event_time_ms,
                     observed_at_ms=observation.observed_at_ms,
                     central_frame=central_frame,
+                    video_snippet=video_snippet,
                     table_observation=TableObservation.model_validate(
                         observation.model_dump(mode="python", exclude_none=True)
                     ),
@@ -530,6 +543,22 @@ class RoundAnalysisTimelineProjector:
             byte_length=stored_frame.byte_length,
             content_type="image/jpeg",
             sha256=stored_frame.sha256,
+        )
+
+    def _video_snippet(self, package: StoredPackage) -> TimelineVideoSnippet | None:
+        manifest = self._read_package_manifest(package)
+        snippet = manifest.video_snippet
+        if snippet is None or not snippet.capture_complete:
+            return None
+        assert snippet.start_offset_ms is not None
+        assert snippet.end_offset_ms is not None
+        assert snippet.content_type == "video/mp4"
+        return TimelineVideoSnippet(
+            url=f"/v1/evidence-packages/{package.package_id}/video-snippet",
+            start_offset_ms=snippet.start_offset_ms,
+            end_offset_ms=snippet.end_offset_ms,
+            duration_ms=snippet.duration_ms,
+            content_type=snippet.content_type,
         )
 
     def _validate_sources(

@@ -943,6 +943,7 @@ export interface components {
              */
             package_id: string;
             table_observation: components["schemas"]["TableObservation"];
+            video_snippet: components["schemas"]["TimelineVideoSnippet"] | null;
         };
         /**
          * TimelineFrame
@@ -1043,6 +1044,25 @@ export interface components {
             max_missing_plays: number;
             /** Max Search Nodes */
             max_search_nodes: number;
+        };
+        /**
+         * TimelineVideoSnippet
+         * @description The playable video snippet for one evidence row.
+         */
+        TimelineVideoSnippet: {
+            /**
+             * Content Type
+             * @constant
+             */
+            content_type: "video/mp4";
+            /** Duration Ms */
+            duration_ms: number;
+            /** End Offset Ms */
+            end_offset_ms: number;
+            /** Start Offset Ms */
+            start_offset_ms: number;
+            /** Url */
+            url: string;
         };
         /**
          * TimelineWarning

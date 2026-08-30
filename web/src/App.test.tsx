@@ -137,6 +137,35 @@ describe("App", () => {
     expect(frameButton).toHaveFocus();
   });
 
+  it("shows the selected event video and seeks to the event offset", async () => {
+    stubTimeline(resolvedTimeline, resolvedStatus);
+    render(<App />);
+
+    const video = await screen.findByLabelText("Video snippet for event 1");
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 2,
+    });
+
+    video.dispatchEvent(new Event("loadedmetadata"));
+
+    expect(video).toHaveAttribute(
+      "src",
+      `/v1/evidence-packages/${resolvedTimeline.rows[0].package_id}/video-snippet`,
+    );
+    expect((video as HTMLVideoElement).currentTime).toBe(1);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("option", { name: /observation-002/ }));
+
+    expect(
+      screen.queryByLabelText("Video snippet for event 1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No video snippet is available for event 2."),
+    ).toBeInTheDocument();
+  });
+
   it("allows a direct card identity correction outside analyzer candidates", async () => {
     const fetchMock = stubTimelineWithCounterfactual(
       resolvedTimeline,

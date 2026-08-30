@@ -141,6 +141,13 @@ export const resolvedTimeline = {
         content_type: "image/jpeg",
         sha256: "c".repeat(64),
       },
+      video_snippet: {
+        url: `/v1/evidence-packages/${PACKAGE_ID}/video-snippet`,
+        start_offset_ms: -1000,
+        end_offset_ms: 1000,
+        duration_ms: 2000,
+        content_type: "video/mp4" as const,
+      },
       table_observation: observation(
         "observation-001",
         1000,
@@ -155,6 +162,7 @@ export const resolvedTimeline = {
       event_time_ms: 2000,
       observed_at_ms: 2000,
       central_frame: null,
+      video_snippet: null,
       table_observation: observation("observation-002", 2000, "HEARTS_TEN", 1),
     },
   ],

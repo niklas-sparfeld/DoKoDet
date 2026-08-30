@@ -86,8 +86,9 @@ def _upload_linked_package(
     *,
     package_id: str | None = None,
     event_sequence: int | None = None,
+    fixture_name: str = "example-incomplete",
 ) -> str:
-    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-incomplete")
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture(fixture_name)
     if package_id is not None:
         payload["package_id"] = package_id
     if event_sequence is not None:
@@ -174,6 +175,27 @@ def test_timeline_projects_exact_analysis_and_selects_central_frame(
     )
     assert body["hypotheses"] == []
     assert {warning["code"] for warning in body["warnings"]} >= {"insufficient_evidence"}
+
+
+def test_timeline_exposes_complete_event_video_snippet(backend_tmp_path: Path) -> None:
+    client, _ = _backend(backend_tmp_path)
+    package_id = _upload_linked_package(client, fixture_name="example-complete")
+    created = client.post(
+        "/v1/round-analyses",
+        json=_analysis_payload(package_ids=[package_id]),
+    )
+
+    response = client.get(f"/v1/round-analyses/{ANALYSIS_ID}/timeline")
+
+    assert created.status_code == 202
+    assert response.status_code == 200
+    assert response.json()["rows"][0]["video_snippet"] == {
+        "url": f"/v1/evidence-packages/{package_id}/video-snippet",
+        "start_offset_ms": -1000,
+        "end_offset_ms": 1133,
+        "duration_ms": 2133,
+        "content_type": "video/mp4",
+    }
 
 
 def test_timeline_preserves_observed_card_fields_from_exact_input(
