@@ -48,7 +48,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0033 — Round analysis timeline and counterfactual explorer](2-ready/0033-Round_Analysis_Timeline.md) | Completed 0031 and 0032 | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. |
 
 ### In Progress
 
@@ -97,20 +97,21 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
+1. Implement ready epic 0033 one milestone at a time. Its 0031 and 0032 dependencies are complete.
+2. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
    `0 ms` binary review and the cloud visible-card baseline over that trusted event-time corpus. Add
    CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed system-holdout
    groups out of development review. Do not treat the three 0025 M6 packages as a sufficient
    recognition dataset by themselves.
-2. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
+3. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
    proposal corpus. Use the resulting coverage and failure measurements to specify 0022.
-3. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+4. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
    to specify 0023.
-4. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-5. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+5. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+6. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
    without replacing the identity-only oracle baseline.
-6. Specify 0026 after focused review cases and correction behavior are measured.
-7. Specify 0024 only after end-to-end product and operational measurements exist.
+7. Specify 0026 after focused review cases and correction behavior are measured.
+8. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 
