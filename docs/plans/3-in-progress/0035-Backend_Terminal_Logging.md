@@ -10,7 +10,7 @@
 ## Milestone status
 
 - **M0:** Complete — define the logging contract and make server startup configure it reliably.
-- **M1:** Pending — log the request and storage business lifecycle at `INFO` and rejections at `WARNING`.
+- **M1:** Complete — log the request and storage business lifecycle at `INFO` and rejections at `WARNING`.
 - **M2:** Pending — log the round-analysis lifecycle at `INFO` and its technical trace at `DEBUG`.
 - **M3:** Pending — document local log control and verify normal and debug runs end to end.
 
@@ -65,6 +65,24 @@ Apply the contract to evidence-package upload, repository-bundle intake, pending
 Add tests that capture records for one successful intake and one rejected request. Assert event name, level, required IDs, and that a known secret-like header or body value is absent.
 
 Completion condition: a terminal operator can follow one accepted or rejected intake without reading a request payload or inspecting the database.
+
+#### M1 implementation evidence — 2026-08-30
+
+- Added structured `INFO` events for accepted evidence packages, repository bundles, and pending
+  videos. Idempotent retries emit one event with `created=false` for the request.
+- Added generated or client-supplied request IDs to route events. Readiness emits one `INFO` event
+  when the backend becomes ready and one `WARNING` event when it becomes unavailable; repeated
+  health checks add only `DEBUG` records.
+- Replaced legacy rejection messages with safe structured `WARNING` events. Backend operation
+  failures use `ERROR` with the originating traceback, while invalid client input stays at
+  `WARNING`.
+- Added bounded `DEBUG` validation and publication events for each intake path. No request body,
+  authorization value, multipart content, or media bytes are logged.
+- Verification: focused intake and backend logging tests pass (42 tests), focused Ruff checks and
+  format checks pass, and the local pipeline tests pass after the operations environment cache was
+  populated. The full backend suite passes except for the pre-existing repository-root assertion
+  that treats `backend/mise.toml` as the repository root when the test changes into `backend/`.
+  The full backend format check also retains two unrelated pre-existing formatting findings.
 
 ### M2 — Round-analysis lifecycle and technical trace
 

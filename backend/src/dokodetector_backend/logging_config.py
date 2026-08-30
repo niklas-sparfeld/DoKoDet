@@ -108,7 +108,14 @@ def configure_logging(level: str | None = None) -> int:
     return parsed_level
 
 
-def log_event(logger: logging.Logger, level: int, event: str, **fields: Any) -> None:
+def log_event(
+    logger: logging.Logger,
+    level: int,
+    event: str,
+    *,
+    exc_info: Any = None,
+    **fields: Any,
+) -> None:
     """Write one validated event with bounded structured fields."""
 
     if not _EVENT_NAME.fullmatch(event):
@@ -119,6 +126,7 @@ def log_event(logger: logging.Logger, level: int, event: str, **fields: Any) -> 
     logger.log(
         level,
         event,
+        exc_info=exc_info,
         extra={"event_name": event, "event_fields": fields},
         stacklevel=2,
     )

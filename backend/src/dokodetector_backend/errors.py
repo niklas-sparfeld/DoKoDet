@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.requests import ClientDisconnect
 
+from dokodetector_backend.logging_config import get_or_create_request_id, log_event
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -91,9 +93,15 @@ def register_error_handlers(app: FastAPI) -> None:
     """Register safe handlers for expected HTTP boundary errors."""
 
     @app.exception_handler(ClientDisconnect)
-    async def handle_client_disconnect(_: Request, __: ClientDisconnect) -> Response:
+    async def handle_client_disconnect(request: Request, __: ClientDisconnect) -> Response:
         """Treat an aborted request body as an expected client-side event."""
 
+        _log_rejection(
+            request,
+            code="client_disconnect",
+            message="The client disconnected before the request completed.",
+            status_code=499,
+        )
         return Response(status_code=499)
 
     @app.exception_handler(ContractError)
@@ -164,22 +172,32 @@ def _log_rejection(
     assert message is not None
     assert status_code is not None
     package_id = request.path_params.get("package_id", "-")
-    upload_id = request.headers.get("x-dokodetector-upload-id", "-")
+    upload_id = (
+        request.headers.get("x-dokodetector-upload-id")
+        or request.path_params.get("upload_id")
+        or "-"
+    )
     cause = error.__cause__ if error is not None else None
     detail_text = "; ".join(f"{item.field}: {item.message}" for item in details) or "-"
-    cause_text = _safe_cause_text(cause)
-    LOGGER.warning(
-        "http_request_rejected method=%s path=%s package_id=%s upload_id=%s "
-        "status_code=%s code=%s message=%s details=%s cause=%s",
-        request.method,
-        request.url.path,
-        package_id,
-        upload_id,
-        status_code,
-        code,
-        message,
-        detail_text,
-        cause_text,
+    level = logging.ERROR if status_code >= 500 else logging.WARNING
+    event_name = "http_request_failed" if level >= logging.ERROR else "http_request_rejected"
+    log_event(
+        LOGGER,
+        level,
+        event_name,
+        exc_info=_exception_info(cause) if level >= logging.ERROR else None,
+        request_id=get_or_create_request_id(request),
+        method=request.method,
+        path=request.url.path,
+        package_id=package_id,
+        recording_id=request.path_params.get("recording_id", "-"),
+        analysis_id=request.path_params.get("analysis_id", "-"),
+        upload_id=upload_id,
+        status_code=status_code,
+        code=code,
+        message=message,
+        details=detail_text,
+        cause=_safe_cause_text(cause),
     )
 
 
@@ -194,6 +212,16 @@ def _safe_cause_text(cause: BaseException | None) -> str:
     if len(message) > 512:
         message = f"{message[:512]}…<truncated>"
     return f"{type(cause).__name__}: {message or '<no message>'}"
+
+
+def _exception_info(
+    cause: BaseException | None,
+) -> tuple[type[BaseException], BaseException, object] | None:
+    """Return traceback information only for a backend operation failure."""
+
+    if cause is None or cause.__traceback__ is None:
+        return None
+    return type(cause), cause, cause.__traceback__
 
 
 __all__ = [

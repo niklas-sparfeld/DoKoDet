@@ -38,6 +38,7 @@ from dokodetector_backend.intake_contract import (
     parse_task_enrollment,
     validate_evidence_package_bundle,
 )
+from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.repository import (
     EvidenceRepository,
     LogicalEventConflict,
@@ -79,17 +80,6 @@ router = APIRouter()
 async def upload_evidence_package(package_id: str, request: Request) -> JSONResponse:
     """Validate and persist one immutable multipart evidence package."""
 
-    upload_id = request.headers.get("x-dokodetector-upload-id", "-")
-    LOGGER.info(
-        "evidence_upload_started method=%s path=%s package_id=%s upload_id=%s "
-        "content_type=%s content_length=%s",
-        request.method,
-        request.url.path,
-        package_id,
-        upload_id,
-        request.headers.get("content-type", "-"),
-        request.headers.get("content-length", "-"),
-    )
     requested_package_id = _parse_package_id(package_id)
     settings: Settings = request.app.state.settings
     if _media_type(request.headers.get("content-type")) != MULTIPART_MEDIA_TYPE:
@@ -153,16 +143,6 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     "The package record does not match the evidence manifest package ID.",
                     status_code=422,
                 )
-            LOGGER.info(
-                "evidence_upload_manifest_validated package_id=%s upload_id=%s "
-                "session_id=%s event_sequence=%s frame_count=%s video_snippet_complete=%s",
-                manifest.package_id,
-                upload_id,
-                manifest.session.session_id,
-                manifest.session.event_sequence,
-                len(manifest.frames),
-                manifest.video_snippet is not None and manifest.video_snippet.capture_complete,
-            )
             video_upload = None
             if manifest.video_snippet is not None and manifest.video_snippet.capture_complete:
                 video_part_name = manifest.video_snippet.part_name
@@ -308,6 +288,17 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     status_code=413,
                 )
 
+            log_event(
+                LOGGER,
+                logging.DEBUG,
+                "evidence_package_validation_completed",
+                request_id=get_or_create_request_id(request),
+                upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
+                package_id=str(manifest.package_id),
+                frame_count=len(manifest.frames),
+                package_bytes=package_bytes,
+            )
+
             fingerprint = calculate_bundle_fingerprint(
                 {
                     path: StoredRepositoryFile(path, len(value), _sha256(value))
@@ -318,6 +309,12 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
             existing = repository.get_package(manifest.package_id)
             if existing is not None:
                 if existing.package_fingerprint == fingerprint:
+                    _log_evidence_package_stored(
+                        request,
+                        existing,
+                        manifest=manifest,
+                        created=False,
+                    )
                     return _upload_response(existing, created=False)
                 raise ContractError(
                     "package_conflict",
@@ -375,7 +372,16 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     max_video_bytes=settings.max_video_bytes,
                 )
             except PackageConflict:
-                return _resolve_package_conflict(repository, manifest.package_id, fingerprint)
+                resolved = _resolve_package_conflict(repository, manifest.package_id, fingerprint)
+                existing = repository.get_package(manifest.package_id)
+                if existing is not None:
+                    _log_evidence_package_stored(
+                        request,
+                        existing,
+                        manifest=manifest,
+                        created=False,
+                    )
+                return resolved
             except LogicalEventConflict as error:
                 raise ContractError(
                     "logical_event_conflict",
@@ -389,13 +395,11 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     status_code=500,
                 ) from error
 
-            LOGGER.info(
-                "evidence_upload_accepted package_id=%s upload_id=%s created=true frame_count=%s "
-                "video_snippet_complete=%s",
-                manifest.package_id,
-                upload_id,
-                len(manifest.frames),
-                manifest.video_snippet is not None and manifest.video_snippet.capture_complete,
+            _log_evidence_package_stored(
+                request,
+                stored,
+                manifest=manifest,
+                created=True,
             )
             return _upload_response(stored, created=True)
     except MultiPartException as error:
@@ -906,6 +910,30 @@ def _upload_response(package: StoredPackage, *, created: bool) -> JSONResponse:
     return JSONResponse(
         status_code=201 if created else 200,
         content=response.model_dump(mode="json"),
+    )
+
+
+def _log_evidence_package_stored(
+    request: Request,
+    package: StoredPackage,
+    *,
+    manifest: EvidenceManifest,
+    created: bool,
+) -> None:
+    """Log one accepted evidence-package request without logging its content."""
+
+    log_event(
+        LOGGER,
+        logging.INFO,
+        "evidence_package_stored",
+        request_id=get_or_create_request_id(request),
+        upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
+        package_id=str(package.package_id),
+        created=created,
+        frame_count=len(package.frames),
+        video_snippet_complete=(
+            manifest.video_snippet is not None and manifest.video_snippet.capture_complete
+        ),
     )
 
 

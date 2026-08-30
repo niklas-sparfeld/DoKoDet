@@ -219,7 +219,7 @@ def test_get_unknown_package_returns_stable_not_found_error(backend) -> None:
     }
 
 
-def test_invalid_manifest_logs_upload_id_and_validation_details(backend, monkeypatch) -> None:
+def test_invalid_manifest_logs_upload_id_and_validation_details(backend, caplog) -> None:
     client, repository, storage = backend
     manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-incomplete")
     payload.pop("client")
@@ -235,13 +235,7 @@ def test_invalid_manifest_logs_upload_id_and_validation_details(backend, monkeyp
     assert response.json()["error"]["details"] == [{"field": "client", "message": "Field required"}]
     assert repository.get_package(payload["package_id"]) is None
     assert not storage.package_path(payload["package_id"]).exists()
-    rejection_logger = logging.getLogger("dokodetector_backend.errors")
-    messages: list[str] = []
-    monkeypatch.setattr(
-        rejection_logger,
-        "warning",
-        lambda template, *arguments: messages.append(template % arguments),
-    )
+    caplog.set_level(logging.WARNING, logger="dokodetector_backend.errors")
     _log_rejection(
         SimpleNamespace(
             method="PUT",
@@ -255,11 +249,15 @@ def test_invalid_manifest_logs_upload_id_and_validation_details(backend, monkeyp
             details=[APIErrorDetail(field="client", message="Field required")],
         ),
     )
-    rejection_log = messages[0]
-    assert "upload_id=upload-attempt-123" in rejection_log
-    assert "status_code=422" in rejection_log
-    assert "code=invalid_manifest" in rejection_log
-    assert "client: Field required" in rejection_log
+    rejection_log = [
+        record
+        for record in caplog.records
+        if getattr(record, "event_name", None) == "http_request_rejected"
+    ][-1]
+    assert rejection_log.event_fields["upload_id"] == "upload-attempt-123"
+    assert rejection_log.event_fields["status_code"] == 422
+    assert rejection_log.event_fields["code"] == "invalid_manifest"
+    assert rejection_log.event_fields["details"] == "client: Field required"
 
 
 def test_identical_replay_returns_original_receipt_without_duplicate_files(backend) -> None:

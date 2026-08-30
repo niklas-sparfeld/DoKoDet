@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
@@ -22,6 +23,7 @@ from dokodetector_backend.intake_contract import (
     TaskEnrollmentDocument,
     validate_repository_bundle,
 )
+from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.repository_bundle_repository import (
     RepositoryBundleConflict,
     RepositoryBundleRepositoryError,
@@ -41,6 +43,7 @@ VIDEO_MEDIA_TYPE = "video/quicktime"
 RECORDING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 VIDEO_PATH_PATTERN = re.compile(r"^videos/[A-Za-z0-9][A-Za-z0-9._-]*\.mov$")
 PROPOSAL_PATH_PATTERN = re.compile(r"^predictions/[A-Za-z0-9][A-Za-z0-9._-]*\.json$")
+LOGGER = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -123,6 +126,16 @@ async def upload_repository_bundle(
                     requested_id=requested_id,
                     settings=settings,
                 )
+                log_event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "repository_bundle_validation_completed",
+                    request_id=get_or_create_request_id(request),
+                    upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
+                    recording_id=bundle.recording_id,
+                    proposal_count=len(proposal_runs),
+                    file_count=len(staged_files),
+                )
                 incoming_fingerprint = bundle_fingerprint(staged_files)
                 try:
                     committed_files = staged.commit()
@@ -136,6 +149,17 @@ async def upload_repository_bundle(
                             status_code=409,
                         ) from error
                     created = False
+
+                log_event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "repository_bundle_publication_completed",
+                    request_id=get_or_create_request_id(request),
+                    upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
+                    recording_id=bundle.recording_id,
+                    created=created,
+                    file_count=len(committed_files),
+                )
 
                 received_at = datetime.now(timezone.utc)
                 indexed = StoredRepositoryBundle(
@@ -170,6 +194,16 @@ async def upload_repository_bundle(
                     ) from error
                 if not (created and index_created):
                     response.status_code = 200
+                log_event(
+                    LOGGER,
+                    logging.INFO,
+                    "repository_bundle_stored",
+                    request_id=get_or_create_request_id(request),
+                    upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
+                    recording_id=stored.recording_id,
+                    created=created and index_created,
+                    proposal_count=len(stored.proposal_run_ids),
+                )
                 return RepositoryBundleUploadResponse(
                     recording_id=stored.recording_id,
                     state=stored.state,

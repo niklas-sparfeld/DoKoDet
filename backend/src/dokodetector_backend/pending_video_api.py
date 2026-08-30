@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
@@ -16,6 +17,7 @@ from starlette.formparsers import MultiPartException
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.intake_contract import IntakeContractError, PendingVideo
+from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.pending_video_storage import (
     PendingVideoStorage,
     StoredPendingVideo,
@@ -31,6 +33,7 @@ from dokodetector_backend.video_probe import (
 JSON_MEDIA_TYPE = "application/json"
 MULTIPART_MEDIA_TYPE = "multipart/form-data"
 SUPPORTED_VIDEO_MEDIA_TYPES = {"video/quicktime", "video/mp4"}
+LOGGER = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -79,6 +82,15 @@ async def upload_pending_video(
                 finally:
                     await upload.seek(0)
                 facts = probe_video_path(staged.temporary_path / filename)
+                log_event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "pending_video_validation_completed",
+                    request_id=get_or_create_request_id(request),
+                    upload_id=upload_id,
+                    media_type=media_type,
+                    byte_length=stored.byte_length,
+                )
                 receipt = _build_receipt(
                     upload_id=upload_id,
                     stored=stored,
@@ -90,13 +102,19 @@ async def upload_pending_video(
                 try:
                     staged.commit()
                 except FileExistsError:
-                    return _retry_response(
+                    retry_response = _retry_response(
                         storage,
                         upload_id=upload_id,
                         incoming=receipt,
                         response=response,
                     )
-                return _response(receipt)
+                    _log_pending_video_stored(request, receipt, created=False)
+                    _log_pending_video_publication_completed(request, receipt, created=False)
+                    return retry_response
+                _log_pending_video_publication_completed(request, receipt, created=True)
+                stored_response = _response(receipt)
+                _log_pending_video_stored(request, receipt, created=True)
+                return stored_response
     except MultiPartException as error:
         raise ContractError(
             "pending_video_request_too_large",
@@ -245,6 +263,46 @@ def _response_payload(receipt: PendingVideo) -> dict[str, object]:
         "sha256": receipt.sha256,
         "media_facts": receipt.media_facts.model_dump(),
     }
+
+
+def _log_pending_video_stored(
+    request: Request,
+    receipt: PendingVideo,
+    *,
+    created: bool,
+) -> None:
+    """Log one accepted pending-video receipt without logging video content."""
+
+    log_event(
+        LOGGER,
+        logging.INFO,
+        "pending_video_stored",
+        request_id=get_or_create_request_id(request),
+        upload_id=receipt.upload_id,
+        state=receipt.state,
+        created=created,
+        media_type=receipt.media_type,
+        byte_length=receipt.byte_length,
+        sha256=receipt.sha256,
+    )
+
+
+def _log_pending_video_publication_completed(
+    request: Request,
+    receipt: PendingVideo,
+    *,
+    created: bool,
+) -> None:
+    """Log the completion of pending-video directory publication at DEBUG."""
+
+    log_event(
+        LOGGER,
+        logging.DEBUG,
+        "pending_video_publication_completed",
+        request_id=get_or_create_request_id(request),
+        upload_id=receipt.upload_id,
+        created=created,
+    )
 
 
 def _receipt_bytes(receipt: PendingVideo) -> bytes:

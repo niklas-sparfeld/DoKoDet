@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -20,7 +20,7 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.gemini_analyzer import create_gemini_analyzer
-from dokodetector_backend.logging_config import log_event
+from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
@@ -90,6 +90,7 @@ def create_app(
         app_settings.repository_intake_root
     )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
+    app.state.readiness_state = "unknown"
     app.state.analyzer = analyzer or create_gemini_analyzer(app_settings)
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     app.state.repository.rebuild_from_intake(app.state.evidence_package_storage)
@@ -118,9 +119,10 @@ def create_app(
         return {"status": "ok"}
 
     @app.get("/health/ready", response_model=None)
-    def readiness() -> dict[str, str] | JSONResponse:
+    def readiness(request: Request) -> dict[str, str] | JSONResponse:
         """Check the local database and evidence directory."""
 
+        request_id = get_or_create_request_id(request)
         try:
             with app.state.engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
@@ -130,8 +132,34 @@ def create_app(
             _check_evidence_directory(app.state.repository_bundle_storage.root)
             _check_evidence_directory(app.state.pending_video_storage.root)
         except (OSError, SQLAlchemyError):
+            log_event(
+                LOGGER,
+                logging.DEBUG,
+                "backend_readiness_checked",
+                request_id=request_id,
+                result="not_ready",
+            )
+            if app.state.readiness_state != "not_ready":
+                log_event(
+                    LOGGER,
+                    logging.WARNING,
+                    "backend_not_ready",
+                    request_id=request_id,
+                    reason="local_dependency_unavailable",
+                )
+            app.state.readiness_state = "not_ready"
             return JSONResponse(status_code=503, content={"status": "not_ready"})
 
+        log_event(
+            LOGGER,
+            logging.DEBUG,
+            "backend_readiness_checked",
+            request_id=request_id,
+            result="ready",
+        )
+        if app.state.readiness_state != "ready":
+            log_event(LOGGER, logging.INFO, "backend_ready", request_id=request_id)
+        app.state.readiness_state = "ready"
         return {"status": "ok"}
 
     return app
