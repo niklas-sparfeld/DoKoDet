@@ -18,7 +18,9 @@
 - **M0:** Complete for the fixture path — add bounded COCO pseudo-label materialization, provenance
   validation, and the frozen RF-DETR Large recipe. The real-data exercise waits for the required
   exact-event extraction and cached-result inputs.
-- **M1:** Pending — fine-tune and bundle one detector.
+- **M1:** Complete for the fixture path — add the pinned RF-DETR adapter, explicit training
+  arguments, failure receipts, and digest-checked native bundle. The real CUDA run waits for a
+  materialized real slice and mounted pretrained checkpoint.
 - **M2:** Pending — add the local visible-card provider.
 - **M3:** Pending — select the provider in the backend and run the end-to-end path.
 
@@ -150,6 +152,31 @@ Acceptance:
 - train and validation groups do not overlap;
 - each included box links to its frame and Gemini result digest; and
 - the output cannot pass as reviewed reference data.
+
+#### M1 implementation evidence — 2026-08-31
+
+- Added `table-analyzer train-visible-card-detector` with a `train-visible-card` alias. The
+  command accepts only the materialized dataset, evidence root, mounted pretrained checkpoint, and
+  output directory, with `--runner fixture` for local contract tests and `rfdetr` for the CUDA run.
+- The adapter verifies the M0 dataset, split, COCO digest, source-frame digests, recipe digests,
+  and mounted pretrained checkpoint before training. It stages RF-DETR's `train` and `valid` COCO
+  views with symlinks to source frames, so the source media stays in the mounted input.
+- The real runner uses `RFDETRLarge`, `rfdetr==1.9.4`, one class, 704 × 704 input, 20 epochs,
+  `cuda:0`, and the declared `checkpoint_best_total.pth`. It confirms finite numeric losses and
+  rejects a checkpoint identical to the pretrained input.
+- Every run writes `run.json`, including resolved input digests, model and training arguments,
+  environment, loss confirmation, checkpoint digests, bundle identity, and failure details when
+  the run cannot complete. The bundle stores the native checkpoint and a manifest with file
+  digests, recipe, dependency versions, dataset and split digests, `quality_state: unreviewed`,
+  and a manifest digest. The loader validates all declared file digests before returning the
+  checkpoint path.
+- Added the optional `training` dependency group and lock entries for `rfdetr[train,augment]==1.9.4`
+  and its training dependencies. The documented RunPod command uses only mounted input and output
+  paths.
+- Verification: all 63 table-analyzer tests, Ruff checks, CLI help, lock validation, and whitespace
+  checks pass. A real CUDA run was not started because the available workspace still lacks a valid
+  M0 exact-event dataset slice and mounted `rf-detr-large.pth`; the fixture path verifies the
+  dataset-to-training mapping and bundle contract without downloading weights.
 
 ### M1 — Fine-tune and bundle one detector
 

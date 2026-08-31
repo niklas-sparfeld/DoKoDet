@@ -54,7 +54,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0037 — Local visible-card detector end-to-end PoC](3-in-progress/0037-Local_Visible_Card_Detector_PoC.md) | Completed data, analyzer, and backend foundations | Fine-tune one RF-DETR Large detector from Gemini proposals and prove the local provider in the normal configurable backend path. M0 complete. |
+| [0037 — Local visible-card detector end-to-end PoC](3-in-progress/0037-Local_Visible_Card_Detector_PoC.md) | Completed data, analyzer, and backend foundations | Fine-tune one RF-DETR Large detector from Gemini proposals and prove the local provider in the normal configurable backend path. M1 fixture path complete; real CUDA run pending inputs. |
 | [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
 | None | — | — |
 

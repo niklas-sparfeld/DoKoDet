@@ -87,6 +87,26 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--config", type=Path, required=True)
     train_parser.add_argument("--resume", type=Path, help="Resume from a checkpoint.")
 
+    visible_card_train_parser = commands.add_parser(
+        "train-visible-card-detector",
+        aliases=("train-visible-card",),
+        help="Fine-tune and bundle the frozen local visible-card detector.",
+        description=(
+            "Run one frozen RF-DETR Large training operation from a materialized visible-card "
+            "dataset and write a run record plus a digest-checked native bundle."
+        ),
+    )
+    visible_card_train_parser.add_argument("--dataset-dir", type=Path, required=True)
+    visible_card_train_parser.add_argument("--evidence-root", type=Path, required=True)
+    visible_card_train_parser.add_argument("--pretrained-checkpoint", type=Path, required=True)
+    visible_card_train_parser.add_argument("--output-dir", type=Path, required=True)
+    visible_card_train_parser.add_argument(
+        "--runner",
+        choices=("rfdetr", "fixture"),
+        default="rfdetr",
+        help="Use rfdetr for the CUDA run or fixture for local contract tests.",
+    )
+
     evaluate_parser = commands.add_parser(
         "evaluate",
         help="Evaluate a frozen run or exported bundle.",
@@ -325,6 +345,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
         except (OSError, ValueError, VisibleCardDatasetError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command in {"train-visible-card-detector", "train-visible-card"}:
+        from .visible_card_training import VisibleCardTrainingConfig, run_visible_card_training
+
+        try:
+            report = run_visible_card_training(
+                VisibleCardTrainingConfig(
+                    dataset_dir=args.dataset_dir,
+                    evidence_root=args.evidence_root,
+                    pretrained_checkpoint=args.pretrained_checkpoint,
+                    output_dir=args.output_dir,
+                    runner=args.runner,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(json.dumps(report, sort_keys=True))
         return 0

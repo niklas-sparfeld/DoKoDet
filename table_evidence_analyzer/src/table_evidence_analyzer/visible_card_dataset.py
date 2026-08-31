@@ -804,6 +804,7 @@ def _recipe(
         "confidence_threshold": config.confidence_threshold,
         "non_maximum_suppression": False,
         "augmentation": "rfdetr_default_v1",
+        "final_checkpoint": "checkpoint_best_total.pth",
         "dataset_digest": dataset_digest,
         "split_digest": split_digest,
         "target_schema": "visible-card-bbox/v1",

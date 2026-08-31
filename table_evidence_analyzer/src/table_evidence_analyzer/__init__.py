@@ -108,6 +108,16 @@ from table_evidence_analyzer.visible_card_observation import (
     polygon_to_ppm,
     write_observation,
 )
+from table_evidence_analyzer.visible_card_training import (
+    DEFAULT_FINAL_CHECKPOINT,
+    VISIBLE_CARD_BUNDLE_SCHEMA,
+    VISIBLE_CARD_TRAINING_RUN_SCHEMA,
+    VisibleCardDetectorBundle,
+    VisibleCardTrainingConfig,
+    VisibleCardTrainingError,
+    load_visible_card_detector_bundle,
+    run_visible_card_training,
+)
 from table_evidence_analyzer.visible_cards import (
     CachedVisibleCardProvider,
     FakeVisibleCardProvider,
@@ -199,6 +209,14 @@ __all__ = [
     "polygon_pixel_bounds",
     "polygon_to_ppm",
     "write_observation",
+    "DEFAULT_FINAL_CHECKPOINT",
+    "VISIBLE_CARD_BUNDLE_SCHEMA",
+    "VISIBLE_CARD_TRAINING_RUN_SCHEMA",
+    "VisibleCardDetectorBundle",
+    "VisibleCardTrainingConfig",
+    "VisibleCardTrainingError",
+    "load_visible_card_detector_bundle",
+    "run_visible_card_training",
     "COCO_VERSION",
     "DEFAULT_CHECKPOINT_NAME",
     "DEFAULT_CONFIDENCE_THRESHOLD",

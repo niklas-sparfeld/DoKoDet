@@ -114,6 +114,22 @@ more than 40 frames. Gemini boxes remain marked `unreviewed_pseudo_label`; the o
 reviewed-reference dataset. The recipe freezes RF-DETR Large (`rfdetr==1.9.4`), 704 x 704 input,
 one CUDA device, 20 epochs, seed 37, and a 0.5 confidence threshold.
 
+Run one bounded RF-DETR training operation on a CUDA machine. The dataset and source evidence are
+mounted inputs. The checkpoint and all generated files stay below the mounted output path:
+
+```bash
+mise exec -- uv run --project table_evidence_analyzer --group training table-analyzer \
+  train-visible-card-detector \
+  --dataset-dir /mnt/input/visible-card-dataset/m0 \
+  --evidence-root /mnt/input/annotation-evidence-0ms \
+  --pretrained-checkpoint /mnt/input/rf-detr-large.pth \
+  --output-dir /mnt/output/visible-card-training/m1
+```
+
+The command writes `run.json`, RF-DETR outputs, and a digest-checked `bundle/` with
+`checkpoint_best_total.pth`. Use `--runner fixture` for local contract tests. The fixture runner
+does not import RF-DETR or download weights.
+
 Evaluate identity feasibility with reviewed oracle crops. The command fits both deterministic
 baselines from the train partition and writes top-1/top-k, confusion, and quality-tag metrics for
 the selected partition. This is an identity measurement only; it does not measure visible-card

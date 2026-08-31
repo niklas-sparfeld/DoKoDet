@@ -18,6 +18,9 @@ dev = [
   "pytest>=8.0,<9",
   "ruff>=0.6,<1",
 ]
+training = [
+  "rfdetr[train,augment]==1.9.4",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

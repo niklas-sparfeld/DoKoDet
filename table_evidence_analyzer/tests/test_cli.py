@@ -65,6 +65,31 @@ def test_visible_card_dataset_materializer_parser_has_bounded_inputs() -> None:
     assert args.max_frames == 40
 
 
+def test_visible_card_training_parser_has_explicit_mounted_inputs() -> None:
+    args = build_parser().parse_args(
+        [
+            "train-visible-card-detector",
+            "--dataset-dir",
+            "dataset",
+            "--evidence-root",
+            "evidence",
+            "--pretrained-checkpoint",
+            "weights/rf-detr-large.pth",
+            "--output-dir",
+            "output",
+            "--runner",
+            "fixture",
+        ]
+    )
+
+    assert args.command == "train-visible-card-detector"
+    assert args.dataset_dir == Path("dataset")
+    assert args.evidence_root == Path("evidence")
+    assert args.pretrained_checkpoint == Path("weights/rf-detr-large.pth")
+    assert args.output_dir == Path("output")
+    assert args.runner == "fixture"
+
+
 def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path: Path) -> None:
     image = tmp_path / "frame.jpg"
     image.write_bytes(b"fixture image bytes")
