@@ -4,8 +4,9 @@
 
 - **Summary:** Replace the separate Live and Record flows with one profile-based recording
   workspace.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0032 (complete)
+- **Closure reason:** Complete
 - **Priority:** High
 - **Boundary:** This epic changes the iOS recording UI, its local recording-profile contract, and
   the adapters that create existing recording and analysis inputs. It keeps the evidence-package,
