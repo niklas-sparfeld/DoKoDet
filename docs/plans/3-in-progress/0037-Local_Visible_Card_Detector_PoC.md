@@ -21,7 +21,9 @@
 - **M1:** Complete for the fixture path — add the pinned RF-DETR adapter, explicit training
   arguments, failure receipts, and digest-checked native bundle. The real CUDA run waits for a
   materialized real slice and mounted pretrained checkpoint.
-- **M2:** Pending — add the local visible-card provider.
+- **M2:** Complete for the fixture path — add the explicit-device local RF-DETR provider and
+  deterministic unavailable-result handling. A real CPU or MPS frame run waits for a materialized
+  bundle and native checkpoint.
 - **M3:** Pending — select the provider in the backend and run the end-to-end path.
 
 ## 1. Purpose
@@ -208,6 +210,30 @@ Acceptance:
 - MPS inference is exercised when available and any unsupported operation is reported, not silently
   moved to CPU; and
 - failure returns an unavailable result without crashing the analyzer.
+
+#### M2 implementation evidence — 2026-08-31
+
+- Added `LocalVisibleCardProvider` as a peer of the Gemini and fake providers. It validates one
+  native bundle at construction, loads RF-DETR Large through the pinned `rfdetr==1.9.4` API, and
+  accepts only an explicit `cpu` or `mps` device. The provider checks the loaded device and never
+  falls back from MPS to CPU.
+- The adapter decodes the complete request image, calls RF-DETR with the frozen 704 x 704 shape
+  and 0.5 threshold, and converts pixel `xyxy` boxes to normalized axis-aligned boxes and
+  four-corner polygons. It sets `side=unknown` and `label=visible_card`, without adding
+  non-maximum suppression.
+- Successful and unavailable results record provider version, device, detector scores, and bundle
+  identity in `raw_response`; inference latency is recorded in `latency_ms` and model load time is
+  exposed as `load_latency_ms`. Decode, inference, and malformed detector-output failures return
+  an unavailable result. Bundle validation and an unavailable requested MPS device fail at
+  startup with an explicit error.
+- Added the weight-free local test double path and tests for empty, single, and multiple
+  detections, normalized geometry, malformed input, inference failure, tampered bundle files, and
+  no silent MPS fallback. Added the optional `inference` dependency group and lock entry for
+  `rfdetr==1.9.4`.
+- Verification: all 71 table-analyzer tests, Ruff checks, lock validation, and whitespace checks
+  pass. A real CPU or MPS inference run was not started because the workspace still lacks a
+  materialized M0 bundle with a native trained checkpoint. No campaign, comparison, or promotion
+  was run.
 
 ### M3 — Select the provider in the backend
 

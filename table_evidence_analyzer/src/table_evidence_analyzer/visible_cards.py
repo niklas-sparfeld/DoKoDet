@@ -11,6 +11,7 @@ import base64
 import contextlib
 import hashlib
 import html
+import importlib.metadata
 import json
 import math
 import mimetypes
@@ -23,8 +24,11 @@ import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal, Protocol, runtime_checkable
+
+from PIL import Image, UnidentifiedImageError
 
 DEFAULT_MODEL = "gemini-3.6-flash"
 DEFAULT_TIMEOUT_S = 120.0
@@ -40,6 +44,12 @@ REVIEW_QUEUE_SCHEMA_VERSION = "visible-card-review-queue/v1"
 GEMINI_API_VERSION = "v1beta"
 GEMINI_PROVIDER_NAME = "gemini"
 GEMINI_THINKING_LEVEL = "minimal"
+LOCAL_PROVIDER_NAME = "local"
+LOCAL_PROVIDER_VERSION = "local-visible-cards-v1"
+LOCAL_DEVICE_NAMES = frozenset({"cpu", "mps"})
+LOCAL_INPUT_SIZE = 704
+LOCAL_CONFIDENCE_THRESHOLD = 0.5
+LOCAL_RFDETR_VERSION = "1.9.4"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SIDES = frozenset({"face_up", "face_down", "unknown"})
@@ -648,6 +658,271 @@ class GeminiVisibleCardProvider:
             latency_ms=_elapsed_ms(started),
             retry_count=attempt,
             error=last_error,
+        )
+
+
+def _import_torch() -> Any:
+    try:
+        import torch
+    except ImportError as error:
+        raise VisibleCardError(
+            "local visible-card inference requires PyTorch; install the inference dependency group"
+        ) from error
+    return torch
+
+
+def _local_device_available(device: str, torch_module: Any) -> bool:
+    if device == "cpu":
+        return True
+    backends = getattr(torch_module, "backends", None)
+    mps = getattr(backends, "mps", None)
+    is_available = getattr(mps, "is_available", None)
+    return bool(callable(is_available) and is_available())
+
+
+def _load_local_rfdetr(bundle: Any, device: str) -> Any:
+    try:
+        from rfdetr import RFDETRLarge
+    except ImportError as error:
+        raise VisibleCardError(
+            f"local visible-card inference requires rfdetr {LOCAL_RFDETR_VERSION}; "
+            "install the inference dependency group"
+        ) from error
+    try:
+        package_version = importlib.metadata.version("rfdetr")
+    except importlib.metadata.PackageNotFoundError as error:
+        raise VisibleCardError("RF-DETR package metadata is not installed") from error
+    if package_version != LOCAL_RFDETR_VERSION:
+        raise VisibleCardError(
+            f"installed rfdetr version {package_version} does not match the frozen "
+            f"{LOCAL_RFDETR_VERSION} bundle"
+        )
+    try:
+        model = RFDETRLarge.from_checkpoint(
+            str(bundle.checkpoint_path),
+            num_classes=1,
+            resolution=LOCAL_INPUT_SIZE,
+            device=device,
+        )
+    except Exception as error:
+        raise VisibleCardError(f"could not load the local RF-DETR bundle: {error}") from error
+    model_context = getattr(model, "model", None)
+    actual_device = getattr(model_context, "device", None)
+    if actual_device is not None:
+        actual_device_name = str(actual_device).split(":", 1)[0]
+        if actual_device_name != device:
+            raise VisibleCardError(
+                f"RF-DETR loaded on {actual_device!s}, but the requested device is {device}"
+            )
+    return model
+
+
+def _sequence(value: Any, field_name: str) -> list[Any]:
+    if value is None:
+        raise VisibleCardError(f"detector output is missing {field_name}")
+    tolist = getattr(value, "tolist", None)
+    if callable(tolist):
+        value = tolist()
+    if not isinstance(value, (list, tuple)):
+        raise VisibleCardError(f"detector output {field_name} must be a sequence")
+    return list(value)
+
+
+def _detections_field(detections: Any, field_name: str) -> Any:
+    if isinstance(detections, Mapping):
+        return detections.get(field_name)
+    return getattr(detections, field_name, None)
+
+
+def _normalise_detection_rows(value: Any, field_name: str) -> list[list[Any]]:
+    rows = _sequence(value, field_name)
+    if rows and not isinstance(rows[0], (list, tuple)):
+        if len(rows) != 4:
+            raise VisibleCardError(f"detector output {field_name} must contain four coordinates")
+        return [rows]
+    return [list(row) if isinstance(row, (list, tuple)) else [] for row in rows]
+
+
+def _local_bundle_identity(bundle: Any) -> dict[str, Any]:
+    manifest = bundle.manifest
+    return {
+        "schema_version": manifest["schema_version"],
+        "bundle_digest": manifest["bundle_digest"],
+        "checkpoint_sha256": manifest["checkpoint_sha256"],
+        "run_id": manifest.get("run_id"),
+    }
+
+
+def _normalised_box_from_pixels(
+    coordinates: list[Any], *, width: int, height: int
+) -> tuple[NormalizedBox, list[float]]:
+    if len(coordinates) != 4:
+        raise VisibleCardError("detector output box must contain x_min, y_min, x_max, y_max")
+    try:
+        x_min_pixel, y_min_pixel, x_max_pixel, y_max_pixel = (float(value) for value in coordinates)
+    except (TypeError, ValueError) as error:
+        raise VisibleCardError("detector output box must contain numeric coordinates") from error
+    if not all(
+        math.isfinite(value) for value in (x_min_pixel, y_min_pixel, x_max_pixel, y_max_pixel)
+    ):
+        raise VisibleCardError("detector output box must contain finite coordinates")
+    x_min_pixel = max(0.0, min(float(width), x_min_pixel))
+    x_max_pixel = max(0.0, min(float(width), x_max_pixel))
+    y_min_pixel = max(0.0, min(float(height), y_min_pixel))
+    y_max_pixel = max(0.0, min(float(height), y_max_pixel))
+    if x_min_pixel >= x_max_pixel or y_min_pixel >= y_max_pixel:
+        raise VisibleCardError("detector output box must have positive width and height")
+    x_min = max(0, min(1000, math.floor(x_min_pixel * 1000 / width)))
+    y_min = max(0, min(1000, math.floor(y_min_pixel * 1000 / height)))
+    x_max = max(0, min(1000, math.ceil(x_max_pixel * 1000 / width)))
+    y_max = max(0, min(1000, math.ceil(y_max_pixel * 1000 / height)))
+    if x_min >= x_max or y_min >= y_max:
+        raise VisibleCardError("detector output box is too small for normalized geometry")
+    return (
+        NormalizedBox(y_min=y_min, x_min=x_min, y_max=y_max, x_max=x_max),
+        [x_min_pixel, y_min_pixel, x_max_pixel, y_max_pixel],
+    )
+
+
+class LocalVisibleCardProvider:
+    """Run one bundled RF-DETR detector on an explicitly selected local device."""
+
+    name = LOCAL_PROVIDER_NAME
+    version = LOCAL_PROVIDER_VERSION
+
+    def __init__(
+        self,
+        bundle: str | Path,
+        *,
+        device: Literal["cpu", "mps"] = "cpu",
+        detector: Any | None = None,
+        model_loader: Callable[[Any, str], Any] | None = None,
+        torch_module: Any | None = None,
+    ) -> None:
+        if device not in LOCAL_DEVICE_NAMES:
+            raise VisibleCardError("local device must be cpu or mps")
+        from .visible_card_training import load_visible_card_detector_bundle
+
+        try:
+            loaded_bundle = load_visible_card_detector_bundle(bundle)
+        except Exception as error:
+            raise VisibleCardError(
+                f"could not validate the local visible-card bundle: {error}"
+            ) from error
+        self.bundle = loaded_bundle
+        self.device = device
+        self.confidence_threshold = LOCAL_CONFIDENCE_THRESHOLD
+        self.input_size = LOCAL_INPUT_SIZE
+        if torch_module is None and device == "mps":
+            torch_module = _import_torch()
+        if torch_module is not None and not _local_device_available(device, torch_module):
+            raise VisibleCardError(f"requested local device is unavailable: {device}")
+        self._torch = torch_module
+        self._detector = detector
+        started = time.monotonic()
+        if self._detector is None:
+            loader = model_loader or _load_local_rfdetr
+            self._detector = loader(self.bundle, device)
+        self.load_latency_ms = _elapsed_ms(started)
+
+    @property
+    def bundle_identity(self) -> dict[str, Any]:
+        return _local_bundle_identity(self.bundle)
+
+    def _unavailable(
+        self, error: str, started: float, *, raw: dict[str, Any] | None = None
+    ) -> ProviderResult:
+        response = {
+            "provider": self.name,
+            "version": self.version,
+            "device": self.device,
+            "bundle_identity": self.bundle_identity,
+        }
+        if raw:
+            response.update(raw)
+        return ProviderResult(
+            status="unavailable",
+            raw_response=response,
+            latency_ms=_elapsed_ms(started),
+            error=error,
+        )
+
+    def propose(self, request: VisibleCardRequest) -> ProviderResult:
+        if request.provider != self.name:
+            raise VisibleCardError(
+                f"request provider {request.provider!r} does not match {self.name!r}."
+            )
+        started = time.monotonic()
+        try:
+            with Image.open(BytesIO(request.image_bytes)) as source:
+                if source.size != (request.width, request.height):
+                    raise VisibleCardError(
+                        "decoded source image dimensions do not match the request dimensions"
+                    )
+                image = source.convert("RGB").copy()
+        except (UnidentifiedImageError, OSError, ValueError) as error:
+            return self._unavailable(
+                f"local visible-card input could not be decoded: {error}", started
+            )
+        try:
+            detections = self._detector.predict(
+                image,
+                threshold=self.confidence_threshold,
+                shape=(self.input_size, self.input_size),
+                include_source_image=False,
+            )
+            boxes = _normalise_detection_rows(_detections_field(detections, "xyxy"), "xyxy")
+            confidence = _sequence(_detections_field(detections, "confidence"), "confidence")
+            class_ids = _sequence(_detections_field(detections, "class_id"), "class_id")
+            if not (len(boxes) == len(confidence) == len(class_ids)):
+                raise VisibleCardError("detector output fields have different lengths")
+            proposals: list[VisibleCardProposal] = []
+            output_detections: list[dict[str, Any]] = []
+            for coordinates, raw_score, raw_class_id in zip(
+                boxes, confidence, class_ids, strict=True
+            ):
+                score = float(raw_score)
+                class_id = int(raw_class_id)
+                if not math.isfinite(score) or not 0 <= score <= 1:
+                    raise VisibleCardError("detector output confidence must be finite in [0, 1]")
+                if class_id != 0:
+                    raise VisibleCardError(f"detector returned unsupported class id: {class_id}")
+                if score <= self.confidence_threshold:
+                    continue
+                box, pixel_box = _normalised_box_from_pixels(
+                    coordinates, width=request.width, height=request.height
+                )
+                proposals.append(
+                    VisibleCardProposal(
+                        box_2d=box,
+                        polygon=(
+                            NormalizedPoint(x=box.x_min, y=box.y_min),
+                            NormalizedPoint(x=box.x_max, y=box.y_min),
+                            NormalizedPoint(x=box.x_max, y=box.y_max),
+                            NormalizedPoint(x=box.x_min, y=box.y_max),
+                        ),
+                        side="unknown",
+                        label="visible_card",
+                    )
+                )
+                output_detections.append(
+                    {"class_id": class_id, "score": score, "box_xyxy": pixel_box}
+                )
+        except Exception as error:
+            return self._unavailable(f"local visible-card inference failed: {error}", started)
+        return ProviderResult(
+            status="ok",
+            proposals=tuple(proposals),
+            raw_response={
+                "provider": self.name,
+                "version": self.version,
+                "device": self.device,
+                "bundle_identity": self.bundle_identity,
+                "confidence_threshold": self.confidence_threshold,
+                "detector_scores": [detection["score"] for detection in output_detections],
+                "detections": output_detections,
+            },
+            latency_ms=_elapsed_ms(started),
         )
 
 
@@ -1283,6 +1558,10 @@ __all__ = [
     "DEFAULT_MODEL",
     "FakeVisibleCardProvider",
     "GeminiVisibleCardProvider",
+    "LocalVisibleCardProvider",
+    "LOCAL_PROVIDER_NAME",
+    "LOCAL_PROVIDER_VERSION",
+    "LOCAL_RFDETR_VERSION",
     "MissingCredentialError",
     "NormalizedBox",
     "NormalizedPoint",

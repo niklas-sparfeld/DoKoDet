@@ -40,9 +40,9 @@ mise exec -- uv sync
 
 ## Command line
 
-The `table-analyzer` command exposes the local visible-card baseline and the planned training
-command shape. Training, evaluation, export, classification, and dataset validation behavior will
-land in later milestones.
+The `table-analyzer` command exposes the local visible-card baseline and the bounded training
+command. The local RF-DETR provider is a Python adapter; backend provider selection is a later
+milestone.
 
 ```bash
 table-analyzer --help
@@ -129,6 +129,26 @@ mise exec -- uv run --project table_evidence_analyzer --group training table-ana
 The command writes `run.json`, RF-DETR outputs, and a digest-checked `bundle/` with
 `checkpoint_best_total.pth`. Use `--runner fixture` for local contract tests. The fixture runner
 does not import RF-DETR or download weights.
+
+Load the native local detector on an explicit CPU or MPS device. The provider converts RF-DETR
+pixel boxes to the normalized visible-card proposal contract and keeps the bundle digest and
+detector scores in `raw_response`. Install the inference group on the target Mac:
+
+```bash
+mise exec -- uv sync --project table_evidence_analyzer --group inference
+```
+
+```python
+from table_evidence_analyzer import LocalVisibleCardProvider
+
+provider = LocalVisibleCardProvider(
+    "data/outputs/visible-card-training/m1/bundle",
+    device="cpu",  # use "mps" only when the runtime supports it
+)
+```
+
+Malformed input and detector failures return a `ProviderResult` with `status="unavailable"`.
+The provider does not move MPS inference to CPU.
 
 Evaluate identity feasibility with reviewed oracle crops. The command fits both deterministic
 baselines from the train partition and writes top-1/top-k, confusion, and quality-tag metrics for
