@@ -239,6 +239,15 @@ def _diagnostics(
         "classified_proposals": classified,
         "dropped_proposals": dropped,
     }
+    if request.provider == "local" and result.raw_response is not None:
+        load_latency_ms = result.raw_response.get("load_latency_ms")
+        if isinstance(load_latency_ms, (int, float)) and math.isfinite(float(load_latency_ms)):
+            diagnostics["run_record"] = {
+                "provider": "local",
+                "load_latency_ms": float(load_latency_ms),
+                "one_frame_inference_latency_ms": result.latency_ms,
+                "interpretation": "one-frame measurement; not a latency or quality evaluation",
+            }
     if reason is not None:
         diagnostics["reason"] = reason
     return diagnostics

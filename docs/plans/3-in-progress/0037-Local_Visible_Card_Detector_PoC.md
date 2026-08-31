@@ -24,7 +24,8 @@
 - **M2:** Complete for the fixture path — add the explicit-device local RF-DETR provider and
   deterministic unavailable-result handling. A real CPU or MPS frame run waits for a materialized
   bundle and native checkpoint.
-- **M3:** Pending — select the provider in the backend and run the end-to-end path.
+- **M3:** Complete for the fixture path — select the provider in the backend and persist one local
+  provider analysis. A real native local run waits for the trained bundle and checkpoint inputs.
 
 ## 1. Purpose
 
@@ -251,6 +252,27 @@ Acceptance:
 - one real analysis reaches a terminal state with the local provider; and
 - the run record includes load time and one-frame inference time and states that they are not a
   latency or quality evaluation.
+
+#### M3 implementation evidence — 2026-08-31
+
+- Added `VISIBLE_CARD_PROVIDER` with `gemini` as the default, plus
+  `VISIBLE_CARD_BUNDLE_PATH` and `VISIBLE_CARD_DEVICE` for local mode. Local mode requires both
+  values before the backend starts the analyzer.
+- The configured backend analyzer selects Gemini or `LocalVisibleCardProvider` for visible-card
+  proposals. It always constructs the existing Gemini card identity classifier and checks
+  `GEMINI_API_KEY` in both modes. The normal cache and `VisibleCardTableAnalyzer` persistence path
+  stay unchanged.
+- Added backend tests for missing local settings, both provider selections, the Gemini identity
+  classifier in local mode, no Gemini visible-card construction in local mode, and a synchronous
+  stored-package round analysis that persists a schema-valid observation. The fixture local run
+  records detector load time, one-frame inference time, and the statement that those values are not
+  a latency or quality evaluation.
+- Added the backend `inference` dependency group with the pinned `rfdetr==1.9.4` package and
+  documented the local startup settings. The local group is optional when Gemini remains selected.
+- Verification: five focused backend tests, all 71 analyzer tests, Ruff, lock checks, and
+  whitespace checks pass. A real stored-package analysis with a native trained checkpoint was not
+  started because the workspace still lacks a valid trained bundle and checkpoint. No campaign,
+  comparison, or promotion was run.
 
 ## 7. Verification
 

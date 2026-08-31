@@ -837,6 +837,7 @@ class LocalVisibleCardProvider:
             "version": self.version,
             "device": self.device,
             "bundle_identity": self.bundle_identity,
+            "load_latency_ms": self.load_latency_ms,
         }
         if raw:
             response.update(raw)
@@ -918,6 +919,7 @@ class LocalVisibleCardProvider:
                 "version": self.version,
                 "device": self.device,
                 "bundle_identity": self.bundle_identity,
+                "load_latency_ms": self.load_latency_ms,
                 "confidence_threshold": self.confidence_threshold,
                 "detector_scores": [detection["score"] for detection in output_detections],
                 "detections": output_detections,

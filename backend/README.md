@@ -24,6 +24,12 @@ uv sync
 uv run alembic upgrade head
 ```
 
+For the local visible-card provider, install its pinned native inference dependency as well:
+
+```bash
+uv sync --group inference
+```
+
 Build the browser package once before starting the backend:
 
 ```bash
@@ -57,8 +63,11 @@ uv run dokodetector-backend
 The default service listens on port `8000` and advertises `_dokodetector._tcp` with Bonjour for
 iOS local discovery. The startup log shows the advertised service type and endpoint. Do not use
 the direct `uvicorn` command for device discovery. It starts HTTP but does not advertise Bonjour.
-The normal server requires `GEMINI_API_KEY`; it does not fall back to the deterministic local
-analyzer.
+The normal server requires `GEMINI_API_KEY` for visual card identity classification in every mode.
+It does not fall back to the deterministic local analyzer. `VISIBLE_CARD_PROVIDER=gemini` is the
+default. Set `VISIBLE_CARD_PROVIDER=local`, `VISIBLE_CARD_BUNDLE_PATH`, and
+`VISIBLE_CARD_DEVICE=cpu` or `mps` to use a validated native detector bundle. Local mode does not
+change the Gemini identity classifier.
 
 ## Terminal logs
 
@@ -192,6 +201,9 @@ GEMINI_API_KEY=<required at runtime>
 GEMINI_MODEL=gemini-3.6-flash
 GEMINI_TIMEOUT_SECONDS=120
 GEMINI_MAX_RETRIES=2
+VISIBLE_CARD_PROVIDER=gemini
+VISIBLE_CARD_BUNDLE_PATH=
+VISIBLE_CARD_DEVICE=
 ```
 
 ## Round recording analysis
@@ -221,13 +233,13 @@ The create response is 202 and the status endpoint returns 200. The backend reje
 package list, duplicate or unknown packages, mixed sessions, mismatched recording lineage, and a
 recording bundle that is not stored.
 
-The normal backend analyzer is the existing `VisibleCardTableAnalyzer` with Gemini for both
-visible-card proposals and visual card identity classification. It uses the Gemini model and
-runtime settings above, and caches successful and unavailable responses below the runtime root.
-There is no runtime fallback to the deterministic local analyzer. A provider or classifier failure
-produces an insufficient-evidence observation and the round analysis continues with the existing
-uncertain reconstruction semantics. This integration does not claim measured card-recognition
-quality; the capability-development work remains responsible for that evidence.
+The normal backend analyzer is the existing `VisibleCardTableAnalyzer`. It uses the configured
+visible-card provider for proposals and always uses Gemini for visual card identity classification.
+It uses the Gemini model and runtime settings above, and caches successful and unavailable responses
+below the runtime root. A provider or classifier failure produces an insufficient-evidence
+observation and the round analysis continues with the existing uncertain reconstruction semantics.
+The local one-frame run record contains detector load and inference times. These values are a smoke
+measurement, not a latency or quality evaluation.
 
 The worker is process-local and does not resume interrupted analysis. On backend restart, each
 non-terminal analysis row becomes failed with "The analysis did not finish before the backend

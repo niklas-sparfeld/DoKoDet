@@ -19,7 +19,7 @@ from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
-from dokodetector_backend.gemini_analyzer import create_gemini_analyzer
+from dokodetector_backend.gemini_analyzer import create_configured_analyzer
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
@@ -91,7 +91,7 @@ def create_app(
     )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.readiness_state = "unknown"
-    app.state.analyzer = analyzer or create_gemini_analyzer(app_settings)
+    app.state.analyzer = analyzer or create_configured_analyzer(app_settings)
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     app.state.repository.rebuild_from_intake(
         app.state.evidence_package_storage,

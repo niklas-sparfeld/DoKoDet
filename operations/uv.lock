@@ -242,6 +242,8 @@ dev = [
     { name = "pytest", specifier = ">=8.0,<9" },
     { name = "ruff", specifier = ">=0.6,<1" },
 ]
+inference = [{ name = "rfdetr", specifier = "==1.9.4" }]
+training = [{ name = "rfdetr", extras = ["train", "augment"], specifier = "==1.9.4" }]
 
 [[package]]
 name = "typing-extensions"

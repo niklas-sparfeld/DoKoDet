@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -90,6 +91,26 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.6-flash"
     gemini_timeout_seconds: float = 120.0
     gemini_max_retries: int = 2
+    visible_card_provider: Literal["gemini", "local"] = Field(
+        default="gemini",
+        validation_alias=AliasChoices("VISIBLE_CARD_PROVIDER"),
+    )
+    visible_card_bundle_path: Path | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "VISIBLE_CARD_BUNDLE_PATH",
+            "LOCAL_VISIBLE_CARD_BUNDLE_PATH",
+            "LOCAL_VISIBLE_CARD_BUNDLE",
+        ),
+    )
+    visible_card_device: Literal["cpu", "mps"] | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "VISIBLE_CARD_DEVICE",
+            "LOCAL_VISIBLE_CARD_DEVICE",
+            "LOCAL_DEVICE",
+        ),
+    )
     server_host: str = "0.0.0.0"
     server_port: int = 8_000
     bonjour_enabled: bool = True
@@ -113,6 +134,8 @@ class Settings(BaseSettings):
         self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
         self.evidence_package_intake_root = _resolve_path(self.evidence_package_intake_root, root)
         self.pending_video_root = _resolve_path(self.pending_video_root, root)
+        if self.visible_card_bundle_path is not None:
+            self.visible_card_bundle_path = _resolve_path(self.visible_card_bundle_path, root)
         return self
 
 
