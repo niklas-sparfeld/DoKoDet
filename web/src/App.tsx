@@ -24,7 +24,6 @@ type TimelineEvidenceRow = RoundAnalysisTimeline["rows"][number];
 type TimelineInferredPlay = RoundAnalysisTimeline["inferred_plays"][number];
 type GameplayPlay = { player: string; card: string };
 type TimelineObservation = TimelineEvidenceRow["table_observation"];
-type TimelineFrame = NonNullable<TimelineEvidenceRow["central_frame"]>;
 type TimelineCard = NonNullable<TimelineObservation["cards"]>[number];
 type TimelineCandidate = TimelineCard["identity_candidates"][number];
 type CounterfactualCardIdentityOverride = NonNullable<
@@ -36,11 +35,7 @@ type CounterfactualObservedCard = NonNullable<
 type CounterfactualOverride = NonNullable<
   RoundCounterfactualCreateRequest["candidate_probability_overrides"]
 >[number];
-type ExpandedFrame = {
-  frame: TimelineFrame;
-  eventSequence: number;
-  observationId: string;
-};
+type ExpandedEvidence = TimelineEvidenceRow;
 
 const CARD_IDENTITIES = [
   "CLUBS_NINE",
@@ -214,9 +209,8 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
   const [selectedHypothesisRank, setSelectedHypothesisRank] = useState(() =>
     readInitialHypothesisRank(hypothesisRanks),
   );
-  const [expandedFrame, setExpandedFrame] = useState<ExpandedFrame | null>(
-    null,
-  );
+  const [expandedEvidence, setExpandedEvidence] =
+    useState<ExpandedEvidence | null>(null);
   const selectedHypothesis =
     timeline.hypotheses.find(
       (hypothesis) => hypothesis.rank === selectedHypothesisRank,
@@ -248,8 +242,8 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
     }
   }
 
-  const closeExpandedFrame = useCallback(() => {
-    setExpandedFrame(null);
+  const closeExpandedEvidence = useCallback(() => {
+    setExpandedEvidence(null);
   }, []);
 
   return (
@@ -381,7 +375,7 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
                       selected={row.id === selectedRow?.id}
                       hypothesis={selectedHypothesis}
                       counterfactual={counterfactual}
-                      onOpenFrame={setExpandedFrame}
+                      onOpenDetails={setExpandedEvidence}
                       onSelect={() => selectRow(row.id)}
                       onKeyDown={(event) => {
                         if (event.target !== event.currentTarget) {
@@ -416,7 +410,11 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
                   Select a row, then use ↑ and ↓ to move through the timeline.
                 </p>
               </div>
-              <SelectedEventVideo row={selectedRow} />
+              <SelectedRecordingVideo
+                row={selectedRow}
+                recordingUrl={timeline.recording_video.url}
+                onOpenDetails={setExpandedEvidence}
+              />
             </div>
             <span className={styles.visuallyHidden} aria-live="polite">
               {selectedRow === undefined
@@ -434,9 +432,10 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
           </>
         )}
       </CounterfactualWorkbench>
-      <EvidenceFrameLightbox
-        frame={expandedFrame}
-        onClose={closeExpandedFrame}
+      <EvidenceDetailOverlay
+        evidence={expandedEvidence}
+        recordingUrl={timeline.recording_video.url}
+        onClose={closeExpandedEvidence}
       />
     </div>
   );
@@ -1674,7 +1673,7 @@ function TimelineRowView({
   selected,
   hypothesis,
   counterfactual,
-  onOpenFrame,
+  onOpenDetails,
   onSelect,
   onKeyDown,
 }: {
@@ -1683,7 +1682,7 @@ function TimelineRowView({
   selected: boolean;
   hypothesis: RoundAnalysisTimeline["hypotheses"][number] | undefined;
   counterfactual: CounterfactualController;
-  onOpenFrame: (frame: ExpandedFrame) => void;
+  onOpenDetails: (row: TimelineEvidenceRow) => void;
   onSelect: () => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }) {
@@ -1699,7 +1698,7 @@ function TimelineRowView({
         onKeyDown={onKeyDown}
       >
         {row.kind === "evidence" ? (
-          <EvidenceCell row={row.row} onOpenFrame={onOpenFrame} />
+          <EvidenceCell row={row.row} onOpenDetails={onOpenDetails} />
         ) : (
           <InferenceEvidenceCell play={row.play} />
         )}
@@ -1727,10 +1726,10 @@ function TimelineRowView({
 
 function EvidenceCell({
   row,
-  onOpenFrame,
+  onOpenDetails,
 }: {
   row: TimelineEvidenceRow;
-  onOpenFrame: (frame: ExpandedFrame) => void;
+  onOpenDetails: (row: TimelineEvidenceRow) => void;
 }) {
   const frame = row.central_frame;
 
@@ -1745,14 +1744,8 @@ function EvidenceCell({
         <button
           type="button"
           className={styles.frameButton}
-          aria-label={`Open evidence frame for event ${row.event_sequence}`}
-          onClick={() =>
-            onOpenFrame({
-              frame,
-              eventSequence: row.event_sequence,
-              observationId: row.observation_id,
-            })
-          }
+          aria-label={`Open event details for event ${row.event_sequence}`}
+          onClick={() => onOpenDetails(row)}
         >
           <img
             className={styles.frame}
@@ -1776,82 +1769,110 @@ function EvidenceCell({
   );
 }
 
-function SelectedEventVideo({ row }: { row: DisplayRow | undefined }) {
+function SelectedRecordingVideo({
+  row,
+  recordingUrl,
+  onOpenDetails,
+}: {
+  row: DisplayRow | undefined;
+  recordingUrl: string;
+  onOpenDetails: (row: TimelineEvidenceRow) => void;
+}) {
   if (row === undefined) {
     return null;
   }
   if (row.kind === "inferred") {
     return (
       <aside className={styles.videoPanel} aria-label="Selected event media">
-        <h2>Event video</h2>
+        <h2>Full recording</h2>
+        <SeekableVideo
+          className={styles.recordingVideo}
+          src={recordingUrl}
+          ariaLabel="Full recording"
+        />
         <p className={styles.videoUnavailable}>
-          An inferred card play has no source video snippet.
+          An inferred card play has no exact recording time.
         </p>
       </aside>
     );
   }
 
-  const { central_frame: frame, video_snippet: snippet } = row.row;
-  const seekSeconds =
-    snippet === null
-      ? 0
-      : Math.min(
-          Math.max(-snippet.start_offset_ms / 1000, 0),
-          snippet.duration_ms / 1000,
-        );
-
   return (
     <aside className={styles.videoPanel} aria-label="Selected event media">
       <div className={styles.videoHeading}>
-        <h2>Event video</h2>
+        <h2>Full recording</h2>
         <span>
           Event {row.row.event_sequence} ·{" "}
           {formatMilliseconds(row.row.event_time_ms)}
         </span>
       </div>
-      {snippet !== null ? (
-        <video
-          key={snippet.url}
-          className={styles.eventVideo}
-          src={snippet.url}
-          controls
-          preload="metadata"
-          aria-label={`Video snippet for event ${row.row.event_sequence}`}
-          onLoadedMetadata={(event) => {
-            event.currentTarget.currentTime = seekSeconds;
-          }}
-        />
-      ) : frame !== null ? (
-        <>
-          <img
-            className={styles.eventVideoFallback}
-            src={frame.url}
-            alt={`Evidence frame for event ${row.row.event_sequence}`}
-          />
-          <p className={styles.videoUnavailable}>
-            No video snippet is available for event {row.row.event_sequence}.
-          </p>
-        </>
-      ) : (
-        <p className={styles.videoUnavailable}>
-          No video snippet is available for event {row.row.event_sequence}.
-        </p>
-      )}
+      <SeekableVideo
+        className={styles.recordingVideo}
+        src={recordingUrl}
+        seekSeconds={row.row.event_time_ms / 1000}
+        ariaLabel={`Full recording for event ${row.row.event_sequence}`}
+      />
+      <button
+        type="button"
+        className={styles.detailButton}
+        onClick={() => onOpenDetails(row.row)}
+      >
+        Open event details
+      </button>
     </aside>
   );
 }
 
-function EvidenceFrameLightbox({
-  frame,
+function SeekableVideo({
+  src,
+  seekSeconds,
+  className,
+  ariaLabel,
+}: {
+  src: string;
+  seekSeconds?: number;
+  className: string;
+  ariaLabel: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video !== null && seekSeconds !== undefined && video.readyState >= 1) {
+      video.currentTime = seekSeconds;
+    }
+  }, [seekSeconds, src]);
+
+  return (
+    <video
+      ref={videoRef}
+      className={className}
+      src={src}
+      controls
+      preload="metadata"
+      aria-label={ariaLabel}
+      onLoadedMetadata={(event) => {
+        if (seekSeconds !== undefined) {
+          event.currentTarget.currentTime = seekSeconds;
+        }
+      }}
+    />
+  );
+}
+
+function EvidenceDetailOverlay({
+  evidence,
+  recordingUrl,
   onClose,
 }: {
-  frame: ExpandedFrame | null;
+  evidence: ExpandedEvidence | null;
+  recordingUrl: string;
   onClose: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (frame === null) {
+    if (evidence === null) {
       return;
     }
     const previousActiveElement = document.activeElement as HTMLElement | null;
@@ -1873,13 +1894,22 @@ function EvidenceFrameLightbox({
       document.body.style.overflow = previousBodyOverflow;
       previousActiveElement?.focus();
     };
-  }, [frame, onClose]);
+  }, [evidence, onClose]);
 
-  if (frame === null) {
+  if (evidence === null) {
     return null;
   }
 
-  const titleId = `expanded-frame-${frame.eventSequence}-title`;
+  const titleId = `event-detail-${evidence.event_sequence}-title`;
+  const snippet = evidence.video_snippet;
+  const snippetSeekSeconds =
+    snippet === null
+      ? undefined
+      : Math.min(
+          Math.max(-snippet.start_offset_ms / 1000, 0),
+          snippet.duration_ms / 1000,
+        );
+  const cards = evidence.table_observation.cards ?? [];
   return (
     <div
       className={styles.frameOverlay}
@@ -1894,30 +1924,96 @@ function EvidenceFrameLightbox({
       >
         <div className={styles.frameDialogHeader}>
           <div>
-            <p className={styles.statusLabel}>Evidence frame</p>
+            <p className={styles.statusLabel}>Event details</p>
             <h2 id={titleId}>
-              Event {frame.eventSequence} ·{" "}
-              {formatMilliseconds(frame.frame.actual_offset_ms)}
+              Event {evidence.event_sequence} ·{" "}
+              {formatMilliseconds(evidence.event_time_ms)}
             </h2>
           </div>
           <button
             ref={closeButtonRef}
             type="button"
             className={styles.frameDialogClose}
-            aria-label="Close enlarged evidence frame"
+            aria-label="Close event details"
             onClick={onClose}
           >
             ×
           </button>
         </div>
-        <img
-          className={styles.frameDialogImage}
-          src={frame.frame.url}
-          alt={`Enlarged evidence frame for event ${frame.eventSequence}`}
-        />
-        <p className={styles.frameDialogMeta}>
-          Observation <span>{frame.observationId}</span>
-        </p>
+        <section className={styles.detailRecordingSection}>
+          <h3>Full recording</h3>
+          <SeekableVideo
+            className={styles.detailRecordingVideo}
+            src={recordingUrl}
+            seekSeconds={evidence.event_time_ms / 1000}
+            ariaLabel={`Full recording for event ${evidence.event_sequence} in detail view`}
+          />
+        </section>
+        <div className={styles.detailEvidenceGrid}>
+          <section>
+            <h3>Central frame</h3>
+            {evidence.central_frame === null ? (
+              <p className={styles.videoUnavailable}>
+                No central frame is available.
+              </p>
+            ) : (
+              <img
+                className={styles.frameDialogImage}
+                src={evidence.central_frame.url}
+                alt={`Enlarged evidence frame for event ${evidence.event_sequence}`}
+              />
+            )}
+          </section>
+          <section>
+            <h3>Evidence video</h3>
+            {snippet === null ? (
+              <p className={styles.videoUnavailable}>
+                No evidence video is available.
+              </p>
+            ) : (
+              <SeekableVideo
+                className={styles.detailEvidenceVideo}
+                src={snippet.url}
+                seekSeconds={snippetSeekSeconds}
+                ariaLabel={`Evidence video snippet for event ${evidence.event_sequence}`}
+              />
+            )}
+          </section>
+        </div>
+        <section className={styles.detailFacts}>
+          <h3>Observed cards</h3>
+          <p className={styles.frameDialogMeta}>
+            Observation <span>{evidence.observation_id}</span> · Package{" "}
+            <span>{evidence.package_id}</span>
+          </p>
+          {cards.length === 0 ? (
+            <p className={styles.videoUnavailable}>No observed cards.</p>
+          ) : (
+            <div className={styles.detailCardGrid}>
+              {cards.map((card) => (
+                <div
+                  className={styles.observedCard}
+                  key={card.observed_card_id}
+                >
+                  <span className={styles.cardId}>{card.observed_card_id}</span>
+                  {card.identity_candidates.map((candidate) => (
+                    <div className={styles.confidence} key={candidate.card}>
+                      <div className={styles.confidenceHeading}>
+                        <span>{formatCardIdentity(candidate.card)}</span>
+                        <span>{formatPercent(candidate.probability)}</span>
+                      </div>
+                      <progress
+                        value={candidate.probability}
+                        max={1}
+                        aria-label={`${formatCardIdentity(candidate.card)} detail confidence`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

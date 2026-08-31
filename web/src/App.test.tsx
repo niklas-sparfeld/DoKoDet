@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 
 import { App } from "./App";
 import {
@@ -113,22 +113,31 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("opens an evidence frame in a dismissible lightbox", async () => {
+  it("opens event details with media and card probabilities", async () => {
     stubTimeline(resolvedTimeline, resolvedStatus);
     render(<App />);
 
     const user = userEvent.setup();
     const frameButton = await screen.findByRole("button", {
-      name: "Open evidence frame for event 1",
+      name: "Open event details for event 1",
     });
     await user.click(frameButton);
 
-    expect(screen.getByRole("dialog", { name: /Event 1/ })).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: /Event 1/ });
+    expect(dialog).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "Enlarged evidence frame for event 1" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Close enlarged evidence frame" }),
+      screen.getByLabelText("Evidence video snippet for event 1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Full recording for event 1 in detail view"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("Diamonds Jack")).toBeInTheDocument();
+    expect(within(dialog).getByText("75%")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Close event details" }),
     ).toHaveFocus();
 
     await user.keyboard("{Escape}");
@@ -137,33 +146,32 @@ describe("App", () => {
     expect(frameButton).toHaveFocus();
   });
 
-  it("shows the selected event video and seeks to the event offset", async () => {
+  it("shows the full recording and seeks to the selected event time", async () => {
     stubTimeline(resolvedTimeline, resolvedStatus);
     render(<App />);
 
-    const video = await screen.findByLabelText("Video snippet for event 1");
+    const video = await screen.findByLabelText("Full recording for event 1");
     Object.defineProperty(video, "duration", {
       configurable: true,
       value: 2,
     });
+    Object.defineProperty(video, "readyState", {
+      configurable: true,
+      value: 1,
+    });
 
     video.dispatchEvent(new Event("loadedmetadata"));
 
-    expect(video).toHaveAttribute(
-      "src",
-      `/v1/evidence-packages/${resolvedTimeline.rows[0].package_id}/video-snippet`,
-    );
+    expect(video).toHaveAttribute("src", resolvedTimeline.recording_video.url);
     expect((video as HTMLVideoElement).currentTime).toBe(1);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("option", { name: /observation-002/ }));
 
-    expect(
-      screen.queryByLabelText("Video snippet for event 1"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("No video snippet is available for event 2."),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Full recording for event 2")).toBe(video);
+    await waitFor(() =>
+      expect((video as HTMLVideoElement).currentTime).toBe(2),
+    );
   });
 
   it("allows a direct card identity correction outside analyzer candidates", async () => {

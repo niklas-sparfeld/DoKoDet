@@ -76,6 +76,13 @@ class TimelineArtifactHashes(ContractModel):
     result_sha256: Sha256
 
 
+class TimelineRecordingVideo(ContractModel):
+    """The complete recording used by the analysis."""
+
+    url: str = Field(min_length=1, max_length=1024)
+    content_type: Literal["video/quicktime"]
+
+
 class TimelineFrame(ContractModel):
     """The validated central frame descriptor for one evidence row."""
 
@@ -200,6 +207,7 @@ class RoundAnalysisTimeline(ContractModel):
     schema_version: Literal["round-analysis-timeline/v1"] = ROUND_ANALYSIS_TIMELINE_SCHEMA_VERSION
     analysis_id: UUID
     recording_id: str = Field(min_length=1, max_length=256)
+    recording_video: TimelineRecordingVideo
     round_id: str = Field(min_length=1, max_length=128)
     session_id: UUID
     reconstruction_status: Literal["resolved", "ambiguous", "incomplete", "impossible"]
@@ -329,6 +337,10 @@ class RoundAnalysisTimelineProjector:
         return RoundAnalysisTimeline(
             analysis_id=analysis.analysis_id,
             recording_id=analysis.recording_id,
+            recording_video=TimelineRecordingVideo(
+                url=f"/v1/repository-bundles/{analysis.recording_id}/video",
+                content_type="video/quicktime",
+            ),
             round_id=analysis.round_id,
             session_id=analysis.session_id,
             reconstruction_status=verified.result.status,

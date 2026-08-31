@@ -83,7 +83,7 @@ test("renders a resolved analysis in synchronized desktop columns", async ({
       .getByRole("group", { name: "Counterfactual" }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Open evidence frame for event 1" })
+    .getByRole("button", { name: "Open event details for event 1" })
     .click();
   const frameDialog = page.getByRole("dialog", { name: /Event 1/ });
   await expect(frameDialog).toBeVisible();
@@ -92,8 +92,15 @@ test("renders a resolved analysis in synchronized desktop columns", async ({
       name: "Enlarged evidence frame for event 1",
     }),
   ).toHaveCount(1);
+  await expect(
+    frameDialog.getByLabel("Evidence video snippet for event 1"),
+  ).toHaveCount(1);
+  await expect(
+    frameDialog.getByLabel("Full recording for event 1 in detail view"),
+  ).toHaveCount(1);
+  await expect(frameDialog.getByText("Diamonds Jack")).toBeVisible();
   await frameDialog
-    .getByRole("button", { name: "Close enlarged evidence frame" })
+    .getByRole("button", { name: "Close event details" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("listbox").locator(":scope > li")).toHaveCount(2);

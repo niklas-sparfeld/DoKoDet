@@ -153,6 +153,10 @@ def test_timeline_projects_exact_analysis_and_selects_central_frame(
     body = response.json()
     assert body["schema_version"] == "round-analysis-timeline/v1"
     assert body["analysis_id"] == ANALYSIS_ID
+    assert body["recording_video"] == {
+        "url": f"/v1/repository-bundles/{RECORDING_ID}/video",
+        "content_type": "video/quicktime",
+    }
     assert (
         body["artifact_hashes"]["input_sha256"]
         == hashlib.sha256(

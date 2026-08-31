@@ -84,6 +84,10 @@ export const resolvedTimeline = {
   schema_version: "round-analysis-timeline/v1",
   analysis_id: ANALYSIS_ID,
   recording_id: "recording-0033",
+  recording_video: {
+    url: "/v1/repository-bundles/recording-0033/video",
+    content_type: "video/quicktime" as const,
+  },
   round_id: "round-0033",
   session_id: "550e8400-e29b-41d4-a716-446655440034",
   reconstruction_status: "resolved",

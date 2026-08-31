@@ -105,6 +105,13 @@ def test_upload_stores_one_complete_commit_ready_bundle(backend) -> None:
         == hashlib.sha256(fixture["video"]).hexdigest()
     )
 
+    video_response = client.get(f"/v1/repository-bundles/{recording_id}/video")
+
+    assert video_response.status_code == 200
+    assert video_response.headers["content-type"] == "video/quicktime"
+    assert video_response.headers["etag"] == f'"{hashlib.sha256(fixture["video"]).hexdigest()}"'
+    assert video_response.content == fixture["video"]
+
 
 def test_identical_retry_is_idempotent_and_conflicting_content_is_rejected(backend) -> None:
     client, repository, intake_root = backend

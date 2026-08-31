@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException
@@ -21,6 +22,7 @@ from dokodetector_backend.intake_contract import (
     RepositoryBundle,
     SourceRecord,
     TaskEnrollmentDocument,
+    parse_repository_bundle,
     validate_repository_bundle,
 )
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
@@ -282,6 +284,50 @@ def get_repository_bundle(recording_id: str, request: Request) -> RepositoryBund
             )
             for relative_path, file in files.items()
         },
+    )
+
+
+@router.get(
+    "/v1/repository-bundles/{recording_id}/video",
+    response_model=None,
+)
+def get_repository_bundle_video(recording_id: str, request: Request) -> FileResponse:
+    """Stream the complete source recording from one accepted bundle."""
+
+    requested_id = _parse_recording_id(recording_id)
+    stored = request.app.state.repository_bundle_repository.get(requested_id)
+    if stored is None:
+        raise ContractError(
+            "repository_bundle_not_found",
+            "The repository bundle was not found.",
+            status_code=404,
+        )
+    bundle_path = request.app.state.repository_bundle_storage.bundle_path(requested_id)
+    try:
+        manifest = parse_repository_bundle((bundle_path / "manifest.json").read_bytes())
+    except (OSError, TypeError, ValueError) as error:
+        raise ContractError(
+            "internal_error",
+            "The recording manifest could not be read.",
+            status_code=500,
+        ) from error
+    if manifest.recording_id != requested_id or manifest.source_sha256 != stored.source_sha256:
+        raise ContractError(
+            "internal_error",
+            "The stored recording metadata is inconsistent.",
+            status_code=500,
+        )
+    video_path = bundle_path / PurePosixPath(manifest.files.video.relative_path)
+    if not video_path.is_file():
+        raise ContractError(
+            "internal_error",
+            "The stored recording video is unavailable.",
+            status_code=500,
+        )
+    return FileResponse(
+        video_path,
+        media_type=VIDEO_MEDIA_TYPE,
+        headers={"ETag": f'"{manifest.files.video.sha256}"'},
     )
 
 

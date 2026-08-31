@@ -156,6 +156,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repository-bundles/{recording_id}/video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Repository Bundle Video
+         * @description Stream the complete source recording from one accepted bundle.
+         */
+        get: operations["get_repository_bundle_video_v1_repository_bundles__recording_id__video_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/round-analyses": {
         parameters: {
             query?: never;
@@ -743,6 +763,7 @@ export interface components {
             reconstruction_status: "resolved" | "ambiguous" | "incomplete" | "impossible";
             /** Recording Id */
             recording_id: string;
+            recording_video: components["schemas"]["TimelineRecordingVideo"];
             /** Round Id */
             round_id: string;
             /** Rows */
@@ -1032,6 +1053,19 @@ export interface components {
              * @enum {string}
              */
             position: "before" | "between" | "after";
+        };
+        /**
+         * TimelineRecordingVideo
+         * @description The complete recording used by the analysis.
+         */
+        TimelineRecordingVideo: {
+            /**
+             * Content Type
+             * @constant
+             */
+            content_type: "video/quicktime";
+            /** Url */
+            url: string;
         };
         /**
          * TimelineSearchLimits
@@ -1442,6 +1476,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RepositoryBundleUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_repository_bundle_video_v1_repository_bundles__recording_id__video_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
