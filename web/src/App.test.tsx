@@ -113,6 +113,27 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps rendering when a timeline response omits the recording descriptor", async () => {
+    const timelineWithoutRecordingDescriptor = {
+      ...resolvedTimeline,
+    } as Record<string, unknown>;
+    delete timelineWithoutRecordingDescriptor.recording_video;
+    stubTimeline(
+      timelineWithoutRecordingDescriptor as unknown as RoundAnalysisTimeline,
+      resolvedStatus,
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Full recording" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Full recording for event 1")).toHaveAttribute(
+      "src",
+      "/v1/repository-bundles/recording-0033/video",
+    );
+  });
+
   it("opens event details with media and card probabilities", async () => {
     stubTimeline(resolvedTimeline, resolvedStatus);
     render(<App />);

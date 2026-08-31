@@ -111,6 +111,10 @@ export function roundAnalysisFramePath(
   return `/v1/round-analyses/${encodeURIComponent(analysisId)}/evidence-packages/${encodeURIComponent(packageId)}/frames/${encodeURIComponent(partName)}`;
 }
 
+export function repositoryBundleVideoPath(recordingId: string): string {
+  return `/v1/repository-bundles/${encodeURIComponent(recordingId)}/video`;
+}
+
 function roundAnalysisStatusPath(analysisId: string): string {
   return `/v1/round-analyses/${encodeURIComponent(analysisId)}`;
 }

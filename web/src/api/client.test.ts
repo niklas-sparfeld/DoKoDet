@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createDokoDetectorClient,
+  repositoryBundleVideoPath,
   roundAnalysisFramePath,
   roundCounterfactualPath,
   roundCounterfactualReadPath,
@@ -61,6 +62,12 @@ describe("DokoDetector API client", () => {
   it("encodes every frame path segment", () => {
     expect(roundAnalysisFramePath("analysis/1", "package/2", "frame 03")).toBe(
       "/v1/round-analyses/analysis%2F1/evidence-packages/package%2F2/frames/frame%2003",
+    );
+  });
+
+  it("encodes the complete recording path", () => {
+    expect(repositoryBundleVideoPath("recording/1")).toBe(
+      "/v1/repository-bundles/recording%2F1/video",
     );
   });
 

@@ -10,6 +10,7 @@ import {
 import {
   ApiError,
   createDokoDetectorClient,
+  repositoryBundleVideoPath,
   type RoundCounterfactualCreateRequest,
   type RoundCounterfactualResponse,
   type RoundAnalysisStatus,
@@ -195,6 +196,7 @@ function AnalysisStatus({
 }
 
 function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
+  const recordingUrl = repositoryBundleVideoPath(timeline.recording_id);
   const displayRows = useMemo(
     () => buildDisplayRows(timeline.rows, timeline.inferred_plays),
     [timeline.inferred_plays, timeline.rows],
@@ -412,7 +414,7 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
               </div>
               <SelectedRecordingVideo
                 row={selectedRow}
-                recordingUrl={timeline.recording_video.url}
+                recordingUrl={recordingUrl}
                 onOpenDetails={setExpandedEvidence}
               />
             </div>
@@ -434,7 +436,7 @@ function ResolvedTimeline({ timeline }: { timeline: RoundAnalysisTimeline }) {
       </CounterfactualWorkbench>
       <EvidenceDetailOverlay
         evidence={expandedEvidence}
-        recordingUrl={timeline.recording_video.url}
+        recordingUrl={recordingUrl}
         onClose={closeExpandedEvidence}
       />
     </div>
