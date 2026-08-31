@@ -65,12 +65,10 @@ public struct RoundRecordingSetup: Codable, Equatable, Sendable {
     public let dealer: String
     public let firstTrickLeader: String
 
-    public init(
-        gameID: String,
-        recordingID: String,
-        dealer: String,
-        firstTrickLeader: String
-    ) throws {
+    init(recordingID: String, defaults: RoundRecordingSetupDefaults) throws {
+        let gameID = defaults.gameID
+        let dealer = defaults.dealer
+        let firstTrickLeader = defaults.firstTrickLeader
         guard roundRecordingIsIdentifier(gameID) else {
             throw RoundRecordingSetupError.invalidGameID
         }
@@ -127,6 +125,19 @@ public struct RoundRecordingSetup: Codable, Equatable, Sendable {
         case activePlayers = "active_players"
         case dealer
         case firstTrickLeader = "first_trick_leader"
+    }
+}
+
+/// Fixed values that the default analysis adapter supplies for each recording.
+struct RoundRecordingSetupDefaults: Equatable, Sendable {
+    let gameID: String
+    let dealer: String
+    let firstTrickLeader: String
+
+    init(gameID: String) {
+        self.gameID = gameID
+        dealer = RoundRecordingSetup.fixedSeatIDs[0]
+        firstTrickLeader = RoundRecordingSetup.fixedSeatIDs[0]
     }
 }
 

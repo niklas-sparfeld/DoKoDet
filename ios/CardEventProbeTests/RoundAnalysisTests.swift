@@ -14,12 +14,7 @@ final class RoundAnalysisTests: XCTestCase {
 
     func testCreateRequestUsesStrictBackendShapeAndFixedSearchLimits() throws {
         let recordingID = "recording-analysis-fixture"
-        let setup = try RoundRecordingSetup(
-            gameID: "game-analysis-fixture",
-            recordingID: recordingID,
-            dealer: "seat-2",
-            firstTrickLeader: "seat-3"
-        )
+        let setup = try defaultSetup(recordingID: recordingID)
         let analysisID = UUID(uuidString: "00000000-0000-0000-0000-000000000032")!
         let packageID = UUID(uuidString: "00000000-0000-0000-0000-000000000034")!
         let request = try RoundAnalysisCreateRequest(
@@ -66,12 +61,7 @@ final class RoundAnalysisTests: XCTestCase {
             }
         }
         let recordingID = "recording-analysis-fixture"
-        let setup = try RoundRecordingSetup(
-            gameID: "game-analysis-fixture",
-            recordingID: recordingID,
-            dealer: "seat-1",
-            firstTrickLeader: "seat-1"
-        )
+        let setup = try defaultSetup(recordingID: recordingID)
         let analysisID = UUID()
         let packageID = UUID()
         let state = try RoundAnalysisSubmissionState(
@@ -94,12 +84,7 @@ final class RoundAnalysisTests: XCTestCase {
     }
 
     func testEmptyEvidenceFailureIsDurableWithoutAnAnalysisID() throws {
-        let setup = try RoundRecordingSetup(
-            gameID: "game-analysis-fixture",
-            recordingID: "recording-analysis-fixture",
-            dealer: "seat-1",
-            firstTrickLeader: "seat-1"
-        )
+        let setup = try defaultSetup(recordingID: "recording-analysis-fixture")
         let state = try RoundAnalysisSubmissionState(
             recordingID: "recording-analysis-fixture",
             sessionID: UUID(),
@@ -115,12 +100,7 @@ final class RoundAnalysisTests: XCTestCase {
     }
 
     func testSubmissionReadinessWaitsForEveryAcknowledgement() throws {
-        let setup = try RoundRecordingSetup(
-            gameID: "game-analysis-fixture",
-            recordingID: "recording-analysis-fixture",
-            dealer: "seat-1",
-            firstTrickLeader: "seat-1"
-        )
+        let setup = try defaultSetup(recordingID: "recording-analysis-fixture")
         let packageID = UUID()
         let sessionID = UUID()
         let initial = try RoundRecordingState(
@@ -140,12 +120,7 @@ final class RoundAnalysisTests: XCTestCase {
     }
 
     func testClientPostsAndPollsCanonicalRoundAnalysisEndpoints() async throws {
-        let setup = try RoundRecordingSetup(
-            gameID: "game-analysis-fixture",
-            recordingID: "recording-analysis-fixture",
-            dealer: "seat-1",
-            firstTrickLeader: "seat-1"
-        )
+        let setup = try defaultSetup(recordingID: "recording-analysis-fixture")
         let analysisID = UUID(uuidString: "00000000-0000-0000-0000-000000000032")!
         let request = try RoundAnalysisCreateRequest(
             analysisID: analysisID,
@@ -302,6 +277,16 @@ final class RoundAnalysisTests: XCTestCase {
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    }
+
+    private func defaultSetup(recordingID: String) throws -> RoundRecordingSetup {
+        try DefaultRoundAnalysisSetup().makeRoundSetup(
+            recordingID: recordingID,
+            purpose: .realGame,
+            appRunContext: AppRunContext(
+                sessionID: UUID(uuidString: "550e8400-e29b-41d4-a716-446655440010")!
+            )
+        )
     }
 }
 

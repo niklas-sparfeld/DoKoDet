@@ -19,7 +19,7 @@
 - **M1:** Complete — replace profile storage and snapshots.
 - **M2:** Complete — create one recording-workspace lifecycle.
 - **M3:** Complete — build the focused operator surface.
-- **M4:** Pending — connect default analysis and verify the complete flow.
+- **M4:** Complete — connect default analysis and verify the complete flow.
 
 ## 1. Outcome
 
@@ -310,6 +310,18 @@ and narrow adapters.
 - Verify profile snapshots, upload acknowledgement gating, automatic analysis submission, retry,
   relaunch recovery, and staged and real-game fixtures under the unified flow.
 - Run the focused iOS tests, the complete iOS test suite, and an iOS Simulator build.
+
+#### M4 implementation evidence — 2026-08-31
+
+- Removed the public raw game ID, dealer, and first-trick-leader inputs from round setup. The
+  default analysis adapter now provides the fixed values.
+- Added unified staged and real-game flow coverage. The tests verify recording snapshots, fixed
+  collection metadata, adapter-created analysis setup, acknowledgement gating, and automatic
+  analysis-request creation. Existing queue and submission tests cover retry and relaunch
+  recovery.
+- The focused suite passes. The iOS Simulator build succeeds. The full Swift package suite runs
+  111 tests with 107 passing; four existing evidence manifest and video timing tests fail outside
+  this epic.
 
 ## 7. Acceptance criteria
 

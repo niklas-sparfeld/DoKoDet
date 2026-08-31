@@ -1034,10 +1034,10 @@ public struct DefaultRoundAnalysisSetup: Equatable, Sendable {
         appRunContext: AppRunContext
     ) throws -> RoundRecordingSetup {
         try RoundRecordingSetup(
-            gameID: purpose.mapping(for: appRunContext).analysisGameID,
             recordingID: recordingID,
-            dealer: Self.fixedSeatIDs[0],
-            firstTrickLeader: Self.fixedSeatIDs[0]
+            defaults: RoundRecordingSetupDefaults(
+                gameID: purpose.mapping(for: appRunContext).analysisGameID
+            )
         )
     }
 

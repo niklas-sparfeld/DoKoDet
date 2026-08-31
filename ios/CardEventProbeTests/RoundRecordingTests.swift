@@ -5,40 +5,22 @@ import XCTest
 
 final class RoundRecordingTests: XCTestCase {
     func testRoundSetupUsesFixedSeatsAndDerivesRoundIDFromRecordingID() throws {
-        let setup = try RoundRecordingSetup(
-            gameID: "game-fixture-001",
-            recordingID: "recording-fixture-001",
-            dealer: "seat-2",
-            firstTrickLeader: "seat-3"
-        )
+        let setup = try defaultSetup(recordingID: "recording-fixture-001")
 
         XCTAssertEqual(setup.roundID, "round-recording-fixture-001")
         XCTAssertEqual(setup.activePlayers, ["seat-1", "seat-2", "seat-3", "seat-4"])
         XCTAssertEqual(setup.ruleset, try RoundRecordingRuleset())
         XCTAssertEqual(setup.deckVariant, "doko-40-v1")
 
-        XCTAssertThrowsError(
-            try RoundRecordingSetup(
-                gameID: "game-fixture-001",
-                recordingID: "recording-fixture-001",
-                dealer: "player-2",
-                firstTrickLeader: "seat-3"
-            )
-        ) { error in
-            XCTAssertEqual(error as? RoundRecordingSetupError, .invalidDealer)
-        }
+        XCTAssertEqual(setup.dealer, "seat-1")
+        XCTAssertEqual(setup.firstTrickLeader, "seat-1")
     }
 
     func testRoundStateStorePreservesOrderedMembershipAcrossStopAndRestart() throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let setup = try RoundRecordingSetup(
-            gameID: "game-fixture-001",
-            recordingID: "recording-fixture-001",
-            dealer: "seat-1",
-            firstTrickLeader: "seat-1"
-        )
+        let setup = try defaultSetup(recordingID: "recording-fixture-001")
         let sessionID = UUID()
         let packageOne = UUID()
         let packageTwo = UUID()
@@ -118,6 +100,60 @@ final class RoundRecordingTests: XCTestCase {
         XCTAssertTrue(profile.isComplete)
     }
 
+    func testUnifiedFlowSnapshotsAdapterInputsAndWaitsForAcknowledgements() throws {
+        let context = AppRunContext(
+            sessionID: UUID(uuidString: "550e8400-e29b-41d4-a716-446655440010")!
+        )
+        let packageID = UUID(uuidString: "00000000-0000-0000-0000-000000000044")!
+
+        for (purpose, sourceGameID, analysisGameID) in [
+            (.plausibleStagedRound, nil, "analysis-game-550e8400-e29b-41d4-a716-446655440010"),
+            (.realGame, "game-550e8400-e29b-41d4-a716-446655440010", "game-550e8400-e29b-41d4-a716-446655440010"),
+        ] as [(RecordingPurpose, String?, String)] {
+            let profile = RecordingProfile(
+                profileID: "profile-\(purpose.rawValue)",
+                name: "Fixture profile",
+                purpose: purpose,
+                tags: ["fixture"]
+            )
+            let snapshot = try RecordingStartSnapshot(
+                recordingID: "recording-\(purpose.rawValue)",
+                startedAtUTC: "2026-08-31T10:00:00Z",
+                profile: profile,
+                operatorSettings: OperatorSettings(operatorName: "fixture-operator"),
+                appRunContext: context
+            )
+            let setup = try snapshot.makeRoundSetup()
+            var state = try RoundRecordingState(
+                recordingID: snapshot.recordingID,
+                sessionID: context.sessionID,
+                roundSetup: setup
+            )
+
+            XCTAssertEqual(snapshot.collectionMetadata.gameID, sourceGameID)
+            XCTAssertEqual(setup.gameID, analysisGameID)
+            XCTAssertEqual(state.roundAnalysisSubmissionReadiness, .waitingForUploads)
+
+            state = try state.addingEvidencePackage(packageID)
+            state = try state.closingEvidenceMembership()
+            state = state.markingRecordingBundleFinalized()
+            state = state.markingRecordingBundleAcknowledged()
+            XCTAssertEqual(state.roundAnalysisSubmissionReadiness, .waitingForUploads)
+
+            state = try state.acknowledgingEvidencePackage(packageID)
+            XCTAssertEqual(state.roundAnalysisSubmissionReadiness, .ready)
+            let submission = try RoundAnalysisSubmissionState(
+                recordingID: state.recordingID,
+                sessionID: state.sessionID,
+                roundSetup: state.roundSetup,
+                evidencePackageIDs: state.evidencePackageIDs,
+                analysisID: UUID(),
+                phase: .submitting
+            )
+            XCTAssertEqual(submission.createRequest?.roundSetup.gameID, analysisGameID)
+        }
+    }
+
     func testEvidenceCoordinatorDoesNotReserveOrPersistOutsideActiveRecording() throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -190,6 +226,16 @@ final class RoundRecordingTests: XCTestCase {
             version: "test",
             weightsSHA256: String(repeating: "a", count: 64),
             preprocessing: "full_frame_letterbox_v1"
+        )
+    }
+
+    private func defaultSetup(recordingID: String) throws -> RoundRecordingSetup {
+        try DefaultRoundAnalysisSetup().makeRoundSetup(
+            recordingID: recordingID,
+            purpose: .realGame,
+            appRunContext: AppRunContext(
+                sessionID: UUID(uuidString: "550e8400-e29b-41d4-a716-446655440010")!
+            )
         )
     }
 
