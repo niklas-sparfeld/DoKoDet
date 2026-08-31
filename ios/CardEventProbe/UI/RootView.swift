@@ -38,14 +38,16 @@ struct RootView: View {
             appState.startBackendDiscovery()
             appState.uploadQueuedEvidence()
             appState.uploadQueuedTrainingRecordings()
+            appState.startRecordingWorkspace()
         }
         .onDisappear {
+            appState.stopRecordingWorkspace()
             UIApplication.shared.isIdleTimerDisabled = false
         }
-        .onChange(of: appState.captureActivity) { _, _ in
+        .onChange(of: appState.recordingWorkspaceState) { _, _ in
             updateIdleTimer()
         }
-        .onChange(of: appState.trainingRecordingState) { _, _ in
+        .onChange(of: appState.replayRunning) { _, _ in
             updateIdleTimer()
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -63,8 +65,7 @@ struct RootView: View {
 
     private func updateIdleTimer() {
         UIApplication.shared.isIdleTimerDisabled = scenePhase == .active
-            && (appState.captureActivity == .live
-                || appState.trainingRecordingState == .recording)
+            && (appState.recordingWorkspaceState.isRecording || appState.replayRunning)
     }
 
     @EnvironmentObject private var appState: AppState

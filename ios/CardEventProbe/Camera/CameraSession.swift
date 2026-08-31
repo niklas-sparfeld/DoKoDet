@@ -46,9 +46,15 @@ final class CameraSession: ObservableObject {
         }
     }
 
-    @Published private(set) var state: State = .idle
+    @Published private(set) var state: State = .idle {
+        didSet {
+            onStateChange?(state)
+        }
+    }
     @Published private(set) var sourceRateStatus: CameraSourceRateStatus?
     let captureSession = AVCaptureSession()
+
+    var onStateChange: ((State) -> Void)?
 
     private let sessionQueue = DispatchQueue(label: "com.dokodetector.CardEventProbe.camera")
     private let videoOutput = AVCaptureVideoDataOutput()

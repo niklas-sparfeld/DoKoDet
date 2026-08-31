@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct LiveDetectionView: View {
-    @StateObject private var camera = CameraSession()
     @EnvironmentObject private var appState: AppState
 
     var body: some View {
@@ -12,13 +11,13 @@ struct LiveDetectionView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 ZStack(alignment: .bottomLeading) {
-                    CameraPreview(session: camera.captureSession) { orientation in
-                        camera.updateInterfaceOrientation(orientation)
+                    CameraPreview(session: appState.cameraSession.captureSession) { orientation in
+                        appState.cameraSession.updateInterfaceOrientation(orientation)
                     }
                         .frame(height: 300)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                    Text(camera.state.message)
+                    Text(appState.cameraState.message)
                         .font(.caption.weight(.medium))
                         .padding(8)
                         .background(.black.opacity(0.65), in: Capsule())
@@ -28,54 +27,20 @@ struct LiveDetectionView: View {
 
                 HStack {
                     Label(
-                        appState.captureActivity == .live ? "Capture session active" : "Capture session stopped",
-                        systemImage: appState.captureActivity == .live ? "record.circle.fill" : "stop.circle"
+                        appState.recordingWorkspaceState.title,
+                        systemImage: appState.recordingWorkspaceState.isRecording
+                            ? "record.circle.fill"
+                            : "camera"
                     )
-                    .foregroundStyle(appState.captureActivity == .live ? .red : .secondary)
+                    .foregroundStyle(appState.recordingWorkspaceState.isRecording ? .red : .primary)
 
                     Spacer()
-
-                    Button(
-                        appState.captureActivity == .live ? "End capture" : "Start capture"
-                    ) {
-                        if appState.captureActivity == .live {
-                            endCapture()
-                        } else {
-                            startCapture()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(appState.captureActivity == .replay)
                 }
 
-                DiagnosticsPanel(cameraSourceRate: camera.sourceRateStatus)
+                DiagnosticsPanel(cameraSourceRate: appState.cameraSession.sourceRateStatus)
             }
             .padding()
         }
         .navigationTitle("Live")
-        .onAppear {
-            if appState.captureActivity == .idle {
-                startCapture()
-            }
-        }
-        .onDisappear {
-            endCapture()
-        }
-        .onReceive(
-            Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
-        ) { now in
-            appState.updateTrainingRecordingClock(now: now)
-        }
-    }
-
-    private func startCapture() {
-        camera.setFrameHandler(appState.startLiveInference())
-        camera.start()
-    }
-
-    private func endCapture() {
-        camera.setFrameHandler(nil)
-        camera.stop()
-        appState.stopLiveInference()
     }
 }

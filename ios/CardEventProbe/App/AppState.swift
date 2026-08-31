@@ -94,8 +94,11 @@ final class AppState: ObservableObject {
     @Published private(set) var obsoleteRecordingProfileNotice: String?
     @Published private(set) var activeRecordingProfile: RecordingProfile?
     @Published private(set) var operatorSettings = OperatorSettings()
+    @Published private(set) var recordingWorkspaceState: RecordingWorkspaceState = .idle
+    @Published private(set) var cameraState = CameraSession.State.idle
 
     let appRunContext: AppRunContext
+    let cameraSession = CameraSession()
 
     let backendDiscovery = BackendDiscovery()
     private(set) var modelRunner: CardEventModelRunner?
@@ -143,6 +146,7 @@ final class AppState: ObservableObject {
     private var lastTrainingRecordingUploadProgressUpdateAt: Date?
     private var roundAnalysisRequestInFlight = false
     private var roundAnalysisPollingTask: Task<Void, Never>?
+    private var recordingWorkspaceLifecycle = RecordingWorkspaceLifecycle()
 
     private let trainingRecordingMaximumDurationSeconds: Double
     private let trainingRecordingMaximumSizeBytes: Int64
@@ -191,6 +195,10 @@ final class AppState: ObservableObject {
         operatorSettingsStore = OperatorSettingsStore(
             directory: operatorSettingsDirectory ?? Self.operatorSettingsRoot()
         )
+        cameraState = cameraSession.state
+        cameraSession.onStateChange = { [weak self] state in
+            self?.handleCameraStateChange(state)
+        }
         do {
             let result = try recordingProfileStore.loadAllResult()
             recordingProfiles = result.profiles
@@ -264,8 +272,11 @@ final class AppState: ObservableObject {
         }
     }
 
-    var canStartTrainingRecording: Bool {
-        guard captureActivity == .live,
+    var canStartRecording: Bool {
+        guard recordingWorkspaceState.acceptsRecordingStart,
+              cameraState == .running,
+              captureActivity == .live,
+              liveCoordinator != nil,
               case .ready = modelState,
               case .connected = backendDiscovery.state else {
             return false
@@ -278,12 +289,83 @@ final class AppState: ObservableObject {
         }
     }
 
-    var isRoundRecordingLocked: Bool {
+    var isRecordingLocked: Bool {
+        if recordingWorkspaceState.isRecording {
+            return true
+        }
         switch trainingRecordingState {
         case .recording, .finalizing, .queued, .uploading:
             return true
         case .idle, .acknowledged, .failed:
             return false
+        }
+    }
+
+    func startRecordingWorkspace() {
+        guard !recordingWorkspaceState.isRecording, !replayRunning else { return }
+
+        if liveCoordinator != nil, captureActivity == .live {
+            if case .failed = recordingWorkspaceState {
+                guard recordingWorkspaceLifecycle.startPreview() else { return }
+                recordingWorkspaceState = recordingWorkspaceLifecycle.state
+            }
+            if recordingWorkspaceState == .starting {
+                _ = recordingWorkspaceLifecycle.markPreviewReady()
+                recordingWorkspaceState = recordingWorkspaceLifecycle.state
+            }
+            if cameraState != .running {
+                cameraSession.start()
+            }
+            return
+        }
+
+        guard recordingWorkspaceLifecycle.startPreview() else { return }
+        recordingWorkspaceState = recordingWorkspaceLifecycle.state
+        guard let frameHandler = startLiveInference() else {
+            _ = recordingWorkspaceLifecycle.fail("The model is not ready.")
+            recordingWorkspaceState = recordingWorkspaceLifecycle.state
+            return
+        }
+        cameraSession.setFrameHandler(frameHandler)
+        cameraSession.start()
+    }
+
+    func stopRecordingWorkspace() {
+        if trainingRecordingState == .recording {
+            stopRecording()
+        }
+        cameraSession.setFrameHandler(nil)
+        cameraSession.stop()
+        stopPreviewInference()
+
+        if !recordingWorkspaceState.isRecording {
+            _ = recordingWorkspaceLifecycle.stopPreview()
+            recordingWorkspaceState = recordingWorkspaceLifecycle.state
+        }
+    }
+
+    private func handleCameraStateChange(_ state: CameraSession.State) {
+        cameraState = state
+        switch state {
+        case .running:
+            guard recordingWorkspaceState != .idle else {
+                cameraSession.stop()
+                return
+            }
+            if recordingWorkspaceState == .starting {
+                _ = recordingWorkspaceLifecycle.markPreviewReady()
+                recordingWorkspaceState = recordingWorkspaceLifecycle.state
+            }
+        case .denied, .failed:
+            if recordingWorkspaceState.isRecording {
+                stopRecording()
+            } else if recordingWorkspaceState == .starting || recordingWorkspaceState == .preview {
+                _ = recordingWorkspaceLifecycle.fail(state.message)
+                recordingWorkspaceState = recordingWorkspaceLifecycle.state
+                inferenceError = state.message
+            }
+        case .idle, .requestingPermission:
+            break
         }
     }
 
@@ -426,7 +508,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    func startTrainingRecording(profile: RecordingProfile) {
+    func startRecording(profile: RecordingProfile) {
         guard profile.isComplete else {
             trainingRecordingError = profile.validationIssues
                 .map { "\($0.field.rawValue): \($0.message)" }
@@ -437,8 +519,8 @@ final class AppState: ObservableObject {
             trainingRecordingError = "Enter the operator name in settings before recording."
             return
         }
-        guard canStartTrainingRecording else {
-            trainingRecordingError = "Start a live capture with a ready backend before recording."
+        guard canStartRecording else {
+            trainingRecordingError = "Start the recording workspace preview with a ready backend before recording."
             return
         }
         guard hasEnoughFreeDiskSpace() else {
@@ -590,23 +672,41 @@ final class AppState: ObservableObject {
         trainingRecordingUploadError = nil
         trainingRecordingUploadProgress = nil
         lastTrainingRecordingUploadProgressUpdateAt = nil
+        guard recordingWorkspaceLifecycle.startRecording(recordingID: recordingID) else {
+            coordinator.stop()
+            trainingRecordingCoordinator = nil
+            try? roundRecordingStateStore.remove()
+            try? recordingStartSnapshotStore.remove()
+            try? captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
+            trainingRecordingError = "The recording workspace is not ready to start recording."
+            return
+        }
+        recordingWorkspaceState = recordingWorkspaceLifecycle.state
         trainingRecordingState = .recording
     }
 
-    func stopTrainingRecording() {
+    func stopRecording() {
         guard trainingRecordingState == .recording else { return }
+        guard recordingWorkspaceLifecycle.stopRecording() else { return }
+        recordingWorkspaceState = recordingWorkspaceLifecycle.state
         guard let coordinator = trainingRecordingCoordinator else {
             trainingRecordingState = .failed("The training recording coordinator is not available.")
             trainingRecordingError = "The training recording coordinator is not available."
+            _ = recordingWorkspaceLifecycle.fail(trainingRecordingError ?? "The training recording coordinator is not available.")
+            recordingWorkspaceState = recordingWorkspaceLifecycle.state
             return
         }
         guard let recordingID = latestTrainingRecordingID else {
             trainingRecordingState = .failed("The round recording ID is not available.")
             trainingRecordingError = "The round recording ID is not available."
+            _ = recordingWorkspaceLifecycle.fail(trainingRecordingError ?? "The round recording ID is not available.")
+            recordingWorkspaceState = recordingWorkspaceLifecycle.state
             return
         }
         guard let activeRecordingSnapshot else {
             trainingRecordingError = "The recording start snapshot is not available."
+            _ = recordingWorkspaceLifecycle.fail(trainingRecordingError ?? "The recording start snapshot is not available.")
+            recordingWorkspaceState = recordingWorkspaceLifecycle.state
             return
         }
         let collectionMetadata = activeRecordingSnapshot.collectionMetadata
@@ -615,6 +715,8 @@ final class AppState: ObservableObject {
             roundRecordingState = try roundRecordingStateStore.load()
         } catch {
             trainingRecordingError = "The round recording state could not be closed: \(error.localizedDescription)"
+            _ = recordingWorkspaceLifecycle.fail(trainingRecordingError ?? "The round recording state could not be closed.")
+            recordingWorkspaceState = recordingWorkspaceLifecycle.state
             return
         }
         liveCoordinator?.attachTrainingRecording(nil)
@@ -645,11 +747,15 @@ final class AppState: ObservableObject {
                     self.trainingRecordingError = nil
                     self.trainingRecordingQueueDiagnostics = self.trainingRecordingStore.diagnostics
                     self.trainingRecordingState = .queued
+                    _ = self.recordingWorkspaceLifecycle.finishRecording()
+                    self.recordingWorkspaceState = self.recordingWorkspaceLifecycle.state
                     self.uploadQueuedTrainingRecordings()
                     _ = url
                 case let .failure(error):
                     self.trainingRecordingError = error.localizedDescription
                     self.trainingRecordingState = .failed(error.localizedDescription)
+                    _ = self.recordingWorkspaceLifecycle.fail(error.localizedDescription)
+                    self.recordingWorkspaceState = self.recordingWorkspaceLifecycle.state
                     self.trainingRecordingQueueDiagnostics = self.trainingRecordingStore.diagnostics
                 }
             }
@@ -674,7 +780,7 @@ final class AppState: ObservableObject {
             trainingRecordingError = trainingRecordingElapsedSeconds >= trainingRecordingMaximumDurationSeconds
                 ? "The maximum training recording duration was reached."
                 : "The maximum training recording size was reached."
-            stopTrainingRecording()
+            stopRecording()
         }
     }
 
@@ -722,7 +828,7 @@ final class AppState: ObservableObject {
 
     func startLiveInference() -> ((VideoFrame) -> Void)? {
         stopReplayForNewSession()
-        stopLiveInference()
+        stopPreviewInference()
         resetEvents()
         evidenceVideoCaptureConfigurationError = nil
         guard let runner = modelRunner else { return nil }
@@ -765,8 +871,18 @@ final class AppState: ObservableObject {
     }
 
     func stopLiveInference() {
+        if trainingRecordingState == .recording {
+            stopRecording()
+        }
+        stopPreviewInference()
+        if !recordingWorkspaceState.isRecording {
+            _ = recordingWorkspaceLifecycle.stopPreview()
+            recordingWorkspaceState = recordingWorkspaceLifecycle.state
+        }
+    }
+
+    private func stopPreviewInference() {
         guard activeDiagnosticSource == .live || liveCoordinator != nil else { return }
-        stopTrainingRecordingForSession()
         liveCoordinator?.stop()
         evidenceVideoCaptureStatus = liveVideoCapture?.status ?? .idle
         finishEvidencePackageCoordinator()
@@ -784,6 +900,10 @@ final class AppState: ObservableObject {
     }
 
     func startReplay(url: URL) {
+        guard !recordingWorkspaceState.isRecording else {
+            inferenceError = "Stop the recording before starting replay."
+            return
+        }
         stopLiveInference()
         stopReplayForNewSession()
         guard let runner = modelRunner else {
@@ -1184,6 +1304,8 @@ final class AppState: ObservableObject {
             }
             activeRecordingSnapshot = snapshot
             activeRecordingProfile = snapshot.profile
+            _ = recordingWorkspaceLifecycle.recoverInterruptedRecording(recordingID: snapshot.recordingID)
+            recordingWorkspaceState = recordingWorkspaceLifecycle.state
         } catch {
             trainingRecordingError = error.localizedDescription
         }
@@ -1212,6 +1334,10 @@ final class AppState: ObservableObject {
             if trainingRecordingQueueDiagnostics?.queuedCount ?? 0 > 0 {
                 trainingRecordingState = .queued
                 latestTrainingRecordingID = trainingRecordingQueueDiagnostics?.recoveredRecordingIDs.last
+                if let recordingID = latestTrainingRecordingID {
+                    _ = recordingWorkspaceLifecycle.recoverPostRecording(recordingID: recordingID)
+                    recordingWorkspaceState = recordingWorkspaceLifecycle.state
+                }
             } else if trainingRecordingQueueDiagnostics?.failedCount ?? 0 > 0 {
                 let failedURLs = try? trainingRecordingStore.recordingURLs(in: .failed)
                 if let failedURL = failedURLs?.last {
@@ -1220,6 +1346,8 @@ final class AppState: ObservableObject {
                         ?? "A training recording upload failed."
                     trainingRecordingState = .failed(message)
                     trainingRecordingError = message
+                    _ = recordingWorkspaceLifecycle.fail(message)
+                    recordingWorkspaceState = recordingWorkspaceLifecycle.state
                 }
             }
         } catch {
@@ -1536,11 +1664,6 @@ final class AppState: ObservableObject {
         case .failed:
             return .failed(remoteStatus.error ?? "The round analysis failed.")
         }
-    }
-
-    private func stopTrainingRecordingForSession() {
-        guard trainingRecordingState == .recording else { return }
-        stopTrainingRecording()
     }
 
     private func hasEnoughFreeDiskSpace() -> Bool {

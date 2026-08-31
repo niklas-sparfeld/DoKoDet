@@ -17,7 +17,7 @@
 - **M0:** Complete — freeze the recording profile, purpose mapping, operator settings, app-run
   context, fixed metadata, and default round-analysis setup contracts.
 - **M1:** Complete — replace profile storage and snapshots.
-- **M2:** Pending — create one recording-workspace lifecycle.
+- **M2:** Complete — create one recording-workspace lifecycle.
 - **M3:** Pending — build the focused operator surface.
 - **M4:** Pending — connect default analysis and verify the complete flow.
 
@@ -262,6 +262,21 @@ and narrow adapters.
   one idempotent lifecycle.
 - Add regression tests for Start gates, partial-start cleanup, one-time Stop finalization, event
   count behavior, profile locking, and appearance transitions.
+
+#### M2 implementation evidence — 2026-08-31
+
+- Added the `RecordingWorkspaceState` lifecycle with starting, preview, recording, stopping,
+  post-recording, and failure states. Start and Stop transitions are idempotent and support retry
+  and relaunch recovery.
+- Moved the camera session and preview inference coordinator into `AppState`. The root workspace
+  owns their appearance lifecycle, while Live and Record views use the shared preview and event
+  stream. Preview event counts are not reset when recording starts or stops.
+- Routed recording start, evidence membership closure, complete-video finalization, durable upload,
+  and analysis handoff through the workspace lifecycle. Profile editing stays locked during
+  recording and finalization, and replay is blocked during recording.
+- Added five focused lifecycle tests. The focused suite passes. The iOS Simulator app build
+  succeeds. The full Swift package suite runs 108 tests with 104 passing; four existing evidence
+  manifest/video timing tests fail outside this milestone.
 
 ### M3 — Build the focused operator surface
 

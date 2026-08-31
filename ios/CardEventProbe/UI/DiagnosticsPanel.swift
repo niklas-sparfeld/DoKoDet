@@ -38,7 +38,7 @@ struct DiagnosticsPanel: View {
             }
 
             if let inferenceError = appState.inferenceError {
-                OperatorErrorView(title: "Capture", message: inferenceError)
+                OperatorErrorView(title: "Inference", message: inferenceError)
             }
 
             if let videoConfigurationError = appState.evidenceVideoCaptureConfigurationError {
@@ -133,9 +133,9 @@ private struct CaptureStatusView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("Capture")
+                Text("Workspace")
                 Spacer()
-                Text(appState.captureActivity.title)
+                Text(appState.recordingWorkspaceState.title)
                     .fontWeight(.medium)
             }
             HStack {

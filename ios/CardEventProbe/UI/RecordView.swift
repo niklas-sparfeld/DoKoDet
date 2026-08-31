@@ -3,7 +3,6 @@ import SwiftUI
 struct RecordView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var camera = CameraSession()
     @State private var profile: RecordingProfile
     @State private var selectedProfileID: String?
     @State private var tagsText = ""
@@ -20,7 +19,7 @@ struct RecordView: View {
                 profilePanel
                 taskPanel
                 recordingPanel
-                DiagnosticsPanel(cameraSourceRate: camera.sourceRateStatus)
+                DiagnosticsPanel(cameraSourceRate: appState.cameraSession.sourceRateStatus)
             }
             .padding()
         }
@@ -29,15 +28,8 @@ struct RecordView: View {
             loadSelectedProfile()
             operatorNameText = appState.operatorSettings.operatorName
             appState.startRoundAnalysisPolling()
-            if appState.captureActivity == .idle {
-                startCapture()
-            }
         }
         .onDisappear {
-            if appState.trainingRecordingState == .recording {
-                appState.stopTrainingRecording()
-            }
-            endCapture()
             appState.stopRoundAnalysisPolling()
         }
         .onChange(of: selectedProfileID) { _, newValue in
@@ -72,13 +64,13 @@ struct RecordView: View {
     private var cameraPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .bottomLeading) {
-                CameraPreview(session: camera.captureSession) { orientation in
-                    camera.updateInterfaceOrientation(orientation)
+                CameraPreview(session: appState.cameraSession.captureSession) { orientation in
+                    appState.cameraSession.updateInterfaceOrientation(orientation)
                 }
                 .frame(height: 240)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                Text(camera.state.message)
+                Text(appState.cameraState.message)
                     .font(.caption.weight(.medium))
                     .padding(8)
                     .background(.black.opacity(0.65), in: Capsule())
@@ -88,20 +80,13 @@ struct RecordView: View {
 
             HStack {
                 Label(
-                    appState.captureActivity == .live ? "Capture session active" : "Capture session stopped",
-                    systemImage: appState.captureActivity == .live ? "record.circle.fill" : "stop.circle"
+                    appState.recordingWorkspaceState.title,
+                    systemImage: appState.recordingWorkspaceState.isRecording
+                        ? "record.circle.fill"
+                        : "camera"
                 )
-                .foregroundStyle(appState.captureActivity == .live ? .red : .secondary)
+                .foregroundStyle(appState.recordingWorkspaceState.isRecording ? .red : .primary)
                 Spacer()
-                Button(appState.captureActivity == .live ? "End capture" : "Start capture") {
-                    if appState.captureActivity == .live {
-                        endCapture()
-                    } else {
-                        startCapture()
-                    }
-                }
-                .buttonStyle(.bordered)
-                .disabled(appState.captureActivity == .replay)
             }
         }
     }
@@ -167,7 +152,7 @@ struct RecordView: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .disabled(appState.isRoundRecordingLocked)
+        .disabled(appState.isRecordingLocked)
     }
 
     private var taskPanel: some View {
@@ -195,7 +180,7 @@ struct RecordView: View {
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .disabled(appState.isRoundRecordingLocked)
+        .disabled(appState.isRecordingLocked)
     }
 
     private var recordingPanel: some View {
@@ -228,14 +213,14 @@ struct RecordView: View {
 
             Button(
                 appState.trainingRecordingState == .recording
-                    ? "Stop round recording"
-                    : "Start round recording"
+                    ? "Stop recording"
+                    : "Start recording"
             ) {
                 if appState.trainingRecordingState == .recording {
-                    appState.stopTrainingRecording()
+                    appState.stopRecording()
                 } else {
                     appState.updateOperatorSettings(OperatorSettings(operatorName: operatorNameText))
-                    appState.startTrainingRecording(profile: profile)
+                    appState.startRecording(profile: profile)
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -243,7 +228,7 @@ struct RecordView: View {
             .disabled(
                 appState.trainingRecordingState == .recording
                     ? false
-                    : !appState.canStartTrainingRecording || !profile.isComplete
+                    : !appState.canStartRecording || !profile.isComplete
             )
 
             if case .failed = appState.trainingRecordingState {
@@ -417,16 +402,6 @@ struct RecordView: View {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
-    private func startCapture() {
-        camera.setFrameHandler(appState.startLiveInference())
-        camera.start()
-    }
-
-    private func endCapture() {
-        camera.setFrameHandler(nil)
-        camera.stop()
-        appState.stopLiveInference()
-    }
 }
 
 private extension String {
