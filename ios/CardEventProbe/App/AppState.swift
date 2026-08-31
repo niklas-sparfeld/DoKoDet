@@ -272,21 +272,36 @@ final class AppState: ObservableObject {
         }
     }
 
+    var recordingStartRequirements: RecordingWorkspaceStartRequirements {
+        RecordingWorkspaceStartRequirements(
+            workspaceState: recordingWorkspaceState,
+            profileSelected: selectedRecordingProfile != nil,
+            profileComplete: selectedRecordingProfile?.isComplete == true,
+            operatorConfigured: operatorSettings.isComplete,
+            cameraReady: cameraState == .running && captureActivity == .live,
+            modelReady: {
+                if case .ready = modelState { return true }
+                return false
+            }(),
+            backendConnected: {
+                if case .connected = backendDiscovery.state { return true }
+                return false
+            }(),
+            diskSpaceAvailable: hasEnoughFreeDiskSpace(),
+            queueReady: trainingRecordingCoordinator == nil && {
+                switch trainingRecordingState {
+                case .idle, .acknowledged, .failed:
+                    return true
+                case .recording, .finalizing, .queued, .uploading:
+                    return false
+                }
+            }(),
+            replayRunning: replayRunning
+        )
+    }
+
     var canStartRecording: Bool {
-        guard recordingWorkspaceState.acceptsRecordingStart,
-              cameraState == .running,
-              captureActivity == .live,
-              liveCoordinator != nil,
-              case .ready = modelState,
-              case .connected = backendDiscovery.state else {
-            return false
-        }
-        switch trainingRecordingState {
-        case .idle, .acknowledged, .failed:
-            return trainingRecordingCoordinator == nil
-        case .recording, .finalizing, .queued, .uploading:
-            return false
-        }
+        recordingStartRequirements.canStart
     }
 
     var isRecordingLocked: Bool {
@@ -294,9 +309,9 @@ final class AppState: ObservableObject {
             return true
         }
         switch trainingRecordingState {
-        case .recording, .finalizing, .queued, .uploading:
+        case .recording, .finalizing:
             return true
-        case .idle, .acknowledged, .failed:
+        case .idle, .queued, .uploading, .acknowledged, .failed:
             return false
         }
     }

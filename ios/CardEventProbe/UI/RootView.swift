@@ -2,35 +2,32 @@ import SwiftUI
 import UIKit
 
 struct RootView: View {
-    @State private var selectedTab: AppTab = .live
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            NavigationStack {
-                LiveDetectionView()
-            }
-            .tabItem {
-                Label("Live", systemImage: "camera")
-            }
-            .tag(AppTab.live)
-
-            NavigationStack {
-                RecordView()
-            }
-            .tabItem {
-                Label("Record", systemImage: "record.circle")
-            }
-            .tag(AppTab.record)
-
+        Group {
 #if DEBUG
+            TabView(selection: $selectedTab) {
+                NavigationStack {
+                    RecordingWorkspaceView()
+                }
+                .tabItem {
+                    Label("Workspace", systemImage: "camera")
+                }
+                .tag(Tab.workspace)
+
+                NavigationStack {
+                    ReplayView()
+                }
+                .tabItem {
+                    Label("Replay", systemImage: "film")
+                }
+                .tag(Tab.replay)
+            }
+#else
             NavigationStack {
-                ReplayView()
+                RecordingWorkspaceView()
             }
-            .tabItem {
-                Label("Replay", systemImage: "film")
-            }
-            .tag(AppTab.replay)
 #endif
         }
         .onAppear {
@@ -69,4 +66,13 @@ struct RootView: View {
     }
 
     @EnvironmentObject private var appState: AppState
+
+#if DEBUG
+    private enum Tab: Hashable {
+        case workspace
+        case replay
+    }
+
+    @State private var selectedTab: Tab = .workspace
+#endif
 }

@@ -395,6 +395,14 @@ public struct RoundAnalysisResultSummary: Equatable, Sendable {
     public let reconstructionStatus: RoundAnalysisReconstructionStatus
     public let text: String
 
+    public init(
+        reconstructionStatus: RoundAnalysisReconstructionStatus = .resolved,
+        text: String
+    ) {
+        self.reconstructionStatus = reconstructionStatus
+        self.text = text
+    }
+
     public init(result: RoundAnalysisResult) {
         reconstructionStatus = result.reconstructionStatus
         text = Self.makeText(for: result)

@@ -18,7 +18,7 @@
   context, fixed metadata, and default round-analysis setup contracts.
 - **M1:** Complete — replace profile storage and snapshots.
 - **M2:** Complete — create one recording-workspace lifecycle.
-- **M3:** Pending — build the focused operator surface.
+- **M3:** Complete — build the focused operator surface.
 - **M4:** Pending — connect default analysis and verify the complete flow.
 
 ## 1. Outcome
@@ -287,6 +287,20 @@ and narrow adapters.
   and result details to secondary presentation.
 - Add SwiftUI state and accessibility tests for information order, persistent labels, Start
   blockers, locked controls, status states, and failure recovery.
+
+#### M3 implementation evidence — 2026-08-31
+
+- Replaced the normal Live and Record tabs with one recording workspace. Replay remains available
+  only in debug builds.
+- Put the selected recording profile, live camera frame, event count, full-width Start or Stop
+  control, recording elapsed time, and concise upload or analysis status on the workspace.
+- Moved profile editing, operator settings, queue retry controls, analysis details, and diagnostics
+  into sheets or the More details view. The profile and settings forms use visible labels for every
+  editable value.
+- Added four presentation tests for information order, accessibility labels, Start blockers,
+  locked controls, elapsed recording state, upload and analysis states, and failures. The focused
+  suite passes. The iOS Simulator build succeeds. The full Swift package suite runs 110 tests with
+  106 passing; four existing evidence manifest and video timing tests fail outside this milestone.
 
 ### M4 — Connect default analysis and verify the complete flow
 

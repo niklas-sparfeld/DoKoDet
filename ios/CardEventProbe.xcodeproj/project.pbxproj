@@ -19,7 +19,6 @@
 		A0000000000000000000000A /* DetectionEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000A /* DetectionEvent.swift */; };
 		A0000000000000000000000B /* CausalEventDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000B /* CausalEventDecoder.swift */; };
 		A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000C /* DiagnosticsPanel.swift */; };
-		A0000000000000000000000D /* LiveDetectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000D /* LiveDetectionView.swift */; };
 		A0000000000000000000000E /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000E /* ReplayView.swift */; };
 		A0000000000000000000000F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000F /* RootView.swift */; };
 		A00000000000000000000010 /* CardEventNetTransitionV2.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */; };
@@ -59,11 +58,11 @@
 		A00000000000000000000032 /* CameraSourceRate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000032 /* CameraSourceRate.swift */; };
 		A00000000000000000000039 /* RecordingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000039 /* RecordingProfile.swift */; };
 		A0000000000000000000003A /* RecordingWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003A /* RecordingWorkspace.swift */; };
-		A00000000000000000000034 /* RecordTabState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000034 /* RecordTabState.swift */; };
-		A00000000000000000000035 /* RecordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000035 /* RecordView.swift */; };
 		A00000000000000000000036 /* RepositoryIntake.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000036 /* RepositoryIntake.swift */; };
 		A00000000000000000000037 /* RoundRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000037 /* RoundRecording.swift */; };
 		A00000000000000000000038 /* RoundAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000038 /* RoundAnalysis.swift */; };
+		A0000000000000000000003B /* RecordingWorkspacePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003B /* RecordingWorkspacePresentation.swift */; };
+		A0000000000000000000003C /* RecordingWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003C /* RecordingWorkspaceView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -80,7 +79,6 @@
 		B0000000000000000000000A /* DetectionEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionEvent.swift; sourceTree = "<group>"; };
 		B0000000000000000000000B /* CausalEventDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CausalEventDecoder.swift; sourceTree = "<group>"; };
 		B0000000000000000000000C /* DiagnosticsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsPanel.swift; sourceTree = "<group>"; };
-		B0000000000000000000000D /* LiveDetectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDetectionView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000E /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000F /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/CardEventNetTransitionV2.mlpackage; sourceTree = "<group>"; };
@@ -120,11 +118,11 @@
 		B00000000000000000000032 /* CameraSourceRate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraSourceRate.swift; sourceTree = "<group>"; };
 		B00000000000000000000039 /* RecordingProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingProfile.swift; sourceTree = "<group>"; };
 		B0000000000000000000003A /* RecordingWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWorkspace.swift; sourceTree = "<group>"; };
-		B00000000000000000000034 /* RecordTabState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordTabState.swift; sourceTree = "<group>"; };
-		B00000000000000000000035 /* RecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordView.swift; sourceTree = "<group>"; };
 		B00000000000000000000036 /* RepositoryIntake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryIntake.swift; sourceTree = "<group>"; };
 		B00000000000000000000037 /* RoundRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundRecording.swift; sourceTree = "<group>"; };
 		B00000000000000000000038 /* RoundAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundAnalysis.swift; sourceTree = "<group>"; };
+		B0000000000000000000003B /* RecordingWorkspacePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWorkspacePresentation.swift; sourceTree = "<group>"; };
+		B0000000000000000000003C /* RecordingWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWorkspaceView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -225,7 +223,7 @@
 				B00000000000000000000032 /* CameraSourceRate.swift */,
 				B00000000000000000000039 /* RecordingProfile.swift */,
 				B0000000000000000000003A /* RecordingWorkspace.swift */,
-				B00000000000000000000034 /* RecordTabState.swift */,
+				B0000000000000000000003B /* RecordingWorkspacePresentation.swift */,
 				B00000000000000000000036 /* RepositoryIntake.swift */,
 				B00000000000000000000037 /* RoundRecording.swift */,
 				B0000000000000000000002C /* TrainingRecording.swift */,
@@ -264,8 +262,7 @@
 			isa = PBXGroup;
 			children = (
 				B0000000000000000000000C /* DiagnosticsPanel.swift */,
-				B0000000000000000000000D /* LiveDetectionView.swift */,
-				B00000000000000000000035 /* RecordView.swift */,
+				B0000000000000000000003C /* RecordingWorkspaceView.swift */,
 				B0000000000000000000000E /* ReplayView.swift */,
 				B0000000000000000000000F /* RootView.swift */,
 			);
@@ -409,7 +406,6 @@
 				A0000000000000000000001D /* SessionLog.swift in Sources */,
 				A0000000000000000000001E /* DiagnosticFrameWriter.swift in Sources */,
 				A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */,
-				A0000000000000000000000D /* LiveDetectionView.swift in Sources */,
 				A0000000000000000000000E /* ReplayView.swift in Sources */,
 				A0000000000000000000000F /* RootView.swift in Sources */,
 				A0000000000000000000002C /* TrainingRecording.swift in Sources */,
@@ -418,8 +414,8 @@
 				A00000000000000000000032 /* CameraSourceRate.swift in Sources */,
 				A00000000000000000000039 /* RecordingProfile.swift in Sources */,
 				A0000000000000000000003A /* RecordingWorkspace.swift in Sources */,
-				A00000000000000000000034 /* RecordTabState.swift in Sources */,
-				A00000000000000000000035 /* RecordView.swift in Sources */,
+				A0000000000000000000003B /* RecordingWorkspacePresentation.swift in Sources */,
+				A0000000000000000000003C /* RecordingWorkspaceView.swift in Sources */,
 				A00000000000000000000036 /* RepositoryIntake.swift in Sources */,
 				A00000000000000000000037 /* RoundRecording.swift in Sources */,
 				A00000000000000000000038 /* RoundAnalysis.swift in Sources */,
