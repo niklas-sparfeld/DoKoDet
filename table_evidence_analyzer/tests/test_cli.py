@@ -43,6 +43,28 @@ def test_data_validate_parser_keeps_explicit_artifact_inputs() -> None:
     assert args.artifacts == Path("artifacts.json")
 
 
+def test_visible_card_dataset_materializer_parser_has_bounded_inputs() -> None:
+    args = build_parser().parse_args(
+        [
+            "data",
+            "materialize-visible-card-dataset",
+            "--evidence-root",
+            "evidence",
+            "--results-root",
+            "results",
+            "--output-dir",
+            "output",
+        ]
+    )
+
+    assert args.data_command == "materialize-visible-card-dataset"
+    assert args.evidence_root == Path("evidence")
+    assert args.results_root == Path("results")
+    assert args.output_dir == Path("output")
+    assert args.target_frame_count == 20
+    assert args.max_frames == 40
+
+
 def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path: Path) -> None:
     image = tmp_path / "frame.jpg"
     image.write_bytes(b"fixture image bytes")

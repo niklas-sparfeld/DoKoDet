@@ -47,6 +47,7 @@ land in later milestones.
 ```bash
 table-analyzer --help
 table-analyzer data validate --help
+table-analyzer data materialize-visible-card-dataset --help
 table-analyzer train --help
 table-analyzer evaluate --help
 table-analyzer export --help
@@ -95,6 +96,23 @@ table-analyzer review-visible-card \
 ```
 
 All contract tests run locally and do not download weights, data, or call Gemini.
+
+Materialize the bounded local visible-card detector dataset from an existing exact-event
+extraction and cached provider run artifacts. The output references source frames in place and
+contains `dataset-manifest.json`, `annotations.json`, `split.json`, and `recipe.json`:
+
+```bash
+table-analyzer data materialize-visible-card-dataset \
+  --evidence-root ../card_event_net/data/outputs/annotation-evidence-0ms \
+  --results-root data/outputs/visible-card-batch/m2/results \
+  --output-dir data/outputs/visible-card-dataset/m0
+```
+
+The command selects 20 frames, adds only enough deterministic frames to represent three
+source-lineage groups and non-empty pseudo-label examples in both partitions, and never selects
+more than 40 frames. Gemini boxes remain marked `unreviewed_pseudo_label`; the output is not a
+reviewed-reference dataset. The recipe freezes RF-DETR Large (`rfdetr==1.9.4`), 704 x 704 input,
+one CUDA device, 20 epochs, seed 37, and a 0.5 confidence threshold.
 
 Evaluate identity feasibility with reviewed oracle crops. The command fits both deterministic
 baselines from the train partition and writes top-1/top-k, confusion, and quality-tag metrics for

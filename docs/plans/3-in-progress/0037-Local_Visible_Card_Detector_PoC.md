@@ -4,7 +4,7 @@
 
 - **Summary:** Fine-tune one local visible-card detector from cached Gemini proposals and run it as
   an alternative to Gemini visible-card detection in the normal round-analysis path.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed plans 0020, 0021, 0027, 0032, and 0034, and the implemented exact-event,
   visible-card provider, and observation contracts from plan 0022
 - **Builds on:** Plan 0022 exact-event frames and cached Gemini visible-card result artifacts
@@ -12,6 +12,15 @@
   bundle loading, local inference, backend selection, and persisted table observation. Detection
   quality is not an acceptance condition.
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
+
+## Milestone status
+
+- **M0:** Complete for the fixture path — add bounded COCO pseudo-label materialization, provenance
+  validation, and the frozen RF-DETR Large recipe. The real-data exercise waits for the required
+  exact-event extraction and cached-result inputs.
+- **M1:** Pending — fine-tune and bundle one detector.
+- **M2:** Pending — add the local visible-card provider.
+- **M3:** Pending — select the provider in the backend and run the end-to-end path.
 
 ## 1. Purpose
 
@@ -112,6 +121,27 @@ for the model.
 - Add a narrow command that converts existing exact-event frames and cached Gemini results into the
   bounded COCO dataset and manifest.
 - Freeze one RF-DETR Large recipe, split, seed, epoch count, and confidence threshold.
+
+#### M0 implementation evidence — 2026-08-31
+
+- Added `table-analyzer data materialize-visible-card-dataset` with an alias named
+  `materialize-visible-card`. It reads `annotation-evidence-extraction/v1` packages and
+  `visible-card-run/v1` or `visible-card-cache/v1` artifacts without copying source frames.
+- The command selects 20 frames in stable order and adds only the frames needed to represent at
+  least three source-lineage groups and non-empty pseudo-label examples in both partitions, with
+  a hard cap of 40. It excludes system holdout, incomplete, unavailable, malformed, missing, and
+  ambiguous inputs with recorded reasons.
+- It writes `annotations.json`, `dataset-manifest.json`, `split.json`, and `recipe.json`. The
+  manifest stores source asset, event, frame, Gemini request and result digests, normalized boxes,
+  converted pixel boxes, split, allowed use, and the `unreviewed_pseudo_label` state. It cannot be
+  loaded as a reviewed-reference manifest.
+- The recipe freezes RF-DETR Large, `rfdetr==1.9.4`, `rf-detr-large.pth`, 704 × 704 input, one
+  CUDA device, 20 epochs, seed 37, and a 0.5 confidence threshold. The checkpoint file digest is
+  resolved and recorded by M1 when the mounted pretrained input is materialized.
+- Verification: all 59 table-analyzer tests, focused Ruff checks, CLI help, and whitespace checks
+  pass. A real-data run was not possible from the available inputs: the untracked backend data
+  has no exact-event extraction manifest and its cached requests cover one source-lineage group;
+  the command therefore stops before producing an invalid training slice.
 
 Acceptance:
 

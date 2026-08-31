@@ -48,6 +48,37 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("--split", type=Path, required=True)
     validate_parser.add_argument("--artifacts", type=Path, required=True)
 
+    materialize_parser = data_commands.add_parser(
+        "materialize-visible-card-dataset",
+        aliases=("materialize-visible-card",),
+        help="Materialize the bounded visible-card COCO pseudo-label dataset.",
+        description=(
+            "Join exact-event frames and cached visible-card results into an external-image "
+            "COCO dataset, provenance manifest, split, and frozen RF-DETR recipe."
+        ),
+    )
+    materialize_parser.add_argument("--evidence-root", type=Path, required=True)
+    materialize_parser.add_argument(
+        "--results-root",
+        "--results",
+        dest="results_root",
+        type=Path,
+        required=True,
+    )
+    materialize_parser.add_argument(
+        "--output-dir", "--output", dest="output_dir", type=Path, required=True
+    )
+    materialize_parser.add_argument(
+        "--system-holdout",
+        type=Path,
+        help="JSON manifest of source-lineage groups excluded from development data.",
+    )
+    materialize_parser.add_argument("--target-frame-count", type=int, default=20)
+    materialize_parser.add_argument("--max-frames", type=int, default=40)
+    materialize_parser.add_argument("--seed", type=int, default=37)
+    materialize_parser.add_argument("--epochs", type=int, default=20)
+    materialize_parser.add_argument("--confidence-threshold", type=float, default=0.5)
+
     train_parser = commands.add_parser(
         "train",
         help="Train a model from a resolved configuration.",
@@ -269,6 +300,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(report.to_mapping())
         return 0 if report.valid else 1
+    if args.command == "data" and args.data_command in {
+        "materialize-visible-card-dataset",
+        "materialize-visible-card",
+    }:
+        from .visible_card_dataset import (
+            VisibleCardDatasetConfig,
+            VisibleCardDatasetError,
+            materialize_visible_card_dataset,
+        )
+
+        try:
+            report = materialize_visible_card_dataset(
+                VisibleCardDatasetConfig(
+                    evidence_root=args.evidence_root,
+                    results_root=args.results_root,
+                    output_dir=args.output_dir,
+                    system_holdout=args.system_holdout,
+                    target_frame_count=args.target_frame_count,
+                    max_frames=args.max_frames,
+                    seed=args.seed,
+                    epochs=args.epochs,
+                    confidence_threshold=args.confidence_threshold,
+                )
+            )
+        except (OSError, ValueError, VisibleCardDatasetError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
     from .training import evaluate, load_config, train
 
     if args.command == "train":
