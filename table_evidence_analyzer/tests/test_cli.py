@@ -1,3 +1,4 @@
+import hashlib
 import json
 from io import BytesIO
 from pathlib import Path
@@ -23,6 +24,8 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "visible-cards" in help_text
     assert "visible-card-queue" in help_text
     assert "review-visible-card" in help_text
+    assert "review-visible-card-action" in help_text
+    assert "complete-visible-card-review" in help_text
     assert "\n    analyze " not in help_text
 
 
@@ -152,6 +155,7 @@ def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path:
     result = tmp_path / "result.json"
     overlay = tmp_path / "overlay.svg"
     cache = tmp_path / "cache"
+    lineage = tmp_path / "lineage.json"
 
     assert (
         main(
@@ -182,6 +186,29 @@ def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path:
         "model": "gemini-3.6-flash",
     }
     assert overlay.is_file()
+    lineage.write_text(
+        json.dumps(
+            {
+                "schema_version": "visible-card-review-lineage/v1",
+                "items": [
+                    {
+                        "item_id": "package-001:frame_00",
+                        "package_id": "package-001",
+                        "frame_part_name": "frame_00",
+                        "target_offset_ms": 0,
+                        "image": str(image),
+                        "frame_sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
+                        "source_asset_id": "asset-001",
+                        "source_lineage_group": "session-001",
+                        "source_asset_sha256": None,
+                        "width": 64,
+                        "height": 48,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     queue = tmp_path / "queue.json"
     assert (
@@ -192,6 +219,8 @@ def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path:
                 str(result),
                 "--run-id",
                 "run-001",
+                "--lineage-manifest",
+                str(lineage),
                 "--output",
                 str(queue),
             ]
@@ -207,14 +236,17 @@ def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path:
                 "--item-id",
                 "package-001:frame_00",
                 "--decision",
-                "GOOD",
+                "BAD",
+                "--empty-frame",
                 "--reviewer",
                 "operator",
             ]
         )
         == 0
     )
-    assert json.loads(queue.read_text(encoding="utf-8"))["items"][0]["decision"] == "GOOD"
+    review = json.loads(queue.read_text(encoding="utf-8"))["items"][0]["review"]
+    assert review["decision"] == "BAD"
+    assert review["empty_frame"] is True
 
 
 def test_identity_evaluate_command_writes_feasibility_report(tmp_path: Path) -> None:

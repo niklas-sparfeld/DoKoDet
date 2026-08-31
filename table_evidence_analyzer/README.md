@@ -59,6 +59,8 @@ table-analyzer visible-card-batch --help
 table-analyzer visible-card-observe --help
 table-analyzer visible-card-queue --help
 table-analyzer review-visible-card --help
+table-analyzer review-visible-card-action --help
+table-analyzer complete-visible-card-review --help
 table-analyzer visible-card-prompt-pilot --help
 ```
 
@@ -100,22 +102,49 @@ The report stores both request contracts and both result records for every frame
 requests and caches remain separate from v2 because the request version, full prompt, and response
 schema are part of the cache key.
 
-Create and update a resumable review queue from one or more run artifacts:
+Create a v2 resumable geometry-review queue from one or more run artifacts. The lineage manifest
+must identify the source asset and source-lineage group for every frame:
 
 ```bash
 table-analyzer visible-card-queue \
   --result data/outputs/visible-card-run/<package-id>.json \
   --run-id visible-card-m0-v1 \
+  --lineage-manifest data/outputs/visible-card-review/source-lineage.json \
   --output data/outputs/visible-card-review/m0.json
 
 table-analyzer review-visible-card \
   --queue data/outputs/visible-card-review/m0.json \
   --item-id <package-id>:frame_00 \
   --decision GOOD \
+  --not-empty-frame \
+  --reviewer <name>
+
+Save one action at a time. Use `accepted` for teacher geometry, `reshaped` for corrected geometry,
+`added` for a missed card, and `removed` for a false proposal. A reviewed card JSON object contains
+the visible-region polygons, its derived tight box, side, identity usability, and failure tags:
+
+table-analyzer review-visible-card-action \
+  --queue data/outputs/visible-card-review/m0.json \
+  --item-id <package-id>:frame_00 \
+  --action reshaped \
+  --card-id card-001 \
+  --proposal-index 0 \
+  --reviewed-card data/outputs/visible-card-review/card-001.json \
+  --reviewer <name>
+
+Finish a GOOD frame only after every teacher proposal has an action. The queue remains resumable
+when this command has not run:
+
+table-analyzer complete-visible-card-review \
+  --queue data/outputs/visible-card-review/m0.json \
+  --item-id <package-id>:frame_00 \
   --reviewer <name>
 ```
 
-All contract tests run locally and do not download weights, data, or call Gemini.
+The queue stores the original teacher request and result digests beside each reviewed decision.
+`BAD --empty-frame` is an explicit reviewed empty frame; a BAD frame without that flag remains a
+different decision. Incomplete queue items cannot pass the completed-review validator. All contract
+tests run locally and do not download weights, data, or call Gemini.
 
 Materialize the bounded local visible-card detector dataset from an existing exact-event
 extraction and cached provider run artifacts. The output references source frames in place and

@@ -7,11 +7,23 @@ detector box is accepted only when it is the tight axis-aligned bounds of the re
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from .visible_cards import NormalizedBox, NormalizedPoint, VisibleCardError
 
-VISIBLE_CARD_REVIEW_SCHEMA = "visible-card-review/v1"
+VISIBLE_CARD_REVIEW_SCHEMA = "visible-card-review/v2"
+VISIBLE_CARD_SIDES = frozenset({"face_up", "face_down", "unknown"})
+VISIBLE_CARD_FAILURE_TAGS = frozenset(
+    {
+        "small_card",
+        "occlusion",
+        "human_hand",
+        "blur",
+        "glare",
+        "crop_boundary",
+        "duplicate",
+    }
+)
 IDENTITY_USABILITY_REASONS = frozenset(
     {
         "sufficient_identity_evidence",
@@ -205,6 +217,8 @@ class ReviewedVisibleCard:
     visible_region: VisibleRegion
     derived_box: DerivedBox
     identity_usability: IdentityUsability
+    side: Literal["face_up", "face_down", "unknown"] = "unknown"
+    failure_tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _require_identifier(self.card_id, "card_id")
@@ -214,6 +228,14 @@ class ReviewedVisibleCard:
             raise VisibleCardReviewContractError("derived_box must use the review contract")
         if not isinstance(self.identity_usability, IdentityUsability):
             raise VisibleCardReviewContractError("identity_usability must use the review contract")
+        if self.side not in VISIBLE_CARD_SIDES:
+            raise VisibleCardReviewContractError("side must be face_up, face_down, or unknown")
+        if not isinstance(self.failure_tags, tuple):
+            raise VisibleCardReviewContractError("failure_tags must be a tuple")
+        if len(set(self.failure_tags)) != len(self.failure_tags):
+            raise VisibleCardReviewContractError("failure_tags must be unique")
+        if any(tag not in VISIBLE_CARD_FAILURE_TAGS for tag in self.failure_tags):
+            raise VisibleCardReviewContractError("failure_tags contains an unknown tag")
         expected = derive_tight_box(self.visible_region)
         if self.derived_box.box_2d != expected:
             raise VisibleCardReviewContractError(
@@ -226,11 +248,20 @@ class ReviewedVisibleCard:
             "visible_region": self.visible_region.to_mapping(),
             "derived_box": self.derived_box.to_mapping(),
             "identity_usability": self.identity_usability.to_mapping(),
+            "side": self.side,
+            "failure_tags": list(self.failure_tags),
         }
 
     @classmethod
     def from_mapping(cls, value: Any) -> "ReviewedVisibleCard":
-        fields = {"card_id", "visible_region", "derived_box", "identity_usability"}
+        fields = {
+            "card_id",
+            "visible_region",
+            "derived_box",
+            "identity_usability",
+            "side",
+            "failure_tags",
+        }
         if not isinstance(value, dict) or set(value) != fields:
             raise VisibleCardReviewContractError("reviewed visible card has unexpected fields")
         try:
@@ -239,6 +270,8 @@ class ReviewedVisibleCard:
                 visible_region=VisibleRegion.from_mapping(value["visible_region"]),
                 derived_box=DerivedBox.from_mapping(value["derived_box"]),
                 identity_usability=IdentityUsability.from_mapping(value["identity_usability"]),
+                side=value["side"],
+                failure_tags=tuple(value["failure_tags"]),
             )
         except (TypeError, VisibleCardError) as error:
             raise VisibleCardReviewContractError("reviewed visible card is invalid") from error
@@ -252,6 +285,8 @@ def validate_reviewed_visible_card(value: Any) -> dict[str, Any]:
 
 __all__ = [
     "DerivedBox",
+    "VISIBLE_CARD_FAILURE_TAGS",
+    "VISIBLE_CARD_SIDES",
     "IDENTITY_USABILITY_REASONS",
     "IdentityUsability",
     "VISIBLE_CARD_REVIEW_SCHEMA",

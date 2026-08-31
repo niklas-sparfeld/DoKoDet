@@ -16,9 +16,7 @@ from .visible_cards import (
     GeminiVisibleCardProvider,
     VisibleCardError,
     build_request_from_image,
-    build_review_queue,
     load_run_artifact,
-    record_review,
     write_overlay_svg,
     write_run_artifact,
 )
@@ -307,20 +305,62 @@ def build_parser() -> argparse.ArgumentParser:
 
     queue_parser = commands.add_parser(
         "visible-card-queue",
-        help="Create a resumable visible-card review queue.",
+        help="Create a resumable visible-card geometry review queue.",
     )
     queue_parser.add_argument("--result", type=Path, nargs="+", required=True)
     queue_parser.add_argument("--run-id", required=True)
+    queue_parser.add_argument(
+        "--lineage-manifest",
+        type=Path,
+        required=True,
+        help="Source-lineage manifest for the result frames.",
+    )
     queue_parser.add_argument("--output", type=Path, required=True)
 
     review_parser = commands.add_parser(
         "review-visible-card",
-        help="Record one GOOD or BAD visible-card review decision.",
+        help="Record a frame decision and optional visible-card actions.",
     )
     review_parser.add_argument("--queue", type=Path, required=True)
     review_parser.add_argument("--item-id", required=True)
     review_parser.add_argument("--decision", choices=("GOOD", "BAD"), required=True)
     review_parser.add_argument("--reviewer", required=True)
+    empty_group = review_parser.add_mutually_exclusive_group(required=False)
+    empty_group.add_argument("--empty-frame", dest="empty_frame", action="store_true")
+    empty_group.add_argument("--not-empty-frame", dest="empty_frame", action="store_false")
+    review_parser.set_defaults(empty_frame=None)
+    review_parser.add_argument(
+        "--cards",
+        type=Path,
+        help="JSON list of accept, reshape, add, or remove actions.",
+    )
+    review_parser.add_argument("--failure-tag", action="append", default=[])
+
+    action_parser = commands.add_parser(
+        "review-visible-card-action",
+        help="Save one visible-card accept, reshape, add, or remove action.",
+    )
+    action_parser.add_argument("--queue", type=Path, required=True)
+    action_parser.add_argument("--item-id", required=True)
+    action_parser.add_argument(
+        "--action", choices=("accepted", "reshaped", "added", "removed"), required=True
+    )
+    action_parser.add_argument("--card-id", required=True)
+    action_parser.add_argument("--proposal-index", type=int)
+    action_parser.add_argument(
+        "--reviewed-card",
+        type=Path,
+        help="JSON ReviewedVisibleCard object; omit only for remove.",
+    )
+    action_parser.add_argument("--reviewer", required=True)
+
+    complete_parser = commands.add_parser(
+        "complete-visible-card-review",
+        help="Finalize a GOOD visible-card review after all actions are saved.",
+    )
+    complete_parser.add_argument("--queue", type=Path, required=True)
+    complete_parser.add_argument("--item-id", required=True)
+    complete_parser.add_argument("--reviewer", required=True)
 
     return parser
 
@@ -634,37 +674,110 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Wrote visible-card result: {args.output}")
         return 0
     if args.command == "visible-card-queue":
+        from .visible_card_review_workflow import (
+            VisibleCardReviewWorkflowError,
+            build_visible_card_review_queue,
+            load_source_lineage_manifest,
+        )
+
         try:
-            results = []
+            lineage = load_source_lineage_manifest(args.lineage_manifest)
+            artifacts = []
             for result_path in args.result:
-                value = load_run_artifact(result_path)
-                request = value["request"]
-                results.append(
-                    {
-                        "package_id": request["package_id"],
-                        "frame_part_name": request["frame_part_name"],
-                        "target_offset_ms": request["target_offset_ms"],
-                        "image": value.get("image"),
-                        "overlay": value.get("overlay"),
-                        "prediction": value["prediction"],
-                    }
-                )
-            queue = build_review_queue(results, args.output, run_id=args.run_id)
-        except (VisibleCardError, OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+                value = dict(load_run_artifact(result_path))
+                value["artifact_path"] = str(result_path)
+                artifacts.append(value)
+            queue = build_visible_card_review_queue(
+                artifacts,
+                args.output,
+                run_id=args.run_id,
+                lineage_by_item=lineage,
+            )
+        except (
+            VisibleCardError,
+            VisibleCardReviewWorkflowError,
+            OSError,
+            ValueError,
+            KeyError,
+            json.JSONDecodeError,
+        ) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Wrote {len(queue.items)} visible-card review items: {args.output}")
         return 0
     if args.command == "review-visible-card":
+        from .visible_card_review_workflow import (
+            VisibleCardReviewWorkflowError,
+            record_frame_review,
+        )
+
         try:
-            queue = record_review(
+            actions = []
+            if args.cards is not None:
+                actions = json.loads(args.cards.read_text(encoding="utf-8"))
+                if not isinstance(actions, list):
+                    raise VisibleCardReviewWorkflowError("--cards must contain a JSON list")
+            queue = record_frame_review(
                 args.queue,
                 args.item_id,
                 args.decision,
                 reviewer=args.reviewer,
+                empty_frame=args.empty_frame,
+                failure_tags=tuple(args.failure_tag),
+                actions=actions,
             )
-        except (VisibleCardError, OSError, ValueError) as exc:
+        except (VisibleCardError, VisibleCardReviewWorkflowError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
-        print(f"Recorded review; {len(queue.pending_items)} item(s) remain")
+        item = next(item for item in queue.items if item.item_id == args.item_id)
+        print(
+            f"Recorded frame review ({item.review.status}); "
+            f"{len(queue.pending_items)} item(s) remain"
+        )
+        return 0
+    if args.command == "review-visible-card-action":
+        from .visible_card_review_workflow import (
+            VisibleCardReviewWorkflowError,
+            record_card_action,
+        )
+
+        try:
+            reviewed_card = None
+            if args.reviewed_card is not None:
+                reviewed_card = json.loads(args.reviewed_card.read_text(encoding="utf-8"))
+                if not isinstance(reviewed_card, dict):
+                    raise VisibleCardReviewWorkflowError(
+                        "--reviewed-card must contain a JSON object"
+                    )
+            action = {
+                "card_id": args.card_id,
+                "action": args.action,
+                "proposal_index": args.proposal_index,
+                "reviewed_card": reviewed_card,
+            }
+            queue = record_card_action(
+                args.queue,
+                args.item_id,
+                action,
+                reviewer=args.reviewer,
+            )
+        except (VisibleCardError, VisibleCardReviewWorkflowError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Recorded card action; {len(queue.pending_items)} item(s) remain")
+        return 0
+    if args.command == "complete-visible-card-review":
+        from .visible_card_review_workflow import (
+            VisibleCardReviewWorkflowError,
+            finalize_visible_card_review,
+        )
+
+        try:
+            queue = finalize_visible_card_review(
+                args.queue,
+                args.item_id,
+                reviewer=args.reviewer,
+            )
+        except (VisibleCardError, VisibleCardReviewWorkflowError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(f"Completed visible-card review; {len(queue.pending_items)} item(s) remain")
         return 0
     parser.exit(2, f"error: command '{_command_name(args)}' is not implemented yet.\n")
 

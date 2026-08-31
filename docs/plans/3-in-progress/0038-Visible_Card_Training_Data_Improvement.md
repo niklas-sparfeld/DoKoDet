@@ -18,7 +18,9 @@
 - **M0:** Complete for the local contract path — the versioned v2 request, strict geometry and
   identity-usability contracts, and development-only paired pilot command are implemented. A real
   Gemini pilot waits for an approved credential and an exact-event development manifest.
-- **M1:** Pending
+- **M1:** Complete for the local review contract path — resumable geometry correction, source and
+  teacher lineage, and review fixtures are implemented. A real review pass waits for the exact
+  event corpus and approved source-lineage manifest.
 - **M2:** Pending
 - **M3:** Pending real plan 0037 pseudo-label and native bundle artifacts
 - **M4:** Pending
@@ -179,6 +181,22 @@ Acceptance:
 - visible regions exclude covering-card pixels in the overlap fixtures;
 - `BAD`, reviewed empty, and identity-unusable decisions remain distinct;
 - malformed or incomplete reviews cannot enter a dataset.
+
+#### M1 implementation evidence — 2026-08-31
+
+- Added `visible-card-review-queue/v2` with immutable source-frame and teacher-request/result
+  lineage. The original run artifact is retained by path and digest, and its normalized provider
+  result is stored beside the review state.
+- Added resumable frame decisions and atomic per-card actions: `accepted`, `reshaped`, `added`,
+  and `removed`. A GOOD review remains in progress until every teacher proposal has an action;
+  BAD reviews require an explicit empty-frame decision and cannot contain card actions.
+- Added face-side, identity-usability, failure-tag, multi-polygon, tight-derived-box, and source
+  lineage validation. Accepted actions must preserve teacher geometry and side.
+- Added local JSON fixtures and tests for overlapping cards, disconnected regions, occlusion,
+  explicit empty frames, bad frames, add/remove corrections, lineage, resume, and incomplete
+  review rejection. The CLI now exposes the queue, frame review, action, and completion commands.
+- Verification: all 88 TableEvidenceAnalyzer tests and Ruff checks pass. No real source review or
+  model campaign was started.
 
 ### M2 — Freeze the reviewed seed, challenge set, and crop policy
 

@@ -121,7 +121,9 @@ from table_evidence_analyzer.visible_card_prompt_pilot import (
 )
 from table_evidence_analyzer.visible_card_review import (
     IDENTITY_USABILITY_REASONS,
+    VISIBLE_CARD_FAILURE_TAGS,
     VISIBLE_CARD_REVIEW_SCHEMA,
+    VISIBLE_CARD_SIDES,
     DerivedBox,
     IdentityUsability,
     ReviewedVisibleCard,
@@ -129,6 +131,31 @@ from table_evidence_analyzer.visible_card_review import (
     VisibleRegion,
     derive_tight_box,
     validate_reviewed_visible_card,
+)
+from table_evidence_analyzer.visible_card_review_workflow import (
+    REVIEW_CARD_ACTIONS,
+    REVIEW_FRAME_DECISIONS,
+    REVIEW_FRAME_STATES,
+    VISIBLE_CARD_REVIEW_LINEAGE_SCHEMA,
+    VISIBLE_CARD_REVIEW_QUEUE_SCHEMA,
+    VisibleCardFrameReview,
+    VisibleCardReviewAction,
+    VisibleCardReviewWorkflowError,
+    VisibleCardSourceLineage,
+    VisibleCardTeacherLineage,
+    build_visible_card_review_queue,
+    finalize_visible_card_review,
+    load_source_lineage_manifest,
+    load_visible_card_review_queue,
+    record_card_action,
+    record_frame_review,
+    validate_completed_visible_card_review_queue,
+)
+from table_evidence_analyzer.visible_card_review_workflow import (
+    VisibleCardReviewItem as VisibleCardReviewWorkflowItem,
+)
+from table_evidence_analyzer.visible_card_review_workflow import (
+    VisibleCardReviewQueue as VisibleCardReviewWorkflowQueue,
 )
 from table_evidence_analyzer.visible_card_training import (
     DEFAULT_FINAL_CHECKPOINT,
@@ -248,6 +275,8 @@ __all__ = [
     "run_prompt_pilot",
     "DerivedBox",
     "IDENTITY_USABILITY_REASONS",
+    "VISIBLE_CARD_FAILURE_TAGS",
+    "VISIBLE_CARD_SIDES",
     "IdentityUsability",
     "VISIBLE_CARD_REVIEW_SCHEMA",
     "ReviewedVisibleCard",
@@ -324,4 +353,23 @@ __all__ = [
     "render_overlay_svg",
     "write_overlay_svg",
     "write_run_artifact",
+    "REVIEW_CARD_ACTIONS",
+    "REVIEW_FRAME_DECISIONS",
+    "REVIEW_FRAME_STATES",
+    "VISIBLE_CARD_REVIEW_LINEAGE_SCHEMA",
+    "VISIBLE_CARD_REVIEW_QUEUE_SCHEMA",
+    "VisibleCardFrameReview",
+    "VisibleCardReviewAction",
+    "VisibleCardReviewWorkflowError",
+    "VisibleCardSourceLineage",
+    "VisibleCardTeacherLineage",
+    "VisibleCardReviewWorkflowItem",
+    "VisibleCardReviewWorkflowQueue",
+    "build_visible_card_review_queue",
+    "finalize_visible_card_review",
+    "load_source_lineage_manifest",
+    "load_visible_card_review_queue",
+    "record_card_action",
+    "record_frame_review",
+    "validate_completed_visible_card_review_queue",
 ]

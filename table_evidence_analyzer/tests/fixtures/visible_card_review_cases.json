@@ -1,0 +1,123 @@
+{
+  "schema_version": "visible-card-review-fixtures/v1",
+  "cases": {
+    "overlapping_cards": {
+      "teacher_prediction": {
+        "cards": [
+          {
+            "box_2d": {"y_min": 100, "x_min": 100, "y_max": 500, "x_max": 600},
+            "polygon": [
+              {"x": 100, "y": 100},
+              {"x": 600, "y": 100},
+              {"x": 600, "y": 500},
+              {"x": 100, "y": 500}
+            ],
+            "side": "face_down",
+            "label": "card back"
+          },
+          {
+            "box_2d": {"y_min": 250, "x_min": 300, "y_max": 650, "x_max": 800},
+            "polygon": [
+              {"x": 300, "y": 250},
+              {"x": 800, "y": 250},
+              {"x": 800, "y": 650},
+              {"x": 300, "y": 650}
+            ],
+            "side": "face_up",
+            "label": "heart card"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "card_id": "card-001",
+          "action": "reshaped",
+          "proposal_index": 0,
+          "reviewed_card": {
+            "card_id": "card-001",
+            "visible_region": {
+              "polygons": [[
+                {"x": 100, "y": 100},
+                {"x": 600, "y": 100},
+                {"x": 600, "y": 250},
+                {"x": 300, "y": 250},
+                {"x": 300, "y": 500},
+                {"x": 100, "y": 500}
+              ]]
+            },
+            "derived_box": {"y_min": 100, "x_min": 100, "y_max": 500, "x_max": 600},
+            "identity_usability": {"usable": false, "reason": "crop_contamination"},
+            "side": "face_down",
+            "failure_tags": ["occlusion"]
+          }
+        },
+        {
+          "card_id": "card-002",
+          "action": "accepted",
+          "proposal_index": 1,
+          "reviewed_card": {
+            "card_id": "card-002",
+            "visible_region": {
+              "polygons": [[
+                {"x": 300, "y": 250},
+                {"x": 800, "y": 250},
+                {"x": 800, "y": 650},
+                {"x": 300, "y": 650}
+              ]]
+            },
+            "derived_box": {"y_min": 250, "x_min": 300, "y_max": 650, "x_max": 800},
+            "identity_usability": {"usable": true, "reason": "sufficient_identity_evidence"},
+            "side": "face_up",
+            "failure_tags": []
+          }
+        }
+      ]
+    },
+    "disconnected_visible_region": {
+      "reviewed_card": {
+        "card_id": "card-001",
+        "visible_region": {
+          "polygons": [
+            [
+              {"x": 100, "y": 100},
+              {"x": 300, "y": 100},
+              {"x": 300, "y": 300},
+              {"x": 100, "y": 300}
+            ],
+            [
+              {"x": 500, "y": 200},
+              {"x": 800, "y": 200},
+              {"x": 800, "y": 500},
+              {"x": 500, "y": 500}
+            ]
+          ]
+        },
+        "derived_box": {"y_min": 100, "x_min": 100, "y_max": 500, "x_max": 800},
+        "identity_usability": {"usable": false, "reason": "occluded"},
+        "side": "unknown",
+        "failure_tags": ["occlusion"]
+      }
+    },
+    "occluded_card": {
+      "reviewed_card": {
+        "card_id": "card-001",
+        "visible_region": {
+          "polygons": [[
+            {"x": 120, "y": 120},
+            {"x": 540, "y": 120},
+            {"x": 540, "y": 300},
+            {"x": 300, "y": 300},
+            {"x": 300, "y": 540},
+            {"x": 120, "y": 540}
+          ]]
+        },
+        "derived_box": {"y_min": 120, "x_min": 120, "y_max": 540, "x_max": 540},
+        "identity_usability": {"usable": false, "reason": "insufficient_identity_evidence"},
+        "side": "face_up",
+        "failure_tags": ["occlusion", "human_hand"]
+      }
+    },
+    "empty_frame": {"decision": "BAD", "empty_frame": true},
+    "bad_frame": {"decision": "BAD", "empty_frame": false, "failure_tags": ["blur"]}
+  }
+}
