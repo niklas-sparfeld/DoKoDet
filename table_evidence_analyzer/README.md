@@ -59,6 +59,7 @@ table-analyzer visible-card-batch --help
 table-analyzer visible-card-observe --help
 table-analyzer visible-card-queue --help
 table-analyzer review-visible-card --help
+table-analyzer visible-card-prompt-pilot --help
 ```
 
 Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
@@ -79,6 +80,25 @@ table-analyzer visible-cards \
 The output contains the request contract, request key, normalized proposals, raw provider response,
 token counts, latency, retry count, and estimated cost. Cache files are keyed by the full request
 contract. Credentials are read at runtime and are never written to the result or cache.
+
+Run the existing v1 request and the opt-in v2 visible-region request on the same 20 development
+frames. The manifest must use `visible-card-prompt-pilot-input/v1` and mark every frame as
+`development`. The pilot cannot select a request from validation, challenge, test, or system-holdout
+frames. Use `--provider fake` for a credential-free contract run, or `--provider gemini` when the
+runtime credential and request cost are approved:
+
+```bash
+table-analyzer visible-card-prompt-pilot \
+  --manifest data/outputs/visible-card-prompt-pilot/m0-frames.json \
+  --provider gemini \
+  --selected-version v2 \
+  --selection-reason "Visible-region and tight-box instructions are explicit." \
+  --output data/outputs/visible-card-prompt-pilot/m0.json
+```
+
+The report stores both request contracts and both result records for every frame. Existing v1
+requests and caches remain separate from v2 because the request version, full prompt, and response
+schema are part of the cache key.
 
 Create and update a resumable review queue from one or more run artifacts:
 

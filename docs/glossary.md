@@ -146,6 +146,22 @@ The shared visible design of cards. Several physical decks can have the same dec
 The visible suit-and-rank identity of a card, such as `HEARTS_QUEEN`. Two physical cards can have
 the same visual card identity.
 
+### Visible region
+
+The pixels of one visible card that can be reviewed in a source frame. A visible region does not
+include hidden card pixels, an occluding card, a human hand, or the background. One visible region
+can use more than one polygon when an occluder splits the visible pixels.
+
+### Derived box
+
+The tight axis-aligned detector box calculated from a visible region. A derived box does not
+describe the inferred full-card extent.
+
+### Identity usability
+
+The reviewed decision that a visible-card crop contains enough evidence for visual card identity.
+An identity-unusable crop can still be a valid visible-card detection target.
+
 ### Table observation
 
 An uncertain visual report of cards that were visible during a bounded time interval. A table

@@ -19,12 +19,14 @@ from typing import Any, Mapping
 
 from .visible_cards import (
     CACHE_SCHEMA_VERSION,
+    IMPROVED_REQUEST_SCHEMA_VERSION,
     PREDICTION_SCHEMA_VERSION,
     RUN_SCHEMA_VERSION,
     ProviderResult,
     VisibleCardError,
     VisibleCardPrediction,
     load_run_artifact,
+    normalize_prediction,
 )
 
 VISIBLE_CARD_DATASET_SCHEMA = "visible-card-pseudo-label-dataset/v1"
@@ -240,7 +242,10 @@ def _validate_request(request: Any) -> tuple[dict[str, Any], str]:
     }
     if set(request) != required:
         raise VisibleCardDatasetError("visible-card result request has unexpected fields")
-    if request["schema_version"] != "visible-card-request/v1":
+    if request["schema_version"] not in {
+        "visible-card-request/v1",
+        IMPROVED_REQUEST_SCHEMA_VERSION,
+    }:
         raise VisibleCardDatasetError("unsupported visible-card result request schema")
     _identifier(request["package_id"], "request.package_id")
     _identifier(request["frame_part_name"], "request.frame_part_name")
@@ -288,6 +293,8 @@ def _result_from_payload(
                 )
             }
         )
+        if request["schema_version"] == IMPROVED_REQUEST_SCHEMA_VERSION:
+            normalize_prediction(result.prediction.to_mapping(), require_tight_boxes=True)
         if validated["request_key"] != request_digest:
             raise VisibleCardDatasetError("visible-card run request key does not match request")
         return request, result
@@ -330,6 +337,8 @@ def _result_from_payload(
             )
         }
     )
+    if request["schema_version"] == IMPROVED_REQUEST_SCHEMA_VERSION:
+        normalize_prediction(result.prediction.to_mapping(), require_tight_boxes=True)
     return request, result
 
 

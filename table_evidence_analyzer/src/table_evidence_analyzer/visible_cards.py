@@ -37,6 +37,7 @@ INPUT_PRICE_PER_MILLION = 0.75
 OUTPUT_PRICE_PER_MILLION = 3.75
 
 REQUEST_SCHEMA_VERSION = "visible-card-request/v1"
+IMPROVED_REQUEST_SCHEMA_VERSION = "visible-card-request/v2"
 PREDICTION_SCHEMA_VERSION = "visible-card-prediction/v1"
 CACHE_SCHEMA_VERSION = "visible-card-cache/v1"
 RUN_SCHEMA_VERSION = "visible-card-run/v1"
@@ -66,6 +67,23 @@ card or object. Coordinates use the full source image. x is horizontal, y is ver
 integers normalized from 0 through 1000. Use the named x and y fields exactly as specified. List
 polygon points around the visible boundary in order. Classify side as face_up, face_down, or
 unknown. Use a short label that describes the card without inventing an unreadable identity.
+"""
+
+IMPROVED_PROMPT = """Find every separately visible physical playing card in this image.
+
+The visible region is the pixels of a card that are actually visible in the source image. It is
+different from the inferred full-card extent. Include face-up and face-down cards, overlapping
+cards, cards in a pile, and partly occluded cards when their visible pixels can be separated.
+Exclude the pixels of an occluding card, a human hand, the table, packaging, printed pictures, and
+other non-card objects. Do not infer or complete any hidden part of a card.
+
+For each card, return one polygon around its visible region. The polygon may be non-rectangular and
+must follow the visible boundary. Coordinates use the full source image. x is horizontal, y is
+vertical, and all coordinates are integers normalized from 0 through 1000. Return box_2d as the
+tight axis-aligned bounding box of the polygon's visible pixels. The box must not describe the
+inferred full-card extent and its four limits must equal the polygon's minimum and maximum x and y.
+Classify side as face_up, face_down, or unknown. Use a short label that describes the card without
+inventing an unreadable identity.
 """
 
 RESPONSE_SCHEMA: dict[str, Any] = {
@@ -113,6 +131,31 @@ RESPONSE_SCHEMA: dict[str, Any] = {
     },
     "required": ["cards"],
     "additionalProperties": False,
+}
+
+# Keep the v2 schema as a separate value. The response shape stays compatible with the v1 parser,
+# while the descriptions make the visible-region and tight-box contract part of the request input.
+RESPONSE_SCHEMA_V2: dict[str, Any] = {
+    **RESPONSE_SCHEMA,
+    "properties": {
+        "cards": {
+            **RESPONSE_SCHEMA["properties"]["cards"],
+            "items": {
+                **RESPONSE_SCHEMA["properties"]["cards"]["items"],
+                "properties": {
+                    **RESPONSE_SCHEMA["properties"]["cards"]["items"]["properties"],
+                    "box_2d": {
+                        **RESPONSE_SCHEMA["properties"]["cards"]["items"]["properties"]["box_2d"],
+                        "description": "Tight axis-aligned bounds of the visible polygon.",
+                    },
+                    "polygon": {
+                        **RESPONSE_SCHEMA["properties"]["cards"]["items"]["properties"]["polygon"],
+                        "description": "A possibly non-rectangular polygon of visible pixels.",
+                    },
+                },
+            },
+        }
+    },
 }
 
 
@@ -250,7 +293,16 @@ class VisibleCardPrediction:
         return {"cards": [card.to_mapping() for card in self.cards]}
 
 
-def normalize_prediction(value: Any) -> VisibleCardPrediction:
+def _tight_box_for_polygon(polygon: Sequence[NormalizedPoint]) -> NormalizedBox:
+    return NormalizedBox(
+        y_min=min(point.y for point in polygon),
+        x_min=min(point.x for point in polygon),
+        y_max=max(point.y for point in polygon),
+        x_max=max(point.x for point in polygon),
+    )
+
+
+def normalize_prediction(value: Any, *, require_tight_boxes: bool = False) -> VisibleCardPrediction:
     """Validate and normalize the provider's closed JSON response shape."""
 
     if not isinstance(value, dict) or set(value) != {"cards"}:
@@ -284,6 +336,10 @@ def normalize_prediction(value: Any) -> VisibleCardPrediction:
                     f"{context} polygon point {point_index} has an unexpected shape."
                 )
             points.append(NormalizedPoint(x=point_value["x"], y=point_value["y"]))
+        if require_tight_boxes and box != _tight_box_for_polygon(points):
+            raise VisibleCardValidationError(
+                f"{context} box_2d must be the tight bounds of its visible polygon."
+            )
         proposals.append(
             VisibleCardProposal(
                 box_2d=box,
@@ -295,10 +351,12 @@ def normalize_prediction(value: Any) -> VisibleCardPrediction:
     return VisibleCardPrediction(cards=tuple(proposals))
 
 
-def validate_prediction(value: Any) -> dict[str, list[dict[str, Any]]]:
+def validate_prediction(
+    value: Any, *, require_tight_boxes: bool = False
+) -> dict[str, list[dict[str, Any]]]:
     """Return a canonical mapping after strict provider-response validation."""
 
-    return normalize_prediction(value).to_mapping()
+    return normalize_prediction(value, require_tight_boxes=require_tight_boxes).to_mapping()
 
 
 @dataclass(frozen=True, slots=True)
@@ -318,6 +376,7 @@ class VisibleCardRequest:
     provider: str = GEMINI_PROVIDER_NAME
     api_version: str = GEMINI_API_VERSION
     thinking_level: str = GEMINI_THINKING_LEVEL
+    request_version: str = REQUEST_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         _require_identifier(self.package_id, "package_id")
@@ -344,6 +403,13 @@ class VisibleCardRequest:
             "image/"
         ):
             raise VisibleCardError("image_mime_type must be an image MIME type.")
+        if self.request_version not in {
+            REQUEST_SCHEMA_VERSION,
+            IMPROVED_REQUEST_SCHEMA_VERSION,
+        }:
+            raise VisibleCardError(
+                f"unsupported visible-card request version: {self.request_version}"
+            )
 
     @property
     def image_sha256(self) -> str:
@@ -355,7 +421,7 @@ class VisibleCardRequest:
 
     def to_mapping(self) -> dict[str, Any]:
         return {
-            "schema_version": REQUEST_SCHEMA_VERSION,
+            "schema_version": self.request_version,
             "package_id": self.package_id,
             "frame_part_name": self.frame_part_name,
             "target_offset_ms": self.target_offset_ms,
@@ -523,6 +589,8 @@ class FakeVisibleCardProvider:
 
     def propose(self, request: VisibleCardRequest) -> ProviderResult:
         prediction = self._predictions.get(request.image_sha256, VisibleCardPrediction(cards=()))
+        if request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION:
+            prediction = normalize_prediction(prediction.to_mapping(), require_tight_boxes=True)
         return ProviderResult(
             status="ok",
             proposals=prediction.cards,
@@ -620,7 +688,10 @@ class GeminiVisibleCardProvider:
                 )
                 if not isinstance(raw_text, str):
                     raise VisibleCardValidationError("Gemini candidate text must be a string.")
-                prediction = normalize_prediction(json.loads(raw_text))
+                prediction = normalize_prediction(
+                    json.loads(raw_text),
+                    require_tight_boxes=request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION,
+                )
                 usage = ProviderUsage.from_usage_metadata(raw_response.get("usageMetadata"))
                 return ProviderResult(
                     status="ok",
@@ -997,7 +1068,7 @@ class CachedVisibleCardProvider:
                 "version": self.provider.version,
             }:
                 return None
-            return ProviderResult.from_mapping(
+            result = ProviderResult.from_mapping(
                 {
                     key: value[key]
                     for key in (
@@ -1012,6 +1083,9 @@ class CachedVisibleCardProvider:
                     )
                 }
             )
+            if request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION:
+                normalize_prediction(result.prediction.to_mapping(), require_tight_boxes=True)
+            return result
         except (OSError, ValueError, KeyError, TypeError, VisibleCardError, json.JSONDecodeError):
             return None
 
@@ -1399,6 +1473,7 @@ def build_request_from_image(
     height: int | None = None,
     model: str = DEFAULT_MODEL,
     provider: str = GEMINI_PROVIDER_NAME,
+    request_version: str = REQUEST_SCHEMA_VERSION,
 ) -> VisibleCardRequest:
     path = Path(image_path)
     image_bytes = path.read_bytes()
@@ -1417,6 +1492,39 @@ def build_request_from_image(
         model=model,
         provider=provider,
         image_mime_type=mime_type,
+        request_version=request_version,
+        prompt=(IMPROVED_PROMPT if request_version == IMPROVED_REQUEST_SCHEMA_VERSION else PROMPT),
+        response_schema=(
+            RESPONSE_SCHEMA_V2
+            if request_version == IMPROVED_REQUEST_SCHEMA_VERSION
+            else RESPONSE_SCHEMA
+        ),
+    )
+
+
+def build_improved_request_from_image(
+    image_path: str | Path,
+    *,
+    package_id: str,
+    frame_part_name: str,
+    target_offset_ms: int,
+    width: int | None = None,
+    height: int | None = None,
+    model: str = DEFAULT_MODEL,
+    provider: str = GEMINI_PROVIDER_NAME,
+) -> VisibleCardRequest:
+    """Build the opt-in v2 request without changing the v1 request builder."""
+
+    return build_request_from_image(
+        image_path,
+        package_id=package_id,
+        frame_part_name=frame_part_name,
+        target_offset_ms=target_offset_ms,
+        width=width,
+        height=height,
+        model=model,
+        provider=provider,
+        request_version=IMPROVED_REQUEST_SCHEMA_VERSION,
     )
 
 
@@ -1490,7 +1598,11 @@ def load_run_artifact(path: str | Path) -> dict[str, Any]:
         field_value = value[field_name]
         if field_value is not None and (not isinstance(field_value, str) or not field_value):
             raise VisibleCardError(f"visible-card run {field_name} must be a path or null.")
-    ProviderResult.from_mapping({field_name: value[field_name] for field_name in result_fields})
+    result = ProviderResult.from_mapping(
+        {field_name: value[field_name] for field_name in result_fields}
+    )
+    if request["schema_version"] == IMPROVED_REQUEST_SCHEMA_VERSION:
+        normalize_prediction(result.prediction.to_mapping(), require_tight_boxes=True)
     return value
 
 
@@ -1517,7 +1629,10 @@ def _validate_request_mapping(value: Any) -> dict[str, Any]:
     }
     if set(value) != expected_fields:
         raise VisibleCardError("visible-card request has unexpected fields.")
-    if value["schema_version"] != REQUEST_SCHEMA_VERSION:
+    if value["schema_version"] not in {
+        REQUEST_SCHEMA_VERSION,
+        IMPROVED_REQUEST_SCHEMA_VERSION,
+    }:
         raise VisibleCardError("unsupported visible-card request schema version.")
     _require_identifier(value["package_id"], "package_id")
     _require_identifier(value["frame_part_name"], "frame_part_name")
@@ -1560,6 +1675,8 @@ __all__ = [
     "DEFAULT_MODEL",
     "FakeVisibleCardProvider",
     "GeminiVisibleCardProvider",
+    "IMPROVED_PROMPT",
+    "IMPROVED_REQUEST_SCHEMA_VERSION",
     "LocalVisibleCardProvider",
     "LOCAL_PROVIDER_NAME",
     "LOCAL_PROVIDER_VERSION",
@@ -1569,9 +1686,11 @@ __all__ = [
     "NormalizedPoint",
     "PREDICTION_SCHEMA_VERSION",
     "PROMPT",
+    "REQUEST_SCHEMA_VERSION",
     "ProviderResult",
     "ProviderUsage",
     "RESPONSE_SCHEMA",
+    "RESPONSE_SCHEMA_V2",
     "RUN_SCHEMA_VERSION",
     "VisibleCardError",
     "VisibleCardPrediction",
@@ -1582,6 +1701,7 @@ __all__ = [
     "VisibleCardReviewQueue",
     "VisibleCardValidationError",
     "build_request_from_image",
+    "build_improved_request_from_image",
     "build_review_queue",
     "image_dimensions",
     "load_run_artifact",

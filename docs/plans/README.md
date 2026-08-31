@@ -56,13 +56,13 @@ The shared target architecture is
 | --- | --- | --- |
 | [0037 — Local visible-card detector end-to-end PoC](3-in-progress/0037-Local_Visible_Card_Detector_PoC.md) | Completed data, analyzer, and backend foundations | Fine-tune one RF-DETR Large detector from Gemini proposals and prove the local provider in the normal configurable backend path. M3 fixture path complete; real native bundle run pending inputs. |
 | [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
-| None | — | — |
+| [0038 — Visible-card training-data improvement](3-in-progress/0038-Visible_Card_Training_Data_Improvement.md) | 0037 contracts; real artifacts before M3 | Correct Gemini visible geometry, review visible regions, and measure detector labels and classifier crop policy with a fixed model recipe. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0038 — Visible-card training-data improvement](4-blocked/0038-Visible_Card_Training_Data_Improvement.md) | 0037 | Review and correct exact-event card boxes, then measure the effect of better data with a fixed model recipe. |
+| None | — | — |
 
 ### Closed
 
@@ -103,8 +103,9 @@ The shared target architecture is
 ## Near-term delivery sequence
 
 1. Implement 0037 to prove the local visible-card detector path without a quality requirement.
-2. Unblock 0038 with the frozen 0037 recipe and artifacts. Review and correct card boxes before
-   changing the detector architecture.
+2. Start 0038 M0 from the frozen 0037 contracts. Improve the Gemini visible-region instructions,
+   review visible regions, and derive detector boxes before changing the detector architecture.
+   Run the real detector comparison only after 0037 records its native artifacts.
 3. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
    baseline for later review work.
 4. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event

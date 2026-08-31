@@ -1,5 +1,8 @@
 import json
+from io import BytesIO
 from pathlib import Path
+
+from PIL import Image
 
 from table_evidence_analyzer.cli import build_parser, main
 
@@ -14,6 +17,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "classify-crop" in help_text
     assert "identity-evaluate" in help_text
     assert "visible-card-evaluate" in help_text
+    assert "visible-card-prompt-pilot" in help_text
     assert "visible-card-batch" in help_text
     assert "visible-card-observe" in help_text
     assert "visible-cards" in help_text
@@ -41,6 +45,56 @@ def test_data_validate_parser_keeps_explicit_artifact_inputs() -> None:
     assert args.dataset == Path("dataset.json")
     assert args.split == Path("split.json")
     assert args.artifacts == Path("artifacts.json")
+
+
+def test_visible_card_prompt_pilot_command_writes_paired_report(tmp_path: Path) -> None:
+    frames = []
+    for index in range(2):
+        image = BytesIO()
+        Image.new("RGB", (16, 12), (index, 20, 30)).save(image, format="JPEG")
+        image_path = tmp_path / f"frame-{index}.jpg"
+        image_path.write_bytes(image.getvalue())
+        frames.append(
+            {
+                "package_id": f"package-{index}",
+                "frame_part_name": "frame_00",
+                "image": image_path.name,
+                "source_lineage_group": f"session-{index}",
+                "partition": "development",
+                "target_offset_ms": 0,
+            }
+        )
+    manifest = tmp_path / "frames.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "visible-card-prompt-pilot-input/v1",
+                "frames": frames,
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "pilot.json"
+
+    assert (
+        main(
+            [
+                "visible-card-prompt-pilot",
+                "--manifest",
+                str(manifest),
+                "--output",
+                str(output),
+                "--frame-count",
+                "2",
+                "--selected-version",
+                "v2",
+                "--selection-reason",
+                "The v2 contract is explicit.",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(output.read_text(encoding="utf-8"))["frame_count"] == 2
 
 
 def test_visible_card_dataset_materializer_parser_has_bounded_inputs() -> None:

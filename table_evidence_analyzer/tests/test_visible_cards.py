@@ -6,6 +6,9 @@ import pytest
 from table_evidence_analyzer.visible_cards import (
     CACHE_SCHEMA_VERSION,
     DEFAULT_MODEL,
+    IMPROVED_PROMPT,
+    IMPROVED_REQUEST_SCHEMA_VERSION,
+    RESPONSE_SCHEMA_V2,
     FakeVisibleCardProvider,
     GeminiVisibleCardProvider,
     VisibleCardRequest,
@@ -80,6 +83,36 @@ def test_request_key_covers_image_and_provider_inputs() -> None:
     )
     assert first.to_mapping()["image_sha256"]
     assert "image_bytes" not in first.to_mapping()
+
+
+def test_improved_request_is_versioned_and_changes_cache_identity() -> None:
+    improved = VisibleCardRequest(
+        package_id="package-001",
+        frame_part_name="frame_00",
+        target_offset_ms=0,
+        image_bytes=b"frame",
+        width=1920,
+        height=1080,
+        prompt=IMPROVED_PROMPT,
+        response_schema=RESPONSE_SCHEMA_V2,
+        request_version=IMPROVED_REQUEST_SCHEMA_VERSION,
+    )
+    legacy = _request()
+
+    assert improved.to_mapping()["schema_version"] == IMPROVED_REQUEST_SCHEMA_VERSION
+    assert "inferred full-card extent" in improved.prompt
+    assert "tight axis-aligned bounding box" in improved.prompt
+    assert improved.request_key != legacy.request_key
+
+
+def test_improved_request_rejects_box_that_is_not_tight_to_visible_polygon() -> None:
+    invalid = _prediction()
+    invalid["cards"][0]["box_2d"]["x_min"] = 201
+
+    with pytest.raises(VisibleCardValidationError, match="tight bounds"):
+        normalize_prediction(invalid, require_tight_boxes=True)
+
+    assert normalize_prediction(_prediction(), require_tight_boxes=True).cards
 
 
 def test_normalize_prediction_returns_strict_proposals() -> None:

@@ -79,6 +79,36 @@ def build_parser() -> argparse.ArgumentParser:
     materialize_parser.add_argument("--epochs", type=int, default=20)
     materialize_parser.add_argument("--confidence-threshold", type=float, default=0.5)
 
+    prompt_pilot_parser = commands.add_parser(
+        "visible-card-prompt-pilot",
+        help="Run paired visible-card request versions on development frames.",
+        description=(
+            "Run the existing and improved visible-card requests on the same development-only "
+            "frames and write an immutable paired pilot report."
+        ),
+    )
+    prompt_pilot_parser.add_argument("--manifest", type=Path, required=True)
+    prompt_pilot_parser.add_argument("--output", type=Path, required=True)
+    prompt_pilot_parser.add_argument("--provider", choices=("fake", "gemini"), default="fake")
+    prompt_pilot_parser.add_argument("--model", default=DEFAULT_MODEL)
+    prompt_pilot_parser.add_argument(
+        "--cache-dir", type=Path, default=Path("data/cache/visible-card-prompt-pilot")
+    )
+    prompt_pilot_parser.add_argument(
+        "--selected-version",
+        choices=("none", "v1", "v2"),
+        default="none",
+        help="Select one request version only after reviewing the development pilot.",
+    )
+    prompt_pilot_parser.add_argument("--selection-reason", required=True)
+    prompt_pilot_parser.add_argument("--run-id", default="visible-card-prompt-pilot-v1")
+    prompt_pilot_parser.add_argument(
+        "--frame-count",
+        type=int,
+        default=20,
+        help="Require this many development frames (default: 20).",
+    )
+
     train_parser = commands.add_parser(
         "train",
         help="Train a model from a resolved configuration.",
@@ -347,6 +377,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, VisibleCardDatasetError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "visible-card-prompt-pilot":
+        from .visible_card_prompt_pilot import load_prompt_pilot_frames, run_prompt_pilot
+
+        try:
+            frames = load_prompt_pilot_frames(args.manifest)
+            if args.provider == "fake":
+                provider = FakeVisibleCardProvider()
+            else:
+                provider = GeminiVisibleCardProvider.from_environment()
+            selected_version = {
+                "none": None,
+                "v1": "visible-card-request/v1",
+                "v2": "visible-card-request/v2",
+            }[args.selected_version]
+            report = run_prompt_pilot(
+                frames,
+                provider,
+                output=args.output,
+                selected_request_version=selected_version,
+                selection_reason=args.selection_reason,
+                run_id=args.run_id,
+                model=args.model,
+                cache_dir=args.cache_dir,
+                expected_frame_count=args.frame_count,
+            )
+        except (VisibleCardError, OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(
+            f"Wrote paired visible-card prompt pilot for {report['frame_count']} frames: "
+            f"{args.output}"
+        )
         return 0
     if args.command in {"train-visible-card-detector", "train-visible-card"}:
         from .visible_card_training import VisibleCardTrainingConfig, run_visible_card_training
