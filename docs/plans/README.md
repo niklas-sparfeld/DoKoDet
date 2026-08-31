@@ -48,7 +48,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0037 — Local visible-card detector end-to-end PoC](2-ready/0037-Local_Visible_Card_Detector_PoC.md) | Completed data, analyzer, and backend foundations | Fine-tune one RF-DETR Large detector from Gemini proposals and prove the local provider in the normal configurable backend path. |
 
 ### In Progress
 
@@ -61,7 +61,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0038 — Visible-card training-data improvement](4-blocked/0038-Visible_Card_Training_Data_Improvement.md) | 0037 | Review and correct exact-event card boxes, then measure the effect of better data with a fixed model recipe. |
 
 ### Closed
 
@@ -101,22 +101,25 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
+1. Implement 0037 to prove the local visible-card detector path without a quality requirement.
+2. Unblock 0038 with the frozen 0037 recipe and artifacts. Review and correct card boxes before
+   changing the detector architecture.
+3. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
    baseline for later review work.
-2. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
+4. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
    `0 ms` binary review and the cloud visible-card baseline over that trusted event-time corpus. Add
    CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed system-holdout
    groups out of development review. Do not treat the three 0025 M6 packages as a sufficient
    recognition dataset by themselves.
-3. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
+5. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
    proposal corpus. Use the resulting coverage and failure measurements to specify 0022.
-4. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+6. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
    to specify 0023.
-5. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-6. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+7. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+8. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
    without replacing the identity-only oracle baseline.
-7. Specify 0026 after focused review cases and correction behavior are measured.
-8. Specify 0024 only after end-to-end product and operational measurements exist.
+9. Specify 0026 after focused review cases and correction behavior are measured.
+10. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 
