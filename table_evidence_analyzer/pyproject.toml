@@ -20,9 +20,17 @@ dev = [
 ]
 training = [
   "rfdetr[train,augment]==1.9.4",
+  "safetensors==0.8.0",
+  "torch==2.13.0",
+  "torchvision==0.28.0",
+  "transformers==5.16.1",
 ]
 inference = [
   "rfdetr==1.9.4",
+  "safetensors==0.8.0",
+  "torch==2.13.0",
+  "torchvision==0.28.0",
+  "transformers==5.16.1",
 ]
 
 [tool.setuptools]

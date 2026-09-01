@@ -49,13 +49,13 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0040 — Visible-card annotation review workspace](2-ready/0040-Visible_Card_Annotation_Review_Workspace.md) | 0038 contracts and 0039 M0–M4 | Seed recording-scoped review queues with the local visible-card finder, correct them in the web app, and publish immutable completed reviews that the existing freeze path accepts. |
-| [0041 — Local visual card identity classifier PoC](2-ready/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | 0021 and 0028 complete | Prove local DINOv3 ViT-S/16 training, bundle inference, and explicit non-default backend selection without a quality claim. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 complete: group-safe CardEventNet development partition assignment with immutable split versions and receipts. |
+| [0041 — Local visual card identity classifier PoC](3-in-progress/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | 0021 and 0028 complete | M0 complete: frozen DINOv3 model, license, weight materialization, deterministic 224 x 224 crop transform, strict 24-identity target map, and pinned optional dependencies; M1–M3 remain. |
 
 ### Blocked
 

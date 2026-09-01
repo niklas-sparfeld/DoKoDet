@@ -4,7 +4,7 @@
 
 - **Summary:** Prove that one current pretrained vision encoder can train and run locally behind
   the existing visual card identity classifier contract.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed plans 0021 and 0028
 - **Builds on:** The existing deterministic crop, identity-candidate, capability-bundle, training,
   evaluation, and promotion contracts
@@ -18,7 +18,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze the model, license, crop, target, and run contracts.
+- **M0:** Complete — freeze the model, license, crop, target, and run contracts.
 - **M1:** Not started — train one local smoke classifier and preserve its run record.
 - **M2:** Not started — export and load one native local identity bundle.
 - **M3:** Not started — select the local classifier explicitly in the backend and run one proof.
@@ -105,6 +105,13 @@ Acceptance:
 - the complete pretrained revision, weight digest, license, transform, card set, and dependency set
   participate in run identity; and
 - tests do not use the network or require gated model access.
+
+Progress (2026-09-01): M0 is complete. Added the frozen DINOv3 ViT-S/16 metadata, explicit
+license-acceptance record, local materialization and digest checks for model, config, and
+processor files, the strict zero-based 24-identity target map, and the deterministic 224 x 224
+letterbox transform with normalized CHW float32 output. Pinned PyTorch, TorchVision, Transformers,
+and Safetensors in the optional training and inference groups. The contract suite uses generated
+local doubles and does not authenticate, download weights, or call the network.
 
 ### M1 — Train one local smoke classifier
 
