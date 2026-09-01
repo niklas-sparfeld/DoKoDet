@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
+from doko_operations import CardEventReviewError
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict
 
+from dokodetector_backend.card_event_review_api import _load_source
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.intake_contract import (
     TASK_CARD_EVENT,
@@ -280,6 +282,19 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
         (item for item in task_enrollments if item.task == TASK_CARD_EVENT),
         None,
     )
+    review_state = "not_started"
+    review_event_count = 0
+    reviewed_at: str | None = None
+    try:
+        review_source = _load_source(request, recording_id, require_selected=False)
+        review = request.app.state.card_event_review_store.read(review_source)
+        review_state = review["review_state"]
+        review_event_count = len(review["annotation"]["events"])
+        reviewed_at = review.get("completed_at")
+    except (CardEventReviewError, ContractError):
+        # The recording projection remains readable if an operations workspace is unavailable.
+        pass
+
     if card_event_task is None or card_event_task.disposition != "selected":
         eligibility = "not_enrolled"
         blocker = "Select the CardEvent task before reviewing this recording."
@@ -321,9 +336,9 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
         evidence_package_ids=list(entry.evidence_package_ids),
         task_enrollments=task_enrollments,
         card_event_review=RecordingCardEventReviewSummary(
-            state="not_started",
-            event_count=0,
-            reviewed_at=None,
+            state=review_state,
+            event_count=review_event_count,
+            reviewed_at=reviewed_at,
         ),
         training_use=RecordingTrainingUseSummary(
             card_event_task=card_event_task,

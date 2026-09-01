@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator
 
+from doko_operations import CardEventReviewStore
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import text
@@ -16,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.staticfiles import StaticFiles
 
 from dokodetector_backend.api import router
+from dokodetector_backend.card_event_review_api import router as card_event_review_router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
@@ -90,6 +92,7 @@ def create_app(
     app.state.repository_bundle_storage = RepositoryBundleStorage(
         app_settings.repository_intake_root
     )
+    app.state.card_event_review_store = CardEventReviewStore(app_settings.operations_root)
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.readiness_state = "unknown"
     app.state.analyzer = analyzer or create_configured_analyzer(app_settings)
@@ -130,6 +133,7 @@ def create_app(
     app.include_router(pending_video_router)
     app.include_router(round_analysis_router)
     app.include_router(recordings_router)
+    app.include_router(card_event_review_router)
     _mount_frontend(app, app_settings.frontend_dist)
 
     @app.get("/health/live")

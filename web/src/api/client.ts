@@ -17,6 +17,15 @@ export type RecordingDetail = JsonResponse<
 >;
 export type RecordingSummary = RecordingListResponse["recordings"][number];
 export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
+export type CardEventReview = JsonResponse<
+  paths["/v1/recordings/{recording_id}/card-event-review"]["get"]["responses"][200]
+>;
+export type CardEventReviewDraftUpdateRequest =
+  components["schemas"]["CardEventReviewDraftUpdateRequest"];
+export type CardEventReviewCompletionRequest =
+  components["schemas"]["CardEventReviewCompletionRequest"];
+export type CardEventReviewRevisionRequest =
+  components["schemas"]["CardEventReviewRevisionRequest"];
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -44,6 +53,25 @@ export interface DokoDetectorClient {
     recordingId: string,
     init?: RequestInit,
   ): Promise<RecordingDetail>;
+  getCardEventReview(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<CardEventReview>;
+  updateCardEventReviewDraft(
+    recordingId: string,
+    payload: CardEventReviewDraftUpdateRequest,
+    init?: RequestInit,
+  ): Promise<CardEventReview>;
+  completeCardEventReview(
+    recordingId: string,
+    payload: CardEventReviewCompletionRequest,
+    init?: RequestInit,
+  ): Promise<CardEventReview>;
+  startCardEventReviewRevision(
+    recordingId: string,
+    payload: CardEventReviewRevisionRequest,
+    init?: RequestInit,
+  ): Promise<CardEventReview>;
   startRecordingAnalysis(
     recordingId: string,
     init?: RequestInit,
@@ -89,6 +117,45 @@ export function createDokoDetectorClient(
         fetchImplementation,
         recordingDetailPath(recordingId),
         init,
+      ),
+    getCardEventReview: (recordingId, init) =>
+      requestJson<CardEventReview>(
+        fetchImplementation,
+        recordingCardEventReviewPath(recordingId),
+        init,
+      ),
+    updateCardEventReviewDraft: (recordingId, payload, init) =>
+      requestJson<CardEventReview>(
+        fetchImplementation,
+        recordingCardEventReviewDraftPath(recordingId),
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    completeCardEventReview: (recordingId, payload, init) =>
+      requestJson<CardEventReview>(
+        fetchImplementation,
+        recordingCardEventReviewCompletionPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    startCardEventReviewRevision: (recordingId, payload, init) =>
+      requestJson<CardEventReview>(
+        fetchImplementation,
+        recordingCardEventReviewRevisionPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
       ),
     startRecordingAnalysis: (recordingId, init) =>
       requestJson<RoundAnalysisStatus>(
@@ -156,6 +223,26 @@ export function recordingAnalysisPath(recordingId: string): string {
 
 export function recordingDetailPath(recordingId: string): string {
   return `/v1/recordings/${encodeURIComponent(recordingId)}`;
+}
+
+export function recordingCardEventReviewPath(recordingId: string): string {
+  return `${recordingDetailPath(recordingId)}/card-event-review`;
+}
+
+export function recordingCardEventReviewDraftPath(recordingId: string): string {
+  return `${recordingCardEventReviewPath(recordingId)}/draft`;
+}
+
+export function recordingCardEventReviewCompletionPath(
+  recordingId: string,
+): string {
+  return `${recordingCardEventReviewPath(recordingId)}/complete`;
+}
+
+export function recordingCardEventReviewRevisionPath(
+  recordingId: string,
+): string {
+  return `${recordingCardEventReviewPath(recordingId)}/revisions`;
 }
 
 function recordingsPath(): string {

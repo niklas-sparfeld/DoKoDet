@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     )
     database_url: str = "sqlite:///./.runtime/dokodetector.db"
     evidence_root: Path = Path(".runtime")
+    operations_root: Path = Path("data/operations")
     frontend_dist: Path = Path("web/dist")
     repository_intake_root: Path = Path("data/intake/recordings")
     evidence_package_intake_root: Path = Path("data/intake/evidence-packages")
@@ -130,6 +131,7 @@ class Settings(BaseSettings):
         self.repository_root = root
         self.database_url = _resolve_database_url(self.database_url, root)
         self.evidence_root = _resolve_path(self.evidence_root, root)
+        self.operations_root = _resolve_path(self.operations_root, root)
         self.frontend_dist = _resolve_frontend_dist(self.frontend_dist, root)
         self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
         self.evidence_package_intake_root = _resolve_path(self.evidence_package_intake_root, root)

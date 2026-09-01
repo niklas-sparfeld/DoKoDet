@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createDokoDetectorClient,
   recordingAnalysisPath,
+  recordingCardEventReviewCompletionPath,
+  recordingCardEventReviewDraftPath,
+  recordingCardEventReviewPath,
+  recordingCardEventReviewRevisionPath,
   recordingDetailPath,
   repositoryBundleVideoPath,
   roundAnalysisFramePath,
@@ -74,6 +78,76 @@ describe("DokoDetector API client", () => {
     expect(new Headers(requestInit?.headers).get("Accept")).toBe(
       "application/json",
     );
+  });
+
+  it("reads and writes the recording-scoped CardEvent review through generated paths", async () => {
+    const response = {
+      annotation: {
+        schema_version: "cardevent-annotation/v2",
+        video: "video.mov",
+        events: [],
+      },
+      completed_at: null,
+      completed_version_digest: null,
+      completed_version_id: null,
+      completion_receipt_id: null,
+      draft_digest: "a".repeat(64),
+      draft_revision: 0,
+      full_video_acknowledged: false,
+      parent_digest: null,
+      parent_version_id: null,
+      proposals: [],
+      proposal_decision_digest: null,
+      recording_id: "recording-1",
+      reviewed_annotation_digest: null,
+      review_state: "not_started",
+      reviewer: null,
+      schema_version: "cardevent-review/v1",
+      source_asset_id: "source-1",
+      source_sha256: "b".repeat(64),
+      video: "video.mov",
+    } as const;
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(response), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+    const draft = {
+      annotation: response.annotation,
+      proposals: [],
+      expected_revision: 0,
+      full_video_acknowledged: false,
+    };
+
+    await client.getCardEventReview("recording/1");
+    await client.updateCardEventReviewDraft("recording/1", draft);
+    await client.completeCardEventReview("recording/1", {
+      reviewer: "operator",
+      expected_revision: 0,
+      full_video_acknowledged: true,
+    });
+    await client.startCardEventReviewRevision("recording/1", {
+      parent_version_id: "version-1",
+      expected_revision: 0,
+    });
+
+    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
+      recordingCardEventReviewPath("recording/1"),
+      recordingCardEventReviewDraftPath("recording/1"),
+      recordingCardEventReviewCompletionPath("recording/1"),
+      recordingCardEventReviewRevisionPath("recording/1"),
+    ]);
+    expect(fetchImplementation.mock.calls[1]?.[1]?.method).toBe("PUT");
+    expect(fetchImplementation.mock.calls[2]?.[1]?.method).toBe("POST");
+    expect(
+      new Headers(fetchImplementation.mock.calls[1]?.[1]?.headers).get(
+        "Content-Type",
+      ),
+    ).toBe("application/json");
   });
 
   it("raises an API error with the response body", async () => {
