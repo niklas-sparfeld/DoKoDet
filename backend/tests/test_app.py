@@ -52,10 +52,13 @@ def test_packaged_frontend_serves_entry_route_and_hashed_assets(tmp_path: Path) 
 
     client = TestClient(create_test_app(settings))
 
+    catalog = client.get("/round-analyses/")
     entry = client.get("/round-analyses/550e8400-e29b-41d4-a716-446655440033")
     refresh = client.get("/round-analyses/550e8400-e29b-41d4-a716-446655440033")
     asset = client.get("/round-analyses/assets/index-test.js")
 
+    assert catalog.status_code == 200
+    assert catalog.headers["content-type"].startswith("text/html")
     assert entry.status_code == 200
     assert entry.headers["content-type"].startswith("text/html")
     assert "id=\"root\"" in entry.text

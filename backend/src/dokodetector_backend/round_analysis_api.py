@@ -174,6 +174,15 @@ async def create_round_analysis(
 ) -> RoundAnalysisStatus:
     """Validate and queue one analysis request."""
 
+    return await _queue_round_analysis(payload, request)
+
+
+async def _queue_round_analysis(
+    payload: RoundAnalysisCreateRequest,
+    request: Request,
+) -> RoundAnalysisStatus:
+    """Validate and queue one analysis request from any API entry point."""
+
     service: RoundAnalysisService = request.app.state.round_analysis_service
     existing = service.repository.get(payload.analysis_id)
     if existing is not None:

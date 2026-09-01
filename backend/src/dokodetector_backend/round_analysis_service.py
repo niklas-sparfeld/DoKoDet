@@ -8,8 +8,7 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from doko_operations.counterfactual import (
     RoundCounterfactualRequest,
@@ -33,17 +32,26 @@ from dokodetector_backend.intake_contract import (
     EvidencePackageLineage,
     IntakeContractError,
     parse_evidence_package_lineage,
+    parse_source_record,
 )
 from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.repository import (
     EvidenceRepository,
     RoundAnalysisNotFound,
     RoundAnalysisRepository,
+    StoredPackage,
     StoredRoundAnalysis,
     StoredTableObservation,
 )
-from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
+from dokodetector_backend.repository_bundle_repository import (
+    RepositoryBundleRepository,
+    StoredRepositoryBundle,
+)
+from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_contract import (
+    AnalysisRoundRuleset,
+    AnalysisRoundSetup,
+    AnalysisSearchLimits,
     RoundAnalysisCreateRequest,
     RoundAnalysisResult,
     RoundAnalysisStatus,
@@ -60,10 +68,6 @@ from dokodetector_backend.round_analysis_timeline import (
     TimelineFrameFile,
 )
 from dokodetector_backend.storage import EvidenceStorage
-
-if TYPE_CHECKING:
-    from dokodetector_backend.repository import StoredPackage
-
 
 LOGGER = logging.getLogger(__name__)
 ANALYSIS_WORKER_FAILURE = "The round analysis could not be completed."
@@ -94,6 +98,18 @@ class ValidatedRoundAnalysisInput:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordingCatalogEntry:
+    """Durable recording metadata and the analyses attached to it."""
+
+    recording: StoredRepositoryBundle
+    evidence_package_ids: tuple[UUID, ...]
+    analyses: tuple[StoredRoundAnalysis, ...]
+    round_id: str
+    can_start_analysis: bool
+    analysis_blocker: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class StoredRoundCounterfactual:
     """A parsed counterfactual response backed by immutable runtime artifacts."""
 
@@ -113,6 +129,7 @@ class RoundAnalysisService:
         evidence_storage: EvidenceStorage,
         artifact_storage: RoundAnalysisArtifactStorage,
         repository_bundle_repository: RepositoryBundleRepository,
+        repository_bundle_storage: RepositoryBundleStorage,
         analyzer: TableEvidenceAnalyzer,
     ) -> None:
         self.repository = repository
@@ -121,6 +138,7 @@ class RoundAnalysisService:
         self.evidence_storage = evidence_storage
         self.artifact_storage = artifact_storage
         self.repository_bundle_repository = repository_bundle_repository
+        self.repository_bundle_storage = repository_bundle_storage
         self.analyzer_runner = AnalyzerRunner(
             evidence_repository,
             package_storage,
@@ -177,6 +195,104 @@ class RoundAnalysisService:
                 )
             packages.append(package)
         return ValidatedRoundAnalysisInput(request=request, packages=tuple(packages))
+
+    def recording_catalog(self) -> tuple[RecordingCatalogEntry, ...]:
+        """Return indexed recordings with linked packages and prior analyses."""
+
+        packages_by_recording: dict[str, list[StoredPackage]] = {}
+        for package in self.evidence_repository.list_packages():
+            if package.state != "stored":
+                continue
+            try:
+                lineage = self._read_lineage(package)
+            except RoundAnalysisValidationError:
+                continue
+            if lineage.parent_recording_id is None or lineage.session_id != str(package.session_id):
+                continue
+            packages_by_recording.setdefault(lineage.parent_recording_id, []).append(package)
+
+        entries: list[RecordingCatalogEntry] = []
+        for recording in self.repository_bundle_repository.list():
+            packages = tuple(
+                package
+                for package in packages_by_recording.get(recording.recording_id, ())
+                if str(package.session_id) == recording.session_id
+            )
+            analyses = self.repository.list_by_recording(recording.recording_id)
+            try:
+                _, _, round_id = self._analysis_identifiers(recording)
+                blocker = None if packages else "No linked evidence packages are available."
+            except RoundAnalysisValidationError as error:
+                round_id = analyses[0].round_id if analyses else f"round-{recording.recording_id}"
+                blocker = str(error)
+            entries.append(
+                RecordingCatalogEntry(
+                    recording=recording,
+                    evidence_package_ids=tuple(package.package_id for package in packages),
+                    analyses=analyses,
+                    round_id=round_id,
+                    can_start_analysis=blocker is None,
+                    analysis_blocker=blocker,
+                )
+            )
+        return tuple(entries)
+
+    def default_request_for_recording(self, recording_id: str) -> RoundAnalysisCreateRequest:
+        """Build an analysis request from one recording and all linked packages."""
+
+        recording = self.repository_bundle_repository.get(recording_id)
+        if recording is None:
+            raise RoundAnalysisValidationError("The recording bundle is not stored.")
+        packages = tuple(
+            package_id
+            for entry in self.recording_catalog()
+            if entry.recording.recording_id == recording_id
+            for package_id in entry.evidence_package_ids
+        )
+        if not packages:
+            raise RoundAnalysisValidationError("No linked evidence packages are available.")
+        session_id, game_id, round_id = self._analysis_identifiers(recording)
+        setup = AnalysisRoundSetup(
+            game_id=game_id,
+            round_id=round_id,
+            ruleset=AnalysisRoundRuleset(name="doko-normal", version="v1"),
+            deck_variant="doko-40-v1",
+            active_players=["seat-1", "seat-2", "seat-3", "seat-4"],
+            dealer="seat-1",
+            first_trick_leader="seat-1",
+        )
+        return RoundAnalysisCreateRequest(
+            analysis_id=uuid4(),
+            recording_id=recording.recording_id,
+            round_id=round_id,
+            session_id=session_id,
+            round_setup=setup,
+            evidence_package_ids=list(packages),
+            search=AnalysisSearchLimits(
+                max_missing_plays=1,
+                max_hypotheses=256,
+                max_search_nodes=250_000,
+            ),
+        )
+
+    def _analysis_identifiers(self, recording: StoredRepositoryBundle) -> tuple[UUID, str, str]:
+        """Read analysis identifiers from one canonical recording source."""
+
+        try:
+            session_id = UUID(recording.session_id)
+            source = parse_source_record(
+                (
+                    self.repository_bundle_storage.bundle_path(recording.recording_id)
+                    / "source-record.json"
+                ).read_bytes()
+            )
+        except (OSError, IntakeContractError, TypeError, ValueError) as error:
+            raise RoundAnalysisValidationError("The recording metadata is invalid.") from error
+        return (
+            session_id,
+            source.game_id or f"analysis-game-{session_id}",
+            source.round_id or f"round-{recording.recording_id}",
+        )
 
     async def start(self) -> None:
         """Start the one worker task after app resources are ready."""

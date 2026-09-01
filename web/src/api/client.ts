@@ -9,6 +9,11 @@ type JsonResponse<Response> = Response extends { content: infer Content }
 export type RoundAnalysisStatus = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}"]["get"]["responses"][200]
 >;
+export type RecordingListResponse = JsonResponse<
+  paths["/v1/recordings"]["get"]["responses"][200]
+>;
+export type RecordingSummary = RecordingListResponse["recordings"][number];
+export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -31,6 +36,11 @@ export class ApiError extends Error {
 }
 
 export interface DokoDetectorClient {
+  listRecordings(init?: RequestInit): Promise<RecordingListResponse>;
+  startRecordingAnalysis(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<RoundAnalysisStatus>;
   getRoundAnalysisStatus(
     analysisId: string,
     init?: RequestInit,
@@ -61,6 +71,18 @@ export function createDokoDetectorClient(
   fetchImplementation: typeof fetch = fetch,
 ): DokoDetectorClient {
   return {
+    listRecordings: (init) =>
+      requestJson<RecordingListResponse>(
+        fetchImplementation,
+        recordingsPath(),
+        init,
+      ),
+    startRecordingAnalysis: (recordingId, init) =>
+      requestJson<RoundAnalysisStatus>(
+        fetchImplementation,
+        recordingAnalysisPath(recordingId),
+        { ...init, method: "POST" },
+      ),
     getRoundAnalysisStatus: (analysisId, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -113,6 +135,14 @@ export function roundAnalysisFramePath(
 
 export function repositoryBundleVideoPath(recordingId: string): string {
   return `/v1/repository-bundles/${encodeURIComponent(recordingId)}/video`;
+}
+
+export function recordingAnalysisPath(recordingId: string): string {
+  return `/v1/recordings/${encodeURIComponent(recordingId)}/round-analyses`;
+}
+
+function recordingsPath(): string {
+  return "/v1/recordings";
 }
 
 function roundAnalysisStatusPath(analysisId: string): string {

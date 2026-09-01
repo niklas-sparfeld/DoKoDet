@@ -1561,3 +1561,174 @@ progress {
     width: 100%;
   }
 }
+
+.recordingsPage {
+  max-width: 72rem;
+}
+
+.recordingsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.recordingsHeader h1 {
+  margin: 0;
+}
+
+.recordingNotice {
+  padding: 0.8rem 1rem;
+  margin: 0 0 1.25rem;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 0.65rem;
+}
+
+.recordingList {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.recordingCard {
+  padding: 1.35rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  box-shadow: 0 0.7rem 2rem rgb(20 31 45 / 5%);
+}
+
+.recordingCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.recordingCardHeader h2 {
+  margin: 0.15rem 0 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.recordingId,
+.analysisId,
+.recordingBlocker,
+.analysisError {
+  margin: 0;
+  color: var(--muted-ink);
+  overflow-wrap: anywhere;
+}
+
+.recordingAction {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.recordingBlocker {
+  max-width: 16rem;
+  margin-top: 0.55rem;
+  font-size: 0.82rem;
+}
+
+.recordingStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 1rem 0;
+  margin: 1.25rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.recordingStats div {
+  min-width: 0;
+}
+
+.recordingStats dt {
+  color: var(--muted-ink);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.recordingStats dd {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.recordingAnalyses .sectionHeading {
+  margin-bottom: 0.75rem;
+}
+
+.analysisList {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.analysisListItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.analysisTimestamp {
+  margin-left: 0.55rem;
+  color: var(--muted-ink);
+  font-size: 0.82rem;
+}
+
+.analysisListItem .analysisId {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+}
+
+.analysisResult,
+.analysisError {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}
+
+.analysisError {
+  color: var(--danger, #a23b3b);
+}
+
+.recordingLink {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.recordingLink:hover,
+.recordingLink:focus-visible {
+  text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+  .recordingsHeader,
+  .recordingCardHeader,
+  .analysisListItem {
+    flex-direction: column;
+  }
+
+  .recordingAction {
+    width: 100%;
+    text-align: left;
+  }
+
+  .recordingAction button {
+    width: 100%;
+  }
+
+  .recordingStats {
+    grid-template-columns: 1fr;
+  }
+}

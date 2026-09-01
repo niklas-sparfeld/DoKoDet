@@ -111,6 +111,35 @@ def _upload_linked_package(
     return str(payload["package_id"])
 
 
+def _write_source_record(app: object) -> None:
+    bundle_path = app.state.repository_bundle_storage.bundle_path(RECORDING_ID)
+    bundle_path.mkdir(parents=True)
+    (bundle_path / "source-record.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "source-record/v1",
+                "source_asset_id": "source-round-analysis",
+                "sha256": "a" * 64,
+                "byte_length": 1,
+                "media_type": "video/quicktime",
+                "original_filename": "round.mov",
+                "acquisition_method": "test",
+                "source_permission": "project_use",
+                "allowed_uses": ["evaluation"],
+                "session_id": SESSION_ID,
+                "recording_id": RECORDING_ID,
+                "video_id": "video-round-analysis",
+                "game_id": "game-round-analysis",
+                "round_id": "round-round-analysis",
+                "table_setup": "default-table",
+                "content_type": "real_game",
+                "retention_state": "active",
+                "notes": None,
+            }
+        )
+    )
+
+
 def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path) -> None:
     client, app = _backend(backend_tmp_path)
     package_id = _upload_linked_package(client)
@@ -134,6 +163,38 @@ def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path)
     assert body["result"]["result_artifact_id"] == (f"round-analyses/{ANALYSIS_ID}/result.json")
     assert app.state.round_analysis_storage.analysis_path(ANALYSIS_ID).is_dir()
     assert client.get(f"/v1/round-analyses/{ANALYSIS_ID}").json() == body
+
+
+def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> None:
+    client, app = _backend(backend_tmp_path)
+    _write_source_record(app)
+    package_id = _upload_linked_package(client)
+
+    catalog = client.get("/v1/recordings")
+
+    assert catalog.status_code == 200
+    recording = catalog.json()["recordings"][0]
+    assert recording["recording_id"] == RECORDING_ID
+    assert recording["round_id"] == "round-round-analysis"
+    assert recording["evidence_package_ids"] == [package_id]
+    assert recording["analyses"] == []
+    assert recording["can_start_analysis"] is True
+
+    started = client.post(f"/v1/recordings/{RECORDING_ID}/round-analyses")
+
+    assert started.status_code == 202
+    analysis_id = started.json()["analysis_id"]
+    assert started.json()["recording_id"] == RECORDING_ID
+    assert started.json()["state"] == "complete"
+
+    refreshed = client.get("/v1/recordings").json()["recordings"][0]
+    assert refreshed["analyses"][0]["analysis_id"] == analysis_id
+    assert refreshed["analyses"][0]["result_status"] in {
+        "resolved",
+        "ambiguous",
+        "incomplete",
+        "impossible",
+    }
 
 
 def test_timeline_projects_exact_analysis_and_selects_central_frame(

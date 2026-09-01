@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -67,6 +67,15 @@ class RepositoryBundleRepository:
         with self._session_factory() as session:
             row = session.get(RepositoryBundleIndex, recording_id)
             return _from_model(row) if row is not None else None
+
+    def list(self) -> tuple[StoredRepositoryBundle, ...]:
+        """Read all indexed recording bundles, newest first."""
+
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(RepositoryBundleIndex).order_by(RepositoryBundleIndex.received_at.desc())
+            )
+            return tuple(_from_model(row) for row in rows)
 
     def insert(self, bundle: StoredRepositoryBundle) -> tuple[StoredRepositoryBundle, bool]:
         """Insert an index row, or return an identical existing row."""

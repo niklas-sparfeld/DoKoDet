@@ -323,6 +323,17 @@ class EvidenceRepository:
             )
             return _package_from_model(row) if row is not None else None
 
+    def list_packages(self) -> tuple[StoredPackage, ...]:
+        """Read all stored packages in deterministic intake order."""
+
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(EvidencePackage)
+                .options(selectinload(EvidencePackage.frames))
+                .order_by(EvidencePackage.received_at, EvidencePackage.event_sequence)
+            )
+            return tuple(_package_from_model(row) for row in rows)
+
     def get_by_logical_event(
         self, session_id: UUID | str, event_sequence: int
     ) -> StoredPackage | None:
@@ -688,6 +699,17 @@ class RoundAnalysisRepository:
         with self._session_factory() as session:
             row = session.get(RoundAnalysis, str(UUID(str(analysis_id))))
             return _round_analysis_from_model(row) if row is not None else None
+
+    def list_by_recording(self, recording_id: str) -> tuple[StoredRoundAnalysis, ...]:
+        """Read analyses for one recording, newest first."""
+
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(RoundAnalysis)
+                .where(RoundAnalysis.recording_id == recording_id)
+                .order_by(RoundAnalysis.created_at.desc(), RoundAnalysis.analysis_id.desc())
+            )
+            return tuple(_round_analysis_from_model(row) for row in rows)
 
     def create(
         self,

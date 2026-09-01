@@ -23,12 +23,90 @@ describe("App", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("renders the frontend foundation shell", () => {
+  it("renders the recording catalog", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ recordings: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { name: "Round analysis timeline" }),
+      await screen.findByRole("heading", { name: "Recordings" }),
     ).toBeInTheDocument();
+  });
+
+  it("starts an analysis and links existing analyses for a recording", async () => {
+    const recording = {
+      recording_id: "recording-1",
+      source_asset_id: "source-1",
+      video_id: "video-1",
+      session_id: "550e8400-e29b-41d4-a716-446655440034",
+      state: "complete",
+      source_sha256: "a".repeat(64),
+      received_at: "2026-09-01T07:20:46Z",
+      round_id: "round-1",
+      evidence_package_ids: ["550e8400-e29b-41d4-a716-446655440035"],
+      analyses: [
+        {
+          analysis_id: ANALYSIS_ID,
+          recording_id: "recording-1",
+          round_id: "round-1",
+          state: "complete",
+          total_evidence_packages: 1,
+          completed_evidence_packages: 1,
+          result_status: "resolved",
+          error: null,
+          created_at: "2026-09-01T07:21:00Z",
+          started_at: "2026-09-01T07:21:00Z",
+          completed_at: "2026-09-01T07:21:01Z",
+        },
+      ],
+      can_start_analysis: true,
+      analysis_blocker: null,
+    };
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(resolvedStatus), {
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ recordings: [recording] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByText("Open timeline")).toBeInTheDocument();
+    expect(screen.getByText("Result:")).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole("button", { name: "Start new analysis" }),
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/v1/recordings/recording-1/round-analyses",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      `Analysis ${resolvedStatus.analysis_id} was queued.`,
+    );
   });
 
   it("loads a resolved analysis into synchronized timeline columns", async () => {

@@ -132,6 +132,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recordings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Recordings
+         * @description List accepted recordings with linked packages and analyses.
+         */
+        get: operations["list_recordings_v1_recordings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/round-analyses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Recording Analysis
+         * @description Start a new analysis using all valid evidence linked to one recording.
+         */
+        post: operations["start_recording_analysis_v1_recordings__recording_id__round_analyses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repository-bundles/{recording_id}": {
         parameters: {
             query?: never;
@@ -566,6 +606,84 @@ export interface components {
             state: string;
             /** Upload Id */
             upload_id: string;
+        };
+        /**
+         * RecordingAnalysisSummary
+         * @description Small analysis status embedded in the recording catalog.
+         */
+        RecordingAnalysisSummary: {
+            /**
+             * Analysis Id
+             * Format: uuid
+             */
+            analysis_id: string;
+            /** Completed At */
+            completed_at: string | null;
+            /** Completed Evidence Packages */
+            completed_evidence_packages: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error: string | null;
+            /** Recording Id */
+            recording_id: string;
+            /** Result Status */
+            result_status: ("resolved" | "ambiguous" | "incomplete" | "impossible") | null;
+            /** Round Id */
+            round_id: string;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "queued" | "analyzing_evidence" | "reconstructing" | "complete" | "failed";
+            /** Total Evidence Packages */
+            total_evidence_packages: number;
+        };
+        /**
+         * RecordingListResponse
+         * @description Recording catalog response.
+         */
+        RecordingListResponse: {
+            /** Recordings */
+            recordings: components["schemas"]["RecordingSummary"][];
+        };
+        /**
+         * RecordingSummary
+         * @description One accepted recording and its round-analysis history.
+         */
+        RecordingSummary: {
+            /** Analyses */
+            analyses: components["schemas"]["RecordingAnalysisSummary"][];
+            /** Analysis Blocker */
+            analysis_blocker: string | null;
+            /** Can Start Analysis */
+            can_start_analysis: boolean;
+            /** Evidence Package Ids */
+            evidence_package_ids: string[];
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Recording Id */
+            recording_id: string;
+            /** Round Id */
+            round_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Source Asset Id */
+            source_asset_id: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** State */
+            state: string;
+            /** Video Id */
+            video_id: string;
         };
         /**
          * RepositoryBundleFileResponse
@@ -1414,6 +1532,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PendingVideoUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recordings_v1_recordings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingListResponse"];
+                };
+            };
+        };
+    };
+    start_recording_analysis_v1_recordings__recording_id__round_analyses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundAnalysisStatus"];
                 };
             };
             /** @description Validation Error */

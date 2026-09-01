@@ -24,6 +24,7 @@ from dokodetector_backend.logging_config import get_or_create_request_id, log_ev
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
+from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository import (
     EvidenceRepository,
     RoundAnalysisRepository,
@@ -120,6 +121,7 @@ def create_app(
         app.state.storage,
         app.state.round_analysis_storage,
         app.state.repository_bundle_repository,
+        app.state.repository_bundle_storage,
         app.state.analyzer,
     )
     register_error_handlers(app)
@@ -127,6 +129,7 @@ def create_app(
     app.include_router(repository_bundle_router)
     app.include_router(pending_video_router)
     app.include_router(round_analysis_router)
+    app.include_router(recordings_router)
     _mount_frontend(app, app_settings.frontend_dist)
 
     @app.get("/health/live")
@@ -195,6 +198,16 @@ def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
         StaticFiles(directory=assets),
         name="frontend-assets",
     )
+
+    @app.get("/round-analyses/", include_in_schema=False)
+    def frontend_catalog() -> FileResponse:
+        """Return the SPA entry document for the recording catalog."""
+
+        return FileResponse(
+            entrypoint,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/round-analyses/{analysis_id}", include_in_schema=False)
     def frontend_entrypoint(analysis_id: str) -> FileResponse:

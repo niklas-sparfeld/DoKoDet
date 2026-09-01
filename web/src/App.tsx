@@ -15,6 +15,7 @@ import {
   type RoundCounterfactualResponse,
   type RoundAnalysisStatus,
   type RoundAnalysisTimeline,
+  type RecordingSummary,
 } from "./api/client";
 import styles from "./App.module.css";
 
@@ -94,19 +95,252 @@ export function App() {
   const analysisId = readAnalysisId(window.location.pathname);
 
   if (analysisId === null) {
-    return (
-      <main className={styles.shell}>
-        <p className={styles.eyebrow}>DokoDetector</p>
-        <h1>Round analysis timeline</h1>
-        <p className={styles.description}>
-          Open an analysis with its ID to inspect the immutable analysis
-          timeline.
-        </p>
-      </main>
-    );
+    return <RecordingListView />;
   }
 
   return <AnalysisSmokeView key={analysisId} analysisId={analysisId} />;
+}
+
+function RecordingListView() {
+  const client = useMemo(() => createDokoDetectorClient(), []);
+  const [recordings, setRecordings] = useState<RecordingSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [triggeringRecordingId, setTriggeringRecordingId] = useState<
+    string | null
+  >(null);
+
+  const loadRecordings = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const response = await client.listRecordings({ signal });
+        if (!signal?.aborted) {
+          setRecordings(response.recordings);
+          setError(null);
+        }
+      } catch (reason: unknown) {
+        if (!signal?.aborted) {
+          setError(describeError(reason));
+        }
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [client],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(
+      () => void loadRecordings(controller.signal),
+      0,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [loadRecordings]);
+
+  useEffect(() => {
+    if (
+      !recordings.some((recording) => recording.analyses.some(isActiveAnalysis))
+    ) {
+      return;
+    }
+    const timer = window.setInterval(() => void loadRecordings(), 2000);
+    return () => window.clearInterval(timer);
+  }, [loadRecordings, recordings]);
+
+  async function startAnalysis(recording: RecordingSummary) {
+    setTriggeringRecordingId(recording.recording_id);
+    setNotice(null);
+    try {
+      const status = await client.startRecordingAnalysis(
+        recording.recording_id,
+      );
+      setNotice(`Analysis ${status.analysis_id} was queued.`);
+      await loadRecordings();
+    } catch (reason: unknown) {
+      setError(describeError(reason));
+    } finally {
+      setTriggeringRecordingId(null);
+    }
+  }
+
+  return (
+    <main className={`${styles.shell} ${styles.recordingsPage}`}>
+      <header className={styles.recordingsHeader}>
+        <div>
+          <p className={styles.eyebrow}>DokoDetector</p>
+          <h1>Recordings</h1>
+          <p className={styles.description}>
+            Start a new round analysis for an accepted recording, or open one
+            that already exists.
+          </p>
+        </div>
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            void loadRecordings();
+          }}
+          disabled={loading}
+        >
+          Refresh
+        </button>
+      </header>
+
+      {notice !== null ? (
+        <p className={styles.recordingNotice} role="status">
+          {notice}
+        </p>
+      ) : null}
+      {error !== null ? (
+        <section className={styles.panel} aria-live="polite">
+          <p className={styles.statusLabel}>Unable to load recordings</p>
+          <p>{error}</p>
+        </section>
+      ) : null}
+      {loading && recordings.length === 0 ? (
+        <p className={styles.loading} aria-live="polite">
+          Loading recordings…
+        </p>
+      ) : recordings.length === 0 ? (
+        <section className={styles.panel}>
+          <h2>No recordings yet</h2>
+          <p>Accepted recording bundles will appear here.</p>
+        </section>
+      ) : (
+        <div className={styles.recordingList} aria-label="Recordings">
+          {recordings.map((recording) => (
+            <RecordingCard
+              key={recording.recording_id}
+              recording={recording}
+              isTriggering={triggeringRecordingId === recording.recording_id}
+              onStart={() => void startAnalysis(recording)}
+            />
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
+function RecordingCard({
+  recording,
+  isTriggering,
+  onStart,
+}: {
+  recording: RecordingSummary;
+  isTriggering: boolean;
+  onStart: () => void;
+}) {
+  return (
+    <article className={styles.recordingCard}>
+      <header className={styles.recordingCardHeader}>
+        <div>
+          <p className={styles.eyebrow}>Round</p>
+          <h2>{recording.round_id}</h2>
+          <p className={styles.recordingId} title={recording.recording_id}>
+            Recording {recording.recording_id}
+          </p>
+        </div>
+        <div className={styles.recordingAction}>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={onStart}
+            disabled={!recording.can_start_analysis || isTriggering}
+          >
+            {isTriggering ? "Starting…" : "Start new analysis"}
+          </button>
+          {!recording.can_start_analysis ? (
+            <p className={styles.recordingBlocker}>
+              {recording.analysis_blocker}
+            </p>
+          ) : null}
+        </div>
+      </header>
+
+      <dl className={styles.recordingStats}>
+        <div>
+          <dt>Received</dt>
+          <dd>{formatTimestamp(recording.received_at)}</dd>
+        </div>
+        <div>
+          <dt>Session</dt>
+          <dd title={recording.session_id}>{recording.session_id}</dd>
+        </div>
+        <div>
+          <dt>Evidence packages</dt>
+          <dd>{recording.evidence_package_ids.length}</dd>
+        </div>
+      </dl>
+
+      <section className={styles.recordingAnalyses}>
+        <div className={styles.sectionHeading}>
+          <h3>Analyses</h3>
+          <span className={styles.countLabel}>{recording.analyses.length}</span>
+        </div>
+        {recording.analyses.length === 0 ? (
+          <p className={styles.emptyInline}>No analyses have been started.</p>
+        ) : (
+          <ul className={styles.analysisList}>
+            {recording.analyses.map((analysis) => (
+              <li
+                key={analysis.analysis_id}
+                className={styles.analysisListItem}
+              >
+                <div>
+                  <StatusBadge value={analysis.state} />
+                  <span className={styles.analysisTimestamp}>
+                    {formatTimestamp(analysis.created_at)}
+                  </span>
+                  <p className={styles.analysisId} title={analysis.analysis_id}>
+                    {analysis.analysis_id}
+                  </p>
+                  {analysis.state === "complete" &&
+                  analysis.result_status !== null ? (
+                    <p className={styles.analysisResult}>
+                      Result: <StatusBadge value={analysis.result_status} />
+                    </p>
+                  ) : null}
+                  {analysis.state === "failed" && analysis.error !== null ? (
+                    <p className={styles.analysisError}>{analysis.error}</p>
+                  ) : null}
+                </div>
+                {analysis.state === "complete" ? (
+                  <a
+                    className={styles.recordingLink}
+                    href={`/round-analyses/${encodeURIComponent(analysis.analysis_id)}`}
+                  >
+                    Open timeline
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </article>
+  );
+}
+
+function isActiveAnalysis(
+  analysis: RecordingSummary["analyses"][number],
+): boolean {
+  return analysis.state !== "complete" && analysis.state !== "failed";
+}
+
+function formatTimestamp(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function AnalysisSmokeView({ analysisId }: { analysisId: string }) {

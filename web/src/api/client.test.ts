@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createDokoDetectorClient,
+  recordingAnalysisPath,
   repositoryBundleVideoPath,
   roundAnalysisFramePath,
   roundCounterfactualPath,
@@ -9,6 +10,32 @@ import {
 } from "./client";
 
 describe("DokoDetector API client", () => {
+  it("lists recordings and starts a recording analysis", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ recordings: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.listRecordings();
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe("/v1/recordings");
+    expect(
+      new Headers(fetchImplementation.mock.calls[0]?.[1]?.headers).get(
+        "Accept",
+      ),
+    ).toBe("application/json");
+
+    await client.startRecordingAnalysis("recording/1");
+    expect(fetchImplementation.mock.calls[1]?.[0]).toBe(
+      recordingAnalysisPath("recording/1"),
+    );
+    expect(fetchImplementation.mock.calls[1]?.[1]?.method).toBe("POST");
+  });
+
   it("uses generated timeline types at the API boundary", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
