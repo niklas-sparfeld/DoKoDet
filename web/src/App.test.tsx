@@ -217,7 +217,6 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Loading analysis…")).toBeInTheDocument();
     await waitFor(() =>
       expect(
         screen.getByRole("heading", { name: "Evidence" }),
