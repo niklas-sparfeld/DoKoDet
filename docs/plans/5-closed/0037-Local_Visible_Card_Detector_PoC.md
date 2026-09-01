@@ -4,44 +4,70 @@
 
 - **Summary:** Fine-tune one local visible-card detector from cached Gemini proposals and run it as
   an alternative to Gemini visible-card detection in the normal round-analysis path.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** The operator reduced the completion boundary on 2026-09-01 to a real local
+  RF-DETR training smoke run that emits a loadable native checkpoint. A real backend run and a
+  useful detector are out of scope.
 - **Depends on:** Completed plans 0020, 0021, 0027, 0032, and 0034, and the implemented exact-event,
   visible-card provider, and observation contracts from plan 0022
 - **Builds on:** Plan 0022 exact-event frames and cached Gemini visible-card result artifacts
-- **Outcome:** Prove one complete path from pseudo-label materialization through CUDA fine-tuning,
-  bundle loading, local inference, backend selection, and persisted table observation. Detection
-  quality is not an acceptance condition.
+- **Outcome:** Prove that the native RF-DETR training stack can train locally and emit a loadable
+  checkpoint. Preserve the fixture-tested dataset, bundle, provider, and backend-selection
+  contracts for later work. Detection quality is not an acceptance condition.
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status
 
-- **M0:** Complete for the fixture path — add bounded COCO pseudo-label materialization, provenance
-  validation, and the frozen RF-DETR Large recipe. The real-data exercise waits for the required
-  exact-event extraction and cached-result inputs.
-- **M1:** Complete for the fixture path — add the pinned RF-DETR adapter, explicit training
-  arguments, failure receipts, and digest-checked native bundle. The real CUDA run waits for a
-  materialized real slice and mounted pretrained checkpoint.
-- **M2:** Complete for the fixture path — add the explicit-device local RF-DETR provider and
-  deterministic unavailable-result handling. A real CPU or MPS frame run waits for a materialized
-  bundle and native checkpoint.
-- **M3:** Complete for the fixture path — select the provider in the backend and persist one local
-  provider analysis. A real native local run waits for the trained bundle and checkpoint inputs.
+- **M0:** Complete — bounded COCO pseudo-label materialization, provenance validation, and the
+  frozen RF-DETR Large recipe are fixture-tested.
+- **M1:** Complete — the pinned adapter and bundle contracts are fixture-tested, and a real local
+  RF-DETR Large smoke run emitted a loadable `checkpoint_best_total.pth` on MPS.
+- **M2:** Complete for the contract path — the explicit-device local RF-DETR provider and
+  deterministic unavailable-result handling are fixture-tested. Real provider inference is out of
+  scope for this revision.
+- **M3:** Complete for the contract path — backend provider selection and persistence are
+  fixture-tested. A real local-provider backend run is out of scope for this revision.
 
-## 1. Purpose
+## 0. Scope revision — 2026-09-01
+
+The original plan required CUDA fine-tuning, native provider inference, and one real backend run.
+The operator reduced the proof boundary to local training capability. The accepted proof is one
+real RF-DETR Large run on the target Mac that emits a native checkpoint. The checkpoint does not
+need useful detector quality. A real backend run will happen later and is not part of this epic.
+
+The smoke run used RF-DETR Large initialized from scratch, two training images, one validation
+image, four unreviewed Gemini boxes, 224 × 224 input, one epoch, and MPS. It completed five training
+batches with finite loss and validation AP `0.0`. RF-DETR emitted and reloaded:
+
+`backend/data/outputs/visible-card-local-smoke-20260901/training-mps-v2/checkpoint_best_total.pth`
+
+- size: `132026135` bytes;
+- SHA-256: `f3209fd36b5b270a57a76827660c580186fb4a1ee45acc18a82463eaa53e399d`;
+- quality state: `unusable_smoke_artifact`;
+- run receipt: `backend/data/outputs/visible-card-local-smoke-20260901/run.json`.
+
+The runtime artifact is ignored by Git. The digest and relative path make the local proof
+auditable without treating the checkpoint as a versioned model or promotion candidate.
+
+## 1. Original purpose
 
 Add `LocalVisibleCardProvider` as a peer of `GeminiVisibleCardProvider`. Select the visible-card
 provider through backend configuration. Keep Gemini as the default provider and keep the existing
 Gemini visual card identity classifier in both modes. This plan changes card finding only.
 
-The proof of concept succeeds when one fine-tuned local bundle loads on the target Mac and one real
-evidence package reaches a terminal result through the normal backend worker and persistence path.
+The original proof condition required one fine-tuned local bundle to load on the target Mac and one
+real evidence package to reach a terminal result through the normal backend worker and persistence path.
 The result can contain bad boxes, no boxes, or insufficient evidence.
+
+The 2026-09-01 scope revision replaced this completion condition with the local training smoke
+condition in section 0.
 
 Gemini boxes are proposals, not ground truth. The reviewed `card_played` event supplies the trusted
 event time. Gemini supplies pseudo-label boxes for the frame at that time. Plan 0038 owns human box
 review and the first quality comparison.
 
-## 2. Model choice
+## 2. Original model choice
 
 Use `RFDETRLarge` from `rfdetr==1.9.4` with the official `rf-detr-large.pth` pretrained checkpoint:
 
@@ -67,7 +93,7 @@ See the [RF-DETR paper](https://arxiv.org/abs/2511.09554),
 Pin the full dependency set in the package lock. Record the pretrained checkpoint digest. Tests
 must use generated data and local test doubles. They must not download model weights.
 
-## 3. PoC scope
+## 3. Original PoC scope
 
 The plan includes only:
 

@@ -56,7 +56,7 @@ def test_fixture_training_maps_dataset_and_writes_validated_bundle(tmp_path: Pat
         "evidence": ["losses.json"],
     }
     assert record["checkpoint"]["weights_differ"] is True
-    assert record["training_arguments"]["dataset_file"] == "coco"
+    assert record["training_arguments"]["dataset_file"] == "roboflow"
     assert record["training_arguments"]["epochs"] == 20
     assert record["training_arguments"]["resolution"] == 704
     assert record["training_arguments"]["device"] == "cuda:0"

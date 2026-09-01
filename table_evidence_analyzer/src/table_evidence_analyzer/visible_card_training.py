@@ -348,7 +348,9 @@ def _training_arguments(
 ) -> dict[str, Any]:
     return {
         "dataset_dir": str(staged_dataset),
-        "dataset_file": "coco",
+        # RF-DETR calls its train/valid directory layout "roboflow".  The
+        # annotations inside that layout are still COCO JSON.
+        "dataset_file": "roboflow",
         "output_dir": str(training_output),
         "epochs": recipe["epochs"],
         "resolution": recipe["input_size"][0],

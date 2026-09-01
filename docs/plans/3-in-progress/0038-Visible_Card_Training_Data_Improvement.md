@@ -30,6 +30,8 @@
 - **M4:** Complete for the local targeted-round contract path — measured failure selection,
   bounded reviewed-batch lineage, augmented-run identity, and unchanged evaluation are enforced.
   A real targeted round waits for the plan 0037 native artifacts and a real M3 report.
+- **M5:** Pending — render paired v1 and v2 proposal results for fast box-level human review. This
+  milestone does not add polygon editing.
 
 ## 1. Purpose
 
@@ -323,12 +325,35 @@ Acceptance:
   targeted review batch, retraining run, model campaign, candidate lock, sealed test, or
   promotion was started.
 
+### M5 — Render the paired prompt review
+
+Add a local renderer for the bounded Gemini prompt pilot. For each pilot frame, render the source
+image with the v1 proposals and the same source image with the v2 proposals. Put the two results
+side by side. Show the request version, provider status, proposal count, labels, and boxes. Write a
+machine-readable index that binds each rendered file to the source-frame digest and both immutable
+result digests.
+
+The renderer supports fast box-level review of misses, false proposals, loose boxes, inferred
+hidden extent, and obvious crop contamination. It does not edit polygons, write review decisions,
+call Gemini, change cached results, or create reviewed reference data.
+
+Acceptance:
+
+- one command renders all frames in a `visible-card-prompt-pilot/v1` report;
+- each output compares v1 and v2 on the same source bytes;
+- unavailable and empty results remain visually distinct;
+- output order and the index are deterministic;
+- the index records source, request, result, and rendered-file digests;
+- fixture tests cover one paired result, an empty result, and an unavailable result; and
+- the renderer makes no quality claim and does not satisfy a reviewed-reference contract.
+
 ## 6. Start and completion
 
 M0 can start from the completed plan 0037 request, dataset, recipe, and provider contracts. M3 must
 wait for plan 0037 to record its first real pseudo-label dataset, native bundle, and end-to-end
 result. Do not substitute fixture artifacts for the real comparison.
 
-Complete this epic after M4 publishes the reviewed datasets, crop evidence, and detector
-comparison. A quality improvement is desirable but is not required. Clear evidence that the prompt,
-label, crop, or targeted data change did not help is also a valid outcome.
+For the current bounded iteration, complete this epic after M5 provides the paired prompt-review
+renderer and its fixture evidence. Real polygon review, reviewed detector training, crop
+evaluation, and targeted retraining remain deferred. A later epic can select those activities when
+the operator wants to start human geometry review.

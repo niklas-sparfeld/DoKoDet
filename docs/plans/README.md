@@ -54,9 +54,8 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0037 — Local visible-card detector end-to-end PoC](3-in-progress/0037-Local_Visible_Card_Detector_PoC.md) | Completed data, analyzer, and backend foundations | Fine-tune one RF-DETR Large detector from Gemini proposals and prove the local provider in the normal configurable backend path. M3 fixture path complete; real native bundle run pending inputs. |
 | [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
-| [0038 — Visible-card training-data improvement](3-in-progress/0038-Visible_Card_Training_Data_Improvement.md) | 0037 contracts; real artifacts before M3 | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M4 local contract paths complete; real review, detector, and targeted-data evidence remain. |
+| [0038 — Visible-card training-data improvement](3-in-progress/0038-Visible_Card_Training_Data_Improvement.md) | 0037 contracts | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M4 contract paths complete; M5 paired prompt-review renderer pending. |
 
 ### Blocked
 
@@ -68,6 +67,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0037 — Local visible-card detector end-to-end PoC](5-closed/0037-Local_Visible_Card_Detector_PoC.md) | Complete | Prove local RF-DETR training with a real loadable smoke checkpoint, and preserve fixture-tested provider and backend contracts. Real backend execution is out of scope. |
 | [0033 — Round analysis timeline and counterfactual explorer](5-closed/0033-Round_Analysis_Timeline.md) | Complete | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M8 complete. |
 | [0034 — Gemini round analysis integration](5-closed/0034-Gemini_Round_Analysis_Integration.md) | Complete | Make the normal round-analysis backend use Gemini for every evidence package and require its runtime credential. |
 | [0032 — Round recording analysis PoC](5-closed/0032-Round_Recording_Analysis_PoC.md) | Complete | Use one iOS recording to create the complete video and its evidence packages; M0–M5 provide the reusable backend boundary, durable analysis lifecycle, worker, APIs, runtime artifacts, unified iOS recording boundary, upload gating, durable submission, polling, concise result UI, deterministic fixtures, and local flow documentation. |
@@ -102,10 +102,11 @@ The shared target architecture is
 
 ## Near-term delivery sequence
 
-1. Implement 0037 to prove the local visible-card detector path without a quality requirement.
-2. Start 0038 M0 from the frozen 0037 contracts. Improve the Gemini visible-region instructions,
-   review visible regions, and derive detector boxes before changing the detector architecture.
-   Run the real detector comparison only after 0037 records its native artifacts.
+1. Plan 0037 is complete. Its real local RF-DETR smoke run proves training capability without a
+   quality claim. Real local-provider backend execution remains out of scope.
+2. Implement 0038 M5 to render the paired Gemini prompt review. Defer polygon review, reviewed
+   detector training, crop evaluation, and targeted retraining until the operator selects that
+   work.
 3. Implement 0039 M0 through M3 to make new iOS recordings discoverable and complete CardEvent
    review in the web app. Implement its bounded M4 development-partition assignment only after the
    review path is usable end to end.
