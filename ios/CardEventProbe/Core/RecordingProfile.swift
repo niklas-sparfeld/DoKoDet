@@ -185,9 +185,9 @@ public struct RecordingProfile: Codable, Equatable, Identifiable, Sendable {
                 RecordingProfileValidationIssue(field: .name, message: "Enter a profile name.")
             )
         }
-        if tags.isEmpty || tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+        if tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
             issues.append(
-                RecordingProfileValidationIssue(field: .tags, message: "Add at least one tag.")
+                RecordingProfileValidationIssue(field: .tags, message: "Tags must not contain blank entries.")
             )
         } else if tags.count != Set(tags).count {
             issues.append(

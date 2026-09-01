@@ -58,10 +58,12 @@ final class RecordingProfileTests: XCTestCase {
         XCTAssertFalse(profile.isComplete)
         XCTAssertEqual(
             Set(profile.validationIssues.map(\.field)),
-            Set([.name, .tags])
+            Set([.name])
         )
 
         profile.name = "Kitchen overhead"
+        XCTAssertTrue(profile.isComplete)
+
         profile.tags = ["staged", "staged"]
         XCTAssertTrue(profile.validationIssues.contains { $0.field == .tags })
 
