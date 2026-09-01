@@ -14,6 +14,8 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "data" in help_text
     assert "train" in help_text
     assert "train-dinov3-identity" in help_text
+    assert "export-dinov3-identity" in help_text
+    assert "classify-dinov3-identity" in help_text
     assert "evaluate" in help_text
     assert "export" in help_text
     assert "classify-crop" in help_text
@@ -84,6 +86,43 @@ def test_dinov3_training_parser_has_explicit_local_inputs() -> None:
     assert args.weights_root == Path("weights")
     assert args.output == Path("run")
     assert args.device == "mps"
+
+
+def test_dinov3_bundle_commands_have_explicit_paths_and_device() -> None:
+    export_args = build_parser().parse_args(
+        [
+            "export-dinov3-identity",
+            "--run",
+            "run",
+            "--output",
+            "bundle",
+            "--identity-config",
+            "identity.json",
+            "--weights-root",
+            "weights",
+        ]
+    )
+    classify_args = build_parser().parse_args(
+        [
+            "classify-dinov3-identity",
+            "--bundle",
+            "bundle",
+            "--image",
+            "crop.ppm",
+            "--device",
+            "mps",
+        ]
+    )
+
+    assert export_args.command == "export-dinov3-identity"
+    assert export_args.run == Path("run")
+    assert export_args.output == Path("bundle")
+    assert export_args.identity_config == Path("identity.json")
+    assert export_args.weights_root == Path("weights")
+    assert classify_args.command == "classify-dinov3-identity"
+    assert classify_args.bundle == Path("bundle")
+    assert classify_args.image == Path("crop.ppm")
+    assert classify_args.device == "mps"
 
 
 def test_visible_card_prompt_pilot_command_writes_paired_report(tmp_path: Path) -> None:

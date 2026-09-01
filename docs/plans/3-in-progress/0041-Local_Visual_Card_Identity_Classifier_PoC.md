@@ -20,7 +20,7 @@
 
 - **M0:** Complete — freeze the model, license, crop, target, and run contracts.
 - **M1:** Complete — train one local smoke classifier and preserve its run record.
-- **M2:** Not started — export and load one native local identity bundle.
+- **M2:** Complete — export and load one native local identity bundle.
 - **M3:** Not started — select the local classifier explicitly in the backend and run one proof.
 
 ## 1. Purpose
@@ -151,6 +151,16 @@ Acceptance:
 - MPS inference runs when available and never falls back silently;
 - corrupt weights, target-map mismatch, invalid input, and inference failure are explicit; and
 - the bundle claims only visual card identity candidates and remains uncalibrated.
+
+Progress (2026-09-01): M2 is complete. Added a self-contained `dinov3-identity-bundle/v1`
+export with the verified encoder files, processor file, frozen 24-class target map, trained linear
+head, license and identity manifest, source checkpoint provenance, and per-file digests. Added a
+training-free runtime adapter with explicit CPU, MPS, and CUDA selection, digest validation before
+model construction, deterministic normalized ranked candidates through `CardIdentityClassifier`,
+and explicit invalid-input and inference-failure results. Added export and local-classification CLI
+commands. Generated tests cover bundle round trips, corruption, target-map mismatch, deterministic
+CPU output, inference failure, and the available MPS path. No gated weights or network access were
+used.
 
 ### M3 — Prove the backend boundary
 

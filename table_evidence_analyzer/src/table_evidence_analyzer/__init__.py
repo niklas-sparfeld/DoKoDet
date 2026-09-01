@@ -22,6 +22,19 @@ from table_evidence_analyzer.cards import (
     load_card_set,
     load_deck_manifest,
 )
+from table_evidence_analyzer.dinov3_bundle import (
+    DINOV3_HEAD_SCHEMA,
+    DinoV3BundleError,
+    DinoV3IdentityBundle,
+    export_dinov3_identity_bundle,
+    load_dinov3_identity_bundle,
+)
+from table_evidence_analyzer.dinov3_inference import (
+    DINOV3_RUNTIME_DEVICES,
+    DINOV3_RUNTIME_VERSION,
+    DinoV3IdentityClassifier,
+    DinoV3InferenceError,
+)
 from table_evidence_analyzer.identity import (
     IDENTITY_EVALUATION_SCHEMA,
     IDENTITY_FEATURE_SCHEMA,
@@ -390,6 +403,15 @@ __all__ = [
     "validate_identity_target_map",
     "validate_materialized_dinov3_weights",
     "verify_materialized_dinov3_weights",
+    "DINOV3_HEAD_SCHEMA",
+    "DINOV3_RUNTIME_DEVICES",
+    "DINOV3_RUNTIME_VERSION",
+    "DinoV3BundleError",
+    "DinoV3IdentityBundle",
+    "DinoV3IdentityClassifier",
+    "DinoV3InferenceError",
+    "export_dinov3_identity_bundle",
+    "load_dinov3_identity_bundle",
     "DEFAULT_ANALYZER_NAME",
     "DEFAULT_ANALYZER_VERSION",
     "OBSERVATION_ADAPTER_SCHEMA",

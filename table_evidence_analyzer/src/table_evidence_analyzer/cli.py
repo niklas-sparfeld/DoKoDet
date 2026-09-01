@@ -168,6 +168,37 @@ def build_parser() -> argparse.ArgumentParser:
     dinov3_train_parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="cpu")
     dinov3_train_parser.add_argument("--precision", choices=("fp32",), default="fp32")
 
+    dinov3_export_parser = commands.add_parser(
+        "export-dinov3-identity",
+        aliases=("export-local-identity",),
+        help="Export a trained local DINOv3 identity bundle.",
+        description=(
+            "Copy the verified local DINOv3 encoder, processor, target map, and trained linear "
+            "head into one self-contained bundle."
+        ),
+    )
+    dinov3_export_parser.add_argument("--run", type=Path, required=True)
+    dinov3_export_parser.add_argument("--output", type=Path, required=True)
+    dinov3_export_parser.add_argument(
+        "--identity-config",
+        type=Path,
+        help="Resolved identity config when the training run used an in-memory config.",
+    )
+    dinov3_export_parser.add_argument("--weights-root", type=Path)
+
+    dinov3_classify_parser = commands.add_parser(
+        "classify-dinov3-identity",
+        aliases=("classify-local-identity",),
+        help="Classify one crop with a local DINOv3 identity bundle.",
+        description=(
+            "Load a digest-checked local DINOv3 identity bundle and return normalized ranked "
+            "visual card identity candidates."
+        ),
+    )
+    dinov3_classify_parser.add_argument("--bundle", type=Path, required=True)
+    dinov3_classify_parser.add_argument("--image", type=Path, required=True)
+    dinov3_classify_parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="cpu")
+
     visible_card_train_parser = commands.add_parser(
         "train-visible-card-detector",
         aliases=("train-visible-card",),
@@ -605,6 +636,33 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(output)
+        return 0
+    if args.command in {"export-dinov3-identity", "export-local-identity"}:
+        from .dinov3_bundle import export_dinov3_identity_bundle
+
+        try:
+            output = export_dinov3_identity_bundle(
+                args.run,
+                args.output,
+                identity_config=args.identity_config,
+                weights_root=args.weights_root,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(output)
+        return 0
+    if args.command in {"classify-dinov3-identity", "classify-local-identity"}:
+        from .dinov3_inference import DinoV3IdentityClassifier
+
+        try:
+            result = DinoV3IdentityClassifier(args.bundle, device=args.device).classify_ppm(
+                args.image.read_bytes()
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        if result.status == "unavailable":
+            parser.exit(1, f"error: {result.error or 'DINOv3 inference was unavailable'}\n")
+        print(json.dumps([candidate.model_dump(mode="json") for candidate in result.candidates]))
         return 0
     from .training import evaluate, load_config, train
 
