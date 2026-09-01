@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    base: "/round-analyses/",
+    base: "/",
     server: {
       proxy: {
         "/v1": {

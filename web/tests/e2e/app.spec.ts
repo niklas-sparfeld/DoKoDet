@@ -5,6 +5,7 @@ import {
   ambiguousStatus,
   ambiguousTimeline,
   changedCounterfactualResponse,
+  emptyRecordingDetail,
   impossibleStatus,
   impossibleTimeline,
   incompleteStatus,
@@ -18,12 +19,44 @@ test("loads the frontend foundation shell", async ({ page }) => {
   await page.goto("/");
 
   await expect(page).toHaveTitle("DokoDetector");
-  await expect(
-    page.getByRole("heading", { name: "Round analysis timeline" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recordings" })).toBeVisible();
 });
 
 test.beforeEach(async ({ page }) => {
+  const recordingSummary = {
+    recording_id: emptyRecordingDetail.recording_id,
+    source_asset_id: emptyRecordingDetail.source_asset_id,
+    video_id: emptyRecordingDetail.video_id,
+    session_id: emptyRecordingDetail.session_id,
+    state: emptyRecordingDetail.state,
+    source_sha256: emptyRecordingDetail.source_sha256,
+    received_at: emptyRecordingDetail.received_at,
+    round_id: emptyRecordingDetail.round_id,
+    evidence_package_ids: [],
+    analyses: [],
+    can_start_analysis: true,
+    analysis_blocker: null,
+  };
+  await page.route("**/v1/recordings", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ recordings: [recordingSummary] }),
+    });
+  });
+  await page.route("**/v1/recordings/**", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        contentType: "application/json",
+        status: 202,
+        body: JSON.stringify(resolvedStatus),
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(emptyRecordingDetail),
+    });
+  });
   await page.route("**/v1/round-analyses/**", async (route) => {
     const fixture = new URL(page.url()).searchParams.get("fixture");
     const variants = {
@@ -62,6 +95,32 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify(status),
     });
   });
+});
+
+test("opens a recording detail page from the catalog", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("link", { name: "Open recording" }).click();
+
+  await expect(page).toHaveURL("/recordings/recording-detail-1");
+  await expect(
+    page.getByRole("heading", { name: "Recording details" }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Source recording recording-detail-1"),
+  ).toHaveAttribute("src", "/v1/repository-bundles/recording-detail-1/video");
+  await expect(
+    page.getByRole("heading", { name: "Card events" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("No CardEvent review has been started."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Training use" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Round analyses" }),
+  ).toBeVisible();
 });
 
 test("renders a resolved analysis in synchronized desktop columns", async ({
@@ -114,7 +173,7 @@ test("renders a resolved analysis in synchronized desktop columns", async ({
   const scriptSource = await page
     .locator('script[type="module"]')
     .getAttribute("src");
-  expect(scriptSource).toMatch(/^\/round-analyses\/assets\/index-[^/]+\.js$/);
+  expect(scriptSource).toMatch(/^\/assets\/index-[^/]+\.js$/);
 });
 
 test("restores deep links and moves the selected row with keyboard navigation", async ({

@@ -1,4 +1,5 @@
 import type {
+  RecordingDetail,
   RoundAnalysisStatus,
   RoundAnalysisTimeline,
   RoundCounterfactualResponse,
@@ -7,6 +8,62 @@ import type {
 export const ANALYSIS_ID = "550e8400-e29b-41d4-a716-446655440033";
 
 const PACKAGE_ID = "550e8400-e29b-41d4-a716-446655440035";
+
+export const emptyRecordingDetail = {
+  recording_id: "recording-detail-1",
+  source_asset_id: "source-detail-1",
+  video_id: "video-detail-1",
+  session_id: "550e8400-e29b-41d4-a716-446655440034",
+  state: "complete",
+  source_sha256: "a".repeat(64),
+  received_at: "2026-09-01T07:20:46Z",
+  round_id: "round-detail-1",
+  source: {
+    original_filename: "recording-detail-1.mov",
+    acquisition_method: "ios_upload",
+    source_permission: "training_only",
+    allowed_uses: ["training"],
+    session_id: "550e8400-e29b-41d4-a716-446655440034",
+    recording_id: "recording-detail-1",
+    video_id: "video-detail-1",
+    game_id: "game-detail-1",
+    round_id: "round-detail-1",
+    table_setup: "four_players",
+    content_type: "video/quicktime",
+    retention_state: "active",
+    notes: null,
+  },
+  video: {
+    url: "/v1/repository-bundles/recording-detail-1/video",
+    content_type: "video/quicktime",
+    media_facts: {
+      container: "mov",
+      video_codec: "h264",
+      width: 1920,
+      height: 1080,
+      nominal_frame_rate: 30,
+      duration_ms: 12500,
+      frame_count: 375,
+    },
+  },
+  evidence_package_ids: [],
+  task_enrollments: [],
+  card_event_review: {
+    state: "not_started",
+    event_count: 0,
+    reviewed_at: null,
+  },
+  training_use: {
+    card_event_task: null,
+    eligibility: "not_enrolled",
+    development_partition: null,
+    blocker: "Select the CardEvent task before reviewing this recording.",
+  },
+  analyses: [],
+  can_start_analysis: true,
+  analysis_blocker: null,
+  next_action: "Resolve CardEvent task enrollment",
+} satisfies RecordingDetail;
 
 function observation(
   observationId: string,

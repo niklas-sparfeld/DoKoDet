@@ -7,6 +7,7 @@ import {
   ambiguousStatus,
   ambiguousTimeline,
   changedCounterfactualResponse,
+  emptyRecordingDetail,
   impossibleStatus,
   impossibleTimeline,
   incompleteStatus,
@@ -40,6 +41,73 @@ describe("App", () => {
     expect(
       await screen.findByRole("heading", { name: "Recordings" }),
     ).toBeInTheDocument();
+  });
+
+  it("opens a recording detail page with source playback and stable empty states", async () => {
+    window.history.pushState({}, "", "/recordings/recording-detail-1");
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(resolvedStatus), {
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(emptyRecordingDetail), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Recording details" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Source recording recording-detail-1"),
+    ).toHaveAttribute("src", "/v1/repository-bundles/recording-detail-1/video");
+    expect(
+      screen.getByRole("heading", { name: "Card events" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No CardEvent review has been started."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Training use" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Select the CardEvent task before reviewing this recording.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Round analyses" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No analyses have been started. This does not block CardEvent review.",
+      ),
+    ).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole("button", { name: "Start new analysis" }),
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/v1/recordings/recording-detail-1/round-analyses",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      `Analysis ${resolvedStatus.analysis_id} was queued.`,
+    );
   });
 
   it("starts an analysis and links existing analyses for a recording", async () => {
@@ -92,6 +160,9 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Open timeline")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open recording" }),
+    ).toHaveAttribute("href", "/recordings/recording-1");
     expect(screen.getByText("Result:")).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(
