@@ -138,6 +138,101 @@ def _write_source_record(app: object) -> None:
             }
         )
     )
+    (bundle_path / "initial-task-enrollment.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "task-enrollment/v1",
+                "source_asset_id": "source-round-analysis",
+                "enrollments": [
+                    {
+                        "task_enrollment_id": "enrollment-round-analysis-cardevent",
+                        "task": "cardevent_event_detection",
+                        "disposition": "selected",
+                        "lifecycle_state": "intake",
+                        "operator": "test-operator",
+                        "created_at_utc": "2026-09-01T07:20:00Z",
+                        "reason": None,
+                    },
+                    {
+                        "task_enrollment_id": "enrollment-round-analysis-table",
+                        "task": "table_evidence_analysis",
+                        "disposition": "selected",
+                        "lifecycle_state": "intake",
+                        "operator": "test-operator",
+                        "created_at_utc": "2026-09-01T07:20:00Z",
+                        "reason": None,
+                    },
+                ],
+            }
+        )
+    )
+
+
+def test_recording_detail_projects_source_video_and_workflow(
+    backend_tmp_path: Path,
+) -> None:
+    client, app = _backend(backend_tmp_path)
+    _write_source_record(app)
+    package_id = _upload_linked_package(client)
+
+    response = client.get(f"/v1/recordings/{RECORDING_ID}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["recording_id"] == RECORDING_ID
+    assert body["source_asset_id"] == "source-round-analysis"
+    assert body["round_id"] == "round-round-analysis"
+    assert body["evidence_package_ids"] == [package_id]
+    assert body["source"] == {
+        "original_filename": "round.mov",
+        "acquisition_method": "test",
+        "source_permission": "project_use",
+        "allowed_uses": ["evaluation"],
+        "session_id": SESSION_ID,
+        "recording_id": RECORDING_ID,
+        "video_id": "video-round-analysis",
+        "game_id": "game-round-analysis",
+        "round_id": "round-round-analysis",
+        "table_setup": "default-table",
+        "content_type": "real_game",
+        "retention_state": "active",
+        "notes": None,
+    }
+    assert body["video"] == {
+        "url": f"/v1/repository-bundles/{RECORDING_ID}/video",
+        "content_type": "video/quicktime",
+        "media_facts": None,
+    }
+    assert {item["task"] for item in body["task_enrollments"]} == {
+        "cardevent_event_detection",
+        "table_evidence_analysis",
+    }
+    assert body["card_event_review"] == {
+        "state": "not_started",
+        "event_count": 0,
+        "reviewed_at": None,
+    }
+    assert body["training_use"] == {
+        "card_event_task": next(
+            item for item in body["task_enrollments"] if item["task"] == "cardevent_event_detection"
+        ),
+        "eligibility": "review_required",
+        "development_partition": None,
+        "blocker": "Complete the full recording CardEvent review before training use.",
+    }
+    assert body["analyses"] == []
+    assert body["next_action"] == "Review CardEvent events"
+
+
+def test_recording_detail_returns_not_found_for_unknown_recording(
+    backend_tmp_path: Path,
+) -> None:
+    client, _ = _backend(backend_tmp_path)
+
+    response = client.get("/v1/recordings/recording-missing")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "recording_not_found"
 
 
 def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path) -> None:

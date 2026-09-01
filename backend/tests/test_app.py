@@ -29,7 +29,9 @@ def test_health_routes_report_process_status() -> None:
     assert client.get("/health/ready").json() == {"status": "ok"}
 
 
-def test_packaged_frontend_serves_entry_route_and_hashed_assets(tmp_path: Path) -> None:
+def test_packaged_frontend_serves_catalog_recording_route_and_hashed_assets(
+    tmp_path: Path,
+) -> None:
     frontend_dist = tmp_path / "frontend-dist"
     assets = frontend_dist / "assets"
     assets.mkdir(parents=True)
@@ -52,19 +54,22 @@ def test_packaged_frontend_serves_entry_route_and_hashed_assets(tmp_path: Path) 
 
     client = TestClient(create_test_app(settings))
 
-    catalog = client.get("/round-analyses/")
-    entry = client.get("/round-analyses/550e8400-e29b-41d4-a716-446655440033")
-    refresh = client.get("/round-analyses/550e8400-e29b-41d4-a716-446655440033")
+    catalog = client.get("/")
+    entry = client.get("/recordings/550e8400-e29b-41d4-a716-446655440033")
+    refresh = client.get("/recordings/550e8400-e29b-41d4-a716-446655440033")
     asset = client.get("/round-analyses/assets/index-test.js")
+    root_asset = client.get("/assets/index-test.js")
 
     assert catalog.status_code == 200
     assert catalog.headers["content-type"].startswith("text/html")
     assert entry.status_code == 200
     assert entry.headers["content-type"].startswith("text/html")
-    assert "id=\"root\"" in entry.text
+    assert 'id="root"' in entry.text
     assert refresh.status_code == 200
     assert asset.status_code == 200
     assert asset.text == "console.log('smoke');"
+    assert root_asset.status_code == 200
+    assert root_asset.text == asset.text
 
 
 def test_readiness_reports_an_unusable_evidence_directory(tmp_path) -> None:

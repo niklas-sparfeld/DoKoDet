@@ -12,6 +12,9 @@ export type RoundAnalysisStatus = JsonResponse<
 export type RecordingListResponse = JsonResponse<
   paths["/v1/recordings"]["get"]["responses"][200]
 >;
+export type RecordingDetail = JsonResponse<
+  paths["/v1/recordings/{recording_id}"]["get"]["responses"][200]
+>;
 export type RecordingSummary = RecordingListResponse["recordings"][number];
 export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
 export type RoundAnalysisTimeline = JsonResponse<
@@ -37,6 +40,10 @@ export class ApiError extends Error {
 
 export interface DokoDetectorClient {
   listRecordings(init?: RequestInit): Promise<RecordingListResponse>;
+  getRecording(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<RecordingDetail>;
   startRecordingAnalysis(
     recordingId: string,
     init?: RequestInit,
@@ -75,6 +82,12 @@ export function createDokoDetectorClient(
       requestJson<RecordingListResponse>(
         fetchImplementation,
         recordingsPath(),
+        init,
+      ),
+    getRecording: (recordingId, init) =>
+      requestJson<RecordingDetail>(
+        fetchImplementation,
+        recordingDetailPath(recordingId),
         init,
       ),
     startRecordingAnalysis: (recordingId, init) =>
@@ -139,6 +152,10 @@ export function repositoryBundleVideoPath(recordingId: string): string {
 
 export function recordingAnalysisPath(recordingId: string): string {
   return `/v1/recordings/${encodeURIComponent(recordingId)}/round-analyses`;
+}
+
+export function recordingDetailPath(recordingId: string): string {
+  return `/v1/recordings/${encodeURIComponent(recordingId)}`;
 }
 
 function recordingsPath(): string {

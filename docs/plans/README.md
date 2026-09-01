@@ -48,13 +48,14 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0039 — Web recording data workspace](2-ready/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | Open every recording as the primary web resource, complete CardEvent review, and assign eligible development leakage groups. |
+| None | — | — |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
+| [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 in progress: make recording detail the stable web resource and nest optional analyses in it. |
 
 ### Blocked
 

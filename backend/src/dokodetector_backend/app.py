@@ -198,6 +198,32 @@ def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
         StaticFiles(directory=assets),
         name="frontend-assets",
     )
+    app.mount(
+        "/assets",
+        StaticFiles(directory=assets),
+        name="frontend-assets-root",
+    )
+
+    @app.get("/", include_in_schema=False)
+    def frontend_root() -> FileResponse:
+        """Return the SPA entry document for the recording catalog."""
+
+        return FileResponse(
+            entrypoint,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    @app.get("/recordings/{recording_id}", include_in_schema=False)
+    def frontend_recording(recording_id: str) -> FileResponse:
+        """Return the SPA entry document for a direct recording load or refresh."""
+
+        del recording_id
+        return FileResponse(
+            entrypoint,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/round-analyses/", include_in_schema=False)
     def frontend_catalog() -> FileResponse:

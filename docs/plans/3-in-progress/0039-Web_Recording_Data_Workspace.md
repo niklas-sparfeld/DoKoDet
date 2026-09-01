@@ -4,7 +4,7 @@
 
 - **Summary:** Make the recording the primary web resource and support complete CardEventNet event
   review plus bounded development-partition assignment.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed plans 0020, 0027, 0032, and 0033
 - **Related:** Plan 0038 owns the current visible-card geometry contracts. Plan 0026 owns later
   reconstruction correction.
@@ -17,7 +17,7 @@
 
 ## Milestone status
 
-- **M0:** Ready — make recording detail the stable web route and nest optional analyses in it.
+- **M0:** In Progress — make recording detail the stable web route and nest optional analyses in it.
 - **M1:** Pending — add a source-linked, conflict-safe CardEvent annotation workspace API.
 - **M2:** Pending — add the video and timeline event editor.
 - **M3:** Pending — complete and revise a full-recording review with clear workflow guidance.

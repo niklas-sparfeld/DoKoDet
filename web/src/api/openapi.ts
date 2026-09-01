@@ -152,6 +152,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recordings/{recording_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recording
+         * @description Return one strict recording projection for the web workspace.
+         */
+        get: operations["get_recording_v1_recordings__recording_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/round-analyses": {
         parameters: {
             query?: never;
@@ -645,12 +665,117 @@ export interface components {
             total_evidence_packages: number;
         };
         /**
+         * RecordingCardEventReviewSummary
+         * @description Current CardEvent review placeholder until the review workspace exists.
+         */
+        RecordingCardEventReviewSummary: {
+            /** Event Count */
+            event_count: number;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** State */
+            state: string;
+        };
+        /**
+         * RecordingDetailResponse
+         * @description Strict recording resource projection for the web workspace.
+         */
+        RecordingDetailResponse: {
+            /** Analyses */
+            analyses: components["schemas"]["RecordingAnalysisSummary"][];
+            /** Analysis Blocker */
+            analysis_blocker: string | null;
+            /** Can Start Analysis */
+            can_start_analysis: boolean;
+            card_event_review: components["schemas"]["RecordingCardEventReviewSummary"];
+            /** Evidence Package Ids */
+            evidence_package_ids: string[];
+            /** Next Action */
+            next_action: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Recording Id */
+            recording_id: string;
+            /** Round Id */
+            round_id: string;
+            /** Session Id */
+            session_id: string;
+            source: components["schemas"]["RecordingSourceResponse"];
+            /** Source Asset Id */
+            source_asset_id: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** State */
+            state: string;
+            /** Task Enrollments */
+            task_enrollments: components["schemas"]["RecordingTaskEnrollmentResponse"][];
+            training_use: components["schemas"]["RecordingTrainingUseSummary"];
+            video: components["schemas"]["RecordingVideoResponse"];
+            /** Video Id */
+            video_id: string;
+        };
+        /**
          * RecordingListResponse
          * @description Recording catalog response.
          */
         RecordingListResponse: {
             /** Recordings */
             recordings: components["schemas"]["RecordingSummary"][];
+        };
+        /**
+         * RecordingMediaFactsResponse
+         * @description Technical facts measured from the accepted source video when available.
+         */
+        RecordingMediaFactsResponse: {
+            /** Container */
+            container: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Frame Count */
+            frame_count: number;
+            /** Height */
+            height: number;
+            /** Nominal Frame Rate */
+            nominal_frame_rate: number;
+            /** Video Codec */
+            video_codec: string;
+            /** Width */
+            width: number;
+        };
+        /**
+         * RecordingSourceResponse
+         * @description Trusted metadata read from the immutable source record.
+         */
+        RecordingSourceResponse: {
+            /** Acquisition Method */
+            acquisition_method: string;
+            /** Allowed Uses */
+            allowed_uses: string[];
+            /** Content Type */
+            content_type: string | null;
+            /** Game Id */
+            game_id: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Original Filename */
+            original_filename: string;
+            /** Recording Id */
+            recording_id: string | null;
+            /** Retention State */
+            retention_state: string;
+            /** Round Id */
+            round_id: string | null;
+            /** Session Id */
+            session_id: string | null;
+            /** Source Permission */
+            source_permission: string;
+            /** Table Setup */
+            table_setup: string | null;
+            /** Video Id */
+            video_id: string | null;
         };
         /**
          * RecordingSummary
@@ -684,6 +809,59 @@ export interface components {
             state: string;
             /** Video Id */
             video_id: string;
+        };
+        /**
+         * RecordingTaskEnrollmentResponse
+         * @description One immutable initial data-task enrollment.
+         */
+        RecordingTaskEnrollmentResponse: {
+            /** Created At Utc */
+            created_at_utc: string;
+            /**
+             * Disposition
+             * @enum {string}
+             */
+            disposition: "selected" | "deferred" | "excluded";
+            /**
+             * Lifecycle State
+             * @enum {string}
+             */
+            lifecycle_state: "intake" | "annotating" | "review_required" | "reviewed" | "eligible" | "excluded" | "retired";
+            /** Operator */
+            operator: string;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Task
+             * @enum {string}
+             */
+            task: "cardevent_event_detection" | "table_evidence_analysis";
+            /** Task Enrollment Id */
+            task_enrollment_id: string;
+        };
+        /**
+         * RecordingTrainingUseSummary
+         * @description Current task-enrollment and development-use projection.
+         */
+        RecordingTrainingUseSummary: {
+            /** Blocker */
+            blocker: string | null;
+            card_event_task: components["schemas"]["RecordingTaskEnrollmentResponse"] | null;
+            /** Development Partition */
+            development_partition: string | null;
+            /** Eligibility */
+            eligibility: string;
+        };
+        /**
+         * RecordingVideoResponse
+         * @description The immutable source video and its optional local media probe.
+         */
+        RecordingVideoResponse: {
+            /** Content Type */
+            content_type: string;
+            media_facts: components["schemas"]["RecordingMediaFactsResponse"] | null;
+            /** Url */
+            url: string;
         };
         /**
          * RepositoryBundleFileResponse
@@ -1561,6 +1739,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordingListResponse"];
+                };
+            };
+        };
+    };
+    get_recording_v1_recordings__recording_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

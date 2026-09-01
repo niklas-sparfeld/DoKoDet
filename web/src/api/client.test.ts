@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createDokoDetectorClient,
   recordingAnalysisPath,
+  recordingDetailPath,
   repositoryBundleVideoPath,
   roundAnalysisFramePath,
   roundCounterfactualPath,
@@ -29,11 +30,16 @@ describe("DokoDetector API client", () => {
       ),
     ).toBe("application/json");
 
-    await client.startRecordingAnalysis("recording/1");
+    await client.getRecording("recording/1");
     expect(fetchImplementation.mock.calls[1]?.[0]).toBe(
+      recordingDetailPath("recording/1"),
+    );
+
+    await client.startRecordingAnalysis("recording/1");
+    expect(fetchImplementation.mock.calls[2]?.[0]).toBe(
       recordingAnalysisPath("recording/1"),
     );
-    expect(fetchImplementation.mock.calls[1]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[2]?.[1]?.method).toBe("POST");
   });
 
   it("uses generated timeline types at the API boundary", async () => {
@@ -95,6 +101,9 @@ describe("DokoDetector API client", () => {
   it("encodes the complete recording path", () => {
     expect(repositoryBundleVideoPath("recording/1")).toBe(
       "/v1/repository-bundles/recording%2F1/video",
+    );
+    expect(recordingDetailPath("recording/1")).toBe(
+      "/v1/recordings/recording%2F1",
     );
   });
 
