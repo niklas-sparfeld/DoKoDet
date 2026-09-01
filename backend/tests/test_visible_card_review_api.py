@@ -273,3 +273,88 @@ def test_ready_batch_exposes_queue_details_and_serves_owned_source_frames(tmp_pa
         direct = client.get(f"/v1/visible-card-reviews/{created['batch_id']}")
         assert direct.status_code == 200
         assert direct.json()["items"][0]["item_id"] == item["item_id"]
+
+
+def test_review_item_update_is_revision_safe(tmp_path: Path) -> None:
+    provider = _FlakyProvider()
+    app = _app(tmp_path, provider, _FixtureExtractor())
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/visible-card-review/preview", json={}
+        ).json()
+        created = client.post(
+            "/v1/recordings/recording-both/visible-card-review/batches",
+            json={
+                "preview_digest": preview["preview_digest"],
+                "request_digest": preview["request_digest"],
+            },
+        ).json()
+        _wait_for_batch(client, created["batch_id"])
+        client.post(f"/v1/visible-card-reviews/{created['batch_id']}/retry")
+        ready = _wait_for_batch(client, created["batch_id"])
+        item_id = ready["items"][0]["item_id"]
+        invalid_review = {
+            "status": "in_progress",
+            "decision": "GOOD",
+            "empty_frame": False,
+            "failure_tags": [],
+            "actions": [
+                {
+                    "card_id": "card-added-1",
+                    "action": "added",
+                    "proposal_index": None,
+                    "reviewed_card": {
+                        "card_id": "card-added-1",
+                        "visible_region": {
+                            "polygons": [
+                                [{"x": 100, "y": 100}, {"x": 200, "y": 200}, {"x": 300, "y": 300}]
+                            ]
+                        },
+                        "derived_box": {"y_min": 100, "x_min": 100, "y_max": 300, "x_max": 300},
+                        "identity_usability": {
+                            "usable": True,
+                            "reason": "sufficient_identity_evidence",
+                        },
+                        "side": "unknown",
+                        "failure_tags": [],
+                    },
+                }
+            ],
+            "reviewer": "fixture-operator",
+        }
+        invalid = client.put(
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/"
+            f"{item_id.replace(':', '%3A')}",
+            json={"expected_revision": 0, "review": invalid_review},
+        )
+        assert invalid.status_code == 422
+        assert invalid.json()["error"]["code"] == "visible_card_review_invalid"
+
+        review = {
+            "status": "reviewed",
+            "decision": "BAD",
+            "empty_frame": True,
+            "failure_tags": [],
+            "actions": [],
+            "reviewer": "fixture-operator",
+        }
+
+        saved = client.put(
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/"
+            f"{item_id.replace(':', '%3A')}",
+            json={"expected_revision": 0, "review": review},
+        )
+        assert saved.status_code == 200
+        assert saved.json()["revision"] == 1
+        assert saved.json()["items"][0]["review"]["status"] == "reviewed"
+
+        stale = client.put(
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/"
+            f"{item_id.replace(':', '%3A')}",
+            json={"expected_revision": 0, "review": review},
+        )
+        assert stale.status_code == 409
+        assert stale.json()["error"]["code"] == "visible_card_review_conflict"
+        current = client.get(f"/v1/visible-card-reviews/{created['batch_id']}").json()
+        assert current["revision"] == 1

@@ -232,6 +232,7 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     VISIBLE_CARD_REVIEW_QUEUE_SCHEMA,
     VisibleCardFrameReview,
     VisibleCardReviewAction,
+    VisibleCardReviewConflict,
     VisibleCardReviewWorkflowError,
     VisibleCardSourceLineage,
     VisibleCardTeacherLineage,
@@ -241,6 +242,7 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     load_visible_card_review_queue,
     record_card_action,
     record_frame_review,
+    update_frame_review,
     validate_completed_visible_card_review_queue,
 )
 from table_evidence_analyzer.visible_card_review_workflow import (
@@ -529,6 +531,7 @@ __all__ = [
     "VISIBLE_CARD_REVIEW_LINEAGE_SCHEMA",
     "VISIBLE_CARD_REVIEW_QUEUE_SCHEMA",
     "VisibleCardFrameReview",
+    "VisibleCardReviewConflict",
     "VisibleCardReviewAction",
     "VisibleCardReviewWorkflowError",
     "VisibleCardSourceLineage",
@@ -541,6 +544,7 @@ __all__ = [
     "load_visible_card_review_queue",
     "record_card_action",
     "record_frame_review",
+    "update_frame_review",
     "validate_completed_visible_card_review_queue",
     "MAX_SEED_SOURCE_GROUP_SHARE",
     "MINIMUM_SEED_SOURCE_GROUPS",

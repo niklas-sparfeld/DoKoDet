@@ -47,6 +47,8 @@ export type VisibleCardReviewCreateRequest =
 export type VisibleCardReviewBatch = JsonResponse<
   paths["/v1/visible-card-reviews/{batch_id}"]["get"]["responses"][200]
 >;
+export type VisibleCardReviewItemUpdateRequest =
+  components["schemas"]["VisibleCardReviewItemUpdateRequest"];
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -123,6 +125,12 @@ export interface DokoDetectorClient {
     itemId: string,
     init?: RequestInit,
   ): Promise<Blob>;
+  updateVisibleCardReviewItem(
+    batchId: string,
+    itemId: string,
+    payload: VisibleCardReviewItemUpdateRequest,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewBatch>;
   retryVisibleCardReviewBatch(
     batchId: string,
     init?: RequestInit,
@@ -278,6 +286,17 @@ export function createDokoDetectorClient(
       }
       return response.blob();
     },
+    updateVisibleCardReviewItem: (batchId, itemId, payload, init) =>
+      requestJson<VisibleCardReviewBatch>(
+        fetchImplementation,
+        visibleCardReviewItemPath(batchId, itemId),
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
     retryVisibleCardReviewBatch: (batchId, init) =>
       requestJson<VisibleCardReviewBatch>(
         fetchImplementation,
@@ -402,6 +421,13 @@ export function visibleCardReviewItemImagePath(
   itemId: string,
 ): string {
   return `${visibleCardReviewBatchPath(batchId)}/items/${encodeURIComponent(itemId)}/image`;
+}
+
+export function visibleCardReviewItemPath(
+  batchId: string,
+  itemId: string,
+): string {
+  return `${visibleCardReviewBatchPath(batchId)}/items/${encodeURIComponent(itemId)}`;
 }
 
 export function visibleCardReviewBatchRetryPath(batchId: string): string {

@@ -13,6 +13,7 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     load_visible_card_review_queue,
     record_card_action,
     record_frame_review,
+    update_frame_review,
     validate_completed_visible_card_review_queue,
 )
 from table_evidence_analyzer.visible_cards import (
@@ -120,6 +121,7 @@ def test_good_review_resumes_and_preserves_source_and_teacher_lineage(tmp_path: 
     validate_completed_visible_card_review_queue(completed)
 
     item = completed.items[0]
+    assert completed.revision == 4
     assert item.review.status == "reviewed"
     assert item.source.source_lineage_group == "session-001"
     assert item.source.frame_sha256 == item.teacher.request["image_sha256"]
@@ -304,3 +306,36 @@ def test_reviewed_card_fixture_round_trips_as_contract() -> None:
     card = ReviewedVisibleCard.from_mapping(_fixture("occluded_card")["reviewed_card"])
     assert card.identity_usability.usable is False
     assert card.failure_tags == ("occlusion", "human_hand")
+
+
+def test_full_frame_update_increments_revision_and_rejects_stale_writes(
+    tmp_path: Path,
+) -> None:
+    queue_path = _queue(tmp_path, {"cards": []}, package_id="revision-001")
+    review = {
+        "status": "reviewed",
+        "decision": "BAD",
+        "empty_frame": True,
+        "failure_tags": [],
+        "actions": [],
+        "reviewer": "operator",
+    }
+
+    updated = update_frame_review(
+        queue_path,
+        "revision-001:frame_00",
+        review,
+        expected_revision=0,
+    )
+
+    assert updated.revision == 1
+    assert updated.items[0].review.status == "reviewed"
+    before_stale_write = queue_path.read_bytes()
+    with pytest.raises(VisibleCardReviewWorkflowError, match="revision"):
+        update_frame_review(
+            queue_path,
+            "revision-001:frame_00",
+            review,
+            expected_revision=0,
+        )
+    assert queue_path.read_bytes() == before_stale_write

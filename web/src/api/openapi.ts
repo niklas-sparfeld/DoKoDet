@@ -576,6 +576,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/visible-card-reviews/{batch_id}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Visible Card Review Item
+         * @description Persist one complete frame review with an optimistic revision guard.
+         */
+        put: operations["update_visible_card_review_item_v1_visible_card_reviews__batch_id__items__item_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/visible-card-reviews/{batch_id}/items/{item_id}/image": {
         parameters: {
             query?: never;
@@ -2204,6 +2224,30 @@ export interface components {
             updated_at_utc: string | null;
         };
         /**
+         * VisibleCardFrameReviewUpdateRequest
+         * @description The reviewer-owned portion of one complete frame update.
+         */
+        VisibleCardFrameReviewUpdateRequest: {
+            /** Actions */
+            actions: components["schemas"]["VisibleCardReviewActionResponse"][];
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "GOOD" | "BAD";
+            /** Empty Frame */
+            empty_frame: boolean;
+            /** Failure Tags */
+            failure_tags: string[];
+            /** Reviewer */
+            reviewer: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_progress" | "reviewed";
+        };
+        /**
          * VisibleCardIdentityUsabilityResponse
          * @description Identity usability for one reviewed visible card.
          */
@@ -2276,6 +2320,15 @@ export interface components {
             preview_digest: string;
             /** Request Digest */
             request_digest: string;
+        };
+        /**
+         * VisibleCardReviewItemUpdateRequest
+         * @description One revision-guarded frame review replacement.
+         */
+        VisibleCardReviewItemUpdateRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            review: components["schemas"]["VisibleCardFrameReviewUpdateRequest"];
         };
         /**
          * VisibleCardReviewPreviewResponse
@@ -3342,6 +3395,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_visible_card_review_item_v1_visible_card_reviews__batch_id__items__item_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibleCardReviewItemUpdateRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

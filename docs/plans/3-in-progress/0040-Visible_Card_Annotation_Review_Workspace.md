@@ -25,7 +25,9 @@
   persisted progress, retry of failed items, and recording-page controls.
 - **M2:** Complete — show and navigate the persisted queue with source frames, finder proposals,
   lineage diagnostics, retry states, and a stable direct-load route.
-- **M3:** Not started — accept, correct, add, and remove visible-card annotations.
+- **M3:** Complete — revision-guarded frame outcomes, proposal actions, missed-card creation,
+  normalized polygon editing, derived boxes, review metadata, autosave retry, and conflict
+  feedback.
 - **M4:** Not started — complete and publish review with immutable lineage and downstream proof.
 
 ## 1. Purpose
@@ -322,6 +324,13 @@ Acceptance:
 - the page has no page-level horizontal scroll at `1440 x 900` and `390 x 844` CSS pixels.
 
 ### M3 — Add visible-region annotation and correction
+
+Status: Complete. The shared v2 queue now stores a monotonic revision and performs atomic,
+revision-guarded frame-review replacement. The API exposes complete item updates with conflict and
+validation errors. The workspace supports usable, reviewed-empty, and unusable frame outcomes,
+proposal accept/correct/remove actions, missed-card creation, disconnected polygons, derived boxes,
+side, identity usability, unusable reasons, frame and card failure tags, save retry, and conflict
+feedback.
 
 - Add the three frame outcomes and proposal accept, correct, and remove actions.
 - Add missed-card creation and the SVG polygon editor.

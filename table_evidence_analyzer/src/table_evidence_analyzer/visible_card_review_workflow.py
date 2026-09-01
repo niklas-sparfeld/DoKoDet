@@ -9,6 +9,7 @@ complete reviewed geometry.
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -40,6 +41,10 @@ REVIEW_CARD_ACTIONS = frozenset({"accepted", "reshaped", "added", "removed"})
 
 class VisibleCardReviewWorkflowError(VisibleCardError, ValueError):
     """Raised when a visible-card review queue cannot be safely changed or applied."""
+
+
+class VisibleCardReviewConflict(VisibleCardReviewWorkflowError):
+    """Raised when a revision-guarded review write is based on stale state."""
 
 
 def _canonical(value: Any) -> bytes:
@@ -492,6 +497,7 @@ class VisibleCardReviewQueue:
     run_id: str
     items: tuple[VisibleCardReviewItem, ...]
     created_at_utc: str
+    revision: int = 0
     schema_version: str = VISIBLE_CARD_REVIEW_QUEUE_SCHEMA
 
     def __post_init__(self) -> None:
@@ -499,6 +505,7 @@ class VisibleCardReviewQueue:
         if self.schema_version != VISIBLE_CARD_REVIEW_QUEUE_SCHEMA:
             raise VisibleCardReviewWorkflowError("unsupported visible-card review queue schema")
         _timestamp(self.created_at_utc, "created_at_utc")
+        _non_negative_int(self.revision, "revision")
         if len({item.item_id for item in self.items}) != len(self.items):
             raise VisibleCardReviewWorkflowError("review queue item IDs must be unique")
 
@@ -515,6 +522,7 @@ class VisibleCardReviewQueue:
             "schema_version": self.schema_version,
             "run_id": self.run_id,
             "created_at_utc": self.created_at_utc,
+            "revision": self.revision,
             "items": [item.to_mapping() for item in self.items],
         }
 
@@ -741,7 +749,7 @@ def load_visible_card_review_queue(path: str | Path) -> VisibleCardReviewQueue:
         raise VisibleCardReviewWorkflowError(
             f"could not read review queue: {queue_path}"
         ) from error
-    fields = {"schema_version", "run_id", "created_at_utc", "items"}
+    fields = {"schema_version", "run_id", "created_at_utc", "revision", "items"}
     if not isinstance(value, dict) or set(value) != fields:
         raise VisibleCardReviewWorkflowError("review queue has unexpected fields")
     if value["schema_version"] != VISIBLE_CARD_REVIEW_QUEUE_SCHEMA:
@@ -754,6 +762,7 @@ def load_visible_card_review_queue(path: str | Path) -> VisibleCardReviewQueue:
             run_id=value["run_id"],
             items=items,
             created_at_utc=value["created_at_utc"],
+            revision=value["revision"],
         )
     except (TypeError, ValueError, VisibleCardReviewWorkflowError) as error:
         raise VisibleCardReviewWorkflowError("review queue is invalid") from error
@@ -938,9 +947,112 @@ def _write_updated_item(
     items = tuple(
         updated_item if item.item_id == updated_item.item_id else item for item in queue.items
     )
-    result = replace(queue, items=items)
+    result = replace(queue, items=items, revision=queue.revision + 1)
     _atomic_write(Path(path), result.to_mapping())
     return result
+
+
+@contextlib.contextmanager
+def _queue_lock(path: Path):
+    """Serialize queue read-check-write operations without locking replaceable inodes."""
+
+    lock_path = path.with_name(f".{path.name}.lock")
+    with lock_path.open("a+", encoding="utf-8") as stream:
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+def _check_expected_revision(queue: VisibleCardReviewQueue, expected_revision: int) -> None:
+    _non_negative_int(expected_revision, "expected_revision")
+    if queue.revision != expected_revision:
+        raise VisibleCardReviewConflict(
+            f"review queue revision changed: expected {expected_revision}, current {queue.revision}"
+        )
+
+
+def _review_from_update(
+    value: Mapping[str, Any],
+    existing: VisibleCardFrameReview,
+    *,
+    run_id: str,
+    item_id: str,
+    proposal_count: int,
+    teacher_prediction: Mapping[str, Any],
+) -> VisibleCardFrameReview:
+    fields = {"status", "decision", "empty_frame", "failure_tags", "actions", "reviewer"}
+    if set(value) != fields:
+        raise VisibleCardReviewWorkflowError("frame review update has unexpected fields")
+    status = value["status"]
+    if status not in {"in_progress", "reviewed"}:
+        raise VisibleCardReviewWorkflowError("frame review update status is invalid")
+    if not isinstance(value["failure_tags"], list) or not isinstance(value["actions"], list):
+        raise VisibleCardReviewWorkflowError("frame review update lists are invalid")
+    reviewer = _text(value["reviewer"], "reviewer")
+    if existing.reviewer is not None and existing.reviewer != reviewer:
+        raise VisibleCardReviewWorkflowError("reviewer does not match the active review")
+    parsed_actions = _actions(value["actions"])
+    decision = value["decision"]
+    if decision not in REVIEW_FRAME_DECISIONS:
+        raise VisibleCardReviewWorkflowError("decision must be GOOD or BAD")
+    empty_frame = value["empty_frame"]
+    if not isinstance(empty_frame, bool):
+        raise VisibleCardReviewWorkflowError("empty_frame must be a boolean")
+    if decision == "GOOD" and empty_frame:
+        raise VisibleCardReviewWorkflowError("GOOD frame cannot be empty")
+    if decision == "BAD" and parsed_actions:
+        raise VisibleCardReviewWorkflowError("BAD frames cannot contain card actions")
+    _validate_actions(
+        parsed_actions,
+        proposal_count,
+        teacher_prediction=teacher_prediction,
+    )
+    now = _now()
+    started_at = existing.started_at_utc or now
+    review_id = existing.review_id or _review_id(run_id, item_id)
+    completed_at = now if status == "reviewed" else None
+    return VisibleCardFrameReview(
+        status=status,
+        decision=decision,
+        empty_frame=empty_frame,
+        failure_tags=tuple(value["failure_tags"]),
+        actions=parsed_actions,
+        reviewer=reviewer,
+        review_id=review_id,
+        started_at_utc=started_at,
+        updated_at_utc=now,
+        completed_at_utc=completed_at,
+    )
+
+
+def update_frame_review(
+    path: str | Path,
+    item_id: str,
+    review: Mapping[str, Any],
+    *,
+    expected_revision: int,
+) -> VisibleCardReviewQueue:
+    """Replace one complete frame review only when the queue revision still matches."""
+
+    queue_path = Path(path)
+    if not isinstance(review, Mapping):
+        raise VisibleCardReviewWorkflowError("frame review update must be an object")
+    with _queue_lock(queue_path):
+        queue = load_visible_card_review_queue(queue_path)
+        _check_expected_revision(queue, expected_revision)
+        item = _find_item(queue, item_id)
+        updated_review = _review_from_update(
+            review,
+            item.review,
+            run_id=queue.run_id,
+            item_id=item_id,
+            proposal_count=len(item.teacher.prediction["cards"]),
+            teacher_prediction=item.teacher.prediction,
+        )
+        updated_item = replace(item, review=updated_review)
+        return _write_updated_item(queue_path, queue, updated_item)
 
 
 def load_source_lineage_manifest(path: str | Path) -> dict[str, dict[str, Any]]:
@@ -1004,6 +1116,7 @@ __all__ = [
     "VISIBLE_CARD_REVIEW_LINEAGE_SCHEMA",
     "VISIBLE_CARD_REVIEW_QUEUE_SCHEMA",
     "VisibleCardFrameReview",
+    "VisibleCardReviewConflict",
     "VisibleCardReviewAction",
     "VisibleCardReviewItem",
     "VisibleCardReviewQueue",
@@ -1017,5 +1130,6 @@ __all__ = [
     "record_card_action",
     "record_frame_review",
     "record_review",
+    "update_frame_review",
     "validate_completed_visible_card_review_queue",
 ]

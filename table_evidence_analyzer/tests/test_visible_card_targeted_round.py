@@ -141,6 +141,7 @@ def _targeted_queue(tmp_path: Path, freeze: dict, m3_path: Path) -> Path:
         "schema_version": json.loads(source_queue.read_text(encoding="utf-8"))["schema_version"],
         "run_id": "targeted-review-run",
         "created_at_utc": json.loads(source_queue.read_text(encoding="utf-8"))["created_at_utc"],
+        "revision": json.loads(source_queue.read_text(encoding="utf-8"))["revision"],
         "items": [item],
     }
     queue_path = tmp_path / "targeted-queue.json"

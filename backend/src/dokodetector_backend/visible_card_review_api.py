@@ -28,8 +28,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 from table_evidence_analyzer.visible_card_review_workflow import (
+    VisibleCardReviewConflict,
     VisibleCardReviewWorkflowError,
     load_visible_card_review_queue,
+    update_frame_review,
 )
 
 from dokodetector_backend.card_event_review_api import _load_source
@@ -213,6 +215,28 @@ class VisibleCardFrameReviewResponse(BaseModel):
     started_at_utc: str | None
     updated_at_utc: str | None
     completed_at_utc: str | None
+
+
+class VisibleCardFrameReviewUpdateRequest(BaseModel):
+    """The reviewer-owned portion of one complete frame update."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["in_progress", "reviewed"]
+    decision: Literal["GOOD", "BAD"]
+    empty_frame: bool
+    failure_tags: list[str]
+    actions: list[VisibleCardReviewActionResponse]
+    reviewer: str
+
+
+class VisibleCardReviewItemUpdateRequest(BaseModel):
+    """One revision-guarded frame review replacement."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=0)
+    review: VisibleCardFrameReviewUpdateRequest
 
 
 class VisibleCardDetectorResponse(BaseModel):
@@ -510,6 +534,45 @@ def get_visible_card_review_item_image(
         media_type=frame.get("content_type", "image/jpeg"),
         headers={"Cache-Control": "no-store"},
     )
+
+
+@router.put(
+    "/v1/visible-card-reviews/{batch_id}/items/{item_id}",
+    response_model=VisibleCardBatchResponse,
+)
+def update_visible_card_review_item(
+    batch_id: str,
+    item_id: str,
+    payload: VisibleCardReviewItemUpdateRequest,
+    request: Request,
+) -> VisibleCardBatchResponse:
+    """Persist one complete frame review with an optimistic revision guard."""
+
+    state = _read_batch(request, batch_id)
+    if state["status"] != "ready" or not isinstance(state.get("queue_path"), str):
+        raise ContractError(
+            "visible_card_review_update_unavailable",
+            "Review updates are available after the batch is ready.",
+        )
+    try:
+        update_frame_review(
+            state["queue_path"],
+            item_id,
+            payload.review.model_dump(mode="json"),
+            expected_revision=payload.expected_revision,
+        )
+    except VisibleCardReviewConflict as error:
+        raise ContractError(
+            "visible_card_review_conflict",
+            "This review changed in another window. Reload the current revision before saving.",
+            status_code=409,
+        ) from error
+    except VisibleCardReviewWorkflowError as error:
+        raise ContractError(
+            "visible_card_review_invalid",
+            "The visible-card review could not be saved.",
+        ) from error
+    return _batch_response(request, _read_batch(request, batch_id))
 
 
 @router.post(
@@ -936,6 +999,17 @@ def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatch
                 review=review_response,
             )
         )
+    queue_revision = 0 if not queue_items else queue.revision
+    queue_digest = state["queue_digest"]
+    if isinstance(queue_path, str):
+        try:
+            queue_digest = hashlib.sha256(Path(queue_path).read_bytes()).hexdigest()
+        except OSError as error:
+            raise ContractError(
+                "visible_card_review_batch_invalid",
+                "The stored visible-card review queue is invalid.",
+                status_code=500,
+            ) from error
     return VisibleCardBatchResponse(
         schema_version=state["schema_version"],
         batch_id=state["batch_id"],
@@ -954,8 +1028,8 @@ def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatch
             for failure in state["failures"]
         ],
         queue_schema_version=state["queue_schema_version"],
-        queue_digest=state["queue_digest"],
-        revision=0,
+        queue_digest=queue_digest,
+        revision=queue_revision,
     )
 
 

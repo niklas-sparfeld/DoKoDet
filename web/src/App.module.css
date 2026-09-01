@@ -2155,6 +2155,141 @@ progress {
   align-items: center;
 }
 
+.visibleCardProposalRow {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.visibleCardActionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding-left: 0.7rem;
+  color: var(--muted-ink);
+  font-size: 0.74rem;
+}
+
+.visibleCardActionButtons .inlineAction {
+  margin-left: 0;
+}
+
+.visibleCardReviewControls,
+.visibleCardEditor {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.visibleCardOutcomeButtons,
+.visibleCardEditorButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.visibleCardEditorHelp {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.visibleCardEditorGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.visibleCardEditorGrid label,
+.visibleCardFailureTags label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+}
+
+.visibleCardEditorGrid select {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.visibleCardFailureTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.8rem;
+  margin: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+}
+
+.visibleCardFailureTags legend {
+  padding: 0 0.25rem;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.visibleCardFailureTags label {
+  display: flex;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.visibleCardPolygonList {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+}
+
+.visibleCardPolygonList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.inlineFormError {
+  margin: 0;
+  color: #8b2e1d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.visibleCardEditorGeometry polygon {
+  fill: rgb(255 209 102 / 22%);
+  stroke: #ffd166;
+  stroke-width: 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.visibleCardEditorGeometry circle {
+  fill: #fff0b3;
+  stroke: #8b5e00;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.visibleCardEditorGeometry[data-active="false"] polygon {
+  fill: rgb(255 209 102 / 10%);
+  stroke: #d9af51;
+}
+
 .visibleCardProposalButton > span:last-child {
   display: grid;
   gap: 0.2rem;

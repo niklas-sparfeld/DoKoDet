@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type MouseEvent,
+  type SetStateAction,
+} from "react";
 
 import {
   ApiError,
   createDokoDetectorClient,
   visibleCardReviewBatchPagePath,
+  type VisibleCardReviewItemUpdateRequest,
   type VisibleCardReviewBatch,
 } from "./api/client";
 import styles from "./App.module.css";
@@ -13,6 +22,31 @@ type Proposal = NonNullable<BatchItem["finder"]>["proposals"][number];
 type ReviewedCard = NonNullable<
   NonNullable<BatchItem["review"]>["actions"][number]["reviewed_card"]
 >;
+type ReviewUpdate = VisibleCardReviewItemUpdateRequest["review"];
+type ReviewAction = ReviewUpdate["actions"][number];
+type Point = ReviewedCard["visible_region"]["polygons"][number][number];
+type Outcome = "usable" | "empty" | "unusable";
+type EditorState = {
+  action: "reshaped" | "added";
+  cardId: string;
+  proposalIndex: number | null;
+  polygons: Point[][];
+  polygonIndex: number;
+  side: ReviewedCard["side"];
+  usable: boolean;
+  reason: string;
+  failureTags: string[];
+};
+
+const FAILURE_TAGS = [
+  "small_card",
+  "occlusion",
+  "human_hand",
+  "blur",
+  "glare",
+  "crop_boundary",
+  "duplicate",
+] as const;
 
 export function VisibleCardReviewPage({
   batchId,
@@ -120,6 +154,33 @@ export function VisibleCardReviewPage({
       setBatch(retried);
     } catch (reason: unknown) {
       setError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveReview(itemId: string, review: ReviewUpdate) {
+    if (batch === null) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await client.updateVisibleCardReviewItem(batchId, itemId, {
+        expected_revision: batch.revision,
+        review,
+      });
+      setBatch(saved);
+    } catch (reason: unknown) {
+      if (reason instanceof ApiError && reason.status === 409) {
+        await loadBatch();
+        setError(
+          "This review changed in another window. Your action was not applied; the current revision is loaded.",
+        );
+      } else {
+        setError(describeError(reason));
+      }
+      throw reason;
     } finally {
       setBusy(false);
     }
@@ -255,6 +316,8 @@ export function VisibleCardReviewPage({
                   onNext={() => moveSelection(1, false)}
                   onNextPending={() => moveSelection(1, true)}
                   onRetry={() => void retryBatch()}
+                  onSaveReview={saveReview}
+                  saveBusy={busy}
                 />
               ) : null}
             </div>
@@ -279,6 +342,8 @@ function VisibleCardFrame({
   onNext,
   onNextPending,
   onRetry,
+  onSaveReview,
+  saveBusy,
 }: {
   batch: VisibleCardReviewBatch;
   item: BatchItem;
@@ -293,13 +358,227 @@ function VisibleCardFrame({
   onNext: () => void;
   onNextPending: () => void;
   onRetry: () => void;
+  onSaveReview: (itemId: string, review: ReviewUpdate) => Promise<void>;
+  saveBusy: boolean;
 }) {
   const source = item.source;
   const proposals = item.finder?.proposals ?? [];
-  const reviewedCards = (item.review?.actions ?? [])
+  const actions = (item.review?.actions ?? []) as ReviewAction[];
+  const reviewedCards = actions
     .map((action) => action.reviewed_card)
     .filter((card): card is ReviewedCard => card !== null);
   const imagePath = source?.image_url;
+  const [editor, setEditor] = useState<EditorState | null>(null);
+  const [editorError, setEditorError] = useState<string | null>(null);
+  const [outcomeMessage, setOutcomeMessage] = useState<string | null>(null);
+  const [pendingSave, setPendingSave] = useState<ReviewUpdate | null>(null);
+
+  function currentReview(changes: {
+    status?: ReviewUpdate["status"];
+    decision?: ReviewUpdate["decision"];
+    emptyFrame?: boolean;
+    failureTags?: string[];
+    actions?: ReviewAction[];
+  }): ReviewUpdate {
+    return {
+      status: changes.status ?? "in_progress",
+      decision: changes.decision ?? item.review?.decision ?? "GOOD",
+      empty_frame: changes.emptyFrame ?? item.review?.empty_frame ?? false,
+      failure_tags: [
+        ...(changes.failureTags ?? item.review?.failure_tags ?? []),
+      ],
+      actions: changes.actions ?? actions,
+      reviewer: item.review?.reviewer ?? "web-operator",
+    };
+  }
+
+  async function save(next: ReviewUpdate): Promise<boolean> {
+    setPendingSave(next);
+    try {
+      await onSaveReview(item.item_id, next);
+      setPendingSave(null);
+      setOutcomeMessage(null);
+      return true;
+    } catch (reason: unknown) {
+      if (reason instanceof ApiError && reason.status === 409) {
+        setPendingSave(null);
+      }
+      return false;
+    }
+  }
+
+  function saveProposalAction(
+    proposal: Proposal,
+    action: "accepted" | "removed",
+  ) {
+    const cardId = cardIdForProposal(proposal.proposal_index);
+    const nextActions = actions.filter(
+      (existing) => existing.card_id !== cardId,
+    );
+    nextActions.push({
+      card_id: cardId,
+      action,
+      proposal_index: proposal.proposal_index,
+      reviewed_card:
+        action === "accepted"
+          ? reviewedCardFromProposal(proposal, cardId)
+          : null,
+    });
+    void save(
+      currentReview({
+        decision: "GOOD",
+        emptyFrame: false,
+        actions: nextActions,
+      }),
+    );
+  }
+
+  function openCorrection(proposal: Proposal) {
+    const existing = actions.find(
+      (action) => action.proposal_index === proposal.proposal_index,
+    );
+    const card =
+      existing?.reviewed_card ??
+      reviewedCardFromProposal(
+        proposal,
+        cardIdForProposal(proposal.proposal_index),
+      );
+    setEditorError(null);
+    setEditor({
+      action: "reshaped",
+      cardId: card.card_id,
+      proposalIndex: proposal.proposal_index,
+      polygons: card.visible_region.polygons.map((polygon) => [...polygon]),
+      polygonIndex: 0,
+      side: card.side,
+      usable: card.identity_usability.usable,
+      reason: card.identity_usability.reason,
+      failureTags: [...card.failure_tags],
+    });
+  }
+
+  function openAddCard() {
+    setEditorError(null);
+    setEditor({
+      action: "added",
+      cardId: nextAddedCardId(actions),
+      proposalIndex: null,
+      polygons: [[]],
+      polygonIndex: 0,
+      side: "unknown",
+      usable: true,
+      reason: "sufficient_identity_evidence",
+      failureTags: [],
+    });
+  }
+
+  function handleCanvasClick(event: MouseEvent<SVGSVGElement>) {
+    if (editor === null || source === null) {
+      return;
+    }
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return;
+    }
+    const point: Point = {
+      x: clampNormalized(
+        Math.round(((event.clientX - bounds.left) / bounds.width) * 1000),
+      ),
+      y: clampNormalized(
+        Math.round(((event.clientY - bounds.top) / bounds.height) * 1000),
+      ),
+    };
+    setEditor((current) => {
+      if (current === null) {
+        return current;
+      }
+      const polygons = current.polygons.map((polygon) => [...polygon]);
+      polygons[current.polygonIndex] = [
+        ...polygons[current.polygonIndex],
+        point,
+      ];
+      return { ...current, polygons };
+    });
+  }
+
+  async function saveEditor() {
+    if (editor === null) {
+      return;
+    }
+    const geometryError = validateEditorPolygons(editor.polygons);
+    if (geometryError !== null) {
+      setEditorError(geometryError);
+      return;
+    }
+    const reviewedCard: ReviewedCard = {
+      card_id: editor.cardId,
+      visible_region: { polygons: editor.polygons },
+      derived_box: deriveBox(editor.polygons),
+      identity_usability: {
+        usable: editor.usable,
+        reason: editor.usable ? "sufficient_identity_evidence" : editor.reason,
+      },
+      side: editor.side,
+      failure_tags: editor.failureTags,
+    };
+    const nextActions = actions.filter(
+      (action) => action.card_id !== editor.cardId,
+    );
+    nextActions.push({
+      card_id: editor.cardId,
+      action: editor.action,
+      proposal_index: editor.proposalIndex,
+      reviewed_card: reviewedCard,
+    });
+    if (
+      await save(
+        currentReview({
+          decision: "GOOD",
+          emptyFrame: false,
+          actions: nextActions,
+        }),
+      )
+    ) {
+      setEditor(null);
+      setEditorError(null);
+    }
+  }
+
+  function saveOutcome(outcome: Outcome) {
+    if (outcome === "usable") {
+      const proposalIndices = new Set(
+        actions
+          .filter((action) => action.proposal_index !== null)
+          .map((action) => action.proposal_index),
+      );
+      if (
+        proposalIndices.size !== proposals.length ||
+        actions.every((action) => action.reviewed_card === null)
+      ) {
+        setOutcomeMessage(
+          "Act on every finder proposal and keep at least one visible card before marking this frame usable.",
+        );
+        return;
+      }
+      void save(
+        currentReview({
+          status: "reviewed",
+          decision: "GOOD",
+          emptyFrame: false,
+        }),
+      );
+      return;
+    }
+    void save(
+      currentReview({
+        status: "reviewed",
+        decision: "BAD",
+        emptyFrame: outcome === "empty",
+        actions: [],
+      }),
+    );
+  }
+
   return (
     <section className={styles.visibleCardFramePanel}>
       <header className={styles.visibleCardFrameHeader}>
@@ -367,7 +646,9 @@ function VisibleCardFrame({
         <>
           <div className={styles.visibleCardCanvasToolbar}>
             <span className={styles.cardEventSaveStatus}>
-              Finder proposals are suggestions.
+              {saveBusy
+                ? "Saving review…"
+                : "Finder proposals are suggestions."}
             </span>
             <div className={styles.visibleCardZoomControls}>
               <button
@@ -416,6 +697,8 @@ function VisibleCardFrame({
                 viewBox={`0 0 ${source.width} ${source.height}`}
                 role="img"
                 aria-label={`${proposals.length} finder proposal${proposals.length === 1 ? "" : "s"}`}
+                onClick={handleCanvasClick}
+                style={{ pointerEvents: editor === null ? "none" : "auto" }}
               >
                 {proposals.map((proposal) => (
                   <ProposalOverlay
@@ -434,14 +717,54 @@ function VisibleCardFrame({
                     height={source.height}
                   />
                 ))}
+                {editor?.polygons.map((polygon, index) => (
+                  <EditorOverlay
+                    key={`editor:${index}`}
+                    polygon={polygon}
+                    width={source.width}
+                    height={source.height}
+                    active={index === editor.polygonIndex}
+                  />
+                ))}
               </svg>
             </div>
           </div>
+          <FrameOutcomeControls
+            review={item.review}
+            message={outcomeMessage}
+            onOutcome={saveOutcome}
+            onFailureTags={(failureTags) =>
+              void save(currentReview({ failureTags }))
+            }
+            onRetrySave={
+              pendingSave === null ? undefined : () => void save(pendingSave)
+            }
+          />
           <ProposalList
             proposals={proposals}
+            actions={actions}
             activeProposalIndex={activeProposalIndex}
             onProposalSelect={onProposalSelect}
+            onAccept={(proposal) => saveProposalAction(proposal, "accepted")}
+            onRemove={(proposal) => saveProposalAction(proposal, "removed")}
+            onCorrect={openCorrection}
           />
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={openAddCard}
+          >
+            Add missed card
+          </button>
+          {editor !== null ? (
+            <PolygonEditor
+              editor={editor}
+              error={editorError}
+              onChange={setEditor}
+              onCancel={() => setEditor(null)}
+              onSave={() => void saveEditor()}
+            />
+          ) : null}
         </>
       ) : (
         <p className={styles.detailEmptyState}>
@@ -489,14 +812,118 @@ function VisibleCardFrame({
   );
 }
 
+function FrameOutcomeControls({
+  review,
+  message,
+  onOutcome,
+  onFailureTags,
+  onRetrySave,
+}: {
+  review: BatchItem["review"];
+  message: string | null;
+  onOutcome: (outcome: Outcome) => void;
+  onFailureTags: (failureTags: string[]) => void;
+  onRetrySave: (() => void) | undefined;
+}) {
+  return (
+    <section
+      className={styles.visibleCardReviewControls}
+      aria-label="Frame outcome"
+    >
+      <div className={styles.sectionHeading}>
+        <div>
+          <p className={styles.statusLabel}>Frame outcome</p>
+          <h2>What does this frame show?</h2>
+        </div>
+      </div>
+      <div className={styles.visibleCardOutcomeButtons}>
+        <button
+          className={styles.primaryButton}
+          type="button"
+          aria-pressed={
+            review?.decision === "GOOD" && review.empty_frame === false
+          }
+          onClick={() => onOutcome("usable")}
+        >
+          Usable with visible cards
+        </button>
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          aria-pressed={
+            review?.decision === "BAD" && review.empty_frame === true
+          }
+          onClick={() => onOutcome("empty")}
+        >
+          Reviewed empty frame
+        </button>
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          aria-pressed={
+            review?.decision === "BAD" && review.empty_frame === false
+          }
+          onClick={() => onOutcome("unusable")}
+        >
+          Unusable frame
+        </button>
+      </div>
+      {message !== null ? (
+        <p className={styles.inlineFormError}>{message}</p>
+      ) : null}
+      {onRetrySave !== undefined ? (
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={onRetrySave}
+        >
+          Retry last save
+        </button>
+      ) : null}
+      <fieldset className={styles.visibleCardFailureTags}>
+        <legend>Frame failure tags</legend>
+        {FAILURE_TAGS.map((tag) => (
+          <label key={tag}>
+            <input
+              type="checkbox"
+              checked={review?.failure_tags.includes(tag) ?? false}
+              onChange={(event) => {
+                const failureTags = review?.failure_tags ?? [];
+                onFailureTags(
+                  event.target.checked
+                    ? [...failureTags, tag]
+                    : failureTags.filter((value) => value !== tag),
+                );
+              }}
+            />
+            {formatIdentifier(tag)}
+          </label>
+        ))}
+      </fieldset>
+      <p className={styles.visibleCardEditorHelp}>
+        Mark only visible card pixels. Exclude hidden pixels, an occluding card,
+        a human hand, and the background.
+      </p>
+    </section>
+  );
+}
+
 function ProposalList({
   proposals,
+  actions,
   activeProposalIndex,
   onProposalSelect,
+  onAccept,
+  onCorrect,
+  onRemove,
 }: {
   proposals: Proposal[];
+  actions: ReviewAction[];
   activeProposalIndex: number | null;
   onProposalSelect: (value: number | null) => void;
+  onAccept: (proposal: Proposal) => void;
+  onCorrect: (proposal: Proposal) => void;
+  onRemove: (proposal: Proposal) => void;
 }) {
   return (
     <section
@@ -519,30 +946,272 @@ function ProposalList({
         <ol className={styles.visibleCardProposalItems}>
           {proposals.map((proposal) => (
             <li key={proposal.proposal_index}>
-              <button
-                className={styles.visibleCardProposalButton}
-                type="button"
-                aria-pressed={activeProposalIndex === proposal.proposal_index}
-                onClick={() =>
-                  onProposalSelect(
-                    activeProposalIndex === proposal.proposal_index
-                      ? null
-                      : proposal.proposal_index,
-                  )
-                }
-              >
-                <span className={styles.visibleCardProposalSwatch} />
-                <span>
-                  <strong>Proposal {proposal.proposal_index + 1}</strong>
-                  <small>
-                    {proposal.label} · {formatIdentifier(proposal.side)}
-                  </small>
-                </span>
-              </button>
+              <div className={styles.visibleCardProposalRow}>
+                <button
+                  className={styles.visibleCardProposalButton}
+                  type="button"
+                  aria-pressed={activeProposalIndex === proposal.proposal_index}
+                  onClick={() =>
+                    onProposalSelect(
+                      activeProposalIndex === proposal.proposal_index
+                        ? null
+                        : proposal.proposal_index,
+                    )
+                  }
+                >
+                  <span className={styles.visibleCardProposalSwatch} />
+                  <span>
+                    <strong>Proposal {proposal.proposal_index + 1}</strong>
+                    <small>
+                      {proposal.label} · {formatIdentifier(proposal.side)}
+                    </small>
+                  </span>
+                </button>
+                <div className={styles.visibleCardActionButtons}>
+                  {actions.find(
+                    (action) =>
+                      action.proposal_index === proposal.proposal_index,
+                  )?.action === "removed" ? (
+                    <span className={styles.countLabel}>Removed</span>
+                  ) : null}
+                  <button
+                    className={styles.inlineAction}
+                    type="button"
+                    onClick={() => onAccept(proposal)}
+                  >
+                    Accept proposal {proposal.proposal_index + 1}
+                  </button>
+                  <button
+                    className={styles.inlineAction}
+                    type="button"
+                    onClick={() => onCorrect(proposal)}
+                  >
+                    Correct proposal {proposal.proposal_index + 1}
+                  </button>
+                  <button
+                    className={styles.inlineAction}
+                    type="button"
+                    onClick={() => onRemove(proposal)}
+                  >
+                    Remove proposal {proposal.proposal_index + 1}
+                  </button>
+                </div>
+              </div>
             </li>
           ))}
         </ol>
       )}
+    </section>
+  );
+}
+
+function PolygonEditor({
+  editor,
+  error,
+  onChange,
+  onCancel,
+  onSave,
+}: {
+  editor: EditorState;
+  error: string | null;
+  onChange: Dispatch<SetStateAction<EditorState | null>>;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  function updateEditor(changes: Partial<EditorState>) {
+    onChange((current) =>
+      current === null ? current : { ...current, ...changes },
+    );
+  }
+
+  function updatePolygon(index: number, polygon: Point[]) {
+    onChange((current) => {
+      if (current === null) {
+        return current;
+      }
+      const polygons = current.polygons.map((value) => [...value]);
+      polygons[index] = polygon;
+      return { ...current, polygons };
+    });
+  }
+
+  return (
+    <section
+      className={styles.visibleCardEditor}
+      aria-label="Visible region editor"
+    >
+      <div className={styles.sectionHeading}>
+        <div>
+          <p className={styles.statusLabel}>Geometry editor</p>
+          <h2>
+            {editor.action === "added"
+              ? "Add missed card"
+              : "Correct visible region"}
+          </h2>
+        </div>
+      </div>
+      <p className={styles.visibleCardEditorHelp}>
+        Click the frame to add points to the selected polygon. Use at least
+        three points with positive area.
+      </p>
+      <div className={styles.visibleCardEditorGrid}>
+        <label>
+          Side
+          <select
+            value={editor.side}
+            onChange={(event) =>
+              updateEditor({ side: event.target.value as EditorState["side"] })
+            }
+          >
+            <option value="face_up">Face up</option>
+            <option value="face_down">Face down</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </label>
+        <label>
+          Identity usability
+          <select
+            value={editor.usable ? "usable" : "unusable"}
+            onChange={(event) =>
+              updateEditor({
+                usable: event.target.value === "usable",
+                reason:
+                  event.target.value === "usable"
+                    ? "sufficient_identity_evidence"
+                    : editor.reason === "sufficient_identity_evidence"
+                      ? "insufficient_identity_evidence"
+                      : editor.reason,
+              })
+            }
+          >
+            <option value="usable">Usable</option>
+            <option value="unusable">Not usable</option>
+          </select>
+        </label>
+        {!editor.usable ? (
+          <label>
+            Unusable reason
+            <select
+              value={editor.reason}
+              onChange={(event) => updateEditor({ reason: event.target.value })}
+            >
+              <option value="insufficient_identity_evidence">
+                Insufficient identity evidence
+              </option>
+              <option value="crop_contamination">Crop contamination</option>
+              <option value="unknown_side">Unknown side</option>
+              <option value="occluded">Occluded</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        ) : null}
+      </div>
+      <fieldset className={styles.visibleCardFailureTags}>
+        <legend>Failure tags</legend>
+        {FAILURE_TAGS.map((tag) => (
+          <label key={tag}>
+            <input
+              type="checkbox"
+              checked={editor.failureTags.includes(tag)}
+              onChange={(event) =>
+                updateEditor({
+                  failureTags: event.target.checked
+                    ? [...editor.failureTags, tag]
+                    : editor.failureTags.filter((value) => value !== tag),
+                })
+              }
+            />
+            {formatIdentifier(tag)}
+          </label>
+        ))}
+      </fieldset>
+      <ol className={styles.visibleCardPolygonList}>
+        {editor.polygons.map((polygon, index) => (
+          <li key={index}>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              aria-pressed={index === editor.polygonIndex}
+              onClick={() => updateEditor({ polygonIndex: index })}
+            >
+              Polygon {index + 1} ({polygon.length} points)
+            </button>
+            <button
+              className={styles.inlineAction}
+              type="button"
+              onClick={() => updatePolygon(index, [])}
+            >
+              Clear polygon
+            </button>
+            <button
+              className={styles.inlineAction}
+              type="button"
+              disabled={polygon.length === 0}
+              onClick={() => updatePolygon(index, polygon.slice(0, -1))}
+            >
+              Undo point
+            </button>
+            {editor.polygons.length > 1 ? (
+              <button
+                className={styles.inlineAction}
+                type="button"
+                onClick={() =>
+                  onChange((current) => {
+                    if (current === null) {
+                      return current;
+                    }
+                    const polygons = current.polygons.filter(
+                      (_, value) => value !== index,
+                    );
+                    return {
+                      ...current,
+                      polygons,
+                      polygonIndex: Math.min(
+                        current.polygonIndex,
+                        polygons.length - 1,
+                      ),
+                    };
+                  })
+                }
+              >
+                Remove polygon
+              </button>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <div className={styles.visibleCardEditorButtons}>
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={() =>
+            onChange((current) =>
+              current === null
+                ? current
+                : {
+                    ...current,
+                    polygons: [...current.polygons, []],
+                    polygonIndex: current.polygons.length,
+                  },
+            )
+          }
+        >
+          Add polygon
+        </button>
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button className={styles.primaryButton} type="button" onClick={onSave}>
+          Save {editor.action === "added" ? "card" : "correction"}
+        </button>
+      </div>
+      {error !== null ? (
+        <p className={styles.inlineFormError}>{error}</p>
+      ) : null}
     </section>
   );
 }
@@ -606,6 +1275,108 @@ function ReviewedOverlay({
       />
     </g>
   );
+}
+
+function EditorOverlay({
+  polygon,
+  width,
+  height,
+  active,
+}: {
+  polygon: Point[];
+  width: number;
+  height: number;
+  active: boolean;
+}) {
+  const points = polygon
+    .map((point) => `${(point.x * width) / 1000},${(point.y * height) / 1000}`)
+    .join(" ");
+  return (
+    <g className={styles.visibleCardEditorGeometry} data-active={active}>
+      {polygon.length >= 3 ? <polygon points={points} /> : null}
+      {polygon.map((point, index) => (
+        <circle
+          key={`${point.x}:${point.y}:${index}`}
+          cx={(point.x * width) / 1000}
+          cy={(point.y * height) / 1000}
+          r={Math.max(width, height) / 80}
+        />
+      ))}
+    </g>
+  );
+}
+
+function reviewedCardFromProposal(
+  proposal: Proposal,
+  cardId: string,
+): ReviewedCard {
+  return {
+    card_id: cardId,
+    visible_region: { polygons: [[...proposal.polygon]] },
+    derived_box: proposal.box_2d,
+    identity_usability: {
+      usable: true,
+      reason: "sufficient_identity_evidence",
+    },
+    side: proposal.side,
+    failure_tags: [],
+  };
+}
+
+function cardIdForProposal(proposalIndex: number): string {
+  return `card-${proposalIndex + 1}`;
+}
+
+function nextAddedCardId(actions: ReviewAction[]): string {
+  const used = new Set(actions.map((action) => action.card_id));
+  let index = 1;
+  while (used.has(`card-added-${index}`)) {
+    index += 1;
+  }
+  return `card-added-${index}`;
+}
+
+function deriveBox(polygons: Point[][]): ReviewedCard["derived_box"] {
+  const points = polygons.flat();
+  return {
+    y_min: Math.min(...points.map((point) => point.y)),
+    x_min: Math.min(...points.map((point) => point.x)),
+    y_max: Math.max(...points.map((point) => point.y)),
+    x_max: Math.max(...points.map((point) => point.x)),
+  };
+}
+
+function validateEditorPolygons(polygons: Point[][]): string | null {
+  if (polygons.length === 0 || polygons.some((polygon) => polygon.length < 3)) {
+    return "Each visible region polygon needs at least three points.";
+  }
+  if (
+    polygons.some((polygon) =>
+      polygon.some(
+        (point) =>
+          point.x < 0 || point.x > 1000 || point.y < 0 || point.y > 1000,
+      ),
+    )
+  ) {
+    return "Polygon points must stay inside the source frame.";
+  }
+  if (polygons.some((polygon) => polygonArea(polygon) <= 0)) {
+    return "Each visible region polygon needs positive area.";
+  }
+  return null;
+}
+
+function polygonArea(points: Point[]): number {
+  return Math.abs(
+    points.reduce((area, point, index) => {
+      const next = points[(index + 1) % points.length];
+      return area + point.x * next.y - next.x * point.y;
+    }, 0) / 2,
+  );
+}
+
+function clampNormalized(value: number): number {
+  return Math.max(0, Math.min(1000, value));
 }
 
 function selectedIndexFor(

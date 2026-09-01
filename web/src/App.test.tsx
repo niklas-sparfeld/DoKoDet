@@ -1,5 +1,11 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 import { App } from "./App";
 import {
@@ -18,7 +24,11 @@ import {
   resolvedTimeline,
   unchangedCounterfactualResponse,
 } from "./test/roundAnalysisFixture";
-import type { RoundAnalysisStatus, RoundAnalysisTimeline } from "./api/client";
+import type {
+  RoundAnalysisStatus,
+  RoundAnalysisTimeline,
+  VisibleCardReviewBatch,
+} from "./api/client";
 
 describe("App", () => {
   afterEach(() => {
@@ -362,14 +372,52 @@ describe("App", () => {
       "",
       `/visible-card-reviews/${batchId}?item=${encodeURIComponent(itemTwo)}`,
     );
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(
-        new Response(JSON.stringify(batch), {
-          status: 200,
+    let currentBatch = batch as unknown as VisibleCardReviewBatch;
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body)) as {
+          review: object;
+        };
+        const selected = currentBatch.items.find(
+          (item) => item.item_id === itemTwo,
+        );
+        if (selected === undefined) {
+          throw new Error("fixture item is missing");
+        }
+        if (selected.review === null) {
+          throw new Error("fixture review is missing");
+        }
+        const submittedReview = payload.review as Partial<
+          typeof selected.review
+        >;
+        const review = {
+          ...selected.review,
+          ...submittedReview,
+          review_id: selected.review.review_id ?? "review-fixture-1",
+          started_at_utc:
+            selected.review.started_at_utc ?? "2026-09-01T07:20:46Z",
+          updated_at_utc: "2026-09-01T07:20:47Z",
+          completed_at_utc:
+            (payload.review as { status: string }).status === "reviewed"
+              ? "2026-09-01T07:20:47Z"
+              : null,
+        };
+        currentBatch = {
+          ...currentBatch,
+          revision: currentBatch.revision + 1,
+          queue_digest: `${currentBatch.revision + 3}`.repeat(64),
+          items: currentBatch.items.map((item) =>
+            item.item_id === itemTwo ? { ...item, review } : item,
+          ),
+        };
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(currentBatch), {
+          status: init?.method === "PUT" ? 200 : 200,
           headers: { "Content-Type": "application/json" },
         }),
-      ),
-    );
+      );
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<App />);
@@ -395,6 +443,67 @@ describe("App", () => {
       `/v1/visible-card-reviews/${batchId}`,
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Accept proposal 1" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/v1/visible-card-reviews/${batchId}/items/${encodeURIComponent(itemTwo)}`,
+        expect.objectContaining({ method: "PUT" }),
+      ),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Correct proposal 2" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Correct visible region" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save correction" }));
+    await waitFor(() => expect(currentBatch.revision).toBe(2));
+
+    await user.click(screen.getByRole("button", { name: "Remove proposal 1" }));
+    await waitFor(() => expect(currentBatch.revision).toBe(3));
+
+    await user.click(screen.getByRole("button", { name: "Add missed card" }));
+    const canvas = screen.getByRole("img", { name: "2 finder proposals" });
+    Object.defineProperty(canvas, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        bottom: 80,
+        height: 80,
+        left: 0,
+        right: 100,
+        top: 0,
+        width: 100,
+      }),
+    });
+    fireEvent.click(canvas, { clientX: 10, clientY: 10 });
+    fireEvent.click(canvas, { clientX: 60, clientY: 10 });
+    fireEvent.click(canvas, { clientX: 35, clientY: 60 });
+    await user.click(screen.getByRole("button", { name: "Save card" }));
+    await waitFor(() => expect(currentBatch.revision).toBe(4));
+
+    await user.click(
+      screen.getByRole("button", { name: "Reviewed empty frame" }),
+    );
+    await waitFor(() => expect(currentBatch.revision).toBe(5));
+    expect(currentBatch.items[1].review?.decision).toBe("BAD");
+    expect(currentBatch.items[1].review?.empty_frame).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Unusable frame" }));
+    await waitFor(() => expect(currentBatch.revision).toBe(6));
+    expect(currentBatch.items[1].review?.decision).toBe("BAD");
+    expect(currentBatch.items[1].review?.empty_frame).toBe(false);
+
+    await user.click(
+      screen.getByRole("button", { name: "Usable with visible cards" }),
+    );
+    expect(
+      screen.getByText(
+        /Act on every finder proposal and keep at least one visible card/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("previews and confirms a development partition assignment", async () => {
