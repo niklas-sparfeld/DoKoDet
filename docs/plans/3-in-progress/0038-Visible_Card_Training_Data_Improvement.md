@@ -27,7 +27,9 @@
 - **M3:** Complete for the local comparison contract path — strict paired detector and crop
   evaluation is implemented. A real comparison waits for plan 0037 pseudo-label and native bundle
   artifacts.
-- **M4:** Pending
+- **M4:** Complete for the local targeted-round contract path — measured failure selection,
+  bounded reviewed-batch lineage, augmented-run identity, and unchanged evaluation are enforced.
+  A real targeted round waits for the plan 0037 native artifacts and a real M3 report.
 
 ## 1. Purpose
 
@@ -296,6 +298,30 @@ Acceptance:
 - new samples have complete review and lineage records;
 - the report isolates the effect of the added data;
 - further work is proposed as a new bounded recipe rather than an open-ended loop.
+
+
+#### M4 implementation evidence — 2026-09-01
+
+- Added `visible-card-targeted-review-batch/v1`. It binds one failure tag to a measured M3
+  reviewed-box metric, a fixed item budget of at most 40 frames, a completed v2 review queue, and
+  a queue digest. New items must have complete teacher and review lineage, must use unused
+  source-lineage groups, and must stay outside the frozen system holdout.
+- Added `visible-card-targeted-candidate/v1`. The completed augmented run must keep the M3 recipe
+  and split, add the exact reviewed batch to the frozen train/validation frame set, and use a
+  changed dataset digest. Local result artifacts must cover every unchanged validation and
+  challenge frame with one native bundle identity.
+- Added `visible-card-targeted-round/v1` and
+  `table-analyzer evaluate-visible-card-targeted-round`. The report records baseline and
+  augmented fixed-threshold metrics, metric deltas, paired predictions, selection evidence, and a
+  bounded next-step rule. It does not use test or system-holdout results and does not select,
+  lock, or promote a model.
+- Added fixture tests for the measured failure selection, unused source-group and review
+  lineage checks, augmented source membership, split preservation, paired metrics, and CLI
+  parsing. Verification: all 102 TableEvidenceAnalyzer tests, focused Ruff checks, formatting,
+  CLI help, and whitespace checks pass.
+- The workspace still has no real plan 0037 native artifacts or M3 comparison report. No real
+  targeted review batch, retraining run, model campaign, candidate lock, sealed test, or
+  promotion was started.
 
 ## 6. Start and completion
 

@@ -56,7 +56,7 @@ The shared target architecture is
 | --- | --- | --- |
 | [0037 — Local visible-card detector end-to-end PoC](3-in-progress/0037-Local_Visible_Card_Detector_PoC.md) | Completed data, analyzer, and backend foundations | Fine-tune one RF-DETR Large detector from Gemini proposals and prove the local provider in the normal configurable backend path. M3 fixture path complete; real native bundle run pending inputs. |
 | [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
-| [0038 — Visible-card training-data improvement](3-in-progress/0038-Visible_Card_Training_Data_Improvement.md) | 0037 contracts; real artifacts before M3 | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M3 local contract paths complete; real review and detector evidence remain. |
+| [0038 — Visible-card training-data improvement](3-in-progress/0038-Visible_Card_Training_Data_Improvement.md) | 0037 contracts; real artifacts before M3 | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M4 local contract paths complete; real review, detector, and targeted-data evidence remain. |
 
 ### Blocked
 

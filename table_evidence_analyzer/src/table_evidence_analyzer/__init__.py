@@ -193,6 +193,16 @@ from table_evidence_analyzer.visible_card_review_workflow import (
 from table_evidence_analyzer.visible_card_review_workflow import (
     VisibleCardReviewQueue as VisibleCardReviewWorkflowQueue,
 )
+from table_evidence_analyzer.visible_card_targeted_round import (
+    MAX_TARGETED_BATCH_FRAMES,
+    VISIBLE_CARD_TARGETED_BATCH_SCHEMA,
+    VISIBLE_CARD_TARGETED_CANDIDATE_SCHEMA,
+    VISIBLE_CARD_TARGETED_FAILURE_CATEGORIES,
+    VISIBLE_CARD_TARGETED_ROUND_SCHEMA,
+    VisibleCardTargetedRoundConfig,
+    VisibleCardTargetedRoundError,
+    evaluate_visible_card_targeted_round,
+)
 from table_evidence_analyzer.visible_card_training import (
     DEFAULT_FINAL_CHECKPOINT,
     VISIBLE_CARD_BUNDLE_SCHEMA,
@@ -338,6 +348,14 @@ __all__ = [
     "VisibleCardTrainingError",
     "load_visible_card_detector_bundle",
     "run_visible_card_training",
+    "MAX_TARGETED_BATCH_FRAMES",
+    "VISIBLE_CARD_TARGETED_BATCH_SCHEMA",
+    "VISIBLE_CARD_TARGETED_CANDIDATE_SCHEMA",
+    "VISIBLE_CARD_TARGETED_FAILURE_CATEGORIES",
+    "VISIBLE_CARD_TARGETED_ROUND_SCHEMA",
+    "VisibleCardTargetedRoundConfig",
+    "VisibleCardTargetedRoundError",
+    "evaluate_visible_card_targeted_round",
     "COCO_VERSION",
     "DEFAULT_CHECKPOINT_NAME",
     "DEFAULT_CONFIDENCE_THRESHOLD",

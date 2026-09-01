@@ -392,6 +392,20 @@ def build_parser() -> argparse.ArgumentParser:
     comparison_parser.add_argument("--score-threshold", type=float, default=0.5)
     comparison_parser.add_argument("--match-iou-threshold", type=float, default=0.5)
 
+    targeted_round_parser = commands.add_parser(
+        "evaluate-visible-card-targeted-round",
+        help="Evaluate one bounded targeted visible-card data round.",
+        description=(
+            "Compare an augmented reviewed-box detector run with the M3 reviewed-box baseline "
+            "on the unchanged frozen validation and challenge frames."
+        ),
+    )
+    targeted_round_parser.add_argument("--freeze", type=Path, required=True)
+    targeted_round_parser.add_argument("--m3-report", type=Path, required=True)
+    targeted_round_parser.add_argument("--batch", type=Path, required=True)
+    targeted_round_parser.add_argument("--targeted-candidate", type=Path, required=True)
+    targeted_round_parser.add_argument("--output", type=Path, required=True)
+
     return parser
 
 
@@ -854,6 +868,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(
             f"Wrote visible-card comparison ({report['conclusion']['localization']['direction']}): "
             f"{args.output}"
+        )
+        return 0
+    if args.command == "evaluate-visible-card-targeted-round":
+        from .visible_card_targeted_round import (
+            VisibleCardTargetedRoundConfig,
+            VisibleCardTargetedRoundError,
+            evaluate_visible_card_targeted_round,
+        )
+
+        try:
+            report = evaluate_visible_card_targeted_round(
+                VisibleCardTargetedRoundConfig(
+                    freeze=args.freeze,
+                    m3_report=args.m3_report,
+                    batch=args.batch,
+                    targeted_candidate=args.targeted_candidate,
+                    output=args.output,
+                )
+            )
+        except (
+            VisibleCardTargetedRoundError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(
+            "Wrote visible-card targeted round "
+            f"({report['conclusion']['localization']['validation_direction']}): {args.output}"
         )
         return 0
     parser.exit(2, f"error: command '{_command_name(args)}' is not implemented yet.\n")

@@ -28,6 +28,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "complete-visible-card-review" in help_text
     assert "freeze-visible-card-review" in help_text
     assert "compare-visible-card-detectors" in help_text
+    assert "evaluate-visible-card-targeted-round" in help_text
     assert "\n    analyze " not in help_text
 
 
@@ -196,6 +197,31 @@ def test_visible_card_comparison_parser_has_paired_inputs() -> None:
     assert args.output == Path("comparison.json")
     assert args.score_threshold == 0.5
     assert args.match_iou_threshold == 0.5
+
+
+def test_visible_card_targeted_round_parser_has_bounded_inputs() -> None:
+    args = build_parser().parse_args(
+        [
+            "evaluate-visible-card-targeted-round",
+            "--freeze",
+            "freeze",
+            "--m3-report",
+            "m3.json",
+            "--batch",
+            "batch.json",
+            "--targeted-candidate",
+            "targeted.json",
+            "--output",
+            "m4.json",
+        ]
+    )
+
+    assert args.command == "evaluate-visible-card-targeted-round"
+    assert args.freeze == Path("freeze")
+    assert args.m3_report == Path("m3.json")
+    assert args.batch == Path("batch.json")
+    assert args.targeted_candidate == Path("targeted.json")
+    assert args.output == Path("m4.json")
 
 
 def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path: Path) -> None:

@@ -63,6 +63,7 @@ table-analyzer review-visible-card-action --help
 table-analyzer complete-visible-card-review --help
 table-analyzer freeze-visible-card-review --help
 table-analyzer compare-visible-card-detectors --help
+table-analyzer evaluate-visible-card-targeted-round --help
 table-analyzer visible-card-prompt-pilot --help
 ```
 
@@ -343,3 +344,48 @@ table-analyzer visible-card-observe \
 
 For a batch, pass `--identity-classifier gemini` to `visible-card-batch`. Both Gemini stages need
 `GEMINI_API_KEY`; run them only when the request cost is approved.
+
+Run one bounded M4 data round after the real M3 comparison exists. First create a new v2 review
+queue for unused source-lineage groups. Then write a
+`visible-card-targeted-review-batch/v1` descriptor with one measured M3 failure tag, a fixed
+`item_budget` of at most 40 frames, the queue digest, and the selected item IDs. The batch must
+contain complete reviewed geometry and teacher lineage. Its source groups cannot occur in the M2
+freeze or the system holdout:
+
+```json
+{
+  "schema_version": "visible-card-targeted-review-batch/v1",
+  "batch_id": "visible-card-m4-small-card-v1",
+  "freeze_id": "visible-card-review-freeze-v1",
+  "freeze_digest": "<freeze digest>",
+  "selection": {
+    "failure_category": "small_card",
+    "item_budget": 20,
+    "reason": "M3 measured low recall for small_card.",
+    "m3_report_path": "<m3 report>",
+    "m3_report_sha256": "<m3 report digest>"
+  },
+  "review_queue": {"path": "<completed queue>", "sha256": "<queue digest>"},
+  "item_ids": ["<new package>:frame_00"],
+  "system_holdout_groups": []
+}
+```
+
+After the bounded batch is reviewed and retrained with the frozen RF-DETR recipe, prepare a
+`visible-card-targeted-candidate/v1` descriptor. Its completed run must contain the frozen
+train/validation frames plus the batch. Its result artifacts must cover the unchanged validation
+and challenge frames with the same local bundle identity:
+
+```bash
+table-analyzer evaluate-visible-card-targeted-round \
+  --freeze data/outputs/visible-card-review/m2-freeze \
+  --m3-report data/outputs/visible-card-comparison/m3.json \
+  --batch data/outputs/visible-card-targeted/m4-batch.json \
+  --targeted-candidate data/outputs/visible-card-targeted/m4-candidate.json \
+  --output data/outputs/visible-card-targeted/m4.json
+```
+
+The report stores the measured selection, batch lineage, baseline and augmented fixed-threshold
+metrics, deltas, and paired predictions. It does not change the validation or challenge split and
+does not select, lock, promote, or start another campaign. Any further addition needs a new
+bounded recipe with a new measured failure selection.
