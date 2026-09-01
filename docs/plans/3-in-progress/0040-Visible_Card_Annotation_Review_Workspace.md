@@ -21,7 +21,8 @@
 
 - **M0:** Complete — build a deterministic source-linked batch preparation boundary with immutable
   batch state, exact-event frames, local finder artifacts, and a v2 queue.
-- **M1:** Not started — create, run, retry, and inspect a batch from the recording page.
+- **M1:** Complete — add recording-scoped readiness, preview-bound asynchronous batch creation,
+  persisted progress, retry of failed items, and recording-page controls.
 - **M2:** Not started — show the queue, source frames, and finder proposals in the web app.
 - **M3:** Not started — accept, correct, add, and remove visible-card annotations.
 - **M4:** Not started — complete and publish review with immutable lineage and downstream proof.

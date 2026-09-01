@@ -36,6 +36,17 @@ export type CardEventDevelopmentSplitApplyRequest =
 export type CardEventDevelopmentSplitApply = JsonResponse<
   paths["/v1/data/cardevent-development-split/apply"]["post"]["responses"][200]
 >;
+export type VisibleCardReviewReadiness = JsonResponse<
+  paths["/v1/recordings/{recording_id}/visible-card-review"]["get"]["responses"][200]
+>;
+export type VisibleCardReviewPreview = JsonResponse<
+  paths["/v1/recordings/{recording_id}/visible-card-review/preview"]["post"]["responses"][200]
+>;
+export type VisibleCardReviewCreateRequest =
+  components["schemas"]["VisibleCardReviewCreateRequest"];
+export type VisibleCardReviewBatch = JsonResponse<
+  paths["/v1/visible-card-reviews/{batch_id}"]["get"]["responses"][200]
+>;
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -90,6 +101,27 @@ export interface DokoDetectorClient {
     payload: CardEventDevelopmentSplitApplyRequest,
     init?: RequestInit,
   ): Promise<CardEventDevelopmentSplitApply>;
+  getVisibleCardReview(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewReadiness>;
+  previewVisibleCardReview(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewPreview>;
+  createVisibleCardReviewBatch(
+    recordingId: string,
+    payload: VisibleCardReviewCreateRequest,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewBatch>;
+  getVisibleCardReviewBatch(
+    batchId: string,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewBatch>;
+  retryVisibleCardReviewBatch(
+    batchId: string,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewBatch>;
   startRecordingAnalysis(
     recordingId: string,
     init?: RequestInit,
@@ -197,6 +229,51 @@ export function createDokoDetectorClient(
           body: JSON.stringify(payload),
         },
       ),
+    getVisibleCardReview: (recordingId, init) =>
+      requestJson<VisibleCardReviewReadiness>(
+        fetchImplementation,
+        visibleCardReviewReadinessPath(recordingId),
+        init,
+      ),
+    previewVisibleCardReview: (recordingId, init) =>
+      requestJson<VisibleCardReviewPreview>(
+        fetchImplementation,
+        visibleCardReviewPreviewPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify({}),
+        },
+      ),
+    createVisibleCardReviewBatch: (recordingId, payload, init) =>
+      requestJson<VisibleCardReviewBatch>(
+        fetchImplementation,
+        visibleCardReviewBatchCreatePath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    getVisibleCardReviewBatch: (batchId, init) =>
+      requestJson<VisibleCardReviewBatch>(
+        fetchImplementation,
+        visibleCardReviewBatchPath(batchId),
+        init,
+      ),
+    retryVisibleCardReviewBatch: (batchId, init) =>
+      requestJson<VisibleCardReviewBatch>(
+        fetchImplementation,
+        visibleCardReviewBatchRetryPath(batchId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify({}),
+        },
+      ),
     startRecordingAnalysis: (recordingId, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -283,6 +360,26 @@ export function recordingCardEventReviewRevisionPath(
   recordingId: string,
 ): string {
   return `${recordingCardEventReviewPath(recordingId)}/revisions`;
+}
+
+export function visibleCardReviewReadinessPath(recordingId: string): string {
+  return `${recordingDetailPath(recordingId)}/visible-card-review`;
+}
+
+export function visibleCardReviewPreviewPath(recordingId: string): string {
+  return `${visibleCardReviewReadinessPath(recordingId)}/preview`;
+}
+
+export function visibleCardReviewBatchCreatePath(recordingId: string): string {
+  return `${visibleCardReviewReadinessPath(recordingId)}/batches`;
+}
+
+export function visibleCardReviewBatchPath(batchId: string): string {
+  return `/v1/visible-card-reviews/${encodeURIComponent(batchId)}`;
+}
+
+export function visibleCardReviewBatchRetryPath(batchId: string): string {
+  return `${visibleCardReviewBatchPath(batchId)}/retry`;
 }
 
 export function cardEventDevelopmentSplitPreviewPath(): string {

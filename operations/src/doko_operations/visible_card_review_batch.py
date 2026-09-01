@@ -52,6 +52,7 @@ VISIBLE_CARD_BATCH_FAILURE_CODES = frozenset(
         "missing_frame",
         "frame_extraction_error",
         "provider_error",
+        "provider_unavailable",
         "invalid_provider_result",
         "queue_error",
     }
@@ -905,7 +906,28 @@ def _initial_item(item: _BatchItemDefinition) -> dict[str, Any]:
         "status": "pending",
         "frame": None,
         "finder": None,
+        "finder_attempt": 0,
         "failure": None,
+    }
+
+
+def _lineage_mapping(
+    request: VisibleCardBatchRequest, item: Mapping[str, Any]
+) -> dict[str, Any]:
+    frame = item.get("frame")
+    if not isinstance(frame, Mapping):
+        raise VisibleCardBatchError("completed finder item has no source frame")
+    return {
+        "package_id": str(item["item_id"]).rsplit(":", 1)[0],
+        "frame_part_name": str(item["item_id"]).rsplit(":", 1)[1],
+        "target_offset_ms": request.target_offset_ms,
+        "image": frame["path"],
+        "frame_sha256": frame["sha256"],
+        "source_asset_id": request.source_asset_id,
+        "source_lineage_group": request.source_lineage_group,
+        "source_asset_sha256": request.source_sha256,
+        "width": frame["width"],
+        "height": frame["height"],
     }
 
 
@@ -1022,6 +1044,135 @@ def load_visible_card_review_batch(path: str | Path) -> dict[str, Any]:
     return _validate_batch_state(_read_json(Path(path), "visible-card batch state"))
 
 
+def assess_visible_card_review_readiness(
+    *,
+    task_enrollment_selected: bool,
+    source_permission: str,
+    allowed_uses: Sequence[str],
+    source_lineage_group: str,
+    protected_source_lineage_groups: Sequence[str],
+    review_completed: bool,
+    reviewed_card_event_count: int,
+    detector_provider: str | None,
+    detector_available: bool,
+) -> tuple[VisibleCardBatchFailure, ...]:
+    """Return the plain-language blockers for one recording-scoped batch preview."""
+
+    if isinstance(reviewed_card_event_count, bool) or not isinstance(
+        reviewed_card_event_count, int
+    ):
+        raise VisibleCardBatchError("reviewed_card_event_count must be an integer")
+    blockers: list[VisibleCardBatchFailure] = []
+    if detector_provider != "local":
+        blockers.append(
+            VisibleCardBatchFailure(
+                code="non_local_provider",
+                message="Only the configured local visible-card provider may run.",
+                stage="preview",
+            )
+        )
+    elif not detector_available:
+        blockers.append(
+            VisibleCardBatchFailure(
+                code="provider_unavailable",
+                message="The local visible-card finder is not available.",
+                stage="preview",
+            )
+        )
+    if not task_enrollment_selected:
+        blockers.append(
+            VisibleCardBatchFailure(
+                code="task_enrollment_not_selected",
+                message="Select the table-evidence task before creating a visible-card review.",
+                stage="preview",
+            )
+        )
+    if source_permission not in _SOURCE_PERMISSIONS or not set(allowed_uses).intersection(
+        _ALLOWED_USES
+    ):
+        blockers.append(
+            VisibleCardBatchFailure(
+                code="disallowed_source_use",
+                message="The source permission does not allow this data task.",
+                stage="preview",
+            )
+        )
+    if source_lineage_group in set(protected_source_lineage_groups):
+        blockers.append(
+            VisibleCardBatchFailure(
+                code="protected_source_group",
+                message="The source-lineage group is protected and cannot enter review.",
+                stage="preview",
+            )
+        )
+    if not review_completed:
+        blockers.append(
+            VisibleCardBatchFailure(
+                code="stale_annotation",
+                message="Complete the full CardEvent review before creating a visible-card batch.",
+                stage="preview",
+            )
+        )
+    elif reviewed_card_event_count <= 0:
+        blockers.append(
+            VisibleCardBatchFailure(
+                code="no_reviewed_card_events",
+                message="The completed CardEvent review has no reviewed card-played events.",
+                stage="preview",
+            )
+        )
+    return tuple(blockers)
+
+
+def preview_visible_card_review_batch(
+    request: VisibleCardBatchRequest,
+    *,
+    reviewed_card_event_count: int,
+    development_partition: str | None = None,
+    detector_available: bool = True,
+) -> dict[str, Any]:
+    """Create the path-independent preview that freezes one batch identity."""
+
+    blockers = assess_visible_card_review_readiness(
+        task_enrollment_selected=request.task_enrollment_selected,
+        source_permission=request.source_permission,
+        allowed_uses=request.allowed_uses,
+        source_lineage_group=request.source_lineage_group,
+        protected_source_lineage_groups=request.protected_source_lineage_groups,
+        review_completed=True,
+        reviewed_card_event_count=reviewed_card_event_count,
+        detector_provider=request.detector.provider,
+        detector_available=detector_available,
+    )
+    core = {
+        "schema_version": "visible-card-review-preview/v1",
+        "batch_id": request.batch_id,
+        "request_digest": request.request_digest,
+        "selected_event_count": reviewed_card_event_count,
+        "detector": request.detector.to_mapping_without_path(),
+    }
+    return {
+        **core,
+        "recording_id": request.recording_id,
+        "source_asset_id": request.source_asset_id,
+        "source_sha256": request.source_sha256,
+        "source_lineage_group": request.source_lineage_group,
+        "task_enrollment_id": request.task_enrollment_id,
+        "task_enrollment_selected": request.task_enrollment_selected,
+        "source_permission": request.source_permission,
+        "allowed_uses": list(request.allowed_uses),
+        "card_event_review_version_id": request.card_event_review_version_id,
+        "card_event_review_version_digest": request.card_event_review_version_digest,
+        "card_event_annotation_digest": request.card_event_annotation_digest,
+        "development_partition": development_partition,
+        "preview_digest": _digest_value(core),
+        "validation": {
+            "valid": not blockers,
+            "blockers": [blocker.to_mapping() for blocker in blockers],
+        },
+    }
+
+
 class VisibleCardReviewBatchStore:
     """Persist deterministic batch preparation state below one operations workspace."""
 
@@ -1033,6 +1184,45 @@ class VisibleCardReviewBatchStore:
 
     def batch_path(self, batch_id: str) -> Path:
         return self.batch_root(batch_id) / "batch.json"
+
+    def initialize(self, request: VisibleCardBatchRequest) -> dict[str, Any]:
+        """Persist a preparing state before extraction starts in a worker."""
+
+        path = self.batch_path(request.batch_id)
+        if path.is_file():
+            current = load_visible_card_review_batch(path)
+            if current["request_digest"] != request.request_digest:
+                raise VisibleCardBatchError("stored visible-card batch request identity changed")
+            return current
+        state = _state(
+            request,
+            status="preparing",
+            phase="validating_inputs",
+            created_at=_now(),
+            updated_at=_now(),
+            items=(),
+        )
+        _atomic_write_json(path, state)
+        return _validate_batch_state(state)
+
+    def begin_retry(self, batch_id: str) -> dict[str, Any]:
+        """Mark one failed batch as preparing while keeping its frozen work state."""
+
+        path = self.batch_path(batch_id)
+        current = load_visible_card_review_batch(path)
+        if current["status"] != "failed":
+            raise VisibleCardBatchError("only a failed visible-card batch can be retried")
+        request = VisibleCardBatchRequest.from_mapping(current["frozen_inputs"])
+        state = _state(
+            request,
+            status="preparing",
+            phase="extracting_frames",
+            created_at=current["created_at_utc"],
+            updated_at=_now(),
+            items=current["items"],
+        )
+        _atomic_write_json(path, state)
+        return _validate_batch_state(state)
 
     def prepare(
         self,
@@ -1060,9 +1250,10 @@ class VisibleCardReviewBatchStore:
                 return current
 
         created_at = _now()
+        existing_state: dict[str, Any] | None = None
         if state_path.is_file():
-            existing = load_visible_card_review_batch(state_path)
-            created_at = existing["created_at_utc"]
+            existing_state = load_visible_card_review_batch(state_path)
+            created_at = existing_state["created_at_utc"]
 
         if request.source_lineage_group in set(request.protected_source_lineage_groups):
             return self._persist_terminal(
@@ -1172,7 +1363,24 @@ class VisibleCardReviewBatchStore:
             )
 
         definitions = _item_definitions(request, events)
-        items = [_initial_item(item) for item in definitions]
+        previous_items = {
+            item["item_id"]: item
+            for item in (existing_state or {}).get("items", [])
+            if isinstance(item, Mapping) and isinstance(item.get("item_id"), str)
+        }
+        items: list[dict[str, Any]] = []
+        for definition in definitions:
+            previous = previous_items.get(definition.item_id)
+            if not resume or previous is None:
+                items.append(_initial_item(definition))
+                continue
+            item = dict(previous)
+            if item.get("failure") is not None:
+                item["failure"] = None
+                item["finder"] = None
+                item["status"] = "frame_extracted" if item.get("frame") is not None else "pending"
+                item["finder_attempt"] = int(item.get("finder_attempt", 0)) + 1
+            items.append(item)
         current = _state(
             request,
             status="preparing",
@@ -1186,6 +1394,12 @@ class VisibleCardReviewBatchStore:
         artifact_paths: dict[str, tuple[Path, Path]] = {}
         for index, definition in enumerate(definitions):
             item = items[index]
+            if item["frame"] is not None:
+                artifact_paths[definition.item_id] = (
+                    Path(item["frame"]["path"]),
+                    batch_root / "finder-results" / f"{definition.package_id}.json",
+                )
+                continue
             try:
                 frame = _call_extractor(
                     extractor,
@@ -1272,7 +1486,18 @@ class VisibleCardReviewBatchStore:
         for index, definition in enumerate(definitions):
             item = items[index]
             frame = item["frame"]
-            _, result_path = artifact_paths[definition.item_id]
+            if item["finder"] is not None and item["failure"] is None:
+                finder = item["finder"]
+                result_path = Path(finder["result_path"])
+                artifact = _read_json(result_path, "visible-card finder result")
+                artifact["artifact_path"] = str(result_path.resolve())
+                artifacts.append(artifact)
+                lineage_by_item[definition.item_id] = _lineage_mapping(request, item)
+                continue
+            attempt = int(item.get("finder_attempt", 0))
+            suffix = f"-retry-{attempt}" if attempt else ""
+            result_path = batch_root / "finder-results" / f"{definition.package_id}{suffix}.json"
+            artifact_paths[definition.item_id] = (Path(frame["path"]), result_path)
             try:
                 visible_request = build_request_from_image(
                     frame["path"],
@@ -1371,19 +1596,7 @@ class VisibleCardReviewBatchStore:
             _atomic_write_json(state_path, current)
 
             if item["failure"] is None:
-                frame_mapping = item["frame"]
-                lineage_by_item[definition.item_id] = {
-                    "package_id": definition.package_id,
-                    "frame_part_name": definition.frame_part_name,
-                    "target_offset_ms": request.target_offset_ms,
-                    "image": frame_mapping["path"],
-                    "frame_sha256": frame_mapping["sha256"],
-                    "source_asset_id": request.source_asset_id,
-                    "source_lineage_group": request.source_lineage_group,
-                    "source_asset_sha256": request.source_sha256,
-                    "width": frame_mapping["width"],
-                    "height": frame_mapping["height"],
-                }
+                lineage_by_item[definition.item_id] = _lineage_mapping(request, item)
 
         if failures:
             return self._persist_terminal(
@@ -1545,7 +1758,9 @@ __all__ = [
     "VisibleCardReviewBatchRequest",
     "VisibleCardReviewBatchStore",
     "VisibleCardFrameExtractor",
+    "assess_visible_card_review_readiness",
     "load_visible_card_review_batch",
     "prepare_visible_card_review_batch",
+    "preview_visible_card_review_batch",
     "run_visible_card_review_batch",
 ]

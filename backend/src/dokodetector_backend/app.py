@@ -7,7 +7,7 @@ import os
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING, Any, AsyncIterator
 
 from doko_operations import CardEventDevelopmentSplitStore, CardEventReviewStore
 from fastapi import FastAPI, Request
@@ -43,6 +43,7 @@ from dokodetector_backend.round_analysis_api import router as round_analysis_rou
 from dokodetector_backend.round_analysis_service import RoundAnalysisService
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.visible_card_review_api import router as visible_card_review_router
 
 if TYPE_CHECKING:
     from table_evidence_analyzer import TableEvidenceAnalyzer
@@ -56,6 +57,9 @@ def create_app(
     *,
     run_round_analysis_synchronously: bool = False,
     analyzer: TableEvidenceAnalyzer | None = None,
+    visible_card_provider: Any | None = None,
+    visible_card_detector: Any | None = None,
+    visible_card_frame_extractor: Any | None = None,
 ) -> FastAPI:
     """Create the local backend application."""
 
@@ -102,6 +106,14 @@ def create_app(
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.readiness_state = "unknown"
     app.state.analyzer = analyzer or create_configured_analyzer(app_settings)
+    app.state.visible_card_provider = (
+        visible_card_provider
+        if visible_card_provider is not None
+        else getattr(app.state.analyzer, "provider", None)
+    )
+    app.state.visible_card_detector = visible_card_detector
+    app.state.visible_card_frame_extractor = visible_card_frame_extractor
+    app.state.visible_card_batch_tasks = {}
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     app.state.repository.rebuild_from_intake(
         app.state.evidence_package_storage,
@@ -141,6 +153,7 @@ def create_app(
     app.include_router(recordings_router)
     app.include_router(card_event_review_router)
     app.include_router(card_event_development_split_router)
+    app.include_router(visible_card_review_router)
     _mount_frontend(app, app_settings.frontend_dist)
 
     @app.get("/health/live")

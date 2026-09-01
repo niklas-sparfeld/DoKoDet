@@ -312,6 +312,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recordings/{recording_id}/visible-card-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Visible Card Review Readiness
+         * @description Return readiness and the current preparation state for one recording.
+         */
+        get: operations["get_visible_card_review_readiness_v1_recordings__recording_id__visible_card_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/visible-card-review/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Visible Card Review Batch
+         * @description Persist and asynchronously start one preview-bound batch.
+         */
+        post: operations["create_visible_card_review_batch_v1_recordings__recording_id__visible_card_review_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/visible-card-review/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Visible Card Review
+         * @description Preview the exact source, review, enrollment, and detector inputs.
+         */
+        post: operations["preview_visible_card_review_v1_recordings__recording_id__visible_card_review_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repository-bundles/{recording_id}": {
         parameters: {
             query?: never;
@@ -490,6 +550,46 @@ export interface paths {
         get: operations["get_table_observation_v1_table_observations__observation_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visible-card-reviews/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Visible Card Review Batch
+         * @description Return persisted preparation progress for one batch.
+         */
+        get: operations["get_visible_card_review_batch_v1_visible_card_reviews__batch_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visible-card-reviews/{batch_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Visible Card Review Batch
+         * @description Retry only failed items with the batch's frozen request and detector.
+         */
+        post: operations["retry_visible_card_review_batch_v1_visible_card_reviews__batch_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1897,6 +1997,213 @@ export interface components {
              */
             width: number;
         };
+        /**
+         * VisibleCardBatchFailureResponse
+         * @description One safe batch blocker or item failure.
+         */
+        VisibleCardBatchFailureResponse: {
+            /** Code */
+            code: string;
+            /** Item Id */
+            item_id: string | null;
+            /** Message */
+            message: string;
+            /** Retryable */
+            retryable: boolean;
+            /** Stage */
+            stage: string;
+        };
+        /**
+         * VisibleCardBatchItemResponse
+         * @description A compact item projection without image bytes or local paths.
+         */
+        VisibleCardBatchItemResponse: {
+            /** Actual Offset Ms */
+            actual_offset_ms: number | null;
+            /** Event Time Ms */
+            event_time_ms: number;
+            /** Event Time S */
+            event_time_s: number;
+            failure: components["schemas"]["VisibleCardBatchFailureResponse"] | null;
+            /** Finder Status */
+            finder_status: ("ok" | "unavailable") | null;
+            /** Frame Index */
+            frame_index: number | null;
+            /** Item Id */
+            item_id: string;
+            /** Status */
+            status: string;
+            /** Target Offset Ms */
+            target_offset_ms: number;
+        };
+        /**
+         * VisibleCardBatchProgressResponse
+         * @description Persisted preparation counters.
+         */
+        VisibleCardBatchProgressResponse: {
+            /** Failed Items */
+            failed_items: number;
+            /** Finder Completed */
+            finder_completed: number;
+            /** Frames Extracted */
+            frames_extracted: number;
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "validating_inputs" | "extracting_frames" | "running_finder" | "ready" | "failed" | "blocked";
+            /** Total Items */
+            total_items: number;
+        };
+        /**
+         * VisibleCardBatchResponse
+         * @description Current persisted preparation state.
+         */
+        VisibleCardBatchResponse: {
+            /** Batch Id */
+            batch_id: string;
+            /** Created At Utc */
+            created_at_utc: string;
+            detector: components["schemas"]["VisibleCardDetectorResponse"];
+            /** Failures */
+            failures: components["schemas"]["VisibleCardBatchFailureResponse"][];
+            /** Items */
+            items: components["schemas"]["VisibleCardBatchItemResponse"][];
+            progress: components["schemas"]["VisibleCardBatchProgressResponse"];
+            /** Queue Digest */
+            queue_digest: string | null;
+            /** Queue Schema Version */
+            queue_schema_version: string;
+            /** Recording Id */
+            recording_id: string;
+            /** Request Digest */
+            request_digest: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visible-card-review-batch/v1";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "ready" | "failed" | "blocked";
+            /** Updated At Utc */
+            updated_at_utc: string;
+        };
+        /**
+         * VisibleCardDetectorResponse
+         * @description The detector identity frozen into the preview.
+         */
+        VisibleCardDetectorResponse: {
+            /** Bundle Digest */
+            bundle_digest: string;
+            /** Bundle Id */
+            bundle_id: string;
+            /** Confidence Threshold */
+            confidence_threshold: number;
+            /** Input Size */
+            input_size: number;
+            /** Model */
+            model: string;
+            /** Preprocessing */
+            preprocessing: string;
+            /** Provider */
+            provider: string;
+            /** Provider Version */
+            provider_version: string;
+        };
+        /**
+         * VisibleCardPreviewValidationResponse
+         * @description Preview validation and plain-language blockers.
+         */
+        VisibleCardPreviewValidationResponse: {
+            /** Blockers */
+            blockers: components["schemas"]["VisibleCardBatchFailureResponse"][];
+            /** Valid */
+            valid: boolean;
+        };
+        /**
+         * VisibleCardReviewCreateRequest
+         * @description The preview identity required to start immutable batch work.
+         */
+        VisibleCardReviewCreateRequest: {
+            /** Preview Digest */
+            preview_digest: string;
+            /** Request Digest */
+            request_digest: string;
+        };
+        /**
+         * VisibleCardReviewPreviewResponse
+         * @description The source and detector facts frozen by a preview.
+         */
+        VisibleCardReviewPreviewResponse: {
+            /** Allowed Uses */
+            allowed_uses: string[];
+            /** Batch Id */
+            batch_id: string | null;
+            /** Card Event Annotation Digest */
+            card_event_annotation_digest: string | null;
+            /** Card Event Review Version Digest */
+            card_event_review_version_digest: string | null;
+            /** Card Event Review Version Id */
+            card_event_review_version_id: string | null;
+            detector: components["schemas"]["VisibleCardDetectorResponse"] | null;
+            /** Development Partition */
+            development_partition: string | null;
+            /** Preview Digest */
+            preview_digest: string;
+            /** Recording Id */
+            recording_id: string;
+            /** Request Digest */
+            request_digest: string | null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visible-card-review-preview/v1";
+            /** Selected Event Count */
+            selected_event_count: number;
+            /** Source Asset Id */
+            source_asset_id: string;
+            /** Source Lineage Group */
+            source_lineage_group: string;
+            /** Source Permission */
+            source_permission: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Task Enrollment Id */
+            task_enrollment_id: string | null;
+            /** Task Enrollment Selected */
+            task_enrollment_selected: boolean;
+            validation: components["schemas"]["VisibleCardPreviewValidationResponse"];
+        };
+        /**
+         * VisibleCardReviewReadinessResponse
+         * @description Current recording-scoped readiness and batch state.
+         */
+        VisibleCardReviewReadinessResponse: {
+            batch: components["schemas"]["VisibleCardBatchResponse"] | null;
+            blocker: components["schemas"]["VisibleCardBatchFailureResponse"] | null;
+            /** Message */
+            message: string;
+            /** Preview Digest */
+            preview_digest: string | null;
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visible-card-review-readiness/v1";
+            /** Selected Event Count */
+            selected_event_count: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_ready" | "ready" | "preparing" | "failed" | "blocked";
+        };
     };
     responses: never;
     parameters: never;
@@ -2418,6 +2725,103 @@ export interface operations {
             };
         };
     };
+    get_visible_card_review_readiness_v1_recordings__recording_id__visible_card_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardReviewReadinessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_visible_card_review_batch_v1_recordings__recording_id__visible_card_review_batches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibleCardReviewCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_visible_card_review_v1_recordings__recording_id__visible_card_review_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardReviewPreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_repository_bundle_v1_repository_bundles__recording_id__get: {
         parameters: {
             query?: never;
@@ -2724,6 +3128,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TableObservation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_visible_card_review_batch_v1_visible_card_reviews__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_visible_card_review_batch_v1_visible_card_reviews__batch_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardBatchResponse"];
                 };
             };
             /** @description Validation Error */

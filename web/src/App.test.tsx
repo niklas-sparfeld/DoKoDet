@@ -112,6 +112,143 @@ describe("App", () => {
     );
   });
 
+  it("previews and starts a visible-card batch from the recording workspace", async () => {
+    const recordingId = "recording-detail-1";
+    window.history.pushState({}, "", `/recordings/${recordingId}`);
+    const preview = {
+      schema_version: "visible-card-review-preview/v1",
+      recording_id: recordingId,
+      batch_id: null,
+      request_digest: "b".repeat(64),
+      preview_digest: "c".repeat(64),
+      source_asset_id: "source-detail-1",
+      source_sha256: "a".repeat(64),
+      source_lineage_group: "source-detail-1",
+      task_enrollment_id: "enrollment-table-evidence-1",
+      task_enrollment_selected: true,
+      source_permission: "training_only",
+      allowed_uses: ["training"],
+      card_event_review_version_id: "cardevent-version-1",
+      card_event_review_version_digest: "d".repeat(64),
+      card_event_annotation_digest: "e".repeat(64),
+      selected_event_count: 2,
+      development_partition: "train",
+      detector: {
+        bundle_id: "fixture-visible-card-detector",
+        bundle_digest: "f".repeat(64),
+        model: "fixture-model",
+        provider: "local",
+        provider_version: "fixture-provider-v1",
+        preprocessing: "fixture",
+        confidence_threshold: 0.8,
+        input_size: 224,
+      },
+      validation: { valid: true, blockers: [] },
+    };
+    const readiness = {
+      schema_version: "visible-card-review-readiness/v1",
+      recording_id: recordingId,
+      state: "ready",
+      message: "Ready to prepare visible-card frames.",
+      blocker: null,
+      selected_event_count: 2,
+      batch: null,
+      preview_digest: preview.preview_digest,
+    };
+    const batch = {
+      schema_version: "visible-card-review-batch/v1",
+      batch_id: "visible-card-batch-0123456789abcdef01234567",
+      recording_id: recordingId,
+      request_digest: preview.request_digest,
+      status: "preparing",
+      created_at_utc: "2026-09-01T07:20:46Z",
+      updated_at_utc: "2026-09-01T07:20:46Z",
+      detector: preview.detector,
+      progress: {
+        phase: "extracting_frames",
+        total_items: 2,
+        frames_extracted: 0,
+        finder_completed: 0,
+        failed_items: 0,
+      },
+      items: [],
+      failures: [],
+      queue_schema_version: "visible-card-review-queue/v1",
+      queue_digest: null,
+    };
+    const readinessPath = `/v1/recordings/${recordingId}/visible-card-review`;
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      const path = String(input);
+      if (path === `${readinessPath}/preview`) {
+        return Promise.resolve(
+          new Response(JSON.stringify(preview), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (path === `${readinessPath}/batches`) {
+        return Promise.resolve(
+          new Response(JSON.stringify(batch), {
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (path === readinessPath) {
+        return Promise.resolve(
+          new Response(JSON.stringify(readiness), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(resolvedStatus), {
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(emptyRecordingDetail), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Preview visible-card batch",
+      }),
+    );
+    expect(await screen.findByText("Creation preview")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Create visible-card batch" }),
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${readinessPath}/batches`,
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            preview_digest: preview.preview_digest,
+            request_digest: preview.request_digest,
+          }),
+        }),
+      ),
+    );
+    expect(await screen.findByText("Preparing frames.")).toBeInTheDocument();
+    expect(screen.getAllByText("0/2")).toHaveLength(2);
+  });
+
   it("previews and confirms a development partition assignment", async () => {
     window.history.pushState({}, "", "/recordings/recording-detail-1");
     const recording = {
@@ -402,7 +539,7 @@ describe("App", () => {
       screen.getByRole("progressbar", { name: "Diamonds Jack confidence" }),
     ).toHaveValue(0.75);
     expect(screen.getAllByText("Clubs Nine").length).toBeGreaterThan(0);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("keeps rendering when a timeline response omits the recording descriptor", async () => {

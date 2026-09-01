@@ -261,8 +261,10 @@ from .visible_card_review_batch import (
     VisibleCardMissingFrameError,
     VisibleCardReviewBatchRequest,
     VisibleCardReviewBatchStore,
+    assess_visible_card_review_readiness,
     load_visible_card_review_batch,
     prepare_visible_card_review_batch,
+    preview_visible_card_review_batch,
     run_visible_card_review_batch,
 )
 
@@ -322,8 +324,10 @@ __all__ = [
     "VisibleCardMissingFrameError",
     "VisibleCardReviewBatchRequest",
     "VisibleCardReviewBatchStore",
+    "assess_visible_card_review_readiness",
     "load_visible_card_review_batch",
     "prepare_visible_card_review_batch",
+    "preview_visible_card_review_batch",
     "run_visible_card_review_batch",
     "ROUND_COUNTERFACTUAL_SCHEMA_VERSION",
     "CounterfactualCardIdentityOverride",

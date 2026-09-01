@@ -8,6 +8,8 @@ import {
   type CardEventDevelopmentSplitPreviewRequest,
   type RecordingDetail,
   type RecordingSummary,
+  type VisibleCardReviewPreview,
+  type VisibleCardReviewReadiness,
 } from "./api/client";
 import { RecordingAnalysisView } from "./analysis/AnalysisView";
 import { CardEventEditor } from "./cardEvents/CardEventEditor";
@@ -291,6 +293,11 @@ export function RecordingDetailView({
     useState<CardEventDevelopmentSplitPreview | null>(null);
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [visibleCardReview, setVisibleCardReview] =
+    useState<VisibleCardReviewReadiness | null>(null);
+  const [visibleCardReviewError, setVisibleCardReviewError] = useState<
+    string | null
+  >(null);
 
   const loadRecording = useCallback(
     async (signal?: AbortSignal) => {
@@ -324,6 +331,49 @@ export function RecordingDetailView({
       controller.abort();
     };
   }, [loadRecording]);
+
+  const loadVisibleCardReview = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const response = await client.getVisibleCardReview(recordingId, {
+          signal,
+        });
+        if (!signal?.aborted) {
+          if (isVisibleCardReviewReadiness(response)) {
+            setVisibleCardReview(response);
+            setVisibleCardReviewError(null);
+          } else {
+            setVisibleCardReview(null);
+          }
+        }
+      } catch (reason: unknown) {
+        if (!signal?.aborted) {
+          setVisibleCardReviewError(describeError(reason));
+        }
+      }
+    },
+    [client, recordingId],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(
+      () => void loadVisibleCardReview(controller.signal),
+      0,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [loadVisibleCardReview]);
+
+  useEffect(() => {
+    if (visibleCardReview?.state !== "preparing") {
+      return;
+    }
+    const timer = window.setInterval(() => void loadVisibleCardReview(), 1000);
+    return () => window.clearInterval(timer);
+  }, [loadVisibleCardReview, visibleCardReview?.state]);
 
   async function startAnalysis() {
     setTriggering(true);
@@ -476,6 +526,11 @@ export function RecordingDetailView({
                 state={formatIdentifier(recording.card_event_review.state)}
               />
               <DetailProgressLink
+                href="#visible-cards"
+                label="Visible cards"
+                state={formatIdentifier(visibleCardReview?.state ?? "loading")}
+              />
+              <DetailProgressLink
                 href="#training-use"
                 label="Training use"
                 state={recording.training_use.eligibility}
@@ -521,6 +576,12 @@ export function RecordingDetailView({
                     },
               )
             }
+          />
+          <VisibleCardReviewSection
+            recordingId={recording.recording_id}
+            review={visibleCardReview}
+            error={visibleCardReviewError}
+            onChanged={setVisibleCardReview}
           />
           <TrainingUseSection
             trainingUse={recording.training_use}
@@ -684,6 +745,218 @@ function CardEventSection({
             : `Review state: ${formatIdentifier(review.state)}.`}
         </p>
       )}
+    </section>
+  );
+}
+
+function VisibleCardReviewSection({
+  recordingId,
+  review,
+  error,
+  onChanged,
+}: {
+  recordingId: string;
+  review: VisibleCardReviewReadiness | null;
+  error: string | null;
+  onChanged: (value: VisibleCardReviewReadiness) => void;
+}) {
+  const client = useMemo(() => createDokoDetectorClient(), []);
+  const [preview, setPreview] = useState<VisibleCardReviewPreview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  if (review === null) {
+    return null;
+  }
+  const currentReview = review;
+
+  async function loadPreview() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      setPreview(await client.previewVisibleCardReview(recordingId));
+    } catch (reason: unknown) {
+      setActionError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createBatch() {
+    if (
+      preview === null ||
+      !preview.validation.valid ||
+      preview.request_digest === null
+    ) {
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      const batch = await client.createVisibleCardReviewBatch(recordingId, {
+        preview_digest: preview.preview_digest,
+        request_digest: preview.request_digest,
+      });
+      onChanged({
+        ...currentReview,
+        state: "preparing",
+        message: "Preparing frames.",
+        blocker: null,
+        batch,
+      });
+      setPreview(null);
+    } catch (reason: unknown) {
+      setActionError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function retryBatch() {
+    if (currentReview.batch === null) {
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      const batch = await client.retryVisibleCardReviewBatch(
+        currentReview.batch.batch_id,
+      );
+      onChanged({
+        ...currentReview,
+        state: "preparing",
+        message: "Retrying failed items.",
+        blocker: null,
+        batch,
+      });
+    } catch (reason: unknown) {
+      setActionError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const batch = review.batch;
+  const progress = batch?.progress;
+  return (
+    <section id="visible-cards" className={styles.detailPanel}>
+      <div className={styles.sectionHeading}>
+        <div>
+          <p className={styles.statusLabel}>Annotation assistant</p>
+          <h2>Visible cards</h2>
+        </div>
+        <StatusBadge value={review.state} />
+      </div>
+      <p className={styles.detailLead}>
+        Prepare exact-event frames and local finder proposals for human review.
+        Finder proposals remain suggestions until an operator reviews them.
+      </p>
+      {error !== null ? (
+        <p className={styles.errorMessage} role="alert">
+          {error}
+        </p>
+      ) : null}
+      <p className={styles.visibleCardReviewMessage} aria-live="polite">
+        {review.message}
+      </p>
+      {progress !== undefined ? (
+        <dl className={styles.detailStats}>
+          <Stat
+            label="Frames"
+            value={`${progress.frames_extracted}/${progress.total_items}`}
+          />
+          <Stat
+            label="Finder results"
+            value={`${progress.finder_completed}/${progress.total_items}`}
+          />
+          <Stat label="Failed items" value={String(progress.failed_items)} />
+          <Stat label="Phase" value={formatIdentifier(progress.phase)} />
+        </dl>
+      ) : null}
+      {review.blocker !== null ? (
+        <p className={styles.detailBlocker}>{review.blocker.message}</p>
+      ) : null}
+      {batch?.status === "failed" ? (
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={() => void retryBatch()}
+          disabled={
+            busy || !batch.failures.some((failure) => failure.retryable)
+          }
+        >
+          {busy ? "Retrying…" : "Retry failed items"}
+        </button>
+      ) : null}
+      {review.state === "ready" && batch === null ? (
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={() => void loadPreview()}
+          disabled={busy}
+        >
+          {busy ? "Loading preview…" : "Preview visible-card batch"}
+        </button>
+      ) : null}
+      {preview !== null ? (
+        <div className={styles.visibleCardPreview} aria-live="polite">
+          <p className={styles.statusLabel}>Creation preview</p>
+          <dl className={styles.detailStats}>
+            <Stat
+              label="Reviewed events"
+              value={String(preview.selected_event_count)}
+            />
+            <Stat
+              label="Task enrollment"
+              value={preview.task_enrollment_id ?? "Not enrolled"}
+            />
+            <Stat
+              label="Permission"
+              value={formatIdentifier(preview.source_permission)}
+            />
+            <Stat
+              label="Development partition"
+              value={preview.development_partition ?? "Unassigned"}
+            />
+          </dl>
+          {preview.detector !== null ? (
+            <p className={styles.detailMetaLine}>
+              Detector {preview.detector.bundle_id} ·{" "}
+              {preview.detector.provider_version} · digest{" "}
+              {preview.detector.bundle_digest.slice(0, 12)}…
+            </p>
+          ) : null}
+          {!preview.validation.valid ? (
+            <ul className={styles.detailList}>
+              {preview.validation.blockers.map((blocker) => (
+                <li key={`${blocker.code}:${blocker.message}`}>
+                  {blocker.message}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={() => void createBatch()}
+              disabled={busy}
+            >
+              {busy ? "Starting…" : "Create visible-card batch"}
+            </button>
+          )}
+        </div>
+      ) : null}
+      {batch?.status === "ready" ? (
+        <p className={styles.detailMetaLine}>
+          The batch is ready. The frame editor will be available in the next
+          phase.
+        </p>
+      ) : null}
+      {actionError !== null ? (
+        <p className={styles.errorMessage} role="alert">
+          {actionError}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -1024,6 +1297,17 @@ function formatIdentifier(value: string): string {
 function countReviewEvents(review: CardEventReview): number {
   const events = review.annotation.events;
   return Array.isArray(events) ? events.length : 0;
+}
+
+function isVisibleCardReviewReadiness(
+  value: unknown,
+): value is VisibleCardReviewReadiness {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "schema_version" in value &&
+    value.schema_version === "visible-card-review-readiness/v1"
+  );
 }
 
 function describeError(reason: unknown): string {
