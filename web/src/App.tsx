@@ -94,17 +94,19 @@ type DisplayRow =
 
 export function App() {
   const recordingId = readRecordingId(window.location.pathname);
-  const analysisId = readAnalysisId(window.location.pathname);
+  const selectedAnalysisId = readSelectedAnalysisId(window.location.search);
 
   if (recordingId !== null) {
-    return <RecordingDetailView key={recordingId} recordingId={recordingId} />;
+    return (
+      <RecordingDetailView
+        key={`${recordingId}:${selectedAnalysisId ?? ""}`}
+        recordingId={recordingId}
+        selectedAnalysisId={selectedAnalysisId}
+      />
+    );
   }
 
-  if (analysisId === null) {
-    return <RecordingListView />;
-  }
-
-  return <AnalysisSmokeView key={analysisId} analysisId={analysisId} />;
+  return <RecordingListView />;
 }
 
 function RecordingListView() {
@@ -331,7 +333,10 @@ function RecordingCard({
                 {analysis.state === "complete" ? (
                   <a
                     className={styles.recordingLink}
-                    href={`/round-analyses/${encodeURIComponent(analysis.analysis_id)}`}
+                    href={analysisSelectionPath(
+                      recording.recording_id,
+                      analysis.analysis_id,
+                    )}
                   >
                     Open timeline
                   </a>
@@ -345,7 +350,13 @@ function RecordingCard({
   );
 }
 
-function RecordingDetailView({ recordingId }: { recordingId: string }) {
+function RecordingDetailView({
+  recordingId,
+  selectedAnalysisId,
+}: {
+  recordingId: string;
+  selectedAnalysisId: string | null;
+}) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -474,6 +485,7 @@ function RecordingDetailView({ recordingId }: { recordingId: string }) {
           <TrainingUseSection trainingUse={recording.training_use} />
           <RoundAnalysesSection
             recording={recording}
+            selectedAnalysisId={selectedAnalysisId}
             isTriggering={triggering}
             onStart={() => void startAnalysis()}
           />
@@ -656,13 +668,19 @@ function TrainingUseSection({
 
 function RoundAnalysesSection({
   recording,
+  selectedAnalysisId,
   isTriggering,
   onStart,
 }: {
   recording: RecordingDetail;
+  selectedAnalysisId: string | null;
   isTriggering: boolean;
   onStart: () => void;
 }) {
+  const selectedAnalysis = recording.analyses.find(
+    (analysis) => analysis.analysis_id === selectedAnalysisId,
+  );
+
   return (
     <section id="round-analyses" className={styles.detailPanel}>
       <div className={styles.sectionHeading}>
@@ -712,18 +730,32 @@ function RoundAnalysesSection({
                   <p className={styles.analysisError}>{analysis.error}</p>
                 ) : null}
               </div>
-              {analysis.state === "complete" ? (
-                <a
-                  className={styles.recordingLink}
-                  href={`/round-analyses/${encodeURIComponent(analysis.analysis_id)}`}
-                >
-                  Open timeline
-                </a>
-              ) : null}
+              <a
+                className={styles.recordingLink}
+                href={analysisSelectionPath(
+                  recording.recording_id,
+                  analysis.analysis_id,
+                )}
+              >
+                {analysis.state === "complete"
+                  ? "Open timeline"
+                  : "View status"}
+              </a>
             </li>
           ))}
         </ul>
       )}
+      {selectedAnalysisId !== null && selectedAnalysis === undefined ? (
+        <p className={styles.detailBlocker}>
+          This analysis is not linked to the recording detail.
+        </p>
+      ) : selectedAnalysis !== undefined ? (
+        <RecordingAnalysisView
+          key={selectedAnalysis.analysis_id}
+          analysisId={selectedAnalysis.analysis_id}
+          recordingId={recording.recording_id}
+        />
+      ) : null}
     </section>
   );
 }
@@ -741,7 +773,13 @@ function formatTimestamp(value: string): string {
   }).format(new Date(value));
 }
 
-function AnalysisSmokeView({ analysisId }: { analysisId: string }) {
+function RecordingAnalysisView({
+  analysisId,
+  recordingId,
+}: {
+  analysisId: string;
+  recordingId: string;
+}) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [status, setStatus] = useState<RoundAnalysisStatus | null>(null);
   const [timeline, setTimeline] = useState<RoundAnalysisTimeline | null>(null);
@@ -778,7 +816,21 @@ function AnalysisSmokeView({ analysisId }: { analysisId: string }) {
   }, [analysisId, client]);
 
   return (
-    <main className={styles.shell}>
+    <div className={styles.nestedAnalysis} id="selected-analysis">
+      <div className={styles.nestedAnalysisHeader}>
+        <div>
+          <p className={styles.statusLabel}>Selected analysis</p>
+          <p className={styles.analysisId} title={analysisId}>
+            {analysisId}
+          </p>
+        </div>
+        <a
+          className={styles.recordingLink}
+          href={recordingPagePath(recordingId)}
+        >
+          Clear selection
+        </a>
+      </div>
       {error !== null ? (
         <section className={styles.panel} aria-live="polite">
           <p className={styles.statusLabel}>Unable to load analysis</p>
@@ -791,7 +843,7 @@ function AnalysisSmokeView({ analysisId }: { analysisId: string }) {
       ) : (
         <AnalysisStatus status={status} timeline={timeline} />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -3304,11 +3356,6 @@ function createCounterfactualId(): string {
   );
 }
 
-function readAnalysisId(pathname: string): string | null {
-  const match = pathname.match(/^\/round-analyses\/([^/]+)\/?$/);
-  return match === null ? null : decodeURIComponent(match[1]);
-}
-
 function readRecordingId(pathname: string): string | null {
   const match = pathname.match(/^\/recordings\/([^/]+)\/?$/);
   return match === null ? null : decodeURIComponent(match[1]);
@@ -3316,6 +3363,18 @@ function readRecordingId(pathname: string): string | null {
 
 function recordingPagePath(recordingId: string): string {
   return `/recordings/${encodeURIComponent(recordingId)}`;
+}
+
+function analysisSelectionPath(
+  recordingId: string,
+  analysisId: string,
+): string {
+  return `${recordingPagePath(recordingId)}?analysis=${encodeURIComponent(analysisId)}`;
+}
+
+function readSelectedAnalysisId(search: string): string | null {
+  const analysisId = new URLSearchParams(search).get("analysis");
+  return analysisId === null || analysisId === "" ? null : analysisId;
 }
 
 function formatAnalysisCount(count: number): string {

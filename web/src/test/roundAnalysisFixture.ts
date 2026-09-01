@@ -6,6 +6,7 @@ import type {
 } from "../api/client";
 
 export const ANALYSIS_ID = "550e8400-e29b-41d4-a716-446655440033";
+export const RECORDING_ID = "recording-0033";
 
 const PACKAGE_ID = "550e8400-e29b-41d4-a716-446655440035";
 
@@ -140,7 +141,7 @@ const scoreBreakdown = {
 export const resolvedTimeline = {
   schema_version: "round-analysis-timeline/v1",
   analysis_id: ANALYSIS_ID,
-  recording_id: "recording-0033",
+  recording_id: RECORDING_ID,
   recording_video: {
     url: "/v1/repository-bundles/recording-0033/video",
     content_type: "video/quicktime" as const,
@@ -373,7 +374,7 @@ export const impossibleTimeline = {
 
 export const resolvedStatus = {
   analysis_id: ANALYSIS_ID,
-  recording_id: "recording-0033",
+  recording_id: RECORDING_ID,
   round_id: "round-0033",
   session_id: "550e8400-e29b-41d4-a716-446655440034",
   state: "complete",
@@ -396,6 +397,40 @@ export const resolvedStatus = {
   started_at: "2026-08-30T12:00:01Z",
   completed_at: "2026-08-30T12:00:02Z",
 } satisfies RoundAnalysisStatus;
+
+export const recordingDetailWithAnalysis = {
+  ...emptyRecordingDetail,
+  recording_id: RECORDING_ID,
+  source_asset_id: "source-0033",
+  video_id: "video-0033",
+  round_id: "round-0033",
+  source: {
+    ...emptyRecordingDetail.source,
+    recording_id: RECORDING_ID,
+    video_id: "video-0033",
+    round_id: "round-0033",
+  },
+  video: {
+    ...emptyRecordingDetail.video,
+    url: `/v1/repository-bundles/${RECORDING_ID}/video`,
+  },
+  evidence_package_ids: [PACKAGE_ID],
+  analyses: [
+    {
+      analysis_id: ANALYSIS_ID,
+      recording_id: RECORDING_ID,
+      round_id: "round-0033",
+      state: "complete" as const,
+      total_evidence_packages: 2,
+      completed_evidence_packages: 2,
+      result_status: "resolved" as const,
+      error: null,
+      created_at: resolvedStatus.created_at,
+      started_at: resolvedStatus.started_at,
+      completed_at: resolvedStatus.completed_at,
+    },
+  ],
+} satisfies RecordingDetail;
 
 function statusForTimeline(
   timeline: RoundAnalysisTimeline,

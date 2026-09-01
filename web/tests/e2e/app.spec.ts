@@ -10,6 +10,8 @@ import {
   impossibleTimeline,
   incompleteStatus,
   incompleteTimeline,
+  RECORDING_ID,
+  recordingDetailWithAnalysis,
   resolvedStatus,
   resolvedTimeline,
   unchangedCounterfactualResponse,
@@ -54,7 +56,11 @@ test.beforeEach(async ({ page }) => {
     }
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify(emptyRecordingDetail),
+      body: JSON.stringify(
+        route.request().url().includes(`/recordings/${RECORDING_ID}`)
+          ? recordingDetailWithAnalysis
+          : emptyRecordingDetail,
+      ),
     });
   });
   await page.route("**/v1/round-analyses/**", async (route) => {
@@ -127,7 +133,7 @@ test("renders a resolved analysis in synchronized desktop columns", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/round-analyses/${ANALYSIS_ID}`);
+  await page.goto(`/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}`);
 
   await expect(page.getByRole("heading", { name: "Evidence" })).toBeVisible();
   await expect(
@@ -180,7 +186,7 @@ test("restores deep links and moves the selected row with keyboard navigation", 
   page,
 }) => {
   await page.goto(
-    `/round-analyses/${ANALYSIS_ID}?row=observation-002&hypothesis=2`,
+    `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}&row=observation-002&hypothesis=2`,
   );
 
   const selectedRow = page.getByRole("option", {
@@ -198,7 +204,7 @@ test("restores deep links and moves the selected row with keyboard navigation", 
   await selectedRow.press("ArrowUp");
 
   await expect(page).toHaveURL(
-    `/round-analyses/${ANALYSIS_ID}?hypothesis=2&row=observation-001`,
+    `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}&hypothesis=2&row=observation-001`,
   );
   await expect(
     page.getByRole("option", { name: /observation-001/, selected: true }),
@@ -218,7 +224,7 @@ test("submits a direct card identity correction", async ({ page }) => {
     }
   });
 
-  await page.goto(`/round-analyses/${ANALYSIS_ID}`);
+  await page.goto(`/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}`);
   await page
     .getByRole("combobox", {
       name: "Correct classification for observation-002-card-01",
@@ -244,7 +250,9 @@ test("explains failure states and stacks the timeline at the narrow test width",
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/round-analyses/${ANALYSIS_ID}?fixture=incomplete`);
+  await page.goto(
+    `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}&fixture=incomplete`,
+  );
 
   await expect(page.getByText("Incomplete input")).toBeVisible();
   await expect(page.getByText("No retained hypotheses.")).toBeVisible();
@@ -265,7 +273,9 @@ test("explains failure states and stacks the timeline at the narrow test width",
 test("shows retained alternatives and search truncation as text cues", async ({
   page,
 }) => {
-  await page.goto(`/round-analyses/${ANALYSIS_ID}?fixture=ambiguous`);
+  await page.goto(
+    `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}&fixture=ambiguous`,
+  );
 
   await expect(
     page.getByText(/This result is ambiguous\. Each retained hypothesis/),
@@ -280,7 +290,9 @@ test("shows retained alternatives and search truncation as text cues", async ({
 test("runs a changed counterfactual and marks the derived differences", async ({
   page,
 }) => {
-  await page.goto("/round-analyses/" + ANALYSIS_ID + "?counterfactual=changed");
+  await page.goto(
+    `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}&counterfactual=changed`,
+  );
 
   await expect(
     page.getByRole("heading", { name: "Counterfactual run" }),
@@ -318,7 +330,7 @@ test("shows stable no-change markers for an unchanged counterfactual", async ({
   page,
 }) => {
   await page.goto(
-    "/round-analyses/" + ANALYSIS_ID + "?counterfactual=unchanged",
+    `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}&counterfactual=unchanged`,
   );
 
   await page

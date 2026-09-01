@@ -55,7 +55,8 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
-| [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 in progress: make recording detail the stable web resource and nest optional analyses in it. |
+| [0038 — Visible-card training-data improvement](3-in-progress/0038-Visible_Card_Training_Data_Improvement.md) | 0037 contracts; real artifacts before M3 | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M4 local contract paths complete; real review, detector, and targeted-data evidence remain. |
+| [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1–M4 pending. |
 
 ### Blocked
 

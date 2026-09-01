@@ -1926,6 +1926,33 @@ progress {
   border-top: 1px solid var(--line);
 }
 
+.nestedAnalysis {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.nestedAnalysisHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.nestedAnalysisHeader .analysisId {
+  margin-top: 0.35rem;
+}
+
+.nestedAnalysis > .analysisPage {
+  width: 100%;
+  margin: 1.25rem 0 0;
+}
+
+.nestedAnalysis > .panel {
+  max-width: none;
+  margin: 1.25rem 0 0;
+}
+
 .recordingCardLink {
   flex: 1 1 auto;
   min-width: 0;
@@ -1965,6 +1992,10 @@ progress {
   }
 
   .detailAnalysisItem {
+    flex-direction: column;
+  }
+
+  .nestedAnalysisHeader {
     flex-direction: column;
   }
 }

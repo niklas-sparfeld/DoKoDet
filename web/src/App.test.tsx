@@ -12,6 +12,8 @@ import {
   impossibleTimeline,
   incompleteStatus,
   incompleteTimeline,
+  RECORDING_ID,
+  recordingDetailWithAnalysis,
   resolvedStatus,
   resolvedTimeline,
   unchangedCounterfactualResponse,
@@ -181,9 +183,21 @@ describe("App", () => {
   });
 
   it("loads a resolved analysis into synchronized timeline columns", async () => {
-    window.history.pushState({}, "", `/round-analyses/${ANALYSIS_ID}`);
+    window.history.pushState(
+      {},
+      "",
+      `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}`,
+    );
     const fetchMock = vi.fn<typeof fetch>((input) => {
       const path = String(input);
+      if (path === `/v1/recordings/${RECORDING_ID}`) {
+        return Promise.resolve(
+          new Response(JSON.stringify(recordingDetailWithAnalysis), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
       if (path.endsWith("/timeline")) {
         return Promise.resolve(
           new Response(JSON.stringify(resolvedTimeline), {
@@ -203,12 +217,16 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByText("Loading analysis…")).toBeInTheDocument();
+    expect(await screen.findByText("Loading analysis…")).toBeInTheDocument();
     await waitFor(() =>
       expect(
         screen.getByRole("heading", { name: "Evidence" }),
       ).toBeInTheDocument(),
     );
+    expect(screen.getByText("Selected analysis")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Clear selection" }),
+    ).toHaveAttribute("href", `/recordings/${RECORDING_ID}`);
     expect(
       screen.getByRole("heading", { name: "Table observation" }),
     ).toBeInTheDocument();
@@ -241,7 +259,9 @@ describe("App", () => {
     await user.click(
       screen.getByRole("button", { name: "Jump to observation-001" }),
     );
-    expect(window.location.search).toBe("?hypothesis=1&row=observation-001");
+    expect(window.location.search).toBe(
+      `?analysis=${ANALYSIS_ID}&hypothesis=1&row=observation-001`,
+    );
     await user.click(screen.getByText("Score details for hypothesis rank 1"));
     expect(screen.getByText("Action contributions")).toBeInTheDocument();
     await user.click(screen.getByText("Engine diagnostics"));
@@ -254,12 +274,14 @@ describe("App", () => {
       screen.getByRole("combobox", { name: "Hypothesis" }),
       "2",
     );
-    expect(window.location.search).toBe("?hypothesis=2&row=observation-001");
+    expect(window.location.search).toBe(
+      `?analysis=${ANALYSIS_ID}&hypothesis=2&row=observation-001`,
+    );
     expect(
       screen.getByRole("progressbar", { name: "Diamonds Jack confidence" }),
     ).toHaveValue(0.75);
     expect(screen.getAllByText("Clubs Nine").length).toBeGreaterThan(0);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("keeps rendering when a timeline response omits the recording descriptor", async () => {
@@ -282,6 +304,64 @@ describe("App", () => {
       "/v1/repository-bundles/recording-0033/video",
     );
   });
+
+  it.each([
+    ["active", "analyzing_evidence", "Analyzing Evidence"],
+    ["failed", "failed", "Failed"],
+  ] as const)(
+    "nests %s analysis status in the recording workspace",
+    async (_name, state, expectedStatus) => {
+      const analysisId = `${ANALYSIS_ID}-${state}`;
+      const detail = {
+        ...recordingDetailWithAnalysis,
+        analyses: [
+          {
+            ...recordingDetailWithAnalysis.analyses[0],
+            analysis_id: analysisId,
+            state,
+            completed_evidence_packages: state === "failed" ? 1 : 0,
+            result_status: null,
+            error: state === "failed" ? "Fixture analysis failed." : null,
+          },
+        ],
+      };
+      const status: RoundAnalysisStatus = {
+        ...resolvedStatus,
+        analysis_id: analysisId,
+        state,
+        completed_evidence_packages: state === "failed" ? 1 : 0,
+        result: null,
+        error: state === "failed" ? "Fixture analysis failed." : null,
+      };
+      window.history.pushState(
+        {},
+        "",
+        `/recordings/${RECORDING_ID}?analysis=${analysisId}`,
+      );
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>((input) => {
+          const path = String(input);
+          const response =
+            path === `/v1/recordings/${RECORDING_ID}` ? detail : status;
+          return Promise.resolve(
+            new Response(JSON.stringify(response), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }),
+          );
+        }),
+      );
+
+      render(<App />);
+
+      expect(await screen.findByText(expectedStatus)).toBeInTheDocument();
+      expect(screen.getByText("Selected analysis")).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Clear selection" }),
+      ).toHaveAttribute("href", `/recordings/${RECORDING_ID}`);
+    },
+  );
 
   it("opens event details with media and card probabilities", async () => {
     stubTimeline(resolvedTimeline, resolvedStatus);
@@ -492,15 +572,17 @@ describe("App", () => {
     window.history.pushState(
       {},
       "",
-      `/round-analyses/${ANALYSIS_ID}?row=observation-002&hypothesis=2`,
+      `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}&row=observation-002&hypothesis=2`,
     );
     const fetchMock = vi.fn<typeof fetch>((input) =>
       Promise.resolve(
         new Response(
           JSON.stringify(
-            String(input).endsWith("/timeline")
-              ? resolvedTimeline
-              : resolvedStatus,
+            String(input) === `/v1/recordings/${RECORDING_ID}`
+              ? recordingDetailWithAnalysis
+              : String(input).endsWith("/timeline")
+                ? resolvedTimeline
+                : resolvedStatus,
           ),
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
@@ -524,7 +606,9 @@ describe("App", () => {
     await user.click(selectedRow);
     await user.keyboard("{ArrowUp}");
 
-    expect(window.location.search).toBe("?hypothesis=2&row=observation-001");
+    expect(window.location.search).toBe(
+      `?analysis=${ANALYSIS_ID}&hypothesis=2&row=observation-001`,
+    );
     expect(
       screen.getByRole("option", { name: /observation-001/, selected: true }),
     ).toBeInTheDocument();
@@ -563,19 +647,28 @@ function stubTimeline(
   timeline: RoundAnalysisTimeline,
   status: RoundAnalysisStatus,
 ) {
-  window.history.pushState({}, "", `/round-analyses/${ANALYSIS_ID}`);
+  window.history.pushState(
+    {},
+    "",
+    `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}`,
+  );
   vi.stubGlobal(
     "fetch",
-    vi.fn<typeof fetch>((input) =>
-      Promise.resolve(
-        new Response(
-          JSON.stringify(
-            String(input).endsWith("/timeline") ? timeline : status,
-          ),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      ),
-    ),
+    vi.fn<typeof fetch>((input) => {
+      const path = String(input);
+      const response =
+        path === `/v1/recordings/${RECORDING_ID}`
+          ? recordingDetailWithAnalysis
+          : path.endsWith("/timeline")
+            ? timeline
+            : status;
+      return Promise.resolve(
+        new Response(JSON.stringify(response), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    }),
   );
 }
 
@@ -584,7 +677,11 @@ function stubTimelineWithCounterfactual(
   status: RoundAnalysisStatus,
   counterfactual: typeof changedCounterfactualResponse,
 ): ReturnType<typeof vi.fn<typeof fetch>> {
-  window.history.pushState({}, "", "/round-analyses/" + ANALYSIS_ID);
+  window.history.pushState(
+    {},
+    "",
+    `/recordings/${RECORDING_ID}?analysis=${ANALYSIS_ID}`,
+  );
   const fetchMock = vi.fn<typeof fetch>((input, init) => {
     if (init?.method === "POST") {
       return Promise.resolve(
@@ -596,7 +693,13 @@ function stubTimelineWithCounterfactual(
     }
     return Promise.resolve(
       new Response(
-        JSON.stringify(String(input).endsWith("/timeline") ? timeline : status),
+        JSON.stringify(
+          String(input) === `/v1/recordings/${RECORDING_ID}`
+            ? recordingDetailWithAnalysis
+            : String(input).endsWith("/timeline")
+              ? timeline
+              : status,
+        ),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
     );
