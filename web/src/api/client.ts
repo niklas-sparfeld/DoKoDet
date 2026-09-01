@@ -118,6 +118,11 @@ export interface DokoDetectorClient {
     batchId: string,
     init?: RequestInit,
   ): Promise<VisibleCardReviewBatch>;
+  getVisibleCardReviewItemImage(
+    batchId: string,
+    itemId: string,
+    init?: RequestInit,
+  ): Promise<Blob>;
   retryVisibleCardReviewBatch(
     batchId: string,
     init?: RequestInit,
@@ -263,6 +268,16 @@ export function createDokoDetectorClient(
         visibleCardReviewBatchPath(batchId),
         init,
       ),
+    getVisibleCardReviewItemImage: async (batchId, itemId, init) => {
+      const response = await fetchImplementation(
+        visibleCardReviewItemImagePath(batchId, itemId),
+        init,
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, await readResponseBody(response));
+      }
+      return response.blob();
+    },
     retryVisibleCardReviewBatch: (batchId, init) =>
       requestJson<VisibleCardReviewBatch>(
         fetchImplementation,
@@ -376,6 +391,17 @@ export function visibleCardReviewBatchCreatePath(recordingId: string): string {
 
 export function visibleCardReviewBatchPath(batchId: string): string {
   return `/v1/visible-card-reviews/${encodeURIComponent(batchId)}`;
+}
+
+export function visibleCardReviewBatchPagePath(batchId: string): string {
+  return `/visible-card-reviews/${encodeURIComponent(batchId)}`;
+}
+
+export function visibleCardReviewItemImagePath(
+  batchId: string,
+  itemId: string,
+): string {
+  return `${visibleCardReviewBatchPath(batchId)}/items/${encodeURIComponent(itemId)}/image`;
 }
 
 export function visibleCardReviewBatchRetryPath(batchId: string): string {

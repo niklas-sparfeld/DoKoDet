@@ -249,6 +249,154 @@ describe("App", () => {
     expect(screen.getAllByText("0/2")).toHaveLength(2);
   });
 
+  it("opens a direct batch route with proposals and preserves item selection", async () => {
+    const batchId = "visible-card-batch-0123456789abcdef01234567";
+    const itemOne = "recording-vc-0000-item-one:frame_00";
+    const itemTwo = "recording-vc-0001-item-two:frame_00";
+    const review = {
+      status: "unreviewed",
+      decision: null,
+      empty_frame: null,
+      failure_tags: [],
+      actions: [],
+      reviewer: null,
+      review_id: null,
+      started_at_utc: null,
+      updated_at_utc: null,
+      completed_at_utc: null,
+    };
+    const source = (itemId: string) => ({
+      package_id: itemId.split(":")[0],
+      frame_part_name: "frame_00",
+      target_offset_ms: 0,
+      image_url: `/v1/visible-card-reviews/${batchId}/items/${encodeURIComponent(itemId)}/image`,
+      frame_sha256: "a".repeat(64),
+      source_asset_id: "source-detail-1",
+      source_lineage_group: "session-detail-1",
+      source_asset_sha256: "b".repeat(64),
+      width: 100,
+      height: 80,
+    });
+    const proposal = (proposalIndex: number, x: number) => ({
+      proposal_index: proposalIndex,
+      box_2d: { y_min: 100, x_min: x, y_max: 700, x_max: x + 200 },
+      polygon: [
+        { x, y: 100 },
+        { x: x + 200, y: 100 },
+        { x: x + 200, y: 700 },
+        { x, y: 700 },
+      ],
+      side: "unknown",
+      label: `proposal-${proposalIndex + 1}`,
+    });
+    const finder = (proposals: object[]) => ({
+      provider: "local",
+      provider_version: "fixture-provider-v1",
+      request_digest: "c".repeat(64),
+      result_digest: "d".repeat(64),
+      prediction_sha256: "e".repeat(64),
+      proposals,
+    });
+    const batch = {
+      schema_version: "visible-card-review-batch/v1",
+      batch_id: batchId,
+      recording_id: "recording-detail-1",
+      request_digest: "f".repeat(64),
+      status: "ready",
+      created_at_utc: "2026-09-01T07:20:46Z",
+      updated_at_utc: "2026-09-01T07:20:46Z",
+      detector: {
+        bundle_id: "fixture-visible-card-detector",
+        bundle_digest: "1".repeat(64),
+        model: "fixture-model",
+        provider: "local",
+        provider_version: "fixture-provider-v1",
+        preprocessing: "fixture",
+        confidence_threshold: 0.8,
+        input_size: 224,
+      },
+      progress: {
+        phase: "ready",
+        total_items: 2,
+        frames_extracted: 2,
+        finder_completed: 2,
+        failed_items: 0,
+      },
+      items: [
+        {
+          item_id: itemOne,
+          status: "finder_complete",
+          event_time_s: 0.4,
+          event_time_ms: 400,
+          target_offset_ms: 0,
+          frame_index: 4,
+          actual_offset_ms: 0,
+          finder_status: "ok",
+          failure: null,
+          source: source(itemOne),
+          finder: finder([]),
+          review,
+        },
+        {
+          item_id: itemTwo,
+          status: "finder_complete",
+          event_time_s: 1.2,
+          event_time_ms: 1200,
+          target_offset_ms: 0,
+          frame_index: 12,
+          actual_offset_ms: 0,
+          finder_status: "ok",
+          failure: null,
+          source: source(itemTwo),
+          finder: finder([proposal(0, 100), proposal(1, 550)]),
+          review,
+        },
+      ],
+      failures: [],
+      queue_schema_version: "visible-card-review-queue/v2",
+      queue_digest: "2".repeat(64),
+      revision: 0,
+    };
+    window.history.pushState(
+      {},
+      "",
+      `/visible-card-reviews/${batchId}?item=${encodeURIComponent(itemTwo)}`,
+    );
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(batch), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Visible-card review" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Frame 2 of 2")).toBeInTheDocument();
+    expect(screen.getByText("Proposal 1")).toBeInTheDocument();
+    expect(screen.getByText("Proposal 2")).toBeInTheDocument();
+    expect(
+      screen.getByAltText("Exact event source frame at 1.200 s"),
+    ).toHaveAttribute("src", batch.items[1].source.image_url);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Frame 1 of 2")).toBeInTheDocument();
+    expect(
+      screen.getByText(/The finder returned no proposals\./),
+    ).toBeInTheDocument();
+    expect(window.location.search).toBe(`?item=${encodeURIComponent(itemOne)}`);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/v1/visible-card-reviews/${batchId}`,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
   it("previews and confirms a development partition assignment", async () => {
     window.history.pushState({}, "", "/recordings/recording-detail-1");
     const recording = {

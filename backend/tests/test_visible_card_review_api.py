@@ -231,3 +231,45 @@ def test_stale_preview_is_rejected_after_detector_identity_changes(tmp_path: Pat
         )
         assert response.status_code == 409
         assert response.json()["error"]["code"] == "visible_card_review_preview_stale"
+
+
+def test_ready_batch_exposes_queue_details_and_serves_owned_source_frames(tmp_path: Path) -> None:
+    provider = _FlakyProvider()
+    app = _app(tmp_path, provider, _FixtureExtractor())
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/visible-card-review/preview", json={}
+        ).json()
+        created = client.post(
+            "/v1/recordings/recording-both/visible-card-review/batches",
+            json={
+                "preview_digest": preview["preview_digest"],
+                "request_digest": preview["request_digest"],
+            },
+        ).json()
+        _wait_for_batch(client, created["batch_id"])
+        retried = client.post(f"/v1/visible-card-reviews/{created['batch_id']}/retry")
+        assert retried.status_code == 202
+        ready = _wait_for_batch(client, created["batch_id"])
+
+        assert ready["status"] == "ready"
+        assert ready["revision"] == 0
+        assert len(ready["items"]) == 2
+        item = ready["items"][0]
+        assert item["source"]["image_url"].endswith(
+            f"/items/{item['item_id'].replace(':', '%3A')}/image"
+        )
+        assert item["finder"]["request_digest"]
+        assert item["finder"]["result_digest"]
+        assert item["finder"]["proposals"] == []
+        assert item["review"]["status"] == "unreviewed"
+
+        image = client.get(item["source"]["image_url"])
+        assert image.status_code == 200
+        assert image.headers["content-type"] == "image/jpeg"
+        assert image.content.startswith(b"\xff\xd8")
+
+        direct = client.get(f"/v1/visible-card-reviews/{created['batch_id']}")
+        assert direct.status_code == 200
+        assert direct.json()["items"][0]["item_id"] == item["item_id"]

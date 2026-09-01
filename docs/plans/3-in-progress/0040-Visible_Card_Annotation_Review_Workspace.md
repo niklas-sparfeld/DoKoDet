@@ -23,7 +23,8 @@
   batch state, exact-event frames, local finder artifacts, and a v2 queue.
 - **M1:** Complete — add recording-scoped readiness, preview-bound asynchronous batch creation,
   persisted progress, retry of failed items, and recording-page controls.
-- **M2:** Not started — show the queue, source frames, and finder proposals in the web app.
+- **M2:** Complete — show and navigate the persisted queue with source frames, finder proposals,
+  lineage diagnostics, retry states, and a stable direct-load route.
 - **M3:** Not started — accept, correct, add, and remove visible-card annotations.
 - **M4:** Not started — complete and publish review with immutable lineage and downstream proof.
 
@@ -300,6 +301,11 @@ Acceptance:
 - two create requests with the same preview cannot create duplicate work.
 
 ### M2 — Show and navigate the review queue
+
+Status: Complete. The API exposes the persisted queue projection and immutable extracted frame
+route. The web app provides a direct-load review workspace with first-pending selection, previous
+and next navigation, pending navigation, fit and zoom controls, distinct finder and reviewed
+geometry overlays, proposal list states, lineage diagnostics, and retry handling for failed items.
 
 - Add the stable batch editor route and direct-load backend fallback.
 - Show progress, source frames, proposal overlays, card list, and diagnostic lineage.

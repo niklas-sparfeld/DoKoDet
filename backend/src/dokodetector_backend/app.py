@@ -270,6 +270,17 @@ def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
             headers={"Cache-Control": "no-cache"},
         )
 
+    @app.get("/visible-card-reviews/{batch_id}", include_in_schema=False)
+    def frontend_visible_card_review(batch_id: str) -> FileResponse:
+        """Return the SPA entry document for a direct visible-card batch load or refresh."""
+
+        del batch_id
+        return FileResponse(
+            entrypoint,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
+
 
 def _check_evidence_directory(directory: os.PathLike[str] | str) -> None:
     """Verify that the evidence directory supports local reads and writes."""

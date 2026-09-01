@@ -10,6 +10,7 @@ from contextlib import suppress
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 from doko_operations import (
     CardEventReviewError,
@@ -24,7 +25,12 @@ from doko_operations import (
 )
 from doko_operations.holdout import load_system_holdout_registry, sealed_group_keys
 from fastapi import APIRouter, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
+from table_evidence_analyzer.visible_card_review_workflow import (
+    VisibleCardReviewWorkflowError,
+    load_visible_card_review_queue,
+)
 
 from dokodetector_backend.card_event_review_api import _load_source
 from dokodetector_backend.errors import APIErrorDetail, ContractError
@@ -77,12 +83,14 @@ class VisibleCardBatchProgressResponse(BaseModel):
 
 
 class VisibleCardBatchItemResponse(BaseModel):
-    """A compact item projection without image bytes or local paths."""
+    """One review item with source, finder, and current review state."""
 
     model_config = ConfigDict(extra="forbid")
 
     item_id: str
     status: str
+    event_id: str
+    event_index: int
     event_time_s: float
     event_time_ms: int
     target_offset_ms: int
@@ -90,6 +98,121 @@ class VisibleCardBatchItemResponse(BaseModel):
     actual_offset_ms: int | None
     finder_status: Literal["ok", "unavailable"] | None
     failure: VisibleCardBatchFailureResponse | None
+    source: "VisibleCardSourceLineageResponse | None"
+    finder: "VisibleCardFinderResponse | None"
+    review: "VisibleCardFrameReviewResponse | None"
+
+
+class VisibleCardPointResponse(BaseModel):
+    """One normalized overlay point."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x: int = Field(ge=0, le=1000)
+    y: int = Field(ge=0, le=1000)
+
+
+class VisibleCardBoxResponse(BaseModel):
+    """One normalized overlay box."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    y_min: int = Field(ge=0, le=1000)
+    x_min: int = Field(ge=0, le=1000)
+    y_max: int = Field(ge=0, le=1000)
+    x_max: int = Field(ge=0, le=1000)
+
+
+class VisibleCardSourceLineageResponse(BaseModel):
+    """Immutable frame lineage and its safe image URL."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    package_id: str
+    frame_part_name: str
+    target_offset_ms: int
+    image_url: str
+    frame_sha256: str = Field(pattern=SHA256_PATTERN)
+    source_asset_id: str
+    source_lineage_group: str
+    source_asset_sha256: str | None
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+
+
+class VisibleCardProposalResponse(BaseModel):
+    """One finder proposal in normalized coordinates."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    proposal_index: int = Field(ge=0)
+    box_2d: VisibleCardBoxResponse
+    polygon: list[VisibleCardPointResponse]
+    side: Literal["face_up", "face_down", "unknown"]
+    label: str
+
+
+class VisibleCardFinderResponse(BaseModel):
+    """Immutable finder request and prediction projection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    provider_version: str
+    request_digest: str = Field(pattern=SHA256_PATTERN)
+    result_digest: str = Field(pattern=SHA256_PATTERN)
+    prediction_sha256: str = Field(pattern=SHA256_PATTERN)
+    proposals: list[VisibleCardProposalResponse]
+
+
+class VisibleCardIdentityUsabilityResponse(BaseModel):
+    """Identity usability for one reviewed visible card."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    usable: bool
+    reason: str
+
+
+class VisibleCardReviewedRegionResponse(BaseModel):
+    """Reviewed geometry, derived box, and card metadata."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    card_id: str
+    visible_region: dict[str, list[list[VisibleCardPointResponse]]]
+    derived_box: VisibleCardBoxResponse
+    identity_usability: VisibleCardIdentityUsabilityResponse
+    side: Literal["face_up", "face_down", "unknown"]
+    failure_tags: list[str]
+
+
+class VisibleCardReviewActionResponse(BaseModel):
+    """One persisted review action."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    card_id: str
+    action: Literal["accepted", "reshaped", "added", "removed"]
+    proposal_index: int | None
+    reviewed_card: VisibleCardReviewedRegionResponse | None
+
+
+class VisibleCardFrameReviewResponse(BaseModel):
+    """Current review state for one source frame."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["unreviewed", "in_progress", "reviewed"]
+    decision: Literal["GOOD", "BAD"] | None
+    empty_frame: bool | None
+    failure_tags: list[str]
+    actions: list[VisibleCardReviewActionResponse]
+    reviewer: str | None
+    review_id: str | None
+    started_at_utc: str | None
+    updated_at_utc: str | None
+    completed_at_utc: str | None
 
 
 class VisibleCardDetectorResponse(BaseModel):
@@ -125,6 +248,7 @@ class VisibleCardBatchResponse(BaseModel):
     failures: list[VisibleCardBatchFailureResponse]
     queue_schema_version: str
     queue_digest: str | None
+    revision: int
 
 
 class VisibleCardPreviewValidationResponse(BaseModel):
@@ -223,7 +347,7 @@ def get_visible_card_review_readiness(
     preview = _preview(context)
     batch = _find_recording_batch(request, recording_id, context.request)
     if batch is not None:
-        batch_response = _batch_response(batch)
+        batch_response = _batch_response(request, batch)
         state, message = _batch_readiness(batch_response)
         blocker = _first_failure(batch_response.failures)
         return VisibleCardReviewReadinessResponse(
@@ -312,7 +436,7 @@ async def create_visible_card_review_batch(
         ) from error
     if state["status"] == "preparing":
         _schedule(request, context.request, resume=False)
-    return _batch_response(state)
+    return _batch_response(request, state)
 
 
 @router.get(
@@ -320,10 +444,72 @@ async def create_visible_card_review_batch(
     response_model=VisibleCardBatchResponse,
 )
 def get_visible_card_review_batch(batch_id: str, request: Request) -> VisibleCardBatchResponse:
-    """Return persisted preparation progress for one batch."""
+    """Return persisted preparation progress and review data for one batch."""
 
     state = _read_batch(request, batch_id)
-    return _batch_response(state)
+    return _batch_response(request, state)
+
+
+@router.get(
+    "/v1/visible-card-reviews/{batch_id}/items/{item_id}/image",
+    response_class=FileResponse,
+)
+def get_visible_card_review_item_image(
+    batch_id: str, item_id: str, request: Request
+) -> FileResponse:
+    """Return one immutable extracted source frame after batch ownership checks."""
+
+    state = _read_batch(request, batch_id)
+    item = next((item for item in state["items"] if item["item_id"] == item_id), None)
+    if item is None:
+        raise ContractError(
+            "visible_card_review_item_not_found",
+            "The visible-card review item was not found.",
+            status_code=404,
+        )
+    frame = item.get("frame")
+    if not isinstance(frame, dict) or not isinstance(frame.get("path"), str):
+        raise ContractError(
+            "visible_card_review_item_image_unavailable",
+            "This visible-card review item has no extracted source frame yet.",
+            status_code=404,
+        )
+    store = VisibleCardReviewBatchStore(request.app.state.settings.operations_root)
+    batch_root = store.batch_path(batch_id).parent.resolve()
+    frame_path = Path(frame["path"]).resolve()
+    try:
+        frame_path.relative_to(batch_root)
+    except ValueError as error:
+        raise ContractError(
+            "visible_card_review_batch_invalid",
+            "The stored visible-card frame is outside its batch.",
+            status_code=500,
+        ) from error
+    if not frame_path.is_file():
+        raise ContractError(
+            "visible_card_review_item_image_unavailable",
+            "The extracted source frame is no longer available.",
+            status_code=404,
+        )
+    try:
+        actual_digest = hashlib.sha256(frame_path.read_bytes()).hexdigest()
+    except OSError as error:
+        raise ContractError(
+            "visible_card_review_item_image_unavailable",
+            "The extracted source frame could not be read.",
+            status_code=404,
+        ) from error
+    if actual_digest != frame.get("sha256"):
+        raise ContractError(
+            "visible_card_review_batch_invalid",
+            "The extracted source frame does not match its frozen digest.",
+            status_code=500,
+        )
+    return FileResponse(
+        frame_path,
+        media_type=frame.get("content_type", "image/jpeg"),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post(
@@ -373,7 +559,7 @@ async def retry_visible_card_review_batch(
             "The visible-card batch could not be prepared for retry.",
         ) from error
     _schedule(request, frozen_request, resume=True)
-    return _batch_response(state)
+    return _batch_response(request, state)
 
 
 def _recording_context(request: Request, recording_id: str) -> _VisibleCardRecordingContext:
@@ -691,18 +877,49 @@ def _schedule(request: Request, batch_request: VisibleCardBatchRequest, *, resum
     task.add_done_callback(forget)
 
 
-def _batch_response(state: dict[str, Any]) -> VisibleCardBatchResponse:
+def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatchResponse:
     frozen = VisibleCardBatchRequest.from_mapping(state["frozen_inputs"])
+    queue_items: dict[str, Any] = {}
+    queue_path = state.get("queue_path")
+    if isinstance(queue_path, str):
+        try:
+            queue = load_visible_card_review_queue(queue_path)
+        except (OSError, ValueError, VisibleCardReviewWorkflowError) as error:
+            raise ContractError(
+                "visible_card_review_batch_invalid",
+                "The stored visible-card review queue is invalid.",
+                status_code=500,
+            ) from error
+        queue_items = {item.item_id: item for item in queue.items}
+
     items: list[VisibleCardBatchItemResponse] = []
     for item in state["items"]:
         event = item["event"]
         frame = item.get("frame")
         finder = item.get("finder")
         failure = item.get("failure")
+        queue_item = queue_items.get(item["item_id"])
+        source = _source_response(
+            state["batch_id"],
+            item["item_id"],
+            frame,
+            None if queue_item is None else queue_item.source.to_mapping(),
+        )
+        finder_response = _finder_response(
+            finder,
+            None if queue_item is None else queue_item.teacher.prediction,
+        )
+        review_response = (
+            None
+            if queue_item is None
+            else VisibleCardFrameReviewResponse.model_validate(queue_item.review.to_mapping())
+        )
         items.append(
             VisibleCardBatchItemResponse(
                 item_id=item["item_id"],
                 status=item["status"],
+                event_id=event["event_id"],
+                event_index=event["event_index"],
                 event_time_s=event["event_time_s"],
                 event_time_ms=event["event_time_ms"],
                 target_offset_ms=event["target_offset_ms"],
@@ -714,6 +931,9 @@ def _batch_response(state: dict[str, Any]) -> VisibleCardBatchResponse:
                     if failure is None
                     else VisibleCardBatchFailureResponse.model_validate(failure)
                 ),
+                source=source,
+                finder=finder_response,
+                review=review_response,
             )
         )
     return VisibleCardBatchResponse(
@@ -735,6 +955,75 @@ def _batch_response(state: dict[str, Any]) -> VisibleCardBatchResponse:
         ],
         queue_schema_version=state["queue_schema_version"],
         queue_digest=state["queue_digest"],
+        revision=0,
+    )
+
+
+def _source_response(
+    batch_id: str,
+    item_id: str,
+    frame: dict[str, Any] | None,
+    queued_source: dict[str, Any] | None,
+) -> VisibleCardSourceLineageResponse | None:
+    source = queued_source
+    if source is None and frame is not None:
+        source = {
+            "package_id": item_id.rsplit(":", 1)[0],
+            "frame_part_name": item_id.rsplit(":", 1)[1],
+            "target_offset_ms": 0,
+            "image": frame["path"],
+            "frame_sha256": frame["sha256"],
+            "source_asset_id": "",
+            "source_lineage_group": "",
+            "source_asset_sha256": None,
+            "width": frame["width"],
+            "height": frame["height"],
+        }
+    if source is None or not source.get("source_asset_id"):
+        return None
+    return VisibleCardSourceLineageResponse(
+        package_id=source["package_id"],
+        frame_part_name=source["frame_part_name"],
+        target_offset_ms=source["target_offset_ms"],
+        image_url=(
+            f"/v1/visible-card-reviews/{quote(batch_id, safe='')}/items/"
+            f"{quote(item_id, safe='')}/image"
+        ),
+        frame_sha256=source["frame_sha256"],
+        source_asset_id=source["source_asset_id"],
+        source_lineage_group=source["source_lineage_group"],
+        source_asset_sha256=source.get("source_asset_sha256"),
+        width=source["width"],
+        height=source["height"],
+    )
+
+
+def _finder_response(
+    finder: dict[str, Any] | None,
+    queued_prediction: dict[str, Any] | None,
+) -> VisibleCardFinderResponse | None:
+    if finder is None:
+        return None
+    prediction = queued_prediction
+    if prediction is None:
+        result = finder.get("result")
+        prediction = result.get("prediction") if isinstance(result, dict) else None
+    cards = prediction.get("cards") if isinstance(prediction, dict) else []
+    if not isinstance(cards, list):
+        cards = []
+    proposals = [
+        VisibleCardProposalResponse(proposal_index=index, **card)
+        for index, card in enumerate(cards)
+        if isinstance(card, dict)
+    ]
+    provider = finder.get("provider")
+    return VisibleCardFinderResponse(
+        provider=(provider or {}).get("name", "local"),
+        provider_version=(provider or {}).get("version", "unknown"),
+        request_digest=finder["request_digest"],
+        result_digest=finder["result_digest"],
+        prediction_sha256=finder["prediction_sha256"],
+        proposals=proposals,
     )
 
 

@@ -10,6 +10,7 @@ import {
   type RecordingSummary,
   type VisibleCardReviewPreview,
   type VisibleCardReviewReadiness,
+  visibleCardReviewBatchPagePath,
 } from "./api/client";
 import { RecordingAnalysisView } from "./analysis/AnalysisView";
 import { CardEventEditor } from "./cardEvents/CardEventEditor";
@@ -887,6 +888,14 @@ function VisibleCardReviewSection({
         >
           {busy ? "Retrying…" : "Retry failed items"}
         </button>
+      ) : null}
+      {batch !== null ? (
+        <a
+          className={styles.recordingLink}
+          href={visibleCardReviewBatchPagePath(batch.batch_id)}
+        >
+          Open review workspace
+        </a>
       ) : null}
       {review.state === "ready" && batch === null ? (
         <button

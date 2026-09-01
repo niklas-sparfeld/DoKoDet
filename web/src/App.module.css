@@ -1910,6 +1910,286 @@ progress {
   margin-top: 0;
 }
 
+.visibleCardReviewPage {
+  overflow-x: hidden;
+}
+
+.visibleCardHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.visibleCardHeader h1 {
+  max-width: 18ch;
+  margin-top: 0.65rem;
+  font-size: clamp(2.2rem, 5vw, 4.5rem);
+}
+
+.visibleCardBatchSummary {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+  box-shadow: 0 0.7rem 2rem rgb(20 31 45 / 5%);
+}
+
+.visibleCardBatchSummary .detailStats {
+  margin-top: 0;
+}
+
+.visibleCardProgressMessage {
+  margin: 0.45rem 0 0;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.visibleCardFailureBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.visibleCardFailureBar p {
+  margin: 0;
+  color: #8b2e1d;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.visibleCardWorkspace {
+  display: grid;
+  grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+  min-width: 0;
+}
+
+.visibleCardItemRail,
+.visibleCardFramePanel {
+  min-width: 0;
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+  box-shadow: 0 0.7rem 2rem rgb(20 31 45 / 5%);
+}
+
+.visibleCardItemList,
+.visibleCardProposalItems {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.visibleCardItemButton,
+.visibleCardProposalButton {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.visibleCardItemButton:hover,
+.visibleCardItemButton:focus-visible,
+.visibleCardItemButton[data-selected="true"],
+.visibleCardProposalButton:hover,
+.visibleCardProposalButton:focus-visible,
+.visibleCardProposalButton[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.visibleCardItemButton {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.visibleCardItemButton span,
+.visibleCardItemButton small,
+.visibleCardProposalButton small {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.visibleCardItemButton strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.visibleCardFrameHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.visibleCardFrameHeader h2 {
+  margin-top: 0.35rem;
+  letter-spacing: 0.04em;
+}
+
+.visibleCardNavigation,
+.visibleCardCanvasToolbar,
+.visibleCardZoomControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.visibleCardNavigation {
+  margin-top: 1rem;
+}
+
+.visibleCardCanvasToolbar {
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.visibleCardZoomControls > span {
+  min-width: 3rem;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.visibleCardCanvasViewport {
+  max-width: 100%;
+  margin-top: 1rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: #161616;
+}
+
+.visibleCardCanvasInner {
+  position: relative;
+  min-width: 100%;
+}
+
+.visibleCardCanvasImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.visibleCardOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.visibleCardProposalPolygon {
+  fill: rgb(213 90 180 / 24%);
+  stroke: #eaa0dc;
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.visibleCardProposalBox {
+  fill: none;
+  stroke: #f5d3ef;
+  stroke-dasharray: 8 5;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.visibleCardReviewedGeometry polygon {
+  fill: rgb(60 190 70 / 25%);
+  stroke: #63d66d;
+  stroke-width: 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.visibleCardReviewedGeometry rect {
+  fill: none;
+  stroke: #b9ffbe;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.visibleCardOverlay g[data-active="true"] .visibleCardProposalPolygon {
+  fill: rgb(255 190 73 / 34%);
+  stroke: #ffd166;
+  stroke-width: 7;
+}
+
+.visibleCardOverlay g[data-active="true"] .visibleCardProposalBox {
+  stroke: #fff0b3;
+  stroke-width: 5;
+}
+
+.visibleCardProposalList,
+.visibleCardDiagnostics {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.visibleCardProposalButton {
+  align-items: center;
+}
+
+.visibleCardProposalButton > span:last-child {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.visibleCardProposalButton small {
+  overflow-wrap: anywhere;
+}
+
+.visibleCardProposalSwatch {
+  flex: 0 0 auto;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid #eaa0dc;
+  border-radius: 0.2rem;
+  background: rgb(213 90 180 / 24%);
+}
+
+.visibleCardDiagnostics summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.visibleCardDiagnostics .detailMetadata {
+  margin-top: 0.9rem;
+}
+
+.visibleCardDiagnostics dd,
+.visibleCardItemButton strong {
+  overflow-wrap: anywhere;
+}
+
 .detailLead {
   max-width: 42rem;
   margin: 1rem 0 0;
@@ -2612,5 +2892,42 @@ progress {
 
   .nestedAnalysisHeader {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 800px) {
+  .visibleCardWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .visibleCardItemList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .visibleCardHeader,
+  .visibleCardFailureBar,
+  .visibleCardFrameHeader,
+  .visibleCardCanvasToolbar {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .visibleCardHeader .status {
+    align-self: start;
+  }
+
+  .visibleCardItemList {
+    grid-template-columns: 1fr;
+  }
+
+  .visibleCardNavigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .visibleCardNavigation button {
+    width: 100%;
   }
 }

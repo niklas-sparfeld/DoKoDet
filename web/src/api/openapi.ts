@@ -565,9 +565,29 @@ export interface paths {
         };
         /**
          * Get Visible Card Review Batch
-         * @description Return persisted preparation progress for one batch.
+         * @description Return persisted preparation progress and review data for one batch.
          */
         get: operations["get_visible_card_review_batch_v1_visible_card_reviews__batch_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visible-card-reviews/{batch_id}/items/{item_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Visible Card Review Item Image
+         * @description Return one immutable extracted source frame after batch ownership checks.
+         */
+        get: operations["get_visible_card_review_item_image_v1_visible_card_reviews__batch_id__items__item_id__image_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2015,22 +2035,29 @@ export interface components {
         };
         /**
          * VisibleCardBatchItemResponse
-         * @description A compact item projection without image bytes or local paths.
+         * @description One review item with source, finder, and current review state.
          */
         VisibleCardBatchItemResponse: {
             /** Actual Offset Ms */
             actual_offset_ms: number | null;
+            /** Event Id */
+            event_id: string;
+            /** Event Index */
+            event_index: number;
             /** Event Time Ms */
             event_time_ms: number;
             /** Event Time S */
             event_time_s: number;
             failure: components["schemas"]["VisibleCardBatchFailureResponse"] | null;
+            finder: components["schemas"]["VisibleCardFinderResponse"] | null;
             /** Finder Status */
             finder_status: ("ok" | "unavailable") | null;
             /** Frame Index */
             frame_index: number | null;
             /** Item Id */
             item_id: string;
+            review: components["schemas"]["VisibleCardFrameReviewResponse"] | null;
+            source: components["schemas"]["VisibleCardSourceLineageResponse"] | null;
             /** Status */
             status: string;
             /** Target Offset Ms */
@@ -2078,6 +2105,8 @@ export interface components {
             recording_id: string;
             /** Request Digest */
             request_digest: string;
+            /** Revision */
+            revision: number;
             /**
              * Schema Version
              * @constant
@@ -2090,6 +2119,20 @@ export interface components {
             status: "preparing" | "ready" | "failed" | "blocked";
             /** Updated At Utc */
             updated_at_utc: string;
+        };
+        /**
+         * VisibleCardBoxResponse
+         * @description One normalized overlay box.
+         */
+        VisibleCardBoxResponse: {
+            /** X Max */
+            x_max: number;
+            /** X Min */
+            x_min: number;
+            /** Y Max */
+            y_max: number;
+            /** Y Min */
+            y_min: number;
         };
         /**
          * VisibleCardDetectorResponse
@@ -2114,6 +2157,73 @@ export interface components {
             provider_version: string;
         };
         /**
+         * VisibleCardFinderResponse
+         * @description Immutable finder request and prediction projection.
+         */
+        VisibleCardFinderResponse: {
+            /** Prediction Sha256 */
+            prediction_sha256: string;
+            /** Proposals */
+            proposals: components["schemas"]["VisibleCardProposalResponse"][];
+            /** Provider */
+            provider: string;
+            /** Provider Version */
+            provider_version: string;
+            /** Request Digest */
+            request_digest: string;
+            /** Result Digest */
+            result_digest: string;
+        };
+        /**
+         * VisibleCardFrameReviewResponse
+         * @description Current review state for one source frame.
+         */
+        VisibleCardFrameReviewResponse: {
+            /** Actions */
+            actions: components["schemas"]["VisibleCardReviewActionResponse"][];
+            /** Completed At Utc */
+            completed_at_utc: string | null;
+            /** Decision */
+            decision: ("GOOD" | "BAD") | null;
+            /** Empty Frame */
+            empty_frame: boolean | null;
+            /** Failure Tags */
+            failure_tags: string[];
+            /** Review Id */
+            review_id: string | null;
+            /** Reviewer */
+            reviewer: string | null;
+            /** Started At Utc */
+            started_at_utc: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unreviewed" | "in_progress" | "reviewed";
+            /** Updated At Utc */
+            updated_at_utc: string | null;
+        };
+        /**
+         * VisibleCardIdentityUsabilityResponse
+         * @description Identity usability for one reviewed visible card.
+         */
+        VisibleCardIdentityUsabilityResponse: {
+            /** Reason */
+            reason: string;
+            /** Usable */
+            usable: boolean;
+        };
+        /**
+         * VisibleCardPointResponse
+         * @description One normalized overlay point.
+         */
+        VisibleCardPointResponse: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
          * VisibleCardPreviewValidationResponse
          * @description Preview validation and plain-language blockers.
          */
@@ -2122,6 +2232,40 @@ export interface components {
             blockers: components["schemas"]["VisibleCardBatchFailureResponse"][];
             /** Valid */
             valid: boolean;
+        };
+        /**
+         * VisibleCardProposalResponse
+         * @description One finder proposal in normalized coordinates.
+         */
+        VisibleCardProposalResponse: {
+            box_2d: components["schemas"]["VisibleCardBoxResponse"];
+            /** Label */
+            label: string;
+            /** Polygon */
+            polygon: components["schemas"]["VisibleCardPointResponse"][];
+            /** Proposal Index */
+            proposal_index: number;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "face_up" | "face_down" | "unknown";
+        };
+        /**
+         * VisibleCardReviewActionResponse
+         * @description One persisted review action.
+         */
+        VisibleCardReviewActionResponse: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "accepted" | "reshaped" | "added" | "removed";
+            /** Card Id */
+            card_id: string;
+            /** Proposal Index */
+            proposal_index: number | null;
+            reviewed_card: components["schemas"]["VisibleCardReviewedRegionResponse"] | null;
         };
         /**
          * VisibleCardReviewCreateRequest
@@ -2203,6 +2347,53 @@ export interface components {
              * @enum {string}
              */
             state: "not_ready" | "ready" | "preparing" | "failed" | "blocked";
+        };
+        /**
+         * VisibleCardReviewedRegionResponse
+         * @description Reviewed geometry, derived box, and card metadata.
+         */
+        VisibleCardReviewedRegionResponse: {
+            /** Card Id */
+            card_id: string;
+            derived_box: components["schemas"]["VisibleCardBoxResponse"];
+            /** Failure Tags */
+            failure_tags: string[];
+            identity_usability: components["schemas"]["VisibleCardIdentityUsabilityResponse"];
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "face_up" | "face_down" | "unknown";
+            /** Visible Region */
+            visible_region: {
+                [key: string]: components["schemas"]["VisibleCardPointResponse"][][];
+            };
+        };
+        /**
+         * VisibleCardSourceLineageResponse
+         * @description Immutable frame lineage and its safe image URL.
+         */
+        VisibleCardSourceLineageResponse: {
+            /** Frame Part Name */
+            frame_part_name: string;
+            /** Frame Sha256 */
+            frame_sha256: string;
+            /** Height */
+            height: number;
+            /** Image Url */
+            image_url: string;
+            /** Package Id */
+            package_id: string;
+            /** Source Asset Id */
+            source_asset_id: string;
+            /** Source Asset Sha256 */
+            source_asset_sha256: string | null;
+            /** Source Lineage Group */
+            source_lineage_group: string;
+            /** Target Offset Ms */
+            target_offset_ms: number;
+            /** Width */
+            width: number;
         };
     };
     responses: never;
@@ -3160,6 +3351,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VisibleCardBatchResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_visible_card_review_item_image_v1_visible_card_reviews__batch_id__items__item_id__image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
