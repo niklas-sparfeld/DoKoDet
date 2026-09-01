@@ -61,6 +61,7 @@ table-analyzer visible-card-queue --help
 table-analyzer review-visible-card --help
 table-analyzer review-visible-card-action --help
 table-analyzer complete-visible-card-review --help
+table-analyzer freeze-visible-card-review --help
 table-analyzer visible-card-prompt-pilot --help
 ```
 
@@ -145,6 +146,32 @@ The queue stores the original teacher request and result digests beside each rev
 `BAD --empty-frame` is an explicit reviewed empty frame; a BAD frame without that flag remains a
 different decision. Incomplete queue items cannot pass the completed-review validator. All contract
 tests run locally and do not download weights, data, or call Gemini.
+
+Freeze the review wording, source-group partitions, coverage report, teacher set, and crop policy
+before a detector comparison. The pilot report must contain exactly 20 development frames and a
+selected request version. The partition file must assign every completed queue item to `train`,
+`validation`, or `challenge` and must list excluded system-holdout source groups:
+
+```bash
+table-analyzer freeze-visible-card-review \
+  --queue data/outputs/visible-card-review/m0.json \
+  --pilot-report data/outputs/visible-card-prompt-pilot/m0.json \
+  --partitions data/outputs/visible-card-review/m2-partitions.json \
+  --output-dir data/outputs/visible-card-review/m2-freeze
+```
+
+The output contains immutable `teacher-manifest.json`, `train-manifest.json`,
+`validation-manifest.json`, `challenge-manifest.json`, `coverage-report.json`,
+`review-policy.json`, `crop-policy.json`, and `freeze-manifest.json` files. The coverage report
+counts frames by source-lineage group and failure tag. It states the gap to 100 usable seed frames,
+five source groups, and the 40% maximum group share when the corpus does not meet those targets.
+The train, validation, and challenge partitions cannot share a source-lineage group, and the
+system holdout cannot enter the freeze.
+
+The crop policy is fixed before evaluation: `raw_rectangular` crops the derived box,
+`oracle_visible_region` replaces pixels outside the reviewed polygons with RGB `(128, 128, 128)`,
+and `conservative_box_only` rejects a card unless identity is usable and it has no failure tags.
+No crop policy is chosen from validation or challenge results.
 
 Materialize the bounded local visible-card detector dataset from an existing exact-event
 extraction and cached provider run artifacts. The output references source frames in place and

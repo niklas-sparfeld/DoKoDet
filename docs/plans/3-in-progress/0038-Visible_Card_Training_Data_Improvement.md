@@ -21,7 +21,9 @@
 - **M1:** Complete for the local review contract path — resumable geometry correction, source and
   teacher lineage, and review fixtures are implemented. A real review pass waits for the exact
   event corpus and approved source-lineage manifest.
-- **M2:** Pending
+- **M2:** Complete for the local freeze contract path — immutable reviewed manifests, source-group
+  partition checks, coverage reporting, and fixed crop transforms are implemented. A real freeze
+  waits for the exact-event review corpus and approved pilot report.
 - **M3:** Pending real plan 0037 pseudo-label and native bundle artifacts
 - **M4:** Pending
 
@@ -195,8 +197,31 @@ Acceptance:
 - Added local JSON fixtures and tests for overlapping cards, disconnected regions, occlusion,
   explicit empty frames, bad frames, add/remove corrections, lineage, resume, and incomplete
   review rejection. The CLI now exposes the queue, frame review, action, and completion commands.
-- Verification: all 88 TableEvidenceAnalyzer tests and Ruff checks pass. No real source review or
+- Verification: all 89 TableEvidenceAnalyzer tests and Ruff checks pass. No real source review or
   model campaign was started.
+
+### M2 implementation evidence — 2026-09-01
+
+- Added `visible-card-freeze/v1` output with immutable teacher, reviewed train, reviewed validation,
+  challenge, coverage, review-policy, crop-policy, and freeze manifests. The freeze consumes only a
+  completed v2 review queue, a 20-frame development pilot with a selected request version, and an
+  explicit partition manifest.
+- Added source-lineage-safe partition validation. Every queue item must be assigned exactly once to
+  train, validation, or challenge. A source-lineage group cannot cross partitions, and a listed
+  system-holdout group cannot enter the freeze. Train and validation frames must be GOOD reviews
+  with reviewed labels.
+- Added coverage by source-lineage group and failure tag. The report records the usable seed-frame
+  and five-source-group targets, the 40% maximum group share, and a measured coverage gap when the
+  available corpus is smaller than the target.
+- Froze review wording and three crop conditions before evaluation: raw derived-box crop, oracle
+  visible-region masking with neutral RGB `(128, 128, 128)`, and conservative box-only rejection
+  for unusable or failure-tagged cards. Crop transforms are metric-independent and deterministic.
+- Added loader and fixture tests for provenance, source-group overlap, system-holdout exclusion,
+  target-gap reporting, and distinct crop outputs. Added `table-analyzer
+  freeze-visible-card-review` and documented the partition input and generated artifacts.
+- Verification: all 95 TableEvidenceAnalyzer tests, Ruff checks, CLI help, formatting, and
+  whitespace checks pass. The workspace still has no exact-event review corpus for a real freeze;
+  no model campaign, candidate lock, sealed test, or promotion was started.
 
 ### M2 — Freeze the reviewed seed, challenge set, and crop policy
 

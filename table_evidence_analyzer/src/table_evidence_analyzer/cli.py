@@ -362,6 +362,20 @@ def build_parser() -> argparse.ArgumentParser:
     complete_parser.add_argument("--item-id", required=True)
     complete_parser.add_argument("--reviewer", required=True)
 
+    freeze_parser = commands.add_parser(
+        "freeze-visible-card-review",
+        help="Freeze reviewed visible-card manifests and crop policies.",
+        description=(
+            "Freeze completed visible-card reviews into source-group-safe train, validation, "
+            "challenge, teacher, coverage, and crop-policy artifacts."
+        ),
+    )
+    freeze_parser.add_argument("--queue", type=Path, required=True)
+    freeze_parser.add_argument("--pilot-report", type=Path, required=True)
+    freeze_parser.add_argument("--partitions", type=Path, required=True)
+    freeze_parser.add_argument("--output-dir", type=Path, required=True)
+    freeze_parser.add_argument("--freeze-id", default="visible-card-review-freeze-v1")
+
     return parser
 
 
@@ -778,6 +792,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (VisibleCardError, VisibleCardReviewWorkflowError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Completed visible-card review; {len(queue.pending_items)} item(s) remain")
+        return 0
+    if args.command == "freeze-visible-card-review":
+        from .visible_card_review_freeze import (
+            VisibleCardReviewFreezeError,
+            freeze_visible_card_review_data,
+        )
+
+        try:
+            report = freeze_visible_card_review_data(
+                args.queue,
+                args.pilot_report,
+                args.partitions,
+                args.output_dir,
+                freeze_id=args.freeze_id,
+            )
+        except (VisibleCardError, VisibleCardReviewFreezeError, OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(
+            f"Wrote visible-card freeze with {report['seed_frame_count']} seed frame(s) and "
+            f"{report['challenge_frame_count']} challenge frame(s): {args.output_dir}"
+        )
         return 0
     parser.exit(2, f"error: command '{_command_name(args)}' is not implemented yet.\n")
 

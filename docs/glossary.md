@@ -162,6 +162,11 @@ describe the inferred full-card extent.
 The reviewed decision that a visible-card crop contains enough evidence for visual card identity.
 An identity-unusable crop can still be a valid visible-card detection target.
 
+### Crop policy
+
+A frozen rule that converts a visible region and its derived box into an identity crop, or rejects
+the crop. A crop policy is an evaluation condition. It does not change the reviewed visible region.
+
 ### Table observation
 
 An uncertain visual report of cards that were visible during a bounded time interval. A table

@@ -26,6 +26,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "review-visible-card" in help_text
     assert "review-visible-card-action" in help_text
     assert "complete-visible-card-review" in help_text
+    assert "freeze-visible-card-review" in help_text
     assert "\n    analyze " not in help_text
 
 
@@ -145,6 +146,28 @@ def test_visible_card_training_parser_has_explicit_mounted_inputs() -> None:
     assert args.pretrained_checkpoint == Path("weights/rf-detr-large.pth")
     assert args.output_dir == Path("output")
     assert args.runner == "fixture"
+
+
+def test_visible_card_freeze_parser_has_explicit_immutable_inputs() -> None:
+    args = build_parser().parse_args(
+        [
+            "freeze-visible-card-review",
+            "--queue",
+            "queue.json",
+            "--pilot-report",
+            "pilot.json",
+            "--partitions",
+            "partitions.json",
+            "--output-dir",
+            "freeze",
+        ]
+    )
+
+    assert args.command == "freeze-visible-card-review"
+    assert args.queue == Path("queue.json")
+    assert args.pilot_report == Path("pilot.json")
+    assert args.partitions == Path("partitions.json")
+    assert args.output_dir == Path("freeze")
 
 
 def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path: Path) -> None:
