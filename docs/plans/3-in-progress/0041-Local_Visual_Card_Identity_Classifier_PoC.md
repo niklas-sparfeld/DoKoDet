@@ -19,7 +19,7 @@
 ## Milestone status
 
 - **M0:** Complete — freeze the model, license, crop, target, and run contracts.
-- **M1:** Not started — train one local smoke classifier and preserve its run record.
+- **M1:** Complete — train one local smoke classifier and preserve its run record.
 - **M2:** Not started — export and load one native local identity bundle.
 - **M3:** Not started — select the local classifier explicitly in the backend and run one proof.
 
@@ -126,6 +126,16 @@ Acceptance:
 - interrupted and resumed runs preserve the frozen inputs and semantic progress;
 - a device or training failure leaves a complete failure record; and
 - the run is labelled as a capability proof, not a real-data metric.
+
+Progress (2026-09-01): M1 is complete. Added the optional PyTorch DINOv3 frozen-encoder task with
+one trainable linear 24-class head, deterministic identity-preserving smoke augmentation,
+explicit CPU, MPS, and CUDA selection, local Transformers loading, atomic native checkpoints,
+resume support, and structured completed, interrupted, and failed run records. Added the
+`train-dinov3-identity` CLI command and sample prediction records. Generated contract tests
+overfit the tiny fixture on CPU, execute the available MPS path, verify resume equivalence, and
+verify failure recording. Verification: `mise exec -- uv run --group training pytest` (118
+passed), focused Ruff and format checks, `uv lock --check`, and `table-analyzer --help` pass. No
+gated weights or network access were used.
 
 ### M2 — Export and load the local bundle
 

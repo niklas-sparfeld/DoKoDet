@@ -647,7 +647,9 @@ class TransformedIdentityCrop:
             raise LocalIdentityContractError(
                 "PyTorch is required for tensor conversion; install the identity dependency group"
             ) from error
-        return torch.frombuffer(self.tensor_bytes, dtype=torch.float32).reshape(self.shape).clone()
+        return torch.frombuffer(bytearray(self.tensor_bytes), dtype=torch.float32).reshape(
+            self.shape
+        )
 
 
 def transform_identity_crop(crop_bytes: bytes) -> TransformedIdentityCrop:

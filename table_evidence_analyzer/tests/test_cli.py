@@ -13,6 +13,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
 
     assert "data" in help_text
     assert "train" in help_text
+    assert "train-dinov3-identity" in help_text
     assert "evaluate" in help_text
     assert "export" in help_text
     assert "classify-crop" in help_text
@@ -52,6 +53,37 @@ def test_data_validate_parser_keeps_explicit_artifact_inputs() -> None:
     assert args.dataset == Path("dataset.json")
     assert args.split == Path("split.json")
     assert args.artifacts == Path("artifacts.json")
+
+
+def test_dinov3_training_parser_has_explicit_local_inputs() -> None:
+    args = build_parser().parse_args(
+        [
+            "train-dinov3-identity",
+            "--dataset",
+            "dataset.json",
+            "--split",
+            "split.json",
+            "--artifacts",
+            "artifacts.json",
+            "--identity-config",
+            "identity.json",
+            "--weights-root",
+            "weights",
+            "--output",
+            "run",
+            "--device",
+            "mps",
+        ]
+    )
+
+    assert args.command == "train-dinov3-identity"
+    assert args.dataset == Path("dataset.json")
+    assert args.split == Path("split.json")
+    assert args.artifacts == Path("artifacts.json")
+    assert args.identity_config == Path("identity.json")
+    assert args.weights_root == Path("weights")
+    assert args.output == Path("run")
+    assert args.device == "mps"
 
 
 def test_visible_card_prompt_pilot_command_writes_paired_report(tmp_path: Path) -> None:

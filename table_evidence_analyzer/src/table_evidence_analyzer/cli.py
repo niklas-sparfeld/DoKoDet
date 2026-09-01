@@ -144,6 +144,30 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--config", type=Path, required=True)
     train_parser.add_argument("--resume", type=Path, help="Resume from a checkpoint.")
 
+    dinov3_train_parser = commands.add_parser(
+        "train-dinov3-identity",
+        aliases=("train-local-identity",),
+        help="Train the local DINOv3 visual card identity smoke classifier.",
+        description=(
+            "Train a frozen, locally materialized DINOv3 encoder with one linear 24-class head. "
+            "The command does not download gated weights."
+        ),
+    )
+    dinov3_train_parser.add_argument("--dataset", type=Path, required=True)
+    dinov3_train_parser.add_argument("--split", type=Path, required=True)
+    dinov3_train_parser.add_argument("--artifacts", type=Path, required=True)
+    dinov3_train_parser.add_argument("--identity-config", type=Path, required=True)
+    dinov3_train_parser.add_argument("--weights-root", type=Path)
+    dinov3_train_parser.add_argument("--output", type=Path, required=True)
+    dinov3_train_parser.add_argument("--resume", type=Path)
+    dinov3_train_parser.add_argument("--seed", type=int, default=17)
+    dinov3_train_parser.add_argument("--epochs", type=int, default=8)
+    dinov3_train_parser.add_argument("--batch-size", type=int, default=1)
+    dinov3_train_parser.add_argument("--learning-rate", type=float, default=0.001)
+    dinov3_train_parser.add_argument("--weight-decay", type=float, default=0.0)
+    dinov3_train_parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="cpu")
+    dinov3_train_parser.add_argument("--precision", choices=("fp32",), default="fp32")
+
     visible_card_train_parser = commands.add_parser(
         "train-visible-card-detector",
         aliases=("train-visible-card",),
@@ -555,6 +579,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command in {"train-dinov3-identity", "train-local-identity"}:
+        from .dinov3_training import DinoV3TrainConfig, train_dinov3_identity
+
+        try:
+            output = train_dinov3_identity(
+                DinoV3TrainConfig(
+                    dataset=args.dataset,
+                    split=args.split,
+                    artifacts=args.artifacts,
+                    identity_config=args.identity_config,
+                    output=args.output,
+                    weights_root=args.weights_root,
+                    seed=args.seed,
+                    epochs=args.epochs,
+                    batch_size=args.batch_size,
+                    learning_rate=args.learning_rate,
+                    weight_decay=args.weight_decay,
+                    device=args.device,
+                    precision=args.precision,
+                    resume=args.resume,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(output)
         return 0
     from .training import evaluate, load_config, train
 
