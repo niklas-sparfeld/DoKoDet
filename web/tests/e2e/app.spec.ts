@@ -41,6 +41,7 @@ function cardEventReviewResponse(
   events: Array<Record<string, unknown>> = [],
   proposals = [cardEventProposalOne, cardEventProposalTwo],
   revision = 0,
+  overrides: Record<string, unknown> = {},
 ) {
   return {
     annotation: {
@@ -67,6 +68,7 @@ function cardEventReviewResponse(
     source_asset_id: "source-card-events",
     source_sha256: "b".repeat(64),
     video: "card-events.mov",
+    ...overrides,
   };
 }
 
@@ -141,6 +143,7 @@ test.beforeEach(async ({ page }) => {
         const body = route.request().postDataJSON() as {
           annotation: { events: Array<Record<string, unknown>> };
           proposals: Array<{ proposal_id: string; decision: string }>;
+          full_video_acknowledged: boolean;
         };
         const events = [...body.annotation.events];
         for (const proposal of [cardEventProposalOne, cardEventProposalTwo]) {
@@ -170,7 +173,63 @@ test.beforeEach(async ({ page }) => {
               )?.decision ?? "undecided",
           })),
           cardEventReview.draft_revision + 1,
+          { full_video_acknowledged: body.full_video_acknowledged },
         );
+      }
+      if (route.request().method() === "POST" && url.endsWith("/complete")) {
+        const body = route.request().postDataJSON() as {
+          reviewer: string;
+          full_video_acknowledged: boolean;
+        };
+        cardEventReview = cardEventReviewResponse(
+          cardEventReview.annotation.events as Array<Record<string, unknown>>,
+          cardEventReview.proposals,
+          cardEventReview.draft_revision,
+          {
+            review_state: "completed",
+            full_video_acknowledged: body.full_video_acknowledged,
+            reviewer: body.reviewer,
+            completed_at: "2026-09-01T08:00:00Z",
+            completed_version_id: "cardevent-reviewed-version-1",
+            completed_version_digest: "c".repeat(64),
+            reviewed_annotation_digest: "d".repeat(64),
+            proposal_decision_digest: "e".repeat(64),
+            completion_receipt_id: "receipt-cardevent-review-1",
+          },
+        );
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(cardEventReview),
+        });
+        return;
+      }
+      if (route.request().method() === "POST" && url.endsWith("/revisions")) {
+        const body = route.request().postDataJSON() as {
+          parent_version_id: string;
+        };
+        cardEventReview = cardEventReviewResponse(
+          cardEventReview.annotation.events as Array<Record<string, unknown>>,
+          cardEventReview.proposals,
+          cardEventReview.draft_revision + 1,
+          {
+            review_state: "draft",
+            full_video_acknowledged: false,
+            reviewer: null,
+            completed_at: null,
+            completed_version_id: null,
+            completed_version_digest: null,
+            reviewed_annotation_digest: null,
+            proposal_decision_digest: null,
+            completion_receipt_id: null,
+            parent_version_id: body.parent_version_id,
+            parent_digest: "c".repeat(64),
+          },
+        );
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify(cardEventReview),
+        });
+        return;
       }
       await route.fulfill({
         contentType: "application/json",
@@ -316,6 +375,70 @@ test("edits and persists CardEvent events and proposal decisions in the browser"
       document.documentElement.clientWidth,
   );
   expect(horizontalOverflow).toBe(false);
+});
+
+test("completes a CardEvent review and starts an immutable revision", async ({
+  page,
+}) => {
+  await page.goto(`/recordings/${CARD_EVENT_RECORDING_ID}`);
+
+  const video = page.getByLabel(`Source recording ${CARD_EVENT_RECORDING_ID}`);
+  await expect(video).toBeVisible();
+  await video.evaluate((element) => {
+    const source = element as HTMLVideoElement;
+    Object.defineProperty(source, "duration", {
+      configurable: true,
+      value: 12.5,
+    });
+    Object.defineProperty(source, "currentTime", {
+      configurable: true,
+      value: 12.5,
+      writable: true,
+    });
+    source.dispatchEvent(new Event("loadedmetadata"));
+    source.dispatchEvent(new Event("timeupdate"));
+  });
+
+  const acknowledgement = page.getByRole("checkbox");
+  await expect(acknowledgement).toBeEnabled();
+  await acknowledgement.check();
+  await page
+    .getByRole("listitem", { name: /Proposal at 0:01\.500 seconds/ })
+    .getByRole("button", { name: "Accept proposal" })
+    .click();
+  await page
+    .getByRole("listitem", { name: /Proposal at 0:03\.000 seconds/ })
+    .getByRole("button", { name: "Dismiss proposal" })
+    .click();
+  await page.getByRole("textbox", { name: "Reviewer" }).fill("operator");
+
+  const completeButton = page.getByRole("button", {
+    name: "Complete full recording review",
+  });
+  await expect(completeButton).toBeEnabled();
+  await completeButton.click();
+  await expect(
+    page.getByRole("heading", { name: "Reviewed annotation" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("cardevent-reviewed-version-1", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("No current training-use blocker."),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Start a new revision" }).click();
+  await expect(
+    page.getByRole("button", { name: "Complete full recording review" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/The completed version remains unchanged/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Complete the full recording CardEvent review before training use.",
+    ),
+  ).toBeVisible();
 });
 
 test("renders a resolved analysis in synchronized desktop columns", async ({

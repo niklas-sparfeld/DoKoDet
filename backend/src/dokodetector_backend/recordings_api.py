@@ -299,6 +299,10 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
         eligibility = "not_enrolled"
         blocker = "Select the CardEvent task before reviewing this recording."
         next_action = "Resolve CardEvent task enrollment"
+    elif review_state == "completed":
+        eligibility = "eligible"
+        blocker = None
+        next_action = "Assign a development partition"
     else:
         eligibility = "review_required"
         blocker = "Complete the full recording CardEvent review before training use."

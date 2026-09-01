@@ -176,6 +176,13 @@ class CardEventReviewStore:
             current = self._read_locked(source)
             _assert_revision(current, expected_revision)
             if current["review_state"] == "completed":
+                if (
+                    current.get("reviewer") == reviewer.strip()
+                    and current.get("full_video_acknowledged") is True
+                    and current.get("completed_version_id")
+                    and current.get("completion_receipt_id")
+                ):
+                    return _project_state(current, source)
                 raise CardEventReviewConflict(
                     "The review is already complete. Start a new revision before completing it "
                     "again."

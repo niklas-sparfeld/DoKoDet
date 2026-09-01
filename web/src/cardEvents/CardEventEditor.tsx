@@ -11,6 +11,7 @@ import {
   ApiError,
   createDokoDetectorClient,
   type CardEventReview,
+  type CardEventReviewCompletionRequest,
   type CardEventReviewDraftUpdateRequest,
   type RecordingDetail,
 } from "../api/client";
@@ -44,6 +45,7 @@ type CardEvent = {
 type EditableEvent = CardEvent & { localId: string };
 type ProposalDecision = "undecided" | "accepted" | "dismissed";
 type SaveState = "saving" | "saved" | "error" | "conflict";
+type WorkflowState = "idle" | "completing" | "revising";
 
 const EVENT_TYPE_GUIDANCE: Record<CardEventType, string> = {
   card_played: "A card reaches its final position in the trick area.",
@@ -94,9 +96,12 @@ export function CardEventEditor({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [workflowState, setWorkflowState] = useState<WorkflowState>("idle");
   const [pendingSave, setPendingSave] =
     useState<CardEventReviewDraftUpdateRequest | null>(null);
   const [removedEvent, setRemovedEvent] = useState<EditableEvent | null>(null);
+  const [reviewerName, setReviewerName] = useState("");
+  const [watchedThrough, setWatchedThrough] = useState(0);
 
   const applyReview = useCallback(
     (nextReview: CardEventReview, previousEvents = eventsRef.current) => {
@@ -117,6 +122,17 @@ export function CardEventEditor({
       setReview(nextReview);
       setEvents(nextEvents);
       setDecisions(nextDecisions);
+      if (
+        nextReview.review_state === "completed" &&
+        nextReview.reviewer !== null
+      ) {
+        setReviewerName(nextReview.reviewer);
+      } else if (
+        nextReview.review_state === "draft" &&
+        nextReview.parent_version_id !== null
+      ) {
+        setReviewerName("");
+      }
       setSelectedEventId((current) =>
         nextEvents.some((event) => event.localId === current)
           ? current
@@ -169,17 +185,23 @@ export function CardEventEditor({
       return;
     }
     const updateTime = () => {
-      setPlayhead(video.currentTime);
+      const currentTime = Number.isFinite(video.currentTime)
+        ? Math.max(0, video.currentTime)
+        : 0;
+      setPlayhead(currentTime);
+      setWatchedThrough((current) => Math.max(current, currentTime));
       if (Number.isFinite(video.duration) && video.duration > 0) {
         setDuration(video.duration);
       }
     };
     video.addEventListener("timeupdate", updateTime);
     video.addEventListener("loadedmetadata", updateTime);
+    video.addEventListener("ended", updateTime);
     updateTime();
     return () => {
       video.removeEventListener("timeupdate", updateTime);
       video.removeEventListener("loadedmetadata", updateTime);
+      video.removeEventListener("ended", updateTime);
     };
   }, [playerRef, review]);
 
@@ -191,6 +213,35 @@ export function CardEventEditor({
   const hasShortGap = hasEventGapUnder(events, 0.1);
   const proposals = review?.proposals ?? [];
   const isSaving = saveState === "saving";
+  const isCompleted = review?.review_state === "completed";
+  const undecidedProposals = proposals.filter((proposal) => {
+    const decision = decisions[proposal.proposal_id] ?? proposal.decision;
+    return decision === "undecided";
+  });
+  const watchedPercent =
+    duration > 0 ? Math.min(100, (watchedThrough / duration) * 100) : 0;
+  const fullVideoReady =
+    review?.full_video_acknowledged === true ||
+    (duration > 0 &&
+      watchedThrough >=
+        Math.max(
+          0,
+          duration - Math.max(0.5, frameRate > 0 ? 1 / frameRate : 0.5),
+        ));
+  const completionPayload: CardEventReviewCompletionRequest | null =
+    review === null
+      ? null
+      : {
+          reviewer: reviewerName.trim(),
+          expected_revision: review.draft_revision,
+          full_video_acknowledged: review.full_video_acknowledged,
+        };
+  const canComplete =
+    !isCompleted &&
+    completionPayload !== null &&
+    completionPayload.reviewer.length > 0 &&
+    completionPayload.full_video_acknowledged &&
+    undecidedProposals.length === 0;
 
   const persist = useCallback(
     async (
@@ -198,9 +249,15 @@ export function CardEventEditor({
       nextDecisions: Record<string, ProposalDecision>,
       actionNotice: string | null,
       expectedRevision = reviewRef.current?.draft_revision,
+      fullVideoAcknowledged = reviewRef.current?.full_video_acknowledged ??
+        false,
     ) => {
       const currentReview = reviewRef.current;
-      if (currentReview === null || expectedRevision === undefined) {
+      if (
+        currentReview === null ||
+        currentReview.review_state === "completed" ||
+        expectedRevision === undefined
+      ) {
         return;
       }
       const payload: CardEventReviewDraftUpdateRequest = {
@@ -214,7 +271,7 @@ export function CardEventEditor({
           decision: nextDecisions[proposal.proposal_id] ?? "undecided",
         })),
         expected_revision: expectedRevision,
-        full_video_acknowledged: currentReview.full_video_acknowledged,
+        full_video_acknowledged: fullVideoAcknowledged,
       };
       setPendingSave(payload);
       setSaveState("saving");
@@ -242,6 +299,9 @@ export function CardEventEditor({
       mutator: (current: EditableEvent[]) => EditableEvent[],
       actionNotice: string,
     ) => {
+      if (reviewRef.current?.review_state === "completed") {
+        return;
+      }
       const nextEvents = sortEvents(mutator(eventsRef.current));
       eventsRef.current = nextEvents;
       setEvents(nextEvents);
@@ -299,6 +359,9 @@ export function CardEventEditor({
   );
 
   const addEvent = useCallback(() => {
+    if (reviewRef.current?.review_state === "completed") {
+      return;
+    }
     const event: EditableEvent = {
       localId: `event-${nextLocalId.current++}`,
       time_s: clamp(playhead, 0, duration || Number.POSITIVE_INFINITY),
@@ -336,7 +399,10 @@ export function CardEventEditor({
   );
 
   const removeSelected = useCallback(() => {
-    if (selectedEventId === null) {
+    if (
+      selectedEventId === null ||
+      reviewRef.current?.review_state === "completed"
+    ) {
       return;
     }
     const removed = eventsRef.current.find(
@@ -360,7 +426,10 @@ export function CardEventEditor({
   }, [persist, selectedEventId]);
 
   const undoRemove = useCallback(() => {
-    if (removedEvent === null) {
+    if (
+      removedEvent === null ||
+      reviewRef.current?.review_state === "completed"
+    ) {
       return;
     }
     const nextEvents = sortEvents([...eventsRef.current, removedEvent]);
@@ -373,7 +442,10 @@ export function CardEventEditor({
 
   const updateSelectedField = useCallback(
     (changes: Partial<CardEvent>, actionNotice: string) => {
-      if (selectedEventId === null) {
+      if (
+        selectedEventId === null ||
+        reviewRef.current?.review_state === "completed"
+      ) {
         return;
       }
       mutateEvents(
@@ -391,7 +463,10 @@ export function CardEventEditor({
 
   const updateNotesLocally = useCallback(
     (notes: string) => {
-      if (selectedEventId === null) {
+      if (
+        selectedEventId === null ||
+        reviewRef.current?.review_state === "completed"
+      ) {
         return;
       }
       const nextEvents = eventsRef.current.map((event) =>
@@ -405,6 +480,9 @@ export function CardEventEditor({
 
   const acceptProposal = useCallback(
     (proposalId: string) => {
+      if (reviewRef.current?.review_state === "completed") {
+        return;
+      }
       const nextDecisions = {
         ...decisionsRef.current,
         [proposalId]: "accepted" as const,
@@ -422,6 +500,9 @@ export function CardEventEditor({
 
   const dismissProposal = useCallback(
     (proposalId: string) => {
+      if (reviewRef.current?.review_state === "completed") {
+        return;
+      }
       const nextDecisions = {
         ...decisionsRef.current,
         [proposalId]: "dismissed" as const,
@@ -485,6 +566,91 @@ export function CardEventEditor({
       setError(describeReviewError(reason));
     }
   }, [applyReview, client, onSaved, pendingSave, recordingId]);
+
+  const acknowledgeFullVideo = useCallback(
+    (acknowledged: boolean) => {
+      if (
+        reviewRef.current === null ||
+        reviewRef.current.review_state === "completed"
+      ) {
+        return;
+      }
+      void persist(
+        eventsRef.current,
+        decisionsRef.current,
+        acknowledged
+          ? "Full recording acknowledgement saved."
+          : "Full recording acknowledgement removed.",
+        undefined,
+        acknowledged,
+      );
+    },
+    [persist],
+  );
+
+  const completeReview = useCallback(async () => {
+    const currentReview = reviewRef.current;
+    if (
+      currentReview === null ||
+      currentReview.review_state === "completed" ||
+      reviewerName.trim() === ""
+    ) {
+      return;
+    }
+    setWorkflowState("completing");
+    setSaveState("saving");
+    setPendingSave(null);
+    setError(null);
+    try {
+      const completed = await client.completeCardEventReview(recordingId, {
+        reviewer: reviewerName.trim(),
+        expected_revision: currentReview.draft_revision,
+        full_video_acknowledged: currentReview.full_video_acknowledged,
+      });
+      applyReview(completed);
+      setSaveState("saved");
+      setWorkflowState("idle");
+      setNotice(
+        `Reviewed version ${completed.completed_version_id ?? "published"} is immutable.`,
+      );
+      onSaved?.(completed);
+    } catch (reason: unknown) {
+      setWorkflowState("idle");
+      setSaveState(isConflictError(reason) ? "conflict" : "error");
+      setError(describeReviewError(reason));
+    }
+  }, [applyReview, client, onSaved, recordingId, reviewerName]);
+
+  const startRevision = useCallback(async () => {
+    const currentReview = reviewRef.current;
+    if (
+      currentReview === null ||
+      currentReview.review_state !== "completed" ||
+      currentReview.completed_version_id === null
+    ) {
+      return;
+    }
+    setWorkflowState("revising");
+    setSaveState("saving");
+    setError(null);
+    try {
+      const revision = await client.startCardEventReviewRevision(recordingId, {
+        parent_version_id: currentReview.completed_version_id,
+        expected_revision: currentReview.draft_revision,
+      });
+      applyReview(revision);
+      setSaveState("saved");
+      setWorkflowState("idle");
+      setNotice(
+        `Revision started from ${currentReview.completed_version_id}. The completed version remains unchanged.`,
+      );
+      onSaved?.(revision);
+    } catch (reason: unknown) {
+      setWorkflowState("idle");
+      setSaveState(isConflictError(reason) ? "conflict" : "error");
+      setError(describeReviewError(reason));
+    }
+  }, [applyReview, client, onSaved, recordingId]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -655,7 +821,7 @@ export function CardEventEditor({
             className={styles.primaryButton}
             type="button"
             onClick={addEvent}
-            disabled={isSaving}
+            disabled={isSaving || isCompleted}
           >
             Add event at playhead
           </button>
@@ -663,7 +829,11 @@ export function CardEventEditor({
         <div className={styles.cardEventSaveStatus} aria-live="polite">
           <span data-state={saveState}>
             {saveState === "saving"
-              ? "Saving"
+              ? workflowState === "completing"
+                ? "Publishing"
+                : workflowState === "revising"
+                  ? "Starting revision"
+                  : "Saving"
               : saveState === "saved"
                 ? "Saved"
                 : saveState === "conflict"
@@ -673,6 +843,155 @@ export function CardEventEditor({
           {review.draft_revision > 0 ? ` · draft ${review.draft_revision}` : ""}
         </div>
       </div>
+
+      <section
+        className={styles.cardEventReviewPanel}
+        aria-label="Full recording review"
+      >
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Review lifecycle</p>
+            <h3>
+              {isCompleted
+                ? "Reviewed annotation"
+                : "Complete full recording review"}
+            </h3>
+          </div>
+          <span className={styles.countLabel}>
+            {isCompleted ? "Reviewed" : "Draft"}
+          </span>
+        </div>
+        {isCompleted ? (
+          <>
+            <p className={styles.cardEventReviewSummary} role="status">
+              This reviewed annotation is immutable. Start a revision to make a
+              later correction.
+            </p>
+            <dl className={styles.cardEventReviewMetadata}>
+              <ReviewMetadata
+                label="Reviewed version"
+                value={review.completed_version_id ?? "Not available"}
+              />
+              <ReviewMetadata
+                label="Reviewer"
+                value={review.reviewer ?? "Not available"}
+              />
+              <ReviewMetadata
+                label="Reviewed at"
+                value={
+                  review.completed_at === null
+                    ? "Not available"
+                    : formatTimestamp(review.completed_at)
+                }
+              />
+              <ReviewMetadata
+                label="Annotation digest"
+                value={review.reviewed_annotation_digest ?? "Not available"}
+              />
+              <ReviewMetadata
+                label="Version digest"
+                value={review.completed_version_digest ?? "Not available"}
+              />
+              <ReviewMetadata
+                label="Proposal decisions"
+                value={review.proposal_decision_digest ?? "Not available"}
+              />
+              <ReviewMetadata
+                label="Lifecycle receipt"
+                value={review.completion_receipt_id ?? "Not available"}
+              />
+            </dl>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={() => void startRevision()}
+              disabled={isSaving}
+            >
+              Start a new revision
+            </button>
+          </>
+        ) : (
+          <>
+            <p className={styles.cardEventReviewSummary}>
+              Review the source from start to finish. Then acknowledge the full
+              recording and identify the operator who completed the review.
+            </p>
+            <div className={styles.cardEventProgressBlock}>
+              <div className={styles.cardEventProgressHeader}>
+                <span>Full-video progress</span>
+                <strong>{Math.round(watchedPercent)}%</strong>
+              </div>
+              <progress
+                max="100"
+                value={watchedPercent}
+                aria-label="Full-video review progress"
+              />
+              <p className={styles.cardEventProgressMeta}>
+                Watched through {formatTime(watchedThrough)} of{" "}
+                {duration > 0 ? formatTime(duration) : "an unknown duration"}.
+                {duration <= 0
+                  ? " Media duration is not available yet."
+                  : " Play or seek to the end before acknowledging the full recording."}
+              </p>
+            </div>
+            <label className={styles.cardEventAcknowledgement}>
+              <input
+                type="checkbox"
+                checked={review.full_video_acknowledged}
+                disabled={isSaving || !fullVideoReady}
+                onChange={(event) => acknowledgeFullVideo(event.target.checked)}
+              />
+              <span>
+                I reviewed the full recording and confirm that this timeline is
+                ready for completion.
+              </span>
+            </label>
+            {!fullVideoReady && !review.full_video_acknowledged ? (
+              <p className={styles.cardEventRequirement}>
+                Full-video acknowledgement becomes available after the player
+                reaches the end of the recording.
+              </p>
+            ) : null}
+            {undecidedProposals.length > 0 ? (
+              <p className={styles.cardEventRequirement} role="status">
+                Remaining proposal decisions ({undecidedProposals.length}):{" "}
+                {undecidedProposals
+                  .map((proposal) => formatTime(proposal.time_s))
+                  .join(", ")}
+                .
+              </p>
+            ) : (
+              <p className={styles.cardEventRequirement}>
+                All proposal decisions are complete.
+              </p>
+            )}
+            <label className={styles.cardEventReviewer}>
+              Reviewer
+              <input
+                value={reviewerName}
+                onChange={(event) => setReviewerName(event.target.value)}
+                placeholder="Operator name"
+                disabled={isSaving}
+                aria-label="Reviewer"
+              />
+            </label>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={() => void completeReview()}
+              disabled={isSaving || !canComplete}
+            >
+              Complete full recording review
+            </button>
+            {!canComplete ? (
+              <p className={styles.cardEventRequirement}>
+                Completion is blocked until the full recording is acknowledged,
+                every proposal has a decision, and a reviewer is named.
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
 
       <div className={styles.cardEventTimelineHeader}>
         <div>
@@ -798,7 +1117,9 @@ export function CardEventEditor({
                           className={styles.secondaryButton}
                           type="button"
                           onClick={() => acceptProposal(proposal.proposal_id)}
-                          disabled={isSaving || decision === "accepted"}
+                          disabled={
+                            isSaving || isCompleted || decision === "accepted"
+                          }
                         >
                           Accept proposal
                         </button>
@@ -806,7 +1127,9 @@ export function CardEventEditor({
                           className={styles.secondaryButton}
                           type="button"
                           onClick={() => dismissProposal(proposal.proposal_id)}
-                          disabled={isSaving || decision === "dismissed"}
+                          disabled={
+                            isSaving || isCompleted || decision === "dismissed"
+                          }
                         >
                           Dismiss proposal
                         </button>
@@ -849,7 +1172,7 @@ export function CardEventEditor({
                     max={duration > 0 ? duration : undefined}
                     step="0.001"
                     value={selectedEvent.time_s}
-                    disabled={isSaving}
+                    disabled={isSaving || isCompleted}
                     onChange={(event) => {
                       const value = Number(event.target.value);
                       if (Number.isFinite(value)) {
@@ -883,7 +1206,7 @@ export function CardEventEditor({
                   Event type
                   <select
                     value={selectedEvent.type}
-                    disabled={isSaving}
+                    disabled={isSaving || isCompleted}
                     onChange={(event) =>
                       updateSelectedField(
                         { type: event.target.value as CardEventType },
@@ -903,7 +1226,7 @@ export function CardEventEditor({
                   Confidence
                   <select
                     value={selectedEvent.confidence ?? ""}
-                    disabled={isSaving}
+                    disabled={isSaving || isCompleted}
                     onChange={(event) =>
                       updateSelectedField(
                         {
@@ -939,7 +1262,7 @@ export function CardEventEditor({
                 <textarea
                   value={selectedEvent.notes ?? ""}
                   rows={3}
-                  disabled={isSaving}
+                  disabled={isSaving || isCompleted}
                   onChange={(event) => updateNotesLocally(event.target.value)}
                   onBlur={() =>
                     void persist(
@@ -963,7 +1286,7 @@ export function CardEventEditor({
                         )
                       : undefined
                   }
-                  disabled={isSaving || frameRate <= 0}
+                  disabled={isSaving || isCompleted || frameRate <= 0}
                 >
                   Nudge −1 frame
                 </button>
@@ -978,7 +1301,7 @@ export function CardEventEditor({
                         )
                       : undefined
                   }
-                  disabled={isSaving || frameRate <= 0}
+                  disabled={isSaving || isCompleted || frameRate <= 0}
                 >
                   Nudge +1 frame
                 </button>
@@ -988,7 +1311,7 @@ export function CardEventEditor({
                   onClick={() =>
                     moveSelected(playhead, "Event moved to the playhead.")
                   }
-                  disabled={isSaving}
+                  disabled={isSaving || isCompleted}
                 >
                   Set to playhead
                 </button>
@@ -996,7 +1319,7 @@ export function CardEventEditor({
                   className={styles.secondaryButton}
                   type="button"
                   onClick={removeSelected}
-                  disabled={isSaving}
+                  disabled={isSaving || isCompleted}
                 >
                   Remove selected event
                 </button>
@@ -1085,6 +1408,15 @@ export function CardEventEditor({
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function ReviewMetadata({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
@@ -1196,6 +1528,13 @@ function formatIdentifier(value: string): string {
     .replaceAll("-", " ")
     .toLowerCase()
     .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
+}
+
+function formatTimestamp(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function isConflictError(reason: unknown): boolean {

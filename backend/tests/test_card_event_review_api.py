@@ -224,6 +224,16 @@ def test_completion_writes_immutable_digests_and_revision_preserves_parent_linea
     assert body["completed_version_id"]
     assert body["completed_version_digest"]
     assert body["completion_receipt_id"]
+    detail = client.get("/v1/recordings/recording-both")
+    assert detail.status_code == 200
+    assert detail.json()["card_event_review"] == {
+        "state": "completed",
+        "event_count": 1,
+        "reviewed_at": body["completed_at"],
+    }
+    assert detail.json()["training_use"]["eligibility"] == "eligible"
+    assert detail.json()["training_use"]["blocker"] is None
+    assert detail.json()["next_action"] == "Assign a development partition"
 
     review_root = settings.operations_root / "cardevent-reviews" / "recording-both"
     version_path = review_root / "versions" / f"{body['completed_version_id']}.json"
@@ -237,6 +247,17 @@ def test_completion_writes_immutable_digests_and_revision_preserves_parent_linea
     assert version["proposal_decision_digest"] == body["proposal_decision_digest"]
     assert receipt["metadata"]["input_draft_digest"] == saved["draft_digest"]
 
+    repeated = client.post(
+        "/v1/recordings/recording-both/card-event-review/complete",
+        json={
+            "reviewer": "operator",
+            "expected_revision": saved["draft_revision"],
+            "full_video_acknowledged": True,
+        },
+    )
+    assert repeated.status_code == 200
+    assert repeated.json() == body
+
     revision = client.post(
         "/v1/recordings/recording-both/card-event-review/revisions",
         json={
@@ -249,6 +270,12 @@ def test_completion_writes_immutable_digests_and_revision_preserves_parent_linea
     assert revision.json()["parent_version_id"] == body["completed_version_id"]
     assert revision.json()["parent_digest"] == body["completed_version_digest"]
     assert version_path.read_text(encoding="utf-8") == version_before
+    revised_detail = client.get("/v1/recordings/recording-both")
+    assert revised_detail.json()["training_use"]["eligibility"] == "review_required"
+    assert (
+        revised_detail.json()["training_use"]["blocker"]
+        == "Complete the full recording CardEvent review before training use."
+    )
 
 
 def test_operations_store_keeps_the_winning_draft_on_write_failure_and_source_conflict(

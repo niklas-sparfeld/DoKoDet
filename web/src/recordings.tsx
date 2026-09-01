@@ -398,6 +398,21 @@ export function RecordingDetailView({
                         event_count: countReviewEvents(review),
                         reviewed_at: review.completed_at,
                       },
+                      training_use: {
+                        ...current.training_use,
+                        eligibility:
+                          review.review_state === "completed"
+                            ? "eligible"
+                            : "review_required",
+                        blocker:
+                          review.review_state === "completed"
+                            ? null
+                            : "Complete the full recording CardEvent review before training use.",
+                      },
+                      next_action:
+                        review.review_state === "completed"
+                          ? "Assign a development partition"
+                          : "Review CardEvent events",
                     },
               )
             }
