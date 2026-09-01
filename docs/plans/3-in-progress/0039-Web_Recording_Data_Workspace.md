@@ -19,7 +19,7 @@
 
 - **M0:** Complete — make recording detail the stable web route and nest optional analyses in it.
 - **M1:** Complete — add a source-linked, conflict-safe CardEvent annotation workspace API.
-- **M2:** Pending — add the video and timeline event editor.
+- **M2:** Complete — add the video and timeline event editor with conflict feedback.
 - **M3:** Pending — complete and revise a full-recording review with clear workflow guidance.
 - **M4:** Pending — assign eligible development leakage groups to train, validation, or unassigned.
 

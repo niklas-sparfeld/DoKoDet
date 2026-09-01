@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ApiError,
   createDokoDetectorClient,
+  type CardEventReview,
   type RecordingDetail,
   type RecordingSummary,
 } from "./api/client";
 import { RecordingAnalysisView } from "./analysis/AnalysisView";
+import { CardEventEditor } from "./cardEvents/CardEventEditor";
 import styles from "./App.module.css";
 
 export function RecordingListView() {
@@ -258,6 +260,7 @@ export function RecordingDetailView({
   selectedAnalysisId: string | null;
 }) {
   const client = useMemo(() => createDokoDetectorClient(), []);
+  const sourceVideoRef = useRef<HTMLVideoElement>(null);
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -380,8 +383,25 @@ export function RecordingDetailView({
             </ol>
           </nav>
 
-          <RecordingSection recording={recording} />
-          <CardEventSection review={recording.card_event_review} />
+          <RecordingSection recording={recording} videoRef={sourceVideoRef} />
+          <CardEventSection
+            recording={recording}
+            videoRef={sourceVideoRef}
+            onReviewSaved={(review) =>
+              setRecording((current) =>
+                current === null
+                  ? current
+                  : {
+                      ...current,
+                      card_event_review: {
+                        state: review.review_state,
+                        event_count: countReviewEvents(review),
+                        reviewed_at: review.completed_at,
+                      },
+                    },
+              )
+            }
+          />
           <TrainingUseSection trainingUse={recording.training_use} />
           <RoundAnalysesSection
             recording={recording}
@@ -412,7 +432,13 @@ function DetailProgressLink({
   );
 }
 
-function RecordingSection({ recording }: { recording: RecordingDetail }) {
+function RecordingSection({
+  recording,
+  videoRef,
+}: {
+  recording: RecordingDetail;
+  videoRef: import("react").RefObject<HTMLVideoElement | null>;
+}) {
   const mediaFacts = recording.video.media_facts;
   return (
     <section id="recording" className={styles.detailPanel}>
@@ -425,6 +451,7 @@ function RecordingSection({ recording }: { recording: RecordingDetail }) {
       </div>
       <div className={styles.detailRecordingLayout}>
         <video
+          ref={videoRef}
           className={styles.detailSourceVideo}
           controls
           preload="metadata"
@@ -483,10 +510,17 @@ function RecordingSection({ recording }: { recording: RecordingDetail }) {
 }
 
 function CardEventSection({
-  review,
+  recording,
+  videoRef,
+  onReviewSaved,
 }: {
-  review: RecordingDetail["card_event_review"];
+  recording: RecordingDetail;
+  videoRef: import("react").RefObject<HTMLVideoElement | null>;
+  onReviewSaved: (review: CardEventReview) => void;
 }) {
+  const review = recording.card_event_review;
+  const taskSelected =
+    recording.training_use.card_event_task?.disposition === "selected";
   return (
     <section id="card-events" className={styles.detailPanel}>
       <div className={styles.sectionHeading}>
@@ -497,14 +531,25 @@ function CardEventSection({
         <span className={styles.countLabel}>{review.event_count} events</span>
       </div>
       <p className={styles.detailLead}>
-        Review the full recording and save the CardEvent timeline here. The
-        editor will be available in the next workspace milestone.
+        Review the full recording and save the CardEvent timeline here. Use the
+        first frame where a card has substantially reached its final position.
       </p>
-      <p className={styles.detailEmptyState}>
-        {review.state === "not_started"
-          ? "No CardEvent review has been started."
-          : `Review state: ${formatIdentifier(review.state)}.`}
-      </p>
+      {taskSelected ? (
+        <CardEventEditor
+          recordingId={recording.recording_id}
+          videoUrl={recording.video.url}
+          mediaFacts={recording.video.media_facts}
+          summary={review}
+          videoRef={videoRef}
+          onSaved={onReviewSaved}
+        />
+      ) : (
+        <p className={styles.detailEmptyState}>
+          {review.state === "not_started"
+            ? "No CardEvent review has been started."
+            : `Review state: ${formatIdentifier(review.state)}.`}
+        </p>
+      )}
     </section>
   );
 }
@@ -710,6 +755,12 @@ function formatIdentifier(value: string): string {
     .toLowerCase()
     .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
 }
+
+function countReviewEvents(review: CardEventReview): number {
+  const events = review.annotation.events;
+  return Array.isArray(events) ? events.length : 0;
+}
+
 function describeError(reason: unknown): string {
   return reason instanceof ApiError
     ? `The backend returned HTTP ${reason.status}.`

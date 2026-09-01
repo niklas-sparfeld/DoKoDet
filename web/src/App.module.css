@@ -1953,6 +1953,419 @@ progress {
   margin: 1.25rem 0 0;
 }
 
+.cardEventEditor {
+  min-width: 0;
+  margin-top: 1.1rem;
+}
+
+.cardEventVideo {
+  display: block;
+  width: 100%;
+  max-height: 32rem;
+  border-radius: 0.55rem;
+  background: #151515;
+}
+
+.cardEventToolbar,
+.cardEventTimelineHeader,
+.cardEventProposal,
+.cardEventEditActions,
+.cardEventErrorActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.cardEventToolbar {
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.cardEventTransport {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cardEventSaveStatus {
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.cardEventSaveStatus span[data-state="saving"] {
+  color: var(--accent);
+}
+
+.cardEventSaveStatus span[data-state="conflict"],
+.cardEventSaveStatus span[data-state="error"] {
+  color: #8b2e1d;
+}
+
+.cardEventTimelineHeader {
+  justify-content: space-between;
+  align-items: end;
+  margin-top: 1.35rem;
+}
+
+.cardEventTimeRange {
+  margin: 0.35rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardEventRail {
+  position: relative;
+  height: 3.3rem;
+  margin: 0.6rem 0 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--surface) 80%, var(--panel));
+}
+
+.cardEventRailTrack,
+.cardEventPlayhead,
+.cardEventMarker,
+.cardEventProposalMarker {
+  position: absolute;
+}
+
+.cardEventRailTrack {
+  top: 1.6rem;
+  right: 0.7rem;
+  left: 0.7rem;
+  height: 0.15rem;
+  background: var(--line);
+}
+
+.cardEventPlayhead {
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 2px;
+  transform: translateX(-1px);
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.cardEventMarker,
+.cardEventProposalMarker {
+  top: 1.1rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.cardEventMarker {
+  z-index: 2;
+  border: 2px solid var(--panel);
+  border-radius: 50%;
+  background: #245b35;
+}
+
+.cardEventMarker[data-selected="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cardEventProposalMarker {
+  z-index: 1;
+  top: 1.25rem;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 1px solid var(--panel);
+  border-radius: 0.15rem;
+  background: #705493;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.cardEventProposalMarker[data-decision="accepted"] {
+  background: #245b35;
+}
+
+.cardEventProposalMarker[data-decision="dismissed"] {
+  background: #8b2e1d;
+  opacity: 0.65;
+}
+
+.cardEventWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.cardEventListPanel,
+.cardEventFormPanel {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface) 45%, var(--panel));
+}
+
+.cardEventListPanel h3,
+.cardEventFormPanel h3 {
+  margin: 0.3rem 0 0;
+  color: var(--ink);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cardEventList,
+.cardEventProposalList {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cardEventListItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.cardEventListItem:hover,
+.cardEventListItem:focus-visible,
+.cardEventListItem[data-selected="true"] {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 1px;
+}
+
+.cardEventListItem small {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.cardEventProposalSection {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.cardEventProposal {
+  align-items: start;
+  justify-content: space-between;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+}
+
+.cardEventProposal strong,
+.cardEventProposal span {
+  display: block;
+}
+
+.cardEventProposal strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.cardEventProposal span {
+  margin-top: 0.25rem;
+  color: var(--muted-ink);
+  font-size: 0.7rem;
+}
+
+.cardEventProposalActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 0.4rem;
+}
+
+.cardEventProposalActions .secondaryButton {
+  min-height: 2rem;
+  font-size: 0.68rem;
+}
+
+.cardEventFormPanel {
+  align-self: start;
+}
+
+.cardEventFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.cardEventFormGrid label,
+.cardEventNotes {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.cardEventFormGrid input,
+.cardEventFormGrid select,
+.cardEventNotes textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.cardEventNotes {
+  margin-top: 0.8rem;
+}
+
+.cardEventNotes textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.cardEventFrameReadout {
+  display: grid;
+  align-content: end;
+  gap: 0.35rem;
+  padding-bottom: 0.25rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.cardEventFrameReadout strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardEventEditActions {
+  margin-top: 1rem;
+}
+
+.cardEventEditActions .secondaryButton {
+  font-size: 0.7rem;
+}
+
+.cardEventGuidance {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.cardEventGuidance details {
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.cardEventGuidance summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.cardEventGuidance p {
+  max-width: 52rem;
+  margin: 0.65rem 0 0;
+}
+
+.cardEventGuidance ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.65rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.cardEventGuidance strong {
+  color: var(--ink);
+}
+
+.cardEventWarning,
+.cardEventError {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.8rem;
+  border-radius: 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.cardEventWarning {
+  border: 1px solid #d7a23b;
+  background: #fff5d8;
+  color: #6c5116;
+}
+
+.cardEventError {
+  border-left: 3px solid #b65b47;
+  background: #fff4ef;
+  color: #8b2e1d;
+}
+
+.cardEventError p {
+  margin: 0;
+}
+
+.cardEventErrorActions {
+  margin-top: 0.7rem;
+}
+
+.inlineAction {
+  margin-left: 0.55rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+@media (max-width: 800px) {
+  .cardEventWorkspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .cardEventToolbar,
+  .cardEventTimelineHeader {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .cardEventFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cardEventProposal {
+    flex-direction: column;
+  }
+
+  .cardEventProposalActions {
+    justify-content: start;
+  }
+}
+
 .recordingCardLink {
   flex: 1 1 auto;
   min-width: 0;

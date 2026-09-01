@@ -17,6 +17,92 @@ import {
   unchangedCounterfactualResponse,
 } from "../../src/test/roundAnalysisFixture";
 
+const CARD_EVENT_RECORDING_ID = "recording-card-events";
+const cardEventProposalOne = {
+  proposal_id: "proposal-one",
+  proposal_generator_run_id: "run-one",
+  time_s: 1.5,
+  probability: 0.91,
+  model_bundle_id: "model-one",
+  execution_platform: "local",
+  decision: "undecided",
+};
+const cardEventProposalTwo = {
+  proposal_id: "proposal-two",
+  proposal_generator_run_id: "run-two",
+  time_s: 3,
+  probability: 0.72,
+  model_bundle_id: "model-two",
+  execution_platform: "local",
+  decision: "undecided",
+};
+
+function cardEventReviewResponse(
+  events: Array<Record<string, unknown>> = [],
+  proposals = [cardEventProposalOne, cardEventProposalTwo],
+  revision = 0,
+) {
+  return {
+    annotation: {
+      schema_version: "cardevent-annotation/v2",
+      video: "card-events.mov",
+      events,
+    },
+    completed_at: null,
+    completed_version_digest: null,
+    completed_version_id: null,
+    completion_receipt_id: null,
+    draft_digest: "a".repeat(64),
+    draft_revision: revision,
+    full_video_acknowledged: false,
+    parent_digest: null,
+    parent_version_id: null,
+    proposals,
+    proposal_decision_digest: null,
+    recording_id: CARD_EVENT_RECORDING_ID,
+    reviewed_annotation_digest: null,
+    review_state: revision === 0 ? "not_started" : "draft",
+    reviewer: null,
+    schema_version: "cardevent-review/v1",
+    source_asset_id: "source-card-events",
+    source_sha256: "b".repeat(64),
+    video: "card-events.mov",
+  };
+}
+
+const cardEventRecording = {
+  ...emptyRecordingDetail,
+  recording_id: CARD_EVENT_RECORDING_ID,
+  source_asset_id: "source-card-events",
+  video_id: "video-card-events",
+  round_id: "round-card-events",
+  source: {
+    ...emptyRecordingDetail.source,
+    recording_id: CARD_EVENT_RECORDING_ID,
+    video_id: "video-card-events",
+    round_id: "round-card-events",
+  },
+  video: {
+    ...emptyRecordingDetail.video,
+    url: `/v1/repository-bundles/${CARD_EVENT_RECORDING_ID}/video`,
+  },
+  training_use: {
+    ...emptyRecordingDetail.training_use,
+    card_event_task: {
+      task_enrollment_id: "enrollment-card-events",
+      task: "cardevent_event_detection",
+      disposition: "selected",
+      lifecycle_state: "active",
+      operator: "operator",
+      created_at_utc: "2026-09-01T07:20:46Z",
+      reason: null,
+    },
+    eligibility: "review_required",
+    blocker:
+      "Complete the full recording CardEvent review before training use.",
+  },
+};
+
 test("loads the frontend foundation shell", async ({ page }) => {
   await page.goto("/");
 
@@ -25,6 +111,7 @@ test("loads the frontend foundation shell", async ({ page }) => {
 });
 
 test.beforeEach(async ({ page }) => {
+  let cardEventReview = cardEventReviewResponse();
   const recordingSummary = {
     recording_id: emptyRecordingDetail.recording_id,
     source_asset_id: emptyRecordingDetail.source_asset_id,
@@ -46,6 +133,51 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.route("**/v1/recordings/**", async (route) => {
+    const url = route.request().url();
+    if (
+      url.includes(`/recordings/${CARD_EVENT_RECORDING_ID}/card-event-review`)
+    ) {
+      if (route.request().method() === "PUT") {
+        const body = route.request().postDataJSON() as {
+          annotation: { events: Array<Record<string, unknown>> };
+          proposals: Array<{ proposal_id: string; decision: string }>;
+        };
+        const events = [...body.annotation.events];
+        for (const proposal of [cardEventProposalOne, cardEventProposalTwo]) {
+          const decision = body.proposals.find(
+            (item) => item.proposal_id === proposal.proposal_id,
+          )?.decision;
+          if (
+            decision === "accepted" &&
+            !events.some((event) => event.time_s === proposal.time_s)
+          ) {
+            events.push({
+              time_s: proposal.time_s,
+              type: "card_played",
+              confidence: "confirmed",
+            });
+          }
+        }
+        cardEventReview = cardEventReviewResponse(
+          events.sort(
+            (first, second) => Number(first.time_s) - Number(second.time_s),
+          ),
+          [cardEventProposalOne, cardEventProposalTwo].map((proposal) => ({
+            ...proposal,
+            decision:
+              body.proposals.find(
+                (item) => item.proposal_id === proposal.proposal_id,
+              )?.decision ?? "undecided",
+          })),
+          cardEventReview.draft_revision + 1,
+        );
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(cardEventReview),
+      });
+      return;
+    }
     if (route.request().method() === "POST") {
       await route.fulfill({
         contentType: "application/json",
@@ -57,9 +189,11 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify(
-        route.request().url().includes(`/recordings/${RECORDING_ID}`)
-          ? recordingDetailWithAnalysis
-          : emptyRecordingDetail,
+        url.includes(`/recordings/${CARD_EVENT_RECORDING_ID}`)
+          ? cardEventRecording
+          : url.includes(`/recordings/${RECORDING_ID}`)
+            ? recordingDetailWithAnalysis
+            : emptyRecordingDetail,
       ),
     });
   });
@@ -127,6 +261,61 @@ test("opens a recording detail page from the catalog", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Round analyses" }),
   ).toBeVisible();
+});
+
+test("edits and persists CardEvent events and proposal decisions in the browser", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/recordings/${CARD_EVENT_RECORDING_ID}`);
+
+  const video = page.getByLabel(`Source recording ${CARD_EVENT_RECORDING_ID}`);
+  await expect(video).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add event at playhead" }),
+  ).toBeVisible();
+
+  await video.evaluate((element) => {
+    const source = element as HTMLVideoElement;
+    source.currentTime = 2;
+    source.dispatchEvent(new Event("timeupdate"));
+  });
+  await expect(page.getByText(/Playhead 0:02\.000/)).toBeVisible();
+  await page.getByRole("button", { name: "Add event at playhead" }).click();
+  await page.getByRole("button", { name: "Nudge +1 frame" }).click();
+  await page
+    .getByLabel("Event type for selected event")
+    .selectOption("card_moved");
+  const notes = page.getByLabel("Notes for selected event");
+  await notes.fill("Moved to the table");
+  await notes.press("Tab");
+  await expect(page.getByText("Moved to the table")).toBeVisible();
+
+  await page.getByRole("button", { name: "Remove selected event" }).click();
+  await expect(
+    page.getByText("Event removed. You can undo this action."),
+  ).toBeVisible();
+
+  const firstProposal = page.getByRole("listitem", {
+    name: /Proposal at 0:01\.500 seconds/,
+  });
+  await firstProposal.getByRole("button", { name: "Accept proposal" }).click();
+  await expect(firstProposal).toContainText("Accepted");
+  const secondProposal = page.getByRole("listitem", {
+    name: /Proposal at 0:03\.000 seconds/,
+  });
+  await secondProposal
+    .getByRole("button", { name: "Dismiss proposal" })
+    .click();
+  await expect(secondProposal).toContainText("Dismissed");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const horizontalOverflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth >
+      document.documentElement.clientWidth,
+  );
+  expect(horizontalOverflow).toBe(false);
 });
 
 test("renders a resolved analysis in synchronized desktop columns", async ({
