@@ -12,6 +12,9 @@ from doko_operations import CardEventReviewError
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict
 
+from dokodetector_backend.card_event_development_split_api import (
+    load_card_event_development_recordings,
+)
 from dokodetector_backend.card_event_review_api import _load_source
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.intake_contract import (
@@ -79,6 +82,9 @@ class RecordingSummary(BaseModel):
     source_sha256: str
     received_at: datetime
     round_id: str
+    card_event_review_state: str
+    card_event_event_count: int
+    development_partition: str | None
     evidence_package_ids: list[UUID]
     analyses: list[RecordingAnalysisSummary]
     can_start_analysis: bool
@@ -169,6 +175,9 @@ class RecordingTrainingUseSummary(BaseModel):
     card_event_task: RecordingTaskEnrollmentResponse | None
     eligibility: str
     development_partition: str | None
+    active_split_version_id: str | None
+    active_split_digest: str | None
+    development_group_keys: list[list[str]]
     blocker: str | None
 
 
@@ -202,6 +211,7 @@ def list_recordings(request: Request) -> RecordingListResponse:
     """List accepted recordings with linked packages and analyses."""
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
+    training_projection = _catalog_training_projection(request)
     return RecordingListResponse(
         recordings=[
             RecordingSummary(
@@ -213,6 +223,15 @@ def list_recordings(request: Request) -> RecordingListResponse:
                 source_sha256=entry.recording.source_sha256,
                 received_at=entry.recording.received_at,
                 round_id=entry.round_id,
+                card_event_review_state=training_projection.get(
+                    entry.recording.recording_id, ("not_started", 0, None)
+                )[0],
+                card_event_event_count=training_projection.get(
+                    entry.recording.recording_id, ("not_started", 0, None)
+                )[1],
+                development_partition=training_projection.get(
+                    entry.recording.recording_id, ("not_started", 0, None)
+                )[2],
                 evidence_package_ids=list(entry.evidence_package_ids),
                 analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
                 can_start_analysis=entry.can_start_analysis,
@@ -221,6 +240,31 @@ def list_recordings(request: Request) -> RecordingListResponse:
             for entry in service.recording_catalog()
         ]
     )
+
+
+def _catalog_training_projection(
+    request: Request,
+) -> dict[str, tuple[str, int, str | None]]:
+    """Return review and partition facts for the recording catalog."""
+
+    try:
+        facts = load_card_event_development_recordings(request)
+        split = request.app.state.card_event_development_split_store.read(facts)
+    except (CardEventReviewError, ContractError, RuntimeError, ValueError):
+        return {}
+    partitions = {
+        recording_id: partition
+        for partition in ("train", "validation", "unassigned", "test")
+        for recording_id in split[partition]
+    }
+    return {
+        item.recording_id: (
+            item.review_state,
+            item.review_event_count,
+            partitions.get(item.recording_id),
+        )
+        for item in facts
+    }
 
 
 @router.get(
@@ -295,6 +339,33 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
         # The recording projection remains readable if an operations workspace is unavailable.
         pass
 
+    development_partition: str | None = None
+    active_split_version_id: str | None = None
+    active_split_digest: str | None = None
+    development_group_keys: list[list[str]] = []
+    try:
+        development_recordings = load_card_event_development_recordings(request)
+        development_split = request.app.state.card_event_development_split_store.read(
+            development_recordings
+        )
+        development_by_id = {
+            item["recording_id"]: item for item in development_split["recordings"]
+        }
+        development_entry = development_by_id.get(recording_id)
+        if development_entry is not None:
+            development_group_keys = list(development_entry["group_keys"])
+        for partition in ("train", "validation", "test", "unassigned"):
+            if recording_id in development_split[partition]:
+                development_partition = partition
+                break
+        active_split_version_id = development_split["split_version_id"]
+        active_split_digest = development_split["split_version_digest"]
+        if development_partition in {"train", "validation", "test"}:
+            next_action = f"Assigned to {development_partition}"
+    except (CardEventReviewError, ContractError, RuntimeError, ValueError):
+        # The recording projection remains readable if split artifacts are unavailable.
+        pass
+
     if card_event_task is None or card_event_task.disposition != "selected":
         eligibility = "not_enrolled"
         blocker = "Select the CardEvent task before reviewing this recording."
@@ -347,7 +418,10 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
         training_use=RecordingTrainingUseSummary(
             card_event_task=card_event_task,
             eligibility=eligibility,
-            development_partition=None,
+            development_partition=development_partition,
+            active_split_version_id=active_split_version_id,
+            active_split_digest=active_split_digest,
+            development_group_keys=development_group_keys,
             blocker=blocker,
         ),
         analyses=[_analysis_summary(analysis) for analysis in entry.analyses],

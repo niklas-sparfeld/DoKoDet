@@ -217,7 +217,15 @@ def test_recording_detail_projects_source_video_and_workflow(
             item for item in body["task_enrollments"] if item["task"] == "cardevent_event_detection"
         ),
         "eligibility": "review_required",
-        "development_partition": None,
+        "development_partition": "unassigned",
+        "active_split_version_id": "cardevent-development-split-initial",
+        "active_split_digest": body["training_use"]["active_split_digest"],
+        "development_group_keys": [
+            ["game_id", "game-round-analysis"],
+            ["session_id", SESSION_ID],
+            ["source_lineage", "source-round-analysis"],
+            ["table_setup", "default-table"],
+        ],
         "blocker": "Complete the full recording CardEvent review before training use.",
     }
     assert body["analyses"] == []

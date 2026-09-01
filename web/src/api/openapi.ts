@@ -44,6 +44,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/data/cardevent-development-split/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Card Event Development Split
+         * @description Revalidate and publish one immutable development partition change.
+         */
+        post: operations["apply_card_event_development_split_v1_data_cardevent_development_split_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/data/cardevent-development-split/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Card Event Development Split
+         * @description Preview the complete connected group affected by one assignment.
+         */
+        post: operations["preview_card_event_development_split_v1_data_cardevent_development_split_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/evidence-packages/{package_id}": {
         parameters: {
             query?: never;
@@ -531,6 +571,123 @@ export interface components {
             score: number;
         };
         /**
+         * CardEventDevelopmentSplitApplyRequest
+         * @description Apply one previously reviewed development partition preview.
+         */
+        CardEventDevelopmentSplitApplyRequest: {
+            /**
+             * Destination
+             * @enum {string}
+             */
+            destination: "train" | "validation" | "unassigned";
+            /** Expected Active Split Digest */
+            expected_active_split_digest: string;
+            /** Operator */
+            operator: string;
+            /** Preview Digest */
+            preview_digest: string;
+            /** Recording Id */
+            recording_id: string;
+        };
+        /**
+         * CardEventDevelopmentSplitApplyResponse
+         * @description Published result of one immutable development partition change.
+         */
+        CardEventDevelopmentSplitApplyResponse: {
+            /** Affected Recordings */
+            affected_recordings: components["schemas"]["DevelopmentAffectedRecordingResponse"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /**
+             * Destination
+             * @enum {string}
+             */
+            destination: "train" | "validation" | "unassigned";
+            /** Partitions */
+            partitions: {
+                [key: string]: string[];
+            };
+            /** Receipt Digest */
+            receipt_digest: string;
+            /** Receipt Id */
+            receipt_id: string;
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "cardevent-development-split-apply/v1";
+            /** Split Version Digest */
+            split_version_digest: string;
+            /** Split Version Id */
+            split_version_id: string;
+            /**
+             * Task
+             * @constant
+             */
+            task: "cardevent_event_detection";
+        };
+        /**
+         * CardEventDevelopmentSplitPreviewRequest
+         * @description Request one group-safe development partition preview.
+         */
+        CardEventDevelopmentSplitPreviewRequest: {
+            /**
+             * Destination
+             * @enum {string}
+             */
+            destination: "train" | "validation" | "unassigned";
+            /** Expected Active Split Digest */
+            expected_active_split_digest: string;
+            /** Recording Id */
+            recording_id: string;
+        };
+        /**
+         * CardEventDevelopmentSplitPreviewResponse
+         * @description Preview of one group-safe partition change.
+         */
+        CardEventDevelopmentSplitPreviewResponse: {
+            /** Active Split Digest */
+            active_split_digest: string;
+            /** Active Split Version Id */
+            active_split_version_id: string;
+            /** Affected Group Keys */
+            affected_group_keys: string[][];
+            /** Affected Recordings */
+            affected_recordings: components["schemas"]["DevelopmentAffectedRecordingResponse"][];
+            /** Current Counts */
+            current_counts: {
+                [key: string]: number;
+            };
+            /**
+             * Destination
+             * @enum {string}
+             */
+            destination: "train" | "validation" | "unassigned";
+            /** Preview Digest */
+            preview_digest: string;
+            /** Proposed Counts */
+            proposed_counts: {
+                [key: string]: number;
+            };
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "cardevent-development-split-preview/v1";
+            /**
+             * Task
+             * @constant
+             */
+            task: "cardevent_event_detection";
+            validation: components["schemas"]["DevelopmentSplitValidationResponse"];
+        };
+        /**
          * CardEventProposalDecisionRequest
          * @description The client-controlled decision for one immutable proposal.
          */
@@ -713,6 +870,32 @@ export interface components {
             observed_card_id: string;
             /** Probability */
             probability: number;
+        };
+        /**
+         * DevelopmentAffectedRecordingResponse
+         * @description One recording changed together with the complete connected group.
+         */
+        DevelopmentAffectedRecordingResponse: {
+            /** Current Partition */
+            current_partition: string;
+            /** Group Keys */
+            group_keys: string[][];
+            /** Recording Id */
+            recording_id: string;
+            /** Source Asset Id */
+            source_asset_id: string;
+            /** Source Sha256 */
+            source_sha256: string;
+        };
+        /**
+         * DevelopmentSplitValidationResponse
+         * @description Human-readable assignment validation results.
+         */
+        DevelopmentSplitValidationResponse: {
+            /** Blockers */
+            blockers: string[];
+            /** Valid */
+            valid: boolean;
         };
         /**
          * EventMetadata
@@ -1004,6 +1187,12 @@ export interface components {
             analysis_blocker: string | null;
             /** Can Start Analysis */
             can_start_analysis: boolean;
+            /** Card Event Event Count */
+            card_event_event_count: number;
+            /** Card Event Review State */
+            card_event_review_state: string;
+            /** Development Partition */
+            development_partition: string | null;
             /** Evidence Package Ids */
             evidence_package_ids: string[];
             /**
@@ -1060,9 +1249,15 @@ export interface components {
          * @description Current task-enrollment and development-use projection.
          */
         RecordingTrainingUseSummary: {
+            /** Active Split Digest */
+            active_split_digest: string | null;
+            /** Active Split Version Id */
+            active_split_version_id: string | null;
             /** Blocker */
             blocker: string | null;
             card_event_task: components["schemas"]["RecordingTaskEnrollmentResponse"] | null;
+            /** Development Group Keys */
+            development_group_keys: string[][];
             /** Development Partition */
             development_partition: string | null;
             /** Eligibility */
@@ -1749,6 +1944,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    apply_card_event_development_split_v1_data_cardevent_development_split_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardEventDevelopmentSplitApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventDevelopmentSplitApplyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_card_event_development_split_v1_data_cardevent_development_split_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardEventDevelopmentSplitPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventDevelopmentSplitPreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

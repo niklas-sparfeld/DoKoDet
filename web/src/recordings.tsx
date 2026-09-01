@@ -4,6 +4,8 @@ import {
   ApiError,
   createDokoDetectorClient,
   type CardEventReview,
+  type CardEventDevelopmentSplitPreview,
+  type CardEventDevelopmentSplitPreviewRequest,
   type RecordingDetail,
   type RecordingSummary,
 } from "./api/client";
@@ -198,6 +200,22 @@ function RecordingCard({
           <dt>Evidence packages</dt>
           <dd>{recording.evidence_package_ids.length}</dd>
         </div>
+        <div>
+          <dt>CardEvent review</dt>
+          <dd>
+            {formatIdentifier(recording.card_event_review_state)} ·{" "}
+            {recording.card_event_event_count} event
+            {recording.card_event_event_count === 1 ? "" : "s"}
+          </dd>
+        </div>
+        <div>
+          <dt>Development partition</dt>
+          <dd>
+            {recording.development_partition === null
+              ? "Unassigned"
+              : formatIdentifier(recording.development_partition)}
+          </dd>
+        </div>
       </dl>
 
       <section className={styles.recordingAnalyses}>
@@ -266,6 +284,13 @@ export function RecordingDetailView({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
+  const [assignmentDestination, setAssignmentDestination] =
+    useState<CardEventDevelopmentSplitPreviewRequest["destination"]>("train");
+  const [assignmentOperator, setAssignmentOperator] = useState("");
+  const [assignmentPreview, setAssignmentPreview] =
+    useState<CardEventDevelopmentSplitPreview | null>(null);
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
   const loadRecording = useCallback(
     async (signal?: AbortSignal) => {
@@ -312,6 +337,86 @@ export function RecordingDetailView({
       setError(describeError(reason));
     } finally {
       setTriggering(false);
+    }
+  }
+
+  async function previewAssignment(
+    destination: CardEventDevelopmentSplitPreviewRequest["destination"],
+  ) {
+    if (
+      recording === null ||
+      recording.training_use.active_split_digest === null
+    ) {
+      setAssignmentError("The active development split is not available.");
+      return;
+    }
+    setAssignmentDestination(destination);
+    setAssignmentBusy(true);
+    setAssignmentError(null);
+    setAssignmentPreview(null);
+    try {
+      const preview = await client.previewCardEventDevelopmentSplit({
+        recording_id: recordingId,
+        destination,
+        expected_active_split_digest:
+          recording.training_use.active_split_digest,
+      });
+      setAssignmentPreview(preview);
+    } catch (reason: unknown) {
+      setAssignmentError(describeError(reason));
+    } finally {
+      setAssignmentBusy(false);
+    }
+  }
+
+  async function applyAssignment() {
+    if (
+      recording === null ||
+      assignmentPreview === null ||
+      !assignmentPreview.validation.valid ||
+      recording.training_use.active_split_digest === null ||
+      assignmentOperator.trim() === ""
+    ) {
+      return;
+    }
+    setAssignmentBusy(true);
+    setAssignmentError(null);
+    try {
+      const applied = await client.applyCardEventDevelopmentSplit({
+        recording_id: recordingId,
+        destination: assignmentPreview.destination,
+        expected_active_split_digest:
+          recording.training_use.active_split_digest,
+        preview_digest: assignmentPreview.preview_digest,
+        operator: assignmentOperator.trim(),
+      });
+      setRecording((current) =>
+        current === null
+          ? current
+          : {
+              ...current,
+              training_use: {
+                ...current.training_use,
+                eligibility: "eligible",
+                development_partition: applied.destination,
+                active_split_version_id: applied.split_version_id,
+                active_split_digest: applied.split_version_digest,
+                blocker: null,
+              },
+              next_action:
+                applied.destination === "unassigned"
+                  ? "Assign a development partition"
+                  : `Assigned to ${applied.destination}`,
+            },
+      );
+      setAssignmentPreview(null);
+      setNotice(
+        `Assigned ${assignmentPreview.affected_recordings.length} connected recording${assignmentPreview.affected_recordings.length === 1 ? "" : "s"} to ${formatIdentifier(applied.destination)}. Receipt ${applied.receipt_id}.`,
+      );
+    } catch (reason: unknown) {
+      setAssignmentError(describeError(reason));
+    } finally {
+      setAssignmentBusy(false);
     }
   }
 
@@ -417,7 +522,21 @@ export function RecordingDetailView({
               )
             }
           />
-          <TrainingUseSection trainingUse={recording.training_use} />
+          <TrainingUseSection
+            trainingUse={recording.training_use}
+            assignmentDestination={assignmentDestination}
+            assignmentOperator={assignmentOperator}
+            assignmentPreview={assignmentPreview}
+            assignmentBusy={assignmentBusy}
+            assignmentError={assignmentError}
+            onDestinationChange={(destination) => {
+              setAssignmentDestination(destination);
+              setAssignmentPreview(null);
+            }}
+            onOperatorChange={setAssignmentOperator}
+            onPreview={() => void previewAssignment(assignmentDestination)}
+            onApply={() => void applyAssignment()}
+          />
           <RoundAnalysesSection
             recording={recording}
             selectedAnalysisId={selectedAnalysisId}
@@ -571,10 +690,34 @@ function CardEventSection({
 
 function TrainingUseSection({
   trainingUse,
+  assignmentDestination,
+  assignmentOperator,
+  assignmentPreview,
+  assignmentBusy,
+  assignmentError,
+  onDestinationChange,
+  onOperatorChange,
+  onPreview,
+  onApply,
 }: {
   trainingUse: RecordingDetail["training_use"];
+  assignmentDestination: CardEventDevelopmentSplitPreviewRequest["destination"];
+  assignmentOperator: string;
+  assignmentPreview: CardEventDevelopmentSplitPreview | null;
+  assignmentBusy: boolean;
+  assignmentError: string | null;
+  onDestinationChange: (
+    value: CardEventDevelopmentSplitPreviewRequest["destination"],
+  ) => void;
+  onOperatorChange: (value: string) => void;
+  onPreview: () => void;
+  onApply: () => void;
 }) {
   const task = trainingUse.card_event_task;
+  const canAssign =
+    trainingUse.eligibility === "eligible" &&
+    trainingUse.active_split_digest !== null &&
+    trainingUse.development_partition !== "test";
   return (
     <section id="training-use" className={styles.detailPanel}>
       <div className={styles.sectionHeading}>
@@ -615,6 +758,12 @@ function TrainingUseSection({
           {formatIdentifier(task.disposition)} · {task.operator}
         </p>
       ) : null}
+      {trainingUse.active_split_version_id !== null ? (
+        <p className={styles.detailMetaLine}>
+          Active split {trainingUse.active_split_version_id} · digest{" "}
+          {trainingUse.active_split_digest?.slice(0, 12)}…
+        </p>
+      ) : null}
       {trainingUse.blocker !== null ? (
         <p className={styles.detailBlocker}>{trainingUse.blocker}</p>
       ) : (
@@ -622,6 +771,107 @@ function TrainingUseSection({
           No current training-use blocker.
         </p>
       )}
+      {trainingUse.development_group_keys.length > 0 ? (
+        <details className={styles.sourceDetails}>
+          <summary>Leakage group keys</summary>
+          <ul className={styles.detailList}>
+            {trainingUse.development_group_keys.map(([name, value]) => (
+              <li key={`${name}:${value}`}>
+                <strong>{formatIdentifier(name)}</strong>: {value}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {canAssign ? (
+        <div className={styles.assignmentControls}>
+          <p className={styles.statusLabel}>Change development partition</p>
+          <label className={styles.fieldLabel}>
+            Destination
+            <select
+              aria-label="Development partition destination"
+              value={assignmentDestination}
+              onChange={(event) =>
+                onDestinationChange(
+                  event.target
+                    .value as CardEventDevelopmentSplitPreviewRequest["destination"],
+                )
+              }
+              disabled={assignmentBusy}
+            >
+              <option value="train">Train</option>
+              <option value="validation">Validation</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
+          </label>
+          <label className={styles.fieldLabel}>
+            Operator
+            <input
+              aria-label="Partition operator"
+              value={assignmentOperator}
+              onChange={(event) => onOperatorChange(event.target.value)}
+              disabled={assignmentBusy}
+              placeholder="Your name"
+            />
+          </label>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={onPreview}
+            disabled={assignmentBusy}
+          >
+            {assignmentBusy ? "Checking group…" : "Preview assignment"}
+          </button>
+          {assignmentError !== null ? (
+            <p className={styles.errorMessage} role="alert">
+              {assignmentError}
+            </p>
+          ) : null}
+          {assignmentPreview !== null ? (
+            <div className={styles.assignmentPreview} aria-live="polite">
+              <p className={styles.statusLabel}>Affected group</p>
+              <p>
+                {assignmentPreview.affected_recordings.length} connected
+                recording
+                {assignmentPreview.affected_recordings.length === 1
+                  ? ""
+                  : "s"}{" "}
+                · {formatIdentifier(assignmentPreview.destination)}
+              </p>
+              <p className={styles.detailMetaLine}>
+                Proposed counts: train {assignmentPreview.proposed_counts.train}
+                , validation {assignmentPreview.proposed_counts.validation},
+                unassigned {assignmentPreview.proposed_counts.unassigned}
+              </p>
+              <ul className={styles.detailList}>
+                {assignmentPreview.affected_recordings.map((item) => (
+                  <li key={item.recording_id}>
+                    {item.recording_id} ·{" "}
+                    {formatIdentifier(item.current_partition)}
+                  </li>
+                ))}
+              </ul>
+              {!assignmentPreview.validation.valid ? (
+                <ul className={styles.detailList}>
+                  {assignmentPreview.validation.blockers.map((blocker) => (
+                    <li key={blocker}>{blocker}</li>
+                  ))}
+                </ul>
+              ) : (
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={onApply}
+                  disabled={assignmentBusy || assignmentOperator.trim() === ""}
+                >
+                  Confirm assignment to{" "}
+                  {formatIdentifier(assignmentPreview.destination)}
+                </button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

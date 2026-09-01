@@ -56,7 +56,7 @@ The shared target architecture is
 | --- | --- | --- |
 | [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
 | [0038 — Visible-card training-data improvement](3-in-progress/0038-Visible_Card_Training_Data_Improvement.md) | 0037 contracts; real artifacts before M3 | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M4 local contract paths complete; real review, detector, and targeted-data evidence remain. |
-| [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 pending. |
+| [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 complete: group-safe CardEventNet development partition assignment with immutable split versions and receipts. |
 
 ### Blocked
 
@@ -106,9 +106,8 @@ The shared target architecture is
 
 1. Plan 0037 is complete. Its real local RF-DETR smoke run proves training capability without a
    quality claim. Real local-provider backend execution remains out of scope.
-2. Implement 0039 M0 through M3 to make new iOS recordings discoverable and complete CardEvent
-   review in the web app. Implement its bounded M4 development-partition assignment only after the
-   review path is usable end to end.
+2. Implement 0039 M0 through M4 to make new iOS recordings discoverable, complete CardEvent
+   review, and assign eligible development groups in the web app.
 4. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
    baseline for later review work.
 5. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event

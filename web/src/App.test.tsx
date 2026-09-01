@@ -112,6 +112,119 @@ describe("App", () => {
     );
   });
 
+  it("previews and confirms a development partition assignment", async () => {
+    window.history.pushState({}, "", "/recordings/recording-detail-1");
+    const recording = {
+      ...emptyRecordingDetail,
+      training_use: {
+        ...emptyRecordingDetail.training_use,
+        eligibility: "eligible",
+        blocker: null,
+        active_split_version_id: "cardevent-development-split-initial",
+        active_split_digest: "b".repeat(64),
+        development_group_keys: [
+          ["session_id", "session-detail-1"],
+          ["source_lineage", "source-detail-1"],
+        ],
+      },
+      next_action: "Assign a development partition",
+    };
+    const preview = {
+      schema_version: "cardevent-development-split-preview/v1",
+      task: "cardevent_event_detection",
+      recording_id: recording.recording_id,
+      destination: "train",
+      active_split_version_id: "cardevent-development-split-initial",
+      active_split_digest: "b".repeat(64),
+      affected_group_keys: [["session_id", "session-detail-1"]],
+      affected_recordings: [
+        {
+          recording_id: recording.recording_id,
+          source_asset_id: recording.source_asset_id,
+          source_sha256: recording.source_sha256,
+          current_partition: "unassigned",
+          group_keys: [["session_id", "session-detail-1"]],
+        },
+      ],
+      validation: { valid: true, blockers: [] },
+      current_counts: { train: 0, validation: 0, unassigned: 1, test: 0 },
+      proposed_counts: { train: 1, validation: 0, unassigned: 0, test: 0 },
+      preview_digest: "c".repeat(64),
+    };
+    const applied = {
+      schema_version: "cardevent-development-split-apply/v1",
+      task: "cardevent_event_detection",
+      recording_id: recording.recording_id,
+      destination: "train",
+      affected_recordings: preview.affected_recordings,
+      split_version_id: "cardevent-development-split-next",
+      split_version_digest: "d".repeat(64),
+      receipt_id: "receipt-cardevent-development-split-next",
+      receipt_digest: "e".repeat(64),
+      partitions: {
+        train: [recording.recording_id],
+        validation: [],
+        unassigned: [],
+        test: [],
+      },
+      counts: { train: 1, validation: 0, unassigned: 0, test: 0 },
+    };
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      const path = String(input);
+      if (path.endsWith("/preview")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(preview), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (path.endsWith("/apply")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(applied), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(resolvedStatus), {
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(recording), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    const user = userEvent.setup();
+    await user.type(
+      await screen.findByRole("textbox", { name: "Partition operator" }),
+      "operator",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Preview assignment" }),
+    );
+    expect(await screen.findByText("Affected group")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Confirm assignment to Train" }),
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "receipt-cardevent-development-split-next",
+    );
+    expect(screen.getAllByText("Train").length).toBeGreaterThan(0);
+  });
+
   it("starts an analysis and links existing analyses for a recording", async () => {
     const recording = {
       recording_id: "recording-1",
@@ -122,6 +235,9 @@ describe("App", () => {
       source_sha256: "a".repeat(64),
       received_at: "2026-09-01T07:20:46Z",
       round_id: "round-1",
+      card_event_review_state: "completed",
+      card_event_event_count: 2,
+      development_partition: "train",
       evidence_package_ids: ["550e8400-e29b-41d4-a716-446655440035"],
       analyses: [
         {
@@ -165,6 +281,12 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: "Open recording" }),
     ).toHaveAttribute("href", "/recordings/recording-1");
+    expect(
+      screen.getByText("CardEvent review").parentElement,
+    ).toHaveTextContent("Completed · 2 events");
+    expect(
+      screen.getByText("Development partition").parentElement,
+    ).toHaveTextContent("Train");
     expect(screen.getByText("Result:")).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(

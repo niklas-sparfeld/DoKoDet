@@ -123,6 +123,9 @@ test.beforeEach(async ({ page }) => {
     source_sha256: emptyRecordingDetail.source_sha256,
     received_at: emptyRecordingDetail.received_at,
     round_id: emptyRecordingDetail.round_id,
+    card_event_review_state: "not_started",
+    card_event_event_count: 0,
+    development_partition: "unassigned",
     evidence_package_ids: [],
     analyses: [],
     can_start_analysis: true,
@@ -380,6 +383,92 @@ test("edits and persists CardEvent events and proposal decisions in the browser"
 test("completes a CardEvent review and starts an immutable revision", async ({
   page,
 }) => {
+  let activeSplitDigest = "b".repeat(64);
+  let currentPartition = "unassigned";
+  await page.route(
+    "**/v1/data/cardevent-development-split/preview",
+    async (route) => {
+      const body = route.request().postDataJSON() as {
+        destination: "train" | "validation" | "unassigned";
+      };
+      const previewDigest = body.destination === "train" ? "c" : "e";
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          schema_version: "cardevent-development-split-preview/v1",
+          task: "cardevent_event_detection",
+          recording_id: CARD_EVENT_RECORDING_ID,
+          destination: body.destination,
+          active_split_version_id: "cardevent-development-split-current",
+          active_split_digest: activeSplitDigest,
+          affected_group_keys: [["session_id", "session-card-events"]],
+          affected_recordings: [
+            {
+              recording_id: CARD_EVENT_RECORDING_ID,
+              source_asset_id: "source-card-events",
+              source_sha256: "a".repeat(64),
+              current_partition: currentPartition,
+              group_keys: [["session_id", "session-card-events"]],
+            },
+          ],
+          validation: { valid: true, blockers: [] },
+          current_counts: {
+            train: currentPartition === "train" ? 1 : 0,
+            validation: 0,
+            unassigned: currentPartition === "unassigned" ? 1 : 0,
+            test: 0,
+          },
+          proposed_counts: {
+            train: body.destination === "train" ? 1 : 0,
+            validation: 0,
+            unassigned: body.destination === "unassigned" ? 1 : 0,
+            test: 0,
+          },
+          preview_digest: previewDigest.repeat(64),
+        }),
+      });
+    },
+  );
+  await page.route(
+    "**/v1/data/cardevent-development-split/apply",
+    async (route) => {
+      const body = route.request().postDataJSON() as {
+        destination: "train" | "validation" | "unassigned";
+      };
+      currentPartition = body.destination;
+      activeSplitDigest = body.destination === "train" ? "d" : "f";
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          schema_version: "cardevent-development-split-apply/v1",
+          task: "cardevent_event_detection",
+          recording_id: CARD_EVENT_RECORDING_ID,
+          destination: body.destination,
+          affected_recordings: [],
+          split_version_id: `cardevent-development-split-${body.destination}`,
+          split_version_digest: activeSplitDigest.repeat(64),
+          receipt_id: `receipt-cardevent-development-split-${body.destination}`,
+          receipt_digest: "1".repeat(64),
+          partitions: {
+            train:
+              body.destination === "train" ? [CARD_EVENT_RECORDING_ID] : [],
+            validation: [],
+            unassigned:
+              body.destination === "unassigned"
+                ? [CARD_EVENT_RECORDING_ID]
+                : [],
+            test: [],
+          },
+          counts: {
+            train: body.destination === "train" ? 1 : 0,
+            validation: 0,
+            unassigned: body.destination === "unassigned" ? 1 : 0,
+            test: 0,
+          },
+        }),
+      });
+    },
+  );
   await page.goto(`/recordings/${CARD_EVENT_RECORDING_ID}`);
 
   const video = page.getByLabel(`Source recording ${CARD_EVENT_RECORDING_ID}`);
@@ -401,7 +490,8 @@ test("completes a CardEvent review and starts an immutable revision", async ({
 
   const acknowledgement = page.getByRole("checkbox");
   await expect(acknowledgement).toBeEnabled();
-  await acknowledgement.check();
+  await acknowledgement.click();
+  await expect(acknowledgement).toBeChecked();
   await page
     .getByRole("listitem", { name: /Proposal at 0:01\.500 seconds/ })
     .getByRole("button", { name: "Accept proposal" })
@@ -425,6 +515,27 @@ test("completes a CardEvent review and starts an immutable revision", async ({
   ).toBeVisible();
   await expect(
     page.getByText("No current training-use blocker."),
+  ).toBeVisible();
+
+  await page.getByLabel("Partition operator").fill("operator");
+  await page.getByRole("button", { name: "Preview assignment" }).click();
+  await expect(page.getByText("Affected group")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Confirm assignment to Train" })
+    .click();
+  await expect(
+    page.getByText(/receipt-cardevent-development-split-train/),
+  ).toBeVisible();
+
+  await page
+    .getByLabel("Development partition destination")
+    .selectOption("unassigned");
+  await page.getByRole("button", { name: "Preview assignment" }).click();
+  await page
+    .getByRole("button", { name: "Confirm assignment to Unassigned" })
+    .click();
+  await expect(
+    page.getByText(/receipt-cardevent-development-split-unassigned/),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Start a new revision" }).click();

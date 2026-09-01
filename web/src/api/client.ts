@@ -26,6 +26,16 @@ export type CardEventReviewCompletionRequest =
   components["schemas"]["CardEventReviewCompletionRequest"];
 export type CardEventReviewRevisionRequest =
   components["schemas"]["CardEventReviewRevisionRequest"];
+export type CardEventDevelopmentSplitPreviewRequest =
+  components["schemas"]["CardEventDevelopmentSplitPreviewRequest"];
+export type CardEventDevelopmentSplitPreview = JsonResponse<
+  paths["/v1/data/cardevent-development-split/preview"]["post"]["responses"][200]
+>;
+export type CardEventDevelopmentSplitApplyRequest =
+  components["schemas"]["CardEventDevelopmentSplitApplyRequest"];
+export type CardEventDevelopmentSplitApply = JsonResponse<
+  paths["/v1/data/cardevent-development-split/apply"]["post"]["responses"][200]
+>;
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -72,6 +82,14 @@ export interface DokoDetectorClient {
     payload: CardEventReviewRevisionRequest,
     init?: RequestInit,
   ): Promise<CardEventReview>;
+  previewCardEventDevelopmentSplit(
+    payload: CardEventDevelopmentSplitPreviewRequest,
+    init?: RequestInit,
+  ): Promise<CardEventDevelopmentSplitPreview>;
+  applyCardEventDevelopmentSplit(
+    payload: CardEventDevelopmentSplitApplyRequest,
+    init?: RequestInit,
+  ): Promise<CardEventDevelopmentSplitApply>;
   startRecordingAnalysis(
     recordingId: string,
     init?: RequestInit,
@@ -150,6 +168,28 @@ export function createDokoDetectorClient(
       requestJson<CardEventReview>(
         fetchImplementation,
         recordingCardEventReviewRevisionPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    previewCardEventDevelopmentSplit: (payload, init) =>
+      requestJson<CardEventDevelopmentSplitPreview>(
+        fetchImplementation,
+        cardEventDevelopmentSplitPreviewPath(),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    applyCardEventDevelopmentSplit: (payload, init) =>
+      requestJson<CardEventDevelopmentSplitApply>(
+        fetchImplementation,
+        cardEventDevelopmentSplitApplyPath(),
         {
           ...init,
           method: "POST",
@@ -243,6 +283,14 @@ export function recordingCardEventReviewRevisionPath(
   recordingId: string,
 ): string {
   return `${recordingCardEventReviewPath(recordingId)}/revisions`;
+}
+
+export function cardEventDevelopmentSplitPreviewPath(): string {
+  return "/v1/data/cardevent-development-split/preview";
+}
+
+export function cardEventDevelopmentSplitApplyPath(): string {
+  return "/v1/data/cardevent-development-split/apply";
 }
 
 function recordingsPath(): string {

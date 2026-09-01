@@ -1909,6 +1909,61 @@ progress {
   color: #8b2e1d;
 }
 
+.detailList {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.7rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.assignmentControls {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.fieldLabel {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted-ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.fieldLabel input,
+.fieldLabel select {
+  min-height: 2.2rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.fieldLabel input:focus-visible,
+.fieldLabel select:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.assignmentPreview {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--surface);
+}
+
+.assignmentPreview p {
+  margin: 0;
+}
+
 .detailAnalysisList {
   display: grid;
   gap: 0.65rem;

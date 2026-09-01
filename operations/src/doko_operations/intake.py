@@ -261,6 +261,21 @@ def inspect_repository(
     failures = [
         Failure(item.path, "validation", message) for item in inspections for message in item.errors
     ]
+    try:
+        from .cardevent_development_split import (
+            CardEventDevelopmentSplitError,
+            CardEventDevelopmentSplitStore,
+        )
+
+        CardEventDevelopmentSplitStore(artifact_path).validate_published_artifacts()
+    except CardEventDevelopmentSplitError as error:
+        failures.append(
+            Failure(
+                _relative_path(artifact_path / "cardevent-development-split", repo),
+                "development_split",
+                str(error),
+            )
+        )
     evidence_inspections = [
         _inspect_evidence_package(candidate, repo)
         for candidate in discover_evidence_package_paths(evidence_root)

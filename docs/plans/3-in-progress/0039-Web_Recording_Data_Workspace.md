@@ -22,7 +22,7 @@
 - **M2:** Complete — add the video and timeline event editor with conflict feedback.
 - **M3:** Complete — complete and revise a full-recording review with immutable receipt metadata and
   clear eligibility feedback.
-- **M4:** Pending — assign eligible development leakage groups to train, validation, or unassigned.
+- **M4:** Complete — assign eligible development leakage groups to train, validation, or unassigned.
 
 ## 1. Purpose
 
@@ -330,3 +330,15 @@ Before closing the epic, run one local path with an iOS-style recording bundle:
 
 Record usability gaps. Fix only gaps that block this path or hide the next action. Put broader data
 management ideas into a later measured epic.
+
+## 10. Delivery notes
+
+- **2026-09-01 — M4 complete:** Added one active CardEventNet development split with
+  group-safe preview and apply operations, immutable split versions, lifecycle receipts, and
+  read-only test and system-holdout handling. The recording catalog and detail page show review
+  state, event count, partition, active split identity, and leakage keys. The web panel confirms
+  every affected recording before publication.
+- **M4 verification:** Operations, backend, frontend, generated OpenAPI, component, and browser
+  checks pass. The fixture path moves a reviewed group from unassigned to train and back while
+  preserving source bytes and the prior split version. doko data validate accepts the published
+  split artifacts and receipts.
