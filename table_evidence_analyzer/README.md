@@ -65,6 +65,7 @@ table-analyzer freeze-visible-card-review --help
 table-analyzer compare-visible-card-detectors --help
 table-analyzer evaluate-visible-card-targeted-round --help
 table-analyzer visible-card-prompt-pilot --help
+table-analyzer render-visible-card-prompt-pilot --help
 ```
 
 Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
@@ -104,6 +105,20 @@ table-analyzer visible-card-prompt-pilot \
 The report stores both request contracts and both result records for every frame. Existing v1
 requests and caches remain separate from v2 because the request version, full prompt, and response
 schema are part of the cache key.
+
+Render the pilot for fast box-level review. The renderer reads the immutable pilot report, uses the
+same source bytes for both panels, and does not call a provider or write review decisions:
+
+```bash
+table-analyzer render-visible-card-prompt-pilot \
+  --pilot-report data/outputs/visible-card-prompt-pilot/m0.json \
+  --output-dir data/outputs/visible-card-prompt-pilot/m5-rendered
+```
+
+The output contains one deterministic side-by-side PNG per frame and `index.json`. The index binds
+each source-frame digest, request key and digest, result digest, and rendered-file digest. `EMPTY`
+and `UNAVAILABLE` results use different visual states. The renderer is box-level evidence only; it
+does not make a quality claim or create reviewed reference data.
 
 Create a v2 resumable geometry-review queue from one or more run artifacts. The lineage manifest
 must identify the source asset and source-lineage group for every frame:

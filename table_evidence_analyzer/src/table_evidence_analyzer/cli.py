@@ -107,6 +107,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Require this many development frames (default: 20).",
     )
 
+    prompt_render_parser = commands.add_parser(
+        "render-visible-card-prompt-pilot",
+        aliases=("render-visible-card-prompt-review",),
+        help="Render a paired box-level review of a visible-card prompt pilot.",
+        description=(
+            "Render v1 and v2 proposals from an immutable visible-card prompt pilot side by side. "
+            "This command does not call Gemini or write review decisions."
+        ),
+    )
+    prompt_render_parser.add_argument(
+        "--pilot-report",
+        "--report",
+        dest="pilot_report",
+        type=Path,
+        required=True,
+    )
+    prompt_render_parser.add_argument(
+        "--output-dir",
+        "--output",
+        dest="output_dir",
+        type=Path,
+        required=True,
+    )
+    prompt_render_parser.add_argument(
+        "--source-root",
+        type=Path,
+        help="Resolve relative source image paths under this directory first.",
+    )
+
     train_parser = commands.add_parser(
         "train",
         help="Train a model from a resolved configuration.",
@@ -492,6 +521,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(
             f"Wrote paired visible-card prompt pilot for {report['frame_count']} frames: "
             f"{args.output}"
+        )
+        return 0
+    if args.command in {"render-visible-card-prompt-pilot", "render-visible-card-prompt-review"}:
+        from .visible_card_prompt_pilot import render_prompt_pilot
+
+        try:
+            index = render_prompt_pilot(
+                args.pilot_report,
+                args.output_dir,
+                source_root=args.source_root,
+            )
+        except (VisibleCardError, OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(
+            f"Rendered paired visible-card prompt review for {index['frame_count']} frame(s): "
+            f"{args.output_dir}"
         )
         return 0
     if args.command in {"train-visible-card-detector", "train-visible-card"}:

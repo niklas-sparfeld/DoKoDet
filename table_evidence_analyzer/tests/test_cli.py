@@ -19,6 +19,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "identity-evaluate" in help_text
     assert "visible-card-evaluate" in help_text
     assert "visible-card-prompt-pilot" in help_text
+    assert "render-visible-card-prompt-pilot" in help_text
     assert "visible-card-batch" in help_text
     assert "visible-card-observe" in help_text
     assert "visible-cards" in help_text
@@ -101,6 +102,20 @@ def test_visible_card_prompt_pilot_command_writes_paired_report(tmp_path: Path) 
         == 0
     )
     assert json.loads(output.read_text(encoding="utf-8"))["frame_count"] == 2
+    rendered = tmp_path / "rendered"
+    assert (
+        main(
+            [
+                "render-visible-card-prompt-pilot",
+                "--pilot-report",
+                str(output),
+                "--output-dir",
+                str(rendered),
+            ]
+        )
+        == 0
+    )
+    assert json.loads((rendered / "index.json").read_text(encoding="utf-8"))["frame_count"] == 2
 
 
 def test_visible_card_dataset_materializer_parser_has_bounded_inputs() -> None:

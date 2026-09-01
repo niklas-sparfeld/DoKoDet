@@ -9,14 +9,20 @@ from PIL import Image
 
 from table_evidence_analyzer.visible_card_prompt_pilot import (
     VISIBLE_CARD_PROMPT_PILOT_INPUT_SCHEMA,
+    VISIBLE_CARD_PROMPT_PILOT_RENDER_SCHEMA,
     PromptPilotFrame,
     VisibleCardPromptPilotError,
     load_prompt_pilot_frames,
+    render_prompt_pilot,
     run_prompt_pilot,
 )
 from table_evidence_analyzer.visible_cards import (
     IMPROVED_REQUEST_SCHEMA_VERSION,
     FakeVisibleCardProvider,
+    NormalizedBox,
+    NormalizedPoint,
+    ProviderResult,
+    VisibleCardProposal,
 )
 
 
@@ -41,6 +47,30 @@ def _frames(tmp_path: Path, count: int = 2) -> tuple[PromptPilotFrame, ...]:
             )
         )
     return tuple(frames)
+
+
+class _RenderProvider:
+    name = "fixture"
+    version = "fixture-v1"
+
+    def propose(self, request: object) -> ProviderResult:
+        package_id = request.package_id
+        if package_id == "package-0":
+            proposal = VisibleCardProposal(
+                box_2d=NormalizedBox(y_min=200, x_min=100, y_max=700, x_max=500),
+                polygon=(
+                    NormalizedPoint(x=100, y=200),
+                    NormalizedPoint(x=500, y=200),
+                    NormalizedPoint(x=500, y=700),
+                    NormalizedPoint(x=100, y=700),
+                ),
+                side="face_up",
+                label="fixture card",
+            )
+            return ProviderResult(status="ok", proposals=(proposal,))
+        if package_id == "package-1":
+            return ProviderResult(status="ok")
+        return ProviderResult(status="unavailable", error="fixture provider unavailable")
 
 
 def test_prompt_pilot_records_paired_requests_and_development_only_selection(
@@ -126,3 +156,64 @@ def test_prompt_pilot_does_not_overwrite_a_report(tmp_path: Path) -> None:
             selection_reason="No request selected.",
             expected_frame_count=2,
         )
+
+
+def test_prompt_pilot_renderer_writes_deterministic_paired_index_and_distinct_states(
+    tmp_path: Path,
+) -> None:
+    pilot_path = tmp_path / "pilot.json"
+    run_prompt_pilot(
+        _frames(tmp_path, count=3),
+        _RenderProvider(),
+        output=pilot_path,
+        selected_request_version=None,
+        selection_reason="Fixture render only.",
+        expected_frame_count=3,
+    )
+
+    output_dir = tmp_path / "rendered"
+    index = render_prompt_pilot(pilot_path, output_dir)
+
+    assert index["schema_version"] == VISIBLE_CARD_PROMPT_PILOT_RENDER_SCHEMA
+    assert index["quality_claim"] is None
+    assert index["creates_reviewed_reference_data"] is False
+    assert index["frame_count"] == 3
+    assert [frame["frame_id"] for frame in index["frames"]] == [
+        "package-0:frame_00:0",
+        "package-1:frame_00:0",
+        "package-2:frame_00:0",
+    ]
+
+    states = {}
+    for frame in index["frames"]:
+        rendered_path = output_dir / frame["rendered_file"]["path"]
+        assert rendered_path.is_file()
+        assert frame["rendered_file"]["sha256"]
+        assert frame["source"]["frame_sha256"]
+        assert {
+            version: frame["request_versions"][version]["result_sha256"]
+            for version in ("visible-card-request/v1", "visible-card-request/v2")
+        }
+        states[frame["frame_id"]] = {
+            version: frame["request_versions"][version]["status"]
+            for version in ("visible-card-request/v1", "visible-card-request/v2")
+        }
+
+    assert states["package-0:frame_00:0"] == {
+        "visible-card-request/v1": "ok",
+        "visible-card-request/v2": "ok",
+    }
+    assert states["package-1:frame_00:0"] == {
+        "visible-card-request/v1": "ok",
+        "visible-card-request/v2": "ok",
+    }
+    assert states["package-2:frame_00:0"] == {
+        "visible-card-request/v1": "unavailable",
+        "visible-card-request/v2": "unavailable",
+    }
+
+    empty_path = output_dir / index["frames"][1]["rendered_file"]["path"]
+    unavailable_path = output_dir / index["frames"][2]["rendered_file"]["path"]
+    assert empty_path.read_bytes() != unavailable_path.read_bytes()
+    with Image.open(output_dir / index["frames"][0]["rendered_file"]["path"]) as rendered:
+        assert rendered.width > rendered.height

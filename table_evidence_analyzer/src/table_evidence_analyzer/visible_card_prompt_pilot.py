@@ -6,8 +6,11 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
+
+from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
 from .visible_cards import (
     DEFAULT_MODEL,
@@ -18,10 +21,12 @@ from .visible_cards import (
     VisibleCardError,
     VisibleCardProvider,
     build_request_from_image,
+    normalize_prediction,
 )
 
 VISIBLE_CARD_PROMPT_PILOT_INPUT_SCHEMA = "visible-card-prompt-pilot-input/v1"
 VISIBLE_CARD_PROMPT_PILOT_SCHEMA = "visible-card-prompt-pilot/v1"
+VISIBLE_CARD_PROMPT_PILOT_RENDER_SCHEMA = "visible-card-prompt-pilot-render/v1"
 DEVELOPMENT_PARTITION = "development"
 EXCLUDED_SELECTION_PARTITIONS = (
     "validation",
@@ -195,6 +200,389 @@ def _result_mapping(result: ProviderResult) -> dict[str, Any]:
     return mapping
 
 
+def _file_digest(path: Path) -> str:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError as error:
+        raise VisibleCardPromptPilotError(f"could not read source image: {path}") from error
+
+
+def _digest_mapping(value: Any, field: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise VisibleCardPromptPilotError(f"{field} must be a lower-case SHA-256 digest")
+    return value
+
+
+def _read_prompt_pilot_report(path: Path) -> dict[str, Any]:
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise VisibleCardPromptPilotError(f"could not read prompt pilot report: {path}") from error
+    if not isinstance(report, dict):
+        raise VisibleCardPromptPilotError("prompt pilot report must be a JSON object")
+    if report.get("schema_version") != VISIBLE_CARD_PROMPT_PILOT_SCHEMA:
+        raise VisibleCardPromptPilotError("unsupported prompt pilot report schema")
+    frame_count = report.get("frame_count")
+    frames = report.get("frames")
+    if isinstance(frame_count, bool) or not isinstance(frame_count, int) or frame_count <= 0:
+        raise VisibleCardPromptPilotError("prompt pilot report frame_count must be positive")
+    if not isinstance(frames, list) or len(frames) != frame_count:
+        raise VisibleCardPromptPilotError("prompt pilot report frame records are incomplete")
+    if not isinstance(report.get("run_id"), str):
+        raise VisibleCardPromptPilotError("prompt pilot report run_id is missing")
+    request_versions = report.get("request_versions")
+    if not isinstance(request_versions, list) or {
+        item.get("schema_version") for item in request_versions if isinstance(item, dict)
+    } != set(PILOT_REQUEST_VERSIONS):
+        raise VisibleCardPromptPilotError("prompt pilot report must contain both request versions")
+    return report
+
+
+def _source_path(report_path: Path, value: Any, *, source_root: Path | None = None) -> Path:
+    if not isinstance(value, str) or not value:
+        raise VisibleCardPromptPilotError("prompt pilot frame image must be a non-empty path")
+    image = Path(value)
+    if image.is_absolute():
+        return image
+    if source_root is not None:
+        rooted = source_root / image
+        if rooted.is_file():
+            return rooted
+    if image.is_file():
+        return image
+    return report_path.parent / image
+
+
+def _validated_pilot_frame(
+    report_path: Path,
+    frame: Any,
+    *,
+    source_root: Path | None = None,
+) -> tuple[dict[str, Any], Path, bytes, dict[str, ProviderResult], dict[str, str]]:
+    if not isinstance(frame, dict):
+        raise VisibleCardPromptPilotError("prompt pilot frame must be an object")
+    required = {
+        "frame_id",
+        "package_id",
+        "frame_part_name",
+        "target_offset_ms",
+        "image",
+        "source_lineage_group",
+        "partition",
+        "request_versions",
+    }
+    if set(frame) != required:
+        raise VisibleCardPromptPilotError("prompt pilot frame has unexpected fields")
+    if frame["partition"] != DEVELOPMENT_PARTITION:
+        raise VisibleCardPromptPilotError("prompt pilot renderer accepts development frames only")
+    expected_frame_id = (
+        f"{frame['package_id']}:{frame['frame_part_name']}:{frame['target_offset_ms']}"
+    )
+    if frame["frame_id"] != expected_frame_id:
+        raise VisibleCardPromptPilotError("prompt pilot frame_id does not match its frame fields")
+    image_path = _source_path(report_path, frame["image"], source_root=source_root)
+    if not image_path.is_file():
+        raise VisibleCardPromptPilotError(f"prompt pilot source image does not exist: {image_path}")
+    source_bytes = image_path.read_bytes()
+    source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    versions = frame["request_versions"]
+    if not isinstance(versions, dict) or set(versions) != set(PILOT_REQUEST_VERSIONS):
+        raise VisibleCardPromptPilotError("prompt pilot frame must contain both request versions")
+
+    results: dict[str, ProviderResult] = {}
+    request_digests: dict[str, str] = {}
+    image_digests: set[str] = set()
+    for version in PILOT_REQUEST_VERSIONS:
+        version_record = versions[version]
+        if not isinstance(version_record, dict) or set(version_record) != {
+            "request_key",
+            "request",
+            "result",
+        }:
+            raise VisibleCardPromptPilotError(
+                f"prompt pilot {version} record has unexpected fields"
+            )
+        request = version_record["request"]
+        if not isinstance(request, dict):
+            raise VisibleCardPromptPilotError(f"prompt pilot {version} request is invalid")
+        request_key = version_record["request_key"]
+        if not isinstance(request_key, str) or request_key != _digest(request):
+            raise VisibleCardPromptPilotError(f"prompt pilot {version} request key is invalid")
+        if request.get("schema_version") != version:
+            raise VisibleCardPromptPilotError(f"prompt pilot {version} request version is invalid")
+        for field, expected in (
+            ("package_id", frame["package_id"]),
+            ("frame_part_name", frame["frame_part_name"]),
+            ("target_offset_ms", frame["target_offset_ms"]),
+        ):
+            if request.get(field) != expected:
+                raise VisibleCardPromptPilotError(
+                    f"prompt pilot {version} request does not match frame {field}"
+                )
+        image_sha256 = _digest_mapping(request.get("image_sha256"), f"{version} image_sha256")
+        image_digests.add(image_sha256)
+        request_digests[version] = request_key
+        result_record = version_record["result"]
+        if not isinstance(result_record, dict) or set(result_record) != {
+            "status",
+            "prediction",
+            "usage",
+            "latency_ms",
+            "retry_count",
+            "estimated_cost_usd",
+            "error",
+            "raw_response",
+            "result_sha256",
+        }:
+            raise VisibleCardPromptPilotError(f"prompt pilot {version} result is invalid")
+        result_sha256 = _digest_mapping(result_record["result_sha256"], f"{version} result_sha256")
+        result_without_digest = {
+            key: value for key, value in result_record.items() if key != "result_sha256"
+        }
+        if result_sha256 != _digest(result_without_digest):
+            raise VisibleCardPromptPilotError(f"prompt pilot {version} result digest is invalid")
+        try:
+            result = ProviderResult.from_mapping(result_without_digest)
+            if version == IMPROVED_REQUEST_SCHEMA_VERSION:
+                normalize_prediction(result.prediction.to_mapping(), require_tight_boxes=True)
+        except (TypeError, ValueError, VisibleCardError) as error:
+            raise VisibleCardPromptPilotError(
+                f"prompt pilot {version} result is invalid"
+            ) from error
+        results[version] = result
+
+    if len(image_digests) != 1 or source_sha256 not in image_digests:
+        raise VisibleCardPromptPilotError(
+            "prompt pilot requests do not reference the same source image bytes"
+        )
+    try:
+        with Image.open(BytesIO(source_bytes)) as source:
+            width, height = source.size
+    except (UnidentifiedImageError, OSError) as error:
+        raise VisibleCardPromptPilotError(
+            f"prompt pilot source image is not readable: {image_path}"
+        ) from error
+    for version in PILOT_REQUEST_VERSIONS:
+        request = versions[version]["request"]
+        if request.get("width") != width or request.get("height") != height:
+            raise VisibleCardPromptPilotError(
+                f"prompt pilot {version} request dimensions do not match source image"
+            )
+    return frame, image_path, source_bytes, results, request_digests
+
+
+def _render_status(result: ProviderResult) -> tuple[str, tuple[int, int, int]]:
+    if result.status == "unavailable":
+        return "UNAVAILABLE", (145, 45, 45)
+    if not result.proposals:
+        return "EMPTY", (90, 90, 90)
+    return "OK", (39, 119, 73)
+
+
+def _safe_render_name(frame_id: str, index: int) -> str:
+    name = "".join(
+        character if character.isalnum() or character in "._-" else "-" for character in frame_id
+    )
+    return f"{index:04d}-{name}.png"
+
+
+def _render_panel(
+    source_bytes: bytes,
+    *,
+    request_version: str,
+    provider: str,
+    result: ProviderResult,
+    frame_id: str,
+) -> Image.Image:
+    with Image.open(BytesIO(source_bytes)) as opened:
+        source = opened.convert("RGB")
+    source_width, source_height = source.size
+    display_width = min(960, max(320, source_width))
+    display_height = max(1, round(source_height * display_width / source_width))
+    source = source.resize((display_width, display_height), Image.Resampling.LANCZOS)
+    status, status_colour = _render_status(result)
+    footer_lines = [
+        f"provider: {provider}   status: {status}   proposals: {len(result.proposals)}",
+    ]
+    if result.status == "unavailable":
+        footer_lines.append(f"error: {result.error or 'provider unavailable'}")
+    elif not result.proposals:
+        footer_lines.append("No visible-card proposals returned.")
+    else:
+        for index, proposal in enumerate(result.proposals, start=1):
+            box = proposal.box_2d
+            footer_lines.append(
+                f"{index}. {proposal.label} ({proposal.side})  "
+                f"box=[{box.x_min},{box.y_min},{box.x_max},{box.y_max}]"
+            )
+    font = ImageFont.load_default()
+    footer_height = max(76, 24 + 22 * len(footer_lines))
+    header_height = 76
+    panel = Image.new(
+        "RGB", (display_width, header_height + display_height + footer_height), (245, 245, 245)
+    )
+    header = ImageDraw.Draw(panel)
+    header.rectangle((0, 0, display_width, header_height), fill=status_colour)
+    header.text((16, 12), request_version, fill="white", font=font)
+    header.text((16, 32), f"frame: {frame_id}", fill="white", font=font)
+    header.text((16, 52), f"provider: {provider}   status: {status}", fill="white", font=font)
+
+    overlay = Image.new("RGBA", source.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
+    colours = {
+        "face_up": (60, 190, 70, 255),
+        "face_down": (40, 140, 240, 255),
+        "unknown": (210, 90, 180, 255),
+    }
+    for index, proposal in enumerate(result.proposals, start=1):
+        colour = colours[proposal.side]
+        points = [
+            (
+                round(point.x * display_width / 1000),
+                round(point.y * display_height / 1000),
+            )
+            for point in proposal.polygon
+        ]
+        draw.polygon(points, fill=(*colour[:3], 72))
+        draw.line(points + [points[0]], fill=colour, width=4, joint="curve")
+        box = proposal.box_2d
+        box_points = (
+            round(box.x_min * display_width / 1000),
+            round(box.y_min * display_height / 1000),
+            round(box.x_max * display_width / 1000),
+            round(box.y_max * display_height / 1000),
+        )
+        draw.rectangle(box_points, outline=(255, 255, 255, 255), width=2)
+        label = f"{index} {proposal.label}"
+        label_x = max(2, min(box_points[0], display_width - 120))
+        label_y = max(2, box_points[1] - 18)
+        text_box = draw.textbbox((label_x, label_y), label, font=font)
+        draw.rectangle(text_box, fill=(0, 0, 0, 190))
+        draw.text((label_x, label_y), label, fill="white", font=font)
+    panel.paste(
+        Image.alpha_composite(source.convert("RGBA"), overlay).convert("RGB"),
+        (0, header_height),
+    )
+    footer = ImageDraw.Draw(panel)
+    footer_y = header_height + display_height + 12
+    for line in footer_lines:
+        footer.text((16, footer_y), line[:180], fill=(25, 25, 25), font=font)
+        footer_y += 22
+    return panel
+
+
+def render_prompt_pilot(
+    pilot_report: str | Path,
+    output_dir: str | Path,
+    *,
+    source_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Render an immutable paired box-level review for one prompt pilot report."""
+
+    report_path = Path(pilot_report)
+    report = _read_prompt_pilot_report(report_path)
+    destination = Path(output_dir)
+    index_path = destination / "index.json"
+    if index_path.exists():
+        raise VisibleCardPromptPilotError(f"prompt pilot render index already exists: {index_path}")
+    destination.mkdir(parents=True, exist_ok=True)
+    frames_dir = destination / "frames"
+    frames_dir.mkdir(exist_ok=True)
+    source_root_path = Path(source_root) if source_root is not None else None
+    rendered_frames: list[dict[str, Any]] = []
+    for index, frame_record in enumerate(
+        sorted(report["frames"], key=lambda item: item["frame_id"]), start=1
+    ):
+        frame, image_path, source_bytes, results, request_digests = _validated_pilot_frame(
+            report_path, frame_record, source_root=source_root_path
+        )
+        versions = frame["request_versions"]
+        provider_names = {
+            versions[version]["request"]["provider"] for version in PILOT_REQUEST_VERSIONS
+        }
+        if len(provider_names) != 1:
+            raise VisibleCardPromptPilotError("prompt pilot request providers must match")
+        provider = next(iter(provider_names))
+        panels = [
+            _render_panel(
+                source_bytes,
+                request_version=version,
+                provider=provider,
+                result=results[version],
+                frame_id=frame["frame_id"],
+            )
+            for version in PILOT_REQUEST_VERSIONS
+        ]
+        panel_gap = 16
+        title_height = 42
+        width = panels[0].width + panel_gap + panels[1].width
+        height = title_height + max(panel.height for panel in panels)
+        rendered = Image.new("RGB", (width, height), "white")
+        title = ImageDraw.Draw(rendered)
+        title.text(
+            (16, 14),
+            f"Paired visible-card prompt review · {frame['frame_id']} · source "
+            f"{hashlib.sha256(source_bytes).hexdigest()[:12]}",
+            fill=(25, 25, 25),
+            font=ImageFont.load_default(),
+        )
+        rendered.paste(panels[0], (0, title_height))
+        rendered.paste(panels[1], (panels[0].width + panel_gap, title_height))
+        rendered_path = frames_dir / _safe_render_name(frame["frame_id"], index)
+        if rendered_path.exists():
+            raise VisibleCardPromptPilotError(
+                f"prompt pilot rendered file already exists: {rendered_path}"
+            )
+        rendered.save(rendered_path, format="PNG", optimize=False, compress_level=9)
+        result_records = {
+            version: {
+                "request_key": request_digests[version],
+                "request_sha256": _digest(versions[version]["request"]),
+                "result_sha256": versions[version]["result"]["result_sha256"],
+                "status": results[version].status,
+                "proposal_count": len(results[version].proposals),
+            }
+            for version in PILOT_REQUEST_VERSIONS
+        }
+        rendered_frames.append(
+            {
+                "frame_id": frame["frame_id"],
+                "source": {
+                    "path": str(image_path),
+                    "frame_sha256": hashlib.sha256(source_bytes).hexdigest(),
+                },
+                "request_versions": result_records,
+                "rendered_file": {
+                    "path": str(rendered_path.relative_to(destination)),
+                    "sha256": _file_digest(rendered_path),
+                },
+            }
+        )
+    index = {
+        "schema_version": VISIBLE_CARD_PROMPT_PILOT_RENDER_SCHEMA,
+        "artifact_role": "paired_box_level_prompt_review",
+        "quality_claim": None,
+        "creates_reviewed_reference_data": False,
+        "pilot_report": {
+            "path": str(report_path),
+            "sha256": _file_digest(report_path),
+            "schema_version": report["schema_version"],
+            "run_id": report["run_id"],
+        },
+        "frame_count": len(rendered_frames),
+        "frames": rendered_frames,
+    }
+    _write_json(index_path, index)
+    return index
+
+
+render_visible_card_prompt_pilot = render_prompt_pilot
+
+
 def run_prompt_pilot(
     frames: tuple[PromptPilotFrame, ...] | list[PromptPilotFrame],
     provider: VisibleCardProvider,
@@ -311,8 +699,11 @@ __all__ = [
     "PILOT_REQUEST_VERSIONS",
     "PromptPilotFrame",
     "VISIBLE_CARD_PROMPT_PILOT_INPUT_SCHEMA",
+    "VISIBLE_CARD_PROMPT_PILOT_RENDER_SCHEMA",
     "VISIBLE_CARD_PROMPT_PILOT_SCHEMA",
     "VisibleCardPromptPilotError",
     "load_prompt_pilot_frames",
+    "render_prompt_pilot",
+    "render_visible_card_prompt_pilot",
     "run_prompt_pilot",
 ]

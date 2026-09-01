@@ -4,7 +4,11 @@
 
 - **Summary:** Correct Gemini visible-card geometry, review visible regions, and measure detector
   labels and classifier crops with the frozen local-detector recipe.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M5 contract work is complete. Real Gemini prompting, polygon review, and
+  detector training remain deferred until the operator provides an exact-event corpus and selects
+  that follow-up work.
 - **Depends on:** Plan 0037 frozen dataset, recipe, bundle, and provider contracts. M3 requires its
   first real pseudo-label dataset and native bundle.
 - **Builds on:** Plans 0020, 0022, and 0027 review, dataset, and lineage contracts
@@ -30,7 +34,7 @@
 - **M4:** Complete for the local targeted-round contract path — measured failure selection,
   bounded reviewed-batch lineage, augmented-run identity, and unchanged evaluation are enforced.
   A real targeted round waits for the plan 0037 native artifacts and a real M3 report.
-- **M5:** Pending — render paired v1 and v2 proposal results for fast box-level human review. This
+- **M5:** Complete — render paired v1 and v2 proposal results for fast box-level human review. This
   milestone does not add polygon editing.
 
 ## 1. Purpose
@@ -347,13 +351,30 @@ Acceptance:
 - fixture tests cover one paired result, an empty result, and an unavailable result; and
 - the renderer makes no quality claim and does not satisfy a reviewed-reference contract.
 
+#### M5 implementation evidence — 2026-09-01
+
+- Added `table-analyzer render-visible-card-prompt-pilot` with a review alias. It loads and
+  validates an immutable `visible-card-prompt-pilot/v1` report, verifies both request and result
+  digests, verifies that both requests reference the same source bytes, and renders one
+  deterministic side-by-side PNG per frame.
+- Added `visible-card-prompt-pilot-render/v1` `index.json`. Each frame binds the source-frame,
+  request, result, and rendered-file SHA-256 digests, status, and proposal count. The panels show
+  request version, provider status, proposal count, labels, and boxes. Empty and unavailable
+  results use separate visual states.
+- The renderer reads source and pilot artifacts only. It does not call Gemini, change caches, edit
+  polygons, write review decisions, or create reviewed reference data. The index records no quality
+  claim.
+- Added fixture coverage for a paired proposal, an empty result, and an unavailable result, plus a
+  CLI integration test. Verification: all 15 focused TableEvidenceAnalyzer tests, focused Ruff
+  checks, formatting checks for changed files, and visual inspection of the generated PNG pass.
+
 ## 6. Start and completion
 
 M0 can start from the completed plan 0037 request, dataset, recipe, and provider contracts. M3 must
 wait for plan 0037 to record its first real pseudo-label dataset, native bundle, and end-to-end
 result. Do not substitute fixture artifacts for the real comparison.
 
-For the current bounded iteration, complete this epic after M5 provides the paired prompt-review
-renderer and its fixture evidence. Real polygon review, reviewed detector training, crop
-evaluation, and targeted retraining remain deferred. A later epic can select those activities when
-the operator wants to start human geometry review.
+For the current bounded iteration, this epic is complete after M5 provides the paired prompt-review
+renderer and its fixture evidence. Real polygon review, reviewed detector training, crop evaluation,
+and targeted retraining remain deferred. A later epic can select those activities when the operator
+wants to start human geometry review.
