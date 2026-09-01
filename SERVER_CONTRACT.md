@@ -87,7 +87,9 @@ configured frame targets.
 
 `video_snippet` is nullable. `null` means that optional snippet evidence is absent. A non-null
 complete value declares exactly one multipart part and contains its actual event-relative start and
-end, duration, media values, byte length, and SHA-256. An incomplete value contains only
+end, duration, media values, byte length, and SHA-256. `nominal_frame_rate` is optional metadata;
+when present, a disagreement with the backend probe is logged as a warning and does not reject an
+otherwise valid video. An incomplete value contains only
 `capture_complete: false` and a `failure_reason`; it has no media part. A corrupt declared snippet
 is different: it is complete and has a declared part, but its bytes fail hash or media validation.
 
@@ -156,6 +158,11 @@ The server validates the complete package before it stores or exposes it:
 - each declared frame has one matching part and no extra frame part exists;
 - each frame byte length and SHA-256 match the manifest;
 - each frame content type is `image/jpeg`;
+- a complete video snippet has one supported H.264 video stream and its byte length and SHA-256
+  match the manifest;
+- a complete video snippet's declared dimensions and duration match the probed media;
+- a frame-rate disagreement is retained as a warning because frame-rate metadata can differ between
+  platform and backend probes for timestamped live media;
 - the present and missing target lists equal the configured target set, without duplicates;
 - `event.evidence_complete` is true only when the missing list is empty;
 - the package ID in the path and manifest match.

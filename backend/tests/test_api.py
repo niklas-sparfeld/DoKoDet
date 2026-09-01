@@ -443,7 +443,6 @@ def test_truncated_video_is_rejected_after_hash_matches(backend) -> None:
         ("width", 641),
         ("height", 359),
         ("duration_ms", 2233),
-        ("nominal_frame_rate", 10.0),
     ),
 )
 def test_video_probe_rejects_material_manifest_disagreements(backend, field, value) -> None:
@@ -466,6 +465,63 @@ def test_video_probe_rejects_material_manifest_disagreements(backend, field, val
     assert repository.get_package(payload["package_id"]) is None
     assert not storage.package_path(payload["package_id"]).exists()
     assert list(storage.root.glob(".upload-*")) == []
+
+
+def test_video_probe_accepts_frame_rate_disagreement_and_logs_warning(backend, caplog) -> None:
+    client, repository, storage = backend
+    caplog.set_level(logging.WARNING, logger="dokodetector_backend")
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
+    assert video_source is not None
+    payload["video_snippet"]["nominal_frame_rate"] = 10.0
+    manifest_bytes = json.dumps(payload, separators=(",", ":")).encode()
+
+    response = client.put(
+        f"/v1/evidence-packages/{payload['package_id']}",
+        files=multipart_parts(manifest_bytes, frame_sources, video_source),
+        headers={
+            "X-DokoDetector-Request-ID": "request-fps-warning",
+            "X-DokoDetector-Upload-ID": "upload-fps-warning",
+        },
+    )
+
+    assert response.status_code == 201
+    assert repository.get_package(payload["package_id"]) is not None
+    assert storage.package_path(payload["package_id"]).exists()
+    warning = next(
+        record
+        for record in caplog.records
+        if getattr(record, "event_name", None) == "video_frame_rate_mismatch"
+    )
+    assert warning.levelno == logging.WARNING
+    assert warning.event_fields == {
+        "actual_frame_rate": 15.0,
+        "difference_fps": 5.0,
+        "manifest_frame_rate": 10.0,
+        "package_id": payload["package_id"],
+        "request_id": "request-fps-warning",
+        "tolerance_fps": 0.05,
+        "upload_id": "upload-fps-warning",
+    }
+    assert not any(
+        getattr(record, "event_name", None) == "http_request_rejected" for record in caplog.records
+    )
+
+
+def test_video_probe_accepts_omitted_frame_rate(backend) -> None:
+    client, repository, storage = backend
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
+    assert video_source is not None
+    payload["video_snippet"].pop("nominal_frame_rate")
+    manifest_bytes = json.dumps(payload, separators=(",", ":")).encode()
+
+    response = client.put(
+        f"/v1/evidence-packages/{payload['package_id']}",
+        files=multipart_parts(manifest_bytes, frame_sources, video_source),
+    )
+
+    assert response.status_code == 201
+    assert repository.get_package(payload["package_id"]) is not None
+    assert storage.package_path(payload["package_id"]).exists()
 
 
 def test_video_files_are_removed_when_database_insert_conflicts(backend) -> None:

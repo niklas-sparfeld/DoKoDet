@@ -60,7 +60,7 @@ FRAME_COPY_CHUNK_BYTES = 1024 * 1024
 MANIFEST_MEDIA_TYPE = "application/json"
 MULTIPART_MEDIA_TYPE = "multipart/form-data"
 SUPPORTED_FRAME_MEDIA_TYPE = "image/jpeg"
-VIDEO_FRAME_RATE_TOLERANCE_FPS = 0.05
+VIDEO_FRAME_RATE_WARNING_TOLERANCE_FPS = 0.05
 VIDEO_DURATION_TOLERANCE_MS = 50
 LOGGER = logging.getLogger(__name__)
 
@@ -217,6 +217,9 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     video_upload,
                     manifest.video_snippet,
                     max_video_bytes=settings.max_video_bytes,
+                    package_id=str(manifest.package_id),
+                    request_id=get_or_create_request_id(request),
+                    upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
                 )
                 package_bytes += video_length
                 if package_bytes > settings.max_package_bytes:
@@ -713,6 +716,9 @@ async def _inspect_video(
     snippet: VideoSnippetManifest,
     *,
     max_video_bytes: int,
+    package_id: str,
+    request_id: str,
+    upload_id: str,
 ) -> tuple[bytes, int, str]:
     await upload.seek(0)
     digest = hashlib.sha256()
@@ -786,20 +792,22 @@ async def _inspect_video(
                 )
             )
 
-    if snippet.nominal_frame_rate is None or not math.isclose(
+    if snippet.nominal_frame_rate is not None and not math.isclose(
         probe.nominal_frame_rate,
         snippet.nominal_frame_rate,
-        abs_tol=VIDEO_FRAME_RATE_TOLERANCE_FPS,
+        abs_tol=VIDEO_FRAME_RATE_WARNING_TOLERANCE_FPS,
     ):
-        mismatches.append(
-            APIErrorDetail(
-                field="video_snippet.nominal_frame_rate",
-                message=(
-                    f"manifest={snippet.nominal_frame_rate!r}; "
-                    f"actual={probe.nominal_frame_rate!r}; "
-                    f"tolerance={VIDEO_FRAME_RATE_TOLERANCE_FPS!r}."
-                ),
-            )
+        log_event(
+            LOGGER,
+            logging.WARNING,
+            "video_frame_rate_mismatch",
+            request_id=request_id,
+            upload_id=upload_id,
+            package_id=package_id,
+            manifest_frame_rate=snippet.nominal_frame_rate,
+            actual_frame_rate=probe.nominal_frame_rate,
+            difference_fps=abs(probe.nominal_frame_rate - snippet.nominal_frame_rate),
+            tolerance_fps=VIDEO_FRAME_RATE_WARNING_TOLERANCE_FPS,
         )
 
     if abs(probe.duration_ms - snippet.duration_ms) > VIDEO_DURATION_TOLERANCE_MS:
