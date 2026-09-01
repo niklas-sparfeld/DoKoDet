@@ -48,7 +48,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0039 — Web recording data workspace](2-ready/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | Open every recording as the primary web resource, complete CardEvent review, and assign eligible development leakage groups. |
 
 ### In Progress
 
@@ -106,22 +106,25 @@ The shared target architecture is
 2. Start 0038 M0 from the frozen 0037 contracts. Improve the Gemini visible-region instructions,
    review visible regions, and derive detector boxes before changing the detector architecture.
    Run the real detector comparison only after 0037 records its native artifacts.
-3. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
+3. Implement 0039 M0 through M3 to make new iOS recordings discoverable and complete CardEvent
+   review in the web app. Implement its bounded M4 development-partition assignment only after the
+   review path is usable end to end.
+4. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
    baseline for later review work.
-4. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
+5. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
    `0 ms` binary review and the cloud visible-card baseline over that trusted event-time corpus. Add
    CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed system-holdout
    groups out of development review. Do not treat the three 0025 M6 packages as a sufficient
    recognition dataset by themselves.
-5. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
+6. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
    proposal corpus. Use the resulting coverage and failure measurements to specify 0022.
-6. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+7. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
    to specify 0023.
-7. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-8. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+8. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+9. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
    without replacing the identity-only oracle baseline.
-9. Specify 0026 after focused review cases and correction behavior are measured.
-10. Specify 0024 only after end-to-end product and operational measurements exist.
+10. Specify 0026 after focused review cases and correction behavior are measured.
+11. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 
