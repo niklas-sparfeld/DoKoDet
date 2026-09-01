@@ -48,21 +48,22 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0040 — Visible-card annotation review workspace](2-ready/0040-Visible_Card_Annotation_Review_Workspace.md) | 0038 contracts and 0039 M0–M4 | Seed recording-scoped review queues with the local visible-card finder, correct them in the web app, and publish immutable completed reviews that the existing freeze path accepts. |
+| [0041 — Local visual card identity classifier PoC](2-ready/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | 0021 and 0028 complete | Prove local DINOv3 ViT-S/16 training, bundle inference, and explicit non-default backend selection without a quality claim. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Show concise backend business events at `INFO`, warnings and failures at their proper levels, and opt-in `DEBUG` business-process traces in the local terminal. M0–M3 complete. |
-| [0038 — Visible-card training-data improvement](3-in-progress/0038-Visible_Card_Training_Data_Improvement.md) | 0037 contracts; real artifacts before M3 | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M4 local contract paths complete; real review, detector, and targeted-data evidence remain. |
 | [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 complete: group-safe CardEventNet development partition assignment with immutable split versions and receipts. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0042 — Visual card identity annotation workspace](4-blocked/0042-Visual_Card_Identity_Annotation_Workspace.md) | 0040 complete and 0041 contracts | Label identity-usable reviewed visible cards in the web app and publish immutable classifier data. |
+| [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041 and 0042 complete, plus reviewed real identity data | Freeze reviewed data, compare at most two DINOv3 candidates with current classifiers, and lock at most one local candidate without changing the backend default. |
+| [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate and 0042 data contracts | Add multi-recording review selection, bounded campaigns, explicit promotion, local runtime cutover, and rollback to the web app. |
 
 ### Closed
 
@@ -108,22 +109,31 @@ The shared target architecture is
    quality claim. Real local-provider backend execution remains out of scope.
 2. Implement 0039 M0 through M4 to make new iOS recordings discoverable, complete CardEvent
    review, and assign eligible development groups in the web app.
-4. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
+3. Implement 0041 independently to prove the local DINOv3 identity model, bundle, and backend
+   boundary without using smoke results as a quality claim.
+4. Implement 0040 to seed exact-event visible-card review with the local finder, complete geometry
+   correction in the web app, and publish reviewed data for the existing freeze path.
+5. Implement 0042 after 0040 and 0041 to create reviewed visual card identity data in the web app.
+6. Implement 0043 only after reviewed real identity coverage can support frozen development
+   partitions. Lock at most one passing local candidate.
+7. Implement 0044 only after the quality proof passes. Add productive review selection, campaign
+   controls, explicit promotion, backend cutover, and rollback at that point.
+8. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
    baseline for later review work.
-5. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
+9. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
    `0 ms` binary review and the cloud visible-card baseline over that trusted event-time corpus. Add
    CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed system-holdout
    groups out of development review. Do not treat the three 0025 M6 packages as a sufficient
    recognition dataset by themselves.
-6. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
+10. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
    proposal corpus. Use the resulting coverage and failure measurements to specify 0022.
-7. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
+11. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
    to specify 0023.
-8. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-9. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
+12. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
+13. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
    without replacing the identity-only oracle baseline.
-10. Specify 0026 after focused review cases and correction behavior are measured.
-11. Specify 0024 only after end-to-end product and operational measurements exist.
+14. Specify 0026 after focused review cases and correction behavior are measured.
+15. Specify 0024 only after end-to-end product and operational measurements exist.
 
 ## Closed-epic policy
 

@@ -243,6 +243,19 @@ A versioned model and configuration that produces event proposals or other candi
 select source evidence for review. A proposal generator does not produce ground truth. Its output
 records full lineage to the source asset and generator version.
 
+### Visible-card review batch
+
+One versioned unit of visible-card review work. It freezes the selected source frames and proposal
+generator results, owns one resumable review queue, and can publish one completed review. A
+visible-card review batch does not make an unreviewed proposal ground truth.
+
+### Visual card identity review batch
+
+One versioned unit of visual card identity review work. It freezes identity crops from completed
+visible-card reviews and the selected proposal generator results. It owns one resumable review
+queue and can publish one completed review. A visual card identity review batch does not change
+reviewed visible geometry or make an unreviewed identity proposal ground truth.
+
 ### System holdout
 
 A sealed set of source-lineage groups that no component can use for training or model selection.
