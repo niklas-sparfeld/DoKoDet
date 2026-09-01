@@ -4,7 +4,7 @@
 
 - **Summary:** Seed visible-card review queues with the configured local finder and let an operator
   accept or correct the proposals in the web recording workspace.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Plan 0038 visible-region and review contracts, and plan 0039 M0 through M4 web
   recording workspace
 - **Builds on:** Plans 0020 and 0027 source, task, review, dataset, and lifecycle contracts
@@ -19,7 +19,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — build a deterministic source-linked batch preparation boundary.
+- **M0:** Complete — build a deterministic source-linked batch preparation boundary with immutable
+  batch state, exact-event frames, local finder artifacts, and a v2 queue.
 - **M1:** Not started — create, run, retry, and inspect a batch from the recording page.
 - **M2:** Not started — show the queue, source frames, and finder proposals in the web app.
 - **M3:** Not started — accept, correct, add, and remove visible-card annotations.
