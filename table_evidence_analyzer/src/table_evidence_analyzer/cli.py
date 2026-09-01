@@ -376,6 +376,22 @@ def build_parser() -> argparse.ArgumentParser:
     freeze_parser.add_argument("--output-dir", type=Path, required=True)
     freeze_parser.add_argument("--freeze-id", default="visible-card-review-freeze-v1")
 
+    comparison_parser = commands.add_parser(
+        "compare-visible-card-detectors",
+        help="Compare pseudo-label and reviewed-box detector candidates.",
+        description=(
+            "Create a provenance-checked paired detector and crop comparison from a frozen "
+            "visible-card review. This command does not train or promote a model."
+        ),
+    )
+    comparison_parser.add_argument("--freeze", type=Path, required=True)
+    comparison_parser.add_argument("--gemini-candidate", type=Path, required=True)
+    comparison_parser.add_argument("--reviewed-candidate", type=Path, required=True)
+    comparison_parser.add_argument("--crop-evaluation", type=Path, required=True)
+    comparison_parser.add_argument("--output", type=Path, required=True)
+    comparison_parser.add_argument("--score-threshold", type=float, default=0.5)
+    comparison_parser.add_argument("--match-iou-threshold", type=float, default=0.5)
+
     return parser
 
 
@@ -812,6 +828,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(
             f"Wrote visible-card freeze with {report['seed_frame_count']} seed frame(s) and "
             f"{report['challenge_frame_count']} challenge frame(s): {args.output_dir}"
+        )
+        return 0
+    if args.command == "compare-visible-card-detectors":
+        from .visible_card_comparison import (
+            VisibleCardComparisonConfig,
+            VisibleCardComparisonError,
+            compare_visible_card_detectors,
+        )
+
+        try:
+            report = compare_visible_card_detectors(
+                VisibleCardComparisonConfig(
+                    freeze=args.freeze,
+                    gemini_candidate=args.gemini_candidate,
+                    reviewed_candidate=args.reviewed_candidate,
+                    crop_evaluation=args.crop_evaluation,
+                    output=args.output,
+                    score_threshold=args.score_threshold,
+                    match_iou_threshold=args.match_iou_threshold,
+                )
+            )
+        except (VisibleCardComparisonError, OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(
+            f"Wrote visible-card comparison ({report['conclusion']['localization']['direction']}): "
+            f"{args.output}"
         )
         return 0
     parser.exit(2, f"error: command '{_command_name(args)}' is not implemented yet.\n")

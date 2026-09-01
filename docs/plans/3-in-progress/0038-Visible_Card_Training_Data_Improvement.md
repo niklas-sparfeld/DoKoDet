@@ -24,7 +24,9 @@
 - **M2:** Complete for the local freeze contract path — immutable reviewed manifests, source-group
   partition checks, coverage reporting, and fixed crop transforms are implemented. A real freeze
   waits for the exact-event review corpus and approved pilot report.
-- **M3:** Pending real plan 0037 pseudo-label and native bundle artifacts
+- **M3:** Complete for the local comparison contract path — strict paired detector and crop
+  evaluation is implemented. A real comparison waits for plan 0037 pseudo-label and native bundle
+  artifacts.
 - **M4:** Pending
 
 ## 1. Purpose
@@ -238,6 +240,27 @@ Acceptance:
 - the system holdout is absent;
 - the report states whether the 100-frame and five-session targets were met;
 - no crop rule is selected from validation or challenge results.
+
+### M3 implementation evidence — 2026-09-01
+
+- Added `visible-card-comparison-candidate/v1` inputs for the pseudo-label and reviewed-box
+  candidates. The loader requires completed training records, valid recipe digests, the same frozen
+  RF-DETR recipe and seed, exact frozen teacher-frame membership, and local-detector result artifacts
+  for every validation and challenge frame.
+- Added `visible-card-crop-evaluation/v1` validation for both validation and challenge partitions.
+  It requires one shared identity-classifier digest, all three frozen crop policies, complete card
+  coverage, and consistent crop, detection, prediction, and correctness fields.
+- Added `visible-card-comparison/v1` with fixed score and IoU thresholds, box AP at 0.50 and
+  0.50:0.95, recall, false and duplicate proposals, empty-frame false-positive rate, latency,
+  source-lineage/side/card-count/failure-tag strata, paired predictions, crop identity metrics, and
+  explicit localization, crop, and segmentation conclusions. Session and table-setup strata are
+  reported as unavailable because those fields are not in the M2 freeze.
+- Added `table-analyzer compare-visible-card-detectors` and documented the candidate and crop input
+  contracts. The command does not train, select, lock, or promote a candidate.
+- Verification: all 99 TableEvidenceAnalyzer tests and focused Ruff checks pass. The full source
+  format check reports two pre-existing formatting differences in unrelated files. The repository
+  still has no real plan 0037 pseudo-label dataset or native trained bundle, so no real comparison,
+  model campaign, candidate lock, sealed test, or promotion was started.
 
 ### M3 — Measure corrected detector labels and crop behavior
 

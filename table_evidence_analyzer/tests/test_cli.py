@@ -27,6 +27,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "review-visible-card-action" in help_text
     assert "complete-visible-card-review" in help_text
     assert "freeze-visible-card-review" in help_text
+    assert "compare-visible-card-detectors" in help_text
     assert "\n    analyze " not in help_text
 
 
@@ -168,6 +169,33 @@ def test_visible_card_freeze_parser_has_explicit_immutable_inputs() -> None:
     assert args.pilot_report == Path("pilot.json")
     assert args.partitions == Path("partitions.json")
     assert args.output_dir == Path("freeze")
+
+
+def test_visible_card_comparison_parser_has_paired_inputs() -> None:
+    args = build_parser().parse_args(
+        [
+            "compare-visible-card-detectors",
+            "--freeze",
+            "freeze",
+            "--gemini-candidate",
+            "gemini.json",
+            "--reviewed-candidate",
+            "reviewed.json",
+            "--crop-evaluation",
+            "crops.json",
+            "--output",
+            "comparison.json",
+        ]
+    )
+
+    assert args.command == "compare-visible-card-detectors"
+    assert args.freeze == Path("freeze")
+    assert args.gemini_candidate == Path("gemini.json")
+    assert args.reviewed_candidate == Path("reviewed.json")
+    assert args.crop_evaluation == Path("crops.json")
+    assert args.output == Path("comparison.json")
+    assert args.score_threshold == 0.5
+    assert args.match_iou_threshold == 0.5
 
 
 def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path: Path) -> None:

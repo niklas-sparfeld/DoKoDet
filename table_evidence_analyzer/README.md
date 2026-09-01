@@ -62,6 +62,7 @@ table-analyzer review-visible-card --help
 table-analyzer review-visible-card-action --help
 table-analyzer complete-visible-card-review --help
 table-analyzer freeze-visible-card-review --help
+table-analyzer compare-visible-card-detectors --help
 table-analyzer visible-card-prompt-pilot --help
 ```
 
@@ -172,6 +173,52 @@ The crop policy is fixed before evaluation: `raw_rectangular` crops the derived 
 `oracle_visible_region` replaces pixels outside the reviewed polygons with RGB `(128, 128, 128)`,
 and `conservative_box_only` rejects a card unless identity is usable and it has no failure tags.
 No crop policy is chosen from validation or challenge results.
+
+Prepare one comparison-candidate file for each detector. The `gemini-pseudo-label` candidate must
+use the pseudo-label training run. The `reviewed-box` candidate must use the reviewed-box training
+run. Both files must point to the same freeze and must list one local-detector result artifact for
+every validation and challenge frame:
+
+```json
+{
+  "schema_version": "visible-card-comparison-candidate/v1",
+  "candidate_id": "reviewed-box",
+  "label_source": "reviewed_visible_region",
+  "freeze_id": "visible-card-review-freeze-v1",
+  "freeze_digest": "<freeze digest>",
+  "run": {"path": "<run.json>", "sha256": "<run digest>"},
+  "results": {
+    "validation": ["<validation result.json>"],
+    "challenge": ["<challenge result.json>"]
+  }
+}
+```
+
+The training run must be complete, use the same frozen recipe and seed as the other candidate, and
+contain the exact source-frame membership from the frozen teacher set and a native bundle identity.
+Each local-detector result must contain the matching bundle identity and one score per proposal in
+`raw_response.detector_scores`. Prepare one
+`visible-card-crop-evaluation/v1` file with the same identity-classifier digest for both candidates
+and all three crop policies. Each row must state crop acceptance, detector matching, the target
+identity, the predicted identity, and correctness.
+
+Run the paired M3 comparison after both real candidates and the crop report exist:
+
+```bash
+table-analyzer compare-visible-card-detectors \
+  --freeze data/outputs/visible-card-review/m2-freeze \
+  --gemini-candidate data/outputs/visible-card-comparison/gemini-pseudo-label.json \
+  --reviewed-candidate data/outputs/visible-card-comparison/reviewed-box.json \
+  --crop-evaluation data/outputs/visible-card-comparison/crops.json \
+  --output data/outputs/visible-card-comparison/m3.json
+```
+
+The report contains fixed-threshold box AP, recall, false and duplicate proposals, empty-frame
+false-positive rate, source-lineage/side/card-count/failure-tag strata, latency, paired predictions,
+and crop-policy identity metrics. It records whether correction improved, harmed, or did not clearly
+change localization and identity. It does not select, lock, or promote a candidate. Session and
+table-setup strata require those fields in a future freeze; this command does not infer them from
+other fields.
 
 Materialize the bounded local visible-card detector dataset from an existing exact-event
 extraction and cached provider run artifacts. The output references source frames in place and
