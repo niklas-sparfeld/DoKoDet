@@ -112,6 +112,29 @@ class Settings(BaseSettings):
             "LOCAL_DEVICE",
         ),
     )
+    visible_card_identity_classifier: Literal["gemini", "local"] = Field(
+        default="gemini",
+        validation_alias=AliasChoices(
+            "VISIBLE_CARD_IDENTITY_CLASSIFIER",
+            "VISIBLE_CARD_IDENTITY_PROVIDER",
+        ),
+    )
+    visible_card_identity_bundle_path: Path | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "VISIBLE_CARD_IDENTITY_BUNDLE_PATH",
+            "LOCAL_VISIBLE_CARD_IDENTITY_BUNDLE_PATH",
+            "LOCAL_IDENTITY_BUNDLE_PATH",
+        ),
+    )
+    visible_card_identity_device: Literal["cpu", "mps"] | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "VISIBLE_CARD_IDENTITY_DEVICE",
+            "LOCAL_VISIBLE_CARD_IDENTITY_DEVICE",
+            "LOCAL_IDENTITY_DEVICE",
+        ),
+    )
     server_host: str = "0.0.0.0"
     server_port: int = 8_000
     bonjour_enabled: bool = True
@@ -138,6 +161,10 @@ class Settings(BaseSettings):
         self.pending_video_root = _resolve_path(self.pending_video_root, root)
         if self.visible_card_bundle_path is not None:
             self.visible_card_bundle_path = _resolve_path(self.visible_card_bundle_path, root)
+        if self.visible_card_identity_bundle_path is not None:
+            self.visible_card_identity_bundle_path = _resolve_path(
+                self.visible_card_identity_bundle_path, root
+            )
         return self
 
 

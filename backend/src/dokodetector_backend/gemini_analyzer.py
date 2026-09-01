@@ -5,6 +5,7 @@ from __future__ import annotations
 from table_evidence_analyzer import (
     CachedCardClassifier,
     CachedVisibleCardProvider,
+    DinoV3IdentityClassifier,
     GeminiCardClassifier,
     GeminiVisibleCardProvider,
     LocalVisibleCardProvider,
@@ -16,15 +17,14 @@ from dokodetector_backend.config import ConfigurationError, Settings
 
 
 def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
-    """Create the configured analyzer while retaining Gemini for card identity classification."""
-
-    if not settings.gemini_api_key:
-        raise ConfigurationError(
-            "GEMINI_API_KEY is required for the visible-card identity classifier in every mode."
-        )
+    """Create the analyzer with independent detector and identity selections."""
 
     cache_root = settings.evidence_root / "gemini-cache"
     if settings.visible_card_provider == "gemini":
+        if not settings.gemini_api_key:
+            raise ConfigurationError(
+                "GEMINI_API_KEY is required when VISIBLE_CARD_PROVIDER=gemini."
+            )
         visible_card_provider = GeminiVisibleCardProvider(
             api_key=settings.gemini_api_key,
             timeout_s=settings.gemini_timeout_seconds,
@@ -50,15 +50,40 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
             ) from error
 
     provider = CachedVisibleCardProvider(visible_card_provider, cache_root / "visible-cards")
-    classifier = CachedCardClassifier(
-        GeminiCardClassifier(
-            api_key=settings.gemini_api_key,
-            model=settings.gemini_model,
-            timeout_s=settings.gemini_timeout_seconds,
-            max_retries=settings.gemini_max_retries,
-        ),
-        cache_root / "card-classification",
-    )
+    if settings.visible_card_identity_classifier == "gemini":
+        if not settings.gemini_api_key:
+            raise ConfigurationError(
+                "GEMINI_API_KEY is required when VISIBLE_CARD_IDENTITY_CLASSIFIER=gemini."
+            )
+        classifier = CachedCardClassifier(
+            GeminiCardClassifier(
+                api_key=settings.gemini_api_key,
+                model=settings.gemini_model,
+                timeout_s=settings.gemini_timeout_seconds,
+                max_retries=settings.gemini_max_retries,
+            ),
+            cache_root / "card-classification",
+        )
+    else:
+        if settings.visible_card_identity_bundle_path is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_IDENTITY_BUNDLE_PATH is required when "
+                "VISIBLE_CARD_IDENTITY_CLASSIFIER=local."
+            )
+        if settings.visible_card_identity_device is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_IDENTITY_DEVICE must be set to cpu or mps when "
+                "VISIBLE_CARD_IDENTITY_CLASSIFIER=local."
+            )
+        try:
+            classifier = DinoV3IdentityClassifier(
+                settings.visible_card_identity_bundle_path,
+                device=settings.visible_card_identity_device,
+            )
+        except Exception as error:
+            raise ConfigurationError(
+                f"The local visible-card identity classifier could not start: {error}"
+            ) from error
     return VisibleCardTableAnalyzer(
         provider,
         classifier,

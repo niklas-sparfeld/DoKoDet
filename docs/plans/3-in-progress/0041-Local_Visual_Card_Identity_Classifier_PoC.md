@@ -21,7 +21,7 @@
 - **M0:** Complete — freeze the model, license, crop, target, and run contracts.
 - **M1:** Complete — train one local smoke classifier and preserve its run record.
 - **M2:** Complete — export and load one native local identity bundle.
-- **M3:** Not started — select the local classifier explicitly in the backend and run one proof.
+- **M3:** Complete — select the local classifier explicitly in the backend and run one proof.
 
 ## 1. Purpose
 
@@ -177,6 +177,16 @@ Acceptance:
 - one fixture analysis persists a schema-valid table observation with local bundle provenance;
 - one real crop reaches a terminal local result on the target Mac; and
 - the proof report records load and inference time without making latency or quality claims.
+
+Progress (2026-09-01): M3 is complete. Added independent detector and identity-classifier
+settings, with Gemini as the default for both. Local identity mode requires its own validated
+DINOv3 bundle and explicit CPU or MPS device, and local/local mode does not construct or require
+Gemini. Preserved the existing `VisibleCardTableAnalyzer` and worker persistence path, and added
+local bundle identity plus load and one-frame inference measurements to the observation diagnostics.
+Backend tests cover Gemini and local selection without network calls, a fixture analysis persists a
+schema-valid local observation, and a fixture crop reaches a terminal local result. The existing
+generated-bundle MPS test passes on the target Mac. The measurements remain proof records only;
+this epic makes no latency or quality claim.
 
 ## 5. Verification
 

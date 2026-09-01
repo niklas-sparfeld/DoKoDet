@@ -119,6 +119,7 @@ def test_factory_requires_the_gemini_api_key(tmp_path: Path) -> None:
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",
+        gemini_api_key=None,
     )
 
     with pytest.raises(ConfigurationError, match="GEMINI_API_KEY is required"):

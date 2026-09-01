@@ -63,11 +63,13 @@ uv run dokodetector-backend
 The default service listens on port `8000` and advertises `_dokodetector._tcp` with Bonjour for
 iOS local discovery. The startup log shows the advertised service type and endpoint. Do not use
 the direct `uvicorn` command for device discovery. It starts HTTP but does not advertise Bonjour.
-The normal server requires `GEMINI_API_KEY` for visual card identity classification in every mode.
-It does not fall back to the deterministic local analyzer. `VISIBLE_CARD_PROVIDER=gemini` is the
-default. Set `VISIBLE_CARD_PROVIDER=local`, `VISIBLE_CARD_BUNDLE_PATH`, and
-`VISIBLE_CARD_DEVICE=cpu` or `mps` to use a validated native detector bundle. Local mode does not
-change the Gemini identity classifier.
+The normal server uses Gemini for both visible-card detection and visual card identity by default.
+Set `VISIBLE_CARD_PROVIDER=local`, `VISIBLE_CARD_BUNDLE_PATH`, and `VISIBLE_CARD_DEVICE=cpu` or
+`mps` to use a validated native detector bundle. Set
+`VISIBLE_CARD_IDENTITY_CLASSIFIER=local`, `VISIBLE_CARD_IDENTITY_BUNDLE_PATH`, and
+`VISIBLE_CARD_IDENTITY_DEVICE=cpu` or `mps` to use the validated local DINOv3 identity bundle.
+The detector and identity settings are independent. A Gemini API key is required only when either
+selected component uses Gemini.
 
 ## Terminal logs
 
@@ -204,6 +206,9 @@ GEMINI_MAX_RETRIES=2
 VISIBLE_CARD_PROVIDER=gemini
 VISIBLE_CARD_BUNDLE_PATH=
 VISIBLE_CARD_DEVICE=
+VISIBLE_CARD_IDENTITY_CLASSIFIER=gemini
+VISIBLE_CARD_IDENTITY_BUNDLE_PATH=
+VISIBLE_CARD_IDENTITY_DEVICE=
 ```
 
 ## Round recording analysis
@@ -234,10 +239,13 @@ package list, duplicate or unknown packages, mixed sessions, mismatched recordin
 recording bundle that is not stored.
 
 The normal backend analyzer is the existing `VisibleCardTableAnalyzer`. It uses the configured
-visible-card provider for proposals and always uses Gemini for visual card identity classification.
-It uses the Gemini model and runtime settings above, and caches successful and unavailable responses
-below the runtime root. A provider or classifier failure produces an insufficient-evidence
-observation and the round analysis continues with the existing uncertain reconstruction semantics.
+visible-card provider for proposals and the independently configured identity classifier for visual
+card identity. Gemini uses the model and runtime settings above and caches successful and
+unavailable responses below the runtime root. A provider or classifier failure produces an
+insufficient-evidence observation and the round analysis continues with the existing uncertain
+reconstruction semantics. Local identity observations include the bundle identity, selected
+device, load time, and one-frame inference time. These are measurements for the proof only, not
+latency or quality claims.
 The local one-frame run record contains detector load and inference times. These values are a smoke
 measurement, not a latency or quality evaluation.
 

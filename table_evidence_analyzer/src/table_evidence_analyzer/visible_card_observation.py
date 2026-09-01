@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import math
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -196,6 +197,26 @@ def _classifier_calibration(classifier: CardIdentityClassifier) -> str:
     return calibration
 
 
+def _classifier_diagnostics(classifier: CardIdentityClassifier) -> dict[str, Any]:
+    """Return optional runtime provenance exposed by a local classifier."""
+
+    diagnostics: dict[str, Any] = {
+        "name": classifier.name,
+        "version": classifier.version,
+        "calibration": classifier.calibration,
+    }
+    device = getattr(classifier, "device", None)
+    if isinstance(device, str) and device:
+        diagnostics["device"] = device
+    bundle_identity = getattr(classifier, "bundle_identity", None)
+    if isinstance(bundle_identity, Mapping):
+        diagnostics["bundle_identity"] = dict(bundle_identity)
+    load_latency_ms = getattr(classifier, "load_latency_ms", None)
+    if isinstance(load_latency_ms, (int, float)) and math.isfinite(float(load_latency_ms)):
+        diagnostics["load_latency_ms"] = float(load_latency_ms)
+    return diagnostics
+
+
 def _diagnostics(
     request: VisibleCardRequest,
     result: ProviderResult,
@@ -204,6 +225,7 @@ def _diagnostics(
     actual_offset_ms: int,
     classified: list[dict[str, Any]],
     dropped: list[dict[str, Any]],
+    identity_inference_latency_ms: float,
     reason: str | None = None,
 ) -> dict[str, Any]:
     provider: dict[str, Any] = {
@@ -224,11 +246,7 @@ def _diagnostics(
         "prediction_schema_version": PREDICTION_SCHEMA_VERSION,
         "crop_schema_version": POLYGON_CROP_SCHEMA,
         "provider": provider,
-        "identity_classifier": {
-            "name": classifier.name,
-            "version": classifier.version,
-            "calibration": classifier.calibration,
-        },
+        "identity_classifier": _classifier_diagnostics(classifier),
         "frame_part_name": request.frame_part_name,
         "target_offset_ms": request.target_offset_ms,
         "actual_offset_ms": actual_offset_ms,
@@ -248,6 +266,16 @@ def _diagnostics(
                 "one_frame_inference_latency_ms": result.latency_ms,
                 "interpretation": "one-frame measurement; not a latency or quality evaluation",
             }
+    classifier_load_latency_ms = getattr(classifier, "load_latency_ms", None)
+    if isinstance(classifier_load_latency_ms, (int, float)) and math.isfinite(
+        float(classifier_load_latency_ms)
+    ):
+        diagnostics["identity_run_record"] = {
+            "classifier": classifier.name,
+            "load_latency_ms": float(classifier_load_latency_ms),
+            "one_frame_inference_latency_ms": round(identity_inference_latency_ms, 3),
+            "interpretation": "one-frame measurement; not a latency or quality evaluation",
+        }
     if reason is not None:
         diagnostics["reason"] = reason
     return diagnostics
@@ -278,6 +306,7 @@ def adapt_visible_card_result(
     cards: list[ObservedCard] = []
     classified: list[dict[str, Any]] = []
     dropped: list[dict[str, Any]] = []
+    identity_inference_latency_ms = 0.0
 
     if result.status == "ok":
         for proposal_index, proposal in enumerate(result.proposals):
@@ -289,6 +318,7 @@ def adapt_visible_card_result(
                     height=request.height,
                 )
                 classification = identity_classifier.classify_ppm(crop_bytes)
+                identity_inference_latency_ms += classification.latency_ms
                 if classification.status == "unavailable":
                     raise ObservationAdapterError(
                         classification.error or "identity classifier was unavailable"
@@ -354,6 +384,7 @@ def adapt_visible_card_result(
             actual_offset_ms=actual_offset_ms,
             classified=classified,
             dropped=dropped,
+            identity_inference_latency_ms=identity_inference_latency_ms,
             reason=reason,
         ),
     )
