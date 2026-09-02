@@ -194,6 +194,88 @@ describe("CardEventReviewPage", () => {
     );
   });
 
+  it("marks a fully watched draft complete from the bottom action bar", async () => {
+    const draft = {
+      ...review,
+      review_state: "draft" as const,
+      reviewer: null,
+      completed_at: null,
+      completed_version_id: null,
+      completed_version_digest: null,
+      completion_receipt_id: null,
+      reviewed_annotation_digest: null,
+      proposal_decision_digest: null,
+      full_video_acknowledged: false,
+    } satisfies CardEventReviewResource;
+    let completionPayload: Record<string, unknown> | null = null;
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      const url = String(input);
+      if (init?.method === "POST" && url.endsWith("/complete")) {
+        const payload = JSON.parse(String(init.body)) as Record<
+          string,
+          unknown
+        >;
+        completionPayload = payload;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              ...review,
+              reviewer: payload.reviewer,
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify(
+            url.includes("/card-event-reviews/") ? draft : emptyRecordingDetail,
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={draft.review_id} />);
+
+    const video = await screen.findByLabelText(
+      "Source recording recording-detail-1",
+    );
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 12.5,
+    });
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      value: 12.5,
+      writable: true,
+    });
+    fireEvent(video, new Event("loadedmetadata"));
+    fireEvent(video, new Event("timeupdate"));
+
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Reviewer" }), {
+      target: { value: "Niklas" },
+    });
+    const complete = screen.getByRole("button", {
+      name: "Mark review complete",
+    });
+    await waitFor(() => expect(complete).toBeEnabled());
+    fireEvent.click(complete);
+
+    await waitFor(() =>
+      expect(completionPayload).toMatchObject({
+        reviewer: "Niklas",
+        expected_revision: draft.draft_revision,
+        full_video_acknowledged: true,
+      }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Correct annotations" }),
+    ).toBeInTheDocument();
+  });
+
   it("queues keyboard decisions in order while projecting them immediately", async () => {
     const firstEvent = {
       ...review.events[0],

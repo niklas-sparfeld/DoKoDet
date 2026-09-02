@@ -6,7 +6,6 @@ import {
   type CardEvent,
   type CardEventCommandRequest,
   type CardEventReviewResource,
-  type CardEventReviewResourceUpdateRequest,
   type RecordingDetail,
 } from "../api/client";
 import { RecordingSection, recordingPagePath } from "../recordings";
@@ -554,6 +553,25 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   const dismissedCount = events.filter(
     (event) => event.state === "dismissed",
   ).length;
+  const canMarkReviewComplete =
+    isEditable &&
+    fullVideoReady &&
+    proposedCount === 0 &&
+    reviewerName.trim() !== "" &&
+    queueLength === 0 &&
+    saveState === "saved" &&
+    !completionBusy;
+  const completionRequirement = !fullVideoReady
+    ? "Watch or seek to the end of the recording before marking this review complete."
+    : proposedCount > 0
+      ? `${proposedCount} proposed event${proposedCount === 1 ? "" : "s"} still need a decision.`
+      : queueLength > 0 || saveState === "saving" || saveState === "retrying"
+        ? "Wait for the current timeline changes to save."
+        : saveState !== "saved"
+          ? "Resolve the timeline save problem before marking this review complete."
+          : reviewerName.trim() === ""
+            ? "Enter the reviewer name to mark this review complete."
+            : null;
   const timelineDuration = duration > 0 ? duration : 1;
 
   useEffect(() => {
@@ -631,46 +649,6 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
     setRemovedEvent(null);
   }, [enqueue, isEditable, nextCommandId, setLocalEvents, setSelected]);
 
-  const acknowledgeFullVideo = useCallback(
-    async (acknowledged: boolean) => {
-      const current = reviewRef.current;
-      if (
-        !isEditable ||
-        current === null ||
-        queueRef.current.length > 0 ||
-        processingRef.current
-      )
-        return;
-      const payload: CardEventReviewResourceUpdateRequest = {
-        annotation: annotationFromEvents(eventsRef.current, current.video),
-        proposals: proposalDecisionsFromEvents(eventsRef.current),
-        expected_revision: serverRevisionRef.current,
-        full_video_acknowledged: acknowledged,
-      };
-      const optimistic = { ...current, full_video_acknowledged: acknowledged };
-      setReview(optimistic);
-      reviewRef.current = optimistic;
-      setSaveState("saving");
-      try {
-        const saved = await client.updateCardEventReviewResource(
-          reviewId,
-          payload,
-        );
-        hydrate(saved);
-        setSaveState("saved");
-        setNotice(
-          acknowledged
-            ? "Full recording acknowledgement saved."
-            : "Full recording acknowledgement removed.",
-        );
-      } catch (reason: unknown) {
-        setSaveState(isConflictError(reason) ? "conflict" : "error");
-        setError(describeReviewPageError(reason));
-      }
-    },
-    [client, hydrate, isEditable, reviewId],
-  );
-
   const completeReview = useCallback(async () => {
     const current = reviewRef.current;
     if (
@@ -678,9 +656,10 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       current === null ||
       queueRef.current.length > 0 ||
       processingRef.current ||
-      !current.full_video_acknowledged ||
+      !fullVideoReady ||
       proposedCount > 0 ||
-      reviewerName.trim() === ""
+      reviewerName.trim() === "" ||
+      saveState !== "saved"
     )
       return;
     setCompletionBusy(true);
@@ -702,7 +681,16 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
     } finally {
       setCompletionBusy(false);
     }
-  }, [client, hydrate, isEditable, proposedCount, reviewId, reviewerName]);
+  }, [
+    client,
+    fullVideoReady,
+    hydrate,
+    isEditable,
+    proposedCount,
+    reviewId,
+    reviewerName,
+    saveState,
+  ]);
 
   const startRevision = useCallback(async () => {
     const current = reviewRef.current;
@@ -1732,26 +1720,10 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                 % watched
               </span>
             </div>
-            <label className={styles.cardEventAcknowledgement}>
-              <input
-                type="checkbox"
-                checked={review.full_video_acknowledged}
-                disabled={
-                  !fullVideoReady || queueLength > 0 || saveState === "conflict"
-                }
-                onChange={(input) =>
-                  void acknowledgeFullVideo(input.target.checked)
-                }
-              />
-              <span>
-                I reviewed the full recording and confirm that this timeline is
-                ready for completion.
-              </span>
-            </label>
-            {!fullVideoReady && !review.full_video_acknowledged ? (
+            {!fullVideoReady ? (
               <p className={styles.cardEventRequirement}>
-                Full-video acknowledgement becomes available after the player
-                reaches the end of the recording.
+                Watch or seek to the end of the recording before you mark this
+                review complete.
               </p>
             ) : null}
             {proposedCount > 0 ? (
@@ -1759,32 +1731,45 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                 Remaining proposed events: {proposedCount}.
               </p>
             ) : null}
-            <label className={styles.cardEventReviewer}>
-              Reviewer
-              <input
-                value={reviewerName}
-                onChange={(input) => setReviewerName(input.target.value)}
-                placeholder="Operator name"
-                aria-label="Reviewer"
-              />
-            </label>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={() => void completeReview()}
-              disabled={
-                completionBusy ||
-                queueLength > 0 ||
-                !review.full_video_acknowledged ||
-                proposedCount > 0 ||
-                reviewerName.trim() === ""
-              }
-            >
-              Complete full recording review
-            </button>
           </section>
         )}
       </section>
+
+      {!isCompleted ? (
+        <section
+          className={styles.cardEventCompletionBar}
+          aria-label="Mark review complete"
+        >
+          <div>
+            <p className={styles.statusLabel}>Review completion</p>
+            <strong>Mark this timeline as complete</strong>
+            {completionRequirement !== null ? (
+              <p className={styles.cardEventCompletionRequirement}>
+                {completionRequirement}
+              </p>
+            ) : null}
+          </div>
+          <label className={styles.cardEventCompletionReviewer}>
+            Reviewer
+            <input
+              value={reviewerName}
+              onChange={(input) => setReviewerName(input.target.value)}
+              placeholder="Your name"
+              aria-label="Reviewer"
+            />
+          </label>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={() => void completeReview()}
+            disabled={!canMarkReviewComplete}
+          >
+            {completionBusy
+              ? "Marking review complete…"
+              : "Mark review complete"}
+          </button>
+        </section>
+      ) : null}
 
       {notice !== null ? (
         <p className={styles.recordingNotice} role="status">
@@ -1877,42 +1862,6 @@ function clampTime(value: number, duration = Number.POSITIVE_INFINITY): number {
   return Math.max(
     0,
     Math.min(duration > 0 ? duration : Number.POSITIVE_INFINITY, value),
-  );
-}
-function annotationFromEvents(
-  events: EditableEvent[],
-  video: string,
-): Record<string, unknown> {
-  return {
-    schema_version: "cardevent-annotation/v2",
-    video,
-    events: events
-      .filter((event) => event.state === "reviewed")
-      .map((event) => ({
-        time_s: event.effective_time_s,
-        type: event.type,
-        ...(event.confidence === null ? {} : { confidence: event.confidence }),
-        ...(event.notes === null ? {} : { notes: event.notes }),
-      })),
-  };
-}
-function proposalDecisionsFromEvents(
-  events: EditableEvent[],
-): CardEventReviewResourceUpdateRequest["proposals"] {
-  return events.flatMap((event) =>
-    event.proposal === null
-      ? []
-      : [
-          {
-            proposal_id: event.proposal.proposal_id,
-            decision:
-              event.state === "dismissed"
-                ? ("dismissed" as const)
-                : event.state === "reviewed"
-                  ? ("accepted" as const)
-                  : ("undecided" as const),
-          },
-        ],
   );
 }
 function describeCommand(command: PendingCommand | undefined): string {

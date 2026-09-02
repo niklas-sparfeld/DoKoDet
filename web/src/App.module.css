@@ -3447,6 +3447,69 @@ progress {
   background: color-mix(in srgb, var(--surface) 45%, var(--panel));
 }
 
+.cardEventReviewPage {
+  padding-bottom: 8rem;
+}
+
+.cardEventCompletionBar {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  bottom: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 15rem) auto;
+  align-items: end;
+  gap: 1rem;
+  width: min(calc(100% - 2rem), 72rem);
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--panel) 96%, var(--accent));
+  box-shadow: 0 1rem 2.5rem rgb(77 56 36 / 18%);
+  color: var(--ink);
+  transform: translateX(-50%);
+  backdrop-filter: blur(0.7rem);
+}
+
+.cardEventCompletionBar .statusLabel {
+  margin: 0;
+  color: var(--accent);
+}
+
+.cardEventCompletionBar strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.9rem;
+}
+
+.cardEventCompletionRequirement {
+  margin: 0.3rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.cardEventCompletionReviewer {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.cardEventCompletionReviewer input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.45rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
 .cardEventReviewPanel h3 {
   margin: 0.3rem 0 0;
   color: var(--ink);
@@ -3970,6 +4033,24 @@ progress {
 }
 
 @media (max-width: 600px) {
+  .cardEventReviewPage {
+    padding-bottom: 14rem;
+  }
+
+  .cardEventCompletionBar {
+    right: 0.5rem;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+    width: auto;
+    transform: none;
+  }
+
+  .cardEventCompletionBar .primaryButton {
+    width: 100%;
+  }
+
   .cardEventToolbar,
   .cardEventTimelineHeader {
     align-items: start;
