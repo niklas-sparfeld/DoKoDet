@@ -15,15 +15,9 @@ from test_round_analysis_api import (
 )
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.repository import (
-    RoundAnalysisRepository,
-    StoredRoundAnalysis,
-    create_database_engine,
-    upgrade_database,
-)
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
-
-BACKEND_ROOT = Path(__file__).parents[1]
+from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
+from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 
 
 def _events(caplog, event_name: str) -> list[logging.LogRecord]:
@@ -180,7 +174,6 @@ def test_failed_analysis_logs_error_traceback_and_safe_terminal_fields(
 def test_startup_recovery_logs_a_warning_for_interrupted_analysis(caplog, tmp_path: Path) -> None:
     caplog.set_level(logging.DEBUG, logger="dokodetector_backend")
     database_url = f"sqlite:///{tmp_path / 'backend.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     request = RoundAnalysisCreateRequest.model_validate(
         {
             "analysis_id": "00000000-0000-0000-0000-000000000032",
@@ -204,14 +197,15 @@ def test_startup_recovery_logs_a_warning_for_interrupted_analysis(caplog, tmp_pa
             },
         }
     )
-    repository = RoundAnalysisRepository(create_database_engine(database_url))
-    repository.insert(StoredRoundAnalysis.from_request(request))
+    runtime_root = tmp_path / "runtime"
+    store = RoundAnalysisStore(RoundAnalysisArtifactStorage(runtime_root))
+    store.create(request)
 
     create_test_app(
         Settings(
             _env_file=None,
             database_url=database_url,
-            evidence_root=tmp_path / "runtime",
+            evidence_root=runtime_root,
             repository_intake_root=tmp_path / "recordings",
             evidence_package_intake_root=tmp_path / "evidence-packages",
         )

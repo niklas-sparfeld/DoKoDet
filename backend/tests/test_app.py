@@ -12,12 +12,11 @@ from dokodetector_backend.app import create_app
 from dokodetector_backend.config import ConfigurationError, Settings
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.repository import (
-    RoundAnalysisRepository,
-    StoredRoundAnalysis,
-    create_database_engine,
     upgrade_database,
 )
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
+from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
+from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 
 BACKEND_ROOT = Path(__file__).parents[1]
 
@@ -201,20 +200,21 @@ def test_factory_converts_interrupted_round_analysis_to_failed(tmp_path: Path) -
             },
         }
     )
-    repository = RoundAnalysisRepository(create_database_engine(database_url))
-    repository.insert(StoredRoundAnalysis.from_request(request))
+    runtime_root = tmp_path / "runtime"
+    round_analysis_store = RoundAnalysisStore(RoundAnalysisArtifactStorage(runtime_root))
+    round_analysis_store.create(request)
 
     app = create_test_app(
         Settings(
             _env_file=None,
             database_url=database_url,
-            evidence_root=tmp_path / "runtime",
+            evidence_root=runtime_root,
             repository_intake_root=tmp_path / "recordings",
             evidence_package_intake_root=tmp_path / "evidence-packages",
         )
     )
 
-    stored = app.state.round_analysis_repository.get(request.analysis_id)
+    stored = app.state.round_analysis_store.get(request.analysis_id)
     assert stored is not None
     assert stored.state == "failed"
     assert stored.error == "The analysis did not finish before the backend restarted."

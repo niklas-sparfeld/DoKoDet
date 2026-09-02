@@ -13,7 +13,7 @@ SQL read or write. The SQL model is not a second source of truth after the store
 | Evidence package | `data/intake/evidence-packages/<package_id>/` | `manifest.json` (`evidence-package-bundle/v1`) | Immutable after commit |
 | Operations data | `data/operations/` and its concrete store subdirectories | Each concrete store's `state.json` or named JSON document | Mutable or immutable per store |
 | Table observation | `.runtime/table-observations/<observation_id>/` | `observation.json` (`table-observation/v1`) | Immutable after commit |
-| Round analysis | `.runtime/round-analyses/<analysis_id>/` | `state.json` (new in M3) | State mutable; `input.json` and `result.json` immutable |
+| Round analysis | `.runtime/round-analyses/<analysis_id>/` | `state.json` (`round-analysis-state/v1`) | State mutable; `input.json` and `result.json` immutable |
 
 The backend resolves IDs below the configured root, validates the complete resource, and only then
 returns it from a catalog. A directory with a staging prefix, a symlink, missing members, invalid
@@ -49,7 +49,7 @@ remain in `package-record.json`, `initial-task-enrollment.json`, and `lineage.js
 | `sha256` | Frame entry `sha256`, verified against `frames/<part_name>.jpg` |
 | `relative_path` | Canonical `frames/<part_name>.jpg` path |
 
-Current SQL reads and consumers:
+Former SQL reads and consumers:
 
 | SQL query behavior | Backend consumers |
 | --- | --- |
@@ -148,7 +148,7 @@ Current filesystem store consumers:
 The `repository_bundles` SQL table remains only as an untouched migration artifact until M4 removes
 the SQL stack. Runtime recording reads and writes no longer use it.
 
-### `round_analyses` (`0005_round_analyses`)
+### `round_analyses` (`0005_round_analyses`, replaced by M3)
 
 Canonical owner: `.runtime/round-analyses/<analysis_id>/`. Immutable `input.json` and `result.json` artifact
 members remain in the directory. M3 adds the mutable validated `state.json` as the lifecycle
@@ -159,13 +159,13 @@ summary and complete replacement for this table.
 | `analysis_id`, `recording_id`, `round_id`, `session_id` | `state.json` identity and request fields |
 | `request_json`, `request_sha256` | Canonical request copy and digest in `state.json` or its immutable input artifact |
 | `state`, `total_evidence_packages`, `completed_evidence_packages` | Mutable `state.json` lifecycle fields |
-| `result_status`, `result_json` | Validated `state.json` terminal projection and immutable `result/result.json` |
+| `result_status`, `result_json` | Validated `state.json` terminal projection and immutable `result.json` |
 | `error` | Mutable `state.json` terminal failure field |
 | `input_artifact_id`, `input_artifact_sha256` | `state.json` reference to immutable input artifact |
 | `result_artifact_id`, `result_artifact_sha256` | `state.json` reference to immutable result artifact |
 | `created_at`, `started_at`, `completed_at` | UTC timestamps in `state.json` |
 
-Current SQL reads and consumers:
+Former SQL reads and consumers:
 
 - `get()` serves round-analysis API status, timeline, counterfactual validation, and worker state
   checks.
@@ -173,6 +173,13 @@ Current SQL reads and consumers:
 - `create()`/`insert()` serve the round-analysis API and idempotent request replay.
 - `update_progress()`, `mark_complete()`, and `mark_failed()` serve the analysis worker.
 - `fail_non_terminal()` runs during app startup to preserve the restart failure rule.
+
+Filesystem consumers after M3:
+
+- `RoundAnalysisStore` owns `state.json` creation, validation, idempotent replay, lifecycle
+  transitions, recording lookup, artifact-gated completion, and restart recovery.
+- `RoundAnalysisService`, the round-analysis API, recording detail, and recording catalogs read
+  analysis state from `RoundAnalysisStore`. No round-analysis API path reads the SQL repository.
 
 M2 filesystem consumers:
 

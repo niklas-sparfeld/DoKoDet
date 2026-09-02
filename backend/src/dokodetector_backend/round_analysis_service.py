@@ -40,8 +40,6 @@ from dokodetector_backend.recording_bundle_store import (
     StoredRecordingBundle,
 )
 from dokodetector_backend.repository import (
-    RoundAnalysisNotFound,
-    RoundAnalysisRepository,
     StoredPackage,
     StoredRoundAnalysis,
     StoredTableObservation,
@@ -60,6 +58,10 @@ from dokodetector_backend.round_analysis_storage import (
     RoundAnalysisArtifactStorage,
     StoredCounterfactualArtifacts,
     StoredCounterfactualContents,
+)
+from dokodetector_backend.round_analysis_store import (
+    RoundAnalysisNotFound,
+    RoundAnalysisStore,
 )
 from dokodetector_backend.round_analysis_timeline import (
     RoundAnalysisTimeline,
@@ -122,7 +124,7 @@ class RoundAnalysisService:
 
     def __init__(
         self,
-        repository: RoundAnalysisRepository,
+        store: RoundAnalysisStore,
         package_store: EvidencePackageStore,
         observation_store: TableObservationStore,
         artifact_storage: RoundAnalysisArtifactStorage,
@@ -130,7 +132,7 @@ class RoundAnalysisService:
         repository_bundle_storage: RepositoryBundleStorage,
         analyzer: TableEvidenceAnalyzer,
     ) -> None:
-        self.repository = repository
+        self.store = store
         self.package_store = package_store
         self.observation_store = observation_store
         self.package_storage = package_store.storage
@@ -215,7 +217,7 @@ class RoundAnalysisService:
                 for package in packages_by_recording.get(recording.recording_id, ())
                 if str(package.session_id) == recording.session_id
             )
-            analyses = self.repository.list_by_recording(recording.recording_id)
+            analyses = self.store.list_by_recording(recording.recording_id)
             try:
                 _, _, round_id = self._analysis_identifiers(recording)
                 blocker = None if packages else "No linked evidence packages are available."
@@ -350,7 +352,7 @@ class RoundAnalysisService:
                 self._queue.task_done()
 
     def _run_one(self, analysis_id: UUID, request_id: str) -> None:
-        analysis = self.repository.get(analysis_id)
+        analysis = self.store.get(analysis_id)
         if analysis is None or analysis.state in {"complete", "failed"}:
             return
         try:
@@ -367,7 +369,7 @@ class RoundAnalysisService:
                 recording_id=selected.request.recording_id,
                 package_count=len(selected.packages),
             )
-            updated = self.repository.update_progress(
+            updated = self.store.update_progress(
                 analysis_id,
                 state="analyzing_evidence",
                 completed=0,
@@ -401,13 +403,13 @@ class RoundAnalysisService:
                     analyzer_version=observation.analyzer_version,
                     analysis_status=observation.status,
                 )
-                analysis = self.repository.update_progress(
+                analysis = self.store.update_progress(
                     analysis_id,
                     state="analyzing_evidence",
                     completed=index,
                 )
 
-            updated = self.repository.update_progress(
+            updated = self.store.update_progress(
                 analysis_id,
                 state="reconstructing",
                 completed=len(observations),
@@ -448,7 +450,7 @@ class RoundAnalysisService:
                 result_byte_length=published.result.byte_length,
                 result_sha256=published.result.sha256,
             )
-            completed = self.repository.mark_complete(
+            completed = self.store.mark_complete(
                 analysis_id,
                 result_status=result.status,
                 result_json=artifacts[1].decode("utf-8"),
@@ -468,7 +470,7 @@ class RoundAnalysisService:
         except Exception as error:
             failure_info = _exception_info(error)
             try:
-                failed = self.repository.mark_failed(analysis_id, ANALYSIS_WORKER_FAILURE)
+                failed = self.store.mark_failed(analysis_id, ANALYSIS_WORKER_FAILURE)
             except (RoundAnalysisNotFound, ValueError) as persistence_error:
                 log_event(
                     LOGGER,
@@ -523,7 +525,7 @@ class RoundAnalysisService:
     def status(self, analysis_id: UUID) -> RoundAnalysisStatus:
         """Convert one durable row to the public status document."""
 
-        analysis = self.repository.get(analysis_id)
+        analysis = self.store.get(analysis_id)
         if analysis is None:
             raise RoundAnalysisNotFound("The round analysis was not found.")
         result = self._result_from_analysis(analysis)
@@ -545,7 +547,7 @@ class RoundAnalysisService:
     def timeline(self, analysis_id: UUID) -> RoundAnalysisTimeline:
         """Return the verified immutable timeline for one completed analysis."""
 
-        analysis = self.repository.get(analysis_id)
+        analysis = self.store.get(analysis_id)
         if analysis is None:
             raise RoundAnalysisNotFound("The round analysis was not found.")
         return self.timeline_projector.project(analysis)
@@ -553,7 +555,7 @@ class RoundAnalysisService:
     def frame(self, analysis_id: UUID, package_id: UUID, part_name: str) -> TimelineFrameFile:
         """Return one verified frame owned by one completed analysis."""
 
-        analysis = self.repository.get(analysis_id)
+        analysis = self.store.get(analysis_id)
         if analysis is None:
             raise RoundAnalysisNotFound("The round analysis was not found.")
         return self.timeline_projector.frame(analysis, package_id, part_name)
@@ -641,7 +643,7 @@ class RoundAnalysisService:
         return self._counterfactual_from_contents(contents)
 
     def _load_verified_source(self, analysis_id: UUID):
-        analysis = self.repository.get(analysis_id)
+        analysis = self.store.get(analysis_id)
         if analysis is None:
             raise RoundAnalysisNotFound("The round analysis was not found.")
         verified = self.timeline_projector.load_verified_artifacts(analysis)

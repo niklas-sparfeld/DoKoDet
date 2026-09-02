@@ -20,7 +20,7 @@
 - **M0:** Complete — freeze the filesystem ownership and store rules.
 - **M1:** Complete — replace the recording-bundle SQL index with filesystem reads.
 - **M2:** Complete — replace evidence-package and table-observation SQL metadata.
-- **M3:** Not started — replace round-analysis SQL lifecycle state.
+- **M3:** Complete — replace round-analysis SQL lifecycle state with validated filesystem state documents.
 - **M4:** Not started — remove the SQL stack and prove filesystem-only recovery.
 
 ## 1. Purpose

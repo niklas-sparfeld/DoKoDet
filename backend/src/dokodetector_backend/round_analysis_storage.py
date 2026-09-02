@@ -88,14 +88,24 @@ class RoundAnalysisArtifactStorage:
         input_bytes: bytes,
         result_bytes: bytes,
     ) -> StoredRoundAnalysisArtifacts:
-        """Atomically publish exact input and result bytes as one directory."""
+        """Stage exact input and result bytes below one analysis directory."""
 
         analysis_uuid = UUID(str(analysis_id))
         if not isinstance(input_bytes, bytes) or not isinstance(result_bytes, bytes):
             raise TypeError("analysis artifact contents must be bytes.")
         destination = self.analysis_path(analysis_uuid)
         if destination.exists() or destination.is_symlink():
-            raise FileExistsError(f"analysis artifact directory already exists: {destination}")
+            if destination.is_symlink() or not destination.is_dir():
+                raise FileExistsError(f"analysis artifact directory already exists: {destination}")
+            state_path = destination / "state.json"
+            if state_path.is_symlink() or not state_path.is_file():
+                raise FileExistsError(f"analysis artifact directory already exists: {destination}")
+            return self._publish_into_existing_directory(
+                analysis_uuid,
+                destination,
+                input_bytes,
+                result_bytes,
+            )
 
         staging: Path | None = None
         try:
@@ -120,6 +130,53 @@ class RoundAnalysisArtifactStorage:
             ),
             result=StoredRoundAnalysisArtifact(
                 relative_path=f"round-analyses/{analysis_uuid}/result.json",
+                byte_length=result_file[0],
+                sha256=result_file[1],
+            ),
+        )
+
+    def _publish_into_existing_directory(
+        self,
+        analysis_id: UUID,
+        destination: Path,
+        input_bytes: bytes,
+        result_bytes: bytes,
+    ) -> StoredRoundAnalysisArtifacts:
+        """Publish immutable artifacts below an already-created state directory."""
+
+        input_path = destination / "input.json"
+        result_path = destination / "result.json"
+        if (
+            input_path.exists()
+            or input_path.is_symlink()
+            or result_path.exists()
+            or result_path.is_symlink()
+        ):
+            raise FileExistsError(f"analysis artifacts already exist: {destination}")
+
+        staging: Path | None = None
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+            staging = Path(tempfile.mkdtemp(prefix=f".{analysis_id}-", dir=self.root))
+            input_file = self._write(staging / "input.json", input_bytes)
+            result_file = self._write(staging / "result.json", result_bytes)
+            self._rename(staging / "input.json", input_path)
+            self._rename(staging / "result.json", result_path)
+            staging.rmdir()
+            staging = None
+        finally:
+            if staging is not None:
+                shutil.rmtree(staging, ignore_errors=True)
+
+        return StoredRoundAnalysisArtifacts(
+            analysis_id=analysis_id,
+            input=StoredRoundAnalysisArtifact(
+                relative_path=f"round-analyses/{analysis_id}/input.json",
+                byte_length=input_file[0],
+                sha256=input_file[1],
+            ),
+            result=StoredRoundAnalysisArtifact(
+                relative_path=f"round-analyses/{analysis_id}/result.json",
                 byte_length=result_file[0],
                 sha256=result_file[1],
             ),

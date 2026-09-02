@@ -37,7 +37,6 @@ from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository import (
     EvidenceRepository,
-    RoundAnalysisRepository,
     create_database_engine,
     upgrade_database,
 )
@@ -46,6 +45,7 @@ from dokodetector_backend.repository_bundle_storage import RepositoryBundleStora
 from dokodetector_backend.round_analysis_api import router as round_analysis_router
 from dokodetector_backend.round_analysis_service import RoundAnalysisService
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
+from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.table_observation_store import TableObservationStore
 from dokodetector_backend.visible_card_review_api import router as visible_card_review_router
@@ -94,9 +94,9 @@ def create_app(
     app.state.settings = app_settings
     app.state.engine = create_database_engine(app_settings.database_url)
     app.state.repository = EvidenceRepository(app.state.engine)
-    app.state.round_analysis_repository = RoundAnalysisRepository(app.state.engine)
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
     app.state.round_analysis_storage = RoundAnalysisArtifactStorage(app_settings.evidence_root)
+    app.state.round_analysis_store = RoundAnalysisStore(app.state.round_analysis_storage)
     app.state.evidence_package_storage = EvidencePackageStorage(
         app_settings.evidence_package_intake_root
     )
@@ -132,7 +132,7 @@ def create_app(
     )
     app.state.identity_review_batch_tasks = {}
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
-    recovered_analysis_count = app.state.round_analysis_repository.fail_non_terminal()
+    recovered_analysis_count = app.state.round_analysis_store.fail_non_terminal()
     log_event(
         LOGGER,
         logging.DEBUG,
@@ -148,7 +148,7 @@ def create_app(
             reason="backend_restarted",
         )
     app.state.round_analysis_service = RoundAnalysisService(
-        app.state.round_analysis_repository,
+        app.state.round_analysis_store,
         app.state.evidence_package_store,
         app.state.table_observation_store,
         app.state.round_analysis_storage,

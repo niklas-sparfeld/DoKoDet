@@ -14,8 +14,6 @@ from pydantic import ValidationError
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.repository import (
-    RoundAnalysisConflict,
-    RoundAnalysisNotFound,
     StoredRoundAnalysis,
 )
 from dokodetector_backend.round_analysis_contract import (
@@ -34,6 +32,10 @@ from dokodetector_backend.round_analysis_service import (
     RoundCounterfactualConflict,
     RoundCounterfactualIntegrityError,
     RoundCounterfactualNotFound,
+)
+from dokodetector_backend.round_analysis_store import (
+    RoundAnalysisConflict,
+    RoundAnalysisNotFound,
 )
 from dokodetector_backend.round_analysis_timeline import (
     FRAME_PART_PATTERN,
@@ -184,7 +186,7 @@ async def _queue_round_analysis(
     """Validate and queue one analysis request from any API entry point."""
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
-    existing = service.repository.get(payload.analysis_id)
+    existing = service.store.get(payload.analysis_id)
     if existing is not None:
         if existing.request_sha256 != canonical_analysis_request_sha256(
             payload
@@ -197,7 +199,7 @@ async def _queue_round_analysis(
         return service.status(payload.analysis_id)
     try:
         service.validate_request(payload)
-        created = service.repository.create(payload)
+        created = service.store.create(payload)
     except RoundAnalysisValidationError as error:
         raise ContractError("invalid_analysis_request", str(error), status_code=422) from error
     except RoundAnalysisConflict as error:
