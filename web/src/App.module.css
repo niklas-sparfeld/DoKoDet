@@ -1860,6 +1860,48 @@ progress {
   opacity: 0.62;
 }
 
+.cardEventReviewTable tbody tr[data-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.cardEventTableSelect {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.cardEventCommandActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.cardEventCommandActions .secondaryButton {
+  min-height: 2rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.68rem;
+}
+
+.shortcutLabel {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.cardEventMarker[data-state="proposed"] {
+  background: #705493;
+}
+
+.cardEventMarker[data-state="dismissed"] {
+  background: #8b2e1d;
+  opacity: 0.65;
+}
+
 @media (max-width: 600px) {
   .recordingsHeader,
   .recordingCardHeader,

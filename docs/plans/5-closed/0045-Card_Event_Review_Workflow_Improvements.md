@@ -4,7 +4,8 @@
 
 - **Summary:** Make CardEvent review wide, fast, keyboard-efficient, and explicit about proposal
   lineage and review history.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** Plan 0039 M0 through M4 complete
 - **Builds on:** Plan 0039 recording, CardEvent annotation, review, and development-partition
   contracts
@@ -12,7 +13,9 @@
 - **Outcome:** An operator can start or continue a named CardEvent review from a recording, process
   one time-ordered event stream with a fast next-and-accept loop, publish it, and see every draft
   and completed review on the recording page. M4 adds the recording review collection, stable
-  direct-load review pages, read-only completed history, and responsive route coverage.
+  direct-load review pages, read-only completed history, and responsive route coverage. M5 adds
+  the optimistic ordered command queue, unified timeline controls, retry and conflict recovery,
+  and keyboard and pointer review-loop coverage.
 - **Reviewed:** 2026-09-02 against the current React editor, generated API client, FastAPI review
   routes, `doko-operations` review store, and recording detail layout.
 
@@ -24,7 +27,8 @@
 - **M3:** Complete — cache verified source context and meet the local review latency budget.
 - **M4:** Complete — move CardEvent review work to stable recording-owned pages and show draft,
   completed, and revision lineage.
-- **M5:** Not started — deliver the optimistic, unified, shortcut-driven review loop.
+- **M5:** Complete — deliver the optimistic, unified, shortcut-driven review loop with ordered
+  command persistence, retry and conflict recovery, and keyboard and pointer coverage.
 
 ## 1. Purpose
 

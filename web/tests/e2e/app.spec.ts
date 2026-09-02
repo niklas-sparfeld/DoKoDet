@@ -567,6 +567,98 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.route("**/v1/card-event-reviews/**", async (route) => {
+    const request = route.request();
+    const url = request.url();
+    if (request.method() === "PATCH" && url.includes("/events/")) {
+      const payload = request.postDataJSON() as {
+        action: string;
+        effective_time_s?: number;
+      };
+      const eventId = decodeURIComponent(url.split("/").pop() ?? "");
+      const event = cardEventReview.events.find(
+        (candidate) => candidate.event_id === eventId,
+      );
+      if (event === undefined) {
+        await route.fulfill({ status: 404, body: "Not found" });
+        return;
+      }
+      const changedEvent = {
+        ...event,
+        ...(payload.action === "accept"
+          ? { state: "reviewed", confidence: "confirmed" }
+          : payload.action === "dismiss"
+            ? { state: "dismissed", confidence: "ignore" }
+            : payload.action === "undo"
+              ? { state: "proposed", confidence: "proposed" }
+              : payload.action === "retime"
+                ? { effective_time_s: payload.effective_time_s }
+                : {}),
+      };
+      cardEventReview = {
+        ...cardEventReview,
+        draft_revision: cardEventReview.draft_revision + 1,
+        events: cardEventReview.events.map((candidate) =>
+          candidate.event_id === eventId ? changedEvent : candidate,
+        ),
+      };
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          schema_version: "cardevent-review-event/v1",
+          review_id: cardEventReview.review_id,
+          draft_revision: cardEventReview.draft_revision,
+          changed_event: changedEvent,
+          event_counts: {
+            reviewed: cardEventReview.events.filter(
+              (candidate) => candidate.state === "reviewed",
+            ).length,
+            proposed: cardEventReview.events.filter(
+              (candidate) => candidate.state === "proposed",
+            ).length,
+            dismissed: cardEventReview.events.filter(
+              (candidate) => candidate.state === "dismissed",
+            ).length,
+          },
+          completion_blockers: [],
+        }),
+      });
+      return;
+    }
+    if (request.method() === "POST" && url.endsWith("/events")) {
+      const payload = request.postDataJSON() as {
+        effective_time_s: number;
+        type: string;
+        confidence: string;
+        notes: string | null;
+      };
+      const changedEvent = {
+        event_id: `cardevent-event-manual-${cardEventReview.draft_revision + 1}`,
+        effective_time_s: payload.effective_time_s,
+        type: payload.type,
+        confidence: payload.confidence,
+        notes: payload.notes,
+        state: "reviewed",
+        origin: "manual",
+        proposal: null,
+      };
+      cardEventReview = {
+        ...cardEventReview,
+        draft_revision: cardEventReview.draft_revision + 1,
+        events: [...cardEventReview.events, changedEvent],
+      };
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          schema_version: "cardevent-review-event/v1",
+          review_id: cardEventReview.review_id,
+          draft_revision: cardEventReview.draft_revision,
+          changed_event: changedEvent,
+          event_counts: { reviewed: 1, proposed: 2, dismissed: 0 },
+          completion_blockers: ["proposed_events"],
+        }),
+      });
+      return;
+    }
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify(cardEventReview),
@@ -668,6 +760,114 @@ test("lists and opens a CardEvent review from the recording page", async ({
         document.documentElement.clientWidth,
     ),
   ).toBe(false);
+});
+
+test("runs twenty queued CardEvent decisions without waiting between inputs", async ({
+  page,
+}) => {
+  const events = Array.from({ length: 20 }, (_, index) => ({
+    event_id: `cardevent-event-${index + 1}`,
+    effective_time_s: (index + 1) * 0.5,
+    type: "card_played",
+    confidence: "proposed",
+    notes: null,
+    state: "proposed",
+    origin: "model",
+    proposal: {
+      proposal_id: `proposal-${index + 1}`,
+      proposal_generator_run_id: `run-${index + 1}`,
+      proposal_time_s: (index + 1) * 0.5,
+      probability: 0.9,
+      model_bundle_id: "model-card-events",
+      execution_platform: "local",
+    },
+  }));
+  let current = cardEventReviewResourceResponse(events);
+  const commands: Array<{ action: string; expected_revision: number }> = [];
+  await page.route("**/v1/card-event-reviews/**", async (route) => {
+    const request = route.request();
+    const url = request.url();
+    if (request.method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(current),
+      });
+      return;
+    }
+    const payload = request.postDataJSON() as {
+      action: string;
+      expected_revision: number;
+    };
+    const eventId = decodeURIComponent(url.split("/").pop() ?? "");
+    const changedEvent = {
+      ...current.events.find((event) => event.event_id === eventId)!,
+      state: payload.action === "accept" ? "reviewed" : "dismissed",
+      confidence: payload.action === "accept" ? "confirmed" : "ignore",
+    };
+    commands.push({
+      action: payload.action,
+      expected_revision: payload.expected_revision,
+    });
+    current = {
+      ...current,
+      draft_revision: current.draft_revision + 1,
+      events: current.events.map((event) =>
+        event.event_id === eventId ? changedEvent : event,
+      ),
+    };
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        schema_version: "cardevent-review-event/v1",
+        review_id: current.review_id,
+        draft_revision: current.draft_revision,
+        changed_event: changedEvent,
+        event_counts: { reviewed: 20, proposed: 0, dismissed: 0 },
+        completion_blockers: [],
+      }),
+    });
+  });
+
+  await page.goto(`/card-event-reviews/${current.review_id}`);
+  await expect(
+    page.getByRole("heading", { name: "Draft review" }),
+  ).toBeVisible();
+  for (let index = 0; index < 20; index += 1) {
+    await page.keyboard.press("Alt+ArrowRight");
+    await page.keyboard.press(index % 2 === 0 ? "A" : "D");
+  }
+  await expect(page.getByText("20 queued")).not.toBeVisible();
+  await expect.poll(() => commands.length).toBe(20);
+  expect(commands).toEqual(
+    Array.from({ length: 20 }, (_, index) => ({
+      action: index % 2 === 0 ? "accept" : "dismiss",
+      expected_revision: index,
+    })),
+  );
+  await expect(page.getByText("Saved").first()).toBeVisible();
+});
+
+test("keeps the unified CardEvent controls usable with pointer input", async ({
+  page,
+}) => {
+  await page.goto("/card-event-reviews/cardevent-review-1");
+  await expect(
+    page.getByRole("heading", { name: "Draft review" }),
+  ).toBeVisible();
+  const rows = page.locator("tbody tr");
+  await rows
+    .nth(0)
+    .getByRole("button", { name: /Accept/ })
+    .click();
+  await rows
+    .nth(1)
+    .getByRole("button", { name: /Dismiss/ })
+    .click();
+  await expect(page.getByText("Reviewed").last()).toBeVisible();
+  await expect(page.getByText("Dismissed").last()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Nudge \+1 frame/ }),
+  ).toBeVisible();
 });
 
 test("shows completed reviews and their draft revisions on the recording page", async ({

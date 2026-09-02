@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import type { CardEventReviewResource } from "../api/client";
 import { emptyRecordingDetail } from "../test/roundAnalysisFixture";
@@ -114,5 +114,111 @@ describe("CardEventReviewPage", () => {
       "/v1/recordings/recording-detail-1",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+  });
+
+  it("queues keyboard decisions in order while projecting them immediately", async () => {
+    const firstEvent = {
+      ...review.events[0],
+      event_id: "cardevent-event-proposed-1",
+      effective_time_s: 1.25,
+      confidence: "proposed" as const,
+      state: "proposed" as const,
+      origin: "model" as const,
+      proposal: {
+        proposal_id: "proposal-1",
+        proposal_generator_run_id: "run-1",
+        proposal_time_s: 1.25,
+        probability: 0.8,
+        model_bundle_id: "model-1",
+        execution_platform: "local",
+      },
+    };
+    const secondEvent = {
+      ...firstEvent,
+      event_id: "cardevent-event-proposed-2",
+      effective_time_s: 3,
+      proposal: { ...firstEvent.proposal, proposal_id: "proposal-2" },
+    };
+    let revision = 0;
+    const commands: Array<{ action: string; expected_revision: number }> = [];
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const method = init?.method ?? "GET";
+      const url = String(input);
+      if (method === "GET" && url.includes("/card-event-reviews/")) {
+        return new Response(
+          JSON.stringify({
+            ...review,
+            review_state: "draft",
+            draft_revision: 0,
+            reviewer: null,
+            completed_at: null,
+            completed_version_id: null,
+            completed_version_digest: null,
+            completion_receipt_id: null,
+            events: [firstEvent, secondEvent],
+            proposals: [],
+            full_video_acknowledged: false,
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (method === "GET") {
+        return new Response(JSON.stringify(emptyRecordingDetail), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const payload = JSON.parse(String(init?.body)) as {
+        action: string;
+        expected_revision: number;
+        client_command_id: string;
+      };
+      commands.push({
+        action: payload.action,
+        expected_revision: payload.expected_revision,
+      });
+      revision += 1;
+      const eventId = url.includes(secondEvent.event_id)
+        ? secondEvent.event_id
+        : firstEvent.event_id;
+      const sourceEvent =
+        eventId === firstEvent.event_id ? firstEvent : secondEvent;
+      const changedEvent = {
+        ...sourceEvent,
+        state: payload.action === "accept" ? "reviewed" : "dismissed",
+        confidence: payload.action === "accept" ? "confirmed" : "ignore",
+      };
+      return new Response(
+        JSON.stringify({
+          schema_version: "cardevent-review-event/v1",
+          review_id: review.review_id,
+          draft_revision: revision,
+          changed_event: changedEvent,
+          event_counts: {
+            reviewed: payload.action === "accept" ? 1 : 0,
+            proposed: 0,
+            dismissed: payload.action === "dismiss" ? 1 : 0,
+          },
+          completion_blockers: [],
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={review.review_id} />);
+    await screen.findByRole("heading", { name: "Draft review" });
+
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(window, { key: "A" });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(window, { key: "D" });
+
+    await waitFor(() => expect(commands).toHaveLength(2));
+    expect(commands).toEqual([
+      { action: "accept", expected_revision: 0 },
+      { action: "dismiss", expected_revision: 1 },
+    ]);
+    expect((await screen.findAllByText("Dismissed")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Retrying")).not.toBeInTheDocument();
   });
 });

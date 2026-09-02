@@ -1,55 +1,812 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ApiError,
   createDokoDetectorClient,
+  type CardEvent,
+  type CardEventCommandRequest,
   type CardEventReviewResource,
+  type CardEventReviewResourceUpdateRequest,
   type RecordingDetail,
 } from "../api/client";
 import { RecordingSection, recordingPagePath } from "../recordings";
 import styles from "../App.module.css";
 
+const CARD_EVENT_TYPES = [
+  "card_played",
+  "trick_cleared",
+  "card_moved",
+  "card_removed",
+  "card_returned",
+  "multiple_cards_dropped",
+  "anomalous_state_change",
+] as const;
+
+const CARD_EVENT_CONFIDENCES = [
+  "confirmed",
+  "uncertain",
+  "ignore",
+  "proposed",
+] as const;
+
+type EventAction = CardEventCommandRequest["action"];
+type SaveState = "saved" | "saving" | "retrying" | "error" | "conflict";
+type EditableEvent = CardEvent & { localId: string };
+type UpdateCommand = {
+  kind: "update";
+  clientCommandId: string;
+  eventId: string;
+  action: EventAction;
+  effectiveTime?: number;
+  type?: string;
+  confidence?: string | null;
+  notes?: string | null;
+  notice: string;
+  attempts: number;
+};
+type AddCommand = {
+  kind: "add";
+  clientCommandId: string;
+  localEventId: string;
+  effectiveTime: number;
+  type: string;
+  confidence: string | null;
+  notes: string | null;
+  notice: string;
+  attempts: number;
+};
+type PendingCommand = UpdateCommand | AddCommand;
+
+const EVENT_TYPE_GUIDANCE: Record<string, string> = {
+  card_played: "A card reaches its final position in the trick area.",
+  trick_cleared: "The cards from the completed trick leave the play area.",
+  card_moved: "An existing card changes position without being played.",
+  card_removed: "A card leaves the visible play area for another reason.",
+  card_returned: "A card returns to a hand or another known area.",
+  multiple_cards_dropped: "Several cards enter the play area together.",
+  anomalous_state_change:
+    "A visible state change does not match the other types.",
+};
+
 export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const reviewRef = useRef<CardEventReviewResource | null>(null);
+  const eventsRef = useRef<EditableEvent[]>([]);
+  const selectedEventIdRef = useRef<string | null>(null);
+  const playheadRef = useRef(0);
+  const serverRevisionRef = useRef(0);
+  const commandSequenceRef = useRef(0);
+  const queueRef = useRef<PendingCommand[]>([]);
+  const processingRef = useRef(false);
+  const inFlightCommandIdRef = useRef<string | null>(null);
+  const retryTimerRef = useRef<number | null>(null);
+  const processQueueRef = useRef<(() => void) | null>(null);
+  const removedEventRef = useRef<EditableEvent | null>(null);
   const [review, setReview] = useState<CardEventReviewResource | null>(null);
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
+  const [events, setEvents] = useState<EditableEvent[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [playhead, setPlayhead] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [watchedThrough, setWatchedThrough] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [queueLength, setQueueLength] = useState(0);
+  const [firstUnappliedCommand, setFirstUnappliedCommand] = useState<
+    string | null
+  >(null);
+  const [reviewerName, setReviewerName] = useState("");
+  const [completionBusy, setCompletionBusy] = useState(false);
+  const [removedEvent, setRemovedEvent] = useState<EditableEvent | null>(null);
+
+  const setSelected = useCallback((eventId: string | null) => {
+    selectedEventIdRef.current = eventId;
+    setSelectedEventId(eventId);
+  }, []);
+
+  const setLocalEvents = useCallback((nextEvents: EditableEvent[]) => {
+    const sorted = [...nextEvents].sort(
+      (first, second) => first.effective_time_s - second.effective_time_s,
+    );
+    eventsRef.current = sorted;
+    setEvents(sorted);
+  }, []);
+
+  const hydrate = useCallback(
+    (nextReview: CardEventReviewResource) => {
+      const nextEvents = nextReview.events.map((event) => ({
+        ...event,
+        localId: event.event_id,
+      }));
+      reviewRef.current = nextReview;
+      serverRevisionRef.current = nextReview.draft_revision;
+      setReview(nextReview);
+      setLocalEvents(nextEvents);
+      setSelected(
+        selectedEventIdRef.current !== null &&
+          nextEvents.some(
+            (event) => event.localId === selectedEventIdRef.current,
+          )
+          ? selectedEventIdRef.current
+          : (nextEvents[0]?.localId ?? null),
+      );
+      setReviewerName(
+        (current) => current || nextReview.reviewer || nextReview.operator,
+      );
+    },
+    [setLocalEvents, setSelected],
+  );
+
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      try {
+        const nextReview = await client.getCardEventReviewResource(reviewId, {
+          signal,
+        });
+        const nextRecording = await client.getRecording(
+          nextReview.recording_id,
+          {
+            signal,
+          },
+        );
+        if (!signal?.aborted) {
+          hydrate(nextReview);
+          setRecording(nextRecording);
+          const mediaDuration = nextRecording.video.media_facts?.duration_ms;
+          if (mediaDuration !== null && mediaDuration !== undefined) {
+            setDuration(mediaDuration / 1000);
+          }
+          setError(null);
+          setSaveState("saved");
+        }
+      } catch (reason: unknown) {
+        if (!signal?.aborted) setError(describeReviewPageError(reason));
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [client, hydrate, reviewId],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
-    const load = async () => {
-      setLoading(true);
-      try {
-        const resource = await client.getCardEventReviewResource(reviewId, {
-          signal: controller.signal,
-        });
-        const recordingDetail = await client.getRecording(
-          resource.recording_id,
-          { signal: controller.signal },
-        );
-        if (!controller.signal.aborted) {
-          setReview(resource);
-          setRecording(recordingDetail);
-          setError(null);
-        }
-      } catch (reason: unknown) {
-        if (!controller.signal.aborted) {
-          setError(describeReviewPageError(reason));
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    };
-    const timer = window.setTimeout(() => void load(), 0);
+    const timer = window.setTimeout(() => void load(controller.signal), 0);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
+      if (retryTimerRef.current !== null)
+        window.clearTimeout(retryTimerRef.current);
     };
-  }, [client, reviewId]);
+  }, [load]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null) return;
+    const updateTime = () => {
+      const current = Number.isFinite(video.currentTime)
+        ? Math.max(0, video.currentTime)
+        : 0;
+      playheadRef.current = current;
+      setPlayhead(current);
+      setWatchedThrough((previous) => Math.max(previous, current));
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        setDuration(video.duration);
+      }
+    };
+    video.addEventListener("timeupdate", updateTime);
+    video.addEventListener("loadedmetadata", updateTime);
+    video.addEventListener("ended", updateTime);
+    updateTime();
+    return () => {
+      video.removeEventListener("timeupdate", updateTime);
+      video.removeEventListener("loadedmetadata", updateTime);
+      video.removeEventListener("ended", updateTime);
+    };
+  }, [recording]);
+
+  const setCurrentTime = useCallback(
+    (time: number) => {
+      const maximum = duration > 0 ? duration : Number.POSITIVE_INFINITY;
+      const nextTime = Math.max(0, Math.min(maximum, time));
+      if (videoRef.current !== null) videoRef.current.currentTime = nextTime;
+      playheadRef.current = nextTime;
+      setPlayhead(nextTime);
+    },
+    [duration],
+  );
+
+  const selectEvent = useCallback(
+    (event: EditableEvent, seek = true) => {
+      setSelected(event.localId);
+      if (seek) setCurrentTime(event.effective_time_s);
+    },
+    [setCurrentTime, setSelected],
+  );
+
+  const updateOptimisticEvent = useCallback(
+    (command: UpdateCommand) => {
+      const nextEvents = eventsRef.current.flatMap((event) => {
+        if (event.localId !== command.eventId) return [event];
+        if (command.action === "remove") return [];
+        const next = { ...event };
+        if (command.action === "accept") {
+          next.state = "reviewed";
+          if (next.confidence === "proposed") next.confidence = "confirmed";
+        } else if (command.action === "dismiss") {
+          next.state = "dismissed";
+          next.confidence = "ignore";
+        } else if (command.action === "undo") {
+          next.state = "proposed";
+          next.confidence = "proposed";
+        } else if (command.action === "retime") {
+          next.effective_time_s =
+            command.effectiveTime ?? next.effective_time_s;
+          if (next.state === "proposed") {
+            next.state = "reviewed";
+            if (next.confidence === "proposed") next.confidence = "confirmed";
+          }
+        } else if (command.action === "edit") {
+          if (command.type !== undefined) next.type = command.type;
+          if (command.confidence !== undefined)
+            next.confidence = command.confidence;
+          if (command.notes !== undefined) next.notes = command.notes;
+          if (next.state === "proposed") {
+            next.state = "reviewed";
+            if (next.confidence === "proposed") next.confidence = "confirmed";
+          }
+        }
+        return [next];
+      });
+      setLocalEvents(nextEvents);
+    },
+    [setLocalEvents],
+  );
+
+  const updateLocalReviewRevision = useCallback((revision: number) => {
+    serverRevisionRef.current = revision;
+    setReview((current) =>
+      current === null ? current : { ...current, draft_revision: revision },
+    );
+    if (reviewRef.current !== null) {
+      reviewRef.current = { ...reviewRef.current, draft_revision: revision };
+    }
+  }, []);
+
+  const processQueue = useCallback(async () => {
+    if (processingRef.current || queueRef.current.length === 0) {
+      if (queueRef.current.length === 0 && saveState !== "conflict") {
+        setQueueLength(0);
+        setSaveState("saved");
+      }
+      return;
+    }
+    const currentReview = reviewRef.current;
+    const command = queueRef.current[0];
+    if (currentReview === null || currentReview.review_state === "completed")
+      return;
+    processingRef.current = true;
+    inFlightCommandIdRef.current = command.clientCommandId;
+    try {
+      const expectedRevision = serverRevisionRef.current;
+      const response =
+        command.kind === "add"
+          ? await client.addCardEvent(reviewId, {
+              client_command_id: command.clientCommandId,
+              expected_revision: expectedRevision,
+              effective_time_s: command.effectiveTime,
+              type: command.type,
+              confidence: command.confidence,
+              notes: command.notes,
+            })
+          : await client.updateCardEvent(reviewId, command.eventId, {
+              client_command_id: command.clientCommandId,
+              expected_revision: expectedRevision,
+              action: command.action,
+              ...(command.effectiveTime === undefined
+                ? {}
+                : { effective_time_s: command.effectiveTime }),
+              ...(command.type === undefined ? {} : { type: command.type }),
+              ...(command.confidence === undefined
+                ? {}
+                : { confidence: command.confidence }),
+              ...(command.notes === undefined ? {} : { notes: command.notes }),
+            });
+      updateLocalReviewRevision(response.draft_revision);
+      if (response.changed_event !== null) {
+        const changed = { ...response.changed_event };
+        if (command.kind === "add") {
+          const localChanged = { ...changed, localId: command.localEventId };
+          setLocalEvents(
+            eventsRef.current.map((event) =>
+              event.localId === command.localEventId ? localChanged : event,
+            ),
+          );
+          for (const queued of queueRef.current.slice(1)) {
+            if (
+              queued.kind === "update" &&
+              queued.eventId === command.localEventId
+            ) {
+              queued.eventId = localChanged.event_id;
+            }
+          }
+        } else {
+          setLocalEvents(
+            eventsRef.current.map((event) =>
+              event.localId === command.eventId
+                ? { ...changed, localId: event.localId }
+                : event,
+            ),
+          );
+        }
+      }
+      queueRef.current.shift();
+      setQueueLength(queueRef.current.length);
+      setFirstUnappliedCommand(
+        queueRef.current.length > 0
+          ? describeCommand(queueRef.current[0])
+          : null,
+      );
+      setNotice(command.notice);
+      setError(null);
+      command.attempts = 0;
+    } catch (reason: unknown) {
+      command.attempts += 1;
+      processingRef.current = false;
+      inFlightCommandIdRef.current = null;
+      if (isConflictError(reason)) {
+        setSaveState("conflict");
+        setError(describeReviewPageError(reason));
+        return;
+      }
+      if (command.attempts <= 3) {
+        setSaveState("retrying");
+        setError(describeReviewPageError(reason));
+        retryTimerRef.current = window.setTimeout(
+          () => {
+            retryTimerRef.current = null;
+            void processQueueRef.current?.();
+          },
+          Math.min(1000, 250 * command.attempts),
+        );
+        return;
+      }
+      setSaveState("error");
+      setError(describeReviewPageError(reason));
+      return;
+    }
+    processingRef.current = false;
+    inFlightCommandIdRef.current = null;
+    if (queueRef.current.length > 0) {
+      setSaveState("saving");
+      void processQueueRef.current?.();
+    } else {
+      setSaveState("saved");
+    }
+  }, [client, reviewId, saveState, setLocalEvents, updateLocalReviewRevision]);
+
+  useEffect(() => {
+    processQueueRef.current = processQueue;
+    return () => {
+      if (processQueueRef.current === processQueue)
+        processQueueRef.current = null;
+    };
+  }, [processQueue]);
+
+  const enqueue = useCallback(
+    (command: PendingCommand, optimisticEvent?: EditableEvent) => {
+      if (
+        reviewRef.current?.review_state === "completed" ||
+        saveState === "conflict"
+      )
+        return;
+      if (optimisticEvent !== undefined)
+        setLocalEvents([...eventsRef.current, optimisticEvent]);
+      else if (command.kind === "update") updateOptimisticEvent(command);
+      const firstQueuedIndex = inFlightCommandIdRef.current === null ? 0 : 1;
+      if (
+        command.kind === "update" &&
+        (command.action === "retime" || command.action === "edit")
+      ) {
+        let coalescedIndex = -1;
+        for (
+          let index = queueRef.current.length - 1;
+          index >= firstQueuedIndex;
+          index -= 1
+        ) {
+          const queued = queueRef.current[index];
+          if (
+            queued.kind === "update" &&
+            queued.eventId === command.eventId &&
+            queued.action === command.action
+          ) {
+            coalescedIndex = index;
+            break;
+          }
+        }
+        if (coalescedIndex >= 0) {
+          const previous = queueRef.current[coalescedIndex];
+          queueRef.current[coalescedIndex] =
+            command.action === "edit" && previous.kind === "update"
+              ? {
+                  ...previous,
+                  ...command,
+                  type: command.type ?? previous.type,
+                  confidence: command.confidence ?? previous.confidence,
+                  notes: command.notes ?? previous.notes,
+                }
+              : command;
+        } else queueRef.current.push(command);
+      } else queueRef.current.push(command);
+      setQueueLength(queueRef.current.length);
+      setFirstUnappliedCommand(describeCommand(queueRef.current[0]));
+      setSaveState("saving");
+      setError(null);
+      void processQueueRef.current?.();
+    },
+    [saveState, setLocalEvents, updateOptimisticEvent],
+  );
+
+  const nextCommandId = useCallback(() => {
+    commandSequenceRef.current += 1;
+    return `cardevent-command-${Date.now()}-${commandSequenceRef.current}`;
+  }, []);
+
+  const queueUpdate = useCallback(
+    (
+      event: EditableEvent,
+      action: EventAction,
+      changes: Pick<
+        UpdateCommand,
+        "effectiveTime" | "type" | "confidence" | "notes"
+      > = {},
+      notice: string,
+    ) => {
+      enqueue({
+        kind: "update",
+        clientCommandId: nextCommandId(),
+        eventId: event.localId,
+        action,
+        ...changes,
+        notice,
+        attempts: 0,
+      });
+    },
+    [enqueue, nextCommandId],
+  );
+
+  const addEvent = useCallback(() => {
+    if (reviewRef.current?.review_state === "completed") return;
+    const localId = `local-event-${Date.now()}-${commandSequenceRef.current + 1}`;
+    const event: EditableEvent = {
+      event_id: localId,
+      localId,
+      effective_time_s: clampTime(playheadRef.current, duration),
+      type: "card_played",
+      confidence: "confirmed",
+      notes: null,
+      state: "reviewed",
+      origin: "manual",
+      proposal: null,
+    };
+    setSelected(localId);
+    enqueue(
+      {
+        kind: "add",
+        clientCommandId: nextCommandId(),
+        localEventId: localId,
+        effectiveTime: event.effective_time_s,
+        type: event.type,
+        confidence: event.confidence,
+        notes: event.notes ?? null,
+        notice: "Event added at the playhead.",
+        attempts: 0,
+      },
+      event,
+    );
+  }, [duration, enqueue, nextCommandId, setSelected]);
+
+  const jumpToAdjacentMarker = useCallback(
+    (direction: "previous" | "next") => {
+      const ordered = [...eventsRef.current].sort(
+        (first, second) => first.effective_time_s - second.effective_time_s,
+      );
+      const currentTime = playheadRef.current;
+      const marker =
+        direction === "previous"
+          ? [...ordered]
+              .reverse()
+              .find((event) => event.effective_time_s < currentTime - 0.001)
+          : ordered.find(
+              (event) => event.effective_time_s > currentTime + 0.001,
+            );
+      if (marker !== undefined) selectEvent(marker);
+    },
+    [selectEvent],
+  );
+
+  const selectedEvent = events.find(
+    (event) => event.localId === selectedEventId,
+  );
+  const selected = selectedEventId === null ? undefined : selectedEvent;
+  const frameRate = recording?.video.media_facts?.nominal_frame_rate ?? 0;
+  const isCompleted = review?.review_state === "completed";
+  const isEditable = !isCompleted && saveState !== "conflict";
+  const fullVideoReady =
+    review?.full_video_acknowledged === true ||
+    (duration > 0 &&
+      watchedThrough >=
+        Math.max(
+          0,
+          duration - Math.max(0.5, frameRate > 0 ? 1 / frameRate : 0.5),
+        ));
+  const proposedCount = events.filter(
+    (event) => event.state === "proposed",
+  ).length;
+  const reviewedCount = events.filter(
+    (event) => event.state === "reviewed",
+  ).length;
+  const dismissedCount = events.filter(
+    (event) => event.state === "dismissed",
+  ).length;
+  const timelineDuration = duration > 0 ? duration : 1;
+
+  const removeSelected = useCallback(() => {
+    const current =
+      selectedEventIdRef.current === null
+        ? undefined
+        : eventsRef.current.find(
+            (event) => event.localId === selectedEventIdRef.current,
+          );
+    if (
+      !isEditable ||
+      current === undefined ||
+      (current.proposal !== null && current.state !== "reviewed")
+    )
+      return;
+    removedEventRef.current = current;
+    setRemovedEvent(current);
+    const remaining = eventsRef.current.filter(
+      (event) => event.localId !== current.localId,
+    );
+    setLocalEvents(remaining);
+    setSelected(remaining[0]?.localId ?? null);
+    queueUpdate(
+      current,
+      "remove",
+      {},
+      "Event removed. You can undo this action.",
+    );
+  }, [isEditable, queueUpdate, setLocalEvents, setSelected]);
+
+  const undoRemoval = useCallback(() => {
+    const removed = removedEventRef.current;
+    if (!isEditable || removed === null) return;
+    const pendingIndex = queueRef.current.findIndex(
+      (command) =>
+        command.kind === "update" &&
+        command.eventId === removed.localId &&
+        command.action === "remove",
+    );
+    if (pendingIndex >= 0 && pendingIndex !== 0) {
+      queueRef.current.splice(pendingIndex, 1);
+      setLocalEvents([...eventsRef.current, removed]);
+      setSelected(removed.localId);
+      setQueueLength(queueRef.current.length);
+      removedEventRef.current = null;
+      setRemovedEvent(null);
+      return;
+    }
+    const localId = `local-event-${Date.now()}-${commandSequenceRef.current + 1}`;
+    const restored = { ...removed, localId, event_id: localId };
+    setSelected(localId);
+    enqueue(
+      {
+        kind: "add",
+        clientCommandId: nextCommandId(),
+        localEventId: localId,
+        effectiveTime: restored.effective_time_s,
+        type: restored.type,
+        confidence: restored.confidence,
+        notes: restored.notes ?? null,
+        notice: "Event restored.",
+        attempts: 0,
+      },
+      restored,
+    );
+    removedEventRef.current = null;
+    setRemovedEvent(null);
+  }, [enqueue, isEditable, nextCommandId, setLocalEvents, setSelected]);
+
+  const acknowledgeFullVideo = useCallback(
+    async (acknowledged: boolean) => {
+      const current = reviewRef.current;
+      if (
+        !isEditable ||
+        current === null ||
+        queueRef.current.length > 0 ||
+        processingRef.current
+      )
+        return;
+      const payload: CardEventReviewResourceUpdateRequest = {
+        annotation: annotationFromEvents(eventsRef.current, current.video),
+        proposals: proposalDecisionsFromEvents(eventsRef.current),
+        expected_revision: serverRevisionRef.current,
+        full_video_acknowledged: acknowledged,
+      };
+      const optimistic = { ...current, full_video_acknowledged: acknowledged };
+      setReview(optimistic);
+      reviewRef.current = optimistic;
+      setSaveState("saving");
+      try {
+        const saved = await client.updateCardEventReviewResource(
+          reviewId,
+          payload,
+        );
+        hydrate(saved);
+        setSaveState("saved");
+        setNotice(
+          acknowledged
+            ? "Full recording acknowledgement saved."
+            : "Full recording acknowledgement removed.",
+        );
+      } catch (reason: unknown) {
+        setSaveState(isConflictError(reason) ? "conflict" : "error");
+        setError(describeReviewPageError(reason));
+      }
+    },
+    [client, hydrate, isEditable, reviewId],
+  );
+
+  const completeReview = useCallback(async () => {
+    const current = reviewRef.current;
+    if (
+      !isEditable ||
+      current === null ||
+      queueRef.current.length > 0 ||
+      processingRef.current ||
+      !current.full_video_acknowledged ||
+      proposedCount > 0 ||
+      reviewerName.trim() === ""
+    )
+      return;
+    setCompletionBusy(true);
+    setSaveState("saving");
+    try {
+      const completed = await client.completeCardEventReviewResource(reviewId, {
+        reviewer: reviewerName.trim(),
+        expected_revision: serverRevisionRef.current,
+        full_video_acknowledged: true,
+      });
+      hydrate(completed);
+      setSaveState("saved");
+      setNotice(
+        `Reviewed version ${completed.completed_version_id ?? "published"} is immutable.`,
+      );
+    } catch (reason: unknown) {
+      setSaveState(isConflictError(reason) ? "conflict" : "error");
+      setError(describeReviewPageError(reason));
+    } finally {
+      setCompletionBusy(false);
+    }
+  }, [client, hydrate, isEditable, proposedCount, reviewId, reviewerName]);
+
+  const reloadWinningDraft = useCallback(async () => {
+    try {
+      const winning = await client.getCardEventReviewResource(reviewId);
+      queueRef.current = [];
+      setQueueLength(0);
+      setFirstUnappliedCommand(null);
+      processingRef.current = false;
+      inFlightCommandIdRef.current = null;
+      hydrate(winning);
+      setSaveState("saved");
+      setError(null);
+      setNotice("Winning draft loaded. Queued local commands were discarded.");
+    } catch (reason: unknown) {
+      setSaveState("error");
+      setError(describeReviewPageError(reason));
+    }
+  }, [client, hydrate, reviewId]);
+
+  const retryQueue = useCallback(() => {
+    if (queueRef.current.length === 0) return;
+    queueRef.current[0].attempts = 0;
+    setSaveState("saving");
+    setError(null);
+    void processQueueRef.current?.();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target !== null &&
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+      )
+        return;
+      if (event.key === " ") {
+        event.preventDefault();
+        const video = videoRef.current;
+        if (video === null) return;
+        if (video.paused) void video.play().catch(() => undefined);
+        else video.pause();
+      } else if (
+        event.altKey &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        jumpToAdjacentMarker(event.key === "ArrowLeft" ? "previous" : "next");
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        setCurrentTime(
+          playheadRef.current +
+            (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 2 : 0.25),
+        );
+      } else if (event.key === "a" || event.key === "A") {
+        event.preventDefault();
+        const current =
+          selectedEventIdRef.current === null
+            ? undefined
+            : eventsRef.current.find(
+                (item) => item.localId === selectedEventIdRef.current,
+              );
+        if (current?.proposal !== null && current?.state === "proposed")
+          queueUpdate(current, "accept", {}, "Proposal accepted.");
+      } else if (event.key === "d" || event.key === "D") {
+        event.preventDefault();
+        const current =
+          selectedEventIdRef.current === null
+            ? undefined
+            : eventsRef.current.find(
+                (item) => item.localId === selectedEventIdRef.current,
+              );
+        if (current?.proposal !== null && current?.state === "proposed")
+          queueUpdate(current, "dismiss", {}, "Proposal dismissed.");
+      } else if (event.key === "n" || event.key === "N") {
+        event.preventDefault();
+        addEvent();
+      } else if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        removeSelected();
+      } else if (event.key === "," || event.key === ".") {
+        event.preventDefault();
+        const current =
+          selectedEventIdRef.current === null
+            ? undefined
+            : eventsRef.current.find(
+                (item) => item.localId === selectedEventIdRef.current,
+              );
+        if (current !== undefined && frameRate > 0) {
+          queueUpdate(
+            current,
+            "retime",
+            {
+              effectiveTime: clampTime(
+                current.effective_time_s +
+                  (event.key === "," ? -1 : 1) / frameRate,
+              ),
+            },
+            event.key === ","
+              ? "Event nudged one frame earlier."
+              : "Event nudged one frame later.",
+          );
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    addEvent,
+    frameRate,
+    jumpToAdjacentMarker,
+    queueUpdate,
+    removeSelected,
+    setCurrentTime,
+  ]);
 
   if (loading && (review === null || recording === null)) {
     return (
@@ -63,23 +820,21 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       </main>
     );
   }
-
-  if (error !== null || review === null || recording === null) {
+  if (error !== null && (review === null || recording === null)) {
     return (
       <main className={`${styles.shell} ${styles.recordingsPage}`}>
         <a className={styles.backLink} href="/">
           ← Recordings
         </a>
-        <section className={styles.panel} aria-live="polite">
+        <section className={styles.panel} role="alert">
           <p className={styles.statusLabel}>Unable to load CardEvent review</p>
-          <p>{error ?? "The CardEvent review is not available."}</p>
+          <p>{error}</p>
         </section>
       </main>
     );
   }
+  if (review === null || recording === null) return null;
 
-  const counts = countReviewEvents(review.events);
-  const isCompleted = review.review_state === "completed";
   return (
     <main
       className={`${styles.shell} ${styles.recordingsPage} ${styles.cardEventReviewPage}`}
@@ -115,12 +870,14 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
             <p className={styles.statusLabel}>Review resource</p>
             <h2>{isCompleted ? "Completed review" : "Draft review"}</h2>
           </div>
-          <span className={styles.countLabel}>{formatEventCount(counts)}</span>
+          <span className={styles.countLabel}>
+            {events.length} event{events.length === 1 ? "" : "s"}
+          </span>
         </div>
         <p className={styles.detailLead}>
           {isCompleted
             ? "This completed review is read-only. Its annotation and lineage are immutable."
-            : "This draft is owned by the named operator and can be continued from this stable page."}
+            : "Use the unified event table for a fast review loop. Changes appear at once and save in order."}
         </p>
         <dl className={styles.cardEventReviewPageMetadata}>
           <ReviewMetadata label="Operator" value={review.operator} />
@@ -180,64 +937,600 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       <RecordingSection recording={recording} videoRef={videoRef} />
 
       <section
-        className={styles.detailPanel}
-        aria-label="CardEvent event collection"
+        className={styles.cardEventReviewPanel}
+        aria-label="CardEvent editor"
       >
-        <div className={styles.sectionHeading}>
+        <div className={styles.cardEventToolbar}>
+          <div className={styles.cardEventTransport}>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => setCurrentTime(playhead - 2)}
+            >
+              −2 s
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => setCurrentTime(playhead - 0.25)}
+            >
+              −250 ms
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => setCurrentTime(playhead + 0.25)}
+            >
+              +250 ms
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => setCurrentTime(playhead + 2)}
+            >
+              +2 s
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => jumpToAdjacentMarker("previous")}
+            >
+              Previous marker
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => jumpToAdjacentMarker("next")}
+            >
+              Next marker
+            </button>
+            {!isCompleted ? (
+              <button
+                className={styles.primaryButton}
+                type="button"
+                onClick={addEvent}
+              >
+                Add event at playhead
+              </button>
+            ) : null}
+          </div>
+          <div className={styles.cardEventSaveStatus} aria-live="polite">
+            <span data-state={saveState}>
+              {saveState === "saving"
+                ? "Saving"
+                : saveState === "retrying"
+                  ? "Retrying"
+                  : saveState === "conflict"
+                    ? "Conflict"
+                    : saveState === "error"
+                      ? "Not saved"
+                      : "Saved"}
+            </span>
+            {queueLength > 0
+              ? ` · ${queueLength} queued`
+              : ` · revision ${review.draft_revision}`}
+          </div>
+        </div>
+
+        <div className={styles.cardEventTimelineHeader}>
           <div>
-            <p className={styles.statusLabel}>Review history</p>
-            <h2>CardEvent events</h2>
+            <p className={styles.statusLabel}>Timeline rail</p>
+            <p className={styles.cardEventTimeRange}>
+              Playhead {formatTime(playhead)} · 0:00.000–
+              {formatTime(timelineDuration)}
+            </p>
           </div>
-          <span className={styles.countLabel}>{formatEventCount(counts)}</span>
+          <span className={styles.countLabel}>
+            {events.length} event{events.length === 1 ? "" : "s"}
+          </span>
+          <span className={styles.shortcutLabel}>Alt+Right then A or D</span>
         </div>
+        <div
+          className={styles.cardEventRail}
+          role="group"
+          aria-label="CardEvent timeline markers"
+        >
+          <span className={styles.cardEventRailTrack} />
+          <span
+            className={styles.cardEventPlayhead}
+            style={{
+              left: `${(clampTime(playhead, timelineDuration) / timelineDuration) * 100}%`,
+            }}
+            aria-hidden="true"
+          />
+          {events.map((event, index) => (
+            <button
+              key={event.localId}
+              className={styles.cardEventMarker}
+              data-selected={event.localId === selectedEventId}
+              data-state={event.state}
+              style={{
+                left: `${(clampTime(event.effective_time_s, timelineDuration) / timelineDuration) * 100}%`,
+              }}
+              type="button"
+              title={`Event ${index + 1} at ${formatTime(event.effective_time_s)}`}
+              aria-label={`Select event ${index + 1} at ${formatTime(event.effective_time_s)} seconds`}
+              onClick={() => selectEvent(event)}
+            />
+          ))}
+        </div>
+
         <div className={styles.cardEventReviewCounts} aria-label="Event counts">
-          <ReviewCount label="Reviewed" value={counts.reviewed} />
-          <ReviewCount label="Proposed" value={counts.proposed} />
-          <ReviewCount label="Dismissed" value={counts.dismissed} />
+          <ReviewCount label="Reviewed" value={reviewedCount} />
+          <ReviewCount label="Proposed" value={proposedCount} />
+          <ReviewCount label="Dismissed" value={dismissedCount} />
         </div>
-        {review.events.length === 0 ? (
-          <p className={styles.detailEmptyState}>No events in this review.</p>
-        ) : (
-          <div className={styles.tableScroller}>
-            <table className={styles.cardEventReviewTable}>
-              <caption className={styles.visuallyHidden}>
-                CardEvent review events
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Time</th>
-                  <th scope="col">Type</th>
-                  <th scope="col">State</th>
-                  <th scope="col">Origin</th>
-                  <th scope="col">Lineage</th>
+        <div className={styles.tableScroller}>
+          <table
+            className={`${styles.cardEventReviewTable} ${styles.cardEventUnifiedTable}`}
+          >
+            <caption className={styles.visuallyHidden}>
+              Unified time-ordered CardEvent review events
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Time</th>
+                <th scope="col">Type</th>
+                <th scope="col">State</th>
+                <th scope="col">Origin</th>
+                <th scope="col">Lineage</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <tr
+                  key={event.localId}
+                  data-state={event.state}
+                  data-selected={event.localId === selectedEventId}
+                >
+                  <td>
+                    <button
+                      className={styles.cardEventTableSelect}
+                      type="button"
+                      onClick={() => selectEvent(event)}
+                    >
+                      {formatTime(event.effective_time_s)}
+                    </button>
+                  </td>
+                  <td>{formatIdentifier(event.type)}</td>
+                  <td>
+                    <ReviewStateBadge value={event.state} />
+                  </td>
+                  <td>{formatIdentifier(event.origin)}</td>
+                  <td>
+                    {event.proposal === null
+                      ? "Manual"
+                      : event.proposal.proposal_id}
+                  </td>
+                  <td>
+                    <div className={styles.cardEventCommandActions}>
+                      {event.state === "proposed" ? (
+                        <>
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            onClick={() =>
+                              queueUpdate(
+                                event,
+                                "accept",
+                                {},
+                                "Proposal accepted.",
+                              )
+                            }
+                            disabled={!isEditable}
+                          >
+                            Accept{" "}
+                            <span className={styles.shortcutLabel}>A</span>
+                          </button>
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            onClick={() =>
+                              queueUpdate(
+                                event,
+                                "dismiss",
+                                {},
+                                "Proposal dismissed.",
+                              )
+                            }
+                            disabled={!isEditable}
+                          >
+                            Dismiss{" "}
+                            <span className={styles.shortcutLabel}>D</span>
+                          </button>
+                        </>
+                      ) : event.proposal !== null ? (
+                        <button
+                          className={styles.secondaryButton}
+                          type="button"
+                          onClick={() =>
+                            queueUpdate(
+                              event,
+                              "undo",
+                              {},
+                              "Proposal decision undone.",
+                            )
+                          }
+                          disabled={!isEditable}
+                        >
+                          Undo
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {[...review.events]
-                  .sort(
-                    (first, second) =>
-                      first.effective_time_s - second.effective_time_s,
-                  )
-                  .map((event) => (
-                    <tr key={event.event_id} data-state={event.state}>
-                      <td>{formatTime(event.effective_time_s)}</td>
-                      <td>{formatIdentifier(event.type)}</td>
-                      <td>
-                        <ReviewStateBadge value={event.state} />
-                      </td>
-                      <td>{formatIdentifier(event.origin)}</td>
-                      <td>
-                        {event.proposal === null
-                          ? "Manual"
-                          : event.proposal.proposal_id}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <section
+          className={styles.cardEventFormPanel}
+          aria-label="Selected event details"
+        >
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.statusLabel}>Selected event</p>
+              <h3>Event details</h3>
+            </div>
+            {selected !== undefined ? (
+              <span className={styles.countLabel}>
+                {formatTime(selected.effective_time_s)}
+              </span>
+            ) : null}
           </div>
-        )}
+          {selected === undefined ? (
+            <p className={styles.detailEmptyState}>
+              Select an event from the table or timeline.
+            </p>
+          ) : (
+            <>
+              <div className={styles.cardEventFormGrid}>
+                <label>
+                  Time (seconds)
+                  <input
+                    type="number"
+                    min="0"
+                    max={duration > 0 ? duration : undefined}
+                    step="0.001"
+                    value={selected.effective_time_s}
+                    disabled={!isEditable}
+                    onChange={(input) => {
+                      const value = Number(input.target.value);
+                      if (Number.isFinite(value))
+                        setLocalEvents(
+                          eventsRef.current.map((event) =>
+                            event.localId === selected.localId
+                              ? { ...event, effective_time_s: value }
+                              : event,
+                          ),
+                        );
+                    }}
+                    onBlur={() => {
+                      const current = eventsRef.current.find(
+                        (event) => event.localId === selected.localId,
+                      );
+                      if (current !== undefined && isEditable)
+                        queueUpdate(
+                          current,
+                          "retime",
+                          { effectiveTime: current.effective_time_s },
+                          "Event time updated.",
+                        );
+                    }}
+                    aria-label="Time for selected event"
+                  />
+                </label>
+                <label>
+                  Event type
+                  <select
+                    value={selected.type}
+                    disabled={!isEditable}
+                    onChange={(input) =>
+                      queueUpdate(
+                        selected,
+                        "edit",
+                        { type: input.target.value },
+                        "Event type updated.",
+                      )
+                    }
+                    aria-label="Event type for selected event"
+                  >
+                    {CARD_EVENT_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {formatIdentifier(type)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Confidence
+                  <select
+                    value={selected.confidence ?? ""}
+                    disabled={!isEditable}
+                    onChange={(input) =>
+                      queueUpdate(
+                        selected,
+                        "edit",
+                        {
+                          confidence:
+                            input.target.value === ""
+                              ? null
+                              : input.target.value,
+                        },
+                        "Event confidence updated.",
+                      )
+                    }
+                    aria-label="Confidence for selected event"
+                  >
+                    <option value="">Not set</option>
+                    {CARD_EVENT_CONFIDENCES.map((confidence) => (
+                      <option key={confidence} value={confidence}>
+                        {formatIdentifier(confidence)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className={styles.cardEventFrameReadout}>
+                  <span>Frame</span>
+                  <strong>
+                    {frameRate > 0
+                      ? Math.round(selected.effective_time_s * frameRate)
+                      : "Unavailable"}
+                  </strong>
+                </div>
+              </div>
+              <label className={styles.cardEventNotes}>
+                Notes
+                <textarea
+                  rows={3}
+                  value={selected.notes ?? ""}
+                  disabled={!isEditable}
+                  onChange={(input) =>
+                    setLocalEvents(
+                      eventsRef.current.map((event) =>
+                        event.localId === selected.localId
+                          ? { ...event, notes: input.target.value }
+                          : event,
+                      ),
+                    )
+                  }
+                  onBlur={() => {
+                    const current = eventsRef.current.find(
+                      (event) => event.localId === selected.localId,
+                    );
+                    if (current !== undefined && isEditable)
+                      queueUpdate(
+                        current,
+                        "edit",
+                        { notes: current.notes },
+                        "Event notes updated.",
+                      );
+                  }}
+                  aria-label="Notes for selected event"
+                />
+              </label>
+            </>
+          )}
+        </section>
+        <div className={styles.cardEventEditActions}>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() =>
+              selected !== undefined &&
+              queueUpdate(
+                selected,
+                "retime",
+                { effectiveTime: selected.effective_time_s - 1 / frameRate },
+                "Event nudged one frame earlier.",
+              )
+            }
+            disabled={!isEditable || selected === undefined || frameRate <= 0}
+          >
+            Nudge −1 frame <span className={styles.shortcutLabel}>,</span>
+          </button>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() =>
+              selected !== undefined &&
+              queueUpdate(
+                selected,
+                "retime",
+                { effectiveTime: selected.effective_time_s + 1 / frameRate },
+                "Event nudged one frame later.",
+              )
+            }
+            disabled={!isEditable || selected === undefined || frameRate <= 0}
+          >
+            Nudge +1 frame <span className={styles.shortcutLabel}>.</span>
+          </button>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() =>
+              selected !== undefined &&
+              queueUpdate(
+                selected,
+                "retime",
+                { effectiveTime: playhead },
+                "Event moved to the playhead.",
+              )
+            }
+            disabled={!isEditable || selected === undefined}
+          >
+            Set to playhead
+          </button>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={removeSelected}
+            disabled={
+              !isEditable ||
+              selected === undefined ||
+              (selected.proposal !== null && selected.state !== "reviewed")
+            }
+          >
+            Remove selected event{" "}
+            <span className={styles.shortcutLabel}>Delete</span>
+          </button>
+          {removedEvent !== null ? (
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={undoRemoval}
+              disabled={!isEditable}
+            >
+              Undo removal
+            </button>
+          ) : null}
+        </div>
+        {frameRate <= 0 ? (
+          <p className={styles.cardEventRequirement} role="status">
+            Frame nudging is unavailable because frame rate is unavailable for
+            this recording.
+          </p>
+        ) : null}
+        <div className={styles.cardEventGuidance}>
+          <details>
+            <summary>Keyboard shortcuts</summary>
+            <p>
+              Space play/pause · ←/→ seek 250 ms · Shift + ←/→ seek 2 s · Alt +
+              ←/→ previous/next marker · A accept · D dismiss · N add ·
+              comma/period nudge one frame · Delete remove.
+            </p>
+          </details>
+          <details>
+            <summary>Event-type guidance</summary>
+            <ul>
+              {CARD_EVENT_TYPES.map((type) => (
+                <li key={type}>
+                  <strong>{formatIdentifier(type)}:</strong>{" "}
+                  {EVENT_TYPE_GUIDANCE[type]}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+
+        {!isCompleted ? (
+          <section
+            className={styles.cardEventReviewPanel}
+            aria-label="Complete CardEvent review"
+          >
+            <div className={styles.sectionHeading}>
+              <div>
+                <p className={styles.statusLabel}>Review lifecycle</p>
+                <h3>Complete full recording review</h3>
+              </div>
+              <span className={styles.countLabel}>
+                {Math.round(
+                  duration > 0
+                    ? Math.min(100, (watchedThrough / duration) * 100)
+                    : 0,
+                )}
+                % watched
+              </span>
+            </div>
+            <label className={styles.cardEventAcknowledgement}>
+              <input
+                type="checkbox"
+                checked={review.full_video_acknowledged}
+                disabled={
+                  !fullVideoReady || queueLength > 0 || saveState === "conflict"
+                }
+                onChange={(input) =>
+                  void acknowledgeFullVideo(input.target.checked)
+                }
+              />
+              <span>
+                I reviewed the full recording and confirm that this timeline is
+                ready for completion.
+              </span>
+            </label>
+            {!fullVideoReady && !review.full_video_acknowledged ? (
+              <p className={styles.cardEventRequirement}>
+                Full-video acknowledgement becomes available after the player
+                reaches the end of the recording.
+              </p>
+            ) : null}
+            {proposedCount > 0 ? (
+              <p className={styles.cardEventRequirement}>
+                Remaining proposed events: {proposedCount}.
+              </p>
+            ) : null}
+            <label className={styles.cardEventReviewer}>
+              Reviewer
+              <input
+                value={reviewerName}
+                onChange={(input) => setReviewerName(input.target.value)}
+                placeholder="Operator name"
+                aria-label="Reviewer"
+              />
+            </label>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={() => void completeReview()}
+              disabled={
+                completionBusy ||
+                queueLength > 0 ||
+                !review.full_video_acknowledged ||
+                proposedCount > 0 ||
+                reviewerName.trim() === ""
+              }
+            >
+              Complete full recording review
+            </button>
+          </section>
+        ) : null}
       </section>
+
+      {notice !== null ? (
+        <p className={styles.recordingNotice} role="status">
+          {notice}
+          {removedEvent !== null ? (
+            <button
+              className={styles.inlineAction}
+              type="button"
+              onClick={undoRemoval}
+            >
+              Undo removal
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+      {error !== null ? (
+        <div className={styles.cardEventError} role="alert">
+          <p>
+            {saveState === "conflict"
+              ? `Conflict: the first unapplied command is ${firstUnappliedCommand ?? "unknown"}. ${error}`
+              : error}
+          </p>
+          <div className={styles.cardEventErrorActions}>
+            {saveState === "conflict" ? (
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() => void reloadWinningDraft()}
+              >
+                Reload winning draft
+              </button>
+            ) : null}
+            {saveState === "error" || saveState === "retrying" ? (
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={retryQueue}
+              >
+                Retry queued commands
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -250,7 +1543,6 @@ function ReviewMetadata({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
 function ReviewCount({ label, value }: { label: string; value: number }) {
   return (
     <div>
@@ -259,7 +1551,6 @@ function ReviewCount({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
-
 function ReviewStateBadge({ value }: { value: string }) {
   return (
     <span className={styles.status} data-state={value}>
@@ -267,35 +1558,16 @@ function ReviewStateBadge({ value }: { value: string }) {
     </span>
   );
 }
-
-function countReviewEvents(
-  events: CardEventReviewResource["events"],
-): Record<"reviewed" | "proposed" | "dismissed", number> {
-  return {
-    reviewed: events.filter((event) => event.state === "reviewed").length,
-    proposed: events.filter((event) => event.state === "proposed").length,
-    dismissed: events.filter((event) => event.state === "dismissed").length,
-  };
-}
-
-function formatEventCount(counts: Record<string, number>): string {
-  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
-  return `${total} event${total === 1 ? "" : "s"}`;
-}
-
 function formatTimestamp(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
 }
-
 function formatTime(value: number): string {
   const minutes = Math.floor(value / 60);
-  const seconds = value % 60;
-  return `${minutes}:${seconds.toFixed(3).padStart(6, "0")}`;
+  return `${minutes}:${(value % 60).toFixed(3).padStart(6, "0")}`;
 }
-
 function formatIdentifier(value: string): string {
   return value
     .replaceAll("_", " ")
@@ -303,15 +1575,63 @@ function formatIdentifier(value: string): string {
     .toLowerCase()
     .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
 }
-
+function clampTime(value: number, duration = Number.POSITIVE_INFINITY): number {
+  return Math.max(
+    0,
+    Math.min(duration > 0 ? duration : Number.POSITIVE_INFINITY, value),
+  );
+}
+function annotationFromEvents(
+  events: EditableEvent[],
+  video: string,
+): Record<string, unknown> {
+  return {
+    schema_version: "cardevent-annotation/v2",
+    video,
+    events: events
+      .filter((event) => event.state === "reviewed")
+      .map((event) => ({
+        time_s: event.effective_time_s,
+        type: event.type,
+        ...(event.confidence === null ? {} : { confidence: event.confidence }),
+        ...(event.notes === null ? {} : { notes: event.notes }),
+      })),
+  };
+}
+function proposalDecisionsFromEvents(
+  events: EditableEvent[],
+): CardEventReviewResourceUpdateRequest["proposals"] {
+  return events.flatMap((event) =>
+    event.proposal === null
+      ? []
+      : [
+          {
+            proposal_id: event.proposal.proposal_id,
+            decision:
+              event.state === "dismissed"
+                ? ("dismissed" as const)
+                : event.state === "reviewed"
+                  ? ("accepted" as const)
+                  : ("undecided" as const),
+          },
+        ],
+  );
+}
+function describeCommand(command: PendingCommand | undefined): string {
+  if (command === undefined) return "none";
+  return command.kind === "add"
+    ? "Add event"
+    : `${formatIdentifier(command.action)} ${command.eventId}`;
+}
+function isConflictError(reason: unknown): boolean {
+  return reason instanceof ApiError && reason.status === 409;
+}
 function describeReviewPageError(reason: unknown): string {
   if (reason instanceof ApiError && reason.body !== null) {
     const body = reason.body as { error?: { message?: string } };
-    if (typeof body.error?.message === "string") {
-      return body.error.message;
-    }
+    if (typeof body.error?.message === "string") return body.error.message;
   }
   return reason instanceof Error
     ? reason.message
-    : "The CardEvent review could not be loaded.";
+    : "The CardEvent review could not be saved.";
 }
