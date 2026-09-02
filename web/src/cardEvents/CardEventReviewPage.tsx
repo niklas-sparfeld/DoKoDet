@@ -976,6 +976,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       <RecordingSection
         recording={recording}
         videoRef={videoRef}
+        videoState={selected?.state === "dismissed" ? "dismissed" : undefined}
         videoAside={
           <aside
             className={styles.cardEventVideoNavigator}

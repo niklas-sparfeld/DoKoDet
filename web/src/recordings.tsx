@@ -791,10 +791,12 @@ export function RecordingSection({
   recording,
   videoRef,
   videoAside,
+  videoState,
 }: {
   recording: RecordingDetail;
   videoRef: import("react").RefObject<HTMLVideoElement | null>;
   videoAside?: ReactNode;
+  videoState?: "dismissed";
 }) {
   const mediaFacts = recording.video.media_facts;
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -813,14 +815,29 @@ export function RecordingSection({
           className={styles.detailRecordingLayout}
           data-has-aside={videoAside === undefined ? undefined : "true"}
         >
-          <video
-            ref={videoRef}
-            className={styles.detailSourceVideo}
-            controls
-            preload="metadata"
-            src={recording.video.url}
-            aria-label={`Source recording ${recording.recording_id}`}
-          />
+          <div
+            className={styles.detailSourceVideoFrame}
+            data-state={videoState}
+          >
+            <video
+              ref={videoRef}
+              className={styles.detailSourceVideo}
+              controls
+              preload="metadata"
+              src={recording.video.url}
+              aria-label={`Source recording ${recording.recording_id}`}
+            />
+            {videoState === "dismissed" ? (
+              <div
+                className={styles.detailSourceVideoState}
+                role="status"
+                aria-label="Dismissed event. Ignore this event."
+              >
+                <strong>Dismissed event</strong>
+                <span>Ignore this event</span>
+              </div>
+            ) : null}
+          </div>
           {videoAside}
         </div>
         <div

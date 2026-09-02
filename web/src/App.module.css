@@ -2577,6 +2577,45 @@ progress {
   object-fit: contain;
 }
 
+.detailSourceVideoFrame {
+  position: relative;
+  min-width: 0;
+}
+
+.detailSourceVideoFrame[data-state="dismissed"] .detailSourceVideo {
+  filter: grayscale(1);
+}
+
+.detailSourceVideoState {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  display: grid;
+  gap: 0.15rem;
+  box-sizing: border-box;
+  width: min(16rem, calc(100% - 2rem));
+  padding: 0.65rem 1rem;
+  border: 2px solid #8b2e1d;
+  border-radius: 0.45rem;
+  background: rgb(52 24 19 / 92%);
+  box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 28%);
+  color: #fff8f2;
+  pointer-events: none;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.detailSourceVideoState strong {
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detailSourceVideoState span {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .cardEventVideoNavigator {
   display: grid;
   min-height: 0;

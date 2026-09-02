@@ -403,15 +403,56 @@ describe("CardEventReviewPage", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Open event 2 at 0:03.000",
+        name: "Open event 1 at 0:01.250",
       }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Next marker" }));
 
     const navigator = screen.getByLabelText("Event navigator");
     expect(navigator).toHaveTextContent("0:03.000");
     expect(
       screen.getByRole("button", { name: "Open event 2 at 0:03.000" }),
     ).toHaveAttribute("aria-current", "true");
+  });
+
+  it("makes a selected dismissed event obvious in the source video", async () => {
+    const fetchMock = vi.fn<typeof fetch>((input) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input).includes("/card-event-reviews/")
+              ? review
+              : emptyRecordingDetail,
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={review.review_id} />);
+    await screen.findByRole("heading", { name: "CardEvent review" });
+
+    const sourceVideo = screen.getByLabelText(
+      "Source recording recording-detail-1",
+    );
+    expect(sourceVideo.parentElement).not.toHaveAttribute("data-state");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open event 2 at 0:03.000",
+      }),
+    );
+
+    expect(sourceVideo.parentElement).toHaveAttribute(
+      "data-state",
+      "dismissed",
+    );
+    expect(
+      screen.getByRole("status", {
+        name: "Dismissed event. Ignore this event.",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("shows the selected event fields in the video-side navigator", async () => {
