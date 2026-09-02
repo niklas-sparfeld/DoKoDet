@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -13,17 +12,15 @@ from table_evidence_analyzer import (
     parse_observation_bytes,
 )
 from test_round_analysis_api import (
-    RECORDING_ID,
-    SESSION_ID,
     _analysis_payload,
     _upload_linked_package,
+    _write_recording_bundle,
 )
 
 from dokodetector_backend import gemini_analyzer
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import ConfigurationError, Settings
 from dokodetector_backend.repository import upgrade_database
-from dokodetector_backend.repository_bundle_repository import StoredRepositoryBundle
 
 BACKEND_ROOT = Path(__file__).parents[1]
 
@@ -308,22 +305,7 @@ def test_local_identity_reaches_worker_persistence_with_a_schema_valid_observati
     )
     upgrade_database(BACKEND_ROOT, settings.database_url)
     app = create_app(settings, run_round_analysis_synchronously=True)
-    app.state.repository_bundle_repository.insert(
-        StoredRepositoryBundle(
-            recording_id=RECORDING_ID,
-            source_asset_id="source-local-provider",
-            video_id="video-local-provider",
-            session_id=SESSION_ID,
-            source_sha256="a" * 64,
-            manifest_sha256="b" * 64,
-            source_record_sha256="c" * 64,
-            task_enrollment_sha256="d" * 64,
-            proposal_run_ids=(),
-            bundle_fingerprint="e" * 64,
-            state="complete",
-            received_at=datetime.now(timezone.utc),
-        )
-    )
+    _write_recording_bundle(app)
 
     with TestClient(app) as client:
         package_id = _upload_linked_package(client)

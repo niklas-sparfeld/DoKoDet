@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
+from dokodetector_backend.filesystem import commit_staged_directory, contained_path
 from dokodetector_backend.storage import COPY_CHUNK_BYTES, StorageLimitError
 
 
@@ -31,7 +32,7 @@ class RepositoryBundleStorage:
     def bundle_path(self, recording_id: str) -> Path:
         """Return the canonical directory for one recording."""
 
-        return self.root / recording_id
+        return contained_path(self.root, recording_id)
 
     def start_bundle(self, recording_id: str) -> TemporaryRepositoryBundle:
         """Create a private temporary bundle below the configured root."""
@@ -47,9 +48,11 @@ class RepositoryBundleStorage:
         if not bundle_path.is_dir():
             raise FileNotFoundError(bundle_path)
         files: dict[str, StoredRepositoryFile] = {}
-        for path in sorted(
-            path for path in bundle_path.rglob("*") if path.is_file() and path.name != ".DS_Store"
-        ):
+        for path in sorted(bundle_path.rglob("*")):
+            if path.is_symlink():
+                raise OSError(f"repository bundle contains a symlink: {path}")
+            if not path.is_file() or path.name == ".DS_Store":
+                continue
             relative_path = path.relative_to(bundle_path).as_posix()
             files[relative_path] = _hash_file(path, relative_path)
         return files
@@ -136,7 +139,7 @@ class TemporaryRepositoryBundle:
         if final_path.exists():
             raise FileExistsError(final_path)
         files = self.file_digests()
-        self.temporary_path.rename(final_path)
+        commit_staged_directory(self.temporary_path, final_path)
         self._committed = True
         return files
 

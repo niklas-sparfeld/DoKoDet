@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -14,9 +14,9 @@ from test_api import load_upload_fixture, multipart_parts
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.repository import upgrade_database
-from dokodetector_backend.repository_bundle_repository import StoredRepositoryBundle
 
 BACKEND_ROOT = Path(__file__).parents[1]
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 SESSION_ID = "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
 RECORDING_ID = "recording-round-analysis"
 ANALYSIS_ID = "550e8400-e29b-41d4-a716-446655440020"
@@ -62,22 +62,7 @@ def _backend(tmp_path: Path, *, synchronous: bool = True) -> tuple[TestClient, o
         ),
         run_round_analysis_synchronously=synchronous,
     )
-    app.state.repository_bundle_repository.insert(
-        StoredRepositoryBundle(
-            recording_id=RECORDING_ID,
-            source_asset_id="source-round-analysis",
-            video_id="video-round-analysis",
-            session_id=SESSION_ID,
-            source_sha256="a" * 64,
-            manifest_sha256="b" * 64,
-            source_record_sha256="c" * 64,
-            task_enrollment_sha256="d" * 64,
-            proposal_run_ids=(),
-            bundle_fingerprint="e" * 64,
-            state="complete",
-            received_at=datetime.now(timezone.utc),
-        )
-    )
+    _write_recording_bundle(app)
     return TestClient(app), app
 
 
@@ -111,68 +96,65 @@ def _upload_linked_package(
     return str(payload["package_id"])
 
 
-def _write_source_record(app: object) -> None:
+def _write_recording_bundle(app: object) -> None:
     bundle_path = app.state.repository_bundle_storage.bundle_path(RECORDING_ID)
-    bundle_path.mkdir(parents=True)
-    (bundle_path / "source-record.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "source-record/v1",
-                "source_asset_id": "source-round-analysis",
-                "sha256": "a" * 64,
-                "byte_length": 1,
-                "media_type": "video/quicktime",
-                "original_filename": "round.mov",
-                "acquisition_method": "test",
-                "source_permission": "project_use",
-                "allowed_uses": ["evaluation"],
-                "session_id": SESSION_ID,
-                "recording_id": RECORDING_ID,
-                "video_id": "video-round-analysis",
-                "game_id": "game-round-analysis",
-                "round_id": "round-round-analysis",
-                "table_setup": "default-table",
-                "content_type": "real_game",
-                "retention_state": "active",
-                "notes": None,
-            }
-        )
+    shutil.copytree(FIXTURE_ROOT, bundle_path)
+    manifest = json.loads((bundle_path / "manifest.json").read_text())
+    source = json.loads((bundle_path / "source-record.json").read_text())
+    enrollment = json.loads((bundle_path / "initial-task-enrollment.json").read_text())
+    proposal_path = next((bundle_path / "predictions").glob("*.json"))
+    proposal = json.loads(proposal_path.read_text())
+
+    identity = {
+        "source_asset_id": "source-round-analysis",
+        "recording_id": RECORDING_ID,
+        "video_id": "video-round-analysis",
+        "session_id": SESSION_ID,
+    }
+    manifest.update(identity)
+    source.update(identity)
+    source.update(
+        {
+            "game_id": "game-round-analysis",
+            "round_id": "round-round-analysis",
+            "original_filename": "round.mov",
+            "acquisition_method": "test",
+            "source_permission": "project_use",
+            "allowed_uses": ["evaluation"],
+            "table_setup": "default-table",
+            "notes": None,
+        }
     )
-    (bundle_path / "initial-task-enrollment.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "task-enrollment/v1",
-                "source_asset_id": "source-round-analysis",
-                "enrollments": [
-                    {
-                        "task_enrollment_id": "enrollment-round-analysis-cardevent",
-                        "task": "cardevent_event_detection",
-                        "disposition": "selected",
-                        "lifecycle_state": "intake",
-                        "operator": "test-operator",
-                        "created_at_utc": "2026-09-01T07:20:00Z",
-                        "reason": None,
-                    },
-                    {
-                        "task_enrollment_id": "enrollment-round-analysis-table",
-                        "task": "table_evidence_analysis",
-                        "disposition": "selected",
-                        "lifecycle_state": "intake",
-                        "operator": "test-operator",
-                        "created_at_utc": "2026-09-01T07:20:00Z",
-                        "reason": None,
-                    },
-                ],
-            }
-        )
+    enrollment["source_asset_id"] = identity["source_asset_id"]
+    proposal.update(
+        {
+            "source_asset_id": identity["source_asset_id"],
+            "recording_id": identity["recording_id"],
+            "video_id": identity["video_id"],
+        }
     )
+    source_bytes = json.dumps(source, separators=(",", ":")).encode()
+    enrollment_bytes = json.dumps(enrollment, separators=(",", ":")).encode()
+    proposal_bytes = json.dumps(proposal, separators=(",", ":")).encode()
+    (bundle_path / "source-record.json").write_bytes(source_bytes)
+    (bundle_path / "initial-task-enrollment.json").write_bytes(enrollment_bytes)
+    proposal_path.write_bytes(proposal_bytes)
+    manifest["files"]["source_record"].update(
+        byte_length=len(source_bytes), sha256=hashlib.sha256(source_bytes).hexdigest()
+    )
+    manifest["files"]["task_enrollment"].update(
+        byte_length=len(enrollment_bytes), sha256=hashlib.sha256(enrollment_bytes).hexdigest()
+    )
+    manifest["files"]["proposal_generator_runs"][0].update(
+        byte_length=len(proposal_bytes), sha256=hashlib.sha256(proposal_bytes).hexdigest()
+    )
+    (bundle_path / "manifest.json").write_text(json.dumps(manifest, separators=(",", ":")))
 
 
 def test_recording_detail_projects_source_video_and_workflow(
     backend_tmp_path: Path,
 ) -> None:
     client, app = _backend(backend_tmp_path)
-    _write_source_record(app)
     package_id = _upload_linked_package(client)
 
     response = client.get(f"/v1/recordings/{RECORDING_ID}")
@@ -270,7 +252,6 @@ def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path)
 
 def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> None:
     client, app = _backend(backend_tmp_path)
-    _write_source_record(app)
     package_id = _upload_linked_package(client)
 
     catalog = client.get("/v1/recordings")

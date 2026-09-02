@@ -32,6 +32,7 @@ from dokodetector_backend.logging_config import get_or_create_request_id, log_ev
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
+from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository import (
     EvidenceRepository,
@@ -40,7 +41,6 @@ from dokodetector_backend.repository import (
     upgrade_database,
 )
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
-from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_api import router as round_analysis_router
 from dokodetector_backend.round_analysis_service import RoundAnalysisService
@@ -102,10 +102,10 @@ def create_app(
         app.state.repository,
         app.state.evidence_package_storage,
     )
-    app.state.repository_bundle_repository = RepositoryBundleRepository(app.state.engine)
     app.state.repository_bundle_storage = RepositoryBundleStorage(
         app_settings.repository_intake_root
     )
+    app.state.recording_bundle_store = RecordingBundleStore(app.state.repository_bundle_storage)
     app.state.card_event_review_store = CardEventReviewStore(app_settings.operations_root)
     app.state.card_event_review_source_cache = CardEventReviewSourceContextCache()
     app.state.card_event_development_split_store = CardEventDevelopmentSplitStore(
@@ -133,7 +133,6 @@ def create_app(
         app.state.evidence_package_storage,
         observation_storage=app.state.storage,
     )
-    app.state.repository_bundle_repository.rebuild_from_intake(app.state.repository_bundle_storage)
     recovered_analysis_count = app.state.round_analysis_repository.fail_non_terminal()
     log_event(
         LOGGER,
@@ -155,7 +154,7 @@ def create_app(
         app.state.evidence_package_storage,
         app.state.storage,
         app.state.round_analysis_storage,
-        app.state.repository_bundle_repository,
+        app.state.recording_bundle_store,
         app.state.repository_bundle_storage,
         app.state.analyzer,
     )

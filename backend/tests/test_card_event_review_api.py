@@ -726,7 +726,7 @@ def test_source_context_cache_invalidates_on_accepted_source_replacement(
     client, _, _ = _backend(tmp_path)
     app = client.app
     assert client.get("/v1/recordings/recording-both/card-event-reviews").status_code == 200
-    stored = app.state.repository_bundle_repository.get("recording-both")
+    stored = app.state.recording_bundle_store.get("recording-both")
     assert stored is not None
     replacement = replace(
         stored,
@@ -734,7 +734,7 @@ def test_source_context_cache_invalidates_on_accepted_source_replacement(
         bundle_fingerprint="c" * 64,
     )
     monkeypatch.setattr(
-        app.state.repository_bundle_repository,
+        app.state.recording_bundle_store,
         "get",
         lambda recording_id: replacement if recording_id == "recording-both" else None,
     )

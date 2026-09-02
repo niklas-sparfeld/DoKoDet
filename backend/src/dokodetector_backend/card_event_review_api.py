@@ -32,9 +32,9 @@ from dokodetector_backend.intake_contract import (
     parse_repository_bundle,
     validate_repository_bundle,
 )
-from dokodetector_backend.repository_bundle_repository import (
-    RepositoryBundleRepository,
-    StoredRepositoryBundle,
+from dokodetector_backend.recording_bundle_store import (
+    RecordingBundleStore,
+    StoredRecordingBundle,
 )
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.video_probe import (
@@ -329,10 +329,10 @@ class CardEventReviewSourceContextCache:
         if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
             raise ContractError("invalid_recording_id", "The recording ID is invalid.")
 
-        repository: RepositoryBundleRepository = request.app.state.repository_bundle_repository
-        index_started = time.perf_counter()
-        indexed = repository.get(recording_id)
-        index_ms = _elapsed_ms(index_started)
+        recording_store: RecordingBundleStore = request.app.state.recording_bundle_store
+        store_started = time.perf_counter()
+        indexed = recording_store.get(recording_id)
+        store_ms = _elapsed_ms(store_started)
         if indexed is None:
             self._invalidate_recording(recording_id)
             raise ContractError(
@@ -349,7 +349,7 @@ class CardEventReviewSourceContextCache:
                 "recording_id": recording_id,
                 "source_sha256": indexed.source_sha256,
                 "cache_hit": True,
-                "repository_index_lookup_ms": index_ms,
+                "recording_store_lookup_ms": store_ms,
                 "bundle_metadata_read_ms": 0.0,
                 "source_context_validation_ms": 0.0,
                 "bundle_member_verification_ms": 0.0,
@@ -365,7 +365,7 @@ class CardEventReviewSourceContextCache:
             "recording_id": recording_id,
             "source_sha256": indexed.source_sha256,
             "cache_hit": False,
-            "repository_index_lookup_ms": index_ms,
+            "recording_store_lookup_ms": store_ms,
             "bundle_metadata_read_ms": 0.0,
             "source_context_validation_ms": 0.0,
             "bundle_member_verification_ms": 0.0,
@@ -708,7 +708,7 @@ def _load_source(
 def _load_source_uncached(
     request: Request,
     recording_id: str,
-    indexed: StoredRepositoryBundle,
+    indexed: StoredRecordingBundle,
     timing: dict[str, float | bool | str],
 ) -> tuple[CardEventReviewSource, bool]:
     """Validate one complete bundle and build its immutable review context."""
@@ -740,7 +740,7 @@ def _load_source_uncached(
             or bundle.source_asset_id != indexed.source_asset_id
             or bundle.source_sha256 != indexed.source_sha256
         ):
-            raise IntakeContractError("repository index and bundle identity differs")
+            raise IntakeContractError("recording store and bundle identity differs")
         timing["source_context_validation_ms"] = _elapsed_ms(validation_started)
         verification_started = time.perf_counter()
         _verify_bundle_members(bundle_path, bundle_descriptor)

@@ -133,14 +133,20 @@ are validated members of the same immutable bundle.
 | `state` | `manifest.json.state` |
 | `received_at` | Earliest `initial-task-enrollment.json.enrollments[].created_at_utc` |
 
-Current SQL reads and consumers:
+Current filesystem store consumers:
 
-- `get(recording_id)` serves the recording bundle API, recording detail, CardEvent review source
-  loading, development split input, visible-card preparation, and round-analysis validation.
-- `list()` serves recording catalogs, round-analysis recording selection, and development split
-  discovery.
-- `insert()` is called by the repository-bundle upload route for replay and conflict handling.
-- `rebuild_from_intake()` runs during app startup and is removed when reads use the bundle directly.
+- `RecordingBundleStore.get(recording_id)` serves the recording bundle API, recording detail,
+  CardEvent review source loading, development split input, visible-card preparation, and
+  round-analysis validation.
+- `RecordingBundleStore.list()` serves recording catalogs, round-analysis recording selection,
+  and development split discovery.
+- `RecordingBundleStore.publish(...)` handles upload publication, replay, and conflict handling
+  without writing a database row.
+- The app does not rebuild a recording index at startup. Direct valid bundle changes are visible on
+  the next store read or catalog refresh.
+
+The `repository_bundles` SQL table remains only as an untouched migration artifact until M4 removes
+the SQL stack. Runtime recording reads and writes no longer use it.
 
 ### `round_analyses` (`0005_round_analyses`)
 

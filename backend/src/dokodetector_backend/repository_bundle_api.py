@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Request, Response
@@ -26,16 +26,14 @@ from dokodetector_backend.intake_contract import (
     validate_repository_bundle,
 )
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
-from dokodetector_backend.repository_bundle_repository import (
-    RepositoryBundleConflict,
-    RepositoryBundleRepositoryError,
-    StoredRepositoryBundle,
+from dokodetector_backend.recording_bundle_store import (
+    RecordingBundleConflict,
+    RecordingBundleStoreError,
 )
 from dokodetector_backend.repository_bundle_storage import (
     RepositoryBundleStorage,
     StoredRepositoryFile,
     TemporaryRepositoryBundle,
-    bundle_fingerprint,
 )
 from dokodetector_backend.storage import StorageLimitError
 
@@ -138,19 +136,23 @@ async def upload_repository_bundle(
                     proposal_count=len(proposal_runs),
                     file_count=len(staged_files),
                 )
-                incoming_fingerprint = bundle_fingerprint(staged_files)
                 try:
-                    committed_files = staged.commit()
-                    created = True
-                except FileExistsError as error:
-                    committed_files = storage.file_digests(requested_id)
-                    if bundle_fingerprint(committed_files) != incoming_fingerprint:
-                        raise ContractError(
-                            "recording_conflict",
-                            "The recording ID is already stored with different content.",
-                            status_code=409,
-                        ) from error
-                    created = False
+                    stored, created = request.app.state.recording_bundle_store.publish(
+                        staged,
+                        staged_files=staged_files,
+                    )
+                except RecordingBundleConflict as error:
+                    raise ContractError(
+                        "recording_conflict",
+                        "The recording ID is already stored with different content.",
+                        status_code=409,
+                    ) from error
+                except RecordingBundleStoreError as error:
+                    raise ContractError(
+                        "internal_error",
+                        "The repository bundle could not be stored.",
+                        status_code=500,
+                    ) from error
 
                 log_event(
                     LOGGER,
@@ -160,41 +162,9 @@ async def upload_repository_bundle(
                     upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
                     recording_id=bundle.recording_id,
                     created=created,
-                    file_count=len(committed_files),
+                    file_count=len(staged_files),
                 )
-
-                received_at = datetime.now(timezone.utc)
-                indexed = StoredRepositoryBundle(
-                    recording_id=bundle.recording_id,
-                    source_asset_id=bundle.source_asset_id,
-                    video_id=bundle.video_id,
-                    session_id=bundle.session_id,
-                    source_sha256=bundle.source_sha256,
-                    manifest_sha256=committed_files["manifest.json"].sha256,
-                    source_record_sha256=committed_files["source-record.json"].sha256,
-                    task_enrollment_sha256=committed_files["initial-task-enrollment.json"].sha256,
-                    proposal_run_ids=tuple(run.proposal_generator_run_id for run in proposal_runs),
-                    bundle_fingerprint=incoming_fingerprint,
-                    state=bundle.state,
-                    received_at=received_at,
-                )
-                try:
-                    stored, index_created = request.app.state.repository_bundle_repository.insert(
-                        indexed
-                    )
-                except RepositoryBundleConflict as error:
-                    raise ContractError(
-                        "recording_conflict",
-                        "The recording ID is already stored with different content.",
-                        status_code=409,
-                    ) from error
-                except RepositoryBundleRepositoryError as error:
-                    raise ContractError(
-                        "internal_error",
-                        "The repository bundle index could not be stored.",
-                        status_code=500,
-                    ) from error
-                if not (created and index_created):
+                if not created:
                     response.status_code = 200
                 log_event(
                     LOGGER,
@@ -203,13 +173,13 @@ async def upload_repository_bundle(
                     request_id=get_or_create_request_id(request),
                     upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
                     recording_id=stored.recording_id,
-                    created=created and index_created,
+                    created=created,
                     proposal_count=len(stored.proposal_run_ids),
                 )
                 return RepositoryBundleUploadResponse(
                     recording_id=stored.recording_id,
                     state=stored.state,
-                    created=created and index_created,
+                    created=created,
                     received_at=stored.received_at,
                 )
     except MultiPartException as error:
@@ -251,10 +221,10 @@ async def upload_repository_bundle(
     response_model=RepositoryBundleMetadataResponse,
 )
 def get_repository_bundle(recording_id: str, request: Request) -> RepositoryBundleMetadataResponse:
-    """Return indexed metadata and current canonical member hashes."""
+    """Return validated canonical metadata and current member hashes."""
 
     requested_id = _parse_recording_id(recording_id)
-    stored = request.app.state.repository_bundle_repository.get(requested_id)
+    stored = request.app.state.recording_bundle_store.get(requested_id)
     if stored is None:
         raise ContractError(
             "repository_bundle_not_found",
@@ -295,7 +265,7 @@ def get_repository_bundle_video(recording_id: str, request: Request) -> FileResp
     """Stream the complete source recording from one accepted bundle."""
 
     requested_id = _parse_recording_id(recording_id)
-    stored = request.app.state.repository_bundle_repository.get(requested_id)
+    stored = request.app.state.recording_bundle_store.get(requested_id)
     if stored is None:
         raise ContractError(
             "repository_bundle_not_found",

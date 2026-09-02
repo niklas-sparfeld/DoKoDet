@@ -35,6 +35,10 @@ from dokodetector_backend.intake_contract import (
     parse_source_record,
 )
 from dokodetector_backend.logging_config import log_event
+from dokodetector_backend.recording_bundle_store import (
+    RecordingBundleStore,
+    StoredRecordingBundle,
+)
 from dokodetector_backend.repository import (
     EvidenceRepository,
     RoundAnalysisNotFound,
@@ -42,10 +46,6 @@ from dokodetector_backend.repository import (
     StoredPackage,
     StoredRoundAnalysis,
     StoredTableObservation,
-)
-from dokodetector_backend.repository_bundle_repository import (
-    RepositoryBundleRepository,
-    StoredRepositoryBundle,
 )
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_contract import (
@@ -101,7 +101,7 @@ class ValidatedRoundAnalysisInput:
 class RecordingCatalogEntry:
     """Durable recording metadata and the analyses attached to it."""
 
-    recording: StoredRepositoryBundle
+    recording: StoredRecordingBundle
     evidence_package_ids: tuple[UUID, ...]
     analyses: tuple[StoredRoundAnalysis, ...]
     round_id: str
@@ -128,7 +128,7 @@ class RoundAnalysisService:
         package_storage: EvidencePackageStorage,
         evidence_storage: EvidenceStorage,
         artifact_storage: RoundAnalysisArtifactStorage,
-        repository_bundle_repository: RepositoryBundleRepository,
+        recording_bundle_store: RecordingBundleStore,
         repository_bundle_storage: RepositoryBundleStorage,
         analyzer: TableEvidenceAnalyzer,
     ) -> None:
@@ -137,7 +137,7 @@ class RoundAnalysisService:
         self.package_storage = package_storage
         self.evidence_storage = evidence_storage
         self.artifact_storage = artifact_storage
-        self.repository_bundle_repository = repository_bundle_repository
+        self.recording_bundle_store = recording_bundle_store
         self.repository_bundle_storage = repository_bundle_storage
         self.analyzer_runner = AnalyzerRunner(
             evidence_repository,
@@ -164,7 +164,7 @@ class RoundAnalysisService:
     def validate_request(self, request: RoundAnalysisCreateRequest) -> ValidatedRoundAnalysisInput:
         """Validate stored recording, package lineage, and shared session identity."""
 
-        recording = self.repository_bundle_repository.get(request.recording_id)
+        recording = self.recording_bundle_store.get(request.recording_id)
         if recording is None:
             raise RoundAnalysisValidationError("The recording bundle is not stored.")
         expected_session_id = str(request.session_id)
@@ -197,7 +197,7 @@ class RoundAnalysisService:
         return ValidatedRoundAnalysisInput(request=request, packages=tuple(packages))
 
     def recording_catalog(self) -> tuple[RecordingCatalogEntry, ...]:
-        """Return indexed recordings with linked packages and prior analyses."""
+        """Return canonical recordings with linked packages and prior analyses."""
 
         packages_by_recording: dict[str, list[StoredPackage]] = {}
         for package in self.evidence_repository.list_packages():
@@ -212,7 +212,7 @@ class RoundAnalysisService:
             packages_by_recording.setdefault(lineage.parent_recording_id, []).append(package)
 
         entries: list[RecordingCatalogEntry] = []
-        for recording in self.repository_bundle_repository.list():
+        for recording in self.recording_bundle_store.list():
             packages = tuple(
                 package
                 for package in packages_by_recording.get(recording.recording_id, ())
@@ -240,7 +240,7 @@ class RoundAnalysisService:
     def default_request_for_recording(self, recording_id: str) -> RoundAnalysisCreateRequest:
         """Build an analysis request from one recording and all linked packages."""
 
-        recording = self.repository_bundle_repository.get(recording_id)
+        recording = self.recording_bundle_store.get(recording_id)
         if recording is None:
             raise RoundAnalysisValidationError("The recording bundle is not stored.")
         packages = tuple(
@@ -275,7 +275,7 @@ class RoundAnalysisService:
             ),
         )
 
-    def _analysis_identifiers(self, recording: StoredRepositoryBundle) -> tuple[UUID, str, str]:
+    def _analysis_identifiers(self, recording: StoredRecordingBundle) -> tuple[UUID, str, str]:
         """Read analysis identifiers from one canonical recording source."""
 
         try:

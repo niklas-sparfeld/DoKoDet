@@ -22,7 +22,7 @@ from dokodetector_backend.intake_contract import (
     parse_source_record,
     parse_task_enrollment,
 )
-from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
+from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 
 router = APIRouter()
@@ -187,11 +187,11 @@ def load_card_event_development_recordings(
 ) -> tuple[CardEventDevelopmentRecording, ...]:
     """Project accepted repository bundles into read-only split-operation facts."""
 
-    repository: RepositoryBundleRepository = request.app.state.repository_bundle_repository
+    recording_store: RecordingBundleStore = request.app.state.recording_bundle_store
     storage: RepositoryBundleStorage = request.app.state.repository_bundle_storage
     review_store = request.app.state.card_event_review_store
     result: list[CardEventDevelopmentRecording] = []
-    for indexed in repository.list():
+    for indexed in recording_store.list():
         bundle_path = storage.bundle_path(indexed.recording_id)
         try:
             source = parse_source_record((bundle_path / "source-record.json").read_bytes())

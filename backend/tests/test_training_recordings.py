@@ -3,15 +3,19 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import pytest
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.models import RepositoryBundleIndex
+from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository import upgrade_database
-from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
 
 BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
@@ -51,7 +55,7 @@ def bundle_parts(
 
 
 @pytest.fixture()
-def backend(tmp_path: Path) -> tuple[TestClient, RepositoryBundleRepository, Path]:
+def backend(tmp_path: Path) -> tuple[TestClient, RecordingBundleStore, Path]:
     database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
     intake_root = tmp_path / "data" / "intake" / "recordings"
@@ -62,7 +66,7 @@ def backend(tmp_path: Path) -> tuple[TestClient, RepositoryBundleRepository, Pat
         repository_intake_root=intake_root,
     )
     app = create_test_app(settings)
-    return TestClient(app), app.state.repository_bundle_repository, intake_root
+    return TestClient(app), app.state.recording_bundle_store, intake_root
 
 
 def test_upload_stores_one_complete_commit_ready_bundle(backend) -> None:
@@ -93,6 +97,8 @@ def test_upload_stores_one_complete_commit_ready_bundle(backend) -> None:
     assert (bundle_path / "source-record.json").read_bytes() == fixture["source_record"]
     assert (bundle_path / "initial-task-enrollment.json").read_bytes() == fixture["task_enrollment"]
     assert repository.get(recording_id) is not None
+    with Session(client.app.state.engine) as session:
+        assert session.scalar(select(RepositoryBundleIndex)) is None
     assert not (intake_root / "training-recordings").exists()
     assert list(intake_root.glob(".upload-*")) == []
 
@@ -187,26 +193,7 @@ def test_bundle_and_part_limits_are_checked_before_publication(backend) -> None:
     assert not (intake_root / recording_id).exists()
 
 
-def test_sqlite_index_failure_does_not_change_canonical_bundle(backend, monkeypatch) -> None:
-    client, repository, intake_root = backend
-    fixture = load_fixture()
-    recording_id = fixture["manifest_object"]["recording_id"]
-
-    def fail(*args, **kwargs):
-        raise RuntimeError("simulated index failure")
-
-    monkeypatch.setattr(repository, "insert", fail)
-    response = client.put(
-        f"/v1/repository-bundles/{recording_id}",
-        files=bundle_parts(fixture),
-    )
-
-    assert response.status_code == 500
-    assert (intake_root / recording_id / "manifest.json").read_bytes() == fixture["manifest"]
-    assert repository.get(recording_id) is None
-
-
-def test_restart_reads_the_same_index_and_canonical_bundle(tmp_path: Path) -> None:
+def test_restart_reads_the_same_canonical_bundle(tmp_path: Path) -> None:
     database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
     intake_root = tmp_path / "intake"
@@ -230,3 +217,27 @@ def test_restart_reads_the_same_index_and_canonical_bundle(tmp_path: Path) -> No
 
     assert response.status_code == 200
     assert response.json()["created"] is False
+
+
+def test_directly_added_valid_bundle_is_visible_without_restart(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
+    upgrade_database(BACKEND_ROOT, database_url)
+    intake_root = tmp_path / "intake"
+    settings = Settings(
+        _env_file=None,
+        database_url=database_url,
+        evidence_root=tmp_path / "runtime",
+        repository_intake_root=intake_root,
+    )
+    app = create_test_app(settings)
+    fixture = load_fixture()
+    recording_id = fixture["manifest_object"]["recording_id"]
+    shutil.copytree(FIXTURE_ROOT, intake_root / recording_id)
+
+    client = TestClient(app)
+    response = client.get(f"/v1/repository-bundles/{recording_id}")
+    catalog = client.get("/v1/recordings")
+
+    assert response.status_code == 200
+    assert response.json()["recording_id"] == recording_id
+    assert [item["recording_id"] for item in catalog.json()["recordings"]] == [recording_id]
