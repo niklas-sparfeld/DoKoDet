@@ -14,6 +14,7 @@ from urllib.parse import quote
 
 from doko_operations import (
     CardEventReviewError,
+    VisibleCardBatchConflict,
     VisibleCardBatchError,
     VisibleCardBatchRequest,
     VisibleCardDetectorIdentity,
@@ -22,6 +23,7 @@ from doko_operations import (
     load_visible_card_review_batch,
     prepare_visible_card_review_batch,
     preview_visible_card_review_batch,
+    summarize_visible_card_review_queue,
 )
 from doko_operations.holdout import load_system_holdout_registry, sealed_group_keys
 from fastapi import APIRouter, Request
@@ -32,6 +34,7 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     VisibleCardReviewWorkflowError,
     load_visible_card_review_queue,
     update_frame_review,
+    validate_completed_visible_card_review_queue,
 )
 
 from dokodetector_backend.card_event_review_api import _load_source
@@ -48,7 +51,7 @@ router = APIRouter()
 RECORDING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 BATCH_ID_PATTERN = re.compile(r"^visible-card-batch-[0-9a-f]{24}$")
 SHA256_PATTERN = r"^[0-9a-f]{64}$"
-BatchStatus = Literal["preparing", "ready", "failed", "blocked"]
+BatchStatus = Literal["preparing", "ready", "failed", "blocked", "completed"]
 BatchPhase = Literal[
     "validating_inputs",
     "extracting_frames",
@@ -56,8 +59,9 @@ BatchPhase = Literal[
     "ready",
     "failed",
     "blocked",
+    "completed",
 ]
-ReadinessState = Literal["not_ready", "ready", "preparing", "failed", "blocked"]
+ReadinessState = Literal["not_ready", "ready", "preparing", "failed", "blocked", "completed"]
 
 
 class VisibleCardBatchFailureResponse(BaseModel):
@@ -273,6 +277,17 @@ class VisibleCardBatchResponse(BaseModel):
     queue_schema_version: str
     queue_digest: str | None
     revision: int
+    summary: VisibleCardBatchSummaryResponse
+    review_state: Literal["draft", "completed"]
+    reviewer: str | None
+    completed_at_utc: str | None
+    completed_version_id: str | None
+    completed_version_digest: str | None
+    completion_receipt_id: str | None
+    completion_receipt_digest: str | None
+    parent_version_id: str | None
+    parent_digest: str | None
+    downstream_readiness: VisibleCardDownstreamReadinessResponse
 
 
 class VisibleCardPreviewValidationResponse(BaseModel):
@@ -332,6 +347,54 @@ class VisibleCardReviewCreateRequest(BaseModel):
 
     preview_digest: str = Field(pattern=SHA256_PATTERN)
     request_digest: str = Field(pattern=SHA256_PATTERN)
+
+
+class VisibleCardReviewCompletionRequest(BaseModel):
+    """The explicit operator confirmation for publishing a reviewed batch."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reviewer: str = Field(min_length=1)
+    expected_revision: int = Field(ge=0)
+
+
+class VisibleCardReviewRevisionRequest(BaseModel):
+    """The immutable published review to copy into a new draft."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parent_version_id: str = Field(min_length=1)
+    expected_revision: int = Field(ge=0)
+
+
+class VisibleCardBatchSummaryResponse(BaseModel):
+    """Counts shown before a batch is published."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_frames: int = Field(ge=0)
+    reviewed_frames: int = Field(ge=0)
+    pending_frames: int = Field(ge=0)
+    failed_frames: int = Field(ge=0)
+    usable_frames: int = Field(ge=0)
+    empty_frames: int = Field(ge=0)
+    unusable_frames: int = Field(ge=0)
+    retained_cards: int = Field(ge=0)
+    accepted_proposals: int = Field(ge=0)
+    corrected_proposals: int = Field(ge=0)
+    removed_proposals: int = Field(ge=0)
+    added_cards: int = Field(ge=0)
+    identity_unusable_cards: int = Field(ge=0)
+
+
+class VisibleCardDownstreamReadinessResponse(BaseModel):
+    """Readiness of the published v2 queue for the existing freeze boundary."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    state: Literal["not_ready", "ready"]
+    message: str
+    queue_digest: str | None = Field(default=None, pattern=SHA256_PATTERN)
 
 
 @dataclass(frozen=True, slots=True)
@@ -441,9 +504,10 @@ async def create_visible_card_review_batch(
                 for blocker in preview["validation"]["blockers"]
             ],
         )
-    if payload.preview_digest != preview["preview_digest"] or payload.request_digest != preview[
-        "request_digest"
-    ]:
+    if (
+        payload.preview_digest != preview["preview_digest"]
+        or payload.request_digest != preview["request_digest"]
+    ):
         raise ContractError(
             "visible_card_review_preview_stale",
             "The visible-card review preview changed. Create a new preview before starting.",
@@ -573,6 +637,72 @@ def update_visible_card_review_item(
             "The visible-card review could not be saved.",
         ) from error
     return _batch_response(request, _read_batch(request, batch_id))
+
+
+@router.post(
+    "/v1/visible-card-reviews/{batch_id}/complete",
+    response_model=VisibleCardBatchResponse,
+)
+def complete_visible_card_review(
+    batch_id: str,
+    payload: VisibleCardReviewCompletionRequest,
+    request: Request,
+) -> VisibleCardBatchResponse:
+    """Publish one fully reviewed batch as an immutable v2 queue artifact."""
+
+    _read_batch(request, batch_id)
+    try:
+        state = VisibleCardReviewBatchStore(request.app.state.settings.operations_root).complete(
+            batch_id,
+            reviewer=payload.reviewer,
+            expected_revision=payload.expected_revision,
+        )
+    except VisibleCardBatchConflict as error:
+        raise ContractError(
+            "visible_card_review_conflict",
+            str(error),
+            status_code=409,
+        ) from error
+    except (VisibleCardBatchError, OSError) as error:
+        raise ContractError(
+            "visible_card_review_completion_invalid",
+            str(error),
+        ) from error
+    return _batch_response(request, state)
+
+
+@router.post(
+    "/v1/visible-card-reviews/{batch_id}/revisions",
+    response_model=VisibleCardBatchResponse,
+)
+def start_visible_card_review_revision(
+    batch_id: str,
+    payload: VisibleCardReviewRevisionRequest,
+    request: Request,
+) -> VisibleCardBatchResponse:
+    """Start a new draft from one immutable completed visible-card review."""
+
+    _read_batch(request, batch_id)
+    try:
+        state = VisibleCardReviewBatchStore(
+            request.app.state.settings.operations_root
+        ).start_revision(
+            batch_id,
+            parent_version_id=payload.parent_version_id,
+            expected_revision=payload.expected_revision,
+        )
+    except VisibleCardBatchConflict as error:
+        raise ContractError(
+            "visible_card_review_conflict",
+            str(error),
+            status_code=409,
+        ) from error
+    except (VisibleCardBatchError, OSError) as error:
+        raise ContractError(
+            "visible_card_review_revision_invalid",
+            str(error),
+        ) from error
+    return _batch_response(request, state)
 
 
 @router.post(
@@ -897,9 +1027,9 @@ def _read_batch(request: Request, batch_id: str) -> dict[str, Any]:
         raise ContractError(
             "invalid_visible_card_batch_id", "The visible-card batch ID is invalid."
         )
-    path = VisibleCardReviewBatchStore(
-        request.app.state.settings.operations_root
-    ).batch_path(batch_id)
+    path = VisibleCardReviewBatchStore(request.app.state.settings.operations_root).batch_path(
+        batch_id
+    )
     if not path.is_file():
         raise ContractError(
             "visible_card_review_batch_not_found",
@@ -943,6 +1073,7 @@ def _schedule(request: Request, batch_request: VisibleCardBatchRequest, *, resum
 def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatchResponse:
     frozen = VisibleCardBatchRequest.from_mapping(state["frozen_inputs"])
     queue_items: dict[str, Any] = {}
+    queue = None
     queue_path = state.get("queue_path")
     if isinstance(queue_path, str):
         try:
@@ -999,7 +1130,7 @@ def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatch
                 review=review_response,
             )
         )
-    queue_revision = 0 if not queue_items else queue.revision
+    queue_revision = 0 if queue is None else queue.revision
     queue_digest = state["queue_digest"]
     if isinstance(queue_path, str):
         try:
@@ -1010,6 +1141,11 @@ def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatch
                 "The stored visible-card review queue is invalid.",
                 status_code=500,
             ) from error
+    summary = (
+        summarize_visible_card_review_queue(queue)
+        if queue is not None
+        else _summary_for_preparation_state(state)
+    )
     return VisibleCardBatchResponse(
         schema_version=state["schema_version"],
         batch_id=state["batch_id"],
@@ -1024,12 +1160,72 @@ def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatch
         progress=VisibleCardBatchProgressResponse.model_validate(state["progress"]),
         items=items,
         failures=[
-            VisibleCardBatchFailureResponse.model_validate(failure)
-            for failure in state["failures"]
+            VisibleCardBatchFailureResponse.model_validate(failure) for failure in state["failures"]
         ],
         queue_schema_version=state["queue_schema_version"],
         queue_digest=queue_digest,
         revision=queue_revision,
+        summary=VisibleCardBatchSummaryResponse.model_validate(summary),
+        review_state=state["lifecycle_state"],
+        reviewer=state["reviewer"],
+        completed_at_utc=state["completed_at_utc"],
+        completed_version_id=state["completed_version_id"],
+        completed_version_digest=state["completed_version_digest"],
+        completion_receipt_id=state["completion_receipt_id"],
+        completion_receipt_digest=state["completion_receipt_digest"],
+        parent_version_id=state["parent_version_id"],
+        parent_digest=state["parent_digest"],
+        downstream_readiness=_downstream_readiness(state),
+    )
+
+
+def _summary_for_preparation_state(state: dict[str, Any]) -> dict[str, int]:
+    items = state["items"]
+    failed = sum(item.get("failure") is not None for item in items)
+    return {
+        "total_frames": len(items),
+        "reviewed_frames": 0,
+        "pending_frames": len(items) - failed,
+        "failed_frames": failed,
+        "usable_frames": 0,
+        "empty_frames": 0,
+        "unusable_frames": 0,
+        "retained_cards": 0,
+        "accepted_proposals": 0,
+        "corrected_proposals": 0,
+        "removed_proposals": 0,
+        "added_cards": 0,
+        "identity_unusable_cards": 0,
+    }
+
+
+def _downstream_readiness(state: dict[str, Any]) -> VisibleCardDownstreamReadinessResponse:
+    if state["status"] != "completed" or not isinstance(state.get("completed_queue_path"), str):
+        return VisibleCardDownstreamReadinessResponse(
+            state="not_ready",
+            message="Complete and publish the visible-card review before freeze use.",
+            queue_digest=None,
+        )
+    path = Path(state["completed_queue_path"])
+    try:
+        queue = validate_completed_visible_card_review_queue(load_visible_card_review_queue(path))
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except (OSError, ValueError, VisibleCardReviewWorkflowError) as error:
+        return VisibleCardDownstreamReadinessResponse(
+            state="not_ready",
+            message=f"The published review is not ready for freeze use: {error}",
+            queue_digest=None,
+        )
+    if digest != state["completed_version_digest"] or queue.run_id != state["batch_id"]:
+        return VisibleCardDownstreamReadinessResponse(
+            state="not_ready",
+            message="The published review lineage is stale and cannot enter freeze use.",
+            queue_digest=None,
+        )
+    return VisibleCardDownstreamReadinessResponse(
+        state="ready",
+        message="Published v2 queue passed the existing visible-card freeze boundary.",
+        queue_digest=digest,
     )
 
 
@@ -1102,6 +1298,8 @@ def _finder_response(
 
 
 def _batch_readiness(batch: VisibleCardBatchResponse) -> tuple[ReadinessState, str]:
+    if batch.status == "completed":
+        return "completed", "Review complete — published immutable review is ready for freeze use."
     if batch.status == "preparing":
         return "preparing", _progress_message(batch)
     if batch.status == "ready":
@@ -1140,7 +1338,11 @@ def _digest(value: Any) -> str:
 
 __all__ = [
     "VisibleCardBatchResponse",
+    "VisibleCardBatchSummaryResponse",
+    "VisibleCardDownstreamReadinessResponse",
+    "VisibleCardReviewCompletionRequest",
     "VisibleCardReviewPreviewResponse",
     "VisibleCardReviewReadinessResponse",
+    "VisibleCardReviewRevisionRequest",
     "router",
 ]

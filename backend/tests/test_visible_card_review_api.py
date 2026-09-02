@@ -142,9 +142,7 @@ def test_preview_create_and_reload_persist_progress_without_duplicate_work(tmp_p
     app = _app(tmp_path, provider, _FixtureExtractor(started=started, release=release))
     with TestClient(app) as client:
         _complete_card_event_review(client)
-        preview = client.post(
-            "/v1/recordings/recording-both/visible-card-review/preview", json={}
-        )
+        preview = client.post("/v1/recordings/recording-both/visible-card-review/preview", json={})
         assert preview.status_code == 200
         preview_body = preview.json()
         assert preview_body["validation"]["valid"] is True
@@ -324,8 +322,7 @@ def test_review_item_update_is_revision_safe(tmp_path: Path) -> None:
             "reviewer": "fixture-operator",
         }
         invalid = client.put(
-            f"/v1/visible-card-reviews/{created['batch_id']}/items/"
-            f"{item_id.replace(':', '%3A')}",
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/{item_id.replace(':', '%3A')}",
             json={"expected_revision": 0, "review": invalid_review},
         )
         assert invalid.status_code == 422
@@ -341,8 +338,7 @@ def test_review_item_update_is_revision_safe(tmp_path: Path) -> None:
         }
 
         saved = client.put(
-            f"/v1/visible-card-reviews/{created['batch_id']}/items/"
-            f"{item_id.replace(':', '%3A')}",
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/{item_id.replace(':', '%3A')}",
             json={"expected_revision": 0, "review": review},
         )
         assert saved.status_code == 200
@@ -350,11 +346,104 @@ def test_review_item_update_is_revision_safe(tmp_path: Path) -> None:
         assert saved.json()["items"][0]["review"]["status"] == "reviewed"
 
         stale = client.put(
-            f"/v1/visible-card-reviews/{created['batch_id']}/items/"
-            f"{item_id.replace(':', '%3A')}",
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/{item_id.replace(':', '%3A')}",
             json={"expected_revision": 0, "review": review},
         )
         assert stale.status_code == 409
         assert stale.json()["error"]["code"] == "visible_card_review_conflict"
         current = client.get(f"/v1/visible-card-reviews/{created['batch_id']}").json()
         assert current["revision"] == 1
+
+
+def test_complete_visible_card_review_publishes_and_starts_immutable_revision(
+    tmp_path: Path,
+) -> None:
+    provider = _FlakyProvider()
+    app = _app(tmp_path, provider, _FixtureExtractor())
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/visible-card-review/preview", json={}
+        ).json()
+        created = client.post(
+            "/v1/recordings/recording-both/visible-card-review/batches",
+            json={
+                "preview_digest": preview["preview_digest"],
+                "request_digest": preview["request_digest"],
+            },
+        ).json()
+        _wait_for_batch(client, created["batch_id"])
+        client.post(f"/v1/visible-card-reviews/{created['batch_id']}/retry")
+        ready = _wait_for_batch(client, created["batch_id"])
+        for item in ready["items"]:
+            response = client.put(
+                f"/v1/visible-card-reviews/{created['batch_id']}/items/"
+                f"{item['item_id'].replace(':', '%3A')}",
+                json={
+                    "expected_revision": ready["revision"],
+                    "review": {
+                        "status": "reviewed",
+                        "decision": "BAD",
+                        "empty_frame": True,
+                        "failure_tags": [],
+                        "actions": [],
+                        "reviewer": "fixture-operator",
+                    },
+                },
+            )
+            assert response.status_code == 200
+            ready = response.json()
+
+        completed = client.post(
+            f"/v1/visible-card-reviews/{created['batch_id']}/complete",
+            json={"reviewer": "fixture-operator", "expected_revision": ready["revision"]},
+        )
+        assert completed.status_code == 200
+        published = completed.json()
+        assert published["status"] == "completed"
+        assert published["completed_version_id"]
+        assert published["completed_version_digest"]
+        assert published["completion_receipt_id"]
+        assert published["downstream_readiness"]["state"] == "ready"
+        assert published["summary"]["empty_frames"] == 2
+
+        repeated = client.post(
+            f"/v1/visible-card-reviews/{created['batch_id']}/complete",
+            json={
+                "reviewer": "fixture-operator",
+                "expected_revision": published["revision"],
+            },
+        )
+        assert repeated.status_code == 200
+        assert repeated.json()["completed_version_id"] == published["completed_version_id"]
+
+        revision = client.post(
+            f"/v1/visible-card-reviews/{created['batch_id']}/revisions",
+            json={
+                "parent_version_id": published["completed_version_id"],
+                "expected_revision": published["revision"],
+            },
+        )
+        assert revision.status_code == 200
+        draft = revision.json()
+        assert draft["status"] == "ready"
+        assert draft["parent_version_id"] == published["completed_version_id"]
+        assert draft["parent_digest"] == published["completed_version_digest"]
+        assert draft["completed_version_id"] is None
+
+        completed_update = client.put(
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/"
+            f"{draft['items'][0]['item_id'].replace(':', '%3A')}",
+            json={
+                "expected_revision": draft["revision"],
+                "review": {
+                    "status": "reviewed",
+                    "decision": "BAD",
+                    "empty_frame": False,
+                    "failure_tags": [],
+                    "actions": [],
+                    "reviewer": "fixture-operator",
+                },
+            },
+        )
+        assert completed_update.status_code == 200

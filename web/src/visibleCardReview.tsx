@@ -65,6 +65,7 @@ export function VisibleCardReviewPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reviewer, setReviewer] = useState("web-operator");
 
   const loadBatch = useCallback(
     async (signal?: AbortSignal) => {
@@ -159,6 +160,62 @@ export function VisibleCardReviewPage({
     }
   }
 
+  async function completeBatch() {
+    if (
+      batch === null ||
+      batch.status !== "ready" ||
+      pendingCount > 0 ||
+      reviewer.trim() === ""
+    ) {
+      return;
+    }
+    if (
+      !window.confirm(
+        "Publish this complete visible-card review? The published queue will be immutable.",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      setBatch(
+        await client.completeVisibleCardReviewBatch(batchId, {
+          reviewer: reviewer.trim(),
+          expected_revision: batch.revision,
+        }),
+      );
+    } catch (reason: unknown) {
+      setError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startRevision() {
+    if (
+      batch === null ||
+      batch.status !== "completed" ||
+      batch.completed_version_id === null
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      setBatch(
+        await client.startVisibleCardReviewRevision(batchId, {
+          parent_version_id: batch.completed_version_id,
+          expected_revision: batch.revision,
+        }),
+      );
+    } catch (reason: unknown) {
+      setError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveReview(itemId: string, review: ReviewUpdate) {
     if (batch === null) {
       return;
@@ -242,6 +299,36 @@ export function VisibleCardReviewPage({
               <Stat label="Pending" value={String(pendingCount)} />
               <Stat label="Detector" value={batch.detector.bundle_id} />
             </dl>
+            <dl className={styles.detailStats}>
+              <Stat
+                label="Usable frames"
+                value={String(batch.summary.usable_frames)}
+              />
+              <Stat
+                label="Reviewed empty"
+                value={String(batch.summary.empty_frames)}
+              />
+              <Stat
+                label="Unusable frames"
+                value={String(batch.summary.unusable_frames)}
+              />
+              <Stat
+                label="Retained cards"
+                value={String(batch.summary.retained_cards)}
+              />
+              <Stat
+                label="Corrected proposals"
+                value={String(batch.summary.corrected_proposals)}
+              />
+              <Stat
+                label="Removed proposals"
+                value={String(batch.summary.removed_proposals)}
+              />
+              <Stat
+                label="Added cards"
+                value={String(batch.summary.added_cards)}
+              />
+            </dl>
             {batch.status === "failed" ? (
               <div className={styles.visibleCardFailureBar}>
                 <p>
@@ -257,6 +344,70 @@ export function VisibleCardReviewPage({
                   }
                 >
                   {busy ? "Retrying…" : "Retry failed items"}
+                </button>
+              </div>
+            ) : null}
+            {batch.status === "ready" ? (
+              <div className={styles.visibleCardPublishPanel}>
+                <label>
+                  Reviewer
+                  <input
+                    value={reviewer}
+                    onChange={(event) => setReviewer(event.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+                <p>
+                  {pendingCount === 0
+                    ? "Every frame is complete. Review the summary, then publish the immutable queue."
+                    : `${pendingCount} frame${pendingCount === 1 ? "" : "s"} remain${pendingCount === 1 ? "s" : ""}.`}
+                </p>
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={() => void completeBatch()}
+                  disabled={busy || pendingCount > 0 || reviewer.trim() === ""}
+                >
+                  {busy ? "Publishing…" : "Complete review"}
+                </button>
+              </div>
+            ) : null}
+            {batch.status === "completed" ? (
+              <div className={styles.visibleCardPublishPanel} role="status">
+                <p>
+                  Published by {batch.reviewer ?? "unknown reviewer"} at{" "}
+                  {batch.completed_at_utc ?? "unknown time"}. The completed
+                  queue is immutable.
+                </p>
+                <dl className={styles.detailMetadata}>
+                  <Stat
+                    label="Reviewed version"
+                    value={batch.completed_version_id ?? "Not available"}
+                  />
+                  <Stat
+                    label="Version digest"
+                    value={batch.completed_version_digest ?? "Not available"}
+                  />
+                  <Stat
+                    label="Lifecycle receipt"
+                    value={batch.completion_receipt_id ?? "Not available"}
+                  />
+                  <Stat
+                    label="Receipt digest"
+                    value={batch.completion_receipt_digest ?? "Not available"}
+                  />
+                  <Stat
+                    label="Freeze readiness"
+                    value={batch.downstream_readiness.message}
+                  />
+                </dl>
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  onClick={() => void startRevision()}
+                  disabled={busy}
+                >
+                  {busy ? "Starting revision…" : "Start a new revision"}
                 </button>
               </div>
             ) : null}
@@ -318,6 +469,7 @@ export function VisibleCardReviewPage({
                   onRetry={() => void retryBatch()}
                   onSaveReview={saveReview}
                   saveBusy={busy}
+                  readOnly={batch.status === "completed"}
                 />
               ) : null}
             </div>
@@ -344,6 +496,7 @@ function VisibleCardFrame({
   onRetry,
   onSaveReview,
   saveBusy,
+  readOnly,
 }: {
   batch: VisibleCardReviewBatch;
   item: BatchItem;
@@ -360,6 +513,7 @@ function VisibleCardFrame({
   onRetry: () => void;
   onSaveReview: (itemId: string, review: ReviewUpdate) => Promise<void>;
   saveBusy: boolean;
+  readOnly: boolean;
 }) {
   const source = item.source;
   const proposals = item.finder?.proposals ?? [];
@@ -411,6 +565,9 @@ function VisibleCardFrame({
     proposal: Proposal,
     action: "accepted" | "removed",
   ) {
+    if (readOnly) {
+      return;
+    }
     const cardId = cardIdForProposal(proposal.proposal_index);
     const nextActions = actions.filter(
       (existing) => existing.card_id !== cardId,
@@ -434,6 +591,9 @@ function VisibleCardFrame({
   }
 
   function openCorrection(proposal: Proposal) {
+    if (readOnly) {
+      return;
+    }
     const existing = actions.find(
       (action) => action.proposal_index === proposal.proposal_index,
     );
@@ -458,6 +618,9 @@ function VisibleCardFrame({
   }
 
   function openAddCard() {
+    if (readOnly) {
+      return;
+    }
     setEditorError(null);
     setEditor({
       action: "added",
@@ -736,6 +899,7 @@ function VisibleCardFrame({
             onFailureTags={(failureTags) =>
               void save(currentReview({ failureTags }))
             }
+            disabled={readOnly}
             onRetrySave={
               pendingSave === null ? undefined : () => void save(pendingSave)
             }
@@ -748,11 +912,13 @@ function VisibleCardFrame({
             onAccept={(proposal) => saveProposalAction(proposal, "accepted")}
             onRemove={(proposal) => saveProposalAction(proposal, "removed")}
             onCorrect={openCorrection}
+            disabled={readOnly}
           />
           <button
             className={styles.primaryButton}
             type="button"
             onClick={openAddCard}
+            disabled={readOnly}
           >
             Add missed card
           </button>
@@ -818,12 +984,14 @@ function FrameOutcomeControls({
   onOutcome,
   onFailureTags,
   onRetrySave,
+  disabled,
 }: {
   review: BatchItem["review"];
   message: string | null;
   onOutcome: (outcome: Outcome) => void;
   onFailureTags: (failureTags: string[]) => void;
   onRetrySave: (() => void) | undefined;
+  disabled: boolean;
 }) {
   return (
     <section
@@ -844,6 +1012,7 @@ function FrameOutcomeControls({
             review?.decision === "GOOD" && review.empty_frame === false
           }
           onClick={() => onOutcome("usable")}
+          disabled={disabled}
         >
           Usable with visible cards
         </button>
@@ -854,6 +1023,7 @@ function FrameOutcomeControls({
             review?.decision === "BAD" && review.empty_frame === true
           }
           onClick={() => onOutcome("empty")}
+          disabled={disabled}
         >
           Reviewed empty frame
         </button>
@@ -864,6 +1034,7 @@ function FrameOutcomeControls({
             review?.decision === "BAD" && review.empty_frame === false
           }
           onClick={() => onOutcome("unusable")}
+          disabled={disabled}
         >
           Unusable frame
         </button>
@@ -876,6 +1047,7 @@ function FrameOutcomeControls({
           className={styles.secondaryButton}
           type="button"
           onClick={onRetrySave}
+          disabled={disabled}
         >
           Retry last save
         </button>
@@ -887,6 +1059,7 @@ function FrameOutcomeControls({
             <input
               type="checkbox"
               checked={review?.failure_tags.includes(tag) ?? false}
+              disabled={disabled}
               onChange={(event) => {
                 const failureTags = review?.failure_tags ?? [];
                 onFailureTags(
@@ -916,6 +1089,7 @@ function ProposalList({
   onAccept,
   onCorrect,
   onRemove,
+  disabled,
 }: {
   proposals: Proposal[];
   actions: ReviewAction[];
@@ -924,6 +1098,7 @@ function ProposalList({
   onAccept: (proposal: Proposal) => void;
   onCorrect: (proposal: Proposal) => void;
   onRemove: (proposal: Proposal) => void;
+  disabled: boolean;
 }) {
   return (
     <section
@@ -951,6 +1126,7 @@ function ProposalList({
                   className={styles.visibleCardProposalButton}
                   type="button"
                   aria-pressed={activeProposalIndex === proposal.proposal_index}
+                  disabled={disabled}
                   onClick={() =>
                     onProposalSelect(
                       activeProposalIndex === proposal.proposal_index
@@ -977,6 +1153,7 @@ function ProposalList({
                   <button
                     className={styles.inlineAction}
                     type="button"
+                    disabled={disabled}
                     onClick={() => onAccept(proposal)}
                   >
                     Accept proposal {proposal.proposal_index + 1}
@@ -984,6 +1161,7 @@ function ProposalList({
                   <button
                     className={styles.inlineAction}
                     type="button"
+                    disabled={disabled}
                     onClick={() => onCorrect(proposal)}
                   >
                     Correct proposal {proposal.proposal_index + 1}
@@ -991,6 +1169,7 @@ function ProposalList({
                   <button
                     className={styles.inlineAction}
                     type="button"
+                    disabled={disabled}
                     onClick={() => onRemove(proposal)}
                   >
                     Remove proposal {proposal.proposal_index + 1}
@@ -1420,6 +1599,9 @@ function replaceSelectedItem(itemId: string, batchId: string) {
 }
 
 function batchMessage(batch: VisibleCardReviewBatch): string {
+  if (batch.status === "completed") {
+    return "Review complete — published immutable review is ready for freeze use.";
+  }
   if (batch.status === "ready") {
     return `Ready to review — ${batch.progress.finder_completed} of ${batch.progress.total_items} complete.`;
   }

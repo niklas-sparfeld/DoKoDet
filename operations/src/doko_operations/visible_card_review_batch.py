@@ -22,8 +22,11 @@ from typing import Any, Protocol
 
 from table_evidence_analyzer.visible_card_review_workflow import (
     VISIBLE_CARD_REVIEW_QUEUE_SCHEMA,
+    VisibleCardReviewQueue,
+    VisibleCardReviewWorkflowError,
     build_visible_card_review_queue,
     load_visible_card_review_queue,
+    validate_completed_visible_card_review_queue,
 )
 from table_evidence_analyzer.visible_cards import (
     IMPROVED_REQUEST_SCHEMA_VERSION,
@@ -35,9 +38,17 @@ from table_evidence_analyzer.visible_cards import (
 
 VISIBLE_CARD_BATCH_SCHEMA_VERSION = "visible-card-review-batch/v1"
 VISIBLE_CARD_BATCH_SCHEMA = VISIBLE_CARD_BATCH_SCHEMA_VERSION
-VISIBLE_CARD_BATCH_STATUSES = frozenset({"preparing", "ready", "failed", "blocked"})
+VISIBLE_CARD_BATCH_STATUSES = frozenset({"preparing", "ready", "failed", "blocked", "completed"})
 VISIBLE_CARD_BATCH_PHASES = frozenset(
-    {"validating_inputs", "extracting_frames", "running_finder", "ready", "failed", "blocked"}
+    {
+        "validating_inputs",
+        "extracting_frames",
+        "running_finder",
+        "ready",
+        "failed",
+        "blocked",
+        "completed",
+    }
 )
 VISIBLE_CARD_BATCH_FAILURE_CODES = frozenset(
     {
@@ -71,6 +82,10 @@ _IDENTIFIER_CHARACTERS = frozenset(
 
 class VisibleCardBatchError(ValueError):
     """Raised when a visible-card batch request or stored batch is invalid."""
+
+
+class VisibleCardBatchConflict(VisibleCardBatchError):
+    """Raised when a completion or revision uses stale or different content."""
 
 
 class VisibleCardBatchWriteError(RuntimeError):
@@ -754,6 +769,28 @@ def _atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
             temporary_path.unlink(missing_ok=True)
 
 
+def _atomic_write_bytes(path: Path, value: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(value)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    except OSError as error:
+        raise VisibleCardBatchWriteError(
+            f"could not save visible-card batch artifact: {path}"
+        ) from error
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 def _immutable_bytes(path: Path, value: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
@@ -911,9 +948,7 @@ def _initial_item(item: _BatchItemDefinition) -> dict[str, Any]:
     }
 
 
-def _lineage_mapping(
-    request: VisibleCardBatchRequest, item: Mapping[str, Any]
-) -> dict[str, Any]:
+def _lineage_mapping(request: VisibleCardBatchRequest, item: Mapping[str, Any]) -> dict[str, Any]:
     frame = item.get("frame")
     if not isinstance(frame, Mapping):
         raise VisibleCardBatchError("completed finder item has no source frame")
@@ -954,6 +989,16 @@ def _state(
     failures: Sequence[VisibleCardBatchFailure] = (),
     queue_path: str | None = None,
     queue_digest: str | None = None,
+    lifecycle_state: str = "draft",
+    reviewer: str | None = None,
+    completed_at_utc: str | None = None,
+    completed_version_id: str | None = None,
+    completed_version_digest: str | None = None,
+    completed_queue_path: str | None = None,
+    completion_receipt_id: str | None = None,
+    completion_receipt_digest: str | None = None,
+    parent_version_id: str | None = None,
+    parent_digest: str | None = None,
 ) -> dict[str, Any]:
     if status not in VISIBLE_CARD_BATCH_STATUSES or phase not in VISIBLE_CARD_BATCH_PHASES:
         raise VisibleCardBatchError("invalid visible-card batch state")
@@ -971,6 +1016,16 @@ def _state(
         "queue_schema_version": VISIBLE_CARD_REVIEW_QUEUE_SCHEMA,
         "queue_path": queue_path,
         "queue_digest": queue_digest,
+        "lifecycle_state": lifecycle_state,
+        "reviewer": reviewer,
+        "completed_at_utc": completed_at_utc,
+        "completed_version_id": completed_version_id,
+        "completed_version_digest": completed_version_digest,
+        "completed_queue_path": completed_queue_path,
+        "completion_receipt_id": completion_receipt_id,
+        "completion_receipt_digest": completion_receipt_digest,
+        "parent_version_id": parent_version_id,
+        "parent_digest": parent_digest,
     }
 
 
@@ -989,6 +1044,16 @@ def _validate_batch_state(value: Any) -> dict[str, Any]:
         "queue_schema_version",
         "queue_path",
         "queue_digest",
+        "lifecycle_state",
+        "reviewer",
+        "completed_at_utc",
+        "completed_version_id",
+        "completed_version_digest",
+        "completed_queue_path",
+        "completion_receipt_id",
+        "completion_receipt_digest",
+        "parent_version_id",
+        "parent_digest",
     }
     if not isinstance(value, dict) or set(value) != fields:
         raise VisibleCardBatchError("visible-card batch state has unexpected fields")
@@ -1031,10 +1096,44 @@ def _validate_batch_state(value: Any) -> dict[str, Any]:
         _text(value["queue_path"], "queue_path")
     if value["queue_digest"] is not None:
         _digest(value["queue_digest"], "queue_digest")
-    if value["status"] == "ready" and (
+    if value["status"] in {"ready", "completed"} and (
         value["queue_path"] is None or value["queue_digest"] is None
     ):
-        raise VisibleCardBatchError("ready visible-card batch needs a queue artifact")
+        raise VisibleCardBatchError("reviewable visible-card batch needs a queue artifact")
+    if value["lifecycle_state"] not in {"draft", "completed"}:
+        raise VisibleCardBatchError("visible-card lifecycle state is invalid")
+    if value["reviewer"] is not None:
+        _text(value["reviewer"], "reviewer")
+    if value["completed_at_utc"] is not None:
+        _utc_timestamp(value["completed_at_utc"], "completed_at_utc")
+    for field_name in (
+        "completed_version_id",
+        "completed_queue_path",
+        "completion_receipt_id",
+        "parent_version_id",
+    ):
+        if value[field_name] is not None:
+            _text(value[field_name], field_name)
+    for field_name in ("completed_version_digest", "completion_receipt_digest", "parent_digest"):
+        if value[field_name] is not None:
+            _digest(value[field_name], field_name)
+    completed_fields = (
+        value["completed_at_utc"],
+        value["completed_version_id"],
+        value["completed_version_digest"],
+        value["completed_queue_path"],
+        value["completion_receipt_id"],
+        value["completion_receipt_digest"],
+    )
+    if value["status"] == "completed":
+        if value["lifecycle_state"] != "completed" or any(
+            field is None for field in completed_fields
+        ):
+            raise VisibleCardBatchError("completed visible-card batch metadata is incomplete")
+    elif value["lifecycle_state"] != "draft":
+        raise VisibleCardBatchError("non-completed visible-card batch must remain a draft")
+    if (value["parent_version_id"] is None) != (value["parent_digest"] is None):
+        raise VisibleCardBatchError("visible-card parent lineage is incomplete")
     return value
 
 
@@ -1042,6 +1141,204 @@ def load_visible_card_review_batch(path: str | Path) -> dict[str, Any]:
     """Load and validate one persisted visible-card batch state."""
 
     return _validate_batch_state(_read_json(Path(path), "visible-card batch state"))
+
+
+def summarize_visible_card_review_queue(queue: VisibleCardReviewQueue) -> dict[str, int]:
+    """Return the operator-facing counts for one visible-card review queue."""
+
+    summary = {
+        "total_frames": len(queue.items),
+        "reviewed_frames": 0,
+        "pending_frames": 0,
+        "failed_frames": 0,
+        "usable_frames": 0,
+        "empty_frames": 0,
+        "unusable_frames": 0,
+        "retained_cards": 0,
+        "accepted_proposals": 0,
+        "corrected_proposals": 0,
+        "removed_proposals": 0,
+        "added_cards": 0,
+        "identity_unusable_cards": 0,
+    }
+    for item in queue.items:
+        review = item.review
+        if review.status == "reviewed":
+            summary["reviewed_frames"] += 1
+            if review.decision == "GOOD":
+                summary["usable_frames"] += 1
+            elif review.empty_frame:
+                summary["empty_frames"] += 1
+            else:
+                summary["unusable_frames"] += 1
+        else:
+            summary["pending_frames"] += 1
+        for action in review.actions:
+            if action.action == "accepted":
+                summary["accepted_proposals"] += 1
+            elif action.action == "reshaped":
+                summary["corrected_proposals"] += 1
+            elif action.action == "removed":
+                summary["removed_proposals"] += 1
+            elif action.action == "added":
+                summary["added_cards"] += 1
+            if action.reviewed_card is not None:
+                summary["retained_cards"] += 1
+                if not action.reviewed_card.identity_usability.usable:
+                    summary["identity_unusable_cards"] += 1
+    return summary
+
+
+def _queue_mapping_digest(queue: VisibleCardReviewQueue) -> str:
+    return hashlib.sha256(_canonical(queue.to_mapping())).hexdigest()
+
+
+def _queue_bytes_digest(path: Path) -> str:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError as error:
+        raise VisibleCardBatchWriteError(f"could not read review queue: {path}") from error
+
+
+def _review_lineage(
+    queue: VisibleCardReviewQueue,
+    batch_items: Sequence[Mapping[str, Any]] = (),
+) -> list[dict[str, Any]]:
+    dependencies: list[dict[str, Any]] = []
+    events_by_item = {
+        item.get("item_id"): item.get("event")
+        for item in batch_items
+        if isinstance(item, Mapping) and isinstance(item.get("item_id"), str)
+    }
+    for item in queue.items:
+        source = item.source
+        teacher = item.teacher
+        dependencies.extend(
+            (
+                {
+                    "kind": "selected_card_event",
+                    "id": item.item_id,
+                    "digest": hashlib.sha256(
+                        _canonical(
+                            {
+                                "item_id": item.item_id,
+                                "package_id": source.package_id,
+                                "frame_part_name": source.frame_part_name,
+                                "target_offset_ms": source.target_offset_ms,
+                                "event": events_by_item.get(item.item_id),
+                            }
+                        )
+                    ).hexdigest(),
+                },
+                {
+                    "kind": "source_frame",
+                    "id": item.item_id,
+                    "path": source.image,
+                    "digest": source.frame_sha256,
+                },
+                {
+                    "kind": "finder_request",
+                    "id": item.item_id,
+                    "digest": teacher.request_digest,
+                },
+                {
+                    "kind": "finder_result",
+                    "id": item.item_id,
+                    "path": teacher.result_path,
+                    "digest": teacher.result_digest,
+                },
+                {
+                    "kind": "finder_prediction",
+                    "id": item.item_id,
+                    "digest": teacher.prediction_sha256,
+                },
+                {
+                    "kind": "review",
+                    "id": item.item_id,
+                    "digest": hashlib.sha256(_canonical(item.review.to_mapping())).hexdigest(),
+                },
+            )
+        )
+        for index, proposal in enumerate(teacher.prediction["cards"]):
+            dependencies.append(
+                {
+                    "kind": "finder_proposal",
+                    "id": f"{item.item_id}:proposal-{index}",
+                    "digest": hashlib.sha256(_canonical(proposal)).hexdigest(),
+                }
+            )
+    return dependencies
+
+
+def _completion_receipt(
+    request: VisibleCardBatchRequest,
+    queue: VisibleCardReviewQueue,
+    *,
+    version_id: str,
+    version_digest: str,
+    queue_digest: str,
+    queue_bytes_digest: str,
+    batch_items: Sequence[Mapping[str, Any]],
+    reviewer: str,
+    occurred_at: str,
+) -> dict[str, Any]:
+    core = {
+        "schema_version": "lifecycle-receipt/v1",
+        "receipt_type": "annotation_application",
+        "operator": reviewer,
+        "occurred_at": occurred_at,
+        "inputs": [
+            {
+                "kind": "source_asset",
+                "id": request.source_asset_id,
+                "digest": request.source_sha256,
+            },
+            {
+                "kind": "source_video",
+                "id": request.video_path.name,
+                "path": str(request.video_path.resolve()),
+                "digest": request.source_sha256,
+            },
+            {
+                "kind": "card_event_review",
+                "id": request.card_event_review_version_id,
+                "path": str(request.card_event_review_version_path.resolve()),
+                "digest": request.card_event_review_version_digest,
+            },
+            {
+                "kind": "card_event_annotation",
+                "id": request.recording_id,
+                "digest": request.card_event_annotation_digest,
+            },
+        ],
+        "outputs": [
+            {"kind": "visible_card_review", "id": version_id, "digest": version_digest},
+            {"kind": "visible_card_queue", "id": request.batch_id, "digest": queue_digest},
+        ],
+        "dependencies": _review_lineage(queue, batch_items),
+        "metadata": {
+            "batch_id": request.batch_id,
+            "recording_id": request.recording_id,
+            "source_lineage_group": request.source_lineage_group,
+            "input_draft_revision": queue.revision,
+            "input_draft_digest": queue_bytes_digest,
+            "queue_digest": queue_digest,
+            "detector": request.detector.to_mapping_without_path(),
+            "selected_events": [
+                item.get("event")
+                for item in batch_items
+                if isinstance(item, Mapping) and isinstance(item.get("event"), Mapping)
+            ],
+            "summary": summarize_visible_card_review_queue(queue),
+        },
+    }
+    receipt_digest_core = {key: value for key, value in core.items() if key != "occurred_at"}
+    return {
+        **core,
+        "receipt_id": "receipt-visible-card-review-"
+        + _digest_value({"version_id": version_id, "version_digest": version_digest})[:20],
+        "receipt_digest": hashlib.sha256(_canonical(receipt_digest_core)).hexdigest(),
+    }
 
 
 def assess_visible_card_review_readiness(
@@ -1224,6 +1521,193 @@ class VisibleCardReviewBatchStore:
         _atomic_write_json(path, state)
         return _validate_batch_state(state)
 
+    def complete(
+        self,
+        batch_id: str,
+        *,
+        reviewer: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        """Publish the current complete queue as an immutable reviewed artifact."""
+
+        reviewer = _text(reviewer, "reviewer")
+        path = self.batch_path(batch_id)
+        current = load_visible_card_review_batch(path)
+        if (
+            not isinstance(expected_revision, int)
+            or isinstance(expected_revision, bool)
+            or expected_revision < 0
+        ):
+            raise VisibleCardBatchError("expected_revision must be a non-negative integer")
+        if current["status"] == "failed":
+            remaining = ", ".join(
+                failure["item_id"] or failure["code"] for failure in current["failures"]
+            )
+            raise VisibleCardBatchError(
+                f"complete the failed items before publishing: {remaining or 'failed items'}"
+            )
+        if current["status"] not in {"ready", "completed"}:
+            raise VisibleCardBatchError(
+                "complete every preparation item before publishing the visible-card review"
+            )
+        queue_path_value = current.get("queue_path")
+        if not isinstance(queue_path_value, str):
+            raise VisibleCardBatchError("the visible-card batch has no review queue")
+        queue_path = Path(queue_path_value)
+        try:
+            queue = load_visible_card_review_queue(queue_path)
+            if queue.revision != expected_revision:
+                raise VisibleCardBatchConflict(
+                    "review queue revision changed: "
+                    f"expected {expected_revision}, current {queue.revision}"
+                )
+            validate_completed_visible_card_review_queue(queue)
+            queue_bytes = queue_path.read_bytes()
+        except VisibleCardBatchConflict:
+            raise
+        except (OSError, ValueError, VisibleCardReviewWorkflowError) as error:
+            raise VisibleCardBatchError(
+                f"visible-card review cannot be completed: {error}"
+            ) from error
+
+        queue_bytes_digest = hashlib.sha256(queue_bytes).hexdigest()
+        queue_digest = _queue_mapping_digest(queue)
+        if current["status"] == "completed":
+            if (
+                current.get("reviewer") != reviewer
+                or current.get("queue_digest") != queue_bytes_digest
+                or not isinstance(current.get("completed_queue_path"), str)
+            ):
+                raise VisibleCardBatchConflict(
+                    "the completed visible-card review differs; start a new revision"
+                )
+            completed_path = Path(current["completed_queue_path"])
+            if not completed_path.is_file() or completed_path.read_bytes() != queue_bytes:
+                raise VisibleCardBatchConflict(
+                    "the published visible-card review bytes changed; start a new revision"
+                )
+            return current
+        if current["status"] != "ready":
+            raise VisibleCardBatchError("only a ready visible-card batch can be completed")
+        if current["failures"]:
+            remaining = ", ".join(
+                failure["item_id"] or failure["code"] for failure in current["failures"]
+            )
+            raise VisibleCardBatchError(f"complete the failed items before publishing: {remaining}")
+
+        request = VisibleCardBatchRequest.from_mapping(current["frozen_inputs"])
+        version_core = {
+            "schema_version": "visible-card-review/v1",
+            "batch_id": batch_id,
+            "queue_digest": queue_digest,
+            "queue_bytes_digest": queue_bytes_digest,
+            "parent_version_id": current.get("parent_version_id"),
+            "parent_digest": current.get("parent_digest"),
+        }
+        version_id = (
+            "visible-card-reviewed-" + hashlib.sha256(_canonical(version_core)).hexdigest()[:20]
+        )
+        version_path = self.batch_root(batch_id) / "versions" / f"{version_id}.json"
+        _immutable_bytes(version_path, queue_bytes)
+        version_digest = hashlib.sha256(queue_bytes).hexdigest()
+        occurred_at = _now()
+        receipt = _completion_receipt(
+            request,
+            queue,
+            version_id=version_id,
+            version_digest=version_digest,
+            queue_digest=queue_digest,
+            queue_bytes_digest=queue_bytes_digest,
+            batch_items=current["items"],
+            reviewer=reviewer,
+            occurred_at=occurred_at,
+        )
+        receipt_path = self.batch_root(batch_id) / "receipts" / f"{receipt['receipt_id']}.json"
+        _immutable_bytes(receipt_path, _canonical(receipt) + b"\n")
+        updated = dict(current)
+        updated.update(
+            {
+                "status": "completed",
+                "updated_at_utc": occurred_at,
+                "progress": _progress(
+                    current["items"], phase="completed", total=len(current["items"])
+                ),
+                "queue_digest": queue_bytes_digest,
+                "lifecycle_state": "completed",
+                "reviewer": reviewer,
+                "completed_at_utc": occurred_at,
+                "completed_version_id": version_id,
+                "completed_version_digest": version_digest,
+                "completed_queue_path": str(version_path.resolve()),
+                "completion_receipt_id": receipt["receipt_id"],
+                "completion_receipt_digest": receipt["receipt_digest"],
+            }
+        )
+        _atomic_write_json(path, updated)
+        return _validate_batch_state(updated)
+
+    def start_revision(
+        self,
+        batch_id: str,
+        *,
+        parent_version_id: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        """Start a mutable draft copied from one immutable completed queue."""
+
+        parent_version_id = _text(parent_version_id, "parent_version_id")
+        path = self.batch_path(batch_id)
+        current = load_visible_card_review_batch(path)
+        if current["status"] != "completed":
+            raise VisibleCardBatchError(
+                "start a revision only from a completed visible-card review"
+            )
+        queue_path_value = current.get("queue_path")
+        completed_path_value = current.get("completed_queue_path")
+        if not isinstance(queue_path_value, str) or not isinstance(completed_path_value, str):
+            raise VisibleCardBatchError("completed visible-card review lineage is incomplete")
+        completed_path = Path(completed_path_value)
+        try:
+            completed_bytes = completed_path.read_bytes()
+            queue = load_visible_card_review_queue(completed_path)
+        except (OSError, ValueError, VisibleCardReviewWorkflowError) as error:
+            raise VisibleCardBatchError(
+                "the completed visible-card review cannot be read"
+            ) from error
+        if queue.revision != expected_revision:
+            raise VisibleCardBatchConflict(
+                "review queue revision changed: "
+                f"expected {expected_revision}, current {queue.revision}"
+            )
+        if parent_version_id != current.get("completed_version_id"):
+            raise VisibleCardBatchConflict(
+                "the requested parent is not the current completed review"
+            )
+        if hashlib.sha256(completed_bytes).hexdigest() != current.get("completed_version_digest"):
+            raise VisibleCardBatchError("the completed visible-card review digest is stale")
+        _atomic_write_bytes(Path(queue_path_value), completed_bytes)
+        updated = dict(current)
+        updated.update(
+            {
+                "status": "ready",
+                "updated_at_utc": _now(),
+                "progress": _progress(current["items"], phase="ready", total=len(current["items"])),
+                "queue_digest": hashlib.sha256(completed_bytes).hexdigest(),
+                "lifecycle_state": "draft",
+                "reviewer": None,
+                "completed_at_utc": None,
+                "completed_version_id": None,
+                "completed_version_digest": None,
+                "completed_queue_path": None,
+                "completion_receipt_id": None,
+                "completion_receipt_digest": None,
+                "parent_version_id": parent_version_id,
+                "parent_digest": current["completed_version_digest"],
+            }
+        )
+        _atomic_write_json(path, updated)
+        return _validate_batch_state(updated)
+
     def prepare(
         self,
         request: VisibleCardBatchRequest,
@@ -1244,7 +1728,7 @@ class VisibleCardReviewBatchStore:
             current = load_visible_card_review_batch(state_path)
             if current["request_digest"] != request.request_digest:
                 raise VisibleCardBatchError("stored visible-card batch request identity changed")
-            if current["status"] == "ready" or (
+            if current["status"] in {"ready", "completed"} or (
                 current["status"] in {"blocked", "failed"} and not resume
             ):
                 return current

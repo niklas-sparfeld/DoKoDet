@@ -49,6 +49,10 @@ export type VisibleCardReviewBatch = JsonResponse<
 >;
 export type VisibleCardReviewItemUpdateRequest =
   components["schemas"]["VisibleCardReviewItemUpdateRequest"];
+export type VisibleCardReviewCompletionRequest =
+  components["schemas"]["VisibleCardReviewCompletionRequest"];
+export type VisibleCardReviewRevisionRequest =
+  components["schemas"]["VisibleCardReviewRevisionRequest"];
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -133,6 +137,16 @@ export interface DokoDetectorClient {
   ): Promise<VisibleCardReviewBatch>;
   retryVisibleCardReviewBatch(
     batchId: string,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewBatch>;
+  completeVisibleCardReviewBatch(
+    batchId: string,
+    payload: VisibleCardReviewCompletionRequest,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewBatch>;
+  startVisibleCardReviewRevision(
+    batchId: string,
+    payload: VisibleCardReviewRevisionRequest,
     init?: RequestInit,
   ): Promise<VisibleCardReviewBatch>;
   startRecordingAnalysis(
@@ -308,6 +322,28 @@ export function createDokoDetectorClient(
           body: JSON.stringify({}),
         },
       ),
+    completeVisibleCardReviewBatch: (batchId, payload, init) =>
+      requestJson<VisibleCardReviewBatch>(
+        fetchImplementation,
+        visibleCardReviewBatchCompletePath(batchId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    startVisibleCardReviewRevision: (batchId, payload, init) =>
+      requestJson<VisibleCardReviewBatch>(
+        fetchImplementation,
+        visibleCardReviewBatchRevisionPath(batchId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
     startRecordingAnalysis: (recordingId, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -432,6 +468,14 @@ export function visibleCardReviewItemPath(
 
 export function visibleCardReviewBatchRetryPath(batchId: string): string {
   return `${visibleCardReviewBatchPath(batchId)}/retry`;
+}
+
+export function visibleCardReviewBatchCompletePath(batchId: string): string {
+  return `${visibleCardReviewBatchPath(batchId)}/complete`;
+}
+
+export function visibleCardReviewBatchRevisionPath(batchId: string): string {
+  return `${visibleCardReviewBatchPath(batchId)}/revisions`;
 }
 
 export function cardEventDevelopmentSplitPreviewPath(): string {

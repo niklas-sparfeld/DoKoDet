@@ -4,7 +4,8 @@
 
 - **Summary:** Seed visible-card review queues with the configured local finder and let an operator
   accept or correct the proposals in the web recording workspace.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** Plan 0038 visible-region and review contracts, and plan 0039 M0 through M4 web
   recording workspace
 - **Builds on:** Plans 0020 and 0027 source, task, review, dataset, and lifecycle contracts
@@ -28,7 +29,9 @@
 - **M3:** Complete — revision-guarded frame outcomes, proposal actions, missed-card creation,
   normalized polygon editing, derived boxes, review metadata, autosave retry, and conflict
   feedback.
-- **M4:** Not started — complete and publish review with immutable lineage and downstream proof.
+- **M4:** Complete — publish an immutable completed queue and lifecycle receipt, expose review
+  summaries and completion state, support parent-linked revisions, and prove freeze-boundary
+  readiness through the existing v2 queue contract.
 
 ## 1. Purpose
 

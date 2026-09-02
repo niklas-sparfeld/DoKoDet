@@ -250,6 +250,7 @@ from .visible_card_review_batch import (
     ExtractedVisibleCardFrame,
     FFmpegVisibleCardFrameExtractor,
     OpenCVVisibleCardFrameExtractor,
+    VisibleCardBatchConflict,
     VisibleCardBatchError,
     VisibleCardBatchFailure,
     VisibleCardBatchRequest,
@@ -266,6 +267,7 @@ from .visible_card_review_batch import (
     prepare_visible_card_review_batch,
     preview_visible_card_review_batch,
     run_visible_card_review_batch,
+    summarize_visible_card_review_queue,
 )
 
 __all__ = [
@@ -314,6 +316,7 @@ __all__ = [
     "VISIBLE_CARD_BATCH_SCHEMA_VERSION",
     "VISIBLE_CARD_BATCH_STATUSES",
     "VisibleCardBatchError",
+    "VisibleCardBatchConflict",
     "VisibleCardBatchFailure",
     "VisibleCardBatchRequest",
     "VisibleCardBatchStore",
@@ -329,6 +332,7 @@ __all__ = [
     "prepare_visible_card_review_batch",
     "preview_visible_card_review_batch",
     "run_visible_card_review_batch",
+    "summarize_visible_card_review_queue",
     "ROUND_COUNTERFACTUAL_SCHEMA_VERSION",
     "CounterfactualCardIdentityOverride",
     "CounterfactualObservedCardReference",

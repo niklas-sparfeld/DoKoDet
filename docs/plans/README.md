@@ -55,7 +55,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 complete: group-safe CardEventNet development partition assignment with immutable split versions and receipts. |
-| [0040 — Visible-card annotation review workspace](3-in-progress/0040-Visible_Card_Annotation_Review_Workspace.md) | 0038 contracts and 0039 M0–M4 | M0 complete: deterministic source-linked batch preparation with exact-event frames, local finder artifacts, immutable failure states, and a v2 review queue; M1 complete: recording-scoped preview, asynchronous persisted create/status/retry API, stale-detector rejection, and recording-page controls; M2 complete: stable direct-load review workspace with source frames, finder overlays, queue navigation, lineage diagnostics, and retry states; M3 complete: revision-guarded frame outcomes, proposal actions, normalized polygon editing, derived geometry, metadata and failure-tag controls, autosave retry, and conflict feedback; M4 remains. |
+| [0040 — Visible-card annotation review workspace](5-closed/0040-Visible_Card_Annotation_Review_Workspace.md) | 0038 contracts and 0039 M0–M4 | M0 complete: deterministic source-linked batch preparation with exact-event frames, local finder artifacts, immutable failure states, and a v2 review queue; M1 complete: recording-scoped preview, asynchronous persisted create/status/retry API, stale-detector rejection, and recording-page controls; M2 complete: stable direct-load review workspace with source frames, finder overlays, queue navigation, lineage diagnostics, and retry states; M3 complete: revision-guarded frame outcomes, proposal actions, normalized polygon editing, derived geometry, metadata and failure-tag controls, autosave retry, and conflict feedback; M4 complete: immutable completed queue and lifecycle receipt, operator summary and completion validation, parent-linked revisions, recording-page publication metadata, and existing-freeze-path readiness. |
 | [0041 — Local visual card identity classifier PoC](3-in-progress/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | 0021 and 0028 complete | M0 complete: frozen DINOv3 model, license, weight materialization, deterministic 224 x 224 crop transform, strict 24-identity target map, and pinned optional dependencies; M1 complete: local frozen-encoder linear-head smoke training with CPU/MPS/CUDA selection, native checkpoints, resume, and failure records; M2 complete: self-contained digest-checked local bundle with runtime-only classifier, deterministic ranked candidates, explicit device and failure behavior; M3 complete: independent backend detector and identity selection, local credential-free mode, persisted bundle provenance and timing, and fixture/MPS proof. |
 
 ### Blocked
@@ -112,9 +112,9 @@ The shared target architecture is
    review, and assign eligible development groups in the web app.
 3. Implement 0041 independently to prove the local DINOv3 identity model, bundle, and backend
    boundary without using smoke results as a quality claim.
-4. Complete 0040 M1 through M4 to seed exact-event visible-card review with the local finder,
-   complete geometry correction in the web app, and publish reviewed data for the existing freeze
-   path.
+4. Plan 0040 is complete: it seeds exact-event visible-card review with the local finder,
+   supports geometry correction in the web app, and publishes reviewed data for the existing
+   freeze path.
 5. Implement 0042 after 0040 and 0041 to create reviewed visual card identity data in the web app.
 6. Implement 0043 only after reviewed real identity coverage can support frozen development
    partitions. Lock at most one passing local candidate.

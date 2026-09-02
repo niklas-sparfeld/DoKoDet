@@ -576,6 +576,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/visible-card-reviews/{batch_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Visible Card Review
+         * @description Publish one fully reviewed batch as an immutable v2 queue artifact.
+         */
+        post: operations["complete_visible_card_review_v1_visible_card_reviews__batch_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/visible-card-reviews/{batch_id}/items/{item_id}": {
         parameters: {
             query?: never;
@@ -630,6 +650,26 @@ export interface paths {
          * @description Retry only failed items with the batch's frozen request and detector.
          */
         post: operations["retry_visible_card_review_batch_v1_visible_card_reviews__batch_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visible-card-reviews/{batch_id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Visible Card Review Revision
+         * @description Start a new draft from one immutable completed visible-card review.
+         */
+        post: operations["start_visible_card_review_revision_v1_visible_card_reviews__batch_id__revisions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2098,7 +2138,7 @@ export interface components {
              * Phase
              * @enum {string}
              */
-            phase: "validating_inputs" | "extracting_frames" | "running_finder" | "ready" | "failed" | "blocked";
+            phase: "validating_inputs" | "extracting_frames" | "running_finder" | "ready" | "failed" | "blocked" | "completed";
             /** Total Items */
             total_items: number;
         };
@@ -2109,13 +2149,28 @@ export interface components {
         VisibleCardBatchResponse: {
             /** Batch Id */
             batch_id: string;
+            /** Completed At Utc */
+            completed_at_utc: string | null;
+            /** Completed Version Digest */
+            completed_version_digest: string | null;
+            /** Completed Version Id */
+            completed_version_id: string | null;
+            /** Completion Receipt Digest */
+            completion_receipt_digest: string | null;
+            /** Completion Receipt Id */
+            completion_receipt_id: string | null;
             /** Created At Utc */
             created_at_utc: string;
             detector: components["schemas"]["VisibleCardDetectorResponse"];
+            downstream_readiness: components["schemas"]["VisibleCardDownstreamReadinessResponse"];
             /** Failures */
             failures: components["schemas"]["VisibleCardBatchFailureResponse"][];
             /** Items */
             items: components["schemas"]["VisibleCardBatchItemResponse"][];
+            /** Parent Digest */
+            parent_digest: string | null;
+            /** Parent Version Id */
+            parent_version_id: string | null;
             progress: components["schemas"]["VisibleCardBatchProgressResponse"];
             /** Queue Digest */
             queue_digest: string | null;
@@ -2125,6 +2180,13 @@ export interface components {
             recording_id: string;
             /** Request Digest */
             request_digest: string;
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "draft" | "completed";
+            /** Reviewer */
+            reviewer: string | null;
             /** Revision */
             revision: number;
             /**
@@ -2136,9 +2198,42 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "preparing" | "ready" | "failed" | "blocked";
+            status: "preparing" | "ready" | "failed" | "blocked" | "completed";
+            summary: components["schemas"]["VisibleCardBatchSummaryResponse"];
             /** Updated At Utc */
             updated_at_utc: string;
+        };
+        /**
+         * VisibleCardBatchSummaryResponse
+         * @description Counts shown before a batch is published.
+         */
+        VisibleCardBatchSummaryResponse: {
+            /** Accepted Proposals */
+            accepted_proposals: number;
+            /** Added Cards */
+            added_cards: number;
+            /** Corrected Proposals */
+            corrected_proposals: number;
+            /** Empty Frames */
+            empty_frames: number;
+            /** Failed Frames */
+            failed_frames: number;
+            /** Identity Unusable Cards */
+            identity_unusable_cards: number;
+            /** Pending Frames */
+            pending_frames: number;
+            /** Removed Proposals */
+            removed_proposals: number;
+            /** Retained Cards */
+            retained_cards: number;
+            /** Reviewed Frames */
+            reviewed_frames: number;
+            /** Total Frames */
+            total_frames: number;
+            /** Unusable Frames */
+            unusable_frames: number;
+            /** Usable Frames */
+            usable_frames: number;
         };
         /**
          * VisibleCardBoxResponse
@@ -2175,6 +2270,21 @@ export interface components {
             provider: string;
             /** Provider Version */
             provider_version: string;
+        };
+        /**
+         * VisibleCardDownstreamReadinessResponse
+         * @description Readiness of the published v2 queue for the existing freeze boundary.
+         */
+        VisibleCardDownstreamReadinessResponse: {
+            /** Message */
+            message: string;
+            /** Queue Digest */
+            queue_digest?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_ready" | "ready";
         };
         /**
          * VisibleCardFinderResponse
@@ -2312,6 +2422,16 @@ export interface components {
             reviewed_card: components["schemas"]["VisibleCardReviewedRegionResponse"] | null;
         };
         /**
+         * VisibleCardReviewCompletionRequest
+         * @description The explicit operator confirmation for publishing a reviewed batch.
+         */
+        VisibleCardReviewCompletionRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Reviewer */
+            reviewer: string;
+        };
+        /**
          * VisibleCardReviewCreateRequest
          * @description The preview identity required to start immutable batch work.
          */
@@ -2399,7 +2519,17 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "not_ready" | "ready" | "preparing" | "failed" | "blocked";
+            state: "not_ready" | "ready" | "preparing" | "failed" | "blocked" | "completed";
+        };
+        /**
+         * VisibleCardReviewRevisionRequest
+         * @description The immutable published review to copy into a new draft.
+         */
+        VisibleCardReviewRevisionRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Parent Version Id */
+            parent_version_id: string;
         };
         /**
          * VisibleCardReviewedRegionResponse
@@ -3416,6 +3546,41 @@ export interface operations {
             };
         };
     };
+    complete_visible_card_review_v1_visible_card_reviews__batch_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibleCardReviewCompletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_visible_card_review_item_v1_visible_card_reviews__batch_id__items__item_id__put: {
         parameters: {
             query?: never;
@@ -3495,6 +3660,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_visible_card_review_revision_v1_visible_card_reviews__batch_id__revisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibleCardReviewRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

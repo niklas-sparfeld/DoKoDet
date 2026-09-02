@@ -957,9 +957,34 @@ function VisibleCardReviewSection({
       ) : null}
       {batch?.status === "ready" ? (
         <p className={styles.detailMetaLine}>
-          The batch is ready. The frame editor will be available in the next
-          phase.
+          The batch is ready. Open the review workspace to finish and publish
+          it.
         </p>
+      ) : null}
+      {batch?.status === "completed" ? (
+        <div className={styles.visibleCardPublishPanel} role="status">
+          <p className={styles.detailMetaLine}>
+            Published visible-card review. The completed queue is immutable.
+          </p>
+          <dl className={styles.detailMetadata}>
+            <Stat
+              label="Reviewed version"
+              value={batch.completed_version_id ?? "Not available"}
+            />
+            <Stat
+              label="Version digest"
+              value={batch.completed_version_digest ?? "Not available"}
+            />
+            <Stat
+              label="Lifecycle receipt"
+              value={batch.completion_receipt_id ?? "Not available"}
+            />
+            <Stat
+              label="Freeze readiness"
+              value={batch.downstream_readiness.message}
+            />
+          </dl>
+        </div>
       ) : null}
       {actionError !== null ? (
         <p className={styles.errorMessage} role="alert">

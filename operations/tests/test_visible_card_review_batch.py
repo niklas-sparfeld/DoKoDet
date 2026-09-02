@@ -8,7 +8,10 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from table_evidence_analyzer.visible_card_review_workflow import load_visible_card_review_queue
+from table_evidence_analyzer.visible_card_review_workflow import (
+    load_visible_card_review_queue,
+    update_frame_review,
+)
 from table_evidence_analyzer.visible_cards import (
     FakeVisibleCardProvider,
     ProviderResult,
@@ -17,6 +20,8 @@ from table_evidence_analyzer.visible_cards import (
 
 from doko_operations.visible_card_review_batch import (
     ExtractedVisibleCardFrame,
+    VisibleCardBatchConflict,
+    VisibleCardBatchError,
     VisibleCardBatchRequest,
     VisibleCardDetectorIdentity,
     VisibleCardReviewBatchStore,
@@ -301,3 +306,143 @@ def test_task_source_and_provider_gates_block_before_extraction(tmp_path: Path) 
         assert result["status"] == "blocked"
         assert result["failures"][0]["code"] == code
         assert extractor.calls == []
+
+
+def test_complete_publishes_immutable_queue_and_revision_keeps_parent(tmp_path: Path) -> None:
+    request, frames = _request(tmp_path)
+    provider = FakeVisibleCardProvider(
+        {hashlib.sha256(image).hexdigest(): _prediction() for image in frames.values()}
+    )
+    store = VisibleCardReviewBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, provider, frame_extractor=_FixtureExtractor(frames))
+    queue_path = Path(prepared["queue_path"])
+    for item in load_visible_card_review_queue(queue_path).items:
+        update_frame_review(
+            queue_path,
+            item.item_id,
+            {
+                "status": "reviewed",
+                "decision": "BAD",
+                "empty_frame": True,
+                "failure_tags": [],
+                "actions": [],
+                "reviewer": "fixture-operator",
+            },
+            expected_revision=load_visible_card_review_queue(queue_path).revision,
+        )
+
+    completed = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=2,
+    )
+    assert completed["status"] == "completed"
+    published_path = Path(completed["completed_queue_path"])
+    published_bytes = published_path.read_bytes()
+    assert load_visible_card_review_queue(published_path).revision == 2
+    receipt = json.loads(
+        (
+            tmp_path
+            / "operations"
+            / "visible-card-review-batches"
+            / request.batch_id
+            / "receipts"
+            / f"{completed['completion_receipt_id']}.json"
+        ).read_text(encoding="utf-8")
+    )
+    dependency_kinds = {entry["kind"] for entry in receipt["dependencies"]}
+    assert {
+        "source_frame",
+        "finder_request",
+        "finder_result",
+        "finder_proposal",
+        "review",
+    } <= dependency_kinds
+    assert receipt["outputs"][0]["digest"] == completed["completed_version_digest"]
+
+    repeated = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=2,
+    )
+    assert repeated["completed_version_id"] == completed["completed_version_id"]
+    assert published_path.read_bytes() == published_bytes
+
+    revision = store.start_revision(
+        request.batch_id,
+        parent_version_id=completed["completed_version_id"],
+        expected_revision=2,
+    )
+    assert revision["status"] == "ready"
+    assert revision["parent_version_id"] == completed["completed_version_id"]
+    assert revision["parent_digest"] == completed["completed_version_digest"]
+    assert published_path.read_bytes() == published_bytes
+
+    unchanged_revision = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=2,
+    )
+    assert unchanged_revision["completed_version_id"] != completed["completed_version_id"]
+    assert unchanged_revision["parent_version_id"] == completed["completed_version_id"]
+    assert unchanged_revision["completion_receipt_id"] != completed["completion_receipt_id"]
+    assert published_path.read_bytes() == published_bytes
+    unchanged_path = Path(unchanged_revision["completed_queue_path"])
+    unchanged_bytes = unchanged_path.read_bytes()
+
+    revision = store.start_revision(
+        request.batch_id,
+        parent_version_id=unchanged_revision["completed_version_id"],
+        expected_revision=2,
+    )
+    assert revision["parent_version_id"] == unchanged_revision["completed_version_id"]
+
+    update_frame_review(
+        queue_path,
+        load_visible_card_review_queue(queue_path).items[0].item_id,
+        {
+            "status": "reviewed",
+            "decision": "BAD",
+            "empty_frame": False,
+            "failure_tags": [],
+            "actions": [],
+            "reviewer": "fixture-operator",
+        },
+        expected_revision=2,
+    )
+    next_completed = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=3,
+    )
+    assert next_completed["completed_version_id"] != completed["completed_version_id"]
+    assert next_completed["parent_version_id"] == unchanged_revision["completed_version_id"]
+    assert published_path.read_bytes() == published_bytes
+    assert unchanged_path.read_bytes() == unchanged_bytes
+
+
+def test_completion_names_remaining_items_and_stale_revision(tmp_path: Path) -> None:
+    request, frames = _request(tmp_path)
+    provider = FakeVisibleCardProvider(
+        {hashlib.sha256(image).hexdigest(): _prediction() for image in frames.values()}
+    )
+    store = VisibleCardReviewBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, provider, frame_extractor=_FixtureExtractor(frames))
+    with pytest.raises(VisibleCardBatchError, match="review is incomplete"):
+        store.complete(request.batch_id, reviewer="fixture-operator", expected_revision=0)
+    queue_path = Path(prepared["queue_path"])
+    update_frame_review(
+        queue_path,
+        load_visible_card_review_queue(queue_path).items[0].item_id,
+        {
+            "status": "reviewed",
+            "decision": "BAD",
+            "empty_frame": True,
+            "failure_tags": [],
+            "actions": [],
+            "reviewer": "fixture-operator",
+        },
+        expected_revision=0,
+    )
+    with pytest.raises(VisibleCardBatchConflict):
+        store.complete(request.batch_id, reviewer="fixture-operator", expected_revision=0)
