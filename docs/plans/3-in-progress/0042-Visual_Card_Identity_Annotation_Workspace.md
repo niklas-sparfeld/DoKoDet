@@ -20,7 +20,9 @@
 - **M0:** Complete — strict source-linked batch contracts, frozen identity crops, classifier
   proposals, readiness/preview/create/status/retry API, generated frontend client types, and
   fixture and artifact-integrity checks were added on 2026-09-02.
-- **M1:** Not started — show crops and classifier proposals in the web app.
+- **M1:** Complete — recording identity summary, stable batch route, source context, frozen crops,
+  classifier proposals, lineage details, navigation, retry states, and responsive browser coverage
+  were added on 2026-09-02.
 - **M2:** Not started — correct labels and complete each item with conflict-safe saves.
 - **M3:** Not started — publish the completed review and prove dataset freeze.
 

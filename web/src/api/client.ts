@@ -586,6 +586,10 @@ export function identityReviewBatchPath(batchId: string): string {
   return `/v1/identity-reviews/${encodeURIComponent(batchId)}`;
 }
 
+export function identityReviewBatchPagePath(batchId: string): string {
+  return `/identity-reviews/${encodeURIComponent(batchId)}`;
+}
+
 export function identityReviewCropPath(
   batchId: string,
   itemId: string,

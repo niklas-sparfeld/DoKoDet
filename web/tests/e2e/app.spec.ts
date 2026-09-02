@@ -18,6 +18,7 @@ import {
 } from "../../src/test/roundAnalysisFixture";
 
 const CARD_EVENT_RECORDING_ID = "recording-card-events";
+const IDENTITY_BATCH_ID = "visual-card-identity-batch-0123456789abcdef01234567";
 const cardEventProposalOne = {
   proposal_id: "proposal-one",
   proposal_generator_run_id: "run-one",
@@ -110,6 +111,159 @@ test("loads the frontend foundation shell", async ({ page }) => {
 
   await expect(page).toHaveTitle("DokoDetector");
   await expect(page.getByRole("heading", { name: "Recordings" })).toBeVisible();
+});
+
+test("keeps the identity review workspace usable on desktop and narrow viewports", async ({
+  page,
+}) => {
+  const itemId = "identity-item-1";
+  const batch = {
+    schema_version: "visual-card-identity-review-batch/v1",
+    batch_id: IDENTITY_BATCH_ID,
+    recording_id: "recording-identity",
+    request_digest: "7".repeat(64),
+    status: "ready",
+    created_at_utc: "2026-09-02T10:00:00Z",
+    updated_at_utc: "2026-09-02T10:00:00Z",
+    classifier: {
+      name: "fixture-identity",
+      version: "fixture-identity-v1",
+      calibration: "uncalibrated",
+      bundle_identity: null,
+    },
+    crop_policy: {
+      policy_id: "raw_rectangular",
+      policy_digest: "5".repeat(64),
+      policy: { policy_id: "raw_rectangular" },
+    },
+    progress: {
+      phase: "ready",
+      total_items: 1,
+      crops_materialized: 1,
+      proposals_completed: 1,
+      failed_items: 0,
+    },
+    items: [
+      {
+        schema_version: "visual-card-identity-review-item/v1",
+        item_id: itemId,
+        visible_card_review_item_id: "package-identity:frame_00",
+        source: {
+          visible_card_review_batch_id: "visible-card-batch-identity",
+          visible_card_review_item_id: "package-identity:frame_00",
+          package_id: "package-identity",
+          frame_part_name: "frame_00",
+          image_url: "/fixture-source.jpg",
+          frame_sha256: "1".repeat(64),
+          source_asset_id: "source-identity",
+          source_lineage_group: "group-identity",
+          source_asset_sha256: "2".repeat(64),
+          width: 40,
+          height: 30,
+        },
+        visible_card: {
+          visible_region: {
+            polygons: [
+              [
+                { x: 100, y: 100 },
+                { x: 900, y: 100 },
+                { x: 900, y: 900 },
+                { x: 100, y: 900 },
+              ],
+            ],
+          },
+          derived_box: {
+            box_2d: { x_min: 100, y_min: 100, x_max: 900, y_max: 900 },
+          },
+        },
+        visible_card_digest: "3".repeat(64),
+        crop: {
+          image_url: `/v1/identity-reviews/${IDENTITY_BATCH_ID}/items/${itemId}/crop`,
+          sha256: "4".repeat(64),
+          byte_length: 42,
+          content_type: "image/x-portable-pixmap",
+          width: 32,
+          height: 24,
+          policy_id: "raw_rectangular",
+          policy_digest: "5".repeat(64),
+        },
+        proposal: {
+          schema_version: "visual-card-identity-proposal/v1",
+          item_id: itemId,
+          crop_sha256: "4".repeat(64),
+          classifier: {
+            name: "fixture-identity",
+            version: "fixture-identity-v1",
+            calibration: "uncalibrated",
+            bundle_identity: null,
+          },
+          status: "ok",
+          candidates: [{ card: "CLUBS_NINE", probability: 0.75 }],
+          score: 0.75,
+          result: { fixture: true },
+          result_digest: "6".repeat(64),
+        },
+        decision: {
+          schema_version: "visual-card-identity-decision/v1",
+          status: "pending",
+          identity: null,
+          reason: null,
+          reviewer: null,
+          updated_at_utc: null,
+        },
+        status: "ready",
+        failure: null,
+      },
+    ],
+    coverage: {
+      schema_version: "visual-card-identity-review-coverage/v1",
+      visible_card_review_item_count: 1,
+      reviewed_visible_card_count: 1,
+      identity_usable_card_count: 1,
+      excluded_card_count: 0,
+      excluded_cards: [],
+      coverage_digest: "8".repeat(64),
+    },
+    failures: [],
+  };
+  await page.route("**/v1/identity-reviews/**", async (route) => {
+    if (route.request().url().endsWith(IDENTITY_BATCH_ID)) {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(batch),
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "image/x-portable-pixmap",
+      body: "P6\n1 1\n255\n\0\0\0",
+    });
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/identity-reviews/${IDENTITY_BATCH_ID}`);
+  await expect(
+    page.getByRole("heading", { name: "Visual card identities" }),
+  ).toBeVisible();
+  await expect(page.getByText("CLUBS_NINE")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.getByText("Source context")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
 });
 
 test.beforeEach(async ({ page }) => {

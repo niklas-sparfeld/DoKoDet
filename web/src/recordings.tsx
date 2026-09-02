@@ -6,6 +6,7 @@ import {
   type CardEventReview,
   type CardEventDevelopmentSplitPreview,
   type CardEventDevelopmentSplitPreviewRequest,
+  type IdentityReviewReadiness,
   type RecordingDetail,
   type RecordingSummary,
   type VisibleCardReviewPreview,
@@ -14,6 +15,7 @@ import {
 } from "./api/client";
 import { RecordingAnalysisView } from "./analysis/AnalysisView";
 import { CardEventEditor } from "./cardEvents/CardEventEditor";
+import { IdentityReviewSection } from "./identityReview";
 import styles from "./App.module.css";
 
 export function RecordingListView() {
@@ -299,6 +301,11 @@ export function RecordingDetailView({
   const [visibleCardReviewError, setVisibleCardReviewError] = useState<
     string | null
   >(null);
+  const [identityReview, setIdentityReview] =
+    useState<IdentityReviewReadiness | null>(null);
+  const [identityReviewError, setIdentityReviewError] = useState<string | null>(
+    null,
+  );
 
   const loadRecording = useCallback(
     async (signal?: AbortSignal) => {
@@ -375,6 +382,45 @@ export function RecordingDetailView({
     const timer = window.setInterval(() => void loadVisibleCardReview(), 1000);
     return () => window.clearInterval(timer);
   }, [loadVisibleCardReview, visibleCardReview?.state]);
+
+  const loadIdentityReview = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const response = await client.getIdentityReview(recordingId, {
+          signal,
+        });
+        if (!signal?.aborted && isIdentityReviewReadiness(response)) {
+          setIdentityReview(response);
+          setIdentityReviewError(null);
+        }
+      } catch (reason: unknown) {
+        if (!signal?.aborted) {
+          setIdentityReviewError(describeError(reason));
+        }
+      }
+    },
+    [client, recordingId],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(
+      () => void loadIdentityReview(controller.signal),
+      0,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [loadIdentityReview]);
+
+  useEffect(() => {
+    if (identityReview?.state !== "preparing") {
+      return;
+    }
+    const timer = window.setInterval(() => void loadIdentityReview(), 1000);
+    return () => window.clearInterval(timer);
+  }, [identityReview?.state, loadIdentityReview]);
 
   async function startAnalysis() {
     setTriggering(true);
@@ -532,6 +578,11 @@ export function RecordingDetailView({
                 state={formatIdentifier(visibleCardReview?.state ?? "loading")}
               />
               <DetailProgressLink
+                href="#identity-review"
+                label="Identities"
+                state={formatIdentifier(identityReview?.state ?? "loading")}
+              />
+              <DetailProgressLink
                 href="#training-use"
                 label="Training use"
                 state={recording.training_use.eligibility}
@@ -583,6 +634,12 @@ export function RecordingDetailView({
             review={visibleCardReview}
             error={visibleCardReviewError}
             onChanged={setVisibleCardReview}
+          />
+          <IdentityReviewSection
+            recordingId={recording.recording_id}
+            review={identityReview}
+            error={identityReviewError}
+            onChanged={setIdentityReview}
           />
           <TrainingUseSection
             trainingUse={recording.training_use}
@@ -1341,6 +1398,17 @@ function isVisibleCardReviewReadiness(
     value !== null &&
     "schema_version" in value &&
     value.schema_version === "visible-card-review-readiness/v1"
+  );
+}
+
+function isIdentityReviewReadiness(
+  value: unknown,
+): value is IdentityReviewReadiness {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "schema_version" in value &&
+    value.schema_version === "visual-card-identity-review-readiness/v1"
   );
 }
 

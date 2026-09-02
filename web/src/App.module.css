@@ -1787,7 +1787,7 @@ progress {
 
 .detailProgress {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.65rem;
   margin: 0;
   padding: 0;
@@ -1830,6 +1830,353 @@ progress {
   background: var(--panel);
   box-shadow: 0 0.7rem 2rem rgb(20 31 45 / 5%);
   scroll-margin-top: 1rem;
+}
+
+.identityReviewPage {
+  width: min(100%, 90rem);
+  margin: 0 auto;
+}
+
+.identityReviewHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 1.25rem;
+}
+
+.identityReviewHeader h1 {
+  margin: 0;
+}
+
+.identityBatchSummary,
+.identityFramePanel {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+  box-shadow: 0 0.7rem 2rem rgb(20 31 45 / 5%);
+}
+
+.identityBatchSummary {
+  margin-top: 1rem;
+}
+
+.identityReviewMessage {
+  margin: 0.9rem 0 0;
+  color: var(--muted-ink);
+  line-height: 1.5;
+}
+
+.identityProgress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+}
+
+.identityProgress > div {
+  min-width: 0;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+
+.identityProgress dt,
+.identityLineage dt {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.identityProgress dd,
+.identityLineage dd {
+  margin: 0.3rem 0 0;
+  color: var(--ink);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.identitySummaryActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.identityPreview {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--surface);
+}
+
+.identityPreview > p:not(.statusLabel) {
+  margin: 0.45rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.identityFailure {
+  margin-top: 1rem;
+  padding: 0.8rem 0.9rem;
+  border-left: 3px solid #b65b47;
+  border-radius: 0.45rem;
+  background: #fff4ef;
+  color: #8b2e1d;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.identityFailure p {
+  margin: 0.35rem 0 0;
+}
+
+.identityFailureList {
+  display: grid;
+  gap: 0.45rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #d7a23b;
+  border-radius: 0.45rem;
+  background: #fff5d8;
+  color: #6c5116;
+  font-size: 0.78rem;
+  list-style: none;
+}
+
+.identityFailureList li {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.identityEmptyState {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.55rem;
+  color: var(--muted-ink);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.identityEmptyState h2 {
+  margin: 0;
+}
+
+.identityWorkspace {
+  display: grid;
+  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+  min-width: 0;
+}
+
+.identityItemRail,
+.identitySourceCard,
+.identityCropCard,
+.identityProposalCard,
+.identityDecisionCard {
+  min-width: 0;
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+  box-shadow: 0 0.7rem 2rem rgb(20 31 45 / 5%);
+}
+
+.identityItemList,
+.identityCandidateList {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.identityItemButton {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 0.2rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.identityItemButton:hover,
+.identityItemButton:focus-visible,
+.identityItemButton[data-selected="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.identityItemButton span,
+.identityItemButton small,
+.identityLegend,
+.identityProposalLead {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.identityItemButton strong,
+.identityLineage code {
+  overflow-wrap: anywhere;
+}
+
+.identityFrameGrid,
+.identityDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(15rem, 0.85fr);
+  gap: 1rem;
+  min-width: 0;
+}
+
+.identityFrameGrid {
+  margin-top: 1rem;
+}
+
+.identitySourceViewport,
+.identityCropViewport {
+  position: relative;
+  min-width: 0;
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: #161616;
+}
+
+.identitySourceImage,
+.identityCropImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.identitySourceOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.identitySourceOverlay polygon {
+  fill: rgb(60 190 70 / 25%);
+  stroke: #63d66d;
+  stroke-width: 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.identitySourceOverlay rect {
+  fill: none;
+  stroke: #fff0b3;
+  stroke-dasharray: 8 5;
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.identityLegend {
+  margin: 0.65rem 0 0;
+  line-height: 1.45;
+}
+
+.identityDetailGrid {
+  margin-top: 1rem;
+}
+
+.identityProposalLead {
+  margin: 0.9rem 0 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.identityCandidateList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+
+.identityCandidateList span {
+  color: var(--muted-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.identityNavigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.identityLineage {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.identityLineage summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.identityLineage .detailMetadata {
+  margin-top: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .identityWorkspace,
+  .identityFrameGrid,
+  .identityDetailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .identityItemList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .identityReviewHeader {
+    align-items: start;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .identityBatchSummary,
+  .identityFramePanel {
+    padding: 1rem;
+  }
+
+  .identityProgress {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .identityItemList {
+    grid-template-columns: 1fr;
+  }
+
+  .identityNavigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .identityNavigation button {
+    width: 100%;
+  }
 }
 
 .detailRecordingLayout {

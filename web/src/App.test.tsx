@@ -856,7 +856,7 @@ describe("App", () => {
       screen.getByRole("progressbar", { name: "Diamonds Jack confidence" }),
     ).toHaveValue(0.75);
     expect(screen.getAllByText("Clubs Nine").length).toBeGreaterThan(0);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it("keeps rendering when a timeline response omits the recording descriptor", async () => {
