@@ -195,7 +195,7 @@ describe("CardEventReviewPage", () => {
     );
   });
 
-  it("marks a fully watched draft complete from the bottom action bar", async () => {
+  it("marks an edited draft complete without watching the full recording", async () => {
     const draft = {
       ...review,
       review_state: "draft" as const,
@@ -240,20 +240,12 @@ describe("CardEventReviewPage", () => {
 
     render(<CardEventReviewPage reviewId={draft.review_id} />);
 
-    const video = await screen.findByLabelText(
-      "Source recording recording-detail-1",
+    await screen.findByLabelText("Source recording recording-detail-1");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open event 1 at 0:01.250",
+      }),
     );
-    Object.defineProperty(video, "duration", {
-      configurable: true,
-      value: 12.5,
-    });
-    Object.defineProperty(video, "currentTime", {
-      configurable: true,
-      value: 12.5,
-      writable: true,
-    });
-    fireEvent(video, new Event("loadedmetadata"));
-    fireEvent(video, new Event("timeupdate"));
 
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Reviewer" }), {

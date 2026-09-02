@@ -536,14 +536,6 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   const frameRate = recording?.video.media_facts?.nominal_frame_rate ?? 0;
   const isCompleted = review?.review_state === "completed";
   const isEditable = !isCompleted && saveState !== "conflict";
-  const fullVideoReady =
-    review?.full_video_acknowledged === true ||
-    (duration > 0 &&
-      watchedThrough >=
-        Math.max(
-          0,
-          duration - Math.max(0.5, frameRate > 0 ? 1 / frameRate : 0.5),
-        ));
   const proposedCount = events.filter(
     (event) => event.state === "proposed",
   ).length;
@@ -555,15 +547,13 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   ).length;
   const canMarkReviewComplete =
     isEditable &&
-    fullVideoReady &&
     proposedCount === 0 &&
     reviewerName.trim() !== "" &&
     queueLength === 0 &&
     saveState === "saved" &&
     !completionBusy;
-  const completionRequirement = !fullVideoReady
-    ? "Watch or seek to the end of the recording before marking this review complete."
-    : proposedCount > 0
+  const completionRequirement =
+    proposedCount > 0
       ? `${proposedCount} proposed event${proposedCount === 1 ? "" : "s"} still need a decision.`
       : queueLength > 0 || saveState === "saving" || saveState === "retrying"
         ? "Wait for the current timeline changes to save."
@@ -662,7 +652,6 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       current === null ||
       queueRef.current.length > 0 ||
       processingRef.current ||
-      !fullVideoReady ||
       proposedCount > 0 ||
       reviewerName.trim() === "" ||
       saveState !== "saved"
@@ -689,7 +678,6 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
     }
   }, [
     client,
-    fullVideoReady,
     hydrate,
     isEditable,
     proposedCount,
@@ -1703,12 +1691,6 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                 % watched
               </span>
             </div>
-            {!fullVideoReady ? (
-              <p className={styles.cardEventRequirement}>
-                Watch or seek to the end of the recording before you mark this
-                review complete.
-              </p>
-            ) : null}
             {proposedCount > 0 ? (
               <p className={styles.cardEventRequirement}>
                 Remaining proposed events: {proposedCount}.
