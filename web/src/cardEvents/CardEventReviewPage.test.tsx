@@ -68,6 +68,7 @@ const review = {
 
 describe("CardEventReviewPage", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     window.history.replaceState({}, "", "/");
   });
@@ -436,5 +437,63 @@ describe("CardEventReviewPage", () => {
       "card_played",
     );
     expect(screen.getByLabelText("Time in event navigator")).toBeDisabled();
+  });
+
+  it("renders an event-time screenshot in every review row", async () => {
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage,
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(
+      "data:image/jpeg;base64,event-frame",
+    );
+    Object.defineProperty(HTMLMediaElement.prototype, "readyState", {
+      configurable: true,
+      get: () => HTMLMediaElement.HAVE_CURRENT_DATA,
+    });
+    Object.defineProperty(HTMLVideoElement.prototype, "videoWidth", {
+      configurable: true,
+      get: () => 1920,
+    });
+    Object.defineProperty(HTMLVideoElement.prototype, "videoHeight", {
+      configurable: true,
+      get: () => 1080,
+    });
+    let currentTime = 0;
+    Object.defineProperty(HTMLVideoElement.prototype, "currentTime", {
+      configurable: true,
+      get: () => currentTime,
+      set: function (this: HTMLVideoElement, value: number) {
+        currentTime = value;
+        queueMicrotask(() => {
+          this.dispatchEvent(new Event("seeked"));
+        });
+      },
+    });
+    const fetchMock = vi.fn<typeof fetch>((input) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input).includes("/card-event-reviews/")
+              ? review
+              : emptyRecordingDetail,
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={review.review_id} />);
+
+    const screenshots = await screen.findAllByRole("img", {
+      name: /Screenshot at/,
+    });
+    expect(screenshots).toHaveLength(review.events.length);
+    expect(screenshots[0]).toHaveAttribute(
+      "src",
+      "data:image/jpeg;base64,event-frame",
+    );
+    expect(drawImage).toHaveBeenCalledTimes(review.events.length);
   });
 });

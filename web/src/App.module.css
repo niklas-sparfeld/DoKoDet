@@ -1834,7 +1834,7 @@ progress {
 
 .cardEventReviewTable {
   width: 100%;
-  min-width: 42rem;
+  min-width: 50rem;
   margin-top: 1rem;
   border-collapse: collapse;
   color: var(--ink);
@@ -1862,6 +1862,58 @@ progress {
 
 .cardEventReviewTable tbody tr[data-selected="true"] {
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.cardEventScreenshotCapture {
+  position: fixed;
+  z-index: -1;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cardEventScreenshotCell {
+  width: 7rem;
+}
+
+.cardEventScreenshotButton {
+  display: block;
+  width: 6.25rem;
+  min-height: 3.5rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--muted-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.64rem;
+  text-align: center;
+}
+
+.cardEventScreenshotButton:hover,
+.cardEventScreenshotButton:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 1px;
+}
+
+.cardEventScreenshot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.25rem;
+  background: #151515;
+  object-fit: cover;
+}
+
+.cardEventScreenshotPlaceholder {
+  display: grid;
+  min-height: 3.5rem;
+  place-items: center;
+  padding: 0.35rem;
 }
 
 .cardEventTableSelect {

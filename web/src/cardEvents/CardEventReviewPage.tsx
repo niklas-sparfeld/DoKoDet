@@ -573,6 +573,12 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
             ? "Enter the reviewer name to mark this review complete."
             : null;
   const timelineDuration = duration > 0 ? duration : 1;
+  const {
+    captureVideoRef,
+    captureCanvasRef,
+    screenshots,
+    unavailableScreenshots,
+  } = useEventScreenshots(recording?.video.url ?? "", events, duration);
 
   useEffect(() => {
     if (selectedEventId === null) return;
@@ -1200,6 +1206,15 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
         className={styles.cardEventReviewPanel}
         aria-label="CardEvent editor"
       >
+        <div className={styles.cardEventScreenshotCapture} aria-hidden="true">
+          <video
+            ref={captureVideoRef}
+            preload="metadata"
+            muted
+            src={recording.video.url}
+          />
+          <canvas ref={captureCanvasRef} />
+        </div>
         <div className={styles.cardEventToolbar}>
           <div className={styles.cardEventTransport}>
             <button
@@ -1329,6 +1344,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
             </caption>
             <thead>
               <tr>
+                <th scope="col">Screenshot</th>
                 <th scope="col">Time</th>
                 <th scope="col">Type</th>
                 <th scope="col">State</th>
@@ -1344,6 +1360,32 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                   data-state={event.state}
                   data-selected={event.localId === selectedEventId}
                 >
+                  <td className={styles.cardEventScreenshotCell}>
+                    <button
+                      className={styles.cardEventScreenshotButton}
+                      type="button"
+                      onClick={() => selectEvent(event)}
+                      aria-label={`Open screenshot for event at ${formatTime(event.effective_time_s)}`}
+                    >
+                      {screenshots[event.localId]?.time_s ===
+                      event.effective_time_s ? (
+                        <img
+                          className={styles.cardEventScreenshot}
+                          src={screenshots[event.localId].src}
+                          alt={`Screenshot at ${formatTime(event.effective_time_s)}`}
+                        />
+                      ) : unavailableScreenshots[event.localId]?.time_s ===
+                        event.effective_time_s ? (
+                        <span className={styles.cardEventScreenshotPlaceholder}>
+                          Unavailable
+                        </span>
+                      ) : (
+                        <span className={styles.cardEventScreenshotPlaceholder}>
+                          Preparing…
+                        </span>
+                      )}
+                    </button>
+                  </td>
                   <td>
                     <button
                       className={styles.cardEventTableSelect}
@@ -1841,6 +1883,195 @@ function ReviewStateBadge({ value }: { value: string }) {
     </span>
   );
 }
+
+type EventScreenshot = {
+  time_s: number;
+  src: string;
+};
+
+function useEventScreenshots(
+  videoUrl: string,
+  events: EditableEvent[],
+  duration: number,
+) {
+  const captureVideoRef = useRef<HTMLVideoElement>(null);
+  const captureCanvasRef = useRef<HTMLCanvasElement>(null);
+  const screenshotCacheRef = useRef(new Map<string, EventScreenshot>());
+  const [screenshots, setScreenshots] = useState<
+    Record<string, EventScreenshot>
+  >({});
+  const [unavailableScreenshots, setUnavailableScreenshots] = useState<
+    Record<string, EventScreenshot>
+  >({});
+
+  useEffect(() => {
+    const video = captureVideoRef.current;
+    const canvas = captureCanvasRef.current;
+    const activeEvents = events.filter((event) => event.effective_time_s >= 0);
+    if (video === null || canvas === null || videoUrl === "") return;
+
+    const activeIds = new Set(activeEvents.map((event) => event.localId));
+    for (const eventId of screenshotCacheRef.current.keys()) {
+      if (!activeIds.has(eventId)) screenshotCacheRef.current.delete(eventId);
+    }
+
+    setScreenshots((current) => keepCurrentScreenshots(current, activeEvents));
+    setUnavailableScreenshots((current) =>
+      keepCurrentScreenshots(current, activeEvents),
+    );
+
+    const controller = new AbortController();
+    const captureVideo = video;
+    const captureCanvas = canvas;
+    const pendingEvents = activeEvents.filter((event) => {
+      const cached = screenshotCacheRef.current.get(event.localId);
+      return cached?.time_s !== event.effective_time_s;
+    });
+
+    async function capture() {
+      try {
+        await waitForVideoReady(captureVideo, controller.signal);
+        const sourceWidth = captureVideo.videoWidth || 640;
+        const sourceHeight = captureVideo.videoHeight || 360;
+        const targetWidth = Math.min(sourceWidth, 640);
+        const targetHeight = Math.max(
+          1,
+          Math.round((targetWidth * sourceHeight) / sourceWidth),
+        );
+        captureCanvas.width = targetWidth;
+        captureCanvas.height = targetHeight;
+        const context = captureCanvas.getContext("2d");
+        if (context === null) throw new Error("Canvas is unavailable.");
+
+        for (const event of pendingEvents) {
+          if (controller.signal.aborted) return;
+          const time = clampTime(event.effective_time_s, duration);
+          try {
+            await seekVideo(captureVideo, time, controller.signal);
+            context.drawImage(captureVideo, 0, 0, targetWidth, targetHeight);
+            const screenshot = {
+              time_s: event.effective_time_s,
+              src: captureCanvas.toDataURL("image/jpeg", 0.78),
+            };
+            screenshotCacheRef.current.set(event.localId, screenshot);
+            if (!controller.signal.aborted) {
+              setScreenshots((current) => ({
+                ...current,
+                [event.localId]: screenshot,
+              }));
+              setUnavailableScreenshots((current) => {
+                const next = { ...current };
+                delete next[event.localId];
+                return next;
+              });
+            }
+          } catch {
+            if (!controller.signal.aborted) {
+              setUnavailableScreenshots((current) => ({
+                ...current,
+                [event.localId]: { time_s: event.effective_time_s, src: "" },
+              }));
+            }
+          }
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setUnavailableScreenshots(() =>
+            Object.fromEntries(
+              pendingEvents.map((event) => [
+                event.localId,
+                { time_s: event.effective_time_s, src: "" },
+              ]),
+            ),
+          );
+        }
+      }
+    }
+
+    void capture();
+    return () => controller.abort();
+  }, [duration, events, videoUrl]);
+
+  return {
+    captureVideoRef,
+    captureCanvasRef,
+    screenshots,
+    unavailableScreenshots,
+  };
+}
+
+function keepCurrentScreenshots(
+  current: Record<string, EventScreenshot>,
+  events: EditableEvent[],
+): Record<string, EventScreenshot> {
+  return Object.fromEntries(
+    events.flatMap((event) => {
+      const screenshot = current[event.localId];
+      return screenshot?.time_s === event.effective_time_s
+        ? [[event.localId, screenshot]]
+        : [];
+    }),
+  );
+}
+
+function waitForVideoReady(
+  video: HTMLVideoElement,
+  signal: AbortSignal,
+): Promise<void> {
+  if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+    return Promise.resolve();
+  }
+  return waitForMediaEvent(video, "loadedmetadata", signal);
+}
+
+function seekVideo(
+  video: HTMLVideoElement,
+  time: number,
+  signal: AbortSignal,
+): Promise<void> {
+  if (
+    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+    Math.abs(video.currentTime - time) < 0.001
+  ) {
+    return Promise.resolve();
+  }
+  const ready = waitForMediaEvent(video, "seeked", signal);
+  video.currentTime = time;
+  return ready;
+}
+
+function waitForMediaEvent(
+  video: HTMLVideoElement,
+  eventName: "loadedmetadata" | "seeked",
+  signal: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let timeout = 0;
+    const cleanup = () => {
+      video.removeEventListener(eventName, finish);
+      video.removeEventListener("error", fail);
+      signal.removeEventListener("abort", abort);
+      window.clearTimeout(timeout);
+    };
+    const finish = () => {
+      cleanup();
+      resolve();
+    };
+    const fail = () => {
+      cleanup();
+      reject(new Error("The recording frame could not be loaded."));
+    };
+    const abort = () => {
+      cleanup();
+      reject(new Error("Screenshot capture was cancelled."));
+    };
+    video.addEventListener(eventName, finish);
+    video.addEventListener("error", fail);
+    signal.addEventListener("abort", abort, { once: true });
+    timeout = window.setTimeout(fail, 10000);
+  });
+}
+
 function formatTimestamp(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
