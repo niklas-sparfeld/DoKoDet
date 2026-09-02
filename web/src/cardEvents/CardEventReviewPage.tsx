@@ -921,7 +921,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
         </div>
         <p className={styles.detailLead}>
           {isCompleted
-            ? "This completed version is read-only to preserve its lineage. Start a revision below to correct the annotations; the recording remains unchanged."
+            ? "This completed version is read-only to preserve its lineage. Start a revision below to edit or remove events; the recording remains unchanged."
             : "Use the unified event table for a fast review loop. Changes appear at once and save in order."}
         </p>
         <dl className={styles.cardEventReviewPageMetadata}>
@@ -1701,7 +1701,8 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
             </div>
             <p className={styles.cardEventRequirement}>
               The published review stays available as history. Create a new
-              draft from it to edit event times, types, notes, and decisions.
+              draft from it to edit or remove events, including events added by
+              mistake.
             </p>
             <button
               className={styles.primaryButton}

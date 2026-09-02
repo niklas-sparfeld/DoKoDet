@@ -94,7 +94,7 @@ describe("CardEventReviewPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "This completed version is read-only to preserve its lineage. Start a revision below to correct the annotations; the recording remains unchanged.",
+        "This completed version is read-only to preserve its lineage. Start a revision below to edit or remove events; the recording remains unchanged.",
       ),
     ).toBeInTheDocument();
     expect(
