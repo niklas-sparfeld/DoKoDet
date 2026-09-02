@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from doko_operations import (
+    CARD_EVENT_REVIEW_COLLECTION_SCHEMA_VERSION,
     CardEventProposal,
     CardEventReviewConflict,
     CardEventReviewError,
@@ -58,15 +59,12 @@ class CardEventReviewDraftUpdateRequest(BaseModel):
 
     annotation: dict[str, Any]
     proposals: list[CardEventProposalDecisionRequest] | dict[str, PROPOSAL_DECISIONS] = Field(
-        default_factory=list,
-        validation_alias=AliasChoices("proposals", "proposal_decisions")
+        default_factory=list, validation_alias=AliasChoices("proposals", "proposal_decisions")
     )
     expected_revision: int = Field(ge=0)
     full_video_acknowledged: bool = Field(
         default=False,
-        validation_alias=AliasChoices(
-            "full_video_acknowledged", "acknowledge_full_video"
-        ),
+        validation_alias=AliasChoices("full_video_acknowledged", "acknowledge_full_video"),
     )
 
 
@@ -79,9 +77,7 @@ class CardEventReviewCompletionRequest(BaseModel):
     expected_revision: int = Field(ge=0)
     full_video_acknowledged: bool = Field(
         default=False,
-        validation_alias=AliasChoices(
-            "full_video_acknowledged", "acknowledge_full_video"
-        ),
+        validation_alias=AliasChoices("full_video_acknowledged", "acknowledge_full_video"),
     )
 
 
@@ -95,6 +91,19 @@ class CardEventReviewRevisionRequest(BaseModel):
         validation_alias=AliasChoices("parent_version_id", "version_id"),
     )
     expected_revision: int = Field(ge=0)
+
+
+class CardEventReviewCreateRequest(BaseModel):
+    """The operator and optional completed review used to seed a new draft."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    operator: str = Field(min_length=1)
+    parent_review_id: str | None = None
+
+
+class CardEventReviewResourceUpdateRequest(CardEventReviewDraftUpdateRequest):
+    """A complete next draft for one recording-owned review resource."""
 
 
 class CardEventProposalResponse(BaseModel):
@@ -136,6 +145,213 @@ class CardEventReviewResponse(BaseModel):
     proposal_decision_digest: str | None
     completion_receipt_id: str | None
     proposals: list[CardEventProposalResponse]
+
+
+class CardEventReviewResourceResponse(BaseModel):
+    """One stable recording-owned CardEvent review resource."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["cardevent-review-resource/v1"]
+    review_id: str
+    review_url: str
+    recording_id: str
+    source_asset_id: str
+    source_sha256: str
+    video: str
+    operator: str
+    created_at: str
+    updated_at: str
+    annotation: dict[str, Any]
+    draft_revision: int
+    draft_digest: str
+    review_state: Literal["draft", "completed"]
+    full_video_acknowledged: bool
+    reviewer: str | None
+    completed_at: str | None
+    completed_version_id: str | None
+    completed_version_digest: str | None
+    parent_review_id: str | None
+    parent_version_id: str | None
+    parent_digest: str | None
+    reviewed_annotation_digest: str | None
+    proposal_decision_digest: str | None
+    completion_receipt_id: str | None
+    proposals: list[CardEventProposalResponse]
+
+
+class CardEventReviewListItemResponse(BaseModel):
+    """One concise review entry in the recording-owned collection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    review_id: str
+    review_url: str
+    recording_id: str
+    state: Literal["draft", "completed"]
+    review_state: Literal["draft", "completed"]
+    operator: str
+    reviewer: str | None
+    created_at: str
+    updated_at: str
+    completed_at: str | None
+    completed_version_id: str | None
+    completed_version_digest: str | None
+    parent_review_id: str | None
+    parent_version_id: str | None
+    event_counts: dict[str, int]
+    reviewed_event_count: int
+    proposed_event_count: int
+    dismissed_event_count: int
+
+
+class CardEventReviewCollectionResponse(BaseModel):
+    """The review resources owned by one accepted recording."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["cardevent-review-collection/v1"]
+    recording_id: str
+    current_review_id: str | None
+    draft_review_id: str | None
+    latest_completed_review_id: str | None
+    reviews: list[CardEventReviewListItemResponse]
+
+
+def _resource_identity(
+    request: Request, review_id: str
+) -> tuple[CardEventReviewStore, CardEventReviewSource]:
+    store = _review_store(request)
+    try:
+        identity = store.read_review_identity(review_id)
+    except CardEventReviewError as error:
+        raise _review_error(error) from error
+    recording_id = identity.get("recording_id")
+    if not isinstance(recording_id, str):
+        raise ContractError(
+            "card_event_review_invalid",
+            "The stored CardEvent review has no recording owner.",
+            status_code=500,
+        )
+    return store, _load_source(request, recording_id)
+
+
+@router.get(
+    "/v1/recordings/{recording_id}/card-event-reviews",
+    response_model=CardEventReviewCollectionResponse,
+)
+def list_card_event_reviews(
+    recording_id: str, request: Request
+) -> CardEventReviewCollectionResponse:
+    """List all review resources owned by one recording."""
+
+    source = _load_source(request, recording_id)
+    reviews = list(_review_store(request).list_reviews(source))
+    draft = next((item for item in reviews if item["state"] == "draft"), None)
+    latest_completed = next((item for item in reviews if item["state"] == "completed"), None)
+    current = latest_completed or draft
+    return CardEventReviewCollectionResponse(
+        schema_version=CARD_EVENT_REVIEW_COLLECTION_SCHEMA_VERSION,
+        recording_id=recording_id,
+        current_review_id=None if current is None else current["review_id"],
+        draft_review_id=None if draft is None else draft["review_id"],
+        latest_completed_review_id=(
+            None if latest_completed is None else latest_completed["review_id"]
+        ),
+        reviews=[CardEventReviewListItemResponse.model_validate(item) for item in reviews],
+    )
+
+
+@router.post(
+    "/v1/recordings/{recording_id}/card-event-reviews",
+    response_model=CardEventReviewResourceResponse,
+    status_code=201,
+)
+def create_card_event_review(
+    recording_id: str,
+    payload: CardEventReviewCreateRequest,
+    request: Request,
+) -> CardEventReviewResourceResponse:
+    """Create one draft review resource for an accepted recording."""
+
+    source = _load_source(request, recording_id)
+    try:
+        state = _review_store(request).create_review(
+            source,
+            operator=payload.operator,
+            parent_review_id=payload.parent_review_id,
+        )
+    except CardEventReviewError as error:
+        raise _review_error(error) from error
+    return CardEventReviewResourceResponse.model_validate(state)
+
+
+@router.get(
+    "/v1/card-event-reviews/{review_id}",
+    response_model=CardEventReviewResourceResponse,
+)
+def get_card_event_review_resource(
+    review_id: str, request: Request
+) -> CardEventReviewResourceResponse:
+    """Return one stable CardEvent review resource."""
+
+    store, source = _resource_identity(request, review_id)
+    try:
+        state = store.get_review(review_id, source)
+    except CardEventReviewError as error:
+        raise _review_error(error) from error
+    return CardEventReviewResourceResponse.model_validate(state)
+
+
+@router.put(
+    "/v1/card-event-reviews/{review_id}",
+    response_model=CardEventReviewResourceResponse,
+)
+def update_card_event_review_resource(
+    review_id: str,
+    payload: CardEventReviewResourceUpdateRequest,
+    request: Request,
+) -> CardEventReviewResourceResponse:
+    """Save a complete next draft for one stable review resource."""
+
+    store, source = _resource_identity(request, review_id)
+    try:
+        state = store.update_review(
+            review_id,
+            source,
+            annotation=payload.annotation,
+            proposals=_proposal_decisions(payload.proposals),
+            expected_revision=payload.expected_revision,
+            full_video_acknowledged=payload.full_video_acknowledged,
+        )
+    except CardEventReviewError as error:
+        raise _review_error(error) from error
+    return CardEventReviewResourceResponse.model_validate(state)
+
+
+@router.post(
+    "/v1/card-event-reviews/{review_id}/complete",
+    response_model=CardEventReviewResourceResponse,
+)
+def complete_card_event_review_resource(
+    review_id: str,
+    payload: CardEventReviewCompletionRequest,
+    request: Request,
+) -> CardEventReviewResourceResponse:
+    """Complete one stable CardEvent review resource."""
+
+    store, source = _resource_identity(request, review_id)
+    try:
+        state = store.complete_review(
+            review_id,
+            source,
+            reviewer=payload.reviewer,
+            expected_revision=payload.expected_revision,
+            full_video_acknowledged=payload.full_video_acknowledged,
+        )
+    except CardEventReviewError as error:
+        raise _review_error(error) from error
+    return CardEventReviewResourceResponse.model_validate(state)
 
 
 @router.get(
@@ -360,9 +576,13 @@ def _review_error(error: CardEventReviewError) -> ContractError:
 
 
 __all__ = [
+    "CardEventReviewCollectionResponse",
     "CardEventReviewCompletionRequest",
+    "CardEventReviewCreateRequest",
     "CardEventReviewDraftUpdateRequest",
     "CardEventReviewResponse",
+    "CardEventReviewResourceResponse",
+    "CardEventReviewResourceUpdateRequest",
     "CardEventReviewRevisionRequest",
     "router",
 ]

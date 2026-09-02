@@ -18,7 +18,7 @@
 ## Milestone status
 
 - **M0:** Complete — make the layout video-first and repair frame and keyboard controls.
-- **M1:** Not started — make each CardEvent review a recording-owned resource.
+- **M1:** Complete — make each CardEvent review a recording-owned resource.
 - **M2:** Not started — unify proposals and human events with stable lineage.
 - **M3:** Not started — measure and remove local review-path latency.
 - **M4:** Not started — add the recording review list and dedicated review page.

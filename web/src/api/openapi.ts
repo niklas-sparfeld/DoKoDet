@@ -44,6 +44,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/card-event-reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Card Event Review Resource
+         * @description Return one stable CardEvent review resource.
+         */
+        get: operations["get_card_event_review_resource_v1_card_event_reviews__review_id__get"];
+        /**
+         * Update Card Event Review Resource
+         * @description Save a complete next draft for one stable review resource.
+         */
+        put: operations["update_card_event_review_resource_v1_card_event_reviews__review_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/card-event-reviews/{review_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Card Event Review Resource
+         * @description Complete one stable CardEvent review resource.
+         */
+        post: operations["complete_card_event_review_resource_v1_card_event_reviews__review_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/data/cardevent-development-split/apply": {
         parameters: {
             query?: never;
@@ -406,6 +450,30 @@ export interface paths {
          * @description Start a new draft from one immutable reviewed version.
          */
         post: operations["start_card_event_review_revision_v1_recordings__recording_id__card_event_review_revisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/card-event-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Card Event Reviews
+         * @description List all review resources owned by one recording.
+         */
+        get: operations["list_card_event_reviews_v1_recordings__recording_id__card_event_reviews_get"];
+        put?: never;
+        /**
+         * Create Card Event Review
+         * @description Create one draft review resource for an accepted recording.
+         */
+        post: operations["create_card_event_review_v1_recordings__recording_id__card_event_reviews_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1084,6 +1152,27 @@ export interface components {
             time_s: number;
         };
         /**
+         * CardEventReviewCollectionResponse
+         * @description The review resources owned by one accepted recording.
+         */
+        CardEventReviewCollectionResponse: {
+            /** Current Review Id */
+            current_review_id: string | null;
+            /** Draft Review Id */
+            draft_review_id: string | null;
+            /** Latest Completed Review Id */
+            latest_completed_review_id: string | null;
+            /** Recording Id */
+            recording_id: string;
+            /** Reviews */
+            reviews: components["schemas"]["CardEventReviewListItemResponse"][];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "cardevent-review-collection/v1";
+        };
+        /**
          * CardEventReviewCompletionRequest
          * @description The explicit full-recording completion acknowledgement.
          */
@@ -1099,10 +1188,157 @@ export interface components {
             reviewer: string;
         };
         /**
+         * CardEventReviewCreateRequest
+         * @description The operator and optional completed review used to seed a new draft.
+         */
+        CardEventReviewCreateRequest: {
+            /** Operator */
+            operator: string;
+            /** Parent Review Id */
+            parent_review_id?: string | null;
+        };
+        /**
          * CardEventReviewDraftUpdateRequest
          * @description A complete next draft and the revision it replaces.
          */
         CardEventReviewDraftUpdateRequest: {
+            /** Annotation */
+            annotation: {
+                [key: string]: unknown;
+            };
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Full Video Acknowledged
+             * @default false
+             */
+            full_video_acknowledged: boolean;
+            /** Proposals */
+            proposals?: components["schemas"]["CardEventProposalDecisionRequest"][] | {
+                [key: string]: "undecided" | "accepted" | "dismissed";
+            };
+        };
+        /**
+         * CardEventReviewListItemResponse
+         * @description One concise review entry in the recording-owned collection.
+         */
+        CardEventReviewListItemResponse: {
+            /** Completed At */
+            completed_at: string | null;
+            /** Completed Version Digest */
+            completed_version_digest: string | null;
+            /** Completed Version Id */
+            completed_version_id: string | null;
+            /** Created At */
+            created_at: string;
+            /** Dismissed Event Count */
+            dismissed_event_count: number;
+            /** Event Counts */
+            event_counts: {
+                [key: string]: number;
+            };
+            /** Operator */
+            operator: string;
+            /** Parent Review Id */
+            parent_review_id: string | null;
+            /** Parent Version Id */
+            parent_version_id: string | null;
+            /** Proposed Event Count */
+            proposed_event_count: number;
+            /** Recording Id */
+            recording_id: string;
+            /** Review Id */
+            review_id: string;
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "draft" | "completed";
+            /** Review Url */
+            review_url: string;
+            /** Reviewed Event Count */
+            reviewed_event_count: number;
+            /** Reviewer */
+            reviewer: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "draft" | "completed";
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * CardEventReviewResourceResponse
+         * @description One stable recording-owned CardEvent review resource.
+         */
+        CardEventReviewResourceResponse: {
+            /** Annotation */
+            annotation: {
+                [key: string]: unknown;
+            };
+            /** Completed At */
+            completed_at: string | null;
+            /** Completed Version Digest */
+            completed_version_digest: string | null;
+            /** Completed Version Id */
+            completed_version_id: string | null;
+            /** Completion Receipt Id */
+            completion_receipt_id: string | null;
+            /** Created At */
+            created_at: string;
+            /** Draft Digest */
+            draft_digest: string;
+            /** Draft Revision */
+            draft_revision: number;
+            /** Full Video Acknowledged */
+            full_video_acknowledged: boolean;
+            /** Operator */
+            operator: string;
+            /** Parent Digest */
+            parent_digest: string | null;
+            /** Parent Review Id */
+            parent_review_id: string | null;
+            /** Parent Version Id */
+            parent_version_id: string | null;
+            /** Proposal Decision Digest */
+            proposal_decision_digest: string | null;
+            /** Proposals */
+            proposals: components["schemas"]["CardEventProposalResponse"][];
+            /** Recording Id */
+            recording_id: string;
+            /** Review Id */
+            review_id: string;
+            /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "draft" | "completed";
+            /** Review Url */
+            review_url: string;
+            /** Reviewed Annotation Digest */
+            reviewed_annotation_digest: string | null;
+            /** Reviewer */
+            reviewer: string | null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "cardevent-review-resource/v1";
+            /** Source Asset Id */
+            source_asset_id: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Updated At */
+            updated_at: string;
+            /** Video */
+            video: string;
+        };
+        /**
+         * CardEventReviewResourceUpdateRequest
+         * @description A complete next draft for one recording-owned review resource.
+         */
+        CardEventReviewResourceUpdateRequest: {
             /** Annotation */
             annotation: {
                 [key: string]: unknown;
@@ -3340,6 +3576,107 @@ export interface operations {
             };
         };
     };
+    get_card_event_review_resource_v1_card_event_reviews__review_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventReviewResourceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_card_event_review_resource_v1_card_event_reviews__review_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardEventReviewResourceUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventReviewResourceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_card_event_review_resource_v1_card_event_reviews__review_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardEventReviewCompletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventReviewResourceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     apply_card_event_development_split_v1_data_cardevent_development_split_apply_post: {
         parameters: {
             query?: never;
@@ -3964,6 +4301,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardEventReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_card_event_reviews_v1_recordings__recording_id__card_event_reviews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventReviewCollectionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_card_event_review_v1_recordings__recording_id__card_event_reviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardEventReviewCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventReviewResourceResponse"];
                 };
             };
             /** @description Validation Error */

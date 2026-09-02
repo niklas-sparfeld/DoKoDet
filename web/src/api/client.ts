@@ -20,6 +20,16 @@ export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
 export type CardEventReview = JsonResponse<
   paths["/v1/recordings/{recording_id}/card-event-review"]["get"]["responses"][200]
 >;
+export type CardEventReviewCollection = JsonResponse<
+  paths["/v1/recordings/{recording_id}/card-event-reviews"]["get"]["responses"][200]
+>;
+export type CardEventReviewResource = JsonResponse<
+  paths["/v1/card-event-reviews/{review_id}"]["get"]["responses"][200]
+>;
+export type CardEventReviewCreateRequest =
+  components["schemas"]["CardEventReviewCreateRequest"];
+export type CardEventReviewResourceUpdateRequest =
+  components["schemas"]["CardEventReviewResourceUpdateRequest"];
 export type CardEventReviewDraftUpdateRequest =
   components["schemas"]["CardEventReviewDraftUpdateRequest"];
 export type CardEventReviewCompletionRequest =
@@ -101,6 +111,29 @@ export interface DokoDetectorClient {
     recordingId: string,
     init?: RequestInit,
   ): Promise<CardEventReview>;
+  listCardEventReviews(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<CardEventReviewCollection>;
+  createCardEventReview(
+    recordingId: string,
+    payload: CardEventReviewCreateRequest,
+    init?: RequestInit,
+  ): Promise<CardEventReviewResource>;
+  getCardEventReviewResource(
+    reviewId: string,
+    init?: RequestInit,
+  ): Promise<CardEventReviewResource>;
+  updateCardEventReviewResource(
+    reviewId: string,
+    payload: CardEventReviewResourceUpdateRequest,
+    init?: RequestInit,
+  ): Promise<CardEventReviewResource>;
+  completeCardEventReviewResource(
+    reviewId: string,
+    payload: CardEventReviewCompletionRequest,
+    init?: RequestInit,
+  ): Promise<CardEventReviewResource>;
   updateCardEventReviewDraft(
     recordingId: string,
     payload: CardEventReviewDraftUpdateRequest,
@@ -259,6 +292,51 @@ export function createDokoDetectorClient(
         fetchImplementation,
         recordingCardEventReviewPath(recordingId),
         init,
+      ),
+    listCardEventReviews: (recordingId, init) =>
+      requestJson<CardEventReviewCollection>(
+        fetchImplementation,
+        recordingCardEventReviewsPath(recordingId),
+        init,
+      ),
+    createCardEventReview: (recordingId, payload, init) =>
+      requestJson<CardEventReviewResource>(
+        fetchImplementation,
+        recordingCardEventReviewsPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    getCardEventReviewResource: (reviewId, init) =>
+      requestJson<CardEventReviewResource>(
+        fetchImplementation,
+        cardEventReviewResourcePath(reviewId),
+        init,
+      ),
+    updateCardEventReviewResource: (reviewId, payload, init) =>
+      requestJson<CardEventReviewResource>(
+        fetchImplementation,
+        cardEventReviewResourcePath(reviewId),
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    completeCardEventReviewResource: (reviewId, payload, init) =>
+      requestJson<CardEventReviewResource>(
+        fetchImplementation,
+        cardEventReviewResourceCompletionPath(reviewId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
       ),
     updateCardEventReviewDraft: (recordingId, payload, init) =>
       requestJson<CardEventReview>(
@@ -561,6 +639,20 @@ export function recordingDetailPath(recordingId: string): string {
 
 export function recordingCardEventReviewPath(recordingId: string): string {
   return `${recordingDetailPath(recordingId)}/card-event-review`;
+}
+
+export function recordingCardEventReviewsPath(recordingId: string): string {
+  return `${recordingDetailPath(recordingId)}/card-event-reviews`;
+}
+
+export function cardEventReviewResourcePath(reviewId: string): string {
+  return `/v1/card-event-reviews/${encodeURIComponent(reviewId)}`;
+}
+
+export function cardEventReviewResourceCompletionPath(
+  reviewId: string,
+): string {
+  return `${cardEventReviewResourcePath(reviewId)}/complete`;
 }
 
 export function recordingCardEventReviewDraftPath(recordingId: string): string {

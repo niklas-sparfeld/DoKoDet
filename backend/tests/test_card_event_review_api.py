@@ -88,9 +88,7 @@ def test_draft_transitions_survive_restart_and_reject_stale_or_foreign_updates(
         "expected_revision": 0,
     }
 
-    saved = client.put(
-        "/v1/recordings/recording-both/card-event-review/draft", json=payload
-    )
+    saved = client.put("/v1/recordings/recording-both/card-event-review/draft", json=payload)
     assert saved.status_code == 200
     assert saved.json()["review_state"] == "draft"
     assert saved.json()["draft_revision"] == 1
@@ -107,22 +105,17 @@ def test_draft_transitions_survive_restart_and_reject_stale_or_foreign_updates(
         [{"time_s": 1.2, "type": "card_played", "confidence": "confirmed"}]
     )
     assert (
-        client.put(
-            "/v1/recordings/recording-both/card-event-review/draft", json=stale
-        ).status_code
+        client.put("/v1/recordings/recording-both/card-event-review/draft", json=stale).status_code
         == 409
     )
 
     foreign = dict(payload)
     foreign["expected_revision"] = 1
     foreign["proposals"] = [{"proposal_id": "foreign-proposal", "decision": "accepted"}]
-    rejected = client.put(
-        "/v1/recordings/recording-both/card-event-review/draft", json=foreign
-    )
+    rejected = client.put("/v1/recordings/recording-both/card-event-review/draft", json=foreign)
     assert rejected.status_code == 422
     assert (
-        client.get("/v1/recordings/recording-both/card-event-review").json()["draft_revision"]
-        == 1
+        client.get("/v1/recordings/recording-both/card-event-review").json()["draft_revision"] == 1
     )
 
     restarted = TestClient(create_test_app(settings))
@@ -162,9 +155,7 @@ def test_invalid_annotation_fails_without_creating_or_changing_draft(
         "expected_revision": 0,
     }
 
-    response = client.put(
-        "/v1/recordings/recording-both/card-event-review/draft", json=payload
-    )
+    response = client.put("/v1/recordings/recording-both/card-event-review/draft", json=payload)
 
     assert response.status_code == 422
     assert message in response.json()["error"]["message"]
@@ -288,9 +279,7 @@ def test_operations_store_keeps_the_winning_draft_on_write_failure_and_source_co
         video="video-both.mov",
     )
     store = CardEventReviewStore(tmp_path / "operations")
-    annotation = _annotation(
-        [{"time_s": 1.0, "type": "card_played", "confidence": "confirmed"}]
-    )
+    annotation = _annotation([{"time_s": 1.0, "type": "card_played", "confidence": "confirmed"}])
     store.update_draft(
         source,
         annotation=annotation,
@@ -323,3 +312,95 @@ def test_operations_store_keeps_the_winning_draft_on_write_failure_and_source_co
     )
     with pytest.raises(CardEventReviewConflict):
         store.read(changed_source)
+
+
+def test_recording_owned_reviews_have_stable_identity_and_single_draft(
+    tmp_path: Path,
+) -> None:
+    client, settings, _ = _backend(tmp_path)
+
+    empty = client.get("/v1/recordings/recording-both/card-event-reviews")
+    assert empty.status_code == 200
+    assert empty.json()["schema_version"] == "cardevent-review-collection/v1"
+    assert empty.json()["reviews"] == []
+    assert empty.json()["current_review_id"] is None
+
+    created = client.post(
+        "/v1/recordings/recording-both/card-event-reviews",
+        json={"operator": "Niklas"},
+    )
+    assert created.status_code == 201
+    draft = created.json()
+    review_id = draft["review_id"]
+    assert review_id.startswith("cardevent-review-")
+    assert draft["review_url"] == f"/card-event-reviews/{review_id}"
+    assert draft["operator"] == "Niklas"
+    assert draft["review_state"] == "draft"
+
+    duplicate = client.post(
+        "/v1/recordings/recording-both/card-event-reviews",
+        json={"operator": "Another operator"},
+    )
+    assert duplicate.status_code == 409
+    collection = client.get("/v1/recordings/recording-both/card-event-reviews").json()
+    assert [item["review_id"] for item in collection["reviews"]] == [review_id]
+
+    proposal = draft["proposals"][0]["proposal_id"]
+    saved = client.put(
+        f"/v1/card-event-reviews/{review_id}",
+        json={
+            "annotation": _annotation([]),
+            "proposals": [{"proposal_id": proposal, "decision": "accepted"}],
+            "expected_revision": 0,
+        },
+    )
+    assert saved.status_code == 200
+    assert saved.json()["draft_revision"] == 1
+
+    completed = client.post(
+        f"/v1/card-event-reviews/{review_id}/complete",
+        json={
+            "reviewer": "Niklas",
+            "expected_revision": 1,
+            "full_video_acknowledged": True,
+        },
+    )
+    assert completed.status_code == 200
+    completed_body = completed.json()
+    assert completed_body["review_state"] == "completed"
+    assert completed_body["completed_version_id"]
+    assert completed_body["completed_version_digest"]
+    assert completed_body["completion_receipt_id"]
+
+    review_root = settings.operations_root / "cardevent-reviews" / review_id
+    version_path = review_root / "versions" / f"{completed_body['completed_version_id']}.json"
+    version_before = version_path.read_bytes()
+    collection = client.get("/v1/recordings/recording-both/card-event-reviews").json()
+    assert collection["latest_completed_review_id"] == review_id
+    assert collection["reviews"][0]["reviewer"] == "Niklas"
+    assert collection["reviews"][0]["event_counts"] == {
+        "reviewed": 1,
+        "proposed": 0,
+        "dismissed": 0,
+    }
+
+    revision = client.post(
+        "/v1/recordings/recording-both/card-event-reviews",
+        json={"operator": "Niklas"},
+    )
+    assert revision.status_code == 201
+    revision_body = revision.json()
+    assert revision_body["review_id"] != review_id
+    assert revision_body["parent_review_id"] == review_id
+    assert revision_body["parent_version_id"] == completed_body["completed_version_id"]
+    assert revision_body["parent_digest"] == completed_body["completed_version_digest"]
+    assert revision_body["annotation"] == completed_body["annotation"]
+    assert version_path.read_bytes() == version_before
+    revised_collection = client.get("/v1/recordings/recording-both/card-event-reviews").json()
+    assert revised_collection["current_review_id"] == review_id
+    assert revised_collection["draft_review_id"] == revision_body["review_id"]
+
+    restarted = TestClient(create_test_app(settings))
+    persisted = restarted.get(f"/v1/card-event-reviews/{revision_body['review_id']}")
+    assert persisted.status_code == 200
+    assert persisted.json()["parent_review_id"] == review_id

@@ -11,12 +11,14 @@ import hashlib
 import json
 import math
 import os
+import re
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
+from uuid import uuid4
 
 try:
     import fcntl
@@ -24,6 +26,8 @@ except ImportError:  # pragma: no cover - the supported local runtime is macOS/L
     fcntl = None  # type: ignore[assignment]
 
 CARD_EVENT_REVIEW_SCHEMA_VERSION = "cardevent-review/v1"
+CARD_EVENT_REVIEW_RESOURCE_SCHEMA_VERSION = "cardevent-review-resource/v1"
+CARD_EVENT_REVIEW_COLLECTION_SCHEMA_VERSION = "cardevent-review-collection/v1"
 CARD_EVENT_ANNOTATION_SCHEMA_VERSION = "cardevent-annotation/v2"
 CARD_EVENT_REVIEWED_VERSION_SCHEMA_VERSION = "cardevent-reviewed-annotation/v1"
 CARD_EVENT_REVIEW_RECEIPT_SCHEMA_VERSION = "lifecycle-receipt/v1"
@@ -42,6 +46,7 @@ CARD_EVENT_TYPES = frozenset(
 )
 CARD_EVENT_CONFIDENCES = frozenset({"confirmed", "uncertain", "ignore", "proposed"})
 DUPLICATE_EVENT_TOLERANCE_S = 0.01
+REVIEW_ID_PATTERN = re.compile(r"^cardevent-review-[0-9a-f]{32}$")
 
 
 class CardEventReviewError(ValueError):
@@ -104,6 +109,10 @@ class CardEventReviewStore:
     def read(self, source: CardEventReviewSource) -> dict[str, Any]:
         """Read the current draft, or create its in-memory empty initial state."""
 
+        resource = self._current_resource(source)
+        if resource is not None:
+            return _project_state(resource, source)
+
         path = self._draft_path(source.recording_id)
         if not path.is_file():
             return _project_state(_initial_state(source), source)
@@ -116,6 +125,270 @@ class CardEventReviewStore:
                 ) from error
         _validate_state_source(state, source)
         return _project_state(state, source)
+
+    def list_reviews(self, source: CardEventReviewSource) -> tuple[dict[str, Any], ...]:
+        """List all recording-owned review resources in display order."""
+
+        with _review_lock(self._resource_root(), exclusive=False):
+            states = self._resource_states_locked(source)
+        return tuple(_project_resource_summary(state) for state in _sort_resources(states))
+
+    def create_review(
+        self,
+        source: CardEventReviewSource,
+        *,
+        operator: str,
+        parent_review_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create one recording-owned draft review, optionally seeded from a completion."""
+
+        _validate_operator(operator)
+        with _review_lock(self._resource_root(), exclusive=True):
+            states = self._resource_states_locked(source)
+            if (
+                any(state["review_state"] == "draft" for state in states)
+                or self._draft_path(source.recording_id).is_file()
+            ):
+                raise CardEventReviewConflict(
+                    "A draft CardEvent review already exists for this recording."
+                )
+
+            parent = _select_parent_resource(states, parent_review_id)
+            annotation: dict[str, Any]
+            decisions: dict[str, str]
+            parent_version_id: str | None = None
+            parent_digest: str | None = None
+            if parent is None:
+                annotation = _initial_state(source)["annotation"]
+                decisions = {proposal.proposal_id: "undecided" for proposal in source.proposals}
+            else:
+                parent_version_id = parent.get("completed_version_id")
+                if not isinstance(parent_version_id, str) or not parent_version_id:
+                    raise CardEventReviewError(
+                        "The parent review has no completed annotation version."
+                    )
+                version = self._read_resource_version_locked(parent, parent_version_id)
+                _validate_version(version, source, parent_version_id)
+                annotation = dict(version["annotation"])
+                decisions = _validate_proposal_decisions(
+                    [
+                        {"proposal_id": proposal_id, "decision": decision}
+                        for proposal_id, decision in version["proposal_decisions"].items()
+                    ],
+                    source.proposals,
+                )
+                parent_digest = version["version_digest"]
+
+            review_id = "cardevent-review-" + uuid4().hex
+            now = _now()
+            state = _resource_state(
+                source,
+                review_id=review_id,
+                operator=operator.strip(),
+                created_at=now,
+                updated_at=now,
+                annotation=annotation,
+                decisions=decisions,
+                parent_review_id=parent["review_id"] if parent is not None else None,
+                parent_version_id=parent_version_id,
+                parent_digest=parent_digest,
+            )
+            self._write_resource_locked(state)
+        return _project_resource(state, source)
+
+    def read_review_identity(self, review_id: str) -> dict[str, Any]:
+        """Read one resource identity before loading its accepted recording source."""
+
+        path = self._resource_path(review_id)
+        with _review_lock(self._resource_root(), exclusive=False):
+            try:
+                return _read_json(path)
+            except FileNotFoundError as error:
+                raise CardEventReviewNotFound("The CardEvent review was not found.") from error
+            except OSError as error:
+                raise CardEventReviewWriteError(
+                    "The CardEvent review could not be read."
+                ) from error
+
+    def completed_version_path(self, recording_id: str, version_id: str) -> Path:
+        """Return the immutable completed version path for downstream consumers."""
+
+        with _review_lock(self._resource_root(), exclusive=False):
+            root = self._resource_root()
+            if root.is_dir():
+                for directory in sorted(root.iterdir(), key=lambda item: item.name):
+                    path = directory / "review.json"
+                    if not path.is_file():
+                        continue
+                    state = _read_json(path)
+                    if (
+                        state.get("recording_id") == recording_id
+                        and state.get("completed_version_id") == version_id
+                    ):
+                        return self._resource_version_path(directory.name, version_id)
+        return self._version_path(recording_id, version_id)
+
+    def get_review(self, review_id: str, source: CardEventReviewSource) -> dict[str, Any]:
+        """Read one recording-owned review and validate its source identity."""
+
+        with _review_lock(self._resource_root(), exclusive=False):
+            state = self._read_resource_locked(review_id)
+        _validate_resource_state(state, source, review_id)
+        return _project_resource(state, source)
+
+    def update_review(
+        self,
+        review_id: str,
+        source: CardEventReviewSource,
+        *,
+        annotation: Mapping[str, Any],
+        proposals: Sequence[Mapping[str, Any]],
+        expected_revision: int,
+        full_video_acknowledged: bool = False,
+    ) -> dict[str, Any]:
+        """Save one complete next draft for a recording-owned review."""
+
+        _validate_expected_revision(expected_revision)
+        with _review_lock(self._resource_root(), exclusive=True):
+            current = self._read_resource_locked(review_id)
+            _validate_resource_state(current, source, review_id)
+            _assert_revision(current, expected_revision)
+            if current["review_state"] == "completed":
+                raise CardEventReviewConflict(
+                    "The review is complete. Create a new revision before editing it."
+                )
+            decisions = _validate_proposal_decisions(proposals, source.proposals)
+            normalized_annotation = _validate_annotation(annotation, source)
+            normalized_annotation = _apply_accepted_proposals(
+                normalized_annotation, decisions, source.proposals
+            )
+            updated = dict(current)
+            updated.update(
+                {
+                    "annotation": normalized_annotation,
+                    "proposal_decisions": _decision_mapping(decisions),
+                    "draft_revision": current["draft_revision"] + 1,
+                    "full_video_acknowledged": full_video_acknowledged,
+                    "updated_at": _now(),
+                }
+            )
+            updated["draft_digest"] = _draft_digest(updated)
+            self._write_resource_locked(updated)
+        return _project_resource(updated, source)
+
+    def complete_review(
+        self,
+        review_id: str,
+        source: CardEventReviewSource,
+        *,
+        reviewer: str,
+        expected_revision: int,
+        full_video_acknowledged: bool,
+    ) -> dict[str, Any]:
+        """Complete one resource and publish immutable review artifacts."""
+
+        _validate_expected_revision(expected_revision)
+        _validate_operator(reviewer)
+        if not full_video_acknowledged:
+            raise CardEventReviewError(
+                "A full-video acknowledgement is required to complete review."
+            )
+
+        with _review_lock(self._resource_root(), exclusive=True):
+            current = self._read_resource_locked(review_id)
+            _validate_resource_state(current, source, review_id)
+            _assert_revision(current, expected_revision)
+            if current["review_state"] == "completed":
+                if (
+                    current.get("reviewer") == reviewer.strip()
+                    and current.get("completed_version_id")
+                    and current.get("completion_receipt_id")
+                ):
+                    return _project_resource(current, source)
+                raise CardEventReviewConflict(
+                    "The review is already complete. Create a new revision before completing it."
+                )
+
+            decisions = _proposal_decisions_from_state(current)
+            if any(value == "undecided" for value in decisions.values()):
+                raise CardEventReviewError(
+                    "Every CardEvent proposal needs an accepted or dismissed decision."
+                )
+            annotation = _validate_annotation(current["annotation"], source)
+            input_digest = _draft_digest(current)
+            annotation_digest = _digest(annotation)
+            proposal_decision_digest = _digest(_decision_mapping(decisions))
+            completion_key = _digest(
+                {
+                    "review_id": review_id,
+                    "draft_revision": current["draft_revision"],
+                    "input_draft_digest": input_digest,
+                    "reviewer": reviewer.strip(),
+                }
+            )[:20]
+            version_id = "cardevent-reviewed-" + completion_key
+            version_path = self._resource_version_path(review_id, version_id)
+            version = _read_existing_or_none(version_path)
+            if version is None:
+                completed_at = _now()
+                version_core = {
+                    "schema_version": CARD_EVENT_REVIEWED_VERSION_SCHEMA_VERSION,
+                    "review_id": review_id,
+                    "recording_id": source.recording_id,
+                    "source_asset_id": source.source_asset_id,
+                    "source_sha256": source.source_sha256,
+                    "annotation": annotation,
+                    "proposal_decisions": _decision_mapping(decisions),
+                    "input_draft_revision": current["draft_revision"],
+                    "input_draft_digest": input_digest,
+                    "source_digest": source.source_sha256,
+                    "reviewed_annotation_digest": annotation_digest,
+                    "proposal_decision_digest": proposal_decision_digest,
+                    "reviewer": reviewer.strip(),
+                    "completed_at": completed_at,
+                    "parent_review_id": current.get("parent_review_id"),
+                    "parent_version_id": current.get("parent_version_id"),
+                    "parent_digest": current.get("parent_digest"),
+                }
+                version = {**version_core, "version_id": version_id}
+                version["version_digest"] = _digest(version)
+                _write_immutable_json(version_path, version)
+            _validate_version(version, source, version_id)
+            completed_at = str(version["completed_at"])
+            receipt = _resource_completion_receipt(
+                source,
+                review_id=review_id,
+                version_id=version_id,
+                version_digest=version["version_digest"],
+                input_draft_digest=input_digest,
+                annotation_digest=annotation_digest,
+                proposal_decision_digest=proposal_decision_digest,
+                reviewer=reviewer.strip(),
+                occurred_at=completed_at,
+            )
+            _write_immutable_json(
+                self._resource_receipt_path(review_id, receipt["receipt_id"]), receipt
+            )
+            completed = dict(current)
+            completed.update(
+                {
+                    "annotation": annotation,
+                    "proposal_decisions": _decision_mapping(decisions),
+                    "full_video_acknowledged": True,
+                    "review_state": "completed",
+                    "reviewer": reviewer.strip(),
+                    "completed_at": completed_at,
+                    "completed_version_id": version_id,
+                    "completed_version_digest": version["version_digest"],
+                    "reviewed_annotation_digest": annotation_digest,
+                    "proposal_decision_digest": proposal_decision_digest,
+                    "completion_receipt_id": receipt["receipt_id"],
+                    "updated_at": _now(),
+                }
+            )
+            completed["draft_digest"] = _draft_digest(completed)
+            self._write_resource_locked(completed)
+        return _project_resource(completed, source)
 
     def update_draft(
         self,
@@ -303,6 +576,73 @@ class CardEventReviewStore:
     def _review_root(self, recording_id: str) -> Path:
         return self.workspace_root / "cardevent-reviews" / recording_id
 
+    def _resource_root(self) -> Path:
+        return self.workspace_root / "cardevent-reviews"
+
+    def _resource_path(self, review_id: str) -> Path:
+        if REVIEW_ID_PATTERN.fullmatch(review_id) is None:
+            raise CardEventReviewNotFound("The CardEvent review was not found.")
+        return self._resource_root() / review_id / "review.json"
+
+    def _resource_version_path(self, review_id: str, version_id: str) -> Path:
+        return self._resource_path(review_id).parent / "versions" / f"{version_id}.json"
+
+    def _resource_receipt_path(self, review_id: str, receipt_id: str) -> Path:
+        return self._resource_path(review_id).parent / "receipts" / f"{receipt_id}.json"
+
+    def _resource_states_locked(self, source: CardEventReviewSource) -> list[dict[str, Any]]:
+        root = self._resource_root()
+        if not root.is_dir():
+            return []
+        states: list[dict[str, Any]] = []
+        for directory in sorted(root.iterdir(), key=lambda item: item.name):
+            if not directory.is_dir() or directory.name.startswith("."):
+                continue
+            path = directory / "review.json"
+            if not path.is_file():
+                continue
+            state = _read_json(path)
+            if state.get("recording_id") != source.recording_id:
+                continue
+            _validate_resource_state(state, source, directory.name)
+            states.append(state)
+        return states
+
+    def _current_resource(self, source: CardEventReviewSource) -> dict[str, Any] | None:
+        with _review_lock(self._resource_root(), exclusive=False):
+            states = self._resource_states_locked(source)
+        return _sort_resources(states)[0] if states else None
+
+    def _read_resource_locked(self, review_id: str) -> dict[str, Any]:
+        path = self._resource_path(review_id)
+        try:
+            return _read_json(path)
+        except FileNotFoundError as error:
+            raise CardEventReviewNotFound("The CardEvent review was not found.") from error
+        except OSError as error:
+            raise CardEventReviewWriteError("The CardEvent review could not be read.") from error
+
+    def _read_resource_version_locked(
+        self, state: Mapping[str, Any], version_id: str
+    ) -> dict[str, Any]:
+        path = self._resource_version_path(str(state["review_id"]), version_id)
+        try:
+            return _read_json(path)
+        except FileNotFoundError as error:
+            raise CardEventReviewNotFound(
+                "The completed CardEvent review version was not found."
+            ) from error
+        except OSError as error:
+            raise CardEventReviewWriteError(
+                "The completed CardEvent review version could not be read."
+            ) from error
+
+    def _write_resource_locked(self, state: Mapping[str, Any]) -> None:
+        try:
+            _atomic_write_json(self._resource_path(str(state["review_id"])), state)
+        except OSError as error:
+            raise CardEventReviewWriteError("The CardEvent review could not be saved.") from error
+
     def _draft_path(self, recording_id: str) -> Path:
         return self._review_root(recording_id) / "draft.json"
 
@@ -337,14 +677,17 @@ class CardEventReviewStore:
 def proposal_id(source_asset_id: str, run_id: str, index: int, time_s: float) -> str:
     """Return the stable identifier for one source-linked proposal."""
 
-    return "cardevent-proposal-" + _digest(
-        {
-            "source_asset_id": source_asset_id,
-            "run_id": run_id,
-            "index": index,
-            "time_s": time_s,
-        }
-    )[:20]
+    return (
+        "cardevent-proposal-"
+        + _digest(
+            {
+                "source_asset_id": source_asset_id,
+                "run_id": run_id,
+                "index": index,
+                "time_s": time_s,
+            }
+        )[:20]
+    )
 
 
 def _initial_state(source: CardEventReviewSource) -> dict[str, Any]:
@@ -360,6 +703,250 @@ def _initial_state(source: CardEventReviewSource) -> dict[str, Any]:
         full_video_acknowledged=False,
         review_state="not_started",
     )
+
+
+def _resource_state(
+    source: CardEventReviewSource,
+    *,
+    review_id: str,
+    operator: str,
+    created_at: str,
+    updated_at: str,
+    annotation: Mapping[str, Any],
+    decisions: Mapping[str, str],
+    parent_review_id: str | None = None,
+    parent_version_id: str | None = None,
+    parent_digest: str | None = None,
+) -> dict[str, Any]:
+    """Build one recording-owned draft resource."""
+
+    state: dict[str, Any] = {
+        "schema_version": CARD_EVENT_REVIEW_RESOURCE_SCHEMA_VERSION,
+        "review_id": review_id,
+        "recording_id": source.recording_id,
+        "source_asset_id": source.source_asset_id,
+        "source_sha256": source.source_sha256,
+        "video": Path(source.video).name,
+        "operator": operator,
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "review_state": "draft",
+        "draft_revision": 0,
+        "annotation": dict(annotation),
+        "proposal_decisions": _decision_mapping(decisions),
+        "full_video_acknowledged": False,
+        "reviewer": None,
+        "completed_at": None,
+        "completed_version_id": None,
+        "completed_version_digest": None,
+        "parent_review_id": parent_review_id,
+        "parent_version_id": parent_version_id,
+        "parent_digest": parent_digest,
+        "reviewed_annotation_digest": None,
+        "proposal_decision_digest": None,
+        "completion_receipt_id": None,
+    }
+    state["draft_digest"] = _draft_digest(state)
+    return state
+
+
+def _project_resource(state: Mapping[str, Any], source: CardEventReviewSource) -> dict[str, Any]:
+    """Project one resource without exposing its private proposal mapping."""
+
+    projected = _project_state(state, source)
+    return {
+        **projected,
+        "schema_version": CARD_EVENT_REVIEW_RESOURCE_SCHEMA_VERSION,
+        "review_id": state["review_id"],
+        "operator": state["operator"],
+        "created_at": state["created_at"],
+        "updated_at": state["updated_at"],
+        "parent_review_id": state.get("parent_review_id"),
+        "review_url": f"/card-event-reviews/{state['review_id']}",
+    }
+
+
+def _project_resource_summary(state: Mapping[str, Any]) -> dict[str, Any]:
+    decisions = _proposal_decisions_from_state(state)
+    annotation = state.get("annotation")
+    reviewed_count = len(annotation.get("events", [])) if isinstance(annotation, Mapping) else 0
+    proposed_count = sum(value == "undecided" for value in decisions.values())
+    dismissed_count = sum(value == "dismissed" for value in decisions.values())
+    return {
+        "review_id": state["review_id"],
+        "recording_id": state["recording_id"],
+        "state": state["review_state"],
+        "review_state": state["review_state"],
+        "operator": state["operator"],
+        "reviewer": state.get("reviewer"),
+        "created_at": state["created_at"],
+        "updated_at": state["updated_at"],
+        "completed_at": state.get("completed_at"),
+        "completed_version_id": state.get("completed_version_id"),
+        "completed_version_digest": state.get("completed_version_digest"),
+        "parent_review_id": state.get("parent_review_id"),
+        "parent_version_id": state.get("parent_version_id"),
+        "event_counts": {
+            "reviewed": reviewed_count,
+            "proposed": proposed_count,
+            "dismissed": dismissed_count,
+        },
+        "reviewed_event_count": reviewed_count,
+        "proposed_event_count": proposed_count,
+        "dismissed_event_count": dismissed_count,
+        "review_url": f"/card-event-reviews/{state['review_id']}",
+    }
+
+
+def _sort_resources(states: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Sort drafts first and completed reviews newest first."""
+
+    return [
+        dict(state)
+        for state in sorted(
+            states,
+            key=lambda state: (
+                0 if state.get("review_state") == "draft" else 1,
+                -_timestamp_sort_value(
+                    state.get("updated_at")
+                    if state.get("review_state") == "draft"
+                    else state.get("completed_at")
+                ),
+                str(state.get("review_id", "")),
+            ),
+        )
+    ]
+
+
+def _timestamp_sort_value(value: object) -> float:
+    if not isinstance(value, str):
+        return 0.0
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def _select_parent_resource(
+    states: Sequence[Mapping[str, Any]], parent_review_id: str | None
+) -> Mapping[str, Any] | None:
+    completed = [state for state in states if state.get("review_state") == "completed"]
+    if parent_review_id is not None:
+        if REVIEW_ID_PATTERN.fullmatch(parent_review_id) is None:
+            raise CardEventReviewNotFound("The parent CardEvent review was not found.")
+        parent = next(
+            (state for state in completed if state.get("review_id") == parent_review_id),
+            None,
+        )
+        if parent is None:
+            raise CardEventReviewNotFound("The parent CardEvent review was not found.")
+        return parent
+    return max(
+        completed,
+        key=lambda state: _timestamp_sort_value(state.get("completed_at")),
+        default=None,
+    )
+
+
+def _validate_operator(value: object) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise CardEventReviewError("operator must be a non-empty string.")
+
+
+def _validate_resource_state(
+    state: Mapping[str, Any], source: CardEventReviewSource, review_id: str
+) -> None:
+    if state.get("schema_version") != CARD_EVENT_REVIEW_RESOURCE_SCHEMA_VERSION:
+        raise CardEventReviewError("The stored CardEvent review has an unsupported schema.")
+    if state.get("review_id") != review_id:
+        raise CardEventReviewError("The stored CardEvent review ID does not match its path.")
+    if (
+        state.get("recording_id") != source.recording_id
+        or state.get("source_asset_id") != source.source_asset_id
+        or state.get("source_sha256") != source.source_sha256
+        or state.get("video") != Path(source.video).name
+    ):
+        raise CardEventReviewConflict(
+            "The accepted recording source changed. The review resource was not modified."
+        )
+    if state.get("review_state") not in {"draft", "completed"}:
+        raise CardEventReviewError("The stored CardEvent review has an invalid state.")
+    _validate_operator(state.get("operator"))
+    for field in ("created_at", "updated_at"):
+        if not isinstance(state.get(field), str) or not state[field]:
+            raise CardEventReviewError(f"The stored CardEvent review has an invalid {field}.")
+    if not isinstance(state.get("draft_revision"), int) or state["draft_revision"] < 0:
+        raise CardEventReviewError("The stored CardEvent review has an invalid draft revision.")
+    if _draft_digest(state) != state.get("draft_digest"):
+        raise CardEventReviewError("The stored CardEvent review draft digest is invalid.")
+    _validate_annotation(state.get("annotation"), source)
+    _validate_proposal_decisions(
+        [
+            {"proposal_id": proposal_id_value, "decision": decision}
+            for proposal_id_value, decision in state.get("proposal_decisions", {}).items()
+        ],
+        source.proposals,
+    )
+    if state.get("review_state") == "completed":
+        if not state.get("reviewer") or not state.get("completed_version_id"):
+            raise CardEventReviewError("The completed CardEvent review is missing completion data.")
+        _validate_operator(state["reviewer"])
+
+
+def _resource_completion_receipt(
+    source: CardEventReviewSource,
+    *,
+    review_id: str,
+    version_id: str,
+    version_digest: str,
+    input_draft_digest: str,
+    annotation_digest: str,
+    proposal_decision_digest: str,
+    reviewer: str,
+    occurred_at: str,
+) -> dict[str, Any]:
+    core = {
+        "schema_version": CARD_EVENT_REVIEW_RECEIPT_SCHEMA_VERSION,
+        "receipt_type": "annotation_application",
+        "operator": reviewer,
+        "occurred_at": occurred_at,
+        "inputs": [
+            {"kind": "source_asset", "id": source.source_asset_id, "digest": source.source_sha256},
+            {"kind": "review", "id": review_id, "digest": input_draft_digest},
+        ],
+        "outputs": [
+            {"kind": "annotation_set", "id": version_id, "digest": annotation_digest},
+            {"kind": "review", "id": review_id, "digest": version_digest},
+        ],
+        "dependencies": [
+            {"kind": "source_asset", "id": source.source_asset_id, "digest": source.source_sha256}
+        ],
+        "metadata": {
+            "recording_id": source.recording_id,
+            "review_id": review_id,
+            "input_draft_digest": input_draft_digest,
+            "source_digest": source.source_sha256,
+            "reviewed_annotation_digest": annotation_digest,
+            "proposal_decision_digest": proposal_decision_digest,
+        },
+    }
+    receipt_digest_core = {key: value for key, value in core.items() if key != "occurred_at"}
+    return {
+        **core,
+        "receipt_id": "receipt-cardevent-review-" + _digest(receipt_digest_core)[:20],
+        "receipt_digest": _digest(receipt_digest_core),
+    }
+
+
+def _read_existing_or_none(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        return _read_json(path)
+    except OSError as error:
+        raise CardEventReviewWriteError(
+            "The immutable CardEvent review artifact could not be read."
+        ) from error
 
 
 def _draft_state(
@@ -662,9 +1249,7 @@ def _completion_receipt(
             "proposal_decision_digest": proposal_decision_digest,
         },
     }
-    receipt_digest_core = {
-        key: value for key, value in core.items() if key not in {"occurred_at"}
-    }
+    receipt_digest_core = {key: value for key, value in core.items() if key not in {"occurred_at"}}
     receipt_id = "receipt-cardevent-review-" + _digest(receipt_digest_core)[:20]
     return {
         **core,
@@ -786,6 +1371,8 @@ __all__ = [
     "CARD_EVENT_ANNOTATION_SCHEMA_VERSION",
     "CARD_EVENT_CONFIDENCES",
     "CARD_EVENT_PROPOSAL_DECISIONS",
+    "CARD_EVENT_REVIEW_COLLECTION_SCHEMA_VERSION",
+    "CARD_EVENT_REVIEW_RESOURCE_SCHEMA_VERSION",
     "CARD_EVENT_REVIEW_SCHEMA_VERSION",
     "CARD_EVENT_REVIEW_STATES",
     "CARD_EVENT_REVIEWED_VERSION_SCHEMA_VERSION",

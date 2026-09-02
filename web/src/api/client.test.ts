@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createDokoDetectorClient,
+  cardEventReviewResourceCompletionPath,
+  cardEventReviewResourcePath,
   recordingAnalysisPath,
+  recordingCardEventReviewsPath,
   recordingCardEventReviewCompletionPath,
   recordingCardEventReviewDraftPath,
   recordingCardEventReviewPath,
@@ -148,6 +151,52 @@ describe("DokoDetector API client", () => {
         "Content-Type",
       ),
     ).toBe("application/json");
+  });
+
+  it("creates and completes a recording-owned CardEvent review resource", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    const created = await client.createCardEventReview("recording/1", {
+      operator: "operator",
+    });
+    const reviewId = "cardevent-review-00000000000000000000000000000000";
+    await client.listCardEventReviews("recording/1");
+    await client.getCardEventReviewResource(reviewId);
+    await client.updateCardEventReviewResource(reviewId, {
+      annotation: {
+        schema_version: "cardevent-annotation/v2",
+        video: "video.mov",
+        events: [],
+      },
+      proposals: [],
+      expected_revision: 0,
+      full_video_acknowledged: false,
+    });
+    await client.completeCardEventReviewResource(reviewId, {
+      reviewer: "operator",
+      expected_revision: 0,
+      full_video_acknowledged: true,
+    });
+
+    expect(created).toEqual({});
+    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
+      recordingCardEventReviewsPath("recording/1"),
+      recordingCardEventReviewsPath("recording/1"),
+      cardEventReviewResourcePath(reviewId),
+      cardEventReviewResourcePath(reviewId),
+      cardEventReviewResourceCompletionPath(reviewId),
+    ]);
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[3]?.[1]?.method).toBe("PUT");
+    expect(fetchImplementation.mock.calls[4]?.[1]?.method).toBe("POST");
   });
 
   it("raises an API error with the response body", async () => {

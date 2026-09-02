@@ -814,12 +814,8 @@ def _batch_request(
     ):
         return None
     version_id = review["completed_version_id"]
-    version_path = (
-        request.app.state.settings.operations_root
-        / "cardevent-reviews"
-        / context.recording_id
-        / "versions"
-        / f"{version_id}.json"
+    version_path = request.app.state.card_event_review_store.completed_version_path(
+        context.recording_id, version_id
     )
     return VisibleCardBatchRequest(
         recording_id=context.recording_id,
