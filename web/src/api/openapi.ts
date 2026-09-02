@@ -148,6 +148,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/identity-reviews/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Identity Review Batch
+         * @description Return one persisted identity preparation batch.
+         */
+        get: operations["get_identity_review_batch_v1_identity_reviews__batch_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/identity-reviews/{batch_id}/items/{item_id}/crop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Identity Review Crop
+         * @description Serve one frozen identity crop after batch ownership and digest checks.
+         */
+        get: operations["get_identity_review_crop_v1_identity_reviews__batch_id__items__item_id__crop_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/identity-reviews/{batch_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Identity Review Batch
+         * @description Retry failed preparation or unavailable classifier proposals with frozen inputs.
+         */
+        post: operations["retry_identity_review_batch_v1_identity_reviews__batch_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/pending-videos/{upload_id}": {
         parameters: {
             query?: never;
@@ -286,6 +346,66 @@ export interface paths {
          * @description Start a new draft from one immutable reviewed version.
          */
         post: operations["start_card_event_review_revision_v1_recordings__recording_id__card_event_review_revisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/identity-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Identity Review Readiness
+         * @description Return recording readiness and any persisted identity preparation state.
+         */
+        get: operations["get_identity_review_readiness_v1_recordings__recording_id__identity_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/identity-review/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Identity Review Batch
+         * @description Create one preview-bound batch and schedule preparation outside the request thread.
+         */
+        post: operations["create_identity_review_batch_v1_recordings__recording_id__identity_review_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/identity-review/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Identity Review
+         * @description Return the immutable visible-card and classifier facts for one preview.
+         */
+        post: operations["preview_identity_review_v1_recordings__recording_id__identity_review_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1095,6 +1215,41 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * IdentityBatchFailureResponse
+         * @description One safe identity batch blocker or item failure.
+         */
+        IdentityBatchFailureResponse: {
+            /** Code */
+            code: string;
+            /** Item Id */
+            item_id: string | null;
+            /** Message */
+            message: string;
+            /** Retryable */
+            retryable: boolean;
+            /** Stage */
+            stage: string;
+        };
+        /**
+         * IdentityBatchProgressResponse
+         * @description Persisted crop and proposal preparation counters.
+         */
+        IdentityBatchProgressResponse: {
+            /** Crops Materialized */
+            crops_materialized: number;
+            /** Failed Items */
+            failed_items: number;
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "validating_inputs" | "materializing_crops" | "running_proposals" | "ready" | "failed" | "blocked";
+            /** Proposals Completed */
+            proposals_completed: number;
+            /** Total Items */
+            total_items: number;
+        };
+        /**
          * IdentityCandidate
          * @description One visual card identity ranked for an observed-card proposal.
          */
@@ -1103,6 +1258,326 @@ export interface components {
             card: string;
             /** Probability */
             probability: number;
+        };
+        /**
+         * IdentityCandidateResponse
+         * @description One canonical visual card identity candidate.
+         */
+        IdentityCandidateResponse: {
+            /** Card */
+            card: string;
+            /** Probability */
+            probability: number;
+        };
+        /**
+         * IdentityClassifierResponse
+         * @description The configured proposal generator identity.
+         */
+        IdentityClassifierResponse: {
+            /** Bundle Identity */
+            bundle_identity: {
+                [key: string]: unknown;
+            } | null;
+            /** Calibration */
+            calibration: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * IdentityCoverageResponse
+         * @description Coverage of usable and excluded reviewed visible cards.
+         */
+        IdentityCoverageResponse: {
+            /** Coverage Digest */
+            coverage_digest: string;
+            /** Excluded Card Count */
+            excluded_card_count: number;
+            /** Excluded Cards */
+            excluded_cards: {
+                [key: string]: unknown;
+            }[];
+            /** Identity Usable Card Count */
+            identity_usable_card_count: number;
+            /** Reviewed Visible Card Count */
+            reviewed_visible_card_count: number;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-card-identity-review-coverage/v1";
+            /** Visible Card Review Item Count */
+            visible_card_review_item_count: number;
+        };
+        /**
+         * IdentityCropPolicyResponse
+         * @description The selected policy from the frozen visible-card crop policy.
+         */
+        IdentityCropPolicyResponse: {
+            /** Policy */
+            policy: {
+                [key: string]: unknown;
+            };
+            /** Policy Digest */
+            policy_digest: string;
+            /** Policy Id */
+            policy_id: string;
+        };
+        /**
+         * IdentityCropResponse
+         * @description Frozen crop metadata and its local image URL.
+         */
+        IdentityCropResponse: {
+            /** Byte Length */
+            byte_length: number;
+            /** Content Type */
+            content_type: string;
+            /** Height */
+            height: number;
+            /** Image Url */
+            image_url: string;
+            /** Policy Digest */
+            policy_digest: string;
+            /** Policy Id */
+            policy_id: string;
+            /** Sha256 */
+            sha256: string;
+            /** Width */
+            width: number;
+        };
+        /**
+         * IdentityDecisionResponse
+         * @description The pending human decision reserved for the next milestone.
+         */
+        IdentityDecisionResponse: {
+            /** Identity */
+            identity: null;
+            /** Reason */
+            reason: null;
+            /** Reviewer */
+            reviewer: null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-card-identity-decision/v1";
+            /**
+             * Status
+             * @constant
+             */
+            status: "pending";
+            /** Updated At Utc */
+            updated_at_utc: null;
+        };
+        /**
+         * IdentityProposalResponse
+         * @description A classifier proposal kept separate from human identity decisions.
+         */
+        IdentityProposalResponse: {
+            /** Candidates */
+            candidates: components["schemas"]["IdentityCandidateResponse"][];
+            classifier: components["schemas"]["IdentityClassifierResponse"];
+            /** Crop Sha256 */
+            crop_sha256: string;
+            /** Item Id */
+            item_id: string;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+            /** Result Digest */
+            result_digest: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-card-identity-proposal/v1";
+            /** Score */
+            score: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "unavailable";
+        };
+        /**
+         * IdentityReviewBatchResponse
+         * @description Current persisted identity batch state.
+         */
+        IdentityReviewBatchResponse: {
+            /** Batch Id */
+            batch_id: string;
+            classifier: components["schemas"]["IdentityClassifierResponse"];
+            coverage: components["schemas"]["IdentityCoverageResponse"];
+            /** Created At Utc */
+            created_at_utc: string;
+            crop_policy: components["schemas"]["IdentityCropPolicyResponse"];
+            /** Failures */
+            failures: components["schemas"]["IdentityBatchFailureResponse"][];
+            /** Items */
+            items: components["schemas"]["IdentityReviewItemResponse"][];
+            progress: components["schemas"]["IdentityBatchProgressResponse"];
+            /** Recording Id */
+            recording_id: string;
+            /** Request Digest */
+            request_digest: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-card-identity-review-batch/v1";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "ready" | "failed" | "blocked";
+            /** Updated At Utc */
+            updated_at_utc: string;
+        };
+        /**
+         * IdentityReviewCreateRequest
+         * @description The preview identity required to start preparation.
+         */
+        IdentityReviewCreateRequest: {
+            /** Preview Digest */
+            preview_digest: string;
+            /** Request Digest */
+            request_digest: string;
+        };
+        /**
+         * IdentityReviewItemResponse
+         * @description One reviewable crop with source and proposal lineage.
+         */
+        IdentityReviewItemResponse: {
+            crop: components["schemas"]["IdentityCropResponse"] | null;
+            decision: components["schemas"]["IdentityDecisionResponse"];
+            failure: components["schemas"]["IdentityBatchFailureResponse"] | null;
+            /** Item Id */
+            item_id: string;
+            proposal: components["schemas"]["IdentityProposalResponse"] | null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-card-identity-review-item/v1";
+            source: components["schemas"]["IdentitySourceResponse"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "failed";
+            /** Visible Card */
+            visible_card: {
+                [key: string]: unknown;
+            };
+            /** Visible Card Digest */
+            visible_card_digest: string;
+            /** Visible Card Review Item Id */
+            visible_card_review_item_id: string;
+        };
+        /**
+         * IdentityReviewPreviewResponse
+         * @description Frozen visible-card, crop, and classifier facts.
+         */
+        IdentityReviewPreviewResponse: {
+            /** Batch Id */
+            batch_id: string | null;
+            classifier: components["schemas"]["IdentityClassifierResponse"] | null;
+            coverage: components["schemas"]["IdentityCoverageResponse"] | null;
+            crop_policy: components["schemas"]["IdentityCropPolicyResponse"];
+            /** Preview Digest */
+            preview_digest: string;
+            /** Recording Id */
+            recording_id: string;
+            /** Request Digest */
+            request_digest: string | null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-card-identity-review-preview/v1";
+            /** Selected Card Count */
+            selected_card_count: number;
+            /** Source Asset Id */
+            source_asset_id: string;
+            /** Source Lineage Group */
+            source_lineage_group: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            validation: components["schemas"]["IdentityReviewPreviewValidationResponse"];
+            /** Visible Card Review Batch Id */
+            visible_card_review_batch_id: string | null;
+            /** Visible Card Review Queue Digest */
+            visible_card_review_queue_digest?: string | null;
+            /** Visible Card Review Version Digest */
+            visible_card_review_version_digest?: string | null;
+            /** Visible Card Review Version Id */
+            visible_card_review_version_id: string | null;
+        };
+        /**
+         * IdentityReviewPreviewValidationResponse
+         * @description Preview validation and explicit blockers.
+         */
+        IdentityReviewPreviewValidationResponse: {
+            /** Blockers */
+            blockers: components["schemas"]["IdentityBatchFailureResponse"][];
+            /** Valid */
+            valid: boolean;
+        };
+        /**
+         * IdentityReviewReadinessResponse
+         * @description Recording-scoped identity review readiness.
+         */
+        IdentityReviewReadinessResponse: {
+            batch: components["schemas"]["IdentityReviewBatchResponse"] | null;
+            blocker: components["schemas"]["IdentityBatchFailureResponse"] | null;
+            /** Message */
+            message: string;
+            /** Preview Digest */
+            preview_digest: string | null;
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-card-identity-review-readiness/v1";
+            /** Selected Card Count */
+            selected_card_count: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_ready" | "ready" | "preparing" | "failed" | "blocked";
+        };
+        /**
+         * IdentitySourceResponse
+         * @description Source frame lineage for one identity crop.
+         */
+        IdentitySourceResponse: {
+            /** Frame Part Name */
+            frame_part_name: string;
+            /** Frame Sha256 */
+            frame_sha256: string;
+            /** Height */
+            height: number;
+            /** Image Url */
+            image_url: string;
+            /** Package Id */
+            package_id: string;
+            /** Source Asset Id */
+            source_asset_id: string;
+            /** Source Asset Sha256 */
+            source_asset_sha256: string;
+            /** Source Lineage Group */
+            source_lineage_group: string;
+            /** Visible Card Review Batch Id */
+            visible_card_review_batch_id: string;
+            /** Visible Card Review Item Id */
+            visible_card_review_item_id: string;
+            /** Width */
+            width: number;
         };
         /**
          * ObservationSession
@@ -2819,6 +3294,98 @@ export interface operations {
             };
         };
     };
+    get_identity_review_batch_v1_identity_reviews__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReviewBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_identity_review_crop_v1_identity_reviews__batch_id__items__item_id__crop_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_identity_review_batch_v1_identity_reviews__batch_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReviewBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_pending_video_v1_pending_videos__upload_id__get: {
         parameters: {
             query?: never;
@@ -3055,6 +3622,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardEventReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_identity_review_readiness_v1_recordings__recording_id__identity_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReviewReadinessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_identity_review_batch_v1_recordings__recording_id__identity_review_batches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityReviewCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReviewBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_identity_review_v1_recordings__recording_id__identity_review_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReviewPreviewResponse"];
                 };
             };
             /** @description Validation Error */

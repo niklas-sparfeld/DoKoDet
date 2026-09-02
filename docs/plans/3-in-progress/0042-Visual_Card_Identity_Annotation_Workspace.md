@@ -4,9 +4,8 @@
 
 - **Summary:** Create and review visual card identity labels from completed visible-card reviews in
   the web recording workspace.
-- **Status:** Ready
-- **Depends on:** Completed plan 0040 and the implemented plan 0041 classifier proposal and bundle
-  contracts
+- **Status:** In Progress
+- **Depends on:** Plan 0040 complete and plan 0041 classifier proposal and bundle contracts
 - **Builds on:** Plans 0020, 0027, 0039, and 0040 source, web, review, lineage, and visible-region
   workflows
 - **Outcome:** An operator can create one recording-scoped visual card identity review batch,
@@ -18,7 +17,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — define and prepare a source-linked visual card identity review batch.
+- **M0:** Complete — strict source-linked batch contracts, frozen identity crops, classifier
+  proposals, readiness/preview/create/status/retry API, generated frontend client types, and
+  fixture and artifact-integrity checks were added on 2026-09-02.
 - **M1:** Not started — show crops and classifier proposals in the web app.
 - **M2:** Not started — correct labels and complete each item with conflict-safe saves.
 - **M3:** Not started — publish the completed review and prove dataset freeze.

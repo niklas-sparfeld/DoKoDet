@@ -44,6 +44,9 @@ from dokodetector_backend.round_analysis_service import RoundAnalysisService
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.visible_card_review_api import router as visible_card_review_router
+from dokodetector_backend.visual_card_identity_review_api import (
+    router as visual_card_identity_review_router,
+)
 
 if TYPE_CHECKING:
     from table_evidence_analyzer import TableEvidenceAnalyzer
@@ -60,6 +63,7 @@ def create_app(
     visible_card_provider: Any | None = None,
     visible_card_detector: Any | None = None,
     visible_card_frame_extractor: Any | None = None,
+    visible_card_identity_classifier: Any | None = None,
 ) -> FastAPI:
     """Create the local backend application."""
 
@@ -114,6 +118,12 @@ def create_app(
     app.state.visible_card_detector = visible_card_detector
     app.state.visible_card_frame_extractor = visible_card_frame_extractor
     app.state.visible_card_batch_tasks = {}
+    app.state.visible_card_identity_classifier = (
+        visible_card_identity_classifier
+        if visible_card_identity_classifier is not None
+        else getattr(app.state.analyzer, "classifier", None)
+    )
+    app.state.identity_review_batch_tasks = {}
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     app.state.repository.rebuild_from_intake(
         app.state.evidence_package_storage,
@@ -154,6 +164,7 @@ def create_app(
     app.include_router(card_event_review_router)
     app.include_router(card_event_development_split_router)
     app.include_router(visible_card_review_router)
+    app.include_router(visual_card_identity_review_router)
     _mount_frontend(app, app_settings.frontend_dist)
 
     @app.get("/health/live")

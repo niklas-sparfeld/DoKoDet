@@ -53,6 +53,17 @@ export type VisibleCardReviewCompletionRequest =
   components["schemas"]["VisibleCardReviewCompletionRequest"];
 export type VisibleCardReviewRevisionRequest =
   components["schemas"]["VisibleCardReviewRevisionRequest"];
+export type IdentityReviewReadiness = JsonResponse<
+  paths["/v1/recordings/{recording_id}/identity-review"]["get"]["responses"][200]
+>;
+export type IdentityReviewPreview = JsonResponse<
+  paths["/v1/recordings/{recording_id}/identity-review/preview"]["post"]["responses"][200]
+>;
+export type IdentityReviewCreateRequest =
+  components["schemas"]["IdentityReviewCreateRequest"];
+export type IdentityReviewBatch = JsonResponse<
+  paths["/v1/identity-reviews/{batch_id}"]["get"]["responses"][200]
+>;
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -149,6 +160,32 @@ export interface DokoDetectorClient {
     payload: VisibleCardReviewRevisionRequest,
     init?: RequestInit,
   ): Promise<VisibleCardReviewBatch>;
+  getIdentityReview(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<IdentityReviewReadiness>;
+  previewIdentityReview(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<IdentityReviewPreview>;
+  createIdentityReviewBatch(
+    recordingId: string,
+    payload: IdentityReviewCreateRequest,
+    init?: RequestInit,
+  ): Promise<IdentityReviewBatch>;
+  getIdentityReviewBatch(
+    batchId: string,
+    init?: RequestInit,
+  ): Promise<IdentityReviewBatch>;
+  getIdentityReviewCrop(
+    batchId: string,
+    itemId: string,
+    init?: RequestInit,
+  ): Promise<Blob>;
+  retryIdentityReviewBatch(
+    batchId: string,
+    init?: RequestInit,
+  ): Promise<IdentityReviewBatch>;
   startRecordingAnalysis(
     recordingId: string,
     init?: RequestInit,
@@ -344,6 +381,61 @@ export function createDokoDetectorClient(
           body: JSON.stringify(payload),
         },
       ),
+    getIdentityReview: (recordingId, init) =>
+      requestJson<IdentityReviewReadiness>(
+        fetchImplementation,
+        identityReviewReadinessPath(recordingId),
+        init,
+      ),
+    previewIdentityReview: (recordingId, init) =>
+      requestJson<IdentityReviewPreview>(
+        fetchImplementation,
+        identityReviewPreviewPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify({}),
+        },
+      ),
+    createIdentityReviewBatch: (recordingId, payload, init) =>
+      requestJson<IdentityReviewBatch>(
+        fetchImplementation,
+        identityReviewBatchCreatePath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    getIdentityReviewBatch: (batchId, init) =>
+      requestJson<IdentityReviewBatch>(
+        fetchImplementation,
+        identityReviewBatchPath(batchId),
+        init,
+      ),
+    getIdentityReviewCrop: async (batchId, itemId, init) => {
+      const response = await fetchImplementation(
+        identityReviewCropPath(batchId, itemId),
+        init,
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, await readResponseBody(response));
+      }
+      return response.blob();
+    },
+    retryIdentityReviewBatch: (batchId, init) =>
+      requestJson<IdentityReviewBatch>(
+        fetchImplementation,
+        identityReviewBatchRetryPath(batchId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify({}),
+        },
+      ),
     startRecordingAnalysis: (recordingId, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -476,6 +568,33 @@ export function visibleCardReviewBatchCompletePath(batchId: string): string {
 
 export function visibleCardReviewBatchRevisionPath(batchId: string): string {
   return `${visibleCardReviewBatchPath(batchId)}/revisions`;
+}
+
+export function identityReviewReadinessPath(recordingId: string): string {
+  return `${recordingDetailPath(recordingId)}/identity-review`;
+}
+
+export function identityReviewPreviewPath(recordingId: string): string {
+  return `${identityReviewReadinessPath(recordingId)}/preview`;
+}
+
+export function identityReviewBatchCreatePath(recordingId: string): string {
+  return `${identityReviewReadinessPath(recordingId)}/batches`;
+}
+
+export function identityReviewBatchPath(batchId: string): string {
+  return `/v1/identity-reviews/${encodeURIComponent(batchId)}`;
+}
+
+export function identityReviewCropPath(
+  batchId: string,
+  itemId: string,
+): string {
+  return `${identityReviewBatchPath(batchId)}/items/${encodeURIComponent(itemId)}/crop`;
+}
+
+export function identityReviewBatchRetryPath(batchId: string): string {
+  return `${identityReviewBatchPath(batchId)}/retry`;
 }
 
 export function cardEventDevelopmentSplitPreviewPath(): string {
