@@ -4,8 +4,9 @@
 
 - **Summary:** Create and review visual card identity labels from completed visible-card reviews in
   the web recording workspace.
-- **Status:** Blocked
-- **Depends on:** Plan 0040 complete and plan 0041 classifier proposal and bundle contracts
+- **Status:** Ready
+- **Depends on:** Completed plan 0040 and the implemented plan 0041 classifier proposal and bundle
+  contracts
 - **Builds on:** Plans 0020, 0027, 0039, and 0040 source, web, review, lineage, and visible-region
   workflows
 - **Outcome:** An operator can create one recording-scoped visual card identity review batch,
@@ -36,8 +37,8 @@ a proposal. The person supplies the reviewed label.
 This epic includes:
 
 - one visual card identity review batch created from one completed plan 0040 visible-card review;
-- deterministic identity crops from the frozen source frame, reviewed visible region, and selected
-  crop policy;
+- deterministic `raw_rectangular` identity crops from the frozen source frame and reviewed derived
+  box;
 - one configured proposal generator: cached Gemini or a named local identity bundle;
 - a recording summary and stable identity-review route in the existing web app;
 - review actions for accept, correct, mark unusable, and report an invalid source annotation;
@@ -58,25 +59,31 @@ This epic does not include:
 
 1. Create a visual card identity review batch only from an immutable completed plan 0040 review.
    Record its version, digest, source frames, visible regions, derived boxes, identity usability,
-   and crop policy.
+   and the frozen crop-policy version and digest.
 2. Include only reviewed cards marked identity-usable. Keep excluded cards and reasons in the batch
    coverage report. Do not turn an identity-unusable card into a training sample.
-3. Freeze the crop bytes when the batch is created. A later geometry or crop-policy revision creates
+3. Use the frozen `raw_rectangular` policy for proposal and review crops. This policy matches the
+   current runtime derived-box crop and includes every identity-usable reviewed card. Attach the
+   reviewed visual card identity to the source card lineage, not only to these crop bytes. Preserve
+   the source frame, reviewed visible region, and derived box so plan 0043 can reproduce the
+   `oracle_visible_region` and `conservative_box_only` evaluation conditions without changing the
+   human label.
+4. Freeze the crop bytes when the batch is created. A later geometry or crop-policy revision creates
    a new batch. It does not mutate the current work.
-4. Use one configured proposal generator for the complete batch. Record its name, version, bundle
+5. Use one configured proposal generator for the complete batch. Record its name, version, bundle
    or request digest, complete result, score, latency, and failure. A proposal failure leaves the
    item reviewable without a suggestion.
-5. Require one explicit decision for every crop: accept the proposal, select a different canonical
+6. Require one explicit decision for every crop: accept the proposal, select a different canonical
    identity, mark the crop identity-unusable with a reason, or report a source-review problem.
-6. A source-review problem does not edit plan 0040 geometry. It blocks publication for that item and
+7. A source-review problem does not edit plan 0040 geometry. It blocks publication for that item and
    links the operator back to an explicit visible-card review revision.
-7. Allow two physical cards to have the same visual card identity. Do not enforce deck counts in the
+8. Allow two physical cards to have the same visual card identity. Do not enforce deck counts in the
    annotation editor.
-8. Save after each complete decision with an expected revision. Use atomic replacement and return a
+9. Save after each complete decision with an expected revision. Use atomic replacement and return a
    conflict instead of last-write-wins.
-9. Exclude test and system-holdout source-lineage groups before crop generation or classifier calls.
+10. Exclude test and system-holdout source-lineage groups before crop generation or classifier calls.
    Do not expose a force action.
-10. Add an **Identities** section to the recording page and a stable
+11. Add an **Identities** section to the recording page and a stable
     `/identity-reviews/{batch_id}` route. Reuse the existing React, TypeScript, generated OpenAPI,
     and plain CSS stack.
 
@@ -110,7 +117,8 @@ The page shows:
 Acceptance:
 
 - one fixture visible-card review produces stable items only for identity-usable reviewed cards;
-- every item binds source, geometry, crop-policy, crop, and proposal digests;
+- every item binds source, geometry, the frozen `raw_rectangular` policy, crop, and proposal
+  digests;
 - protected lineage, stale review, changed crop bytes, and proposal failure are explicit;
 - retry keeps the same frozen inputs and proposal-generator identity; and
 - no source or completed visible-card review bytes change.
@@ -157,6 +165,8 @@ Acceptance:
   output digests;
 - completion is idempotent for the same draft and never replaces earlier bytes;
 - a fixture review enters a group-safe development dataset and split without translation;
+- each dataset sample keeps enough source and geometry lineage to reproduce all three frozen plan
+  0038 crop-policy conditions without changing its reviewed visual card identity;
 - identity-unusable and source-problem items do not become classifier samples; and
 - existing lifecycle validation accepts the new artifacts and receipts.
 

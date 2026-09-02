@@ -48,21 +48,19 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0042 — Visual card identity annotation workspace](2-ready/0042-Visual_Card_Identity_Annotation_Workspace.md) | Completed 0040 and implemented 0041 classifier contracts | Label every identity-usable reviewed visible card from a frozen runtime-aligned crop, preserve reproducible crop-policy lineage, and publish immutable classifier data. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 complete: group-safe CardEventNet development partition assignment with immutable split versions and receipts. |
-| [0040 — Visible-card annotation review workspace](5-closed/0040-Visible_Card_Annotation_Review_Workspace.md) | 0038 contracts and 0039 M0–M4 | M0 complete: deterministic source-linked batch preparation with exact-event frames, local finder artifacts, immutable failure states, and a v2 review queue; M1 complete: recording-scoped preview, asynchronous persisted create/status/retry API, stale-detector rejection, and recording-page controls; M2 complete: stable direct-load review workspace with source frames, finder overlays, queue navigation, lineage diagnostics, and retry states; M3 complete: revision-guarded frame outcomes, proposal actions, normalized polygon editing, derived geometry, metadata and failure-tag controls, autosave retry, and conflict feedback; M4 complete: immutable completed queue and lifecycle receipt, operator summary and completion validation, parent-linked revisions, recording-page publication metadata, and existing-freeze-path readiness. |
 | [0041 — Local visual card identity classifier PoC](3-in-progress/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | 0021 and 0028 complete | M0 complete: frozen DINOv3 model, license, weight materialization, deterministic 224 x 224 crop transform, strict 24-identity target map, and pinned optional dependencies; M1 complete: local frozen-encoder linear-head smoke training with CPU/MPS/CUDA selection, native checkpoints, resume, and failure records; M2 complete: self-contained digest-checked local bundle with runtime-only classifier, deterministic ranked candidates, explicit device and failure behavior; M3 complete: independent backend detector and identity selection, local credential-free mode, persisted bundle provenance and timing, and fixture/MPS proof. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0042 — Visual card identity annotation workspace](4-blocked/0042-Visual_Card_Identity_Annotation_Workspace.md) | 0040 complete and 0041 contracts | Label identity-usable reviewed visible cards in the web app and publish immutable classifier data. |
 | [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041 and 0042 complete, plus reviewed real identity data | Freeze reviewed data, compare at most two DINOv3 candidates with current classifiers, and lock at most one local candidate without changing the backend default. |
 | [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate and 0042 data contracts | Add multi-recording review selection, bounded campaigns, explicit promotion, local runtime cutover, and rollback to the web app. |
 
@@ -70,6 +68,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0040 — Visible-card annotation review workspace](5-closed/0040-Visible_Card_Annotation_Review_Workspace.md) | Complete | Create, correct, complete, and publish visible-card reviews with immutable lineage, revisions, lifecycle receipts, and existing-freeze-path readiness. |
 | [0038 — Visible-card training-data improvement](5-closed/0038-Visible_Card_Training_Data_Improvement.md) | Complete | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M5 complete; real prompting and human review remain deferred. |
 | [0037 — Local visible-card detector end-to-end PoC](5-closed/0037-Local_Visible_Card_Detector_PoC.md) | Complete | Prove local RF-DETR training with a real loadable smoke checkpoint, and preserve fixture-tested provider and backend contracts. Real backend execution is out of scope. |
 | [0033 — Round analysis timeline and counterfactual explorer](5-closed/0033-Round_Analysis_Timeline.md) | Complete | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M8 complete. |
@@ -115,7 +114,8 @@ The shared target architecture is
 4. Plan 0040 is complete: it seeds exact-event visible-card review with the local finder,
    supports geometry correction in the web app, and publishes reviewed data for the existing
    freeze path.
-5. Implement 0042 after 0040 and 0041 to create reviewed visual card identity data in the web app.
+5. Plan 0042 is ready. Use the frozen `raw_rectangular` policy for runtime-aligned proposal and
+   review crops, and preserve source geometry so plan 0043 can compare the other frozen policies.
 6. Implement 0043 only after reviewed real identity coverage can support frozen development
    partitions. Lock at most one passing local candidate.
 7. Implement 0044 only after the quality proof passes. Add productive review selection, campaign

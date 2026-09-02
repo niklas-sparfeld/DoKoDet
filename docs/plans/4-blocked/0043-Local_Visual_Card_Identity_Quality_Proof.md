@@ -32,9 +32,9 @@ reviewed human identities as the reference and use Gemini only as a paired basel
 
 Freeze three source-lineage-safe partitions:
 
-1. **Train:** reviewed identity-usable crops for classifier fitting.
-2. **Validation:** reviewed crops used for candidate, threshold, calibration, and crop-policy
-   decisions.
+1. **Train:** reviewed identity-usable `raw_rectangular` crops for classifier fitting.
+2. **Validation:** reviewed cards that reproduce all three frozen crop-policy conditions for
+   candidate, threshold, calibration, and crop-policy decisions.
 3. **Challenge:** reviewed glare, blur, occlusion, small-card, perspective, contamination, and
    difficult deck-design cases used for failure measurement, not fitting.
 
@@ -49,7 +49,9 @@ candidate to the declared deck designs represented by reviewed training and vali
 ## 3. Fixed candidate recipe
 
 Keep the DINOv3 ViT-S/16 architecture, 224 x 224 transform, target map, pretrained weights, and
-input crop contract from plan 0041 fixed. Train at most these two candidates:
+input crop contract from plan 0041 fixed. Train both candidates with the `raw_rectangular` policy
+selected by plan 0042. This is the current runtime-aligned baseline. Train at most these two
+candidates:
 
 1. frozen encoder plus linear head; and
 2. the same model with only the last two encoder blocks and the head trainable.
@@ -80,7 +82,11 @@ local detector proposal -> same crop policy -> identity classifier
 
 This separates identity errors on trusted geometry from localization and crop contamination. Keep
 the raw derived-box, oracle visible-region mask, and conservative rejection policies from plan 0038
-fixed. Do not tune labels or crop policies from validation predictions after the freeze.
+fixed. The reviewed visual card identity stays constant across the three deterministic conditions.
+Treat `oracle_visible_region` as an upper bound that can justify later segmentation work, not as a
+deployable policy. Treat `conservative_box_only` as a selective-coverage measurement, not as a way
+to remove difficult reviewed labels. Do not tune labels or crop policies from validation
+predictions after the freeze.
 
 ## 5. Decision rules
 
@@ -119,6 +125,7 @@ Acceptance:
 - every included label has complete human review and source lineage;
 - partitions have no source-lineage overlap and exclude the system holdout;
 - all crop bytes and policies reproduce from their source artifacts;
+- every reviewed identity remains identical across its reproducible crop-policy conditions;
 - the report states every unmet support target; and
 - candidate configuration cannot change the frozen membership.
 
@@ -130,7 +137,8 @@ Acceptance:
 
 Acceptance:
 
-- both candidates use identical data, target, crop, seed, and evaluation contracts;
+- both candidates use identical data, target, `raw_rectangular` training crops, seed, and evaluation
+  contracts;
 - runs record pretrained, dataset, split, configuration, code, environment, and checkpoint digests;
 - failed or interrupted runs remain resumable and visible;
 - no undeclared candidate enters the campaign; and
@@ -147,6 +155,10 @@ Acceptance:
 
 - every aggregate metric can be reproduced from sample rows;
 - classifier, localization, crop, and unusable-input failures remain separate;
+- oracle improvement reports a segmentation opportunity and does not select an unreproducible
+  runtime policy;
+- conservative-policy results report both accuracy and retained coverage and do not remove reviewed
+  labels from the frozen corpus;
 - per-identity and worst-group results cannot be hidden by aggregate accuracy;
 - validation and challenge predictions do not alter labels or data membership; and
 - no test or system-holdout data selects a candidate.
