@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import type { CardEventReviewResource } from "../api/client";
 import { emptyRecordingDetail } from "../test/roundAnalysisFixture";
@@ -453,6 +453,46 @@ describe("CardEventReviewPage", () => {
         name: "Dismissed event. Ignore this event.",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps selected-event actions above the event table", async () => {
+    const draftReview = {
+      ...review,
+      review_state: "draft" as const,
+      completed_at: null,
+      completed_version_id: null,
+      completed_version_digest: null,
+      completion_receipt_id: null,
+      full_video_acknowledged: false,
+    } satisfies CardEventReviewResource;
+    const fetchMock = vi.fn<typeof fetch>((input) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input).includes("/card-event-reviews/")
+              ? draftReview
+              : emptyRecordingDetail,
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={review.review_id} />);
+    await screen.findByRole("heading", { name: "Draft review" });
+
+    const actions = screen.getByLabelText("Selected event actions");
+    expect(screen.getByLabelText("Event navigator")).toContainElement(actions);
+    expect(
+      within(actions).getByRole("button", { name: /^Nudge \+1 frame/ }),
+    ).toBeEnabled();
+    const table = screen.getByRole("table", {
+      name: "Unified time-ordered CardEvent review events",
+    });
+    expect(actions.compareDocumentPosition(table)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it("shows the selected event fields in the video-side navigator", async () => {

@@ -1928,18 +1928,6 @@ progress {
   font-weight: 800;
 }
 
-.cardEventCommandActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.cardEventCommandActions .secondaryButton {
-  min-height: 2rem;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.68rem;
-}
-
 .shortcutLabel {
   color: var(--muted-ink);
   font-size: 0.68rem;
@@ -3720,7 +3708,6 @@ progress {
 .cardEventToolbar,
 .cardEventTimelineHeader,
 .cardEventProposal,
-.cardEventEditActions,
 .cardEventErrorActions {
   display: flex;
   align-items: center;
@@ -4032,14 +4019,6 @@ progress {
   color: var(--ink);
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
-}
-
-.cardEventEditActions {
-  margin-top: 1rem;
-}
-
-.cardEventEditActions .secondaryButton {
-  font-size: 0.7rem;
 }
 
 .cardEventGuidance {

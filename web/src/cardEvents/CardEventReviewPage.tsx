@@ -1123,41 +1123,44 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                       />
                     </label>
                   </details>
-                  {selected.state === "proposed" ? (
-                    <div className={styles.cardEventVideoActions}>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        onClick={() =>
-                          queueUpdate(
-                            selected,
-                            "accept",
-                            {},
-                            "Proposal accepted.",
-                          )
-                        }
-                        disabled={!isEditable}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        onClick={() =>
-                          queueUpdate(
-                            selected,
-                            "dismiss",
-                            {},
-                            "Proposal dismissed.",
-                          )
-                        }
-                        disabled={!isEditable}
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  ) : selected.proposal !== null ? (
-                    <div className={styles.cardEventVideoActions}>
+                  <div
+                    className={styles.cardEventVideoActions}
+                    aria-label="Selected event actions"
+                  >
+                    {selected.state === "proposed" ? (
+                      <>
+                        <button
+                          className={styles.secondaryButton}
+                          type="button"
+                          onClick={() =>
+                            queueUpdate(
+                              selected,
+                              "accept",
+                              {},
+                              "Proposal accepted.",
+                            )
+                          }
+                          disabled={!isEditable}
+                        >
+                          Accept <span className={styles.shortcutLabel}>A</span>
+                        </button>
+                        <button
+                          className={styles.secondaryButton}
+                          type="button"
+                          onClick={() =>
+                            queueUpdate(
+                              selected,
+                              "dismiss",
+                              {},
+                              "Proposal dismissed.",
+                            )
+                          }
+                          disabled={!isEditable}
+                        >
+                          Dismiss <span className={styles.shortcutLabel}>D</span>
+                        </button>
+                      </>
+                    ) : selected.proposal !== null ? (
                       <button
                         className={styles.secondaryButton}
                         type="button"
@@ -1173,8 +1176,75 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                       >
                         Undo decision
                       </button>
-                    </div>
-                  ) : null}
+                    ) : null}
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={() =>
+                        queueUpdate(
+                          selected,
+                          "retime",
+                          { effectiveTime: selected.effective_time_s - 1 / frameRate },
+                          "Event nudged one frame earlier.",
+                        )
+                      }
+                      disabled={!isEditable || frameRate <= 0}
+                    >
+                      Nudge −1 frame <span className={styles.shortcutLabel}>,</span>
+                    </button>
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={() =>
+                        queueUpdate(
+                          selected,
+                          "retime",
+                          { effectiveTime: selected.effective_time_s + 1 / frameRate },
+                          "Event nudged one frame later.",
+                        )
+                      }
+                      disabled={!isEditable || frameRate <= 0}
+                    >
+                      Nudge +1 frame <span className={styles.shortcutLabel}>.</span>
+                    </button>
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={() =>
+                        queueUpdate(
+                          selected,
+                          "retime",
+                          { effectiveTime: playhead },
+                          "Event moved to the playhead.",
+                        )
+                      }
+                      disabled={!isEditable}
+                    >
+                      Set to playhead
+                    </button>
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={removeSelected}
+                      disabled={
+                        !isEditable ||
+                        (selected.proposal !== null && selected.state !== "reviewed")
+                      }
+                    >
+                      Remove selected event{" "}
+                      <span className={styles.shortcutLabel}>Delete</span>
+                    </button>
+                    {removedEvent !== null ? (
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        onClick={undoRemoval}
+                        disabled={!isEditable}
+                      >
+                        Undo removal
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </>
             )}
@@ -1351,7 +1421,6 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                 <th scope="col">State</th>
                 <th scope="col">Origin</th>
                 <th scope="col">Lineage</th>
-                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1405,62 +1474,6 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                     {event.proposal === null
                       ? "Manual"
                       : event.proposal.proposal_id}
-                  </td>
-                  <td>
-                    <div className={styles.cardEventCommandActions}>
-                      {event.state === "proposed" ? (
-                        <>
-                          <button
-                            className={styles.secondaryButton}
-                            type="button"
-                            onClick={() =>
-                              queueUpdate(
-                                event,
-                                "accept",
-                                {},
-                                "Proposal accepted.",
-                              )
-                            }
-                            disabled={!isEditable}
-                          >
-                            Accept{" "}
-                            <span className={styles.shortcutLabel}>A</span>
-                          </button>
-                          <button
-                            className={styles.secondaryButton}
-                            type="button"
-                            onClick={() =>
-                              queueUpdate(
-                                event,
-                                "dismiss",
-                                {},
-                                "Proposal dismissed.",
-                              )
-                            }
-                            disabled={!isEditable}
-                          >
-                            Dismiss{" "}
-                            <span className={styles.shortcutLabel}>D</span>
-                          </button>
-                        </>
-                      ) : event.proposal !== null ? (
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          onClick={() =>
-                            queueUpdate(
-                              event,
-                              "undo",
-                              {},
-                              "Proposal decision undone.",
-                            )
-                          }
-                          disabled={!isEditable}
-                        >
-                          Undo
-                        </button>
-                      ) : null}
-                    </div>
                   </td>
                 </tr>
               ))}
@@ -1617,79 +1630,6 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
             </>
           )}
         </section>
-        <div className={styles.cardEventEditActions}>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={() =>
-              selected !== undefined &&
-              queueUpdate(
-                selected,
-                "retime",
-                { effectiveTime: selected.effective_time_s - 1 / frameRate },
-                "Event nudged one frame earlier.",
-              )
-            }
-            disabled={!isEditable || selected === undefined || frameRate <= 0}
-          >
-            Nudge −1 frame <span className={styles.shortcutLabel}>,</span>
-          </button>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={() =>
-              selected !== undefined &&
-              queueUpdate(
-                selected,
-                "retime",
-                { effectiveTime: selected.effective_time_s + 1 / frameRate },
-                "Event nudged one frame later.",
-              )
-            }
-            disabled={!isEditable || selected === undefined || frameRate <= 0}
-          >
-            Nudge +1 frame <span className={styles.shortcutLabel}>.</span>
-          </button>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={() =>
-              selected !== undefined &&
-              queueUpdate(
-                selected,
-                "retime",
-                { effectiveTime: playhead },
-                "Event moved to the playhead.",
-              )
-            }
-            disabled={!isEditable || selected === undefined}
-          >
-            Set to playhead
-          </button>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={removeSelected}
-            disabled={
-              !isEditable ||
-              selected === undefined ||
-              (selected.proposal !== null && selected.state !== "reviewed")
-            }
-          >
-            Remove selected event{" "}
-            <span className={styles.shortcutLabel}>Delete</span>
-          </button>
-          {removedEvent !== null ? (
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={undoRemoval}
-              disabled={!isEditable}
-            >
-              Undo removal
-            </button>
-          ) : null}
-        </div>
         {frameRate <= 0 ? (
           <p className={styles.cardEventRequirement} role="status">
             Frame nudging is unavailable because frame rate is unavailable for
