@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   createDokoDetectorClient,
-  type CardEventReview,
+  type CardEventReviewCollection,
   type CardEventDevelopmentSplitPreview,
   type CardEventDevelopmentSplitPreviewRequest,
   type IdentityReviewReadiness,
@@ -14,7 +14,6 @@ import {
   visibleCardReviewBatchPagePath,
 } from "./api/client";
 import { RecordingAnalysisView } from "./analysis/AnalysisView";
-import { CardEventEditor } from "./cardEvents/CardEventEditor";
 import { IdentityReviewSection } from "./identityReview";
 import styles from "./App.module.css";
 
@@ -306,6 +305,14 @@ export function RecordingDetailView({
   const [identityReviewError, setIdentityReviewError] = useState<string | null>(
     null,
   );
+  const [cardEventReviews, setCardEventReviews] =
+    useState<CardEventReviewCollection | null>(null);
+  const [cardEventReviewsLoading, setCardEventReviewsLoading] = useState(true);
+  const [cardEventReviewsError, setCardEventReviewsError] = useState<
+    string | null
+  >(null);
+  const [cardEventReviewOperator, setCardEventReviewOperator] = useState("");
+  const [creatingCardEventReview, setCreatingCardEventReview] = useState(false);
 
   const loadRecording = useCallback(
     async (signal?: AbortSignal) => {
@@ -339,6 +346,41 @@ export function RecordingDetailView({
       controller.abort();
     };
   }, [loadRecording]);
+
+  const loadCardEventReviews = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const response = await client.listCardEventReviews(recordingId, {
+          signal,
+        });
+        if (!signal?.aborted) {
+          setCardEventReviews(response);
+          setCardEventReviewsError(null);
+        }
+      } catch (reason: unknown) {
+        if (!signal?.aborted) {
+          setCardEventReviewsError(describeError(reason));
+        }
+      } finally {
+        if (!signal?.aborted) {
+          setCardEventReviewsLoading(false);
+        }
+      }
+    },
+    [client, recordingId],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(
+      () => void loadCardEventReviews(controller.signal),
+      0,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [loadCardEventReviews]);
 
   const loadVisibleCardReview = useCallback(
     async (signal?: AbortSignal) => {
@@ -434,6 +476,31 @@ export function RecordingDetailView({
       setError(describeError(reason));
     } finally {
       setTriggering(false);
+    }
+  }
+
+  async function createCardEventReview() {
+    const operator = (
+      cardEventReviewOperator ||
+      recording?.training_use.card_event_task?.operator ||
+      ""
+    ).trim();
+    if (operator === "") {
+      setCardEventReviewsError("Enter an operator before adding a review.");
+      return;
+    }
+    setCreatingCardEventReview(true);
+    setCardEventReviewsError(null);
+    try {
+      const created = await client.createCardEventReview(recordingId, {
+        operator,
+      });
+      window.history.pushState({}, "", created.review_url);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    } catch (reason: unknown) {
+      setCardEventReviewsError(describeError(reason));
+    } finally {
+      setCreatingCardEventReview(false);
     }
   }
 
@@ -598,36 +665,17 @@ export function RecordingDetailView({
           <RecordingSection recording={recording} videoRef={sourceVideoRef} />
           <CardEventSection
             recording={recording}
-            videoRef={sourceVideoRef}
-            onReviewSaved={(review) =>
-              setRecording((current) =>
-                current === null
-                  ? current
-                  : {
-                      ...current,
-                      card_event_review: {
-                        state: review.review_state,
-                        event_count: countReviewEvents(review),
-                        reviewed_at: review.completed_at,
-                      },
-                      training_use: {
-                        ...current.training_use,
-                        eligibility:
-                          review.review_state === "completed"
-                            ? "eligible"
-                            : "review_required",
-                        blocker:
-                          review.review_state === "completed"
-                            ? null
-                            : "Complete the full recording CardEvent review before training use.",
-                      },
-                      next_action:
-                        review.review_state === "completed"
-                          ? "Assign a development partition"
-                          : "Review CardEvent events",
-                    },
-              )
+            reviews={cardEventReviews}
+            loading={cardEventReviewsLoading}
+            error={cardEventReviewsError}
+            operator={
+              cardEventReviewOperator ||
+              recording.training_use.card_event_task?.operator ||
+              ""
             }
+            creating={creatingCardEventReview}
+            onOperatorChange={setCardEventReviewOperator}
+            onCreate={() => void createCardEventReview()}
           />
           <VisibleCardReviewSection
             recordingId={recording.recording_id}
@@ -732,7 +780,7 @@ function DetailProgressLink({
   );
 }
 
-function RecordingSection({
+export function RecordingSection({
   recording,
   videoRef,
 }: {
@@ -810,7 +858,7 @@ function RecordingSection({
   );
 }
 
-function RecordingDetailsDialog({
+export function RecordingDetailsDialog({
   recording,
   open,
   onClose,
@@ -940,14 +988,23 @@ function RecordingDetailsDialog({
 
 function CardEventSection({
   recording,
-  videoRef,
-  onReviewSaved,
+  reviews,
+  loading,
+  error,
+  operator,
+  creating,
+  onOperatorChange,
+  onCreate,
 }: {
   recording: RecordingDetail;
-  videoRef: import("react").RefObject<HTMLVideoElement | null>;
-  onReviewSaved: (review: CardEventReview) => void;
+  reviews: CardEventReviewCollection | null;
+  loading: boolean;
+  error: string | null;
+  operator: string;
+  creating: boolean;
+  onOperatorChange: (value: string) => void;
+  onCreate: () => void;
 }) {
-  const review = recording.card_event_review;
   const taskSelected =
     recording.training_use.card_event_task?.disposition === "selected";
   return (
@@ -957,30 +1014,138 @@ function CardEventSection({
           <p className={styles.statusLabel}>Annotation</p>
           <h2>Card events</h2>
         </div>
-        <span className={styles.countLabel}>{review.event_count} events</span>
+        <span className={styles.countLabel}>
+          {recording.card_event_review.event_count} reviewed event
+          {recording.card_event_review.event_count === 1 ? "" : "s"}
+        </span>
       </div>
       <p className={styles.detailLead}>
         Review the full recording and save the CardEvent timeline here. Use the
         first frame where a card has substantially reached its final position.
       </p>
-      {taskSelected ? (
-        <CardEventEditor
-          recordingId={recording.recording_id}
-          videoUrl={recording.video.url}
-          mediaFacts={recording.video.media_facts}
-          summary={review}
-          videoRef={videoRef}
-          onSaved={onReviewSaved}
-        />
-      ) : (
-        <p className={styles.detailEmptyState}>
-          {review.state === "not_started"
-            ? "No CardEvent review has been started."
-            : `Review state: ${formatIdentifier(review.state)}.`}
+      {error !== null ? (
+        <p className={styles.errorMessage} role="alert">
+          {error}
         </p>
+      ) : null}
+      {loading ? (
+        <p className={styles.detailEmptyState} aria-live="polite">
+          Loading CardEvent reviews…
+        </p>
+      ) : reviews === null ||
+        !Array.isArray(reviews.reviews) ||
+        reviews.reviews.length === 0 ? (
+        <div className={styles.cardEventReviewCollectionEmpty}>
+          <p className={styles.detailEmptyState}>No CardEvent reviews yet.</p>
+          {recording.card_event_review.state === "not_started" ? (
+            <p className={styles.detailEmptyState}>
+              No CardEvent review has been started.
+            </p>
+          ) : null}
+          {taskSelected ? (
+            <ReviewCreateControl
+              operator={operator}
+              creating={creating}
+              onOperatorChange={onOperatorChange}
+              onCreate={onCreate}
+            />
+          ) : (
+            <p className={styles.detailBlocker}>
+              Select the CardEvent task before adding a review.
+            </p>
+          )}
+        </div>
+      ) : (
+        <>
+          <ul
+            className={styles.cardEventReviewList}
+            aria-label="CardEvent reviews"
+          >
+            {reviews.reviews.map((item) => (
+              <li
+                key={item.review_id}
+                className={styles.cardEventReviewListItem}
+              >
+                <div>
+                  <a
+                    className={styles.cardEventReviewListLink}
+                    href={item.review_url}
+                  >
+                    {item.state === "draft"
+                      ? item.parent_review_id === null
+                        ? `Draft by ${item.operator}`
+                        : `Revision of ${item.parent_review_id} · draft by ${item.operator}`
+                      : `✓ Annotated by ${item.reviewer ?? item.operator} on ${formatTimestamp(item.completed_at ?? item.updated_at)}`}
+                  </a>
+                  <p className={styles.cardEventReviewListMeta}>
+                    {item.state === "draft"
+                      ? `updated ${formatTimestamp(item.updated_at)}`
+                      : `created ${formatTimestamp(item.created_at)}`}
+                    {" · "}
+                    {formatReviewCounts(item)}
+                  </p>
+                </div>
+                <a className={styles.recordingLink} href={item.review_url}>
+                  {item.state === "draft" ? "Continue review" : "Open review"}
+                </a>
+              </li>
+            ))}
+          </ul>
+          {taskSelected ? (
+            <ReviewCreateControl
+              operator={operator}
+              creating={creating}
+              onOperatorChange={onOperatorChange}
+              onCreate={onCreate}
+              label="Add review"
+            />
+          ) : null}
+        </>
       )}
     </section>
   );
+}
+
+function ReviewCreateControl({
+  operator,
+  creating,
+  onOperatorChange,
+  onCreate,
+  label = "Add review",
+}: {
+  operator: string;
+  creating: boolean;
+  onOperatorChange: (value: string) => void;
+  onCreate: () => void;
+  label?: string;
+}) {
+  return (
+    <div className={styles.cardEventReviewCreate}>
+      <label className={styles.cardEventReviewer}>
+        Review operator
+        <input
+          value={operator}
+          onChange={(event) => onOperatorChange(event.target.value)}
+          placeholder="Name"
+          autoComplete="name"
+        />
+      </label>
+      <button
+        className={styles.primaryButton}
+        type="button"
+        onClick={onCreate}
+        disabled={creating || operator.trim() === ""}
+      >
+        {creating ? "Creating…" : label}
+      </button>
+    </div>
+  );
+}
+
+function formatReviewCounts(
+  item: CardEventReviewCollection["reviews"][number],
+): string {
+  return `${item.reviewed_event_count} reviewed · ${item.proposed_event_count} proposed · ${item.dismissed_event_count} dismissed`;
 }
 
 function VisibleCardReviewSection({
@@ -1564,7 +1729,7 @@ function formatTimestamp(value: string): string {
     timeStyle: "short",
   }).format(new Date(value));
 }
-function recordingPagePath(recordingId: string): string {
+export function recordingPagePath(recordingId: string): string {
   return `/recordings/${encodeURIComponent(recordingId)}`;
 }
 function analysisSelectionPath(
@@ -1588,11 +1753,6 @@ function formatIdentifier(value: string): string {
     .replaceAll("-", " ")
     .toLowerCase()
     .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
-}
-
-function countReviewEvents(review: CardEventReview): number {
-  const events = review.annotation.events;
-  return Array.isArray(events) ? events.length : 0;
 }
 
 function isVisibleCardReviewReadiness(

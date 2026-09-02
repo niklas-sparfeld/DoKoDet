@@ -57,6 +57,9 @@ def test_packaged_frontend_serves_catalog_recording_route_and_hashed_assets(
     catalog = client.get("/")
     entry = client.get("/recordings/550e8400-e29b-41d4-a716-446655440033")
     refresh = client.get("/recordings/550e8400-e29b-41d4-a716-446655440033")
+    review_entry = client.get(
+        "/card-event-reviews/cardevent-review-00000000000000000000000000000000"
+    )
     asset = client.get("/round-analyses/assets/index-test.js")
     root_asset = client.get("/assets/index-test.js")
 
@@ -66,6 +69,8 @@ def test_packaged_frontend_serves_catalog_recording_route_and_hashed_assets(
     assert entry.headers["content-type"].startswith("text/html")
     assert 'id="root"' in entry.text
     assert refresh.status_code == 200
+    assert review_entry.status_code == 200
+    assert review_entry.headers["content-type"].startswith("text/html")
     assert asset.status_code == 200
     assert asset.text == "console.log('smoke');"
     assert root_asset.status_code == 200

@@ -11,7 +11,8 @@
 - **Related:** Plans 0040 and 0042 consume immutable completed CardEvent annotation versions.
 - **Outcome:** An operator can start or continue a named CardEvent review from a recording, process
   one time-ordered event stream with a fast next-and-accept loop, publish it, and see every draft
-  and completed review on the recording page.
+  and completed review on the recording page. M4 adds the recording review collection, stable
+  direct-load review pages, read-only completed history, and responsive route coverage.
 - **Reviewed:** 2026-09-02 against the current React editor, generated API client, FastAPI review
   routes, `doko-operations` review store, and recording detail layout.
 
@@ -21,7 +22,8 @@
 - **M1:** Complete — make each CardEvent review a recording-owned resource.
 - **M2:** Complete — unify proposals and human events with stable lineage.
 - **M3:** Complete — cache verified source context and meet the local review latency budget.
-- **M4:** Not started — add the recording review list and dedicated review page.
+- **M4:** Complete — move CardEvent review work to stable recording-owned pages and show draft,
+  completed, and revision lineage.
 - **M5:** Not started — deliver the optimistic, unified, shortcut-driven review loop.
 
 ## 1. Purpose

@@ -1,14 +1,17 @@
+import { useEffect, useState } from "react";
+
+import { CardEventReviewPage } from "./cardEvents/CardEventReviewPage";
 import { RecordingDetailView, RecordingListView } from "./recordings";
 import { IdentityReviewPage } from "./identityReview";
 import { VisibleCardReviewPage } from "./visibleCardReview";
 
 export function App() {
-  const visibleCardBatchId = readVisibleCardBatchId(window.location.pathname);
-  const identityReviewBatchId = readIdentityReviewBatchId(
-    window.location.pathname,
-  );
-  const recordingId = readRecordingId(window.location.pathname);
-  const selectedAnalysisId = readSelectedAnalysisId(window.location.search);
+  const location = useAppLocation();
+  const visibleCardBatchId = readVisibleCardBatchId(location.pathname);
+  const identityReviewBatchId = readIdentityReviewBatchId(location.pathname);
+  const cardEventReviewId = readCardEventReviewId(location.pathname);
+  const recordingId = readRecordingId(location.pathname);
+  const selectedAnalysisId = readSelectedAnalysisId(location.search);
   if (visibleCardBatchId !== null) {
     return (
       <VisibleCardReviewPage
@@ -25,6 +28,9 @@ export function App() {
       />
     );
   }
+  if (cardEventReviewId !== null) {
+    return <CardEventReviewPage reviewId={cardEventReviewId} />;
+  }
   return recordingId === null ? (
     <RecordingListView />
   ) : (
@@ -36,8 +42,32 @@ export function App() {
   );
 }
 
+function useAppLocation() {
+  const [location, setLocation] = useState(() => ({
+    pathname: window.location.pathname,
+    search: window.location.search,
+  }));
+
+  useEffect(() => {
+    const update = () =>
+      setLocation({
+        pathname: window.location.pathname,
+        search: window.location.search,
+      });
+    window.addEventListener("popstate", update);
+    return () => window.removeEventListener("popstate", update);
+  }, []);
+
+  return location;
+}
+
 function readVisibleCardBatchId(pathname: string): string | null {
   const match = pathname.match(/^\/visible-card-reviews\/([^/]+)\/?$/);
+  return match === null ? null : decodeURIComponent(match[1]);
+}
+
+function readCardEventReviewId(pathname: string): string | null {
+  const match = pathname.match(/^\/card-event-reviews\/([^/]+)\/?$/);
   return match === null ? null : decodeURIComponent(match[1]);
 }
 

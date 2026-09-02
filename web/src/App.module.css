@@ -1719,6 +1719,147 @@ progress {
   margin-bottom: 0.7rem;
 }
 
+.cardEventReviewCollectionEmpty {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--surface) 50%, var(--panel));
+}
+
+.cardEventReviewList {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cardEventReviewListItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.cardEventReviewListLink {
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.cardEventReviewListLink:hover,
+.cardEventReviewListLink:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.cardEventReviewListMeta {
+  margin: 0.35rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.cardEventReviewCreate {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.cardEventReviewCreate .cardEventReviewer {
+  flex: 1 1 16rem;
+}
+
+.cardEventReviewPageMetadata {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 1rem 0 0;
+}
+
+.cardEventReviewPageMetadata > div {
+  min-width: 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+}
+
+.cardEventReviewPageMetadata dt {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cardEventReviewPageMetadata dd {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.cardEventReviewCounts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.cardEventReviewCounts > div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--surface) 50%, var(--panel));
+}
+
+.cardEventReviewCounts span {
+  color: var(--muted-ink);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.cardEventReviewCounts strong {
+  color: var(--ink);
+  font-size: 1.1rem;
+}
+
+.cardEventReviewTable {
+  width: 100%;
+  min-width: 42rem;
+  margin-top: 1rem;
+  border-collapse: collapse;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.cardEventReviewTable th,
+.cardEventReviewTable td {
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cardEventReviewTable th {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cardEventReviewTable tbody tr[data-state="dismissed"] {
+  opacity: 0.62;
+}
+
 @media (max-width: 600px) {
   .recordingsHeader,
   .recordingCardHeader,
@@ -1750,6 +1891,24 @@ progress {
 
   .recordingContextBar .secondaryButton {
     width: 100%;
+  }
+
+  .cardEventReviewListItem {
+    flex-direction: column;
+  }
+
+  .cardEventReviewListItem .recordingLink {
+    align-self: start;
+  }
+
+  .cardEventReviewCreate,
+  .cardEventReviewCreate .primaryButton {
+    width: 100%;
+  }
+
+  .cardEventReviewPageMetadata,
+  .cardEventReviewCounts {
+    grid-template-columns: 1fr;
   }
 }
 

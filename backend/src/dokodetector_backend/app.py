@@ -296,6 +296,17 @@ def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
             headers={"Cache-Control": "no-cache"},
         )
 
+    @app.get("/card-event-reviews/{review_id}", include_in_schema=False)
+    def frontend_card_event_review(review_id: str) -> FileResponse:
+        """Return the SPA entry document for a direct CardEvent review load or refresh."""
+
+        del review_id
+        return FileResponse(
+            entrypoint,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
+
 
 def _check_evidence_directory(directory: os.PathLike[str] | str) -> None:
     """Verify that the evidence directory supports local reads and writes."""

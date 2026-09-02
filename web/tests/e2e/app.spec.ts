@@ -38,38 +38,118 @@ const cardEventProposalTwo = {
   decision: "undecided",
 };
 
-function cardEventReviewResponse(
-  events: Array<Record<string, unknown>> = [],
-  proposals = [cardEventProposalOne, cardEventProposalTwo],
-  revision = 0,
+function cardEventReviewResourceResponse(
+  events: Array<Record<string, unknown>> = [
+    {
+      event_id: "cardevent-event-one",
+      effective_time_s: cardEventProposalOne.time_s,
+      type: "card_played",
+      confidence: "proposed",
+      notes: null,
+      state: "proposed",
+      origin: "model",
+      proposal: {
+        proposal_id: cardEventProposalOne.proposal_id,
+        proposal_generator_run_id:
+          cardEventProposalOne.proposal_generator_run_id,
+        proposal_time_s: cardEventProposalOne.time_s,
+        probability: cardEventProposalOne.probability,
+        model_bundle_id: cardEventProposalOne.model_bundle_id,
+        execution_platform: cardEventProposalOne.execution_platform,
+      },
+    },
+    {
+      event_id: "cardevent-event-two",
+      effective_time_s: cardEventProposalTwo.time_s,
+      type: "card_played",
+      confidence: "proposed",
+      notes: null,
+      state: "proposed",
+      origin: "model",
+      proposal: {
+        proposal_id: cardEventProposalTwo.proposal_id,
+        proposal_generator_run_id:
+          cardEventProposalTwo.proposal_generator_run_id,
+        proposal_time_s: cardEventProposalTwo.time_s,
+        probability: cardEventProposalTwo.probability,
+        model_bundle_id: cardEventProposalTwo.model_bundle_id,
+        execution_platform: cardEventProposalTwo.execution_platform,
+      },
+    },
+  ],
   overrides: Record<string, unknown> = {},
 ) {
+  const reviewedEvents = events.filter((event) => event.state === "reviewed");
   return {
     annotation: {
       schema_version: "cardevent-annotation/v2",
       video: "card-events.mov",
-      events,
+      events: reviewedEvents.map((event) => ({
+        time_s: event.effective_time_s,
+        type: event.type,
+        confidence: event.confidence,
+      })),
     },
     completed_at: null,
     completed_version_digest: null,
     completed_version_id: null,
     completion_receipt_id: null,
     draft_digest: "a".repeat(64),
-    draft_revision: revision,
+    draft_revision: 0,
+    events,
     full_video_acknowledged: false,
+    operator: "operator",
     parent_digest: null,
+    parent_review_id: null,
     parent_version_id: null,
-    proposals,
+    proposals: [cardEventProposalOne, cardEventProposalTwo],
     proposal_decision_digest: null,
     recording_id: CARD_EVENT_RECORDING_ID,
     reviewed_annotation_digest: null,
-    review_state: revision === 0 ? "not_started" : "draft",
     reviewer: null,
-    schema_version: "cardevent-review/v1",
+    review_id: "cardevent-review-1",
+    review_state: "draft",
+    review_url: "/card-event-reviews/cardevent-review-1",
+    schema_version: "cardevent-review-resource/v1",
     source_asset_id: "source-card-events",
     source_sha256: "b".repeat(64),
+    updated_at: "2026-09-01T07:20:46Z",
+    created_at: "2026-09-01T07:20:46Z",
     video: "card-events.mov",
     ...overrides,
+  };
+}
+
+function cardEventReviewListItem(
+  resource: ReturnType<typeof cardEventReviewResourceResponse>,
+) {
+  const eventCounts = {
+    reviewed: resource.events.filter((event) => event.state === "reviewed")
+      .length,
+    proposed: resource.events.filter((event) => event.state === "proposed")
+      .length,
+    dismissed: resource.events.filter((event) => event.state === "dismissed")
+      .length,
+  };
+  return {
+    review_id: resource.review_id,
+    review_url: resource.review_url,
+    recording_id: resource.recording_id,
+    state: resource.review_state,
+    review_state: resource.review_state,
+    operator: resource.operator,
+    reviewer: resource.reviewer,
+    created_at: resource.created_at,
+    updated_at: resource.updated_at,
+    completed_at: resource.completed_at,
+    completed_version_id: resource.completed_version_id,
+    completed_version_digest: resource.completed_version_digest,
+    parent_review_id: resource.parent_review_id,
+    parent_version_id: resource.parent_version_id,
+    event_counts: eventCounts,
+    reviewed_event_count: eventCounts.reviewed,
+    proposed_event_count: eventCounts.proposed,
+    dismissed_event_count: eventCounts.dismissed,
   };
 }
 
@@ -399,7 +479,15 @@ test("keeps the identity review workspace usable on desktop and narrow viewports
 });
 
 test.beforeEach(async ({ page }) => {
-  let cardEventReview = cardEventReviewResponse();
+  let cardEventReview = cardEventReviewResourceResponse();
+  let cardEventReviewCollection = {
+    schema_version: "cardevent-review-collection/v1",
+    recording_id: CARD_EVENT_RECORDING_ID,
+    current_review_id: null,
+    draft_review_id: null,
+    latest_completed_review_id: null,
+    reviews: [],
+  };
   const recordingSummary = {
     recording_id: emptyRecordingDetail.recording_id,
     source_asset_id: emptyRecordingDetail.source_asset_id,
@@ -426,103 +514,36 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/v1/recordings/**", async (route) => {
     const url = route.request().url();
     if (
-      url.includes(`/recordings/${CARD_EVENT_RECORDING_ID}/card-event-review`)
+      url.endsWith(`/recordings/${CARD_EVENT_RECORDING_ID}/card-event-reviews`)
     ) {
-      if (route.request().method() === "PUT") {
-        const body = route.request().postDataJSON() as {
-          annotation: { events: Array<Record<string, unknown>> };
-          proposals: Array<{ proposal_id: string; decision: string }>;
-          full_video_acknowledged: boolean;
+      if (route.request().method() === "POST") {
+        cardEventReview = cardEventReviewResourceResponse();
+        cardEventReviewCollection = {
+          ...cardEventReviewCollection,
+          current_review_id: cardEventReview.review_id,
+          draft_review_id: cardEventReview.review_id,
+          reviews: [cardEventReviewListItem(cardEventReview)],
         };
-        const events = [...body.annotation.events];
-        for (const proposal of [cardEventProposalOne, cardEventProposalTwo]) {
-          const decision = body.proposals.find(
-            (item) => item.proposal_id === proposal.proposal_id,
-          )?.decision;
-          if (
-            decision === "accepted" &&
-            !events.some((event) => event.time_s === proposal.time_s)
-          ) {
-            events.push({
-              time_s: proposal.time_s,
-              type: "card_played",
-              confidence: "confirmed",
-            });
-          }
-        }
-        cardEventReview = cardEventReviewResponse(
-          events.sort(
-            (first, second) => Number(first.time_s) - Number(second.time_s),
-          ),
-          [cardEventProposalOne, cardEventProposalTwo].map((proposal) => ({
-            ...proposal,
-            decision:
-              body.proposals.find(
-                (item) => item.proposal_id === proposal.proposal_id,
-              )?.decision ?? "undecided",
-          })),
-          cardEventReview.draft_revision + 1,
-          { full_video_acknowledged: body.full_video_acknowledged },
-        );
-      }
-      if (route.request().method() === "POST" && url.endsWith("/complete")) {
-        const body = route.request().postDataJSON() as {
-          reviewer: string;
-          full_video_acknowledged: boolean;
-        };
-        cardEventReview = cardEventReviewResponse(
-          cardEventReview.annotation.events as Array<Record<string, unknown>>,
-          cardEventReview.proposals,
-          cardEventReview.draft_revision,
-          {
-            review_state: "completed",
-            full_video_acknowledged: body.full_video_acknowledged,
-            reviewer: body.reviewer,
-            completed_at: "2026-09-01T08:00:00Z",
-            completed_version_id: "cardevent-reviewed-version-1",
-            completed_version_digest: "c".repeat(64),
-            reviewed_annotation_digest: "d".repeat(64),
-            proposal_decision_digest: "e".repeat(64),
-            completion_receipt_id: "receipt-cardevent-review-1",
-          },
-        );
         await route.fulfill({
           contentType: "application/json",
-          body: JSON.stringify(cardEventReview),
-        });
-        return;
-      }
-      if (route.request().method() === "POST" && url.endsWith("/revisions")) {
-        const body = route.request().postDataJSON() as {
-          parent_version_id: string;
-        };
-        cardEventReview = cardEventReviewResponse(
-          cardEventReview.annotation.events as Array<Record<string, unknown>>,
-          cardEventReview.proposals,
-          cardEventReview.draft_revision + 1,
-          {
-            review_state: "draft",
-            full_video_acknowledged: false,
-            reviewer: null,
-            completed_at: null,
-            completed_version_id: null,
-            completed_version_digest: null,
-            reviewed_annotation_digest: null,
-            proposal_decision_digest: null,
-            completion_receipt_id: null,
-            parent_version_id: body.parent_version_id,
-            parent_digest: "c".repeat(64),
-          },
-        );
-        await route.fulfill({
-          contentType: "application/json",
+          status: 201,
           body: JSON.stringify(cardEventReview),
         });
         return;
       }
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify(cardEventReview),
+        body: JSON.stringify(cardEventReviewCollection),
+      });
+      return;
+    }
+    if (url.endsWith("/card-event-reviews")) {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...cardEventReviewCollection,
+          recording_id: emptyRecordingDetail.recording_id,
+        }),
       });
       return;
     }
@@ -543,6 +564,12 @@ test.beforeEach(async ({ page }) => {
             ? recordingDetailWithAnalysis
             : emptyRecordingDetail,
       ),
+    });
+  });
+  await page.route("**/v1/card-event-reviews/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(cardEventReview),
     });
   });
   await page.route("**/v1/round-analyses/**", async (route) => {
@@ -611,229 +638,124 @@ test("opens a recording detail page from the catalog", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("edits and persists CardEvent events and proposal decisions in the browser", async ({
+test("lists and opens a CardEvent review from the recording page", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/recordings/${CARD_EVENT_RECORDING_ID}`);
 
-  const video = page.getByLabel(`Source recording ${CARD_EVENT_RECORDING_ID}`);
-  await expect(video).toBeVisible();
+  await expect(page.getByText("No CardEvent reviews yet.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add review" })).toBeVisible();
+  await page.getByRole("button", { name: "Add review" }).click();
+
+  await expect(page).toHaveURL("/card-event-reviews/cardevent-review-1");
   await expect(
-    page.getByRole("button", { name: "Add event at playhead" }),
+    page.getByRole("heading", { name: "CardEvent review" }),
   ).toBeVisible();
-
-  await video.evaluate((element) => {
-    const source = element as HTMLVideoElement;
-    source.currentTime = 2;
-    source.dispatchEvent(new Event("timeupdate"));
-  });
-  await expect(page.getByText(/Playhead 0:02\.000/)).toBeVisible();
-  await page.getByRole("button", { name: "Add event at playhead" }).click();
-  await page.getByRole("button", { name: "Nudge +1 frame" }).click();
-  await page
-    .getByLabel("Event type for selected event")
-    .selectOption("card_moved");
-  const notes = page.getByLabel("Notes for selected event");
-  await notes.fill("Moved to the table");
-  await notes.press("Tab");
-  await expect(page.getByText("Moved to the table")).toBeVisible();
-
-  await page.getByRole("button", { name: "Remove selected event" }).click();
   await expect(
-    page.getByText("Event removed. You can undo this action."),
+    page.getByRole("heading", { name: "Draft review" }),
   ).toBeVisible();
-
-  const firstProposal = page.getByRole("listitem", {
-    name: /Proposal at 0:01\.500 seconds/,
-  });
-  await firstProposal.getByRole("button", { name: "Accept proposal" }).click();
-  await expect(firstProposal).toContainText("Accepted");
-  const secondProposal = page.getByRole("listitem", {
-    name: /Proposal at 0:03\.000 seconds/,
-  });
-  await secondProposal
-    .getByRole("button", { name: "Dismiss proposal" })
-    .click();
-  await expect(secondProposal).toContainText("Dismissed");
+  await expect(
+    page.getByLabel(`Source recording ${CARD_EVENT_RECORDING_ID}`),
+  ).toBeVisible();
+  await expect(page.getByText("2 events").first()).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
-  const horizontalOverflow = await page.evaluate(
-    () =>
-      document.documentElement.scrollWidth >
-      document.documentElement.clientWidth,
-  );
-  expect(horizontalOverflow).toBe(false);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 });
 
-test("completes a CardEvent review and starts an immutable revision", async ({
+test("shows completed reviews and their draft revisions on the recording page", async ({
   page,
 }) => {
-  let activeSplitDigest = "b".repeat(64);
-  let currentPartition = "unassigned";
+  const completed = cardEventReviewResourceResponse(
+    [
+      {
+        event_id: "cardevent-event-completed",
+        effective_time_s: 1.5,
+        type: "card_played",
+        confidence: "confirmed",
+        notes: null,
+        state: "reviewed",
+        origin: "manual",
+        proposal: null,
+      },
+    ],
+    {
+      review_id: "cardevent-review-completed",
+      review_url: "/card-event-reviews/cardevent-review-completed",
+      review_state: "completed",
+      reviewer: "operator",
+      completed_at: "2026-09-01T08:00:00Z",
+      completed_version_id: "cardevent-reviewed-version-1",
+      completed_version_digest: "c".repeat(64),
+      reviewed_annotation_digest: "d".repeat(64),
+      proposal_decision_digest: "e".repeat(64),
+      completion_receipt_id: "receipt-cardevent-review-1",
+      full_video_acknowledged: true,
+    },
+  );
+  const revision = cardEventReviewResourceResponse([], {
+    review_id: "cardevent-review-revision",
+    review_url: "/card-event-reviews/cardevent-review-revision",
+    parent_review_id: completed.review_id,
+    parent_version_id: completed.completed_version_id,
+    parent_digest: completed.completed_version_digest,
+  });
   await page.route(
-    "**/v1/data/cardevent-development-split/preview",
+    `**/v1/recordings/${CARD_EVENT_RECORDING_ID}/card-event-reviews`,
     async (route) => {
-      const body = route.request().postDataJSON() as {
-        destination: "train" | "validation" | "unassigned";
-      };
-      const previewDigest = body.destination === "train" ? "c" : "e";
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
-          schema_version: "cardevent-development-split-preview/v1",
-          task: "cardevent_event_detection",
+          schema_version: "cardevent-review-collection/v1",
           recording_id: CARD_EVENT_RECORDING_ID,
-          destination: body.destination,
-          active_split_version_id: "cardevent-development-split-current",
-          active_split_digest: activeSplitDigest,
-          affected_group_keys: [["session_id", "session-card-events"]],
-          affected_recordings: [
-            {
-              recording_id: CARD_EVENT_RECORDING_ID,
-              source_asset_id: "source-card-events",
-              source_sha256: "a".repeat(64),
-              current_partition: currentPartition,
-              group_keys: [["session_id", "session-card-events"]],
-            },
+          current_review_id: completed.review_id,
+          draft_review_id: revision.review_id,
+          latest_completed_review_id: completed.review_id,
+          reviews: [
+            cardEventReviewListItem(revision),
+            cardEventReviewListItem(completed),
           ],
-          validation: { valid: true, blockers: [] },
-          current_counts: {
-            train: currentPartition === "train" ? 1 : 0,
-            validation: 0,
-            unassigned: currentPartition === "unassigned" ? 1 : 0,
-            test: 0,
-          },
-          proposed_counts: {
-            train: body.destination === "train" ? 1 : 0,
-            validation: 0,
-            unassigned: body.destination === "unassigned" ? 1 : 0,
-            test: 0,
-          },
-          preview_digest: previewDigest.repeat(64),
         }),
       });
     },
   );
-  await page.route(
-    "**/v1/data/cardevent-development-split/apply",
-    async (route) => {
-      const body = route.request().postDataJSON() as {
-        destination: "train" | "validation" | "unassigned";
-      };
-      currentPartition = body.destination;
-      activeSplitDigest = body.destination === "train" ? "d" : "f";
-      await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          schema_version: "cardevent-development-split-apply/v1",
-          task: "cardevent_event_detection",
-          recording_id: CARD_EVENT_RECORDING_ID,
-          destination: body.destination,
-          affected_recordings: [],
-          split_version_id: `cardevent-development-split-${body.destination}`,
-          split_version_digest: activeSplitDigest.repeat(64),
-          receipt_id: `receipt-cardevent-development-split-${body.destination}`,
-          receipt_digest: "1".repeat(64),
-          partitions: {
-            train:
-              body.destination === "train" ? [CARD_EVENT_RECORDING_ID] : [],
-            validation: [],
-            unassigned:
-              body.destination === "unassigned"
-                ? [CARD_EVENT_RECORDING_ID]
-                : [],
-            test: [],
-          },
-          counts: {
-            train: body.destination === "train" ? 1 : 0,
-            validation: 0,
-            unassigned: body.destination === "unassigned" ? 1 : 0,
-            test: 0,
-          },
-        }),
-      });
-    },
-  );
+  await page.route("**/v1/card-event-reviews/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(
+        route.request().url().includes(completed.review_id)
+          ? completed
+          : revision,
+      ),
+    });
+  });
+
   await page.goto(`/recordings/${CARD_EVENT_RECORDING_ID}`);
 
-  const video = page.getByLabel(`Source recording ${CARD_EVENT_RECORDING_ID}`);
-  await expect(video).toBeVisible();
-  await video.evaluate((element) => {
-    const source = element as HTMLVideoElement;
-    Object.defineProperty(source, "duration", {
-      configurable: true,
-      value: 12.5,
-    });
-    Object.defineProperty(source, "currentTime", {
-      configurable: true,
-      value: 12.5,
-      writable: true,
-    });
-    source.dispatchEvent(new Event("loadedmetadata"));
-    source.dispatchEvent(new Event("timeupdate"));
-  });
+  await expect(
+    page.getByText(
+      /Revision of cardevent-review-completed · draft by operator/,
+    ),
+  ).toBeVisible();
+  await expect(page.getByText(/Annotated by operator on/)).toBeVisible();
+  await page.getByRole("link", { name: "Open review" }).click();
 
-  const acknowledgement = page.getByRole("checkbox");
-  await expect(acknowledgement).toBeEnabled();
-  await acknowledgement.click();
-  await expect(acknowledgement).toBeChecked();
-  await page
-    .getByRole("listitem", { name: /Proposal at 0:01\.500 seconds/ })
-    .getByRole("button", { name: "Accept proposal" })
-    .click();
-  await page
-    .getByRole("listitem", { name: /Proposal at 0:03\.000 seconds/ })
-    .getByRole("button", { name: "Dismiss proposal" })
-    .click();
-  await page.getByRole("textbox", { name: "Reviewer" }).fill("operator");
-
-  const completeButton = page.getByRole("button", {
-    name: "Complete full recording review",
-  });
-  await expect(completeButton).toBeEnabled();
-  await completeButton.click();
+  await expect(page).toHaveURL(
+    "/card-event-reviews/cardevent-review-completed",
+  );
   await expect(
-    page.getByRole("heading", { name: "Reviewed annotation" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("cardevent-reviewed-version-1", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("No current training-use blocker."),
-  ).toBeVisible();
-
-  await page.getByLabel("Partition operator").fill("operator");
-  await page.getByRole("button", { name: "Preview assignment" }).click();
-  await expect(page.getByText("Affected group")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Confirm assignment to Train" })
-    .click();
-  await expect(
-    page.getByText(/receipt-cardevent-development-split-train/),
-  ).toBeVisible();
-
-  await page
-    .getByLabel("Development partition destination")
-    .selectOption("unassigned");
-  await page.getByRole("button", { name: "Preview assignment" }).click();
-  await page
-    .getByRole("button", { name: "Confirm assignment to Unassigned" })
-    .click();
-  await expect(
-    page.getByText(/receipt-cardevent-development-split-unassigned/),
-  ).toBeVisible();
-
-  await page.getByRole("button", { name: "Start a new revision" }).click();
-  await expect(
-    page.getByRole("button", { name: "Complete full recording review" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/The completed version remains unchanged/),
+    page.getByRole("heading", { name: "Completed review" }),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Complete the full recording CardEvent review before training use.",
+      "This completed review is read-only. Its annotation and lineage are immutable.",
     ),
   ).toBeVisible();
 });

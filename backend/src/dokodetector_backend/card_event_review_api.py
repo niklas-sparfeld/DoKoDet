@@ -436,7 +436,7 @@ def list_card_event_reviews(
 ) -> CardEventReviewCollectionResponse:
     """List all review resources owned by one recording."""
 
-    source = _load_source(request, recording_id)
+    source = _load_source(request, recording_id, require_selected=False)
     reviews = list(_review_store(request).list_reviews(source))
     draft = next((item for item in reviews if item["state"] == "draft"), None)
     latest_completed = next((item for item in reviews if item["state"] == "completed"), None)
