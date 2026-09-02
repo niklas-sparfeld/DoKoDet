@@ -5,9 +5,9 @@
 - **Summary:** Make reviewed identity data, bounded training, comparison, promotion, and local
   runtime status productive in the web app after the quality proof succeeds.
 - **Status:** Blocked
-- **Depends on:** Plan 0043 locks a local candidate that passes its proof gates, and plan 0042
-  provides completed identity review and dataset contracts
-- **Builds on:** Plans 0028, 0039, 0040, 0041, 0042, and 0043
+- **Depends on:** Plan 0043 locks a local candidate that passes its proof gates, and plan 0046 M6
+  provides current reviewed identity annotations and the frozen dataset boundary
+- **Builds on:** Plans 0028, 0039, 0040, 0041, 0042, 0043, and 0046
 - **Outcome:** An operator can find priority identity work, publish reviewed data, launch and
   inspect a bounded local campaign, explicitly promote a passing bundle, and run the normal backend
   with local detection and local identity classification. The web app shows lineage, blockers,

@@ -48,6 +48,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0046 — Recording event and evidence simplification](2-ready/0046-Recording_Event_and_Evidence_Simplification.md) | 0045 complete | Keep one current event annotation per recording, replace unreviewed proposals in place, and explicitly update immutable evidence packages without exposing review or proposal history. |
 
 ### In Progress
 
@@ -60,8 +61,8 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041 and 0042 complete, plus reviewed real identity data | Freeze reviewed data, compare at most two DINOv3 candidates with current classifiers, and lock at most one local candidate without changing the backend default. |
-| [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate and 0042 data contracts | Add multi-recording review selection, bounded campaigns, explicit promotion, local runtime cutover, and rollback to the web app. |
+| [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041 and 0042 complete, 0046 M6 complete, plus reviewed real identity data | Freeze reviewed data, compare at most two DINOv3 candidates with current classifiers, and lock at most one local candidate without changing the backend default. |
+| [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate and 0046 M6 data contracts | Add multi-recording review selection, bounded campaigns, explicit promotion, local runtime cutover, and rollback to the web app. |
 
 ### Closed
 
@@ -110,12 +111,14 @@ The shared target architecture is
    quality claim. Real local-provider backend execution remains out of scope.
 2. Implement 0039 M0 through M4 to make new iOS recordings discoverable, complete CardEvent
    review, and assign eligible development groups in the web app.
-3. Implement 0041 independently to prove the local DINOv3 identity model, bundle, and backend
+3. Implement 0046 as the direct follow-up to 0045. Replace review resources with one current event
+   annotation per recording, add proposal reruns, and make evidence-package updates explicit.
+4. Implement 0041 independently to prove the local DINOv3 identity model, bundle, and backend
    boundary without using smoke results as a quality claim.
-4. Plan 0040 is complete: it seeds exact-event visible-card review with the local finder,
+5. Plan 0040 is complete: it seeds exact-event visible-card review with the local finder,
    supports geometry correction in the web app, and publishes reviewed data for the existing
    freeze path.
-5. Implement 0043 after reviewed real identity coverage can support frozen development
+6. Implement 0043 after reviewed real identity coverage can support frozen development
    partitions. Lock at most one passing local candidate.
 7. Implement 0044 only after the quality proof passes. Add productive review selection, campaign
    controls, explicit promotion, backend cutover, and rollback at that point.

@@ -5,8 +5,8 @@
 - **Summary:** Train and compare bounded DINOv3 identity candidates on reviewed real crops before
   any local classifier becomes productive or replaces Gemini.
 - **Status:** Blocked
-- **Depends on:** Plans 0041 and 0042 complete, plus reviewed real identity data from enough
-  source-lineage groups to freeze development partitions
+- **Depends on:** Plans 0041 and 0042 complete, plan 0046 M6 complete, plus reviewed real identity
+  data from enough source-lineage groups to freeze development partitions
 - **Builds on:** Plans 0028 and 0038 comparison, candidate-lock, crop-policy, and promotion-gate
   mechanics
 - **Outcome:** Freeze one reviewed identity corpus, train at most two declared DINOv3 ViT-S/16
