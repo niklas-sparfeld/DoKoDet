@@ -8,7 +8,12 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
-from doko_operations import CardEventReviewError
+from doko_operations import (
+    CardEventReviewError,
+    VisualCardIdentityBatchError,
+    VisualCardIdentityBatchStore,
+    load_visual_card_identity_review_batch,
+)
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict
 
@@ -181,6 +186,22 @@ class RecordingTrainingUseSummary(BaseModel):
     blocker: str | None
 
 
+class RecordingIdentityDatasetSummary(BaseModel):
+    """Identity classifier dataset eligibility shown on the recording page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    state: str
+    dataset_version_id: str | None
+    dataset_version_digest: str | None
+    split_version_id: str | None
+    split_version_digest: str | None
+    sample_count: int
+    excluded_count: int
+    development_partition: str | None
+    blocker: str | None
+
+
 class RecordingDetailResponse(BaseModel):
     """Strict recording resource projection for the web workspace."""
 
@@ -200,6 +221,7 @@ class RecordingDetailResponse(BaseModel):
     task_enrollments: list[RecordingTaskEnrollmentResponse]
     card_event_review: RecordingCardEventReviewSummary
     training_use: RecordingTrainingUseSummary
+    identity_dataset: RecordingIdentityDatasetSummary
     analyses: list[RecordingAnalysisSummary]
     can_start_analysis: bool
     analysis_blocker: str | None
@@ -265,6 +287,66 @@ def _catalog_training_projection(
         )
         for item in facts
     }
+
+
+def _identity_dataset_projection(
+    request: Request, recording_id: str
+) -> RecordingIdentityDatasetSummary:
+    """Project the latest identity review dataset status for a recording."""
+
+    root = (
+        VisualCardIdentityBatchStore(request.app.state.settings.operations_root).workspace_root
+        / "visual-card-identity-review-batches"
+    )
+    states: list[dict[str, object]] = []
+    if root.is_dir():
+        for path in root.glob("visual-card-identity-batch-*/batch.json"):
+            try:
+                state = load_visual_card_identity_review_batch(path)
+            except (VisualCardIdentityBatchError, OSError, ValueError):
+                continue
+            if state["recording_id"] == recording_id:
+                states.append(state)
+    current = max(states, key=lambda value: str(value["updated_at_utc"]), default=None)
+    if current is None:
+        return RecordingIdentityDatasetSummary(
+            state="not_ready",
+            dataset_version_id=None,
+            dataset_version_digest=None,
+            split_version_id=None,
+            split_version_digest=None,
+            sample_count=0,
+            excluded_count=0,
+            development_partition=None,
+            blocker="Complete the visual card identity review before dataset use.",
+        )
+    dataset = current.get("dataset")
+    if not isinstance(dataset, dict):
+        identity_state = (
+            "review_required" if current["review_state"] == "draft" else "publication_required"
+        )
+        return RecordingIdentityDatasetSummary(
+            state=identity_state,
+            dataset_version_id=None,
+            dataset_version_digest=None,
+            split_version_id=None,
+            split_version_digest=None,
+            sample_count=0,
+            excluded_count=0,
+            development_partition=None,
+            blocker="Complete and publish the visual card identity review.",
+        )
+    return RecordingIdentityDatasetSummary(
+        state="eligible" if dataset["status"] == "eligible" else "blocked",
+        dataset_version_id=dataset["dataset_version_id"],
+        dataset_version_digest=dataset["dataset_version_digest"],
+        split_version_id=dataset["split_version_id"],
+        split_version_digest=dataset["split_version_digest"],
+        sample_count=dataset["sample_count"],
+        excluded_count=dataset["excluded_count"],
+        development_partition=dataset["development_partition"],
+        blocker=dataset["blocker"],
+    )
 
 
 @router.get(
@@ -424,6 +506,7 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
             development_group_keys=development_group_keys,
             blocker=blocker,
         ),
+        identity_dataset=_identity_dataset_projection(request, recording_id),
         analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
         can_start_analysis=entry.can_start_analysis,
         analysis_blocker=entry.analysis_blocker,

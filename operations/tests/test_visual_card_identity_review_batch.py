@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
@@ -15,6 +16,13 @@ from table_evidence_analyzer import (
     build_visible_card_review_queue,
     update_frame_review,
 )
+from table_evidence_analyzer.data import (
+    assert_valid_dataset,
+    load_artifact_index,
+    load_dataset_manifest,
+    load_split_manifest,
+    materialize_crops,
+)
 
 import doko_operations.visual_card_identity_review_batch as identity_batch
 from doko_operations import (
@@ -26,6 +34,7 @@ from doko_operations import (
     VisualCardIdentityClassifierIdentity,
     load_visual_card_identity_review_batch,
 )
+from doko_operations.visual_card_identity_dataset import build_visual_card_identity_dataset
 
 
 def _image() -> bytes:
@@ -393,3 +402,122 @@ def test_identity_unusable_is_complete_but_source_problem_blocks_completion(tmp_
             reviewer="fixture-operator",
             expected_revision=1,
         )
+
+
+def test_completed_identity_review_publishes_immutable_lineage_and_supports_revision(
+    tmp_path: Path,
+) -> None:
+    queue_path, queue_digest, _ = _queue(tmp_path)
+    request = _request(tmp_path, queue_path, queue_digest)
+    store = VisualCardIdentityBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, _Classifier())
+    completed = store.update_decision(
+        request.batch_id,
+        prepared["items"][0]["item_id"],
+        action="accept_proposal",
+        identity=None,
+        reason=None,
+        failure_tags=[],
+        reviewer="fixture-operator",
+        expected_revision=0,
+    )
+    completed = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=completed["revision"],
+    )
+    publication = completed["publication"]
+    version_before = Path(publication["version_path"]).read_bytes()
+    receipt_before = Path(publication["receipt_path"]).read_bytes()
+    version = json.loads(version_before)
+    receipt = json.loads(receipt_before)
+    assert version["schema_version"] == "visual-card-identity-reviewed/v1"
+    assert version["lineage"][0]["crop_sha256"] == completed["items"][0]["crop"]["sha256"]
+    assert version["lineage"][0]["decision_digest"]
+    assert receipt["outputs"][0]["digest"] == publication["version_digest"]
+
+    repeated = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=completed["revision"],
+    )
+    assert repeated["publication"] == publication
+    assert Path(publication["version_path"]).read_bytes() == version_before
+    assert Path(publication["receipt_path"]).read_bytes() == receipt_before
+
+    draft = store.start_revision(
+        request.batch_id,
+        parent_version_id=publication["version_id"],
+        expected_revision=completed["revision"],
+    )
+    assert draft["review_state"] == "draft"
+    assert draft["parent_version_id"] == publication["version_id"]
+    revised = store.update_decision(
+        request.batch_id,
+        draft["items"][0]["item_id"],
+        action="select_identity",
+        identity="SPADES_NINE",
+        reason="Correction after review",
+        failure_tags=[],
+        reviewer="fixture-operator",
+        expected_revision=draft["revision"],
+    )
+    revised = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=revised["revision"],
+    )
+    assert revised["publication"]["version_id"] != publication["version_id"]
+    assert Path(publication["version_path"]).read_bytes() == version_before
+    assert Path(publication["receipt_path"]).read_bytes() == receipt_before
+
+
+def test_identity_dataset_adapter_validates_lineage_and_excludes_unusable_cards(
+    tmp_path: Path,
+) -> None:
+    queue_path, queue_digest, _ = _queue(tmp_path)
+    request = _request(tmp_path, queue_path, queue_digest)
+    store = VisualCardIdentityBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, _Classifier())
+    decided = store.update_decision(
+        request.batch_id,
+        prepared["items"][0]["item_id"],
+        action="accept_proposal",
+        identity=None,
+        reason=None,
+        failure_tags=[],
+        reviewer="fixture-operator",
+        expected_revision=0,
+    )
+    completed = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=decided["revision"],
+    )
+    publication = build_visual_card_identity_dataset(
+        completed,
+        tmp_path / "datasets",
+        development_partition="validation",
+        group_keys=(("source_lineage", "group-fixture"),),
+    )
+    assert publication["status"] == "eligible"
+    dataset = load_dataset_manifest(publication["dataset_path"])
+    split = load_split_manifest(publication["split_path"])
+    artifacts = load_artifact_index(publication["artifact_index_path"])
+    assert_valid_dataset(dataset, split=split, artifacts=artifacts)
+    cache = materialize_crops(dataset, split, artifacts, tmp_path / "cache")
+    assert cache.read(cache.crops[0]) == Path(completed["items"][0]["crop"]["path"]).read_bytes()
+    lineage = json.loads(Path(publication["lineage_path"]).read_text(encoding="utf-8"))
+    assert lineage["crop_policy"]["policies"]
+    assert lineage["samples"][0]["visible_card"]["derived_box"]
+
+    unusable = dict(completed)
+    unusable["items"] = [dict(completed["items"][0])]
+    unusable["items"][0]["decision"] = {
+        **unusable["items"][0]["decision"],
+        "status": "identity_unusable",
+        "identity": None,
+    }
+    blocked = build_visual_card_identity_dataset(unusable, tmp_path / "datasets")
+    assert blocked["status"] == "blocked"
+    assert blocked["sample_count"] == 0

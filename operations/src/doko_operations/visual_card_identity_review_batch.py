@@ -46,6 +46,8 @@ VISUAL_CARD_IDENTITY_ITEM_SCHEMA_VERSION = "visual-card-identity-review-item/v1"
 VISUAL_CARD_IDENTITY_PROPOSAL_SCHEMA_VERSION = "visual-card-identity-proposal/v1"
 VISUAL_CARD_IDENTITY_DECISION_SCHEMA_VERSION = "visual-card-identity-decision/v1"
 VISUAL_CARD_IDENTITY_COVERAGE_SCHEMA_VERSION = "visual-card-identity-review-coverage/v1"
+VISUAL_CARD_IDENTITY_REVIEWED_VERSION_SCHEMA_VERSION = "visual-card-identity-reviewed/v1"
+VISUAL_CARD_IDENTITY_REVIEW_RECEIPT_SCHEMA_VERSION = "lifecycle-receipt/v1"
 
 VISUAL_CARD_IDENTITY_BATCH_SCHEMA = VISUAL_CARD_IDENTITY_BATCH_SCHEMA_VERSION
 VISUAL_CARD_IDENTITY_BATCH_STATUSES = frozenset({"preparing", "ready", "failed", "blocked"})
@@ -863,6 +865,10 @@ def _review_metadata(value: Mapping[str, Any] | None = None) -> dict[str, Any]:
         "review_state": current.get("review_state", "draft"),
         "reviewer": current.get("reviewer"),
         "completed_at_utc": current.get("completed_at_utc"),
+        "publication": current.get("publication"),
+        "parent_version_id": current.get("parent_version_id"),
+        "parent_version_digest": current.get("parent_version_digest"),
+        "dataset": current.get("dataset"),
     }
 
 
@@ -1040,6 +1046,10 @@ def _validate_state(value: Any) -> dict[str, Any]:
         "review_state",
         "reviewer",
         "completed_at_utc",
+        "publication",
+        "parent_version_id",
+        "parent_version_digest",
+        "dataset",
         "summary",
     }
     if not isinstance(value, Mapping) or set(value) != fields:
@@ -1070,6 +1080,28 @@ def _validate_state(value: Any) -> dict[str, Any]:
         value["reviewer"] is None or value["completed_at_utc"] is None
     ):
         raise VisualCardIdentityBatchError("completed identity reviews need completion metadata")
+    publication = value["publication"]
+    if value["review_state"] == "completed" and publication is None:
+        raise VisualCardIdentityBatchError("completed identity reviews need publication metadata")
+    if value["review_state"] == "draft" and publication is not None:
+        raise VisualCardIdentityBatchError(
+            "draft identity reviews cannot expose publication metadata"
+        )
+    if publication is not None:
+        _validate_publication(publication)
+    for field in ("parent_version_id", "parent_version_digest"):
+        if value[field] is not None:
+            if field.endswith("_id"):
+                _text(value[field], field)
+            else:
+                _digest(value[field], field)
+    if (value["parent_version_id"] is None) != (value["parent_version_digest"] is None):
+        raise VisualCardIdentityBatchError("identity revision parent metadata is incomplete")
+    dataset = value["dataset"]
+    if dataset is not None:
+        _validate_dataset_projection(dataset)
+    if value["review_state"] == "draft" and dataset is not None:
+        raise VisualCardIdentityBatchError("draft identity reviews cannot expose dataset metadata")
     _utc_timestamp(value["created_at_utc"], "created_at_utc")
     _utc_timestamp(value["updated_at_utc"], "updated_at_utc")
     if (
@@ -1184,6 +1216,124 @@ def _validate_immutable_file(path_value: Any, expected_digest: str, kind: str) -
         raise VisualCardIdentityBatchError(f"{kind} artifact cannot be read: {path}") from error
     if actual != expected_digest:
         raise VisualCardIdentityBatchError(f"{kind} artifact digest changed: {path}")
+
+
+def _validate_publication(value: Any) -> None:
+    fields = {
+        "version_id",
+        "version_digest",
+        "version_path",
+        "receipt_id",
+        "receipt_digest",
+        "receipt_path",
+        "input_draft_revision",
+        "input_draft_digest",
+    }
+    if not isinstance(value, Mapping) or set(value) != fields:
+        raise VisualCardIdentityBatchError("identity publication metadata is invalid")
+    _text(value["version_id"], "publication.version_id")
+    _digest(value["version_digest"], "publication.version_digest")
+    _text(value["version_path"], "publication.version_path")
+    _text(value["receipt_id"], "publication.receipt_id")
+    _digest(value["receipt_digest"], "publication.receipt_digest")
+    _text(value["receipt_path"], "publication.receipt_path")
+    _non_negative_int(value["input_draft_revision"], "publication.input_draft_revision")
+    _digest(value["input_draft_digest"], "publication.input_draft_digest")
+    _validate_published_json(
+        value["version_path"], value["version_digest"], "version_digest", "review version"
+    )
+    _validate_published_json(
+        value["receipt_path"], value["receipt_digest"], "receipt_digest", "review receipt"
+    )
+
+
+def _validate_published_json(
+    path_value: Any, expected_digest: str, digest_field: str, kind: str
+) -> None:
+    path = Path(path_value)
+    if not path.is_file():
+        raise VisualCardIdentityBatchError(f"{kind} artifact is missing: {path}")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise VisualCardIdentityBatchError(f"{kind} artifact is invalid: {path}") from error
+    if not isinstance(value, dict) or value.get(digest_field) != expected_digest:
+        raise VisualCardIdentityBatchError(f"{kind} artifact digest changed: {path}")
+    excluded_fields = {digest_field}
+    if digest_field == "version_digest":
+        excluded_fields.add("version_id")
+    elif digest_field == "receipt_digest":
+        excluded_fields.add("receipt_id")
+    core = {key: item for key, item in value.items() if key not in excluded_fields}
+    if _digest_value(core) != expected_digest:
+        raise VisualCardIdentityBatchError(f"{kind} artifact digest changed: {path}")
+
+
+def _validate_dataset_projection(value: Any) -> None:
+    fields = {
+        "schema_version",
+        "status",
+        "dataset_version_id",
+        "dataset_version_digest",
+        "dataset_path",
+        "split_version_id",
+        "split_version_digest",
+        "split_path",
+        "artifact_index_id",
+        "artifact_index_digest",
+        "artifact_index_path",
+        "lineage_path",
+        "lineage_digest",
+        "sample_count",
+        "excluded_count",
+        "development_partition",
+        "blocker",
+    }
+    if not isinstance(value, Mapping) or set(value) != fields:
+        raise VisualCardIdentityBatchError("identity dataset projection is invalid")
+    if value["schema_version"] != "visual-card-identity-dataset/v1":
+        raise VisualCardIdentityBatchError("identity dataset projection schema is invalid")
+    if value["status"] not in {"eligible", "blocked"}:
+        raise VisualCardIdentityBatchError("identity dataset projection status is invalid")
+    for field in (
+        "dataset_version_digest",
+        "split_version_digest",
+        "artifact_index_digest",
+        "lineage_digest",
+    ):
+        if value[field] is not None:
+            _digest(value[field], f"dataset.{field}")
+    for field in ("sample_count", "excluded_count"):
+        _non_negative_int(value[field], f"dataset.{field}")
+    if value["development_partition"] is not None and value["development_partition"] not in {
+        "train",
+        "validation",
+        "test",
+        "unassigned",
+    }:
+        raise VisualCardIdentityBatchError("identity dataset partition is invalid")
+    if value["status"] == "eligible":
+        for field in (
+            "dataset_version_id",
+            "dataset_version_digest",
+            "dataset_path",
+            "split_version_id",
+            "split_version_digest",
+            "split_path",
+            "artifact_index_id",
+            "artifact_index_digest",
+            "artifact_index_path",
+            "lineage_path",
+            "lineage_digest",
+        ):
+            if field.endswith("_id") or field.endswith("_path"):
+                _text(value[field], f"dataset.{field}")
+        if value["sample_count"] == 0:
+            raise VisualCardIdentityBatchError("eligible identity dataset needs samples")
+        if value["blocker"] is not None:
+            raise VisualCardIdentityBatchError("eligible identity dataset cannot have a blocker")
+    elif not isinstance(value["blocker"], str) or not value["blocker"].strip():
+        raise VisualCardIdentityBatchError("blocked identity dataset needs a blocker")
 
 
 def _load_source_queue(request: VisualCardIdentityBatchRequest) -> VisibleCardReviewQueue:
@@ -1416,6 +1566,116 @@ def _assert_revision(state: Mapping[str, Any], expected_revision: int) -> None:
         )
 
 
+def _identity_review_lineage(items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    lineage: list[dict[str, Any]] = []
+    for item in items:
+        source = item["source"]
+        crop = item.get("crop")
+        proposal = item.get("proposal")
+        decision = item["decision"]
+        lineage.append(
+            {
+                "item_id": item["item_id"],
+                "source_frame_id": f"{source['package_id']}:{source['frame_part_name']}",
+                "source_frame_sha256": source["frame_sha256"],
+                "source_asset_id": source["source_asset_id"],
+                "source_asset_sha256": source["source_asset_sha256"],
+                "visible_card_digest": item["visible_card_digest"],
+                "crop_sha256": crop["sha256"] if isinstance(crop, Mapping) else None,
+                "proposal_result_digest": (
+                    proposal["result_digest"] if isinstance(proposal, Mapping) else None
+                ),
+                "decision_digest": _digest_value(decision),
+            }
+        )
+    return lineage
+
+
+def _published_identity_review(
+    current: Mapping[str, Any], *, reviewer: str, completed_at: str
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    input_draft_digest = _digest_value(current)
+    frozen = current["frozen_inputs"]
+    lineage = _identity_review_lineage(current["items"])
+    version_core = {
+        "schema_version": VISUAL_CARD_IDENTITY_REVIEWED_VERSION_SCHEMA_VERSION,
+        "batch_id": current["batch_id"],
+        "recording_id": current["recording_id"],
+        "source_asset_id": frozen["source_asset_id"],
+        "source_sha256": frozen["source_sha256"],
+        "source_lineage_group": frozen["source_lineage_group"],
+        "visible_card_review_batch_id": frozen["visible_card_review_batch_id"],
+        "visible_card_review_version_id": frozen["visible_card_review_version_id"],
+        "visible_card_review_version_digest": frozen["visible_card_review_version_digest"],
+        "visible_card_review_queue_digest": frozen["visible_card_review_queue_digest"],
+        "crop_policy_id": current["crop_policy_id"],
+        "crop_policy": current["crop_policy"],
+        "classifier": current["classifier"],
+        "input_draft_revision": current["revision"],
+        "input_draft_digest": input_draft_digest,
+        "items": list(current["items"]),
+        "coverage": current["coverage"],
+        "summary": current["summary"],
+        "lineage": lineage,
+        "reviewer": reviewer,
+        "completed_at_utc": completed_at,
+        "parent_version_id": current.get("parent_version_id"),
+        "parent_version_digest": current.get("parent_version_digest"),
+    }
+    version_digest = _digest_value(version_core)
+    version_id = f"visual-card-identity-review-{version_digest[:24]}"
+    version = {**version_core, "version_id": version_id, "version_digest": version_digest}
+    receipt_core = {
+        "schema_version": VISUAL_CARD_IDENTITY_REVIEW_RECEIPT_SCHEMA_VERSION,
+        "receipt_type": "annotation_application",
+        "operator": reviewer,
+        "occurred_at": completed_at,
+        "inputs": [
+            {
+                "kind": "source_asset",
+                "id": frozen["source_asset_id"],
+                "digest": frozen["source_sha256"],
+            },
+            {
+                "kind": "visible_card_review",
+                "id": frozen["visible_card_review_version_id"],
+                "digest": frozen["visible_card_review_version_digest"],
+            },
+            {
+                "kind": "identity_review_draft",
+                "id": current["batch_id"],
+                "digest": input_draft_digest,
+            },
+        ],
+        "outputs": [
+            {"kind": "visual_card_identity_review", "id": version_id, "digest": version_digest},
+        ],
+        "dependencies": lineage,
+        "metadata": {
+            "batch_id": current["batch_id"],
+            "recording_id": current["recording_id"],
+            "input_draft_revision": current["revision"],
+            "input_draft_digest": input_draft_digest,
+            "decision_summary": current["summary"],
+        },
+    }
+    receipt_digest = _digest_value(receipt_core)
+    receipt_id = f"receipt-visual-card-identity-{receipt_digest[:20]}"
+    receipt = {**receipt_core, "receipt_id": receipt_id, "receipt_digest": receipt_digest}
+    return (
+        version,
+        receipt,
+        {
+            "version_id": version_id,
+            "version_digest": version_digest,
+            "receipt_id": receipt_id,
+            "receipt_digest": receipt_digest,
+            "input_draft_revision": current["revision"],
+            "input_draft_digest": input_draft_digest,
+        },
+    )
+
+
 class VisualCardIdentityReviewBatchStore:
     """Persist one immutable-input identity preparation batch."""
 
@@ -1491,7 +1751,7 @@ class VisualCardIdentityReviewBatchStore:
         reviewer: str,
         expected_revision: int,
     ) -> dict[str, Any]:
-        """Complete a fully decided draft without publishing an immutable version yet."""
+        """Complete a fully decided draft and publish its immutable version and receipt."""
 
         _validate_expected_revision(expected_revision)
         reviewer = _text(reviewer, "reviewer")
@@ -1512,6 +1772,18 @@ class VisualCardIdentityReviewBatchStore:
                 raise VisualCardIdentityBatchError("failed identity items must be resolved first")
             _validate_completed_decisions(current["items"])
             completed_at = _now()
+            version, receipt, publication = _published_identity_review(
+                current, reviewer=reviewer, completed_at=completed_at
+            )
+            version_path = self.batch_root(batch_id) / "versions" / f"{version['version_id']}.json"
+            receipt_path = self.batch_root(batch_id) / "receipts" / f"{receipt['receipt_id']}.json"
+            _immutable_write(version_path, _canonical(version) + b"\n")
+            _immutable_write(receipt_path, _canonical(receipt) + b"\n")
+            publication = {
+                **publication,
+                "version_path": str(version_path.resolve()),
+                "receipt_path": str(receipt_path.resolve()),
+            }
             updated = dict(current)
             updated.update(
                 {
@@ -1520,9 +1792,71 @@ class VisualCardIdentityReviewBatchStore:
                     "review_state": "completed",
                     "reviewer": reviewer,
                     "completed_at_utc": completed_at,
+                    "publication": publication,
                 }
             )
             _atomic_write(self.batch_path(batch_id), _canonical(updated) + b"\n")
+        return load_visual_card_identity_review_batch(self.batch_path(batch_id))
+
+    def start_revision(
+        self,
+        batch_id: str,
+        *,
+        parent_version_id: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        """Open a mutable draft that is explicitly linked to a published version."""
+
+        _validate_expected_revision(expected_revision)
+        parent_version_id = _text(parent_version_id, "parent_version_id")
+        with _identity_review_lock(self.batch_path(batch_id)):
+            current = load_visual_card_identity_review_batch(self.batch_path(batch_id))
+            _assert_revision(current, expected_revision)
+            if current["review_state"] != "completed" or current["publication"] is None:
+                raise VisualCardIdentityBatchError(
+                    "only a completed identity review can start a revision"
+                )
+            publication = current["publication"]
+            if publication["version_id"] != parent_version_id:
+                raise VisualCardIdentityBatchConflict(
+                    "the requested parent identity review version is not current"
+                )
+            updated = dict(current)
+            updated.update(
+                {
+                    "updated_at_utc": _now(),
+                    "revision": current["revision"] + 1,
+                    "review_state": "draft",
+                    "reviewer": None,
+                    "completed_at_utc": None,
+                    "publication": None,
+                    "dataset": None,
+                    "parent_version_id": publication["version_id"],
+                    "parent_version_digest": publication["version_digest"],
+                }
+            )
+            _atomic_write(self.batch_path(batch_id), _canonical(updated) + b"\n")
+        return load_visual_card_identity_review_batch(self.batch_path(batch_id))
+
+    def attach_dataset(self, batch_id: str, *, dataset: Mapping[str, Any]) -> dict[str, Any]:
+        """Attach the immutable dataset projection without changing review revision."""
+
+        _validate_dataset_projection(dataset)
+        with _identity_review_lock(self.batch_path(batch_id)):
+            current = load_visual_card_identity_review_batch(self.batch_path(batch_id))
+            if current["review_state"] != "completed":
+                raise VisualCardIdentityBatchError(
+                    "only a completed identity review can receive a dataset projection"
+                )
+            existing = current.get("dataset")
+            if existing is not None and existing != dict(dataset):
+                raise VisualCardIdentityBatchConflict(
+                    "the identity dataset projection already differs from the requested projection"
+                )
+            if existing is None:
+                updated = dict(current)
+                updated.update({"updated_at_utc": _now(), "dataset": dict(dataset)})
+                _atomic_write(self.batch_path(batch_id), _canonical(updated) + b"\n")
         return load_visual_card_identity_review_batch(self.batch_path(batch_id))
 
     def initialize(self, request: VisualCardIdentityBatchRequest) -> dict[str, Any]:

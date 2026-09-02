@@ -18,6 +18,7 @@ from doko_operations import (
     VisualCardIdentityBatchStore,
     VisualCardIdentityClassifierIdentity,
     assess_visual_card_identity_review_readiness,
+    build_visual_card_identity_dataset,
     load_visual_card_identity_review_batch,
     prepare_visual_card_identity_review_batch,
     preview_visual_card_identity_review_batch,
@@ -32,8 +33,12 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from dokodetector_backend.card_event_development_split_api import (
+    load_card_event_development_recordings,
+)
 from dokodetector_backend.card_event_review_api import _load_source
 from dokodetector_backend.errors import APIErrorDetail, ContractError
+from dokodetector_backend.intake_contract import parse_source_record
 
 router = APIRouter()
 RECORDING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
@@ -210,6 +215,15 @@ class IdentityReviewCompletionRequest(BaseModel):
     expected_revision: int = Field(ge=0)
 
 
+class IdentityReviewRevisionRequest(BaseModel):
+    """The immutable parent and revision guard for a later identity edit."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parent_version_id: str = Field(min_length=1)
+    expected_revision: int = Field(ge=0)
+
+
 class IdentityReviewItemResponse(BaseModel):
     """One reviewable crop with source and proposal lineage."""
 
@@ -261,10 +275,56 @@ class IdentityReviewBatchResponse(BaseModel):
     review_state: Literal["draft", "completed"]
     reviewer: str | None
     completed_at_utc: str | None
+    parent_version_id: str | None
+    parent_version_digest: str | None = Field(default=None, pattern=SHA256_PATTERN)
     summary: IdentityReviewSummaryResponse
     items: list[IdentityReviewItemResponse]
     coverage: IdentityCoverageResponse
     failures: list[IdentityBatchFailureResponse]
+    publication: "IdentityReviewPublicationResponse | None" = None
+    dataset: "IdentityDatasetResponse | None" = None
+
+
+class IdentityReviewPublicationResponse(BaseModel):
+    """Immutable identity review version and lifecycle receipt."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version_id: str
+    version_digest: str = Field(pattern=SHA256_PATTERN)
+    version_path: str | None
+    receipt_id: str
+    receipt_digest: str = Field(pattern=SHA256_PATTERN)
+    receipt_path: str | None
+    input_draft_revision: int = Field(ge=0)
+    input_draft_digest: str = Field(pattern=SHA256_PATTERN)
+
+
+class IdentityDatasetResponse(BaseModel):
+    """Dataset eligibility and immutable artifact lineage for identity samples."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["visual-card-identity-dataset/v1"]
+    status: Literal["eligible", "blocked"]
+    dataset_version_id: str | None
+    dataset_version_digest: str | None = Field(default=None, pattern=SHA256_PATTERN)
+    dataset_path: str | None
+    split_version_id: str | None
+    split_version_digest: str | None = Field(default=None, pattern=SHA256_PATTERN)
+    split_path: str | None
+    artifact_index_id: str | None
+    artifact_index_digest: str | None = Field(default=None, pattern=SHA256_PATTERN)
+    artifact_index_path: str | None
+    lineage_path: str | None
+    lineage_digest: str | None = Field(default=None, pattern=SHA256_PATTERN)
+    sample_count: int = Field(ge=0)
+    excluded_count: int = Field(ge=0)
+    development_partition: Literal["train", "validation", "test", "unassigned"] | None
+    blocker: str | None
+
+
+IdentityReviewBatchResponse.model_rebuild()
 
 
 class IdentityReviewPreviewValidationResponse(BaseModel):
@@ -334,6 +394,10 @@ class _IdentityContext:
     classifier: Any | None
     request: VisualCardIdentityBatchRequest | None
     protected_groups: tuple[str, ...]
+    source_permission: str
+    allowed_uses: tuple[str, ...]
+    development_partition: str
+    development_group_keys: tuple[tuple[str, str], ...]
 
 
 @router.get(
@@ -554,6 +618,59 @@ def complete_identity_review(
             "identity_review_completion_invalid",
             str(error),
         ) from error
+    if state.get("dataset") is None:
+        try:
+            context = _context(request, state["recording_id"])
+            dataset = build_visual_card_identity_dataset(
+                state,
+                request.app.state.settings.operations_root / "visual-card-identity-datasets",
+                development_partition=context.development_partition,
+                source_permission=context.source_permission,
+                allowed_uses=context.allowed_uses,
+                group_keys=context.development_group_keys,
+            )
+        except (ContractError, OSError, TypeError, ValueError) as error:
+            dataset = _blocked_dataset_projection(f"Identity dataset is unavailable: {error}")
+        try:
+            state = store.attach_dataset(batch_id, dataset=dataset)
+        except (VisualCardIdentityBatchConflict, VisualCardIdentityBatchError, OSError) as error:
+            raise ContractError(
+                "identity_review_dataset_invalid",
+                "The completed identity review dataset projection could not be saved.",
+            ) from error
+    return _batch_response(request, state)
+
+
+@router.post(
+    "/v1/identity-reviews/{batch_id}/revisions",
+    response_model=IdentityReviewBatchResponse,
+)
+def start_identity_review_revision(
+    batch_id: str,
+    payload: IdentityReviewRevisionRequest,
+    request: Request,
+) -> IdentityReviewBatchResponse:
+    """Open a new draft while preserving the current immutable publication."""
+
+    _read_batch(request, batch_id)
+    store = VisualCardIdentityBatchStore(request.app.state.settings.operations_root)
+    try:
+        state = store.start_revision(
+            batch_id,
+            parent_version_id=payload.parent_version_id,
+            expected_revision=payload.expected_revision,
+        )
+    except VisualCardIdentityBatchConflict as error:
+        raise ContractError(
+            "identity_review_conflict",
+            "This review changed in another window. Reload the current revision before revising.",
+            status_code=409,
+        ) from error
+    except (VisualCardIdentityBatchError, OSError) as error:
+        raise ContractError(
+            "identity_review_revision_invalid",
+            str(error),
+        ) from error
     return _batch_response(request, state)
 
 
@@ -602,6 +719,10 @@ async def retry_identity_review_batch(
         classifier=context.classifier,
         request=frozen,
         protected_groups=context.protected_groups,
+        source_permission=context.source_permission,
+        allowed_uses=context.allowed_uses,
+        development_partition=context.development_partition,
+        development_group_keys=context.development_group_keys,
     )
     tasks: dict[str, asyncio.Task[Any]] = request.app.state.identity_review_batch_tasks
     active = tasks.get(batch_id)
@@ -620,10 +741,65 @@ async def retry_identity_review_batch(
     return _batch_response(request, state)
 
 
+def _identity_allowed_uses(source: Any) -> tuple[str, ...]:
+    """Map intake use names to the generic dataset contract."""
+
+    values = {
+        "train" if value == "training" else value
+        for value in getattr(source, "allowed_uses", ())
+        if value in {"train", "validation", "test", "evaluation", "training"}
+    }
+    return tuple(sorted(values)) or ("train",)
+
+
+def _development_context(
+    request: Request, recording_id: str, source_lineage_group: str
+) -> tuple[str, tuple[tuple[str, str], ...]]:
+    """Read the existing CardEvent group assignment without translating its partition."""
+
+    try:
+        recordings = load_card_event_development_recordings(request)
+        split = request.app.state.card_event_development_split_store.read(recordings)
+        entry = next(
+            (item for item in split["recordings"] if item["recording_id"] == recording_id),
+            None,
+        )
+        partition = next(
+            (
+                name
+                for name in ("train", "validation", "test", "unassigned")
+                if recording_id in split[name]
+            ),
+            "unassigned",
+        )
+        if entry is not None:
+            groups = tuple(tuple(pair) for pair in entry["group_keys"])
+            return partition, groups
+    except (ContractError, RuntimeError, ValueError, KeyError, TypeError):
+        pass
+    return "unassigned", (("source_lineage", source_lineage_group),)
+
+
 def _context(request: Request, recording_id: str) -> _IdentityContext:
     if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
         raise ContractError("invalid_recording_id", "The recording ID is invalid.")
     source = _load_source(request, recording_id, require_selected=False)
+    try:
+        source_record = parse_source_record(
+            (
+                request.app.state.repository_bundle_storage.bundle_path(recording_id)
+                / "source-record.json"
+            ).read_bytes()
+        )
+    except (OSError, TypeError, ValueError) as error:
+        raise ContractError(
+            "recording_metadata_invalid",
+            "The stored recording source metadata is invalid.",
+            status_code=500,
+        ) from error
+    development_partition, development_group_keys = _development_context(
+        request, recording_id, source.source_asset_id
+    )
     visible_batch = _find_visible_card_batch(request, recording_id)
     classifier = getattr(request.app.state, "visible_card_identity_classifier", None)
     if classifier is None:
@@ -669,6 +845,10 @@ def _context(request: Request, recording_id: str) -> _IdentityContext:
         classifier=classifier,
         request=frozen_request,
         protected_groups=_protected_groups(request),
+        source_permission=source_record.source_permission,
+        allowed_uses=_identity_allowed_uses(source_record),
+        development_partition=development_partition,
+        development_group_keys=development_group_keys,
     )
 
 
@@ -938,11 +1118,55 @@ def _batch_response(request: Request, state: dict[str, Any]) -> IdentityReviewBa
         review_state=state["review_state"],
         reviewer=state["reviewer"],
         completed_at_utc=state["completed_at_utc"],
+        parent_version_id=state.get("parent_version_id"),
+        parent_version_digest=state.get("parent_version_digest"),
         summary=state["summary"],
         items=items,
         coverage=state["coverage"],
         failures=state["failures"],
+        publication=_safe_publication_response(state.get("publication")),
+        dataset=_safe_dataset_response(state.get("dataset")),
     )
+
+
+def _safe_publication_response(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return {**value, "version_path": None, "receipt_path": None}
+
+
+def _safe_dataset_response(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        **value,
+        "dataset_path": None,
+        "split_path": None,
+        "artifact_index_path": None,
+        "lineage_path": None,
+    }
+
+
+def _blocked_dataset_projection(message: str) -> dict[str, Any]:
+    return {
+        "schema_version": "visual-card-identity-dataset/v1",
+        "status": "blocked",
+        "dataset_version_id": None,
+        "dataset_version_digest": None,
+        "dataset_path": None,
+        "split_version_id": None,
+        "split_version_digest": None,
+        "split_path": None,
+        "artifact_index_id": None,
+        "artifact_index_digest": None,
+        "artifact_index_path": None,
+        "lineage_path": None,
+        "lineage_digest": None,
+        "sample_count": 0,
+        "excluded_count": 0,
+        "development_partition": None,
+        "blocker": message,
+    }
 
 
 def _batch_readiness(batch: IdentityReviewBatchResponse) -> tuple[ReadinessState, str]:
@@ -955,7 +1179,12 @@ def _batch_readiness(batch: IdentityReviewBatchResponse) -> tuple[ReadinessState
             batch.failures
         ).message if batch.failures else "Identity review is blocked."
     if batch.review_state == "completed":
-        return "ready", "Identity review complete. The current draft is ready for publication."
+        if batch.dataset is not None and batch.dataset.status == "blocked":
+            return (
+                "ready",
+                f"Identity review published, but the dataset is blocked: {batch.dataset.blocker}",
+            )
+        return "ready", "Identity review published and eligible for classifier development."
     crop_word = "crop" if len(batch.items) == 1 else "crops"
     return "ready", f"Ready to review — {len(batch.items)} identity {crop_word}."
 
@@ -974,7 +1203,9 @@ def _first_failure(
 
 
 __all__ = [
+    "IdentityDatasetResponse",
     "IdentityReviewBatchResponse",
+    "IdentityReviewPublicationResponse",
     "IdentityReviewPreviewResponse",
     "IdentityReviewReadinessResponse",
     "router",

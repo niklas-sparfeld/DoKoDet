@@ -68,6 +68,8 @@ export type IdentityDecisionUpdateRequest =
   components["schemas"]["IdentityDecisionUpdateRequest"];
 export type IdentityReviewCompletionRequest =
   components["schemas"]["IdentityReviewCompletionRequest"];
+export type IdentityReviewRevisionRequest =
+  components["schemas"]["IdentityReviewRevisionRequest"];
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -199,6 +201,11 @@ export interface DokoDetectorClient {
   completeIdentityReviewBatch(
     batchId: string,
     payload: IdentityReviewCompletionRequest,
+    init?: RequestInit,
+  ): Promise<IdentityReviewBatch>;
+  startIdentityReviewRevision(
+    batchId: string,
+    payload: IdentityReviewRevisionRequest,
     init?: RequestInit,
   ): Promise<IdentityReviewBatch>;
   startRecordingAnalysis(
@@ -473,6 +480,17 @@ export function createDokoDetectorClient(
           body: JSON.stringify(payload),
         },
       ),
+    startIdentityReviewRevision: (batchId, payload, init) =>
+      requestJson<IdentityReviewBatch>(
+        fetchImplementation,
+        identityReviewBatchRevisionPath(batchId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
     startRecordingAnalysis: (recordingId, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -647,6 +665,10 @@ export function identityReviewItemPath(
 
 export function identityReviewBatchCompletePath(batchId: string): string {
   return `${identityReviewBatchPath(batchId)}/complete`;
+}
+
+export function identityReviewBatchRevisionPath(batchId: string): string {
+  return `${identityReviewBatchPath(batchId)}/revisions`;
 }
 
 export function cardEventDevelopmentSplitPreviewPath(): string {

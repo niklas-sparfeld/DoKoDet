@@ -427,6 +427,29 @@ export function IdentityReviewPage({
     }
   }
 
+  async function startRevision() {
+    if (batch?.publication === null || batch?.publication === undefined) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      setBatch(
+        await client.startIdentityReviewRevision(batch.batch_id, {
+          parent_version_id: batch.publication.version_id,
+          expected_revision: batch.revision,
+        }),
+      );
+    } catch (reason: unknown) {
+      setError(describeError(reason));
+      if (isConflictError(reason)) {
+        await loadBatch();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading && batch === null) {
     return (
       <main className={`${styles.shell} ${styles.identityReviewPage}`}>
@@ -563,7 +586,34 @@ export function IdentityReviewPage({
               <div className={styles.identityCompletionPanel} role="status">
                 Completed by {batch.reviewer ?? "unknown reviewer"} at{" "}
                 {batch.completed_at_utc ?? "unknown time"}. The draft is ready
-                for publication in M3.
+                as an immutable review version.
+                {batch.publication !== null &&
+                batch.publication !== undefined ? (
+                  <>
+                    <p className={styles.detailMetaLine}>
+                      Published version {batch.publication.version_id} · receipt{" "}
+                      {batch.publication.receipt_id}
+                    </p>
+                    {batch.dataset !== null && batch.dataset !== undefined ? (
+                      <p className={styles.detailMetaLine}>
+                        Dataset {formatIdentifier(batch.dataset.status)} ·{" "}
+                        {batch.dataset.sample_count} sample
+                        {batch.dataset.sample_count === 1 ? "" : "s"}
+                        {batch.dataset.blocker === null
+                          ? ""
+                          : ` · ${batch.dataset.blocker}`}
+                      </p>
+                    ) : null}
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={() => void startRevision()}
+                      disabled={busy}
+                    >
+                      {busy ? "Opening revision…" : "Start a new revision"}
+                    </button>
+                  </>
+                ) : null}
               </div>
             ) : null}
           </section>

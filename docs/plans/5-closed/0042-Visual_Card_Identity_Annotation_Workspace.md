@@ -4,7 +4,8 @@
 
 - **Summary:** Create and review visual card identity labels from completed visible-card reviews in
   the web recording workspace.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** Plan 0040 complete and plan 0041 classifier proposal and bundle contracts
 - **Builds on:** Plans 0020, 0027, 0039, and 0040 source, web, review, lineage, and visible-region
   workflows
@@ -26,7 +27,10 @@
 - **M2:** Complete — accept, canonical correction, manual labeling, identity-unusable, and
   source-problem decisions now save with revision guards; the batch has explicit completion and
   conflict retry feedback as of 2026-09-02.
-- **M3:** Not started — publish the completed review and prove dataset freeze.
+- **M3:** Complete — immutable review versions and lifecycle receipts now preserve source, crop,
+  proposal, decision, and revision lineage; completed reviews feed a validated group-safe
+  development dataset and split with explicit recording-page eligibility and blockers as of
+  2026-09-02.
 
 ## 1. Purpose
 

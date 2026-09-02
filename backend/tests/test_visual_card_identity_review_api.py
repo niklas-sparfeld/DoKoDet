@@ -322,6 +322,26 @@ def test_identity_review_decisions_are_revision_guarded_and_completion_is_explic
         assert completed.status_code == 200
         assert completed.json()["review_state"] == "completed"
         assert completed.json()["revision"] == 2
+        publication = completed.json()["publication"]
+        assert publication["version_id"].startswith("visual-card-identity-review-")
+        assert completed.json()["dataset"]["status"] == "eligible"
+        assert completed.json()["dataset"]["sample_count"] == 1
+
+        recording = client.get("/v1/recordings/recording-both")
+        assert recording.status_code == 200
+        assert recording.json()["identity_dataset"]["state"] == "eligible"
+        assert recording.json()["identity_dataset"]["sample_count"] == 1
+
+        revision = client.post(
+            f"/v1/identity-reviews/{state['batch_id']}/revisions",
+            json={
+                "parent_version_id": publication["version_id"],
+                "expected_revision": completed.json()["revision"],
+            },
+        )
+        assert revision.status_code == 200, revision.text
+        assert revision.json()["review_state"] == "draft"
+        assert revision.json()["parent_version_id"] == publication["version_id"]
 
 
 def test_identity_source_problem_blocks_completion_without_partial_write(tmp_path: Path) -> None:

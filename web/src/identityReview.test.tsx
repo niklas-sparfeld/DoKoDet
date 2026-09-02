@@ -130,6 +130,8 @@ function batchFixture() {
     review_state: "draft",
     reviewer: null,
     completed_at_utc: null,
+    parent_version_id: null,
+    parent_version_digest: null,
     summary: {
       total_items: 2,
       pending_items: 2,

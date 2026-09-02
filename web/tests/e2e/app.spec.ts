@@ -147,6 +147,10 @@ test("keeps the identity review workspace usable on desktop and narrow viewports
     review_state: "draft",
     reviewer: null,
     completed_at_utc: null,
+    parent_version_id: null,
+    parent_version_digest: null,
+    publication: null,
+    dataset: null,
     summary: {
       total_items: 1,
       pending_items: 1,
@@ -299,6 +303,53 @@ test("keeps the identity review workspace usable on desktop and narrow viewports
         review_state: "completed",
         reviewer: "web-operator",
         completed_at_utc: "2026-09-02T10:02:00Z",
+        publication: {
+          version_id: "visual-card-identity-review-published",
+          version_digest: "a".repeat(64),
+          version_path: null,
+          receipt_id: "receipt-visual-card-identity-published",
+          receipt_digest: "b".repeat(64),
+          receipt_path: null,
+          input_draft_revision: currentBatch.revision,
+          input_draft_digest: "c".repeat(64),
+        },
+        dataset: {
+          schema_version: "visual-card-identity-dataset/v1",
+          status: "eligible",
+          dataset_version_id: "visual-card-identity-dataset-published",
+          dataset_version_digest: "d".repeat(64),
+          dataset_path: null,
+          split_version_id: "visual-card-identity-split-published",
+          split_version_digest: "e".repeat(64),
+          split_path: null,
+          artifact_index_id: "visual-card-identity-artifacts-published",
+          artifact_index_digest: "f".repeat(64),
+          artifact_index_path: null,
+          lineage_path: null,
+          lineage_digest: "1".repeat(64),
+          sample_count: 1,
+          excluded_count: 0,
+          development_partition: "unassigned",
+          blocker: null,
+        },
+      };
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(currentBatch),
+      });
+      return;
+    }
+    if (request.method() === "POST" && url.endsWith("/revisions")) {
+      currentBatch = {
+        ...currentBatch,
+        revision: currentBatch.revision + 1,
+        review_state: "draft",
+        reviewer: null,
+        completed_at_utc: null,
+        parent_version_id: "visual-card-identity-review-published",
+        parent_version_digest: "a".repeat(64),
+        publication: null,
+        dataset: null,
       };
       await route.fulfill({
         contentType: "application/json",
@@ -324,6 +375,9 @@ test("keeps the identity review workspace usable on desktop and narrow viewports
   await expect(page.getByRole("heading", { name: "Accepted" })).toBeVisible();
   await page.getByRole("button", { name: "Complete identity review" }).click();
   await expect(page.getByText(/Completed by web-operator/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start a new revision" }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () =>

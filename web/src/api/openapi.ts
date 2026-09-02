@@ -248,6 +248,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/identity-reviews/{batch_id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Identity Review Revision
+         * @description Open a new draft while preserving the current immutable publication.
+         */
+        post: operations["start_identity_review_revision_v1_identity_reviews__batch_id__revisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/pending-videos/{upload_id}": {
         parameters: {
             query?: never;
@@ -1387,6 +1407,52 @@ export interface components {
             width: number;
         };
         /**
+         * IdentityDatasetResponse
+         * @description Dataset eligibility and immutable artifact lineage for identity samples.
+         */
+        IdentityDatasetResponse: {
+            /** Artifact Index Digest */
+            artifact_index_digest?: string | null;
+            /** Artifact Index Id */
+            artifact_index_id: string | null;
+            /** Artifact Index Path */
+            artifact_index_path: string | null;
+            /** Blocker */
+            blocker: string | null;
+            /** Dataset Path */
+            dataset_path: string | null;
+            /** Dataset Version Digest */
+            dataset_version_digest?: string | null;
+            /** Dataset Version Id */
+            dataset_version_id: string | null;
+            /** Development Partition */
+            development_partition: ("train" | "validation" | "test" | "unassigned") | null;
+            /** Excluded Count */
+            excluded_count: number;
+            /** Lineage Digest */
+            lineage_digest?: string | null;
+            /** Lineage Path */
+            lineage_path: string | null;
+            /** Sample Count */
+            sample_count: number;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-card-identity-dataset/v1";
+            /** Split Path */
+            split_path: string | null;
+            /** Split Version Digest */
+            split_version_digest?: string | null;
+            /** Split Version Id */
+            split_version_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "eligible" | "blocked";
+        };
+        /**
          * IdentityDecisionResponse
          * @description One explicit human identity decision.
          */
@@ -1478,11 +1544,17 @@ export interface components {
             /** Created At Utc */
             created_at_utc: string;
             crop_policy: components["schemas"]["IdentityCropPolicyResponse"];
+            dataset?: components["schemas"]["IdentityDatasetResponse"] | null;
             /** Failures */
             failures: components["schemas"]["IdentityBatchFailureResponse"][];
             /** Items */
             items: components["schemas"]["IdentityReviewItemResponse"][];
+            /** Parent Version Digest */
+            parent_version_digest?: string | null;
+            /** Parent Version Id */
+            parent_version_id: string | null;
             progress: components["schemas"]["IdentityBatchProgressResponse"];
+            publication?: components["schemas"]["IdentityReviewPublicationResponse"] | null;
             /** Recording Id */
             recording_id: string;
             /** Request Digest */
@@ -1611,6 +1683,28 @@ export interface components {
             valid: boolean;
         };
         /**
+         * IdentityReviewPublicationResponse
+         * @description Immutable identity review version and lifecycle receipt.
+         */
+        IdentityReviewPublicationResponse: {
+            /** Input Draft Digest */
+            input_draft_digest: string;
+            /** Input Draft Revision */
+            input_draft_revision: number;
+            /** Receipt Digest */
+            receipt_digest: string;
+            /** Receipt Id */
+            receipt_id: string;
+            /** Receipt Path */
+            receipt_path: string | null;
+            /** Version Digest */
+            version_digest: string;
+            /** Version Id */
+            version_id: string;
+            /** Version Path */
+            version_path: string | null;
+        };
+        /**
          * IdentityReviewReadinessResponse
          * @description Recording-scoped identity review readiness.
          */
@@ -1635,6 +1729,16 @@ export interface components {
              * @enum {string}
              */
             state: "not_ready" | "ready" | "preparing" | "failed" | "blocked";
+        };
+        /**
+         * IdentityReviewRevisionRequest
+         * @description The immutable parent and revision guard for a later identity edit.
+         */
+        IdentityReviewRevisionRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Parent Version Id */
+            parent_version_id: string;
         };
         /**
          * IdentityReviewSummaryResponse
@@ -1851,6 +1955,7 @@ export interface components {
             card_event_review: components["schemas"]["RecordingCardEventReviewSummary"];
             /** Evidence Package Ids */
             evidence_package_ids: string[];
+            identity_dataset: components["schemas"]["RecordingIdentityDatasetSummary"];
             /** Next Action */
             next_action: string;
             /**
@@ -1877,6 +1982,30 @@ export interface components {
             video: components["schemas"]["RecordingVideoResponse"];
             /** Video Id */
             video_id: string;
+        };
+        /**
+         * RecordingIdentityDatasetSummary
+         * @description Identity classifier dataset eligibility shown on the recording page.
+         */
+        RecordingIdentityDatasetSummary: {
+            /** Blocker */
+            blocker: string | null;
+            /** Dataset Version Digest */
+            dataset_version_digest: string | null;
+            /** Dataset Version Id */
+            dataset_version_id: string | null;
+            /** Development Partition */
+            development_partition: string | null;
+            /** Excluded Count */
+            excluded_count: number;
+            /** Sample Count */
+            sample_count: number;
+            /** Split Version Digest */
+            split_version_digest: string | null;
+            /** Split Version Id */
+            split_version_id: string | null;
+            /** State */
+            state: string;
         };
         /**
          * RecordingListResponse
@@ -3546,6 +3675,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReviewBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_identity_review_revision_v1_identity_reviews__batch_id__revisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityReviewRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

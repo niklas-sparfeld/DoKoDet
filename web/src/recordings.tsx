@@ -639,10 +639,57 @@ export function RecordingDetailView({
             recordingId={recording.recording_id}
             review={identityReview}
             error={identityReviewError}
-            onChanged={setIdentityReview}
+            onChanged={(next) => {
+              setIdentityReview(next);
+              const dataset = next.batch?.dataset;
+              setRecording((current) => {
+                if (current === null) {
+                  return current;
+                }
+                if (dataset === undefined || dataset === null) {
+                  if (next.batch?.review_state !== "draft") {
+                    return current;
+                  }
+                  return {
+                    ...current,
+                    identity_dataset: {
+                      ...current.identity_dataset,
+                      state: "review_required",
+                      dataset_version_id: null,
+                      dataset_version_digest: null,
+                      split_version_id: null,
+                      split_version_digest: null,
+                      sample_count: 0,
+                      excluded_count: 0,
+                      development_partition: null,
+                      blocker:
+                        "Complete and publish the visual card identity review.",
+                    },
+                  };
+                }
+                return {
+                  ...current,
+                  identity_dataset: {
+                    ...current.identity_dataset,
+                    state:
+                      dataset.status === "eligible" ? "eligible" : "blocked",
+                    dataset_version_id: dataset.dataset_version_id,
+                    dataset_version_digest:
+                      dataset.dataset_version_digest ?? null,
+                    split_version_id: dataset.split_version_id,
+                    split_version_digest: dataset.split_version_digest ?? null,
+                    sample_count: dataset.sample_count,
+                    excluded_count: dataset.excluded_count,
+                    development_partition: dataset.development_partition,
+                    blocker: dataset.blocker,
+                  },
+                };
+              });
+            }}
           />
           <TrainingUseSection
             trainingUse={recording.training_use}
+            identityDataset={recording.identity_dataset}
             assignmentDestination={assignmentDestination}
             assignmentOperator={assignmentOperator}
             assignmentPreview={assignmentPreview}
@@ -1054,6 +1101,7 @@ function VisibleCardReviewSection({
 
 function TrainingUseSection({
   trainingUse,
+  identityDataset,
   assignmentDestination,
   assignmentOperator,
   assignmentPreview,
@@ -1065,6 +1113,7 @@ function TrainingUseSection({
   onApply,
 }: {
   trainingUse: RecordingDetail["training_use"];
+  identityDataset: RecordingDetail["identity_dataset"];
   assignmentDestination: CardEventDevelopmentSplitPreviewRequest["destination"];
   assignmentOperator: string;
   assignmentPreview: CardEventDevelopmentSplitPreview | null;
@@ -1135,6 +1184,33 @@ function TrainingUseSection({
           No current training-use blocker.
         </p>
       )}
+      <div className={styles.identityCompletionPanel}>
+        <p className={styles.statusLabel}>Visual identity dataset</p>
+        <dl className={styles.detailStats}>
+          <Stat
+            label="Eligibility"
+            value={formatIdentifier(identityDataset.state)}
+          />
+          <Stat label="Samples" value={String(identityDataset.sample_count)} />
+          <Stat
+            label="Partition"
+            value={
+              identityDataset.development_partition === null
+                ? "Unassigned"
+                : formatIdentifier(identityDataset.development_partition)
+            }
+          />
+        </dl>
+        {identityDataset.dataset_version_id !== null ? (
+          <p className={styles.detailMetaLine}>
+            Dataset {identityDataset.dataset_version_id} · digest{" "}
+            {identityDataset.dataset_version_digest?.slice(0, 12)}…
+          </p>
+        ) : null}
+        {identityDataset.blocker !== null ? (
+          <p className={styles.detailBlocker}>{identityDataset.blocker}</p>
+        ) : null}
+      </div>
       {trainingUse.development_group_keys.length > 0 ? (
         <details className={styles.sourceDetails}>
           <summary>Leakage group keys</summary>
