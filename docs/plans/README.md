@@ -48,7 +48,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0045 — Card event review workflow improvements](2-ready/0045-Card_Event_Review_Workflow_Improvements.md) | 0039 M0 through M4 complete | Start or continue a named review, process one fast unified event stream, and show review history on the recording. |
 
 ### In Progress
 
