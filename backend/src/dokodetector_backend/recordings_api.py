@@ -41,7 +41,7 @@ from dokodetector_backend.stored_models import StoredRoundAnalysis
 from dokodetector_backend.video_probe import (
     VideoProbeError,
     VideoProbeUnavailable,
-    probe_video_path,
+    probe_video_path_metadata,
 )
 
 router = APIRouter()
@@ -572,7 +572,7 @@ def _probe_recording_video(bundle_path: Path) -> RecordingMediaFactsResponse | N
         video_paths = tuple(sorted(video_directory.glob("*.mov")))
         if len(video_paths) != 1:
             return None
-        probe = probe_video_path(video_paths[0])
+        probe = probe_video_path_metadata(video_paths[0])
     except (OSError, TypeError, VideoProbeError, VideoProbeUnavailable):
         return None
     return RecordingMediaFactsResponse(

@@ -52,30 +52,54 @@ def probe_video_path(path: str | Path, *, timeout_seconds: float = 5.0) -> Video
     video_path = Path(path)
     if not video_path.is_file():
         raise VideoProbeError("The video file does not exist.")
-    return _probe_video(str(video_path), None, timeout_seconds=timeout_seconds)
+    return _probe_video(
+        str(video_path), None, timeout_seconds=timeout_seconds, count_frames=True
+    )
 
 
-def _probe_video(input_path: str, source: bytes | None, *, timeout_seconds: float) -> VideoProbe:
+def probe_video_path_metadata(path: str | Path, *, timeout_seconds: float = 5.0) -> VideoProbe:
+    """Read video-stream metadata without decoding every frame.
+
+    Use this for interactive views that need a prompt frame rate. The reported frame count is the
+    container's declared count, not a decoded-frame count.
+    """
+
+    video_path = Path(path)
+    if not video_path.is_file():
+        raise VideoProbeError("The video file does not exist.")
+    return _probe_video(
+        str(video_path), None, timeout_seconds=timeout_seconds, count_frames=False
+    )
+
+
+def _probe_video(
+    input_path: str,
+    source: bytes | None,
+    *,
+    timeout_seconds: float,
+    count_frames: bool = True,
+) -> VideoProbe:
     ffprobe = shutil.which("ffprobe")
     if ffprobe is None:
         raise VideoProbeUnavailable("The local video probe tool is not installed.")
 
     try:
+        command = [
+            ffprobe,
+            "-v",
+            "error",
+            "-print_format",
+            "json",
+            "-show_entries",
+            "format=format_name,duration:stream=codec_type,codec_name,width,height,avg_frame_rate,nb_frames,nb_read_frames,duration",
+            "-show_format",
+            "-show_streams",
+        ]
+        if count_frames:
+            command.append("-count_frames")
+        command.extend(["-i", input_path])
         result = subprocess.run(
-            [
-                ffprobe,
-                "-v",
-                "error",
-                "-print_format",
-                "json",
-                "-show_entries",
-                "format=format_name,duration:stream=codec_type,codec_name,width,height,avg_frame_rate,nb_frames,nb_read_frames,duration",
-                "-show_format",
-                "-show_streams",
-                "-count_frames",
-                "-i",
-                input_path,
-            ],
+            command,
             input=source,
             capture_output=True,
             check=False,
@@ -118,10 +142,15 @@ def _probe_video(input_path: str, source: bytes | None, *, timeout_seconds: floa
     height = _positive_int(stream.get("height"), "video height")
     frame_rate = _frame_rate(stream.get("avg_frame_rate"))
     duration_ms = _duration_ms(stream.get("duration") or format_payload.get("duration"))
-    frame_count = _positive_int(stream.get("nb_read_frames"), "decoded video frames")
     declared_frame_count = _optional_positive_int(stream.get("nb_frames"))
-    if declared_frame_count is not None and frame_count != declared_frame_count:
-        raise VideoProbeError("The video does not contain all declared frames.")
+    if count_frames:
+        frame_count = _positive_int(stream.get("nb_read_frames"), "decoded video frames")
+        if declared_frame_count is not None and frame_count != declared_frame_count:
+            raise VideoProbeError("The video does not contain all declared frames.")
+    elif declared_frame_count is not None:
+        frame_count = declared_frame_count
+    else:
+        raise VideoProbeError("The probe did not return a declared video frame count.")
     return VideoProbe(
         container="mp4",
         video_codec="h264",
@@ -186,4 +215,5 @@ __all__ = [
     "VideoProbeUnavailable",
     "probe_video_bytes",
     "probe_video_path",
+    "probe_video_path_metadata",
 ]
