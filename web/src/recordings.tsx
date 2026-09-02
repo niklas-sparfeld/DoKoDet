@@ -740,56 +740,173 @@ function RecordingSection({
   videoRef: import("react").RefObject<HTMLVideoElement | null>;
 }) {
   const mediaFacts = recording.video.media_facts;
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsButtonRef = useRef<HTMLButtonElement>(null);
   return (
-    <section id="recording" className={styles.detailPanel}>
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Source</p>
-          <h2>Recording</h2>
+    <>
+      <section id="recording" className={styles.detailPanel}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Source</p>
+            <h2>Recording</h2>
+          </div>
+          <StatusBadge value={recording.state} />
         </div>
-        <StatusBadge value={recording.state} />
-      </div>
-      <div className={styles.detailRecordingLayout}>
-        <video
-          ref={videoRef}
-          className={styles.detailSourceVideo}
-          controls
-          preload="metadata"
-          src={recording.video.url}
-          aria-label={`Source recording ${recording.recording_id}`}
-        />
-        <dl className={styles.detailStats}>
+        <div className={styles.detailRecordingLayout}>
+          <video
+            ref={videoRef}
+            className={styles.detailSourceVideo}
+            controls
+            preload="metadata"
+            src={recording.video.url}
+            aria-label={`Source recording ${recording.recording_id}`}
+          />
+        </div>
+        <div
+          className={styles.recordingContextBar}
+          aria-label="Recording context"
+        >
+          <dl className={styles.recordingContextStats}>
+            <Stat
+              label="Recording date"
+              value={formatTimestamp(recording.received_at)}
+            />
+            <Stat
+              label="Duration"
+              value={
+                mediaFacts === null
+                  ? "Not measured"
+                  : formatDuration(mediaFacts.duration_ms)
+              }
+            />
+            <Stat
+              label="Frame rate"
+              value={
+                mediaFacts === null || mediaFacts.nominal_frame_rate <= 0
+                  ? "Unavailable"
+                  : `${mediaFacts.nominal_frame_rate.toFixed(2)} fps`
+              }
+            />
+          </dl>
+          <button
+            ref={detailsButtonRef}
+            className={styles.secondaryButton}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={detailsOpen}
+            onClick={() => setDetailsOpen(true)}
+          >
+            Recording details
+          </button>
+        </div>
+      </section>
+      <RecordingDetailsDialog
+        recording={recording}
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        openerRef={detailsButtonRef}
+      />
+    </>
+  );
+}
+
+function RecordingDetailsDialog({
+  recording,
+  open,
+  onClose,
+  openerRef,
+}: {
+  recording: RecordingDetail;
+  open: boolean;
+  onClose: () => void;
+  openerRef: import("react").RefObject<HTMLButtonElement | null>;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+
+  useEffect(() => {
+    if (!open) {
+      if (wasOpen.current) {
+        wasOpen.current = false;
+        openerRef.current?.focus();
+      }
+      return;
+    }
+    wasOpen.current = true;
+    closeButtonRef.current?.focus();
+    const dialog = dialogRef.current;
+    if (dialog === null) {
+      return;
+    }
+    const focusableSelector =
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") {
+        return;
+      }
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(focusableSelector),
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener("keydown", handleKeyDown);
+    return () => dialog.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open, openerRef]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className={styles.recordingDetailsOverlay}>
+      <div
+        ref={dialogRef}
+        className={styles.recordingDetailsDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recording-details-dialog-title"
+        tabIndex={-1}
+      >
+        <div className={styles.recordingDetailsHeader}>
+          <div>
+            <p className={styles.statusLabel}>Recording metadata</p>
+            <h2 id="recording-details-dialog-title">Recording details</h2>
+          </div>
+          <button
+            ref={closeButtonRef}
+            className={styles.recordingDetailsClose}
+            type="button"
+            onClick={onClose}
+            aria-label="Close recording details"
+          >
+            ×
+          </button>
+        </div>
+        <p className={styles.detailLead}>
+          Diagnostic and intake metadata for {recording.recording_id}.
+        </p>
+        <dl className={styles.detailMetadata}>
           <Stat label="Session" value={recording.session_id} />
           <Stat label="Round" value={recording.round_id} />
-          <Stat
-            label="Received"
-            value={formatTimestamp(recording.received_at)}
-          />
-          <Stat
-            label="Duration"
-            value={
-              mediaFacts === null
-                ? "Not measured"
-                : formatDuration(mediaFacts.duration_ms)
-            }
-          />
-          <Stat
-            label="Frame rate"
-            value={
-              mediaFacts === null
-                ? "Not measured"
-                : `${mediaFacts.nominal_frame_rate.toFixed(2)} fps`
-            }
-          />
-          <Stat
-            label="Evidence packages"
-            value={String(recording.evidence_package_ids.length)}
-          />
-        </dl>
-      </div>
-      <details className={styles.sourceDetails}>
-        <summary>Source identifiers and intake metadata</summary>
-        <dl className={styles.detailMetadata}>
           <Stat label="Recording ID" value={recording.recording_id} />
           <Stat label="Source asset" value={recording.source_asset_id} />
           <Stat label="Video ID" value={recording.video_id} />
@@ -802,10 +919,22 @@ function RecordingSection({
             value={recording.source.acquisition_method}
           />
           <Stat label="Permission" value={recording.source.source_permission} />
+          <Stat
+            label="Allowed uses"
+            value={recording.source.allowed_uses.join(", ") || "None"}
+          />
           <Stat label="Retention" value={recording.source.retention_state} />
+          <Stat
+            label="Evidence packages"
+            value={String(recording.evidence_package_ids.length)}
+          />
+          <Stat label="Content type" value={recording.video.content_type} />
+          {recording.source.notes !== null ? (
+            <Stat label="Notes" value={recording.source.notes} />
+          ) : null}
         </dl>
-      </details>
-    </section>
+      </div>
+    </div>
   );
 }
 

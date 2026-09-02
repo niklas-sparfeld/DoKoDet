@@ -4,7 +4,7 @@
 
 - **Summary:** Make CardEvent review wide, fast, keyboard-efficient, and explicit about proposal
   lineage and review history.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Plan 0039 M0 through M4 complete
 - **Builds on:** Plan 0039 recording, CardEvent annotation, review, and development-partition
   contracts
@@ -17,7 +17,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — make the layout video-first and repair frame and keyboard controls.
+- **M0:** Complete — make the layout video-first and repair frame and keyboard controls.
 - **M1:** Not started — make each CardEvent review a recording-owned resource.
 - **M2:** Not started — unify proposals and human events with stable lineage.
 - **M3:** Not started — measure and remove local review-path latency.

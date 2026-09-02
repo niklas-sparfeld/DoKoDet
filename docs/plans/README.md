@@ -48,13 +48,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0045 — Card event review workflow improvements](2-ready/0045-Card_Event_Review_Workflow_Improvements.md) | 0039 M0 through M4 complete | Start or continue a named review, process one fast unified event stream, and show review history on the recording. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 complete: group-safe CardEventNet development partition assignment with immutable split versions and receipts. |
+| [0045 — Card event review workflow improvements](3-in-progress/0045-Card_Event_Review_Workflow_Improvements.md) | 0039 M0 through M4 complete | M0 complete: wide video-first recording layout, accessible recording-details dialog, German-keyboard-safe marker and frame controls, destination-row selection, and explicit frame-nudge blockers. |
 | [0041 — Local visual card identity classifier PoC](3-in-progress/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | 0021 and 0028 complete | M0 complete: frozen DINOv3 model, license, weight materialization, deterministic 224 x 224 crop transform, strict 24-identity target map, and pinned optional dependencies; M1 complete: local frozen-encoder linear-head smoke training with CPU/MPS/CUDA selection, native checkpoints, resume, and failure records; M2 complete: self-contained digest-checked local bundle with runtime-only classifier, deterministic ranked candidates, explicit device and failure behavior; M3 complete: independent backend detector and identity selection, local credential-free mode, persisted bundle provenance and timing, and fixture/MPS proof. |
 
 ### Blocked

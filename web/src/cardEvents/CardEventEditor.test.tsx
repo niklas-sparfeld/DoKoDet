@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -7,7 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 
-import type { CardEventReview } from "../api/client";
+import type { CardEventReview, RecordingDetail } from "../api/client";
 import { emptyRecordingDetail } from "../test/roundAnalysisFixture";
 import { CardEventEditor } from "./CardEventEditor";
 
@@ -70,13 +71,15 @@ function reviewResponse(
 function renderEditor(
   fetchImplementation: typeof fetch,
   summary: typeof emptyRecordingDetail.card_event_review = emptyRecordingDetail.card_event_review,
+  mediaFacts: RecordingDetail["video"]["media_facts"] = emptyRecordingDetail
+    .video.media_facts,
 ) {
   vi.stubGlobal("fetch", fetchImplementation);
   return render(
     <CardEventEditor
       recordingId={recordingId}
       videoUrl="/v1/repository-bundles/recording-card-events/video"
-      mediaFacts={emptyRecordingDetail.video.media_facts}
+      mediaFacts={mediaFacts}
       summary={summary}
     />,
   );
@@ -142,6 +145,9 @@ describe("CardEventEditor", () => {
         name: "Select event 1 at 0:02.000 seconds",
       }),
     );
+    expect(
+      screen.getByRole("button", { name: "Nudge +1 frame" }),
+    ).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Nudge +1 frame" }));
     await user.selectOptions(
       screen.getByLabelText("Event type for selected event"),
@@ -176,6 +182,123 @@ describe("CardEventEditor", () => {
     });
     expect(
       screen.getByText("Event removed. You can undo this action."),
+    ).toBeInTheDocument();
+  });
+
+  it("uses Alt plus arrow keys for marker selection and comma/period for frame nudges", async () => {
+    const savedBodies: Array<Record<string, unknown>> = [];
+    const events = [
+      { time_s: 1, type: "card_played", confidence: "confirmed" },
+      { time_s: 3, type: "trick_cleared", confidence: "confirmed" },
+    ];
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+        savedBodies.push(body);
+        return Promise.resolve(
+          response(
+            reviewResponse(
+              (body.annotation as { events: Array<Record<string, unknown>> })
+                .events,
+              [],
+              savedBodies.length,
+            ),
+          ),
+        );
+      }
+      return Promise.resolve(response(reviewResponse(events, [], 1)));
+    });
+    renderEditor(fetchMock);
+
+    const video = await screen.findByLabelText(
+      "CardEvent source video recording-card-events",
+    );
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      value: 0,
+      writable: true,
+    });
+    fireEvent(video, new Event("timeupdate"));
+
+    const firstMarker = await screen.findByRole("button", {
+      name: "Select event 1 at 0:01.000 seconds",
+    });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    await waitFor(() =>
+      expect(firstMarker).toHaveAttribute("data-selected", "true"),
+    );
+    expect(video).toHaveProperty("currentTime", 1);
+
+    fireEvent.keyDown(window, { key: "." });
+    await waitFor(() => expect(savedBodies).toHaveLength(1));
+    expect(
+      (
+        savedBodies[0]?.annotation as {
+          events: Array<{ time_s: number }>;
+        }
+      ).events[0]?.time_s,
+    ).toBeCloseTo(1 + 1 / 30, 5);
+
+    fireEvent.keyDown(window, { key: "," });
+    await waitFor(() => expect(savedBodies).toHaveLength(2));
+    expect(
+      (
+        savedBodies[1]?.annotation as {
+          events: Array<{ time_s: number }>;
+        }
+      ).events[0]?.time_s,
+    ).toBeCloseTo(1, 5);
+  });
+
+  it("explains why one-frame controls are disabled", async () => {
+    const responseFor = (review: CardEventReview) =>
+      vi.fn<typeof fetch>(() => Promise.resolve(response(review)));
+
+    renderEditor(responseFor(reviewResponse([], [], 1)));
+    expect(
+      await screen.findByRole("button", { name: "Nudge +1 frame" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText("Select an event to enable one-frame nudging."),
+    ).toBeInTheDocument();
+
+    cleanup();
+    renderEditor(
+      responseFor(
+        reviewResponse(
+          [{ time_s: 1, type: "card_played", confidence: "confirmed" }],
+          [],
+          1,
+        ),
+      ),
+      emptyRecordingDetail.card_event_review,
+      null,
+    );
+    expect(
+      await screen.findByRole("button", { name: "Nudge +1 frame" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText("Frame rate is unavailable for this recording."),
+    ).toBeInTheDocument();
+
+    cleanup();
+    renderEditor(
+      responseFor(
+        reviewResponse(
+          [{ time_s: 1, type: "card_played", confidence: "confirmed" }],
+          [],
+          1,
+          { review_state: "completed" },
+        ),
+      ),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Nudge +1 frame" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(
+        "Frame nudging is unavailable because this review is complete.",
+      ),
     ).toBeInTheDocument();
   });
 

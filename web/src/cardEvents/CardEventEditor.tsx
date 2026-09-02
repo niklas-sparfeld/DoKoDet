@@ -43,6 +43,13 @@ type CardEvent = {
   notes?: string | null;
 };
 type EditableEvent = CardEvent & { localId: string };
+type EventMarker =
+  | { time_s: number; event: EditableEvent; proposal?: never }
+  | {
+      time_s: number;
+      event?: never;
+      proposal: CardEventReview["proposals"][number];
+    };
 type ProposalDecision = "undecided" | "accepted" | "dismissed";
 type SaveState = "saving" | "saved" | "error" | "conflict";
 type WorkflowState = "idle" | "completing" | "revising";
@@ -88,6 +95,9 @@ export function CardEventEditor({
     {},
   );
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(
+    null,
+  );
   const [playhead, setPlayhead] = useState(0);
   const [duration, setDuration] = useState(
     mediaFacts === null ? 0 : mediaFacts.duration_ms / 1000,
@@ -137,6 +147,13 @@ export function CardEventEditor({
         nextEvents.some((event) => event.localId === current)
           ? current
           : (nextEvents[0]?.localId ?? null),
+      );
+      setSelectedProposalId((current) =>
+        nextReview.proposals.some(
+          (proposal) => proposal.proposal_id === current,
+        )
+          ? current
+          : null,
       );
     },
     [],
@@ -242,6 +259,14 @@ export function CardEventEditor({
     completionPayload.reviewer.length > 0 &&
     completionPayload.full_video_acknowledged &&
     undecidedProposals.length === 0;
+  const frameNudgeDisabledReason = isCompleted
+    ? "Frame nudging is unavailable because this review is complete."
+    : selectedEvent === undefined
+      ? "Select an event to enable one-frame nudging."
+      : frameRate <= 0
+        ? "Frame rate is unavailable for this recording."
+        : null;
+  const canNudgeFrame = frameNudgeDisabledReason === null;
 
   const persist = useCallback(
     async (
@@ -326,8 +351,20 @@ export function CardEventEditor({
   const selectEvent = useCallback(
     (event: EditableEvent, seek = true) => {
       setSelectedEventId(event.localId);
+      setSelectedProposalId(null);
       if (seek) {
         setCurrentTime(event.time_s);
+      }
+    },
+    [setCurrentTime],
+  );
+
+  const selectProposal = useCallback(
+    (proposal: CardEventReview["proposals"][number], seek = true) => {
+      setSelectedEventId(null);
+      setSelectedProposalId(proposal.proposal_id);
+      if (seek) {
+        setCurrentTime(proposal.time_s);
       }
     },
     [setCurrentTime],
@@ -372,6 +409,7 @@ export function CardEventEditor({
     eventsRef.current = nextEvents;
     setEvents(nextEvents);
     setSelectedEventId(event.localId);
+    setSelectedProposalId(null);
     void persist(
       nextEvents,
       decisionsRef.current,
@@ -381,21 +419,31 @@ export function CardEventEditor({
 
   const jumpToAdjacentMarker = useCallback(
     (direction: "previous" | "next") => {
-      const markerTimes = [
-        ...eventsRef.current.map((event) => event.time_s),
-        ...(reviewRef.current?.proposals ?? []).map(
-          (proposal) => proposal.time_s,
-        ),
-      ].sort((first, second) => first - second);
+      const markers: EventMarker[] = [
+        ...eventsRef.current.map((event) => ({
+          time_s: event.time_s,
+          event,
+        })),
+        ...(reviewRef.current?.proposals ?? []).map((proposal) => ({
+          time_s: proposal.time_s,
+          proposal,
+        })),
+      ].sort((first, second) => first.time_s - second.time_s);
       const nextMarker =
         direction === "previous"
-          ? [...markerTimes].reverse().find((time) => time < playhead - 0.001)
-          : markerTimes.find((time) => time > playhead + 0.001);
+          ? [...markers]
+              .reverse()
+              .find((marker) => marker.time_s < playhead - 0.001)
+          : markers.find((marker) => marker.time_s > playhead + 0.001);
       if (nextMarker !== undefined) {
-        setCurrentTime(nextMarker);
+        if (nextMarker.event !== undefined) {
+          selectEvent(nextMarker.event);
+        } else if (nextMarker.proposal !== undefined) {
+          selectProposal(nextMarker.proposal);
+        }
       }
     },
-    [playhead, setCurrentTime],
+    [playhead, selectEvent, selectProposal],
   );
 
   const removeSelected = useCallback(() => {
@@ -674,6 +722,12 @@ export function CardEventEditor({
         } else {
           video.pause();
         }
+      } else if (
+        event.altKey &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        jumpToAdjacentMarker(event.key === "ArrowLeft" ? "previous" : "next");
       } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
         const amount = event.shiftKey ? 2 : 0.25;
@@ -683,16 +737,10 @@ export function CardEventEditor({
       } else if (event.key === "n" || event.key === "N") {
         event.preventDefault();
         addEvent();
-      } else if (event.key === "j" || event.key === "J") {
-        event.preventDefault();
-        jumpToAdjacentMarker("previous");
-      } else if (event.key === "k" || event.key === "K") {
-        event.preventDefault();
-        jumpToAdjacentMarker("next");
       } else if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
         removeSelected();
-      } else if (event.key === "[") {
+      } else if (event.key === ",") {
         event.preventDefault();
         if (selectedEvent !== undefined && frameRate > 0) {
           moveSelected(
@@ -700,7 +748,7 @@ export function CardEventEditor({
             "Event nudged one frame earlier.",
           );
         }
-      } else if (event.key === "]") {
+      } else if (event.key === ".") {
         event.preventDefault();
         if (selectedEvent !== undefined && frameRate > 0) {
           moveSelected(
@@ -1035,11 +1083,12 @@ export function CardEventEditor({
             key={proposal.proposal_id}
             className={styles.cardEventProposalMarker}
             data-decision={selectedProposalDecisions.get(proposal.proposal_id)}
+            data-selected={proposal.proposal_id === selectedProposalId}
             style={{ left: `${(proposal.time_s / timelineDuration) * 100}%` }}
             type="button"
             title={`Proposal at ${formatTime(proposal.time_s)}`}
-            aria-label={`Jump to proposal at ${formatTime(proposal.time_s)} seconds`}
-            onClick={() => setCurrentTime(proposal.time_s)}
+            aria-label={`Select proposal at ${formatTime(proposal.time_s)} seconds`}
+            onClick={() => selectProposal(proposal)}
           />
         ))}
       </div>
@@ -1103,7 +1152,14 @@ export function CardEventEditor({
                       className={styles.cardEventProposal}
                       aria-label={`Proposal at ${formatTime(proposal.time_s)} seconds`}
                     >
-                      <div>
+                      <button
+                        className={styles.cardEventProposalSelect}
+                        data-selected={
+                          proposal.proposal_id === selectedProposalId
+                        }
+                        type="button"
+                        onClick={() => selectProposal(proposal)}
+                      >
                         <strong>
                           Proposal at {formatTime(proposal.time_s)}
                         </strong>
@@ -1111,7 +1167,7 @@ export function CardEventEditor({
                           {Math.round(proposal.probability * 100)}% ·{" "}
                           {formatIdentifier(decision)}
                         </span>
-                      </div>
+                      </button>
                       <div className={styles.cardEventProposalActions}>
                         <button
                           className={styles.secondaryButton}
@@ -1274,58 +1330,69 @@ export function CardEventEditor({
                   aria-label="Notes for selected event"
                 />
               </label>
-              <div className={styles.cardEventEditActions}>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={() =>
-                    frameRate > 0
-                      ? moveSelected(
-                          selectedEvent.time_s - 1 / frameRate,
-                          "Event nudged one frame earlier.",
-                        )
-                      : undefined
-                  }
-                  disabled={isSaving || isCompleted || frameRate <= 0}
-                >
-                  Nudge −1 frame
-                </button>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={() =>
-                    frameRate > 0
-                      ? moveSelected(
-                          selectedEvent.time_s + 1 / frameRate,
-                          "Event nudged one frame later.",
-                        )
-                      : undefined
-                  }
-                  disabled={isSaving || isCompleted || frameRate <= 0}
-                >
-                  Nudge +1 frame
-                </button>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={() =>
-                    moveSelected(playhead, "Event moved to the playhead.")
-                  }
-                  disabled={isSaving || isCompleted}
-                >
-                  Set to playhead
-                </button>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={removeSelected}
-                  disabled={isSaving || isCompleted}
-                >
-                  Remove selected event
-                </button>
-              </div>
             </>
           )}
+          <div className={styles.cardEventEditActions}>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => {
+                if (selectedEvent !== undefined && frameRate > 0) {
+                  moveSelected(
+                    selectedEvent.time_s - 1 / frameRate,
+                    "Event nudged one frame earlier.",
+                  );
+                }
+              }}
+              disabled={!canNudgeFrame}
+              aria-describedby="frame-nudge-status"
+            >
+              Nudge −1 frame
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => {
+                if (selectedEvent !== undefined && frameRate > 0) {
+                  moveSelected(
+                    selectedEvent.time_s + 1 / frameRate,
+                    "Event nudged one frame later.",
+                  );
+                }
+              }}
+              disabled={!canNudgeFrame}
+              aria-describedby="frame-nudge-status"
+            >
+              Nudge +1 frame
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() =>
+                moveSelected(playhead, "Event moved to the playhead.")
+              }
+              disabled={selectedEvent === undefined || isSaving || isCompleted}
+            >
+              Set to playhead
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={removeSelected}
+              disabled={selectedEvent === undefined || isSaving || isCompleted}
+            >
+              Remove selected event
+            </button>
+          </div>
+          {frameNudgeDisabledReason !== null ? (
+            <p
+              id="frame-nudge-status"
+              className={styles.cardEventRequirement}
+              role="status"
+            >
+              {frameNudgeDisabledReason}
+            </p>
+          ) : null}
         </section>
       </div>
 
@@ -1349,9 +1416,9 @@ export function CardEventEditor({
         <details>
           <summary>Keyboard shortcuts</summary>
           <p>
-            Space play/pause · ←/→ seek 250 ms · Shift + ←/→ seek 2 s · J/K
-            previous/next marker · N add event · [ / ] nudge one frame · Delete
-            remove selected event.
+            Space play/pause · ←/→ seek 250 ms · Shift + ←/→ seek 2 s · Alt +
+            ←/→ previous/next marker · N add event · comma/period nudge one
+            frame · Delete remove selected event.
           </p>
         </details>
       </div>

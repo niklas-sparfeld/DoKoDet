@@ -83,6 +83,25 @@ describe("App", () => {
     expect(
       screen.getByLabelText("Source recording recording-detail-1"),
     ).toHaveAttribute("src", "/v1/repository-bundles/recording-detail-1/video");
+    const detailsButton = screen.getByRole("button", {
+      name: "Recording details",
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(detailsButton);
+    const detailsDialog = screen.getByRole("dialog", {
+      name: "Recording details",
+    });
+    expect(within(detailsDialog).getByText("Session")).toBeInTheDocument();
+    const closeDetailsButton = within(detailsDialog).getByRole("button", {
+      name: "Close recording details",
+    });
+    expect(document.activeElement).toBe(closeDetailsButton);
+    await user.tab();
+    expect(document.activeElement).toBe(closeDetailsButton);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(detailsButton);
     expect(
       screen.getByRole("heading", { name: "Card events" }),
     ).toBeInTheDocument();
@@ -106,7 +125,6 @@ describe("App", () => {
       ),
     ).toBeInTheDocument();
 
-    const user = userEvent.setup();
     await user.click(
       screen.getByRole("button", { name: "Start new analysis" }),
     );
