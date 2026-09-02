@@ -67,7 +67,26 @@ class _FlakyProvider:
         return ProviderResult(status="ok", raw_response={"provider": self.name})
 
 
-def _app(tmp_path: Path, provider: _FlakyProvider, extractor: _FixtureExtractor):
+class _GeminiProvider:
+    name = "gemini"
+    version = "gemini-visible-cards-test-v1"
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def propose(self, request) -> ProviderResult:
+        assert request.provider == self.name
+        self.calls.append(request.package_id)
+        return ProviderResult(status="ok", raw_response={"provider": self.name})
+
+
+def _app(
+    tmp_path: Path,
+    provider: _FlakyProvider | _GeminiProvider,
+    extractor: _FixtureExtractor,
+    *,
+    provider_mode: str = "local",
+):
     intake_root = tmp_path / "data" / "intake" / "recordings"
     shutil.copytree(FIXTURE_ROOT, intake_root / "recording-both")
     settings = Settings(
@@ -77,7 +96,7 @@ def _app(tmp_path: Path, provider: _FlakyProvider, extractor: _FixtureExtractor)
         repository_intake_root=intake_root,
         evidence_package_intake_root=tmp_path / "data" / "intake" / "evidence-packages",
         pending_video_root=tmp_path / "data" / "incoming" / "videos",
-        visible_card_provider="local",
+        visible_card_provider=provider_mode,
     )
     detector = VisibleCardDetectorIdentity(
         bundle_id="visible-card-fixture-bundle",
@@ -88,7 +107,7 @@ def _app(tmp_path: Path, provider: _FlakyProvider, extractor: _FixtureExtractor)
     return create_test_app(
         settings,
         visible_card_provider=provider,
-        visible_card_detector=detector,
+        visible_card_detector=detector if provider_mode == "local" else None,
         visible_card_frame_extractor=extractor,
     )
 
@@ -171,6 +190,38 @@ def test_preview_create_and_reload_persist_progress_without_duplicate_work(tmp_p
         state = _wait_for_batch(client, created.json()["batch_id"])
         assert state["status"] == "failed"
         assert state["progress"]["total_items"] == 2
+
+
+def test_gemini_provider_can_create_a_visible_card_batch(tmp_path: Path) -> None:
+    provider = _GeminiProvider()
+    app = _app(
+        tmp_path,
+        provider,
+        _FixtureExtractor(),
+        provider_mode="gemini",
+    )
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/visible-card-review/preview", json={}
+        )
+        assert preview.status_code == 200
+        preview_body = preview.json()
+        assert preview_body["validation"]["valid"] is True, preview_body["validation"]
+        assert preview_body["detector"]["provider"] == "gemini"
+        assert preview_body["detector"]["model"] == "gemini-3.6-flash"
+
+        created = client.post(
+            "/v1/recordings/recording-both/visible-card-review/batches",
+            json={
+                "preview_digest": preview_body["preview_digest"],
+                "request_digest": preview_body["request_digest"],
+            },
+        )
+        assert created.status_code == 202
+        ready = _wait_for_batch(client, created.json()["batch_id"])
+        assert ready["status"] == "ready"
+        assert len(provider.calls) == 2
 
 
 def test_retry_reuses_successful_items_and_keeps_frozen_identity(tmp_path: Path) -> None:

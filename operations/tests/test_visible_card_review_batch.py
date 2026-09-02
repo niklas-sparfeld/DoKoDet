@@ -291,7 +291,7 @@ def test_task_source_and_provider_gates_block_before_extraction(tmp_path: Path) 
         (replace(request, task_enrollment_selected=False), "task_enrollment_not_selected"),
         (replace(request, source_permission="withdrawn"), "disallowed_source_use"),
         (
-            replace(request, detector=replace(request.detector, provider="gemini")),
+            replace(request, detector=replace(request.detector, provider="unsupported")),
             "non_local_provider",
         ),
     )
@@ -306,6 +306,23 @@ def test_task_source_and_provider_gates_block_before_extraction(tmp_path: Path) 
         assert result["status"] == "blocked"
         assert result["failures"][0]["code"] == code
         assert extractor.calls == []
+
+
+def test_gemini_provider_is_allowed_for_visible_card_review(tmp_path: Path) -> None:
+    request, frames = _request(tmp_path)
+    request = replace(request, detector=replace(request.detector, provider="gemini"))
+    provider = FakeVisibleCardProvider(
+        {hashlib.sha256(image).hexdigest(): _prediction() for image in frames.values()}
+    )
+
+    result = VisibleCardReviewBatchStore(tmp_path / "operations").prepare(
+        request,
+        provider,
+        frame_extractor=_FixtureExtractor(frames),
+    )
+
+    assert result["status"] == "ready"
+    assert all(item["finder"]["request"]["provider"] == "gemini" for item in result["items"])
 
 
 def test_complete_publishes_immutable_queue_and_revision_keeps_parent(tmp_path: Path) -> None:

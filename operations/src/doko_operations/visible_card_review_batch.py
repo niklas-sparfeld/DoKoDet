@@ -1,6 +1,6 @@
 """Prepare exact-event visible-card review batches.
 
-This module joins one immutable, completed CardEvent review to the local visible-card provider.
+This module joins one immutable, completed CardEvent review to the configured visible-card provider.
 It writes only below the operations workspace.  The accepted recording bundle and the completed
 CardEvent artifact are read-only inputs.  A v2 review queue is published only after every selected
 event has a source frame and a successful provider result.
@@ -1360,11 +1360,11 @@ def assess_visible_card_review_readiness(
     ):
         raise VisibleCardBatchError("reviewed_card_event_count must be an integer")
     blockers: list[VisibleCardBatchFailure] = []
-    if detector_provider != "local":
+    if detector_provider not in {"local", "gemini"}:
         blockers.append(
             VisibleCardBatchFailure(
                 code="non_local_provider",
-                message="Only the configured local visible-card provider may run.",
+                message="Only the configured visible-card provider may run.",
                 stage="preview",
             )
         )
@@ -1372,7 +1372,7 @@ def assess_visible_card_review_readiness(
         blockers.append(
             VisibleCardBatchFailure(
                 code="provider_unavailable",
-                message="The local visible-card finder is not available.",
+                message="The configured visible-card finder is not available.",
                 stage="preview",
             )
         )
@@ -1753,7 +1753,7 @@ class VisibleCardReviewBatchStore:
                     ),
                 ),
             )
-        if request.detector.provider != "local":
+        if request.detector.provider not in {"local", "gemini"}:
             return self._persist_terminal(
                 request,
                 status="blocked",
@@ -1762,7 +1762,7 @@ class VisibleCardReviewBatchStore:
                 failures=(
                     VisibleCardBatchFailure(
                         code="non_local_provider",
-                        message="Only the configured local visible-card provider may run.",
+                        message="Only the configured visible-card provider may run.",
                         stage="validation",
                     ),
                 ),
@@ -2050,7 +2050,7 @@ class VisibleCardReviewBatchStore:
                 else:
                     failure = VisibleCardBatchFailure(
                         code="provider_error",
-                        message=result.error or "local visible-card provider failed",
+                        message=result.error or "configured visible-card provider failed",
                         stage="finder",
                         item_id=definition.item_id,
                         retryable=True,

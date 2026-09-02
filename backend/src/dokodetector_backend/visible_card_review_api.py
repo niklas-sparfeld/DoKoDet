@@ -736,7 +736,7 @@ async def retry_visible_card_review_batch(
     if request.app.state.visible_card_provider is None:
         raise ContractError(
             "visible_card_provider_unavailable",
-            "The local visible-card finder is not available.",
+            "The configured visible-card finder is not available.",
         )
     tasks: dict[str, asyncio.Task[Any]] = request.app.state.visible_card_batch_tasks
     active = tasks.get(batch_id)
@@ -855,13 +855,41 @@ def _detector(
     configured_mode = request.app.state.settings.visible_card_provider
     underlying = getattr(provider, "provider", provider)
     provider_name = getattr(underlying, "name", None)
-    if configured_mode != "local":
+    if configured_mode not in {"local", "gemini"}:
         return None, configured_mode, False
-    if provider is None or provider_name != "local":
+    if provider is None or provider_name != configured_mode:
         return None, provider_name, False
     explicit = getattr(request.app.state, "visible_card_detector", None)
     if explicit is not None:
+        if explicit.provider != configured_mode:
+            return None, provider_name, False
         return explicit, provider_name, True
+    if configured_mode == "gemini":
+        model = request.app.state.settings.gemini_model
+        provider_version = str(getattr(underlying, "version", "gemini-visible-cards-v1"))
+        identity_core = {
+            "provider": provider_name,
+            "provider_version": provider_version,
+            "model": model,
+            "preprocessing": "gemini-native-image-v1",
+        }
+        identity_digest = hashlib.sha256(
+            json.dumps(identity_core, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return (
+            VisibleCardDetectorIdentity(
+                bundle_id=f"{provider_name}-{model}",
+                bundle_digest=identity_digest,
+                model=model,
+                preprocessing="gemini-native-image-v1",
+                confidence_threshold=0.0,
+                input_size=1,
+                provider=provider_name,
+                provider_version=provider_version,
+            ),
+            provider_name,
+            True,
+        )
     bundle = getattr(underlying, "bundle", None)
     manifest = getattr(bundle, "manifest", None)
     identity = getattr(underlying, "bundle_identity", None)
