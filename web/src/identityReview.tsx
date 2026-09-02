@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ApiError,
   createDokoDetectorClient,
   identityReviewBatchPagePath,
+  type IdentityDecisionUpdateRequest,
   type IdentityReviewBatch,
   type IdentityReviewPreview,
   type IdentityReviewReadiness,
@@ -13,6 +14,43 @@ import styles from "./App.module.css";
 type IdentityItem = IdentityReviewBatch["items"][number];
 type Point = { x: number; y: number };
 type Box = { x_min: number; y_min: number; x_max: number; y_max: number };
+
+const CANONICAL_IDENTITIES = [
+  "CLUBS_ACE",
+  "CLUBS_NINE",
+  "CLUBS_TEN",
+  "CLUBS_JACK",
+  "CLUBS_QUEEN",
+  "CLUBS_KING",
+  "DIAMONDS_ACE",
+  "DIAMONDS_NINE",
+  "DIAMONDS_TEN",
+  "DIAMONDS_JACK",
+  "DIAMONDS_QUEEN",
+  "DIAMONDS_KING",
+  "HEARTS_ACE",
+  "HEARTS_NINE",
+  "HEARTS_TEN",
+  "HEARTS_JACK",
+  "HEARTS_QUEEN",
+  "HEARTS_KING",
+  "SPADES_ACE",
+  "SPADES_NINE",
+  "SPADES_TEN",
+  "SPADES_JACK",
+  "SPADES_QUEEN",
+  "SPADES_KING",
+] as const;
+
+const IDENTITY_FAILURE_TAGS = [
+  "small_card",
+  "occlusion",
+  "human_hand",
+  "blur",
+  "glare",
+  "crop_boundary",
+  "duplicate",
+] as const;
 
 export function IdentityReviewSection({
   recordingId,
@@ -114,8 +152,8 @@ export function IdentityReviewSection({
       </div>
       <p className={styles.detailLead}>
         Review the visual card identity in each identity-usable crop. Classifier
-        results are proposals only; the human decision is added in the next
-        milestone.
+        results are proposals only. Every crop needs an explicit human decision
+        before completion.
       </p>
       {error !== null ? (
         <p className={styles.errorMessage} role="alert">
@@ -138,7 +176,15 @@ export function IdentityReviewSection({
             />
             <IdentityStat
               label="Batch"
-              value={batch === null ? "Not created" : batch.status}
+              value={
+                batch === null
+                  ? "Not created"
+                  : `${batch.review_state} · revision ${batch.revision}`
+              }
+            />
+            <IdentityStat
+              label="Pending decisions"
+              value={String(batch?.summary?.pending_items ?? 0)}
             />
             <IdentityStat
               label="Crop policy"
@@ -159,6 +205,11 @@ export function IdentityReviewSection({
               >
                 Open identity review workspace
               </a>
+              {batch.review_state === "completed" ? (
+                <span className={styles.status} data-state="completed">
+                  Completed by {batch.reviewer ?? "unknown reviewer"}
+                </span>
+              ) : null}
               {canRetry ? (
                 <button
                   className={styles.secondaryButton}
@@ -251,9 +302,10 @@ export function IdentityReviewPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reviewerName, setReviewerName] = useState("web-operator");
 
   const loadBatch = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal): Promise<IdentityReviewBatch | null> => {
       try {
         const loaded = await client.getIdentityReviewBatch(batchId, {
           signal,
@@ -262,12 +314,15 @@ export function IdentityReviewPage({
           setBatch(loaded);
           setError(null);
           setLoading(false);
+          return loaded;
         }
+        return null;
       } catch (reason: unknown) {
         if (!signal?.aborted) {
           setError(describeError(reason));
           setLoading(false);
         }
+        return null;
       }
     },
     [batchId, client],
@@ -344,6 +399,34 @@ export function IdentityReviewPage({
     }
   }
 
+  async function completeReview() {
+    if (
+      batch === null ||
+      batch.review_state !== "draft" ||
+      reviewerName.trim() === "" ||
+      pendingCountFor(batch) > 0
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      setBatch(
+        await client.completeIdentityReviewBatch(batch.batch_id, {
+          reviewer: reviewerName.trim(),
+          expected_revision: batch.revision,
+        }),
+      );
+    } catch (reason: unknown) {
+      setError(describeError(reason));
+      if (isConflictError(reason)) {
+        await loadBatch();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading && batch === null) {
     return (
       <main className={`${styles.shell} ${styles.identityReviewPage}`}>
@@ -404,7 +487,9 @@ export function IdentityReviewPage({
               {batch.status === "preparing"
                 ? `Preparing ${batch.progress.proposals_completed} of ${batch.progress.total_items} proposals.`
                 : batch.status === "ready"
-                  ? "Every prepared crop is ready for human review."
+                  ? batch.review_state === "completed"
+                    ? "Identity review is complete. Publication is handled in the next phase."
+                    : "Every prepared crop is ready for human review."
                   : batch.status === "failed"
                     ? "Preparation has failures. Review the item state or retry the batch."
                     : "Preparation is blocked. Resolve the source or holdout blocker before review."}
@@ -423,6 +508,11 @@ export function IdentityReviewPage({
                 value={String(batch.progress.failed_items)}
               />
               <IdentityStat
+                label="Pending decisions"
+                value={String(pendingCountFor(batch))}
+              />
+              <IdentityStat label="Revision" value={String(batch.revision)} />
+              <IdentityStat
                 label="Crop policy"
                 value={batch.crop_policy.policy_id}
               />
@@ -439,6 +529,42 @@ export function IdentityReviewPage({
               >
                 {busy ? "Retrying…" : "Retry failed preparation"}
               </button>
+            ) : null}
+            {batch.status === "ready" && batch.review_state === "draft" ? (
+              <div className={styles.identityCompletionPanel}>
+                <label>
+                  Reviewer
+                  <input
+                    value={reviewerName}
+                    onChange={(event) => setReviewerName(event.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+                <p>
+                  {pendingCountFor(batch) === 0
+                    ? "Every crop has a decision. Complete this draft when the summary is correct."
+                    : `${pendingCountFor(batch)} crop${pendingCountFor(batch) === 1 ? "" : "s"} still need a decision.`}
+                </p>
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={() => void completeReview()}
+                  disabled={
+                    busy ||
+                    reviewerName.trim() === "" ||
+                    pendingCountFor(batch) > 0
+                  }
+                >
+                  {busy ? "Completing…" : "Complete identity review"}
+                </button>
+              </div>
+            ) : null}
+            {batch.review_state === "completed" ? (
+              <div className={styles.identityCompletionPanel} role="status">
+                Completed by {batch.reviewer ?? "unknown reviewer"} at{" "}
+                {batch.completed_at_utc ?? "unknown time"}. The draft is ready
+                for publication in M3.
+              </div>
             ) : null}
           </section>
 
@@ -488,6 +614,7 @@ export function IdentityReviewPage({
                 </ol>
               </aside>
               <IdentityReviewItem
+                key={selectedItem.item_id}
                 item={selectedItem}
                 itemIndex={selectedIndex ?? 0}
                 totalItems={batch.items.length}
@@ -495,6 +622,16 @@ export function IdentityReviewPage({
                 onPreviousPending={() => moveSelection(-1, true)}
                 onNext={() => moveSelection(1, false)}
                 onNextPending={() => moveSelection(1, true)}
+                batchId={batch.batch_id}
+                revision={batch.revision}
+                reviewState={batch.review_state}
+                reviewer={reviewerName}
+                client={client}
+                onBatchChanged={(next) => {
+                  setBatch(next);
+                  setError(null);
+                }}
+                onReload={loadBatch}
               />
             </div>
           ) : null}
@@ -512,6 +649,13 @@ function IdentityReviewItem({
   onPreviousPending,
   onNext,
   onNextPending,
+  batchId,
+  revision,
+  reviewState,
+  reviewer,
+  client,
+  onBatchChanged,
+  onReload,
 }: {
   item: IdentityItem;
   itemIndex: number;
@@ -520,11 +664,107 @@ function IdentityReviewItem({
   onPreviousPending: () => void;
   onNext: () => void;
   onNextPending: () => void;
+  batchId: string;
+  revision: number;
+  reviewState: IdentityReviewBatch["review_state"];
+  reviewer: string;
+  client: ReturnType<typeof createDokoDetectorClient>;
+  onBatchChanged: (value: IdentityReviewBatch) => void;
+  onReload: () => Promise<IdentityReviewBatch | null>;
 }) {
+  const [selectedIdentity, setSelectedIdentity] = useState(
+    item.decision.identity ?? item.proposal?.candidates[0]?.card ?? "",
+  );
+  const [search, setSearch] = useState("");
+  const [reason, setReason] = useState(item.decision.reason ?? "");
+  const [failureTags, setFailureTags] = useState<string[]>(
+    item.decision.failure_tags ?? [],
+  );
+  const [saveState, setSaveState] = useState<
+    "idle" | "saving" | "saved" | "error" | "conflict"
+  >("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const pendingSave = useRef<Omit<
+    IdentityDecisionUpdateRequest,
+    "expected_revision"
+  > | null>(null);
+
   const polygons = readPolygons(item.visible_card);
   const box = readBox(item.visible_card);
   const hasPrevious = itemIndex > 0;
   const hasNext = itemIndex < totalItems - 1;
+  const filteredIdentities = CANONICAL_IDENTITIES.filter((identity) =>
+    identity.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  const reviewComplete = reviewState === "completed";
+
+  async function saveDecision(
+    decision: Omit<IdentityDecisionUpdateRequest, "expected_revision">,
+    expectedRevision: number,
+  ) {
+    if (reviewer.trim() === "") {
+      setSaveState("error");
+      setSaveError("Enter a reviewer before saving a decision.");
+      return;
+    }
+    const payload = {
+      ...decision,
+      reviewer: reviewer.trim(),
+      expected_revision: expectedRevision,
+    } satisfies IdentityDecisionUpdateRequest;
+    pendingSave.current = decision;
+    setSaveState("saving");
+    setSaveError(null);
+    setSaveNotice(null);
+    try {
+      const saved = await client.updateIdentityReviewItem(
+        batchId,
+        item.item_id,
+        payload,
+      );
+      pendingSave.current = null;
+      onBatchChanged(saved);
+      setSaveState("saved");
+      setSaveNotice("Decision saved.");
+    } catch (error: unknown) {
+      setSaveState(isConflictError(error) ? "conflict" : "error");
+      setSaveError(describeError(error));
+      if (isConflictError(error)) {
+        await onReload();
+        setSaveNotice(
+          "The current revision was loaded. Retry your action to apply it.",
+        );
+      }
+    }
+  }
+
+  function decisionPayload(
+    action: IdentityDecisionUpdateRequest["action"],
+    identity: string | null,
+    decisionReason: string | null,
+  ): Omit<IdentityDecisionUpdateRequest, "expected_revision"> {
+    return {
+      action,
+      identity,
+      reason: decisionReason,
+      failure_tags: failureTags,
+      reviewer,
+    };
+  }
+
+  async function retrySave() {
+    const pending = pendingSave.current;
+    if (pending === null) {
+      return;
+    }
+    const winning = await onReload();
+    if (winning === null) {
+      return;
+    }
+    await saveDecision(pending, winning.revision);
+  }
+
   return (
     <section className={styles.identityFramePanel}>
       <header className={styles.identityFrameHeader}>
@@ -537,7 +777,7 @@ function IdentityReviewItem({
             Source item {item.visible_card_review_item_id}
           </p>
         </div>
-        <IdentityStatusBadge value={item.status} />
+        <IdentityStatusBadge value={item.decision.status} />
       </header>
 
       <nav className={styles.identityNavigation} aria-label="Identity crops">
@@ -691,13 +931,177 @@ function IdentityReviewItem({
           <div className={styles.sectionHeading}>
             <div>
               <p className={styles.statusLabel}>Human decision</p>
-              <h2>Pending</h2>
+              <h2>{formatIdentifier(item.decision.status)}</h2>
             </div>
+            <span className={styles.countLabel}>
+              {saveState === "saving"
+                ? "Saving…"
+                : saveState === "saved"
+                  ? "Saved"
+                  : ""}
+            </span>
           </div>
-          <p className={styles.identityEmptyState}>
-            Identity selection and completion controls arrive in M2. Do not use
-            this proposal as ground truth.
-          </p>
+          {reviewComplete ? (
+            <div className={styles.identityDecisionSummary} role="status">
+              <strong>
+                {item.decision.identity ?? "No canonical identity"}
+              </strong>
+              {item.decision.reason !== null ? (
+                <span>{item.decision.reason}</span>
+              ) : null}
+              {item.decision.failure_tags.length > 0 ? (
+                <span>Tags: {item.decision.failure_tags.join(", ")}</span>
+              ) : null}
+              {item.decision.status === "source_problem" ? (
+                <a
+                  href={`/visible-card-reviews/${encodeURIComponent(item.source.visible_card_review_batch_id)}?item=${encodeURIComponent(item.source.visible_card_review_item_id)}`}
+                  className={styles.recordingLink}
+                >
+                  Open visible-card review revision
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              {item.proposal?.status === "ok" ? (
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={() =>
+                    void saveDecision(
+                      decisionPayload("accept_proposal", null, null),
+                      revision,
+                    )
+                  }
+                  disabled={saveState === "saving"}
+                >
+                  Accept proposal (
+                  {item.proposal.candidates[0]?.card ?? "unknown"})
+                </button>
+              ) : null}
+              <label className={styles.identitySearchLabel}>
+                Search 24 canonical identities
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Suit or rank"
+                />
+              </label>
+              <div
+                className={styles.identityChoiceGrid}
+                aria-label="Canonical identities"
+              >
+                {filteredIdentities.map((identity) => (
+                  <button
+                    key={identity}
+                    className={styles.identityChoiceButton}
+                    data-selected={selectedIdentity === identity}
+                    type="button"
+                    onClick={() => setSelectedIdentity(identity)}
+                    aria-pressed={selectedIdentity === identity}
+                  >
+                    {identity}
+                  </button>
+                ))}
+              </div>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() =>
+                  void saveDecision(
+                    decisionPayload(
+                      "select_identity",
+                      selectedIdentity || null,
+                      null,
+                    ),
+                    revision,
+                  )
+                }
+                disabled={saveState === "saving" || selectedIdentity === ""}
+              >
+                Save selected identity
+              </button>
+              <label className={styles.identityReasonLabel}>
+                Reason for unusable or source problem
+                <input
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  placeholder="Required for these actions"
+                />
+              </label>
+              <fieldset className={styles.identityFailureTags}>
+                <legend>Optional failure tags</legend>
+                {IDENTITY_FAILURE_TAGS.map((tag) => (
+                  <label key={tag}>
+                    <input
+                      type="checkbox"
+                      checked={failureTags.includes(tag)}
+                      onChange={(event) =>
+                        setFailureTags((current) =>
+                          event.target.checked
+                            ? [...current, tag]
+                            : current.filter((value) => value !== tag),
+                        )
+                      }
+                    />
+                    {formatIdentifier(tag)}
+                  </label>
+                ))}
+              </fieldset>
+              <div className={styles.identityDecisionActions}>
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  onClick={() =>
+                    void saveDecision(
+                      decisionPayload(
+                        "mark_identity_unusable",
+                        null,
+                        reason.trim() || null,
+                      ),
+                      revision,
+                    )
+                  }
+                  disabled={saveState === "saving" || reason.trim() === ""}
+                >
+                  Mark identity unusable
+                </button>
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  onClick={() =>
+                    void saveDecision(
+                      decisionPayload(
+                        "report_source_problem",
+                        null,
+                        reason.trim() || null,
+                      ),
+                      revision,
+                    )
+                  }
+                  disabled={saveState === "saving" || reason.trim() === ""}
+                >
+                  Report source problem
+                </button>
+              </div>
+            </>
+          )}
+          {saveNotice !== null ? <p aria-live="polite">{saveNotice}</p> : null}
+          {saveError !== null ? (
+            <div className={styles.identityFailure} role="alert">
+              <p>{saveError}</p>
+              {saveState === "conflict" ? (
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  onClick={() => void retrySave()}
+                >
+                  Retry this decision
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -843,8 +1247,32 @@ function formatIdentifier(value: string): string {
     .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
 }
 
+function pendingCountFor(batch: IdentityReviewBatch): number {
+  return (
+    batch.summary?.pending_items ??
+    batch.items.filter((item) => item.decision.status === "pending").length
+  );
+}
+
+function isConflictError(reason: unknown): boolean {
+  return reason instanceof ApiError && reason.status === 409;
+}
+
 function describeError(reason: unknown): string {
-  return reason instanceof ApiError
-    ? `The backend returned HTTP ${reason.status}.`
-    : "The backend could not be reached.";
+  if (reason instanceof ApiError) {
+    const body = reason.body;
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof body.error === "object" &&
+      body.error !== null &&
+      "message" in body.error &&
+      typeof body.error.message === "string"
+    ) {
+      return body.error.message;
+    }
+    return `The backend returned HTTP ${reason.status}.`;
+  }
+  return "The backend could not be reached.";
 }

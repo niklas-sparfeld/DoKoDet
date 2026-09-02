@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from doko_operations import (
+    VisualCardIdentityBatchConflict,
     VisualCardIdentityBatchError,
     VisualCardIdentityBatchRequest,
     VisualCardIdentityBatchStore,
@@ -154,16 +155,59 @@ class IdentityCropResponse(BaseModel):
 
 
 class IdentityDecisionResponse(BaseModel):
-    """The pending human decision reserved for the next milestone."""
+    """One explicit human identity decision."""
 
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["visual-card-identity-decision/v1"]
-    status: Literal["pending"]
-    identity: None
-    reason: None
-    reviewer: None
-    updated_at_utc: None
+    status: Literal["pending", "accepted", "corrected", "identity_unusable", "source_problem"]
+    identity: str | None
+    reason: str | None
+    failure_tags: list[str]
+    reviewer: str | None
+    updated_at_utc: str | None
+
+
+class IdentityReviewSummaryResponse(BaseModel):
+    """Counts used to show identity review completion state."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_items: int = Field(ge=0)
+    pending_items: int = Field(ge=0)
+    decided_items: int = Field(ge=0)
+    accepted_items: int = Field(ge=0)
+    corrected_items: int = Field(ge=0)
+    identity_unusable_items: int = Field(ge=0)
+    source_problem_items: int = Field(ge=0)
+    failed_items: int = Field(ge=0)
+
+
+class IdentityDecisionUpdateRequest(BaseModel):
+    """One revision-guarded human identity decision."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=0)
+    action: Literal[
+        "accept_proposal",
+        "select_identity",
+        "mark_identity_unusable",
+        "report_source_problem",
+    ]
+    identity: str | None = None
+    reason: str | None = None
+    failure_tags: list[str] = Field(default_factory=list)
+    reviewer: str = Field(min_length=1)
+
+
+class IdentityReviewCompletionRequest(BaseModel):
+    """The explicit operator confirmation for completing an identity review."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reviewer: str = Field(min_length=1)
+    expected_revision: int = Field(ge=0)
 
 
 class IdentityReviewItemResponse(BaseModel):
@@ -213,6 +257,11 @@ class IdentityReviewBatchResponse(BaseModel):
     classifier: IdentityClassifierResponse
     crop_policy: IdentityCropPolicyResponse
     progress: IdentityBatchProgressResponse
+    revision: int
+    review_state: Literal["draft", "completed"]
+    reviewer: str | None
+    completed_at_utc: str | None
+    summary: IdentityReviewSummaryResponse
     items: list[IdentityReviewItemResponse]
     coverage: IdentityCoverageResponse
     failures: list[IdentityBatchFailureResponse]
@@ -434,6 +483,78 @@ def get_identity_review_crop(batch_id: str, item_id: str, request: Request) -> F
     return FileResponse(
         path, media_type=crop["content_type"], headers={"Cache-Control": "no-store"}
     )
+
+
+@router.put(
+    "/v1/identity-reviews/{batch_id}/items/{item_id}",
+    response_model=IdentityReviewBatchResponse,
+)
+def update_identity_review_item(
+    batch_id: str,
+    item_id: str,
+    payload: IdentityDecisionUpdateRequest,
+    request: Request,
+) -> IdentityReviewBatchResponse:
+    """Save one explicit identity decision with an optimistic revision guard."""
+
+    _read_batch(request, batch_id)
+    store = VisualCardIdentityBatchStore(request.app.state.settings.operations_root)
+    try:
+        state = store.update_decision(
+            batch_id,
+            item_id,
+            action=payload.action,
+            identity=payload.identity,
+            reason=payload.reason,
+            failure_tags=payload.failure_tags,
+            reviewer=payload.reviewer,
+            expected_revision=payload.expected_revision,
+        )
+    except VisualCardIdentityBatchConflict as error:
+        raise ContractError(
+            "identity_review_conflict",
+            "This review changed in another window. Reload the current revision before saving.",
+            status_code=409,
+        ) from error
+    except (VisualCardIdentityBatchError, OSError) as error:
+        raise ContractError(
+            "identity_review_decision_invalid",
+            str(error),
+        ) from error
+    return _batch_response(request, state)
+
+
+@router.post(
+    "/v1/identity-reviews/{batch_id}/complete",
+    response_model=IdentityReviewBatchResponse,
+)
+def complete_identity_review(
+    batch_id: str,
+    payload: IdentityReviewCompletionRequest,
+    request: Request,
+) -> IdentityReviewBatchResponse:
+    """Complete a draft after every crop has an explicit valid decision."""
+
+    _read_batch(request, batch_id)
+    store = VisualCardIdentityBatchStore(request.app.state.settings.operations_root)
+    try:
+        state = store.complete(
+            batch_id,
+            reviewer=payload.reviewer,
+            expected_revision=payload.expected_revision,
+        )
+    except VisualCardIdentityBatchConflict as error:
+        raise ContractError(
+            "identity_review_conflict",
+            "This review changed in another window. Reload the current revision before completing.",
+            status_code=409,
+        ) from error
+    except (VisualCardIdentityBatchError, OSError) as error:
+        raise ContractError(
+            "identity_review_completion_invalid",
+            str(error),
+        ) from error
+    return _batch_response(request, state)
 
 
 @router.post(
@@ -813,6 +934,11 @@ def _batch_response(request: Request, state: dict[str, Any]) -> IdentityReviewBa
             "policy": policy,
         },
         progress=state["progress"],
+        revision=state["revision"],
+        review_state=state["review_state"],
+        reviewer=state["reviewer"],
+        completed_at_utc=state["completed_at_utc"],
+        summary=state["summary"],
         items=items,
         coverage=state["coverage"],
         failures=state["failures"],
@@ -828,6 +954,8 @@ def _batch_readiness(batch: IdentityReviewBatchResponse) -> tuple[ReadinessState
         return "blocked", _first_failure(
             batch.failures
         ).message if batch.failures else "Identity review is blocked."
+    if batch.review_state == "completed":
+        return "ready", "Identity review complete. The current draft is ready for publication."
     crop_word = "crop" if len(batch.items) == 1 else "crops"
     return "ready", f"Ready to review — {len(batch.items)} identity {crop_word}."
 

@@ -13,6 +13,7 @@ import math
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
@@ -21,6 +22,7 @@ from typing import Any, Protocol
 
 from PIL import Image, UnidentifiedImageError
 from table_evidence_analyzer import CARD_IDENTITIES, CardClassificationResult
+from table_evidence_analyzer.visible_card_review import VISIBLE_CARD_FAILURE_TAGS
 from table_evidence_analyzer.visible_card_review_freeze import (
     apply_visible_card_crop_policy,
     frozen_visible_card_crop_policy,
@@ -33,6 +35,11 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     validate_completed_visible_card_review_queue,
 )
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - the supported local runtime is macOS/Linux.
+    fcntl = None  # type: ignore[assignment]
+
 VISUAL_CARD_IDENTITY_REVIEW_SCHEMA_VERSION = "visual-card-identity-review/v1"
 VISUAL_CARD_IDENTITY_BATCH_SCHEMA_VERSION = "visual-card-identity-review-batch/v1"
 VISUAL_CARD_IDENTITY_ITEM_SCHEMA_VERSION = "visual-card-identity-review-item/v1"
@@ -42,6 +49,13 @@ VISUAL_CARD_IDENTITY_COVERAGE_SCHEMA_VERSION = "visual-card-identity-review-cove
 
 VISUAL_CARD_IDENTITY_BATCH_SCHEMA = VISUAL_CARD_IDENTITY_BATCH_SCHEMA_VERSION
 VISUAL_CARD_IDENTITY_BATCH_STATUSES = frozenset({"preparing", "ready", "failed", "blocked"})
+VISUAL_CARD_IDENTITY_REVIEW_STATES = frozenset({"draft", "completed"})
+VISUAL_CARD_IDENTITY_DECISION_STATUSES = frozenset(
+    {"pending", "accepted", "corrected", "identity_unusable", "source_problem"}
+)
+VISUAL_CARD_IDENTITY_DECISION_ACTIONS = frozenset(
+    {"accept_proposal", "select_identity", "mark_identity_unusable", "report_source_problem"}
+)
 VISUAL_CARD_IDENTITY_BATCH_PHASES = frozenset(
     {"validating_inputs", "materializing_crops", "running_proposals", "ready", "failed", "blocked"}
 )
@@ -462,6 +476,7 @@ def _decision_mapping() -> dict[str, Any]:
         "status": "pending",
         "identity": None,
         "reason": None,
+        "failure_tags": [],
         "reviewer": None,
         "updated_at_utc": None,
     }
@@ -473,18 +488,95 @@ def _validate_decision(value: Any) -> None:
         "status",
         "identity",
         "reason",
+        "failure_tags",
         "reviewer",
         "updated_at_utc",
     }:
         raise VisualCardIdentityBatchError("identity decision has unexpected fields")
     if value["schema_version"] != VISUAL_CARD_IDENTITY_DECISION_SCHEMA_VERSION:
         raise VisualCardIdentityBatchError("unsupported identity decision schema")
-    if value["status"] != "pending" or any(
-        value[field] is not None for field in ("identity", "reason", "reviewer", "updated_at_utc")
-    ):
-        raise VisualCardIdentityBatchError(
-            "identity batch items must start with a pending decision"
-        )
+    status = value["status"]
+    if status not in VISUAL_CARD_IDENTITY_DECISION_STATUSES:
+        raise VisualCardIdentityBatchError("identity decision status is invalid")
+    identity = value["identity"]
+    reason = value["reason"]
+    reviewer = value["reviewer"]
+    updated_at = value["updated_at_utc"]
+    failure_tags = value["failure_tags"]
+    if not isinstance(failure_tags, list) or len(set(failure_tags)) != len(failure_tags):
+        raise VisualCardIdentityBatchError("identity decision failure tags are invalid")
+    if any(tag not in VISIBLE_CARD_FAILURE_TAGS for tag in failure_tags):
+        raise VisualCardIdentityBatchError("identity decision contains an unknown failure tag")
+    if status == "pending":
+        if any(field is not None for field in (identity, reason, reviewer, updated_at)):
+            raise VisualCardIdentityBatchError("pending identity decisions cannot contain a value")
+        if failure_tags:
+            raise VisualCardIdentityBatchError(
+                "pending identity decisions cannot contain failure tags"
+            )
+        return
+    if status in {"accepted", "corrected"}:
+        if identity not in CARD_IDENTITIES:
+            raise VisualCardIdentityBatchError(
+                "accepted and corrected identity decisions need a canonical card identity"
+            )
+        if reason is not None:
+            raise VisualCardIdentityBatchError(
+                "accepted and corrected identity decisions cannot contain a reason"
+            )
+    else:
+        if identity is not None:
+            raise VisualCardIdentityBatchError(
+                "identity-unusable and source-problem decisions cannot contain an identity"
+            )
+        _text(reason, "identity decision reason")
+    _text(reviewer, "identity decision reviewer")
+    _utc_timestamp(updated_at, "identity decision updated_at_utc")
+
+
+def _decision_for_action(
+    *,
+    action: str,
+    identity: str | None,
+    reason: str | None,
+    failure_tags: Sequence[str],
+    reviewer: str,
+    proposal: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    if action not in VISUAL_CARD_IDENTITY_DECISION_ACTIONS:
+        raise VisualCardIdentityBatchError("identity decision action is invalid")
+    if not isinstance(failure_tags, Sequence) or isinstance(failure_tags, (str, bytes)):
+        raise VisualCardIdentityBatchError("identity decision failure tags are invalid")
+    tags = list(failure_tags)
+    if action == "accept_proposal":
+        if (
+            not isinstance(proposal, Mapping)
+            or proposal.get("status") != "ok"
+            or not isinstance(proposal.get("candidates"), list)
+            or not proposal["candidates"]
+        ):
+            raise VisualCardIdentityBatchError(
+                "the classifier proposal is unavailable; select a canonical identity"
+            )
+        selected_identity = proposal["candidates"][0].get("card")
+        status = "accepted"
+    elif action == "select_identity":
+        selected_identity = identity
+        status = "corrected"
+    else:
+        selected_identity = None
+        status = "identity_unusable" if action == "mark_identity_unusable" else "source_problem"
+    decision = {
+        "schema_version": VISUAL_CARD_IDENTITY_DECISION_SCHEMA_VERSION,
+        "status": status,
+        "identity": selected_identity,
+        "reason": None if status in {"accepted", "corrected"} else reason,
+        "failure_tags": tags,
+        "reviewer": reviewer,
+        "updated_at_utc": _now(),
+    }
+    _validate_decision(decision)
+    return decision
 
 
 def _validate_candidates(candidates: Any, status: str) -> None:
@@ -738,6 +830,55 @@ def _progress(items: Sequence[Mapping[str, Any]], *, phase: str, total: int) -> 
     }
 
 
+def _summary(items: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    counts = {
+        "total_items": len(items),
+        "pending_items": 0,
+        "decided_items": 0,
+        "accepted_items": 0,
+        "corrected_items": 0,
+        "identity_unusable_items": 0,
+        "source_problem_items": 0,
+        "failed_items": 0,
+    }
+    for item in items:
+        if item.get("status") == "failed":
+            counts["failed_items"] += 1
+        decision = item.get("decision")
+        status = decision.get("status") if isinstance(decision, Mapping) else "pending"
+        if status == "pending":
+            counts["pending_items"] += 1
+        else:
+            counts["decided_items"] += 1
+            key = f"{status}_items"
+            if key in counts:
+                counts[key] += 1
+    return counts
+
+
+def _review_metadata(value: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    current = value or {}
+    return {
+        "revision": current.get("revision", 0),
+        "review_state": current.get("review_state", "draft"),
+        "reviewer": current.get("reviewer"),
+        "completed_at_utc": current.get("completed_at_utc"),
+    }
+
+
+def _validate_completed_decisions(items: Sequence[Mapping[str, Any]]) -> None:
+    for item in items:
+        decision = item["decision"]
+        if decision["status"] == "pending":
+            raise VisualCardIdentityBatchError(
+                f"identity review is incomplete: {item['item_id']}"
+            )
+        if decision["status"] == "source_problem":
+            raise VisualCardIdentityBatchError(
+                f"source-review problem blocks completion: {item['item_id']}"
+            )
+
+
 def _state(
     request: VisualCardIdentityBatchRequest,
     *,
@@ -747,12 +888,14 @@ def _state(
     items: Sequence[Mapping[str, Any]],
     coverage: Mapping[str, Any],
     failures: Sequence[VisualCardIdentityBatchFailure] = (),
+    review: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if (
         status not in VISUAL_CARD_IDENTITY_BATCH_STATUSES
         or phase not in VISUAL_CARD_IDENTITY_BATCH_PHASES
     ):
         raise VisualCardIdentityBatchError("invalid identity batch state")
+    metadata = _review_metadata(review)
     return {
         "schema_version": VISUAL_CARD_IDENTITY_BATCH_SCHEMA_VERSION,
         "batch_id": request.batch_id,
@@ -769,6 +912,8 @@ def _state(
         "items": list(items),
         "coverage": dict(coverage),
         "failures": [failure.to_mapping() for failure in failures],
+        **metadata,
+        "summary": _summary(items),
     }
 
 
@@ -891,6 +1036,11 @@ def _validate_state(value: Any) -> dict[str, Any]:
         "items",
         "coverage",
         "failures",
+        "revision",
+        "review_state",
+        "reviewer",
+        "completed_at_utc",
+        "summary",
     }
     if not isinstance(value, Mapping) or set(value) != fields:
         raise VisualCardIdentityBatchError("identity batch state has unexpected fields")
@@ -905,6 +1055,21 @@ def _validate_state(value: Any) -> dict[str, Any]:
         raise VisualCardIdentityBatchError("identity batch identity does not match frozen inputs")
     if value["status"] not in VISUAL_CARD_IDENTITY_BATCH_STATUSES:
         raise VisualCardIdentityBatchError("identity batch status is invalid")
+    _non_negative_int(value["revision"], "revision")
+    if value["review_state"] not in VISUAL_CARD_IDENTITY_REVIEW_STATES:
+        raise VisualCardIdentityBatchError("identity review state is invalid")
+    if value["reviewer"] is not None:
+        _text(value["reviewer"], "reviewer")
+    if value["completed_at_utc"] is not None:
+        _utc_timestamp(value["completed_at_utc"], "completed_at_utc")
+    if value["review_state"] == "draft" and (
+        value["reviewer"] is not None or value["completed_at_utc"] is not None
+    ):
+        raise VisualCardIdentityBatchError("draft identity reviews cannot have completion metadata")
+    if value["review_state"] == "completed" and (
+        value["reviewer"] is None or value["completed_at_utc"] is None
+    ):
+        raise VisualCardIdentityBatchError("completed identity reviews need completion metadata")
     _utc_timestamp(value["created_at_utc"], "created_at_utc")
     _utc_timestamp(value["updated_at_utc"], "updated_at_utc")
     if (
@@ -952,6 +1117,24 @@ def _validate_state(value: Any) -> dict[str, Any]:
         raise VisualCardIdentityBatchError("identity batch progress is inconsistent")
     for failure in value["failures"]:
         VisualCardIdentityBatchFailure.from_mapping(failure)
+    summary = value["summary"]
+    if not isinstance(summary, Mapping) or set(summary) != {
+        "total_items",
+        "pending_items",
+        "decided_items",
+        "accepted_items",
+        "corrected_items",
+        "identity_unusable_items",
+        "source_problem_items",
+        "failed_items",
+    }:
+        raise VisualCardIdentityBatchError("identity review summary is invalid")
+    for field in summary:
+        _non_negative_int(summary[field], f"summary.{field}")
+    if dict(summary) != _summary(value["items"]):
+        raise VisualCardIdentityBatchError("identity review summary is inconsistent")
+    if value["review_state"] == "completed":
+        _validate_completed_decisions(value["items"])
     return dict(value)
 
 
@@ -1203,6 +1386,36 @@ def _validate_classifier_identity(
         )
 
 
+@contextmanager
+def _identity_review_lock(path: Path):
+    """Serialize identity decision read-check-write operations."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(f".{path.name}.review.lock")
+    if fcntl is None:  # pragma: no cover - supported runtimes provide fcntl.
+        yield
+        return
+    with lock_path.open("a+", encoding="utf-8") as stream:
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+def _validate_expected_revision(value: Any) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise VisualCardIdentityBatchError("expected_revision must be a non-negative integer")
+
+
+def _assert_revision(state: Mapping[str, Any], expected_revision: int) -> None:
+    if state["revision"] != expected_revision:
+        raise VisualCardIdentityBatchConflict(
+            "identity review revision changed: "
+            f"expected {expected_revision}, current {state['revision']}"
+        )
+
+
 class VisualCardIdentityReviewBatchStore:
     """Persist one immutable-input identity preparation batch."""
 
@@ -1214,6 +1427,103 @@ class VisualCardIdentityReviewBatchStore:
 
     def batch_path(self, batch_id: str) -> Path:
         return self.batch_root(batch_id) / "batch.json"
+
+    def update_decision(
+        self,
+        batch_id: str,
+        item_id: str,
+        *,
+        action: str,
+        identity: str | None,
+        reason: str | None,
+        failure_tags: Sequence[str],
+        reviewer: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        """Save one complete human identity decision with an optimistic revision guard."""
+
+        _validate_expected_revision(expected_revision)
+        reviewer = _text(reviewer, "reviewer")
+        with _identity_review_lock(self.batch_path(batch_id)):
+            current = load_visual_card_identity_review_batch(self.batch_path(batch_id))
+            _assert_revision(current, expected_revision)
+            if current["status"] != "ready" or current["review_state"] != "draft":
+                raise VisualCardIdentityBatchError(
+                    "identity decisions are available only for a ready draft batch"
+                )
+            item = next((value for value in current["items"] if value["item_id"] == item_id), None)
+            if item is None:
+                raise VisualCardIdentityBatchError("the identity review item was not found")
+            if item["status"] != "ready":
+                raise VisualCardIdentityBatchError(
+                    "the failed identity review item is not reviewable"
+                )
+            decision = _decision_for_action(
+                action=action,
+                identity=identity,
+                reason=reason,
+                failure_tags=failure_tags,
+                reviewer=reviewer,
+                proposal=item.get("proposal"),
+            )
+            updated_item = dict(item)
+            updated_item["decision"] = decision
+            updated_items = [
+                updated_item if value["item_id"] == item_id else value
+                for value in current["items"]
+            ]
+            updated = dict(current)
+            updated.update(
+                {
+                    "updated_at_utc": _now(),
+                    "revision": current["revision"] + 1,
+                    "items": updated_items,
+                    "summary": _summary(updated_items),
+                }
+            )
+            _atomic_write(self.batch_path(batch_id), _canonical(updated) + b"\n")
+        return load_visual_card_identity_review_batch(self.batch_path(batch_id))
+
+    def complete(
+        self,
+        batch_id: str,
+        *,
+        reviewer: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        """Complete a fully decided draft without publishing an immutable version yet."""
+
+        _validate_expected_revision(expected_revision)
+        reviewer = _text(reviewer, "reviewer")
+        with _identity_review_lock(self.batch_path(batch_id)):
+            current = load_visual_card_identity_review_batch(self.batch_path(batch_id))
+            _assert_revision(current, expected_revision)
+            if current["review_state"] == "completed":
+                if current.get("reviewer") == reviewer:
+                    return current
+                raise VisualCardIdentityBatchConflict(
+                    "the identity review is already complete; start a new revision"
+                )
+            if current["status"] != "ready":
+                raise VisualCardIdentityBatchError(
+                    "complete identity preparation before completing the review"
+                )
+            if current["summary"]["failed_items"]:
+                raise VisualCardIdentityBatchError("failed identity items must be resolved first")
+            _validate_completed_decisions(current["items"])
+            completed_at = _now()
+            updated = dict(current)
+            updated.update(
+                {
+                    "updated_at_utc": completed_at,
+                    "revision": current["revision"] + 1,
+                    "review_state": "completed",
+                    "reviewer": reviewer,
+                    "completed_at_utc": completed_at,
+                }
+            )
+            _atomic_write(self.batch_path(batch_id), _canonical(updated) + b"\n")
+        return load_visual_card_identity_review_batch(self.batch_path(batch_id))
 
     def initialize(self, request: VisualCardIdentityBatchRequest) -> dict[str, Any]:
         """Persist a preparing state before source reads and classifier calls."""
@@ -1240,9 +1550,9 @@ class VisualCardIdentityReviewBatchStore:
 
         path = self.batch_path(batch_id)
         current = load_visual_card_identity_review_batch(path)
-        if current["status"] not in {"failed", "ready"}:
+        if current["status"] not in {"failed", "ready"} or current["review_state"] != "draft":
             raise VisualCardIdentityBatchError(
-                "only a failed or ready identity batch can be retried"
+                "only a failed or draft identity batch can be retried"
             )
         request = VisualCardIdentityBatchRequest.from_mapping(current["frozen_inputs"])
         state = dict(current)
@@ -1282,6 +1592,7 @@ class VisualCardIdentityReviewBatchStore:
             return current
 
         created_at = current["created_at_utc"] if current is not None else _now()
+        review = _review_metadata(current)
         try:
             if request.source_lineage_group in set(request.protected_source_lineage_groups):
                 return self._terminal(
@@ -1289,6 +1600,7 @@ class VisualCardIdentityReviewBatchStore:
                     status="blocked",
                     phase="blocked",
                     created_at=created_at,
+                    review=review,
                     failures=(
                         VisualCardIdentityBatchFailure(
                             "protected_source_group",
@@ -1306,6 +1618,7 @@ class VisualCardIdentityReviewBatchStore:
                     status="blocked",
                     phase="blocked",
                     created_at=created_at,
+                    review=review,
                     coverage=coverage,
                     failures=(
                         VisualCardIdentityBatchFailure(
@@ -1325,6 +1638,7 @@ class VisualCardIdentityReviewBatchStore:
                 status="blocked",
                 phase="blocked",
                 created_at=created_at,
+                review=review,
                 failures=(VisualCardIdentityBatchFailure(code, message, "validation"),),
             )
 
@@ -1343,7 +1657,6 @@ class VisualCardIdentityReviewBatchStore:
             if previous is not None:
                 item["source"] = initial["source"]
                 item["visible_card"] = initial["visible_card"]
-                item["decision"] = _decision_mapping()
                 item["failure"] = None
                 item["status"] = "ready"
             items.append(item)
@@ -1359,6 +1672,7 @@ class VisualCardIdentityReviewBatchStore:
                     created_at=created_at,
                     items=items,
                     coverage=coverage,
+                    review=review,
                 )
             )
             + b"\n",
@@ -1406,6 +1720,7 @@ class VisualCardIdentityReviewBatchStore:
                         created_at=created_at,
                         items=items,
                         coverage=coverage,
+                        review=review,
                     )
                 )
                 + b"\n",
@@ -1419,6 +1734,7 @@ class VisualCardIdentityReviewBatchStore:
                 items=items,
                 coverage=coverage,
                 failures=failures,
+                review=review,
             )
 
         _atomic_write(
@@ -1431,6 +1747,7 @@ class VisualCardIdentityReviewBatchStore:
                     created_at=created_at,
                     items=items,
                     coverage=coverage,
+                    review=review,
                 )
             )
             + b"\n",
@@ -1494,6 +1811,7 @@ class VisualCardIdentityReviewBatchStore:
                         created_at=created_at,
                         items=items,
                         coverage=coverage,
+                        review=review,
                     )
                 )
                 + b"\n",
@@ -1507,6 +1825,7 @@ class VisualCardIdentityReviewBatchStore:
                 items=items,
                 coverage=coverage,
                 failures=failures,
+                review=review,
             )
         return self._terminal(
             request,
@@ -1515,6 +1834,7 @@ class VisualCardIdentityReviewBatchStore:
             created_at=created_at,
             items=items,
             coverage=coverage,
+            review=review,
         )
 
     def _terminal(
@@ -1527,6 +1847,7 @@ class VisualCardIdentityReviewBatchStore:
         items: Sequence[Mapping[str, Any]] = (),
         coverage: Mapping[str, Any] | None = None,
         failures: Sequence[VisualCardIdentityBatchFailure] = (),
+        review: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         if coverage is None:
             coverage = _empty_coverage()
@@ -1538,6 +1859,7 @@ class VisualCardIdentityReviewBatchStore:
             items=items,
             coverage=coverage,
             failures=failures,
+            review=review,
         )
         _atomic_write(self.batch_path(request.batch_id), _canonical(state) + b"\n")
         return load_visual_card_identity_review_batch(self.batch_path(request.batch_id))

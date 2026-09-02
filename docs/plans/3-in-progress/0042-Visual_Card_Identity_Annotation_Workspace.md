@@ -23,7 +23,9 @@
 - **M1:** Complete — recording identity summary, stable batch route, source context, frozen crops,
   classifier proposals, lineage details, navigation, retry states, and responsive browser coverage
   were added on 2026-09-02.
-- **M2:** Not started — correct labels and complete each item with conflict-safe saves.
+- **M2:** Complete — accept, canonical correction, manual labeling, identity-unusable, and
+  source-problem decisions now save with revision guards; the batch has explicit completion and
+  conflict retry feedback as of 2026-09-02.
 - **M3:** Not started — publish the completed review and prove dataset freeze.
 
 ## 1. Purpose

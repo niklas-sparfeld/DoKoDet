@@ -55,7 +55,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 complete: group-safe CardEventNet development partition assignment with immutable split versions and receipts. |
-| [0042 — Visual card identity annotation workspace](3-in-progress/0042-Visual_Card_Identity_Annotation_Workspace.md) | 0040 complete and 0041 contracts | M0 complete: strict source-linked identity batch contracts, frozen crops, classifier proposals, readiness/preview/create/status/retry API, and generated frontend client types; M1 complete: recording summary, stable batch workspace, source/crop context, proposal and lineage display, navigation, retry states, and responsive browser coverage. |
+| [0042 — Visual card identity annotation workspace](3-in-progress/0042-Visual_Card_Identity_Annotation_Workspace.md) | 0040 complete and 0041 contracts | M0 complete: strict source-linked identity batch contracts, frozen crops, classifier proposals, readiness/preview/create/status/retry API, and generated frontend client types; M1 complete: recording summary, stable batch workspace, source/crop context, proposal and lineage display, navigation, retry states, and responsive browser coverage; M2 complete: canonical identity decisions, identity-unusable and source-problem actions, revision-guarded autosave, conflict retry, and explicit completion. |
 | [0041 — Local visual card identity classifier PoC](3-in-progress/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | 0021 and 0028 complete | M0 complete: frozen DINOv3 model, license, weight materialization, deterministic 224 x 224 crop transform, strict 24-identity target map, and pinned optional dependencies; M1 complete: local frozen-encoder linear-head smoke training with CPU/MPS/CUDA selection, native checkpoints, resume, and failure records; M2 complete: self-contained digest-checked local bundle with runtime-only classifier, deterministic ranked candidates, explicit device and failure behavior; M3 complete: independent backend detector and identity selection, local credential-free mode, persisted bundle provenance and timing, and fixture/MPS proof. |
 
 ### Blocked
@@ -115,7 +115,7 @@ The shared target architecture is
 4. Plan 0040 is complete: it seeds exact-event visible-card review with the local finder,
    supports geometry correction in the web app, and publishes reviewed data for the existing
    freeze path.
-5. Complete 0042 M2 and M3 after its M0 contracts and M1 review workspace are in place.
+5. Complete 0042 M3 after its M0 contracts, M1 review workspace, and M2 decision controls are in place.
 6. Implement 0043 only after reviewed real identity coverage can support frozen development
    partitions. Lock at most one passing local candidate.
 7. Implement 0044 only after the quality proof passes. Add productive review selection, campaign

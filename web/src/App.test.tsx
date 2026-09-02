@@ -485,7 +485,7 @@ describe("App", () => {
     expect(
       await screen.findByRole("heading", { name: "Visible-card review" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Frame 2 of 2")).toBeInTheDocument();
+    expect(await screen.findByText("Frame 2 of 2")).toBeInTheDocument();
     expect(screen.getByText("Proposal 1")).toBeInTheDocument();
     expect(screen.getByText("Proposal 2")).toBeInTheDocument();
     expect(

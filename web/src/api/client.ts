@@ -64,6 +64,10 @@ export type IdentityReviewCreateRequest =
 export type IdentityReviewBatch = JsonResponse<
   paths["/v1/identity-reviews/{batch_id}"]["get"]["responses"][200]
 >;
+export type IdentityDecisionUpdateRequest =
+  components["schemas"]["IdentityDecisionUpdateRequest"];
+export type IdentityReviewCompletionRequest =
+  components["schemas"]["IdentityReviewCompletionRequest"];
 export type RoundAnalysisTimeline = JsonResponse<
   paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
 >;
@@ -184,6 +188,17 @@ export interface DokoDetectorClient {
   ): Promise<Blob>;
   retryIdentityReviewBatch(
     batchId: string,
+    init?: RequestInit,
+  ): Promise<IdentityReviewBatch>;
+  updateIdentityReviewItem(
+    batchId: string,
+    itemId: string,
+    payload: IdentityDecisionUpdateRequest,
+    init?: RequestInit,
+  ): Promise<IdentityReviewBatch>;
+  completeIdentityReviewBatch(
+    batchId: string,
+    payload: IdentityReviewCompletionRequest,
     init?: RequestInit,
   ): Promise<IdentityReviewBatch>;
   startRecordingAnalysis(
@@ -436,6 +451,28 @@ export function createDokoDetectorClient(
           body: JSON.stringify({}),
         },
       ),
+    updateIdentityReviewItem: (batchId, itemId, payload, init) =>
+      requestJson<IdentityReviewBatch>(
+        fetchImplementation,
+        identityReviewItemPath(batchId, itemId),
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    completeIdentityReviewBatch: (batchId, payload, init) =>
+      requestJson<IdentityReviewBatch>(
+        fetchImplementation,
+        identityReviewBatchCompletePath(batchId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
     startRecordingAnalysis: (recordingId, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -599,6 +636,17 @@ export function identityReviewCropPath(
 
 export function identityReviewBatchRetryPath(batchId: string): string {
   return `${identityReviewBatchPath(batchId)}/retry`;
+}
+
+export function identityReviewItemPath(
+  batchId: string,
+  itemId: string,
+): string {
+  return `${identityReviewBatchPath(batchId)}/items/${encodeURIComponent(itemId)}`;
+}
+
+export function identityReviewBatchCompletePath(batchId: string): string {
+  return `${identityReviewBatchPath(batchId)}/complete`;
 }
 
 export function cardEventDevelopmentSplitPreviewPath(): string {

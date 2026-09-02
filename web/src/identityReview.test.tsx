@@ -1,13 +1,17 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 
 import { IdentityReviewPage } from "./identityReview";
+import type { IdentityReviewBatch } from "./api/client";
 import { RecordingDetailView } from "./recordings";
 import { emptyRecordingDetail } from "./test/roundAnalysisFixture";
 
 const batchId = "visual-card-identity-batch-0123456789abcdef01234567";
 
-function identityItem(itemId: string, proposal: object | null) {
+function identityItem(
+  itemId: string,
+  proposalValue: ReturnType<typeof makeProposal> | null,
+) {
   return {
     schema_version: "visual-card-identity-review-item/v1",
     item_id: itemId,
@@ -58,12 +62,13 @@ function identityItem(itemId: string, proposal: object | null) {
       policy_id: "raw_rectangular",
       policy_digest: "5".repeat(64),
     },
-    proposal,
+    proposal: proposalValue,
     decision: {
       schema_version: "visual-card-identity-decision/v1",
       status: "pending",
       identity: null,
       reason: null,
+      failure_tags: [],
       reviewer: null,
       updated_at_utc: null,
     },
@@ -72,7 +77,7 @@ function identityItem(itemId: string, proposal: object | null) {
   };
 }
 
-function proposal(itemId: string) {
+function makeProposal(itemId: string) {
   return {
     schema_version: "visual-card-identity-proposal/v1",
     item_id: itemId,
@@ -121,8 +126,22 @@ function batchFixture() {
       proposals_completed: 2,
       failed_items: 0,
     },
+    revision: 0,
+    review_state: "draft",
+    reviewer: null,
+    completed_at_utc: null,
+    summary: {
+      total_items: 2,
+      pending_items: 2,
+      decided_items: 0,
+      accepted_items: 0,
+      corrected_items: 0,
+      identity_unusable_items: 0,
+      source_problem_items: 0,
+      failed_items: 0,
+    },
     items: [
-      identityItem("identity-item-1", proposal("identity-item-1")),
+      identityItem("identity-item-1", makeProposal("identity-item-1")),
       identityItem("identity-item-2", null),
     ],
     coverage: {
@@ -168,7 +187,7 @@ describe("IdentityReviewPage", () => {
       "src",
       `/v1/identity-reviews/${batchId}/items/identity-item-1/crop`,
     );
-    expect(screen.getByText("CLUBS_NINE")).toBeInTheDocument();
+    expect(screen.getAllByText("CLUBS_NINE").length).toBeGreaterThan(0);
     expect(
       screen.getByText("Source, crop, and proposal lineage"),
     ).toBeInTheDocument();
@@ -239,5 +258,135 @@ describe("IdentityReviewPage", () => {
     expect(
       screen.getByRole("link", { name: "Open identity review workspace" }),
     ).toHaveAttribute("href", `/identity-reviews/${batchId}`);
+  });
+
+  it("saves accept, correction, manual, and unusable decisions before completion", async () => {
+    let current = batchFixture() as IdentityReviewBatch;
+    let revision = current.revision;
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      const path = String(input);
+      if (path.includes("/items/") && init?.method === "PUT") {
+        const itemId = path.split("/").at(-1) ?? "";
+        const payload = JSON.parse(String(init.body)) as {
+          action: string;
+          identity?: string | null;
+          reason?: string | null;
+          failure_tags?: string[];
+        };
+        const item = current.items.find((value) => value.item_id === itemId);
+        const status: IdentityReviewBatch["items"][number]["decision"]["status"] =
+          payload.action === "accept_proposal"
+            ? "accepted"
+            : payload.action === "select_identity"
+              ? "corrected"
+              : payload.action === "mark_identity_unusable"
+                ? "identity_unusable"
+                : "source_problem";
+        const nextIdentity =
+          payload.action === "accept_proposal"
+            ? (item?.proposal?.candidates[0]?.card ?? null)
+            : (payload.identity ?? null);
+        current = {
+          ...current,
+          revision: ++revision,
+          updated_at_utc: "2026-09-02T10:01:00Z",
+          items: current.items.map((value) =>
+            value.item_id === itemId
+              ? {
+                  ...value,
+                  decision: {
+                    ...value.decision,
+                    status,
+                    identity: nextIdentity,
+                    reason: payload.reason ?? null,
+                    failure_tags: payload.failure_tags ?? [],
+                    reviewer: "web-operator",
+                    updated_at_utc: "2026-09-02T10:01:00Z",
+                  },
+                }
+              : value,
+          ),
+        };
+        const pending = current.items.filter(
+          (value) => value.decision.status === "pending",
+        ).length;
+        current.summary = {
+          ...current.summary,
+          pending_items: pending,
+          decided_items: current.items.length - pending,
+          accepted_items: current.items.filter(
+            (value) => value.decision.status === "accepted",
+          ).length,
+          corrected_items: current.items.filter(
+            (value) => value.decision.status === "corrected",
+          ).length,
+          identity_unusable_items: current.items.filter(
+            (value) => value.decision.status === "identity_unusable",
+          ).length,
+          source_problem_items: current.items.filter(
+            (value) => value.decision.status === "source_problem",
+          ).length,
+        };
+      } else if (path.endsWith("/complete") && init?.method === "POST") {
+        current = {
+          ...current,
+          revision: ++revision,
+          review_state: "completed",
+          reviewer: "web-operator",
+          completed_at_utc: "2026-09-02T10:02:00Z",
+        };
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(current), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<IdentityReviewPage batchId={batchId} selectedItemId={null} />);
+    expect(
+      await screen.findByRole("button", { name: /Accept proposal/ }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Accept proposal/ }),
+    );
+    await waitFor(() =>
+      expect(current.items[0].decision.status).toBe("accepted"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "SPADES_QUEEN" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save selected identity" }),
+    );
+    await waitFor(() =>
+      expect(current.items[0].decision.identity).toBe("SPADES_QUEEN"),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "HEARTS_ACE" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save selected identity" }),
+    );
+    await waitFor(() =>
+      expect(current.items[1].decision.status).toBe("corrected"),
+    );
+    await userEvent.type(
+      screen.getByLabelText("Reason for unusable or source problem"),
+      "blurred crop",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Mark identity unusable" }),
+    );
+    await waitFor(() =>
+      expect(current.items[1].decision.status).toBe("identity_unusable"),
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Complete identity review" }),
+    );
+    await waitFor(() => expect(current.review_state).toBe("completed"));
+    expect(screen.getByText(/Completed by web-operator/)).toBeInTheDocument();
   });
 });

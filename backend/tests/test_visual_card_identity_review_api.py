@@ -247,3 +247,118 @@ def test_identity_review_preview_create_and_crop_route(tmp_path: Path) -> None:
         assert crop.headers["content-type"] == "image/x-portable-pixmap"
         assert crop.content.startswith(b"P6\n")
         assert classifier.calls == 1
+
+
+def test_identity_review_decisions_are_revision_guarded_and_completion_is_explicit(
+    tmp_path: Path,
+) -> None:
+    app, _ = _app(tmp_path)
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        _complete_visible_card_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/identity-review/preview", json={}
+        ).json()
+        created = client.post(
+            "/v1/recordings/recording-both/identity-review/batches",
+            json={
+                "preview_digest": preview["preview_digest"],
+                "request_digest": preview["request_digest"],
+            },
+        )
+        state = _wait_for_identity_batch(client, created.json()["batch_id"])
+        item_id = state["items"][0]["item_id"]
+        path = f"/v1/identity-reviews/{state['batch_id']}/items/{item_id}"
+
+        saved = client.put(
+            path,
+            json={
+                "expected_revision": 0,
+                "action": "accept_proposal",
+                "identity": None,
+                "reason": None,
+                "failure_tags": [],
+                "reviewer": "fixture-operator",
+            },
+        )
+        assert saved.status_code == 200
+        assert saved.json()["revision"] == 1
+        assert saved.json()["items"][0]["decision"]["identity"] == "CLUBS_NINE"
+
+        stale = client.put(
+            path,
+            json={
+                "expected_revision": 0,
+                "action": "select_identity",
+                "identity": "SPADES_NINE",
+                "reason": None,
+                "failure_tags": [],
+                "reviewer": "fixture-operator",
+            },
+        )
+        assert stale.status_code == 409
+        assert stale.json()["error"]["code"] == "identity_review_conflict"
+
+        invalid = client.put(
+            path,
+            json={
+                "expected_revision": 1,
+                "action": "select_identity",
+                "identity": "NOT_A_CARD",
+                "reason": None,
+                "failure_tags": [],
+                "reviewer": "fixture-operator",
+            },
+        )
+        assert invalid.status_code == 422
+        current = client.get(f"/v1/identity-reviews/{state['batch_id']}").json()
+        assert current["revision"] == 1
+        assert current["items"][0]["decision"]["identity"] == "CLUBS_NINE"
+
+        completed = client.post(
+            f"/v1/identity-reviews/{state['batch_id']}/complete",
+            json={"reviewer": "fixture-operator", "expected_revision": 1},
+        )
+        assert completed.status_code == 200
+        assert completed.json()["review_state"] == "completed"
+        assert completed.json()["revision"] == 2
+
+
+def test_identity_source_problem_blocks_completion_without_partial_write(tmp_path: Path) -> None:
+    app, _ = _app(tmp_path)
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        _complete_visible_card_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/identity-review/preview", json={}
+        ).json()
+        created = client.post(
+            "/v1/recordings/recording-both/identity-review/batches",
+            json={
+                "preview_digest": preview["preview_digest"],
+                "request_digest": preview["request_digest"],
+            },
+        )
+        state = _wait_for_identity_batch(client, created.json()["batch_id"])
+        item_id = state["items"][0]["item_id"]
+        saved = client.put(
+            f"/v1/identity-reviews/{state['batch_id']}/items/{item_id}",
+            json={
+                "expected_revision": 0,
+                "action": "report_source_problem",
+                "identity": None,
+                "reason": "The visible region is wrong.",
+                "failure_tags": [],
+                "reviewer": "fixture-operator",
+            },
+        )
+        assert saved.status_code == 200
+        blocked = client.post(
+            f"/v1/identity-reviews/{state['batch_id']}/complete",
+            json={"reviewer": "fixture-operator", "expected_revision": 1},
+        )
+        assert blocked.status_code == 422
+        current = client.get(f"/v1/identity-reviews/{state['batch_id']}").json()
+        assert current["review_state"] == "draft"
+        assert current["revision"] == 1
+        assert current["summary"]["source_problem_items"] == 1

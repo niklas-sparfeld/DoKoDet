@@ -168,6 +168,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/identity-reviews/{batch_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Identity Review
+         * @description Complete a draft after every crop has an explicit valid decision.
+         */
+        post: operations["complete_identity_review_v1_identity_reviews__batch_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/identity-reviews/{batch_id}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Identity Review Item
+         * @description Save one explicit identity decision with an optimistic revision guard.
+         */
+        put: operations["update_identity_review_item_v1_identity_reviews__batch_id__items__item_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/identity-reviews/{batch_id}/items/{item_id}/crop": {
         parameters: {
             query?: never;
@@ -1348,15 +1388,17 @@ export interface components {
         };
         /**
          * IdentityDecisionResponse
-         * @description The pending human decision reserved for the next milestone.
+         * @description One explicit human identity decision.
          */
         IdentityDecisionResponse: {
+            /** Failure Tags */
+            failure_tags: string[];
             /** Identity */
-            identity: null;
+            identity: string | null;
             /** Reason */
-            reason: null;
+            reason: string | null;
             /** Reviewer */
-            reviewer: null;
+            reviewer: string | null;
             /**
              * Schema Version
              * @constant
@@ -1364,11 +1406,32 @@ export interface components {
             schema_version: "visual-card-identity-decision/v1";
             /**
              * Status
-             * @constant
+             * @enum {string}
              */
-            status: "pending";
+            status: "pending" | "accepted" | "corrected" | "identity_unusable" | "source_problem";
             /** Updated At Utc */
-            updated_at_utc: null;
+            updated_at_utc: string | null;
+        };
+        /**
+         * IdentityDecisionUpdateRequest
+         * @description One revision-guarded human identity decision.
+         */
+        IdentityDecisionUpdateRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "accept_proposal" | "select_identity" | "mark_identity_unusable" | "report_source_problem";
+            /** Expected Revision */
+            expected_revision: number;
+            /** Failure Tags */
+            failure_tags?: string[];
+            /** Identity */
+            identity?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Reviewer */
+            reviewer: string;
         };
         /**
          * IdentityProposalResponse
@@ -1409,6 +1472,8 @@ export interface components {
             /** Batch Id */
             batch_id: string;
             classifier: components["schemas"]["IdentityClassifierResponse"];
+            /** Completed At Utc */
+            completed_at_utc: string | null;
             coverage: components["schemas"]["IdentityCoverageResponse"];
             /** Created At Utc */
             created_at_utc: string;
@@ -1423,6 +1488,15 @@ export interface components {
             /** Request Digest */
             request_digest: string;
             /**
+             * Review State
+             * @enum {string}
+             */
+            review_state: "draft" | "completed";
+            /** Reviewer */
+            reviewer: string | null;
+            /** Revision */
+            revision: number;
+            /**
              * Schema Version
              * @constant
              */
@@ -1432,8 +1506,19 @@ export interface components {
              * @enum {string}
              */
             status: "preparing" | "ready" | "failed" | "blocked";
+            summary: components["schemas"]["IdentityReviewSummaryResponse"];
             /** Updated At Utc */
             updated_at_utc: string;
+        };
+        /**
+         * IdentityReviewCompletionRequest
+         * @description The explicit operator confirmation for completing an identity review.
+         */
+        IdentityReviewCompletionRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Reviewer */
+            reviewer: string;
         };
         /**
          * IdentityReviewCreateRequest
@@ -1550,6 +1635,28 @@ export interface components {
              * @enum {string}
              */
             state: "not_ready" | "ready" | "preparing" | "failed" | "blocked";
+        };
+        /**
+         * IdentityReviewSummaryResponse
+         * @description Counts used to show identity review completion state.
+         */
+        IdentityReviewSummaryResponse: {
+            /** Accepted Items */
+            accepted_items: number;
+            /** Corrected Items */
+            corrected_items: number;
+            /** Decided Items */
+            decided_items: number;
+            /** Failed Items */
+            failed_items: number;
+            /** Identity Unusable Items */
+            identity_unusable_items: number;
+            /** Pending Items */
+            pending_items: number;
+            /** Source Problem Items */
+            source_problem_items: number;
+            /** Total Items */
+            total_items: number;
         };
         /**
          * IdentitySourceResponse
@@ -3304,6 +3411,77 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReviewBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_identity_review_v1_identity_reviews__batch_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityReviewCompletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReviewBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_identity_review_item_v1_identity_reviews__batch_id__items__item_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityDecisionUpdateRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

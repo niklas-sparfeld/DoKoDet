@@ -143,6 +143,20 @@ test("keeps the identity review workspace usable on desktop and narrow viewports
       proposals_completed: 1,
       failed_items: 0,
     },
+    revision: 0,
+    review_state: "draft",
+    reviewer: null,
+    completed_at_utc: null,
+    summary: {
+      total_items: 1,
+      pending_items: 1,
+      decided_items: 0,
+      accepted_items: 0,
+      corrected_items: 0,
+      identity_unusable_items: 0,
+      source_problem_items: 0,
+      failed_items: 0,
+    },
     items: [
       {
         schema_version: "visual-card-identity-review-item/v1",
@@ -208,6 +222,7 @@ test("keeps the identity review workspace usable on desktop and narrow viewports
           status: "pending",
           identity: null,
           reason: null,
+          failure_tags: [],
           reviewer: null,
           updated_at_utc: null,
         },
@@ -226,11 +241,68 @@ test("keeps the identity review workspace usable on desktop and narrow viewports
     },
     failures: [],
   };
+  let currentBatch = batch;
   await page.route("**/v1/identity-reviews/**", async (route) => {
-    if (route.request().url().endsWith(IDENTITY_BATCH_ID)) {
+    const request = route.request();
+    const url = request.url();
+    if (request.method() === "GET" && url.endsWith(IDENTITY_BATCH_ID)) {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify(batch),
+        body: JSON.stringify(currentBatch),
+      });
+      return;
+    }
+    if (request.method() === "PUT" && url.includes("/items/")) {
+      const payload = request.postDataJSON() as {
+        action: string;
+        identity?: string | null;
+        reason?: string | null;
+        failure_tags?: string[];
+      };
+      const updatedItem = {
+        ...currentBatch.items[0],
+        decision: {
+          ...currentBatch.items[0].decision,
+          status:
+            payload.action === "accept_proposal" ? "accepted" : "corrected",
+          identity:
+            payload.action === "accept_proposal"
+              ? (currentBatch.items[0].proposal?.candidates[0]?.card ?? null)
+              : (payload.identity ?? null),
+          reason: payload.reason ?? null,
+          failure_tags: payload.failure_tags ?? [],
+          reviewer: "web-operator",
+          updated_at_utc: "2026-09-02T10:01:00Z",
+        },
+      };
+      currentBatch = {
+        ...currentBatch,
+        revision: currentBatch.revision + 1,
+        summary: {
+          ...currentBatch.summary,
+          pending_items: 0,
+          decided_items: 1,
+          accepted_items: 1,
+        },
+        items: [updatedItem],
+      };
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(currentBatch),
+      });
+      return;
+    }
+    if (request.method() === "POST" && url.endsWith("/complete")) {
+      currentBatch = {
+        ...currentBatch,
+        revision: currentBatch.revision + 1,
+        review_state: "completed",
+        reviewer: "web-operator",
+        completed_at_utc: "2026-09-02T10:02:00Z",
+      };
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(currentBatch),
       });
       return;
     }
@@ -245,7 +317,13 @@ test("keeps the identity review workspace usable on desktop and narrow viewports
   await expect(
     page.getByRole("heading", { name: "Visual card identities" }),
   ).toBeVisible();
-  await expect(page.getByText("CLUBS_NINE")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "CLUBS_NINE", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Accept proposal/ }).click();
+  await expect(page.getByRole("heading", { name: "Accepted" })).toBeVisible();
+  await page.getByRole("button", { name: "Complete identity review" }).click();
+  await expect(page.getByText(/Completed by web-operator/)).toBeVisible();
   expect(
     await page.evaluate(
       () =>

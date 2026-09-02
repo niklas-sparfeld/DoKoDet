@@ -18,6 +18,7 @@ from table_evidence_analyzer import (
 
 import doko_operations.visual_card_identity_review_batch as identity_batch
 from doko_operations import (
+    VisualCardIdentityBatchConflict,
     VisualCardIdentityBatchError,
     VisualCardIdentityBatchRequest,
     VisualCardIdentityBatchStore,
@@ -291,3 +292,104 @@ def test_identity_crop_write_failure_is_explicit(tmp_path: Path, monkeypatch) ->
 
     assert result["status"] == "failed"
     assert result["items"][0]["failure"]["code"] == "write_error"
+
+
+def test_identity_decision_save_validates_revision_and_completes(tmp_path: Path) -> None:
+    queue_path, queue_digest, _ = _queue(tmp_path)
+    request = _request(tmp_path, queue_path, queue_digest)
+    store = VisualCardIdentityBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, _Classifier())
+    item_id = prepared["items"][0]["item_id"]
+
+    saved = store.update_decision(
+        request.batch_id,
+        item_id,
+        action="accept_proposal",
+        identity=None,
+        reason=None,
+        failure_tags=["glare"],
+        reviewer="fixture-operator",
+        expected_revision=0,
+    )
+    assert saved["revision"] == 1
+    assert saved["items"][0]["decision"] == {
+        "schema_version": "visual-card-identity-decision/v1",
+        "status": "accepted",
+        "identity": "CLUBS_NINE",
+        "reason": None,
+        "failure_tags": ["glare"],
+        "reviewer": "fixture-operator",
+        "updated_at_utc": saved["items"][0]["decision"]["updated_at_utc"],
+    }
+    with pytest.raises(VisualCardIdentityBatchConflict):
+        store.update_decision(
+            request.batch_id,
+            item_id,
+            action="select_identity",
+            identity="SPADES_NINE",
+            reason=None,
+            failure_tags=[],
+            reviewer="fixture-operator",
+            expected_revision=0,
+        )
+    current = load_visual_card_identity_review_batch(store.batch_path(request.batch_id))
+    assert current["revision"] == 1
+
+    completed = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=1,
+    )
+    assert completed["review_state"] == "completed"
+    assert completed["revision"] == 2
+    assert completed["summary"]["pending_items"] == 0
+
+
+def test_identity_unusable_is_complete_but_source_problem_blocks_completion(tmp_path: Path) -> None:
+    queue_path, queue_digest, _ = _queue(tmp_path)
+    request = _request(tmp_path, queue_path, queue_digest)
+    store = VisualCardIdentityBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, _Classifier())
+    item_id = prepared["items"][0]["item_id"]
+
+    unusable = store.update_decision(
+        request.batch_id,
+        item_id,
+        action="mark_identity_unusable",
+        identity=None,
+        reason="blur",
+        failure_tags=["blur"],
+        reviewer="fixture-operator",
+        expected_revision=0,
+    )
+    assert unusable["summary"]["identity_unusable_items"] == 1
+    completed = store.complete(
+        request.batch_id,
+        reviewer="fixture-operator",
+        expected_revision=1,
+    )
+    assert completed["review_state"] == "completed"
+
+    second_root = tmp_path / "second"
+    second_root.mkdir()
+    second_queue, second_digest, _ = _queue(second_root)
+    second_request = _request(second_root, second_queue, second_digest)
+    second_store = VisualCardIdentityBatchStore(tmp_path / "second-operations")
+    second_prepared = second_store.prepare(second_request, _Classifier())
+    source_problem = second_store.update_decision(
+        second_request.batch_id,
+        second_prepared["items"][0]["item_id"],
+        action="report_source_problem",
+        identity=None,
+        reason="visible region is wrong",
+        failure_tags=[],
+        reviewer="fixture-operator",
+        expected_revision=0,
+    )
+    assert source_problem["summary"]["source_problem_items"] == 1
+    with pytest.raises(VisualCardIdentityBatchError, match="source-review problem"):
+        second_store.complete(
+            second_request.batch_id,
+            reviewer="fixture-operator",
+            expected_revision=1,
+        )
