@@ -1866,7 +1866,8 @@ progress {
 
 .cardEventScreenshotCapture {
   position: fixed;
-  z-index: -1;
+  top: 0;
+  left: -10000px;
   width: 1px;
   height: 1px;
   overflow: hidden;
