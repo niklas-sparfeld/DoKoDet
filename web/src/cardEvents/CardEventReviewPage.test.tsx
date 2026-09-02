@@ -100,7 +100,7 @@ describe("CardEventReviewPage", () => {
     expect(
       screen.getByRole("button", { name: "Correct annotations" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("2 events")).toHaveLength(2);
+    expect(screen.getAllByText("2 events")).toHaveLength(3);
     const eventCounts = screen.getByLabelText("Event counts");
     expect(eventCounts).toHaveTextContent("Reviewed");
     expect(eventCounts).toHaveTextContent("Dismissed");
@@ -108,6 +108,12 @@ describe("CardEventReviewPage", () => {
     expect(
       screen.getByLabelText("Source recording recording-detail-1"),
     ).toHaveAttribute("src", emptyRecordingDetail.video.url);
+    expect(screen.getByLabelText("Event navigator")).toHaveTextContent(
+      "Current event",
+    );
+    expect(screen.getByLabelText("Event navigator")).toHaveTextContent(
+      "0:01.250",
+    );
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       "/v1/card-event-reviews/cardevent-review-1",
@@ -292,5 +298,36 @@ describe("CardEventReviewPage", () => {
     ]);
     expect((await screen.findAllByText("Dismissed")).length).toBeGreaterThan(0);
     expect(screen.queryByText("Retrying")).not.toBeInTheDocument();
+  });
+
+  it("keeps the selected event visible beside the source video", async () => {
+    const fetchMock = vi.fn<typeof fetch>((input) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input).includes("/card-event-reviews/")
+              ? review
+              : emptyRecordingDetail,
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={review.review_id} />);
+    await screen.findByRole("heading", { name: "CardEvent review" });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open event 2 at 0:03.000",
+      }),
+    );
+
+    const navigator = screen.getByLabelText("Event navigator");
+    expect(navigator).toHaveTextContent("0:03.000");
+    expect(
+      screen.getByRole("button", { name: "Open event 2 at 0:03.000" }),
+    ).toHaveAttribute("aria-current", "true");
   });
 });

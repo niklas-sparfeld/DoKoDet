@@ -74,6 +74,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   const reviewRef = useRef<CardEventReviewResource | null>(null);
   const eventsRef = useRef<EditableEvent[]>([]);
   const selectedEventIdRef = useRef<string | null>(null);
+  const videoEventListRef = useRef<HTMLOListElement>(null);
   const playheadRef = useRef(0);
   const serverRevisionRef = useRef(0);
   const commandSequenceRef = useRef(0);
@@ -555,6 +556,14 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   ).length;
   const timelineDuration = duration > 0 ? duration : 1;
 
+  useEffect(() => {
+    if (selectedEventId === null) return;
+    const selectedItem = videoEventListRef.current?.querySelector<HTMLElement>(
+      `[data-event-id="${selectedEventId}"]`,
+    );
+    selectedItem?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedEventId]);
+
   const removeSelected = useCallback(() => {
     const current =
       selectedEventIdRef.current === null
@@ -970,7 +979,60 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
         </details>
       </section>
 
-      <RecordingSection recording={recording} videoRef={videoRef} />
+      <RecordingSection
+        recording={recording}
+        videoRef={videoRef}
+        videoAside={
+          <aside
+            className={styles.cardEventVideoNavigator}
+            aria-label="Event navigator"
+          >
+            <div className={styles.cardEventVideoNavigatorHeader}>
+              <div>
+                <p className={styles.statusLabel}>Current event</p>
+                <h3>Event navigator</h3>
+              </div>
+              <span className={styles.countLabel}>
+                {events.length} event{events.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {selected === undefined ? (
+              <p className={styles.cardEventVideoNavigatorEmpty}>
+                No event is selected.
+              </p>
+            ) : (
+              <p className={styles.cardEventVideoCurrent} aria-live="polite">
+                <strong>{formatTime(selected.effective_time_s)}</strong>
+                <span>
+                  {formatIdentifier(selected.type)} ·{" "}
+                  {formatIdentifier(selected.state)}
+                </span>
+              </p>
+            )}
+            <ol ref={videoEventListRef} className={styles.cardEventVideoList}>
+              {events.map((event, index) => (
+                <li key={event.localId} data-event-id={event.localId}>
+                  <button
+                    type="button"
+                    data-selected={event.localId === selectedEventId}
+                    aria-current={
+                      event.localId === selectedEventId ? "true" : undefined
+                    }
+                    aria-label={`Open event ${index + 1} at ${formatTime(event.effective_time_s)}`}
+                    onClick={() => selectEvent(event)}
+                  >
+                    <span>
+                      <strong>{formatTime(event.effective_time_s)}</strong>
+                      {formatIdentifier(event.type)}
+                    </span>
+                    <small>{formatIdentifier(event.state)}</small>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </aside>
+        }
+      />
 
       <section
         className={styles.cardEventReviewPanel}

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   ApiError,
@@ -783,9 +790,11 @@ function DetailProgressLink({
 export function RecordingSection({
   recording,
   videoRef,
+  videoAside,
 }: {
   recording: RecordingDetail;
   videoRef: import("react").RefObject<HTMLVideoElement | null>;
+  videoAside?: ReactNode;
 }) {
   const mediaFacts = recording.video.media_facts;
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -800,7 +809,10 @@ export function RecordingSection({
           </div>
           <StatusBadge value={recording.state} />
         </div>
-        <div className={styles.detailRecordingLayout}>
+        <div
+          className={styles.detailRecordingLayout}
+          data-has-aside={videoAside === undefined ? undefined : "true"}
+        >
           <video
             ref={videoRef}
             className={styles.detailSourceVideo}
@@ -809,6 +821,7 @@ export function RecordingSection({
             src={recording.video.url}
             aria-label={`Source recording ${recording.recording_id}`}
           />
+          {videoAside}
         </div>
         <div
           className={styles.recordingContextBar}
