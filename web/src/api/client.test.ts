@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createDokoDetectorClient,
+  cardEventReviewEventPath,
+  cardEventReviewEventsPath,
   cardEventReviewResourceCompletionPath,
   cardEventReviewResourcePath,
   recordingAnalysisPath,
@@ -197,6 +199,38 @@ describe("DokoDetector API client", () => {
     expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(fetchImplementation.mock.calls[3]?.[1]?.method).toBe("PUT");
     expect(fetchImplementation.mock.calls[4]?.[1]?.method).toBe("POST");
+  });
+
+  it("sends unified CardEvent commands through generated resource paths", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.addCardEvent("review/1", {
+      client_command_id: "command-1",
+      expected_revision: 0,
+      effective_time_s: 1.2,
+      type: "card_played",
+      confidence: "confirmed",
+    });
+    await client.updateCardEvent("review/1", "event/1", {
+      client_command_id: "command-2",
+      expected_revision: 1,
+      action: "accept",
+    });
+
+    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
+      cardEventReviewEventsPath("review/1"),
+      cardEventReviewEventPath("review/1", "event/1"),
+    ]);
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[1]?.[1]?.method).toBe("PATCH");
   });
 
   it("raises an API error with the response body", async () => {

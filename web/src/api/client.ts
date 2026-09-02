@@ -26,6 +26,14 @@ export type CardEventReviewCollection = JsonResponse<
 export type CardEventReviewResource = JsonResponse<
   paths["/v1/card-event-reviews/{review_id}"]["get"]["responses"][200]
 >;
+export type CardEvent = components["schemas"]["CardEventResponse"];
+export type CardEventCreateRequest =
+  components["schemas"]["CardEventCreateRequest"];
+export type CardEventCommandRequest =
+  components["schemas"]["CardEventCommandRequest"];
+export type CardEventCommandResponse = JsonResponse<
+  paths["/v1/card-event-reviews/{review_id}/events"]["post"]["responses"][200]
+>;
 export type CardEventReviewCreateRequest =
   components["schemas"]["CardEventReviewCreateRequest"];
 export type CardEventReviewResourceUpdateRequest =
@@ -124,6 +132,17 @@ export interface DokoDetectorClient {
     reviewId: string,
     init?: RequestInit,
   ): Promise<CardEventReviewResource>;
+  addCardEvent(
+    reviewId: string,
+    payload: CardEventCreateRequest,
+    init?: RequestInit,
+  ): Promise<CardEventCommandResponse>;
+  updateCardEvent(
+    reviewId: string,
+    eventId: string,
+    payload: CardEventCommandRequest,
+    init?: RequestInit,
+  ): Promise<CardEventCommandResponse>;
   updateCardEventReviewResource(
     reviewId: string,
     payload: CardEventReviewResourceUpdateRequest,
@@ -315,6 +334,28 @@ export function createDokoDetectorClient(
         fetchImplementation,
         cardEventReviewResourcePath(reviewId),
         init,
+      ),
+    addCardEvent: (reviewId, payload, init) =>
+      requestJson<CardEventCommandResponse>(
+        fetchImplementation,
+        cardEventReviewEventsPath(reviewId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    updateCardEvent: (reviewId, eventId, payload, init) =>
+      requestJson<CardEventCommandResponse>(
+        fetchImplementation,
+        cardEventReviewEventPath(reviewId, eventId),
+        {
+          ...init,
+          method: "PATCH",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
       ),
     updateCardEventReviewResource: (reviewId, payload, init) =>
       requestJson<CardEventReviewResource>(
@@ -653,6 +694,17 @@ export function cardEventReviewResourceCompletionPath(
   reviewId: string,
 ): string {
   return `${cardEventReviewResourcePath(reviewId)}/complete`;
+}
+
+export function cardEventReviewEventsPath(reviewId: string): string {
+  return `${cardEventReviewResourcePath(reviewId)}/events`;
+}
+
+export function cardEventReviewEventPath(
+  reviewId: string,
+  eventId: string,
+): string {
+  return `${cardEventReviewEventsPath(reviewId)}/${encodeURIComponent(eventId)}`;
 }
 
 export function recordingCardEventReviewDraftPath(recordingId: string): string {

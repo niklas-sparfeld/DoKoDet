@@ -19,7 +19,7 @@
 
 - **M0:** Complete — make the layout video-first and repair frame and keyboard controls.
 - **M1:** Complete — make each CardEvent review a recording-owned resource.
-- **M2:** Not started — unify proposals and human events with stable lineage.
+- **M2:** Complete — unify proposals and human events with stable lineage.
 - **M3:** Not started — measure and remove local review-path latency.
 - **M4:** Not started — add the recording review list and dedicated review page.
 - **M5:** Not started — deliver the optimistic, unified, shortcut-driven review loop.

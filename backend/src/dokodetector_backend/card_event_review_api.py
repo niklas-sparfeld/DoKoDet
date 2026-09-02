@@ -41,6 +41,9 @@ router = APIRouter()
 RECORDING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 PROPOSAL_DECISIONS = Literal["undecided", "accepted", "dismissed"]
 REVIEW_STATES = Literal["not_started", "draft", "completed"]
+EVENT_STATES = Literal["proposed", "reviewed", "dismissed"]
+EVENT_ORIGINS = Literal["manual", "model", "device"]
+EVENT_COMMAND_ACTIONS = Literal["accept", "dismiss", "undo", "edit", "retime", "remove"]
 
 
 class CardEventProposalDecisionRequest(BaseModel):
@@ -178,6 +181,78 @@ class CardEventReviewResourceResponse(BaseModel):
     proposal_decision_digest: str | None
     completion_receipt_id: str | None
     proposals: list[CardEventProposalResponse]
+    events: list["CardEventResponse"]
+
+
+class CardEventProposalLineageResponse(BaseModel):
+    """Immutable proposal facts retained on one review event."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    proposal_id: str
+    proposal_generator_run_id: str
+    proposal_time_s: float
+    probability: float
+    model_bundle_id: str
+    execution_platform: str
+
+
+class CardEventResponse(BaseModel):
+    """One event in the unified CardEvent review collection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str
+    effective_time_s: float
+    type: str
+    confidence: str | None
+    notes: str | None = None
+    state: EVENT_STATES
+    origin: EVENT_ORIGINS
+    proposal: CardEventProposalLineageResponse | None
+
+
+class CardEventCreateRequest(BaseModel):
+    """One manual event command."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    client_command_id: str = Field(min_length=1)
+    expected_revision: int = Field(ge=0)
+    effective_time_s: float = Field(validation_alias=AliasChoices("effective_time_s", "time_s"))
+    type: str = Field(min_length=1)
+    confidence: str | None = "confirmed"
+    notes: str | None = None
+
+
+class CardEventCommandRequest(BaseModel):
+    """One idempotent command for a proposal-backed or manual event."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    client_command_id: str = Field(min_length=1)
+    expected_revision: int = Field(ge=0)
+    action: EVENT_COMMAND_ACTIONS = Field(validation_alias=AliasChoices("action", "command"))
+    effective_time_s: float | None = Field(
+        default=None, validation_alias=AliasChoices("effective_time_s", "time_s")
+    )
+    type: str | None = Field(default=None, min_length=1)
+    confidence: str | None = None
+    notes: str | None = None
+
+
+class CardEventCommandResponse(BaseModel):
+    """The result of one ordered event command."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["cardevent-review-event/v1"]
+    review_id: str
+    draft_revision: int
+    changed_event: CardEventResponse | None
+    event_counts: dict[str, int]
+    completion_blockers: list[str]
+    review: CardEventReviewResourceResponse
 
 
 class CardEventReviewListItemResponse(BaseModel):
@@ -301,6 +376,65 @@ def get_card_event_review_resource(
     except CardEventReviewError as error:
         raise _review_error(error) from error
     return CardEventReviewResourceResponse.model_validate(state)
+
+
+@router.post(
+    "/v1/card-event-reviews/{review_id}/events",
+    response_model=CardEventCommandResponse,
+)
+def add_card_event(
+    review_id: str,
+    payload: CardEventCreateRequest,
+    request: Request,
+) -> CardEventCommandResponse:
+    """Add one reviewed manual event to a CardEvent review."""
+
+    store, source = _resource_identity(request, review_id)
+    try:
+        result = store.add_event(
+            review_id,
+            source,
+            client_command_id=payload.client_command_id,
+            expected_revision=payload.expected_revision,
+            effective_time_s=payload.effective_time_s,
+            event_type=payload.type,
+            confidence=payload.confidence,
+            notes=payload.notes,
+        )
+    except CardEventReviewError as error:
+        raise _review_error(error) from error
+    return CardEventCommandResponse.model_validate(result)
+
+
+@router.patch(
+    "/v1/card-event-reviews/{review_id}/events/{event_id}",
+    response_model=CardEventCommandResponse,
+)
+def update_card_event(
+    review_id: str,
+    event_id: str,
+    payload: CardEventCommandRequest,
+    request: Request,
+) -> CardEventCommandResponse:
+    """Apply one idempotent event command."""
+
+    store, source = _resource_identity(request, review_id)
+    try:
+        result = store.update_event(
+            review_id,
+            source,
+            event_id=event_id,
+            client_command_id=payload.client_command_id,
+            expected_revision=payload.expected_revision,
+            action=payload.action,
+            effective_time_s=payload.effective_time_s,
+            event_type=payload.type,
+            confidence=payload.confidence,
+            notes=payload.notes,
+        )
+    except CardEventReviewError as error:
+        raise _review_error(error) from error
+    return CardEventCommandResponse.model_validate(result)
 
 
 @router.put(
@@ -576,6 +710,10 @@ def _review_error(error: CardEventReviewError) -> ContractError:
 
 
 __all__ = [
+    "CardEventCommandRequest",
+    "CardEventCommandResponse",
+    "CardEventCreateRequest",
+    "CardEventResponse",
     "CardEventReviewCollectionResponse",
     "CardEventReviewCompletionRequest",
     "CardEventReviewCreateRequest",

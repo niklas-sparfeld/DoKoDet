@@ -88,6 +88,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/card-event-reviews/{review_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Card Event
+         * @description Add one reviewed manual event to a CardEvent review.
+         */
+        post: operations["add_card_event_v1_card_event_reviews__review_id__events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/card-event-reviews/{review_id}/events/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Card Event
+         * @description Apply one idempotent event command.
+         */
+        patch: operations["update_card_event_v1_card_event_reviews__review_id__events__event_id__patch"];
+        trace?: never;
+    };
     "/v1/data/cardevent-development-split/apply": {
         parameters: {
             query?: never;
@@ -999,6 +1039,73 @@ export interface components {
             score: number;
         };
         /**
+         * CardEventCommandRequest
+         * @description One idempotent command for a proposal-backed or manual event.
+         */
+        CardEventCommandRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "accept" | "dismiss" | "undo" | "edit" | "retime" | "remove";
+            /** Client Command Id */
+            client_command_id: string;
+            /** Confidence */
+            confidence?: string | null;
+            /** Effective Time S */
+            effective_time_s?: number | null;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Notes */
+            notes?: string | null;
+            /** Type */
+            type?: string | null;
+        };
+        /**
+         * CardEventCommandResponse
+         * @description The result of one ordered event command.
+         */
+        CardEventCommandResponse: {
+            changed_event: components["schemas"]["CardEventResponse"] | null;
+            /** Completion Blockers */
+            completion_blockers: string[];
+            /** Draft Revision */
+            draft_revision: number;
+            /** Event Counts */
+            event_counts: {
+                [key: string]: number;
+            };
+            review: components["schemas"]["CardEventReviewResourceResponse"];
+            /** Review Id */
+            review_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "cardevent-review-event/v1";
+        };
+        /**
+         * CardEventCreateRequest
+         * @description One manual event command.
+         */
+        CardEventCreateRequest: {
+            /** Client Command Id */
+            client_command_id: string;
+            /**
+             * Confidence
+             * @default confirmed
+             */
+            confidence: string | null;
+            /** Effective Time S */
+            effective_time_s: number;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Notes */
+            notes?: string | null;
+            /** Type */
+            type: string;
+        };
+        /**
          * CardEventDevelopmentSplitApplyRequest
          * @description Apply one previously reviewed development partition preview.
          */
@@ -1129,6 +1236,24 @@ export interface components {
             proposal_id: string;
         };
         /**
+         * CardEventProposalLineageResponse
+         * @description Immutable proposal facts retained on one review event.
+         */
+        CardEventProposalLineageResponse: {
+            /** Execution Platform */
+            execution_platform: string;
+            /** Model Bundle Id */
+            model_bundle_id: string;
+            /** Probability */
+            probability: number;
+            /** Proposal Generator Run Id */
+            proposal_generator_run_id: string;
+            /** Proposal Id */
+            proposal_id: string;
+            /** Proposal Time S */
+            proposal_time_s: number;
+        };
+        /**
          * CardEventProposalResponse
          * @description One immutable proposal with its separate human decision.
          */
@@ -1150,6 +1275,33 @@ export interface components {
             proposal_id: string;
             /** Time S */
             time_s: number;
+        };
+        /**
+         * CardEventResponse
+         * @description One event in the unified CardEvent review collection.
+         */
+        CardEventResponse: {
+            /** Confidence */
+            confidence: string | null;
+            /** Effective Time S */
+            effective_time_s: number;
+            /** Event Id */
+            event_id: string;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "manual" | "model" | "device";
+            proposal: components["schemas"]["CardEventProposalLineageResponse"] | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "proposed" | "reviewed" | "dismissed";
+            /** Type */
+            type: string;
         };
         /**
          * CardEventReviewCollectionResponse
@@ -1291,6 +1443,8 @@ export interface components {
             draft_digest: string;
             /** Draft Revision */
             draft_revision: number;
+            /** Events */
+            events: components["schemas"]["CardEventResponse"][];
             /** Full Video Acknowledged */
             full_video_acknowledged: boolean;
             /** Operator */
@@ -3664,6 +3818,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardEventReviewResourceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_card_event_v1_card_event_reviews__review_id__events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardEventCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventCommandResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_card_event_v1_card_event_reviews__review_id__events__event_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardEventCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEventCommandResponse"];
                 };
             };
             /** @description Validation Error */
