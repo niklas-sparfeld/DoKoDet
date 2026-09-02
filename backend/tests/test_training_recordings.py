@@ -9,15 +9,10 @@ from pathlib import Path
 import pytest
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.models import RepositoryBundleIndex
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
-from dokodetector_backend.repository import upgrade_database
 
-BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 
 
@@ -56,12 +51,9 @@ def bundle_parts(
 
 @pytest.fixture()
 def backend(tmp_path: Path) -> tuple[TestClient, RecordingBundleStore, Path]:
-    database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     intake_root = tmp_path / "data" / "intake" / "recordings"
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         repository_intake_root=intake_root,
     )
@@ -97,8 +89,6 @@ def test_upload_stores_one_complete_commit_ready_bundle(backend) -> None:
     assert (bundle_path / "source-record.json").read_bytes() == fixture["source_record"]
     assert (bundle_path / "initial-task-enrollment.json").read_bytes() == fixture["task_enrollment"]
     assert repository.get(recording_id) is not None
-    with Session(client.app.state.engine) as session:
-        assert session.scalar(select(RepositoryBundleIndex)) is None
     assert not (intake_root / "training-recordings").exists()
     assert list(intake_root.glob(".upload-*")) == []
 
@@ -194,12 +184,9 @@ def test_bundle_and_part_limits_are_checked_before_publication(backend) -> None:
 
 
 def test_restart_reads_the_same_canonical_bundle(tmp_path: Path) -> None:
-    database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     intake_root = tmp_path / "intake"
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         repository_intake_root=intake_root,
     )
@@ -220,12 +207,9 @@ def test_restart_reads_the_same_canonical_bundle(tmp_path: Path) -> None:
 
 
 def test_directly_added_valid_bundle_is_visible_without_restart(tmp_path: Path) -> None:
-    database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     intake_root = tmp_path / "intake"
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         repository_intake_root=intake_root,
     )

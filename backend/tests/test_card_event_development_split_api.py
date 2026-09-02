@@ -7,9 +7,7 @@ from app_factory import create_test_app
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.repository import upgrade_database
 
-BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 
 
@@ -30,11 +28,8 @@ def fixture_parts() -> tuple[str, list[tuple[str, tuple[str, bytes, str]]]]:
 
 
 def test_preview_apply_and_detail_projection_use_immutable_split_versions(tmp_path: Path) -> None:
-    database_url = f"sqlite:///{tmp_path / 'repository.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         operations_root=tmp_path / "operations",
         repository_intake_root=tmp_path / "recordings",

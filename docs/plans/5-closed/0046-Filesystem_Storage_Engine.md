@@ -4,7 +4,8 @@
 
 - **Summary:** Make validated filesystem resources the only backend storage and remove SQLite,
   SQLAlchemy, and Alembic without changing current domain or API behavior.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** None
 - **Builds on:** Plans 0029, 0032, 0039, 0040, 0042, and 0045
 - **Outcome:** The backend reads every durable resource from its canonical files and writes every
@@ -21,7 +22,7 @@
 - **M1:** Complete — replace the recording-bundle SQL index with filesystem reads.
 - **M2:** Complete — replace evidence-package and table-observation SQL metadata.
 - **M3:** Complete — replace round-analysis SQL lifecycle state with validated filesystem state documents.
-- **M4:** Not started — remove the SQL stack and prove filesystem-only recovery.
+- **M4:** Complete — remove the SQL stack and prove filesystem-only recovery.
 
 ## 1. Purpose
 

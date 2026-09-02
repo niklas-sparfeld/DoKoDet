@@ -27,11 +27,9 @@ _EVENT_NAME = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 _FIELD_NAME = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _THIRD_PARTY_LOGGERS = {
-    "alembic",
     "fastapi",
     "httpx",
     "multipart",
-    "sqlalchemy",
     "uvicorn",
     "zeroconf",
 }

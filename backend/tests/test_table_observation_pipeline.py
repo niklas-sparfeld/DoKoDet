@@ -18,16 +18,12 @@ from dokodetector_backend.analyzer_runner import AnalyzerRunner, AnalyzerRunnerE
 from dokodetector_backend.config import Settings
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.persistence import TableObservationPersister
-from dokodetector_backend.repository import (
-    EvidenceRepository,
-    upgrade_database,
-)
 from dokodetector_backend.table_observation_store import (
     TableObservationConflict,
+    TableObservationStore,
     TableObservationStoreError,
 )
 
-BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 OBSERVATION_FIXTURE = (
     Path(__file__).parents[2] / "fixtures" / "game-engine" / "v1" / "observations" / "minimal.json"
@@ -127,17 +123,14 @@ def multipart_parts(manifest_bytes: bytes, frame_sources: dict[str, bytes]) -> d
 
 
 @pytest.fixture()
-def backend(tmp_path) -> tuple[TestClient, EvidenceRepository, EvidencePackageStorage]:
-    database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
+def backend(tmp_path) -> tuple[TestClient, TableObservationStore, EvidencePackageStorage]:
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
     )
     app = create_test_app(settings)
-    return TestClient(app), app.state.repository, app.state.evidence_package_storage
+    return TestClient(app), app.state.table_observation_store, app.state.evidence_package_storage
 
 
 def upload_fixture(client: TestClient, name: str) -> tuple[dict[str, object], bytes]:
@@ -362,7 +355,7 @@ def test_observation_conflict_keeps_original_bytes(backend) -> None:
     assert (client.app.state.storage.root / stored.relative_path).read_bytes() == original_bytes
 
 
-def test_database_failure_removes_staged_observation_directory(backend, monkeypatch) -> None:
+def test_filesystem_failure_leaves_no_observation_directory(backend, monkeypatch) -> None:
     client, repository, storage = backend
     payload, _ = upload_fixture(client, "example-complete")
 

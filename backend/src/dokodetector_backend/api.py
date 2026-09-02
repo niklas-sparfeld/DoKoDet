@@ -41,8 +41,8 @@ from dokodetector_backend.intake_contract import (
     validate_evidence_package_bundle,
 )
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
-from dokodetector_backend.repository import StoredPackage
 from dokodetector_backend.storage import StorageLimitError
+from dokodetector_backend.stored_models import StoredPackage
 from dokodetector_backend.video_probe import (
     UnsupportedVideoError,
     VideoProbeError,

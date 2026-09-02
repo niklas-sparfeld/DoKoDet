@@ -31,13 +31,13 @@ from dokodetector_backend.intake_contract import (
     parse_source_record,
     parse_task_enrollment,
 )
-from dokodetector_backend.repository import StoredRoundAnalysis
 from dokodetector_backend.round_analysis_api import _queue_round_analysis
 from dokodetector_backend.round_analysis_contract import RoundAnalysisStatus
 from dokodetector_backend.round_analysis_service import (
     RoundAnalysisService,
     RoundAnalysisValidationError,
 )
+from dokodetector_backend.stored_models import StoredRoundAnalysis
 from dokodetector_backend.video_probe import (
     VideoProbeError,
     VideoProbeUnavailable,

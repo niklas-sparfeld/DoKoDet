@@ -13,8 +13,8 @@ from table_evidence_analyzer import TableObservation, canonical_json_bytes, pars
 
 from dokodetector_backend.filesystem import enumerate_resource_directories
 from dokodetector_backend.logging_config import log_event
-from dokodetector_backend.repository import StoredTableObservation
 from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.stored_models import StoredTableObservation
 
 LOGGER = logging.getLogger(__name__)
 

@@ -14,9 +14,7 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import APIErrorDetail, ContractError, _log_rejection
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
-from dokodetector_backend.repository import upgrade_database
 
-BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
 
 
@@ -118,11 +116,8 @@ def multipart_parts(
 
 @pytest.fixture()
 def backend(tmp_path) -> tuple[TestClient, EvidencePackageStore, EvidencePackageStorage]:
-    database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
     )

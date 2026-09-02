@@ -173,7 +173,6 @@ def test_failed_analysis_logs_error_traceback_and_safe_terminal_fields(
 
 def test_startup_recovery_logs_a_warning_for_interrupted_analysis(caplog, tmp_path: Path) -> None:
     caplog.set_level(logging.DEBUG, logger="dokodetector_backend")
-    database_url = f"sqlite:///{tmp_path / 'backend.sqlite'}"
     request = RoundAnalysisCreateRequest.model_validate(
         {
             "analysis_id": "00000000-0000-0000-0000-000000000032",
@@ -204,7 +203,6 @@ def test_startup_recovery_logs_a_warning_for_interrupted_analysis(caplog, tmp_pa
     create_test_app(
         Settings(
             _env_file=None,
-            database_url=database_url,
             evidence_root=runtime_root,
             repository_intake_root=tmp_path / "recordings",
             evidence_package_intake_root=tmp_path / "evidence-packages",

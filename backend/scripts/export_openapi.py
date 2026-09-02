@@ -26,7 +26,6 @@ def main() -> None:
         settings = Settings(
             _env_file=None,
             repository_root=repository_root,
-            database_url=f"sqlite:///{temporary_root / 'backend.sqlite'}",
             evidence_root=temporary_root / "runtime",
             repository_intake_root=temporary_root / "recordings",
             evidence_package_intake_root=temporary_root / "evidence-packages",

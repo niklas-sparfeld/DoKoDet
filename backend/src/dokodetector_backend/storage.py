@@ -99,7 +99,7 @@ class EvidenceStorage:
             shutil.rmtree(observation_path)
 
     def remove_package(self, package_id: UUID | str) -> None:
-        """Remove a package directory after a failed database insert."""
+        """Remove a package directory after a failed publication."""
 
         package_path = self.package_path(package_id)
         if package_path.exists():

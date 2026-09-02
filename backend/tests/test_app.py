@@ -1,19 +1,13 @@
 from pathlib import Path
 
 import pytest
-from alembic.config import Config
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
-from sqlalchemy import inspect
 from starlette.requests import ClientDisconnect
 
-from alembic import command
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import ConfigurationError, Settings
 from dokodetector_backend.errors import ContractError
-from dokodetector_backend.repository import (
-    upgrade_database,
-)
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
@@ -43,7 +37,6 @@ def test_packaged_frontend_serves_catalog_recording_route_and_hashed_assets(
     (assets / "index-test.js").write_text("console.log('smoke');", encoding="utf-8")
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'frontend.sqlite'}",
         evidence_root=tmp_path / "runtime",
         frontend_dist=frontend_dist,
         repository_intake_root=tmp_path / "recordings",
@@ -77,16 +70,36 @@ def test_packaged_frontend_serves_catalog_recording_route_and_hashed_assets(
 
 
 def test_readiness_reports_an_unusable_evidence_directory(tmp_path) -> None:
-    database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
     evidence_root = tmp_path / "evidence-root"
     evidence_root.write_text("not a directory")
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=evidence_root,
     )
 
     response = TestClient(create_test_app(settings)).get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
+
+
+def test_readiness_reports_atomic_runtime_write_failure(tmp_path, monkeypatch) -> None:
+    app = create_test_app(
+        Settings(
+            _env_file=None,
+            evidence_root=tmp_path / "runtime",
+            repository_intake_root=tmp_path / "recordings",
+            evidence_package_intake_root=tmp_path / "evidence-packages",
+            pending_video_root=tmp_path / "pending-videos",
+        )
+    )
+
+    def fail(*args, **kwargs):
+        raise OSError("atomic runtime probe failed")
+
+    monkeypatch.setattr("dokodetector_backend.app.atomic_replace_json", fail)
+
+    response = TestClient(app).get("/health/ready")
 
     assert response.status_code == 503
     assert response.json() == {"status": "not_ready"}
@@ -104,7 +117,6 @@ def test_factory_configures_the_gemini_analyzer(tmp_path: Path) -> None:
     settings = Settings(
         _env_file=None,
         gemini_api_key="test-key",
-        database_url=f"sqlite:///{tmp_path / 'gemini.sqlite'}",
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",
@@ -119,7 +131,6 @@ def test_factory_configures_the_gemini_analyzer(tmp_path: Path) -> None:
 def test_factory_requires_the_gemini_api_key(tmp_path: Path) -> None:
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'missing-key.sqlite'}",
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",
@@ -137,7 +148,7 @@ def test_factory_resolves_default_storage_from_repository_root(
     monkeypatch.chdir(working_directory)
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'repository.sqlite'}",
+        repository_root=BACKEND_ROOT.parent,
         evidence_root=Path(".runtime"),
         repository_intake_root=Path("data/intake/recordings"),
     )
@@ -155,28 +166,19 @@ def test_factory_resolves_default_storage_from_repository_root(
     assert not (BACKEND_ROOT / "backend" / "data" / "intake").exists()
 
 
-def test_factory_applies_pending_repository_bundle_migration(tmp_path: Path) -> None:
-    database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
-    config = Config(str(BACKEND_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(BACKEND_ROOT / "alembic"))
-    config.set_main_option("sqlalchemy.url", database_url)
-    command.upgrade(config, "0003_training_recordings")
-
+def test_factory_does_not_create_a_database_file(tmp_path: Path) -> None:
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "evidence",
         repository_intake_root=tmp_path / "intake",
     )
 
-    app = create_test_app(settings)
+    create_test_app(settings)
 
-    assert inspect(app.state.engine).has_table("repository_bundles")
+    assert not list(tmp_path.glob("*.sqlite"))
 
 
 def test_factory_converts_interrupted_round_analysis_to_failed(tmp_path: Path) -> None:
-    database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     request = RoundAnalysisCreateRequest.model_validate(
         {
             "analysis_id": "00000000-0000-0000-0000-000000000032",
@@ -207,7 +209,6 @@ def test_factory_converts_interrupted_round_analysis_to_failed(tmp_path: Path) -
     app = create_test_app(
         Settings(
             _env_file=None,
-            database_url=database_url,
             evidence_root=runtime_root,
             repository_intake_root=tmp_path / "recordings",
             evidence_package_intake_root=tmp_path / "evidence-packages",

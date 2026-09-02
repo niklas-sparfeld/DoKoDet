@@ -13,15 +13,13 @@ from table_evidence_analyzer import (
 )
 
 from dokodetector_backend.analyzer_adapter import load_analyzer_evidence
-from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.persistence import TableObservationPersister
-from dokodetector_backend.repository import EvidenceRepository, StoredTableObservation
-from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.stored_models import StoredTableObservation
 from dokodetector_backend.table_observation_store import TableObservationStore
 
 if TYPE_CHECKING:
-    from dokodetector_backend.repository import StoredPackage
+    from dokodetector_backend.stored_models import StoredPackage
 
 
 class AnalyzerRunnerError(RuntimeError):
@@ -33,36 +31,20 @@ class AnalyzerRunner:
 
     def __init__(
         self,
-        package_store: EvidencePackageStore | EvidenceRepository,
-        analyzer: TableEvidenceAnalyzer | EvidencePackageStorage,
-        legacy_analyzer: TableEvidenceAnalyzer | None = None,
+        package_store: EvidencePackageStore,
+        analyzer: TableEvidenceAnalyzer,
         *,
-        observation_store: TableObservationStore | None = None,
-        observation_storage: EvidenceStorage | None = None,
+        observation_store: TableObservationStore,
     ) -> None:
-        if isinstance(package_store, EvidencePackageStore):
-            if legacy_analyzer is not None or observation_store is None:
-                raise TypeError("the filesystem runner needs an analyzer and observation store")
-            resolved_package_store = package_store
-            resolved_analyzer = analyzer
-            resolved_observation_store = observation_store
-        else:
-            if not isinstance(analyzer, EvidencePackageStorage) or legacy_analyzer is None:
-                raise TypeError("the legacy runner arguments are incomplete")
-            if observation_storage is None:
-                raise TypeError("the legacy runner needs observation storage")
-            resolved_package_store = EvidencePackageStore(analyzer)
-            resolved_analyzer = legacy_analyzer
-            resolved_observation_store = TableObservationStore(observation_storage)
-        self.package_store = resolved_package_store
-        self.storage = resolved_package_store.storage
-        self.analyzer = resolved_analyzer
-        self.analyzer_name = getattr(resolved_analyzer, "name", None)
-        self.analyzer_version = getattr(resolved_analyzer, "version", None)
+        self.package_store = package_store
+        self.storage = package_store.storage
+        self.analyzer = analyzer
+        self.analyzer_name = getattr(analyzer, "name", None)
+        self.analyzer_version = getattr(analyzer, "version", None)
         if not self.analyzer_name or not self.analyzer_version:
             raise ValueError("analyzer name and version are required for observation selection.")
-        self.observation_persister = TableObservationPersister(resolved_observation_store)
-        self.observation_store = resolved_observation_store
+        self.observation_persister = TableObservationPersister(observation_store)
+        self.observation_store = observation_store
 
     def run_once(self, package_id: UUID | str | None = None) -> StoredTableObservation | None:
         """Run the analyzer for one explicit or pending package."""

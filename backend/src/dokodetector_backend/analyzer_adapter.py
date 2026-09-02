@@ -16,7 +16,7 @@ from dokodetector_backend.evidence_package_storage import (
     EvidencePackageStorage,
     calculate_bundle_fingerprint,
 )
-from dokodetector_backend.repository import StoredFrame, StoredPackage
+from dokodetector_backend.stored_models import StoredFrame, StoredPackage
 
 
 class EvidenceIntegrityError(RuntimeError):

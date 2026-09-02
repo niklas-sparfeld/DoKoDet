@@ -1,6 +1,5 @@
 import hashlib
 import json
-from pathlib import Path
 
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
@@ -8,18 +7,12 @@ from test_api import load_upload_fixture, multipart_parts
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
-from dokodetector_backend.repository import upgrade_database
-
-BACKEND_ROOT = Path(__file__).parents[1]
 
 
-def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> None:
-    database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
+def test_shared_fixture_round_trip_uses_http_and_filesystem(tmp_path) -> None:
     settings = Settings(
         _env_file=None,
         repository_root=tmp_path,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         evidence_package_intake_root=tmp_path / "repository-intake" / "evidence-packages",
     )

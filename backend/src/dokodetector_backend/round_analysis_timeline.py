@@ -30,16 +30,16 @@ from table_evidence_analyzer import TableObservation, canonical_json_bytes, pars
 from dokodetector_backend.analyzer_adapter import EvidenceIntegrityError, load_analyzer_evidence
 from dokodetector_backend.contract import ContractModel, Sha256, parse_manifest_bytes
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
-from dokodetector_backend.repository import (
-    StoredPackage,
-    StoredRoundAnalysis,
-    StoredTableObservation,
-)
 from dokodetector_backend.round_analysis_contract import (
     RoundAnalysisCreateRequest,
     parse_round_analysis_create_request_bytes,
 )
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
+from dokodetector_backend.stored_models import (
+    StoredPackage,
+    StoredRoundAnalysis,
+    StoredTableObservation,
+)
 from dokodetector_backend.table_observation_store import TableObservationStore
 
 ROUND_ANALYSIS_TIMELINE_SCHEMA_VERSION = "round-analysis-timeline/v1"

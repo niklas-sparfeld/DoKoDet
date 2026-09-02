@@ -17,20 +17,15 @@ from doko_operations.cardevent_review import (
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.repository import upgrade_database
 
-BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 
 
 def _backend(tmp_path: Path) -> tuple[TestClient, Settings, Path]:
     intake_root = tmp_path / "data" / "intake" / "recordings"
     shutil.copytree(FIXTURE_ROOT, intake_root / "recording-both")
-    database_url = f"sqlite:///{tmp_path / 'review.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         operations_root=tmp_path / "data" / "operations",
         repository_intake_root=intake_root,

@@ -15,7 +15,6 @@ def test_packaged_frontend_serves_direct_visible_card_batch_route(tmp_path: Path
     )
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'frontend.sqlite'}",
         evidence_root=tmp_path / "runtime",
         frontend_dist=frontend_dist,
         repository_intake_root=tmp_path / "recordings",

@@ -23,8 +23,8 @@ from dokodetector_backend.intake_contract import (
     validate_evidence_package_bundle,
 )
 from dokodetector_backend.logging_config import log_event
-from dokodetector_backend.repository import StoredFrame, StoredPackage
 from dokodetector_backend.repository_bundle_storage import StoredRepositoryFile
+from dokodetector_backend.stored_models import StoredFrame, StoredPackage
 from dokodetector_backend.table_observation_store import TableObservationStore
 
 LOGGER = logging.getLogger(__name__)

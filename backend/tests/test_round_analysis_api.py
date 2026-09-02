@@ -13,9 +13,7 @@ from table_evidence_analyzer import TableObservation, parse_observation_bytes
 from test_api import load_upload_fixture, multipart_parts
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.repository import upgrade_database
 
-BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 SESSION_ID = "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
 RECORDING_ID = "recording-round-analysis"
@@ -50,12 +48,9 @@ def _analysis_payload(
 
 
 def _backend(tmp_path: Path, *, synchronous: bool = True) -> tuple[TestClient, object]:
-    database_url = f"sqlite:///{tmp_path / 'round-analysis.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     app = create_test_app(
         Settings(
             _env_file=None,
-            database_url=database_url,
             evidence_root=tmp_path / "runtime",
             evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
             repository_intake_root=tmp_path / "intake" / "recordings",
@@ -721,11 +716,9 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
     assert conflict.status_code == 409
     assert conflict.json()["error"]["code"] == "counterfactual_conflict"
 
-    database_url = f"sqlite:///{backend_tmp_path / 'round-analysis.sqlite'}"
     restarted_app = create_test_app(
         Settings(
             _env_file=None,
-            database_url=database_url,
             evidence_root=backend_tmp_path / "runtime",
             evidence_package_intake_root=backend_tmp_path / "intake" / "evidence-packages",
             repository_intake_root=backend_tmp_path / "intake" / "recordings",

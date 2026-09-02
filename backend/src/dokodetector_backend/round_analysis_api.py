@@ -13,9 +13,6 @@ from pydantic import ValidationError
 
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
-from dokodetector_backend.repository import (
-    StoredRoundAnalysis,
-)
 from dokodetector_backend.round_analysis_contract import (
     CounterfactualArtifact,
     RoundAnalysisCreateRequest,
@@ -44,6 +41,7 @@ from dokodetector_backend.round_analysis_timeline import (
     RoundAnalysisTimelineError,
     TimelineFrameNotFound,
 )
+from dokodetector_backend.stored_models import StoredRoundAnalysis
 
 router = APIRouter()
 LOGGER = logging.getLogger(__name__)

@@ -19,10 +19,6 @@ from dokodetector_backend.filesystem import (
     enumerate_resource_directories,
     staging_directory,
 )
-from dokodetector_backend.repository import (
-    RESTART_ANALYSIS_ERROR,
-    StoredRoundAnalysis,
-)
 from dokodetector_backend.round_analysis_contract import (
     ROUND_ANALYSIS_STATES,
     RoundAnalysisCreateRequest,
@@ -31,8 +27,10 @@ from dokodetector_backend.round_analysis_contract import (
     parse_round_analysis_create_request_bytes,
 )
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
+from dokodetector_backend.stored_models import StoredRoundAnalysis
 
 LOGGER = logging.getLogger(__name__)
+RESTART_ANALYSIS_ERROR = "The analysis did not finish before the backend restarted."
 ROUND_ANALYSIS_STATE_SCHEMA_VERSION = "round-analysis-state/v1"
 ROUND_ANALYSIS_RESULT_STATUSES = ("resolved", "ambiguous", "incomplete", "impossible")
 _SHA256_LENGTH = 64

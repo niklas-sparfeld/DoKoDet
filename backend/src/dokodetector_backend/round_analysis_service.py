@@ -39,11 +39,6 @@ from dokodetector_backend.recording_bundle_store import (
     RecordingBundleStore,
     StoredRecordingBundle,
 )
-from dokodetector_backend.repository import (
-    StoredPackage,
-    StoredRoundAnalysis,
-    StoredTableObservation,
-)
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_contract import (
     AnalysisRoundRuleset,
@@ -67,6 +62,11 @@ from dokodetector_backend.round_analysis_timeline import (
     RoundAnalysisTimeline,
     RoundAnalysisTimelineProjector,
     TimelineFrameFile,
+)
+from dokodetector_backend.stored_models import (
+    StoredPackage,
+    StoredRoundAnalysis,
+    StoredTableObservation,
 )
 from dokodetector_backend.table_observation_store import TableObservationStore
 

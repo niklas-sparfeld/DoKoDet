@@ -2,9 +2,9 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-The backend accepts V2 evidence packages and V1 repository bundles. It stores searchable metadata
-in SQLite and stores every accepted source bundle on the repository intake root. SQLite, temporary
-uploads, caches, and analyzer output are disposable runtime state.
+The backend accepts V2 evidence packages and V1 repository bundles. It stores every accepted source
+bundle and every mutable or derived resource in validated filesystem stores below the configured
+roots. Temporary uploads and analyzer output are disposable runtime state.
 
 The backend stores table observations produced by a `TableEvidenceAnalyzer` and adds an optional
 bounded video snippet. See
@@ -21,7 +21,6 @@ Run these commands from the repository root:
 mise install
 cd backend
 uv sync
-uv run alembic upgrade head
 ```
 
 For the local visible-card provider, install its pinned native inference dependency as well:
@@ -105,7 +104,7 @@ DOKO_LOG_LEVEL=DEBUG uv run dokodetector-backend 2>&1 | \
 ```
 
 Logs do not contain request bodies, media bytes, authorization values, complete manifests, raw
-model prompts or responses, SQL values, or paths outside configured runtime roots. Do not paste an
+model prompts or responses, secret values, or paths outside configured runtime roots. Do not paste an
 `ERROR` traceback into a public issue without checking it for local environment details first.
 
 Start it with the required runtime credential:
@@ -169,7 +168,7 @@ Run the complete local pipeline gates from `backend/`:
 uv run pytest tests/test_local_pipeline.py
 ```
 
-The gate starts the real local HTTP API with temporary SQLite and filesystem stores. It uses the
+The gate starts the real local HTTP API with temporary filesystem stores. It uses the
 Swift `CardEventProbeLocalPipeline` client to upload complete, incomplete, and metadata-only
 packages, then checks idempotent replay, conflict retention, transport retry, and queue recovery
 after an app restart. The saved-video test also submits one linked round analysis and checks the
@@ -180,7 +179,6 @@ The default local runtime directory is `.runtime/`. It is ignored by Git. Settin
 environment variables:
 
 ```text
-DATABASE_URL=sqlite:///./.runtime/dokodetector.db
 EVIDENCE_ROOT=.runtime
 MAX_MANIFEST_BYTES=1000000
 MAX_FRAME_BYTES=10000000
@@ -320,9 +318,9 @@ data/incoming/videos/<upload-id>/manifest.json
 data/incoming/videos/<upload-id>/<original-filename>
 ```
 
-The repository intake is the source authority. The backend rebuilds searchable package state from
-accepted evidence-package bundles at startup. A pending upload is not a recording or an evidence
-package. It stays outside intake until an operator supplies valid metadata and both task
+The repository intake is the source authority. The backend validates canonical bundles on each
+catalog read. A pending upload is not a recording or an evidence package. It stays outside intake
+until an operator supplies valid metadata and both task
 enrollments with the operations command:
 
 ```bash
@@ -343,15 +341,13 @@ mise exec -- uv run --project operations doko data adopt-evidence \
 
 Deleting `.runtime/` removes only disposable backend state. It does not remove accepted source
 bundles. There is no delete API for recordings or evidence packages. To remove local test data,
-stop the service and remove the complete test intake bundle together with its SQLite row:
+stop the service and remove the complete test intake bundle:
 
 ```bash
 cd backend
 rm -rf ../data/intake/recordings/<recording-id>
-sqlite3 .runtime/dokodetector.db \
-  "DELETE FROM repository_bundles WHERE recording_id = '<recording-id>';"
 ```
 
-Readiness runs a SQLite query and checks that the runtime table-observation directory, both intake
-roots, and the pending-upload root can be read and written. The PoC uses one API process with local
-SQLite and filesystem state. It does not provide multi-process locking or distributed coordination.
+Readiness checks the runtime, operations, intake, and pending-upload roots. It also performs a safe
+temporary JSON write-and-replace probe in the mutable runtime root. The backend uses one local
+process and does not provide multi-process locking or distributed coordination.

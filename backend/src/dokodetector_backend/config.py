@@ -51,18 +51,6 @@ def _resolve_frontend_dist(value: Path, root: Path) -> Path:
     return resolved
 
 
-def _resolve_database_url(value: str, root: Path) -> str:
-    """Resolve relative SQLite filenames without changing non-local database URLs."""
-
-    prefix = "sqlite:///"
-    if not value.startswith(prefix):
-        return value
-    database = value[len(prefix) :]
-    if database in {":memory:", ""} or database.startswith("/"):
-        return value
-    return f"{prefix}{(root / database).resolve()}"
-
-
 class Settings(BaseSettings):
     """Settings loaded from environment variables with local defaults."""
 
@@ -72,7 +60,6 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("REPOSITORY_ROOT", "DOKO_REPOSITORY_ROOT"),
     )
-    database_url: str = "sqlite:///./.runtime/dokodetector.db"
     evidence_root: Path = Path(".runtime")
     operations_root: Path = Path("data/operations")
     frontend_dist: Path = Path("web/dist")
@@ -152,7 +139,6 @@ class Settings(BaseSettings):
         if not root.is_dir():
             raise ConfigurationError(f"Repository root is not a directory: {root}")
         self.repository_root = root
-        self.database_url = _resolve_database_url(self.database_url, root)
         self.evidence_root = _resolve_path(self.evidence_root, root)
         self.operations_root = _resolve_path(self.operations_root, root)
         self.frontend_dist = _resolve_frontend_dist(self.frontend_dist, root)

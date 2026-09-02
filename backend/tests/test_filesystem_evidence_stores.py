@@ -7,15 +7,12 @@ from uuid import UUID
 import pytest
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
 from table_evidence_analyzer import TableObservation, canonical_json_bytes, parse_observation_bytes
 
 from dokodetector_backend.analyzer_runner import AnalyzerRunner
 from dokodetector_backend.config import Settings
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
-from dokodetector_backend.models import EvidencePackage
-from dokodetector_backend.models import TableObservation as TableObservationRow
 from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.table_observation_store import (
     TableObservationConflict,
@@ -111,33 +108,15 @@ def test_observation_store_reloads_from_files_without_sql_metadata(tmp_path: Pat
     )
 
 
-def test_api_and_analyzer_do_not_use_evidence_sql_metadata(tmp_path: Path, monkeypatch) -> None:
+def test_api_and_analyzer_use_only_filesystem_metadata(tmp_path: Path) -> None:
     from test_api import load_upload_fixture, multipart_parts
 
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'metadata.sqlite'}",
         evidence_root=tmp_path / "runtime",
         evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
     )
     app = create_test_app(settings)
-
-    def fail(*args, **kwargs):
-        raise AssertionError("evidence metadata SQL must not be used")
-
-    for name in (
-        "get_package",
-        "list_packages",
-        "get_by_logical_event",
-        "get_pending_package",
-        "get_table_observation",
-        "get_table_observation_for_analyzer",
-        "list_table_observations",
-        "insert_package",
-        "insert_table_observation",
-        "delete_table_observation",
-    ):
-        monkeypatch.setattr(app.state.repository, name, fail)
 
     manifest_bytes, frame_sources, payload, video_source = load_upload_fixture(
         "example-complete"
@@ -161,6 +140,3 @@ def test_api_and_analyzer_do_not_use_evidence_sql_metadata(tmp_path: Path, monke
     assert metadata.status_code == 200
     assert observation is not None
     assert observations.status_code == 200
-    with app.state.engine.connect() as connection:
-        assert connection.scalar(select(func.count()).select_from(EvidencePackage)) == 0
-        assert connection.scalar(select(func.count()).select_from(TableObservationRow)) == 0

@@ -19,7 +19,6 @@ FIXTURE = (
 def pending_backend(tmp_path: Path) -> tuple[TestClient, Path]:
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'repository.sqlite'}",
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "data" / "intake" / "recordings",
         pending_video_root=tmp_path / "data" / "incoming" / "videos",
@@ -105,7 +104,6 @@ def test_pending_video_size_limit_is_checked_before_publication(pending_backend)
 def test_pending_receipt_survives_backend_restart(tmp_path: Path) -> None:
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'repository.sqlite'}",
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "data" / "intake" / "recordings",
         pending_video_root=tmp_path / "data" / "incoming" / "videos",

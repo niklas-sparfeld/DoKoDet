@@ -17,8 +17,6 @@ from uuid import UUID
 import httpx
 import pytest
 
-from dokodetector_backend.repository import upgrade_database
-
 REPOSITORY_ROOT = Path(__file__).parents[2]
 BACKEND_ROOT = REPOSITORY_ROOT / "backend"
 IOS_ROOT = REPOSITORY_ROOT / "ios"
@@ -28,16 +26,14 @@ COMPLETE_PACKAGE_ID = UUID("550e8400-e29b-41d4-a716-446655440000")
 
 
 class LocalBackend:
-    """Start the actual local API with temporary SQLite and filesystem state."""
+    """Start the actual local API with temporary filesystem state."""
 
     def __init__(self, tmp_path: Path) -> None:
-        self.database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
         self.evidence_root = tmp_path / "runtime"
         self.port = _unused_port()
         self.environment = {
             **os.environ,
             "REPOSITORY_ROOT": os.fspath(tmp_path),
-            "DATABASE_URL": self.database_url,
             "EVIDENCE_ROOT": os.fspath(self.evidence_root),
             "REPOSITORY_INTAKE_ROOT": os.fspath(tmp_path / "repository-intake" / "recordings"),
             "EVIDENCE_PACKAGE_INTAKE_ROOT": os.fspath(
@@ -106,7 +102,6 @@ uvicorn.run(
 @pytest.fixture()
 def local_backend(tmp_path: Path) -> LocalBackend:
     backend = LocalBackend(tmp_path)
-    upgrade_database(BACKEND_ROOT, backend.database_url)
     backend.start()
     try:
         yield backend
@@ -489,21 +484,20 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
     assert backend_video.parent == backend_recording / "videos"
     assert backend_predictions.parent == backend_recording / "predictions"
 
-    # Rebuild the searchable index after a database restart and runtime deletion. The canonical
-    # source remains in one repository-intake bundle throughout the exercise.
+    # Reconstruct every catalog from canonical files after a process restart.
     local_backend.stop()
-    shutil.rmtree(local_backend.evidence_root)
-    for suffix in ("", "-wal", "-shm"):
-        (tmp_path / f"evidence.sqlite{suffix}").unlink(missing_ok=True)
-    upgrade_database(BACKEND_ROOT, local_backend.database_url)
     local_backend.start()
     with httpx.Client(base_url=local_backend.base_url, timeout=5) as client:
         rebuilt = client.get(f"/v1/repository-bundles/{recording_id}")
         rebuilt_evidence = client.get(f"/v1/evidence-packages/{evidence_package_id}")
+        rebuilt_analysis = client.get(f"/v1/round-analyses/{analysis_id}")
     assert rebuilt.status_code == 200
     assert rebuilt.json()["source_sha256"] == simulation["recording_video_sha256"]
     assert rebuilt_evidence.status_code == 200
     assert rebuilt_evidence.json()["package_id"] == evidence_package_id
+    assert rebuilt_analysis.status_code == 200
+    assert rebuilt_analysis.json()["state"] == "complete"
+    assert rebuilt_analysis.json()["result"] == analysis_status["result"]
     assert (evidence_package_root / evidence_package_id).is_dir()
 
     intake_root = Path(local_backend.environment["REPOSITORY_INTAKE_ROOT"])

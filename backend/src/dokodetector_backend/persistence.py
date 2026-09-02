@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, BinaryIO
 from uuid import UUID
 
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
-from dokodetector_backend.repository import StoredPackage, StoredTableObservation
+from dokodetector_backend.stored_models import StoredPackage, StoredTableObservation
 from dokodetector_backend.table_observation_store import TableObservationStore
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ class EvidencePackagePersister:
         max_frame_bytes: int | None = None,
         max_video_bytes: int | None = None,
     ) -> tuple[StoredPackage, bool]:
-        """Stage and publish one package without a metadata database write."""
+        """Stage and publish one package through the filesystem store."""
 
         with self.storage.start_package(package_id) as upload:
             upload.write_part(
@@ -86,7 +86,7 @@ class TableObservationPersister:
     def persist(
         self, observation: TableObservation, observation_bytes: bytes
     ) -> StoredTableObservation:
-        """Stage and publish one observation without database compensation."""
+        """Stage and publish one observation through the filesystem store."""
 
         return self.store.publish(observation, observation_bytes)[0]
 

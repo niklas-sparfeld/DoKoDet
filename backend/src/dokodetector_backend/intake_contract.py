@@ -1,7 +1,8 @@
 """Backend typed models for the shared repository-intake contract.
 
 This module validates the same strict JSON documents as the app and CardEventNet package.  It is
-intentionally independent from SQLAlchemy and from any analyzer or training implementation.
+intentionally independent from storage implementations and from any analyzer or training
+implementation.
 """
 
 from __future__ import annotations

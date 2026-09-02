@@ -95,7 +95,6 @@ def _app(tmp_path: Path) -> tuple[object, _Classifier]:
     shutil.copytree(FIXTURE_ROOT, intake_root / "recording-both")
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'review.sqlite'}",
         evidence_root=tmp_path / "runtime",
         operations_root=tmp_path / "data" / "operations",
         repository_intake_root=intake_root,

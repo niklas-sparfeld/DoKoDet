@@ -10,20 +10,14 @@ from fastapi.testclient import TestClient
 from test_card_event_review_api import FIXTURE_ROOT
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.repository import upgrade_database
-
-BACKEND_ROOT = Path(__file__).parents[1]
 
 
 def _backend(tmp_path: Path) -> TestClient:
     intake_root = tmp_path / "data" / "intake" / "recordings"
     (intake_root / "recording-both").parent.mkdir(parents=True)
     shutil.copytree(FIXTURE_ROOT, intake_root / "recording-both")
-    database_url = f"sqlite:///{tmp_path / 'review.sqlite'}"
-    upgrade_database(BACKEND_ROOT, database_url)
     settings = Settings(
         _env_file=None,
-        database_url=database_url,
         evidence_root=tmp_path / "runtime",
         operations_root=tmp_path / "data" / "operations",
         repository_intake_root=intake_root,

@@ -1,8 +1,8 @@
 # Filesystem storage inventory
 
-This inventory is the M0 baseline for epic 0046. It names the current SQL tables, their field
-owners, their query consumers, and the canonical filesystem representation that will replace each
-SQL read or write. The SQL model is not a second source of truth after the store cutovers.
+This inventory is the M0 baseline and M4 completion record for epic 0046. It names the former SQL
+tables, their field owners, their query consumers, and the canonical filesystem representation
+that replaces each SQL read or write. The former SQL model and database are removed.
 
 ## Canonical resource roots
 
@@ -145,8 +145,8 @@ Current filesystem store consumers:
 - The app does not rebuild a recording index at startup. Direct valid bundle changes are visible on
   the next store read or catalog refresh.
 
-The `repository_bundles` SQL table remains only as an untouched migration artifact until M4 removes
-the SQL stack. Runtime recording reads and writes no longer use it.
+The `repository_bundles` SQL table and its migration are removed. Runtime recording reads and
+writes use only the canonical bundle.
 
 ### `round_analyses` (`0005_round_analyses`, replaced by M3)
 
@@ -179,7 +179,7 @@ Filesystem consumers after M3:
 - `RoundAnalysisStore` owns `state.json` creation, validation, idempotent replay, lifecycle
   transitions, recording lookup, artifact-gated completion, and restart recovery.
 - `RoundAnalysisService`, the round-analysis API, recording detail, and recording catalogs read
-  analysis state from `RoundAnalysisStore`. No round-analysis API path reads the SQL repository.
+  analysis state from `RoundAnalysisStore`. No round-analysis API path reads a database.
 
 M2 filesystem consumers:
 
@@ -192,11 +192,10 @@ M2 filesystem consumers:
 
 ## Non-SQL stores
 
-Pending videos and operations data already use filesystem stores. M0 uses the shared primitives for
-their future store changes but does not move their domain contracts. The concrete operations stores
-remain separate: CardEvent review, CardEvent development split, visible-card review batches, visual
-card identity review batches, and the other `data/operations` documents do not share a generic
-resource schema.
+Pending videos and operations data use filesystem stores. The concrete operations stores remain
+separate: CardEvent review, CardEvent development split, visible-card review batches, visual card
+identity review batches, and the other `data/operations` documents do not share a generic resource
+schema.
 
 ## M0 query and authority rules
 
@@ -209,4 +208,5 @@ resource schema.
 4. Startup recovery does not delete source or completed artifacts. Abandoned staging paths are
    ignored and reported for cleanup.
 5. No SQL value, database file, durable index, or hidden metadata copy is required to find or read a
-   valid resource.
+   valid resource. M4 verifies that the backend starts, passes filesystem readiness, and rebuilds
+   all catalogs from canonical files after restart.

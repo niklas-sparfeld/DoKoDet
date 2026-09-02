@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import shutil
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -12,8 +14,6 @@ from typing import TYPE_CHECKING, Any, AsyncIterator
 from doko_operations import CardEventDevelopmentSplitStore, CardEventReviewStore
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
 from starlette.staticfiles import StaticFiles
 
 from dokodetector_backend.api import router
@@ -28,6 +28,7 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
+from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.gemini_analyzer import create_configured_analyzer
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.pending_video_api import router as pending_video_router
@@ -35,11 +36,6 @@ from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recordings_api import router as recordings_router
-from dokodetector_backend.repository import (
-    EvidenceRepository,
-    create_database_engine,
-    upgrade_database,
-)
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_api import router as round_analysis_router
@@ -73,7 +69,6 @@ def create_app(
     """Create the local backend application."""
 
     app_settings = settings or Settings()
-    upgrade_database(Path(__file__).resolve().parents[2], app_settings.database_url)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -92,8 +87,6 @@ def create_app(
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
     app.state.settings = app_settings
-    app.state.engine = create_database_engine(app_settings.database_url)
-    app.state.repository = EvidenceRepository(app.state.engine)
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
     app.state.round_analysis_storage = RoundAnalysisArtifactStorage(app_settings.evidence_root)
     app.state.round_analysis_store = RoundAnalysisStore(app.state.round_analysis_storage)
@@ -176,18 +169,19 @@ def create_app(
 
     @app.get("/health/ready", response_model=None)
     def readiness(request: Request) -> dict[str, str] | JSONResponse:
-        """Check the local database and evidence directory."""
+        """Check the required filesystem roots and atomic replacement support."""
 
         request_id = get_or_create_request_id(request)
         try:
-            with app.state.engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
             _check_evidence_directory(app.state.storage.table_observations_root)
             _check_evidence_directory(app.state.round_analysis_storage.root)
             _check_evidence_directory(app.state.evidence_package_storage.root)
             _check_evidence_directory(app.state.repository_bundle_storage.root)
             _check_evidence_directory(app.state.pending_video_storage.root)
-        except (OSError, SQLAlchemyError):
+            _check_evidence_directory(app.state.card_event_review_store.workspace_root)
+            _check_evidence_directory(app.state.card_event_development_split_store.workspace_root)
+            _check_atomic_runtime_probe(app.state.storage.root)
+        except OSError:
             log_event(
                 LOGGER,
                 logging.DEBUG,
@@ -306,7 +300,7 @@ def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
 
 
 def _check_evidence_directory(directory: os.PathLike[str] | str) -> None:
-    """Verify that the evidence directory supports local reads and writes."""
+    """Verify that one required filesystem root supports local reads and writes."""
 
     evidence_directory = os.fspath(directory)
     os.makedirs(evidence_directory, exist_ok=True)
@@ -323,3 +317,18 @@ def _check_evidence_directory(directory: os.PathLike[str] | str) -> None:
         probe.seek(0)
         if probe.read() != b"ready":
             raise OSError("The evidence directory failed its write check.")
+
+
+def _check_atomic_runtime_probe(directory: os.PathLike[str] | str) -> None:
+    """Verify a safe JSON write-and-replace in the mutable runtime root."""
+
+    root = Path(directory)
+    root.mkdir(parents=True, exist_ok=True)
+    probe_directory = Path(tempfile.mkdtemp(prefix=".readiness-", dir=root))
+    probe_path = probe_directory / "probe.json"
+    try:
+        atomic_replace_json(probe_path, {"status": "ready"})
+        if json.loads(probe_path.read_text(encoding="utf-8")) != {"status": "ready"}:
+            raise OSError("The runtime root failed its atomic replacement check.")
+    finally:
+        shutil.rmtree(probe_directory, ignore_errors=True)

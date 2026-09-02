@@ -25,7 +25,6 @@ def _records(caplog, event_name: str) -> list[logging.LogRecord]:
 def _settings(tmp_path: Path) -> Settings:
     return Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'backend.sqlite'}",
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",

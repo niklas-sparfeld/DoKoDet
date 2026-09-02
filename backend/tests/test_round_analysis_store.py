@@ -6,13 +6,13 @@ from uuid import UUID
 
 import pytest
 
-from dokodetector_backend.repository import StoredRoundAnalysis
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.round_analysis_store import (
     RoundAnalysisConflict,
     RoundAnalysisStore,
 )
+from dokodetector_backend.stored_models import StoredRoundAnalysis
 
 ANALYSIS_ID = UUID("00000000-0000-0000-0000-000000000032")
 SESSION_ID = UUID("00000000-0000-0000-0000-000000000033")

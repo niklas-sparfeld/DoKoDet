@@ -147,7 +147,6 @@ def test_backend_startup_emits_backend_started(caplog, tmp_path) -> None:
     caplog.set_level(logging.INFO, logger="dokodetector_backend")
     settings = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path / 'backend.sqlite'}",
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",

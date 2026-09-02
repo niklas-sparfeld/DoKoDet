@@ -20,7 +20,6 @@ from test_round_analysis_api import (
 from dokodetector_backend import gemini_analyzer
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import ConfigurationError, Settings
-from dokodetector_backend.repository import upgrade_database
 
 BACKEND_ROOT = Path(__file__).parents[1]
 
@@ -28,7 +27,6 @@ BACKEND_ROOT = Path(__file__).parents[1]
 def _settings(tmp_path: Path, **values: object) -> Settings:
     defaults: dict[str, object] = {
         "_env_file": None,
-        "database_url": f"sqlite:///{tmp_path / 'backend.sqlite'}",
         "evidence_root": tmp_path / "runtime",
         "evidence_package_intake_root": tmp_path / "intake" / "evidence-packages",
         "repository_intake_root": tmp_path / "intake" / "recordings",
@@ -303,7 +301,6 @@ def test_local_identity_reaches_worker_persistence_with_a_schema_valid_observati
         visible_card_identity_bundle_path=identity_bundle,
         visible_card_identity_device="cpu",
     )
-    upgrade_database(BACKEND_ROOT, settings.database_url)
     app = create_app(settings, run_round_analysis_synchronously=True)
     _write_recording_bundle(app)
 
