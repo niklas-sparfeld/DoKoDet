@@ -534,6 +534,25 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   );
   const selected = selectedEventId === null ? undefined : selectedEvent;
   const frameRate = recording?.video.media_facts?.nominal_frame_rate ?? 0;
+  const nudgeSelectedEvent = useCallback(
+    (event: EditableEvent, frameDelta: -1 | 1) => {
+      if (frameRate <= 0) return;
+      const effectiveTime = clampTime(
+        event.effective_time_s + frameDelta / frameRate,
+        duration,
+      );
+      setCurrentTime(effectiveTime);
+      queueUpdate(
+        event,
+        "retime",
+        { effectiveTime },
+        frameDelta < 0
+          ? "Event nudged one frame earlier."
+          : "Event nudged one frame later.",
+      );
+    },
+    [duration, frameRate, queueUpdate, setCurrentTime],
+  );
   const isCompleted = review?.review_state === "completed";
   const isEditable = !isCompleted && saveState !== "conflict";
   const proposedCount = events.filter(
@@ -1168,14 +1187,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                     <button
                       className={styles.secondaryButton}
                       type="button"
-                      onClick={() =>
-                        queueUpdate(
-                          selected,
-                          "retime",
-                          { effectiveTime: selected.effective_time_s - 1 / frameRate },
-                          "Event nudged one frame earlier.",
-                        )
-                      }
+                      onClick={() => nudgeSelectedEvent(selected, -1)}
                       disabled={!isEditable || frameRate <= 0}
                     >
                       Nudge −1 frame <span className={styles.shortcutLabel}>,</span>
@@ -1183,14 +1195,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                     <button
                       className={styles.secondaryButton}
                       type="button"
-                      onClick={() =>
-                        queueUpdate(
-                          selected,
-                          "retime",
-                          { effectiveTime: selected.effective_time_s + 1 / frameRate },
-                          "Event nudged one frame later.",
-                        )
-                      }
+                      onClick={() => nudgeSelectedEvent(selected, 1)}
                       disabled={!isEditable || frameRate <= 0}
                     >
                       Nudge +1 frame <span className={styles.shortcutLabel}>.</span>

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import type { CardEventReviewResource } from "../api/client";
 import { emptyRecordingDetail } from "../test/roundAnalysisFixture";
@@ -457,8 +458,28 @@ describe("CardEventReviewPage", () => {
       completion_receipt_id: null,
       full_video_acknowledged: false,
     } satisfies CardEventReviewResource;
-    const fetchMock = vi.fn<typeof fetch>((input) =>
-      Promise.resolve(
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "PATCH") {
+        const payload = JSON.parse(String(init.body)) as {
+          effective_time_s: number;
+        };
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              review_id: draftReview.review_id,
+              draft_revision: draftReview.draft_revision + 1,
+              changed_event: {
+                ...draftReview.events[0],
+                effective_time_s: payload.effective_time_s,
+              },
+              event_counts: { reviewed: 1, proposed: 0, dismissed: 1 },
+              completion_blockers: [],
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      return Promise.resolve(
         new Response(
           JSON.stringify(
             String(input).includes("/card-event-reviews/")
@@ -467,8 +488,8 @@ describe("CardEventReviewPage", () => {
           ),
           { headers: { "Content-Type": "application/json" } },
         ),
-      ),
-    );
+      );
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<CardEventReviewPage reviewId={review.review_id} />);
@@ -479,6 +500,18 @@ describe("CardEventReviewPage", () => {
     expect(
       within(actions).getByRole("button", { name: /^Nudge \+1 frame/ }),
     ).toBeEnabled();
+    const sourceVideo = screen.getByLabelText(
+      "Source recording recording-detail-1",
+    );
+    Object.defineProperty(sourceVideo, "currentTime", {
+      configurable: true,
+      value: 1.25,
+      writable: true,
+    });
+    await userEvent.setup().click(
+      within(actions).getByRole("button", { name: /^Nudge \+1 frame/ }),
+    );
+    expect(sourceVideo).toHaveProperty("currentTime", 1.25 + 1 / 30);
     const table = screen.getByRole("table", {
       name: "Unified time-ordered CardEvent review events",
     });
