@@ -330,4 +330,29 @@ describe("CardEventReviewPage", () => {
       screen.getByRole("button", { name: "Open event 2 at 0:03.000" }),
     ).toHaveAttribute("aria-current", "true");
   });
+
+  it("shows the selected event fields in the video-side navigator", async () => {
+    const fetchMock = vi.fn<typeof fetch>((input) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input).includes("/card-event-reviews/")
+              ? review
+              : emptyRecordingDetail,
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={review.review_id} />);
+    await screen.findByRole("heading", { name: "CardEvent review" });
+
+    expect(screen.getByLabelText("Time in event navigator")).toHaveValue(1.25);
+    expect(screen.getByLabelText("Event type in event navigator")).toHaveValue(
+      "card_played",
+    );
+    expect(screen.getByLabelText("Time in event navigator")).toBeDisabled();
+  });
 });

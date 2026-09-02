@@ -1001,13 +1001,187 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                 No event is selected.
               </p>
             ) : (
-              <p className={styles.cardEventVideoCurrent} aria-live="polite">
-                <strong>{formatTime(selected.effective_time_s)}</strong>
-                <span>
-                  {formatIdentifier(selected.type)} ·{" "}
-                  {formatIdentifier(selected.state)}
-                </span>
-              </p>
+              <>
+                <p className={styles.cardEventVideoCurrent} aria-live="polite">
+                  <strong>{formatTime(selected.effective_time_s)}</strong>
+                  <span>
+                    {formatIdentifier(selected.type)} ·{" "}
+                    {formatIdentifier(selected.state)}
+                  </span>
+                </p>
+                <div className={styles.cardEventVideoEditor}>
+                  <label>
+                    Time (seconds)
+                    <input
+                      type="number"
+                      min="0"
+                      max={duration > 0 ? duration : undefined}
+                      step="0.001"
+                      value={selected.effective_time_s}
+                      disabled={!isEditable}
+                      onChange={(input) => {
+                        const value = Number(input.target.value);
+                        if (Number.isFinite(value))
+                          setLocalEvents(
+                            eventsRef.current.map((event) =>
+                              event.localId === selected.localId
+                                ? { ...event, effective_time_s: value }
+                                : event,
+                            ),
+                          );
+                      }}
+                      onBlur={() => {
+                        const current = eventsRef.current.find(
+                          (event) => event.localId === selected.localId,
+                        );
+                        if (current !== undefined && isEditable)
+                          queueUpdate(
+                            current,
+                            "retime",
+                            { effectiveTime: current.effective_time_s },
+                            "Event time updated.",
+                          );
+                      }}
+                      aria-label="Time in event navigator"
+                    />
+                  </label>
+                  <label>
+                    Event type
+                    <select
+                      value={selected.type}
+                      disabled={!isEditable}
+                      onChange={(input) =>
+                        queueUpdate(
+                          selected,
+                          "edit",
+                          { type: input.target.value },
+                          "Event type updated.",
+                        )
+                      }
+                      aria-label="Event type in event navigator"
+                    >
+                      {CARD_EVENT_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {formatIdentifier(type)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <details className={styles.cardEventVideoMoreFields}>
+                    <summary>More event fields</summary>
+                    <label>
+                      Confidence
+                      <select
+                        value={selected.confidence ?? ""}
+                        disabled={!isEditable}
+                        onChange={(input) =>
+                          queueUpdate(
+                            selected,
+                            "edit",
+                            {
+                              confidence:
+                                input.target.value === ""
+                                  ? null
+                                  : input.target.value,
+                            },
+                            "Event confidence updated.",
+                          )
+                        }
+                        aria-label="Confidence in event navigator"
+                      >
+                        <option value="">Not set</option>
+                        {CARD_EVENT_CONFIDENCES.map((confidence) => (
+                          <option key={confidence} value={confidence}>
+                            {formatIdentifier(confidence)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Notes
+                      <textarea
+                        rows={2}
+                        value={selected.notes ?? ""}
+                        disabled={!isEditable}
+                        onChange={(input) =>
+                          setLocalEvents(
+                            eventsRef.current.map((event) =>
+                              event.localId === selected.localId
+                                ? { ...event, notes: input.target.value }
+                                : event,
+                            ),
+                          )
+                        }
+                        onBlur={() => {
+                          const current = eventsRef.current.find(
+                            (event) => event.localId === selected.localId,
+                          );
+                          if (current !== undefined && isEditable)
+                            queueUpdate(
+                              current,
+                              "edit",
+                              { notes: current.notes },
+                              "Event notes updated.",
+                            );
+                        }}
+                        aria-label="Notes in event navigator"
+                      />
+                    </label>
+                  </details>
+                  {selected.state === "proposed" ? (
+                    <div className={styles.cardEventVideoActions}>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        onClick={() =>
+                          queueUpdate(
+                            selected,
+                            "accept",
+                            {},
+                            "Proposal accepted.",
+                          )
+                        }
+                        disabled={!isEditable}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        onClick={() =>
+                          queueUpdate(
+                            selected,
+                            "dismiss",
+                            {},
+                            "Proposal dismissed.",
+                          )
+                        }
+                        disabled={!isEditable}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  ) : selected.proposal !== null ? (
+                    <div className={styles.cardEventVideoActions}>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        onClick={() =>
+                          queueUpdate(
+                            selected,
+                            "undo",
+                            {},
+                            "Proposal decision undone.",
+                          )
+                        }
+                        disabled={!isEditable}
+                      >
+                        Undo decision
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </>
             )}
             <ol ref={videoEventListRef} className={styles.cardEventVideoList}>
               {events.map((event, index) => (

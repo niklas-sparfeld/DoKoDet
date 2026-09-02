@@ -2528,7 +2528,7 @@ progress {
   display: grid;
   min-height: 0;
   max-height: min(70vh, 56rem);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 0.7rem;
   padding: 1rem;
   border: 1px solid var(--line);
@@ -2571,6 +2571,76 @@ progress {
   color: var(--ink);
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
+}
+
+.cardEventVideoEditor,
+.cardEventVideoMoreFields {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.cardEventVideoEditor > label,
+.cardEventVideoMoreFields label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.cardEventVideoEditor input,
+.cardEventVideoEditor select,
+.cardEventVideoEditor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+.cardEventVideoEditor textarea {
+  resize: vertical;
+}
+
+.cardEventVideoEditor input:focus-visible,
+.cardEventVideoEditor select:focus-visible,
+.cardEventVideoEditor textarea:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.cardEventVideoMoreFields {
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+}
+
+.cardEventVideoMoreFields summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.cardEventVideoMoreFields[open] summary {
+  margin-bottom: 0.55rem;
+}
+
+.cardEventVideoActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.cardEventVideoActions .secondaryButton {
+  min-height: 2rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.68rem;
 }
 
 .cardEventVideoList {
