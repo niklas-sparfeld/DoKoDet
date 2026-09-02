@@ -316,7 +316,7 @@ def test_local_identity_reaches_worker_persistence_with_a_schema_valid_observati
 
     assert response.status_code == 202
     assert response.json()["state"] == "complete"
-    stored = app.state.repository.list_table_observations(package_id)[0]
+    stored = app.state.table_observation_store.list_for_package(package_id)[0]
     observation = parse_observation_bytes(stored.observation_json.encode())
     assert observation.schema_version == "table-observation/v1"
     assert observation.status == "observed"

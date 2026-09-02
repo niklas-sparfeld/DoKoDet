@@ -14,12 +14,11 @@ from table_evidence_analyzer import (
 
 from dokodetector_backend.analyzer_adapter import load_analyzer_evidence
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
+from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.persistence import TableObservationPersister
-from dokodetector_backend.repository import (
-    EvidenceRepository,
-    StoredTableObservation,
-)
+from dokodetector_backend.repository import EvidenceRepository, StoredTableObservation
 from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.table_observation_store import TableObservationStore
 
 if TYPE_CHECKING:
     from dokodetector_backend.repository import StoredPackage
@@ -34,20 +33,36 @@ class AnalyzerRunner:
 
     def __init__(
         self,
-        repository: EvidenceRepository,
-        storage: EvidencePackageStorage,
-        analyzer: TableEvidenceAnalyzer,
+        package_store: EvidencePackageStore | EvidenceRepository,
+        analyzer: TableEvidenceAnalyzer | EvidencePackageStorage,
+        legacy_analyzer: TableEvidenceAnalyzer | None = None,
         *,
-        observation_storage: EvidenceStorage,
+        observation_store: TableObservationStore | None = None,
+        observation_storage: EvidenceStorage | None = None,
     ) -> None:
-        self.repository = repository
-        self.storage = storage
-        self.analyzer = analyzer
-        self.analyzer_name = getattr(analyzer, "name", None)
-        self.analyzer_version = getattr(analyzer, "version", None)
+        if isinstance(package_store, EvidencePackageStore):
+            if legacy_analyzer is not None or observation_store is None:
+                raise TypeError("the filesystem runner needs an analyzer and observation store")
+            resolved_package_store = package_store
+            resolved_analyzer = analyzer
+            resolved_observation_store = observation_store
+        else:
+            if not isinstance(analyzer, EvidencePackageStorage) or legacy_analyzer is None:
+                raise TypeError("the legacy runner arguments are incomplete")
+            if observation_storage is None:
+                raise TypeError("the legacy runner needs observation storage")
+            resolved_package_store = EvidencePackageStore(analyzer)
+            resolved_analyzer = legacy_analyzer
+            resolved_observation_store = TableObservationStore(observation_storage)
+        self.package_store = resolved_package_store
+        self.storage = resolved_package_store.storage
+        self.analyzer = resolved_analyzer
+        self.analyzer_name = getattr(resolved_analyzer, "name", None)
+        self.analyzer_version = getattr(resolved_analyzer, "version", None)
         if not self.analyzer_name or not self.analyzer_version:
             raise ValueError("analyzer name and version are required for observation selection.")
-        self.observation_persister = TableObservationPersister(repository, observation_storage)
+        self.observation_persister = TableObservationPersister(resolved_observation_store)
+        self.observation_store = resolved_observation_store
 
     def run_once(self, package_id: UUID | str | None = None) -> StoredTableObservation | None:
         """Run the analyzer for one explicit or pending package."""
@@ -56,7 +71,7 @@ class AnalyzerRunner:
         if package is None:
             return None
 
-        existing = self.repository.get_table_observation_for_analyzer(
+        existing = self.observation_store.get_for_analyzer(
             package.package_id,
             self.analyzer_name,
             self.analyzer_version,
@@ -91,11 +106,15 @@ class AnalyzerRunner:
 
     def _select_package(self, package_id: UUID | str | None) -> StoredPackage | None:
         if package_id is not None:
-            package = self.repository.get_package(package_id)
+            package = self.package_store.get(package_id)
             if package is None:
                 raise AnalyzerRunnerError("The evidence package was not found.")
             return package
-        return self.repository.get_pending_package(self.analyzer_name, self.analyzer_version)
+        return self.package_store.get_pending(
+            self.analyzer_name,
+            self.analyzer_version,
+            self.observation_store,
+        )
 
     def _normalize_observation(
         self,

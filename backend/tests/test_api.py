@@ -13,7 +13,8 @@ from fastapi.testclient import TestClient
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import APIErrorDetail, ContractError, _log_rejection
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
-from dokodetector_backend.repository import EvidenceRepository, upgrade_database
+from dokodetector_backend.evidence_package_store import EvidencePackageStore
+from dokodetector_backend.repository import upgrade_database
 
 BACKEND_ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
@@ -116,7 +117,7 @@ def multipart_parts(
 
 
 @pytest.fixture()
-def backend(tmp_path) -> tuple[TestClient, EvidenceRepository, EvidencePackageStorage]:
+def backend(tmp_path) -> tuple[TestClient, EvidencePackageStore, EvidencePackageStorage]:
     database_url = f"sqlite:///{tmp_path / 'evidence.sqlite'}"
     upgrade_database(BACKEND_ROOT, database_url)
     settings = Settings(
@@ -126,7 +127,7 @@ def backend(tmp_path) -> tuple[TestClient, EvidenceRepository, EvidencePackageSt
         evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
     )
     app = create_test_app(settings)
-    return TestClient(app), app.state.repository, app.state.evidence_package_storage
+    return TestClient(app), app.state.evidence_package_store, app.state.evidence_package_storage
 
 
 def test_upload_accepts_complete_incomplete_and_metadata_only_packages(backend) -> None:

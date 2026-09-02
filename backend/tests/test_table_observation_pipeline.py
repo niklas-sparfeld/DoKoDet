@@ -14,16 +14,17 @@ from table_evidence_analyzer import (
     parse_observation_bytes,
 )
 
-from dokodetector_backend.analyzer_adapter import EvidenceIntegrityError
 from dokodetector_backend.analyzer_runner import AnalyzerRunner, AnalyzerRunnerError
 from dokodetector_backend.config import Settings
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.persistence import TableObservationPersister
 from dokodetector_backend.repository import (
     EvidenceRepository,
-    RepositoryError,
-    TableObservationConflict,
     upgrade_database,
+)
+from dokodetector_backend.table_observation_store import (
+    TableObservationConflict,
+    TableObservationStoreError,
 )
 
 BACKEND_ROOT = Path(__file__).parents[1]
@@ -180,20 +181,24 @@ def test_runner_verifies_evidence_before_analyzer_invocation(backend) -> None:
             called = True
             return FixtureAnalyzer().analyze(evidence)
 
-    with pytest.raises(EvidenceIntegrityError):
+    with pytest.raises(AnalyzerRunnerError):
         AnalyzerRunner(
-            repository, storage, Analyzer(), observation_storage=client.app.state.storage
+            client.app.state.evidence_package_store,
+            Analyzer(),
+            observation_store=client.app.state.table_observation_store,
         ).run_once(PACKAGE_ID)
 
     assert called is False
-    assert repository.list_table_observations(PACKAGE_ID) == ()
+    assert client.app.state.table_observation_store.list_for_package(PACKAGE_ID) == ()
 
 
 def test_observation_crosses_analyzer_backend_reconstruction_boundary(backend) -> None:
     client, repository, storage = backend
     payload, _ = upload_fixture(client, "example-complete")
     stored = AnalyzerRunner(
-        repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+        client.app.state.evidence_package_store,
+        FixtureAnalyzer(),
+        observation_store=client.app.state.table_observation_store,
     ).run_once(payload["package_id"])
 
     assert stored is not None
@@ -224,7 +229,9 @@ def test_persisted_analyzer_observation_runs_through_round_reconstruction_harnes
     client, repository, storage = backend
     payload, _ = upload_fixture(client, "example-complete")
     stored = AnalyzerRunner(
-        repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+        client.app.state.evidence_package_store,
+        FixtureAnalyzer(),
+        observation_store=client.app.state.table_observation_store,
     ).run_once(payload["package_id"])
     assert stored is not None
 
@@ -289,7 +296,9 @@ def test_runner_is_idempotent_and_processes_pending_packages(backend) -> None:
     first_payload, _ = upload_fixture(client, "example-complete")
     second_payload, _ = upload_fixture(client, "example-incomplete")
     runner = AnalyzerRunner(
-        repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+        client.app.state.evidence_package_store,
+        FixtureAnalyzer(),
+        observation_store=client.app.state.table_observation_store,
     )
 
     first = runner.run_once(first_payload["package_id"])
@@ -316,11 +325,13 @@ def test_analyzer_failure_does_not_create_observation_and_can_retry(backend) -> 
             return FixtureAnalyzer().analyze(evidence)
 
     runner = AnalyzerRunner(
-        repository, storage, FlakyAnalyzer(), observation_storage=client.app.state.storage
+        client.app.state.evidence_package_store,
+        FlakyAnalyzer(),
+        observation_store=client.app.state.table_observation_store,
     )
     with pytest.raises(AnalyzerRunnerError):
         runner.run_once(payload["package_id"])
-    assert repository.list_table_observations(PACKAGE_ID) == ()
+    assert client.app.state.table_observation_store.list_for_package(PACKAGE_ID) == ()
     recovered = runner.run_once(payload["package_id"])
     assert recovered is not None
     assert attempts == 2
@@ -330,7 +341,9 @@ def test_observation_conflict_keeps_original_bytes(backend) -> None:
     client, repository, storage = backend
     payload, _ = upload_fixture(client, "example-complete")
     stored = AnalyzerRunner(
-        repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+        client.app.state.evidence_package_store,
+        FixtureAnalyzer(),
+        observation_store=client.app.state.table_observation_store,
     ).run_once(payload["package_id"])
     assert stored is not None
     original_bytes = stored.observation_json.encode()
@@ -339,11 +352,11 @@ def test_observation_conflict_keeps_original_bytes(backend) -> None:
     )
     # Same package and analyzer identity must remain idempotent, even with a different ID.
     with pytest.raises(TableObservationConflict):
-        TableObservationPersister(repository, client.app.state.storage).persist(
+        TableObservationPersister(client.app.state.table_observation_store).persist(
             changed, canonical_json_bytes(changed)
         )
     assert (
-        repository.get_table_observation(stored.observation_id).observation_json.encode()
+        client.app.state.table_observation_store.get(stored.observation_id).observation_json.encode()
         == original_bytes
     )
     assert (client.app.state.storage.root / stored.relative_path).read_bytes() == original_bytes
@@ -354,14 +367,15 @@ def test_database_failure_removes_staged_observation_directory(backend, monkeypa
     payload, _ = upload_fixture(client, "example-complete")
 
     def fail(*args, **kwargs):
-        raise RepositoryError("database failed")
+        raise TableObservationStoreError("filesystem publication failed")
 
-    monkeypatch.setattr(repository, "insert_table_observation", fail)
-    with pytest.raises(RepositoryError):
+    monkeypatch.setattr(client.app.state.table_observation_store, "publish", fail)
+    with pytest.raises(TableObservationStoreError):
         AnalyzerRunner(
-            repository, storage, FixtureAnalyzer(), observation_storage=client.app.state.storage
+            client.app.state.evidence_package_store,
+            FixtureAnalyzer(),
+            observation_store=client.app.state.table_observation_store,
         ).run_once(payload["package_id"])
 
-    assert repository.list_table_observations(PACKAGE_ID) == ()
-    assert client.app.state.storage.table_observations_root.exists()
-    assert list(client.app.state.storage.table_observations_root.iterdir()) == []
+    assert client.app.state.table_observation_store.list_for_package(PACKAGE_ID) == ()
+    assert not client.app.state.storage.table_observations_root.exists()

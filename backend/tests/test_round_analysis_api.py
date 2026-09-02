@@ -721,9 +721,6 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
     assert conflict.status_code == 409
     assert conflict.json()["error"]["code"] == "counterfactual_conflict"
 
-    for package_id in package_ids:
-        assert app.state.repository.delete_table_observation(f"{package_id}-observation")
-
     database_url = f"sqlite:///{backend_tmp_path / 'round-analysis.sqlite'}"
     restarted_app = create_test_app(
         Settings(

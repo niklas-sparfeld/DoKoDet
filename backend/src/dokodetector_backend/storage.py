@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import BinaryIO
 from uuid import UUID
 
+from dokodetector_backend.filesystem import commit_staged_directory, contained_path
+
 SAFE_PART_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 COPY_CHUNK_BYTES = 1024 * 1024
 
@@ -77,12 +79,13 @@ class EvidenceStorage:
     def table_observation_path(self, observation_id: str) -> Path:
         """Return the final path for one validated table observation."""
 
-        return self.table_observations_root / observation_id
+        return contained_path(self.table_observations_root, observation_id)
 
     def start_table_observation(self, observation_id: str) -> TemporaryTableObservation:
         """Create a temporary directory for one observation file."""
 
         self.table_observations_root.mkdir(parents=True, exist_ok=True)
+        contained_path(self.table_observations_root, observation_id)
         temporary_path = Path(
             tempfile.mkdtemp(prefix=".observation-", dir=self.table_observations_root)
         )
@@ -187,7 +190,7 @@ class TemporaryEvidencePackage:
         if final_path.exists():
             raise FileExistsError("The package directory already exists.")
 
-        self.temporary_path.rename(final_path)
+        commit_staged_directory(self.temporary_path, final_path)
         self._committed = True
         return StoredEvidencePackage(
             package_id=self.package_id,

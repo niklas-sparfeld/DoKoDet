@@ -20,7 +20,7 @@ from dokodetector_backend.repository import StoredFrame, StoredPackage
 
 
 class EvidenceIntegrityError(RuntimeError):
-    """Stored evidence does not match its accepted database metadata."""
+    """Stored evidence does not match its accepted canonical metadata."""
 
 
 def load_analyzer_evidence(
@@ -35,9 +35,9 @@ def load_analyzer_evidence(
     manifest_bytes = _read_file(manifest_path, "The stored manifest could not be read.")
     expected_manifest_bytes = package.manifest_json.encode("utf-8")
     if manifest_bytes != expected_manifest_bytes:
-        raise EvidenceIntegrityError("The stored manifest does not match the database row.")
+        raise EvidenceIntegrityError("The stored manifest does not match canonical metadata.")
     if _sha256(manifest_bytes) != package.manifest_sha256:
-        raise EvidenceIntegrityError("The stored manifest hash does not match the database row.")
+        raise EvidenceIntegrityError("The stored manifest hash does not match canonical metadata.")
 
     try:
         manifest = parse_manifest_bytes(manifest_bytes)
@@ -68,7 +68,7 @@ def load_analyzer_evidence(
             len(frame_bytes) != stored_frame.byte_length
             or _sha256(frame_bytes) != stored_frame.sha256
         ):
-            raise EvidenceIntegrityError("A stored frame hash does not match the database row.")
+            raise EvidenceIntegrityError("A stored frame hash does not match canonical metadata.")
         frames.append(
             AnalyzerFrame(
                 part_name=frame.part_name,

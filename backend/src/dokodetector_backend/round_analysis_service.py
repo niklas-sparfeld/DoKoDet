@@ -27,7 +27,7 @@ from game_engine import parse_reconstruction_input_bytes
 from table_evidence_analyzer import TableEvidenceAnalyzer
 
 from dokodetector_backend.analyzer_runner import AnalyzerRunner
-from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
+from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.intake_contract import (
     EvidencePackageLineage,
     IntakeContractError,
@@ -40,7 +40,6 @@ from dokodetector_backend.recording_bundle_store import (
     StoredRecordingBundle,
 )
 from dokodetector_backend.repository import (
-    EvidenceRepository,
     RoundAnalysisNotFound,
     RoundAnalysisRepository,
     StoredPackage,
@@ -67,7 +66,7 @@ from dokodetector_backend.round_analysis_timeline import (
     RoundAnalysisTimelineProjector,
     TimelineFrameFile,
 )
-from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.table_observation_store import TableObservationStore
 
 LOGGER = logging.getLogger(__name__)
 ANALYSIS_WORKER_FAILURE = "The round analysis could not be completed."
@@ -124,31 +123,29 @@ class RoundAnalysisService:
     def __init__(
         self,
         repository: RoundAnalysisRepository,
-        evidence_repository: EvidenceRepository,
-        package_storage: EvidencePackageStorage,
-        evidence_storage: EvidenceStorage,
+        package_store: EvidencePackageStore,
+        observation_store: TableObservationStore,
         artifact_storage: RoundAnalysisArtifactStorage,
         recording_bundle_store: RecordingBundleStore,
         repository_bundle_storage: RepositoryBundleStorage,
         analyzer: TableEvidenceAnalyzer,
     ) -> None:
         self.repository = repository
-        self.evidence_repository = evidence_repository
-        self.package_storage = package_storage
-        self.evidence_storage = evidence_storage
+        self.package_store = package_store
+        self.observation_store = observation_store
+        self.package_storage = package_store.storage
+        self.evidence_storage = observation_store.storage
         self.artifact_storage = artifact_storage
         self.recording_bundle_store = recording_bundle_store
         self.repository_bundle_storage = repository_bundle_storage
         self.analyzer_runner = AnalyzerRunner(
-            evidence_repository,
-            package_storage,
+            package_store,
             analyzer,
-            observation_storage=evidence_storage,
+            observation_store=observation_store,
         )
         self.timeline_projector = RoundAnalysisTimelineProjector(
-            evidence_repository,
-            package_storage,
-            evidence_storage,
+            package_store,
+            observation_store,
             artifact_storage,
         )
         self._queue: asyncio.Queue[tuple[UUID, str] | None] = asyncio.Queue()
@@ -175,7 +172,7 @@ class RoundAnalysisService:
 
         packages: list[StoredPackage] = []
         for package_id in request.evidence_package_ids:
-            package = self.evidence_repository.get_package(package_id)
+            package = self.package_store.get(package_id)
             if package is None:
                 raise RoundAnalysisValidationError(
                     f"The evidence package {package_id} is not stored."
@@ -200,7 +197,7 @@ class RoundAnalysisService:
         """Return canonical recordings with linked packages and prior analyses."""
 
         packages_by_recording: dict[str, list[StoredPackage]] = {}
-        for package in self.evidence_repository.list_packages():
+        for package in self.package_store.list():
             if package.state != "stored":
                 continue
             try:

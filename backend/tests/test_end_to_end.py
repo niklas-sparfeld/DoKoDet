@@ -8,7 +8,7 @@ from test_api import load_upload_fixture, multipart_parts
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
-from dokodetector_backend.repository import EvidenceRepository, upgrade_database
+from dokodetector_backend.repository import upgrade_database
 
 BACKEND_ROOT = Path(__file__).parents[1]
 
@@ -24,7 +24,7 @@ def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> 
         evidence_package_intake_root=tmp_path / "repository-intake" / "evidence-packages",
     )
     app = create_test_app(settings)
-    repository = EvidenceRepository(app.state.engine)
+    package_store = app.state.evidence_package_store
     storage = EvidencePackageStorage(settings.evidence_package_intake_root)
     manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
     files = multipart_parts(manifest_bytes, frame_sources, video_source)
@@ -48,7 +48,7 @@ def test_shared_fixture_round_trip_uses_http_sqlite_and_filesystem(tmp_path) -> 
     assert metadata["manifest"] == json.loads(manifest_bytes)
     assert metadata["manifest_sha256"] == hashlib.sha256(manifest_bytes).hexdigest()
 
-    stored = repository.get_package(payload["package_id"])
+    stored = package_store.get(payload["package_id"])
     assert stored is not None
     package_path = storage.package_path(payload["package_id"])
     assert (package_path / "evidence-manifest.json").read_bytes() == manifest_bytes

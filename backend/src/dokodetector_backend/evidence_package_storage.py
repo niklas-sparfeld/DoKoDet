@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import BinaryIO, Mapping
 from uuid import UUID
 
+from dokodetector_backend.filesystem import commit_staged_directory, contained_path
 from dokodetector_backend.repository_bundle_storage import StoredRepositoryFile
 from dokodetector_backend.storage import COPY_CHUNK_BYTES, StorageLimitError
 
@@ -23,7 +24,7 @@ class EvidencePackageStorage:
     def package_path(self, package_id: UUID | str) -> Path:
         """Return the canonical path for one validated package ID."""
 
-        return self.root / str(UUID(str(package_id)))
+        return contained_path(self.root, str(UUID(str(package_id))))
 
     def start_package(self, package_id: UUID | str) -> TemporaryEvidencePackage:
         """Create a private package directory below the canonical intake root."""
@@ -33,14 +34,26 @@ class EvidencePackageStorage:
         temporary_path = Path(tempfile.mkdtemp(prefix=".upload-", dir=self.root))
         return TemporaryEvidencePackage(self, package_uuid, temporary_path)
 
-    def file_digests(self, package_id: UUID | str) -> dict[str, StoredRepositoryFile]:
+    def file_digests(self, package_id: UUID | str | Path) -> dict[str, StoredRepositoryFile]:
         """Hash every regular file in one canonical package."""
 
-        package_path = self.package_path(package_id)
+        package_path = (
+            package_id
+            if isinstance(package_id, Path)
+            else self.package_path(package_id)
+        )
+        root = self.root.expanduser().resolve()
+        try:
+            package_path = package_path.expanduser().resolve()
+            package_path.relative_to(root)
+        except ValueError as error:
+            raise OSError("evidence package path escapes its configured root") from error
         if not package_path.is_dir():
             raise FileNotFoundError(package_path)
         files: dict[str, StoredRepositoryFile] = {}
         for path in sorted(path for path in package_path.rglob("*") if path.is_file()):
+            if path.is_symlink():
+                raise OSError(f"evidence package member is a symlink: {path}")
             relative_path = path.relative_to(package_path).as_posix()
             files[relative_path] = _hash_file(path, relative_path)
         return files
@@ -129,6 +142,8 @@ class TemporaryEvidencePackage:
 
         files: dict[str, StoredRepositoryFile] = {}
         for path in sorted(path for path in self.temporary_path.rglob("*") if path.is_file()):
+            if path.is_symlink():
+                raise OSError(f"evidence package member is a symlink: {path}")
             relative_path = path.relative_to(self.temporary_path).as_posix()
             files[relative_path] = _hash_file(path, relative_path)
         return files
@@ -140,7 +155,7 @@ class TemporaryEvidencePackage:
         if final_path.exists():
             raise FileExistsError(final_path)
         files = self.file_digests()
-        self.temporary_path.rename(final_path)
+        commit_staged_directory(self.temporary_path, final_path)
         self._committed = True
         return files
 

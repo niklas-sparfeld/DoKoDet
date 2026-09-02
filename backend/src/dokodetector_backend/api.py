@@ -6,7 +6,6 @@ import hashlib
 import json
 import logging
 import math
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Request
@@ -28,8 +27,11 @@ from dokodetector_backend.contract import (
     validate_package_id,
 )
 from dokodetector_backend.errors import APIErrorDetail, ContractError
-from dokodetector_backend.evidence_package_storage import (
-    calculate_bundle_fingerprint,
+from dokodetector_backend.evidence_package_store import (
+    EvidencePackageConflict,
+    EvidencePackageLogicalEventConflict,
+    EvidencePackageStore,
+    EvidencePackageStoreError,
 )
 from dokodetector_backend.intake_contract import (
     IntakeContractError,
@@ -39,15 +41,7 @@ from dokodetector_backend.intake_contract import (
     validate_evidence_package_bundle,
 )
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
-from dokodetector_backend.repository import (
-    EvidenceRepository,
-    LogicalEventConflict,
-    PackageConflict,
-    RepositoryError,
-    StoredFrame,
-    StoredPackage,
-)
-from dokodetector_backend.repository_bundle_storage import StoredRepositoryFile
+from dokodetector_backend.repository import StoredPackage
 from dokodetector_backend.storage import StorageLimitError
 from dokodetector_backend.video_probe import (
     UnsupportedVideoError,
@@ -302,56 +296,21 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                 package_bytes=package_bytes,
             )
 
-            fingerprint = calculate_bundle_fingerprint(
-                {
-                    path: StoredRepositoryFile(path, len(value), _sha256(value))
-                    for path, value in member_files_with_bundle.items()
-                }
-            )
-            repository: EvidenceRepository = request.app.state.repository
-            existing = repository.get_package(manifest.package_id)
-            if existing is not None:
-                if existing.package_fingerprint == fingerprint:
-                    _log_evidence_package_stored(
-                        request,
-                        existing,
-                        manifest=manifest,
-                        created=False,
-                    )
-                    return _upload_response(existing, created=False)
-                raise ContractError(
-                    "package_conflict",
-                    "The package ID is already stored with different content.",
-                    status_code=409,
-                )
-
-            existing_event = repository.get_by_logical_event(
+            package_store: EvidencePackageStore = request.app.state.evidence_package_store
+            existing_event = package_store.get_by_logical_event(
                 manifest.session.session_id,
                 manifest.session.event_sequence,
             )
-            if existing_event is not None:
+            if existing_event is not None and existing_event.package_id != manifest.package_id:
                 raise ContractError(
                     "logical_event_conflict",
                     "The session and event sequence are already stored for another package.",
                     status_code=409,
                 )
 
-            package = StoredPackage.from_manifest(
-                manifest,
-                manifest_bytes,
-                package_fingerprint=fingerprint,
-                frames=tuple(
-                    StoredFrame.from_manifest(
-                        frame,
-                        relative_path=f"frames/{frame.part_name}.jpg",
-                    )
-                    for frame in manifest.frames
-                ),
-                received_at=datetime.now(timezone.utc),
-            )
             try:
-                stored = request.app.state.persister.persist(
-                    package,
+                stored, created = request.app.state.persister.persist(
+                    manifest.package_id,
                     evidence_manifest_source=manifest_bytes,
                     package_record_source=package_record_bytes,
                     task_enrollment_source=task_enrollment_bytes,
@@ -374,24 +333,19 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                     max_frame_bytes=settings.max_frame_bytes,
                     max_video_bytes=settings.max_video_bytes,
                 )
-            except PackageConflict:
-                resolved = _resolve_package_conflict(repository, manifest.package_id, fingerprint)
-                existing = repository.get_package(manifest.package_id)
-                if existing is not None:
-                    _log_evidence_package_stored(
-                        request,
-                        existing,
-                        manifest=manifest,
-                        created=False,
-                    )
-                return resolved
-            except LogicalEventConflict as error:
+            except EvidencePackageConflict as error:
+                raise ContractError(
+                    "package_conflict",
+                    str(error),
+                    status_code=409,
+                ) from error
+            except EvidencePackageLogicalEventConflict as error:
                 raise ContractError(
                     "logical_event_conflict",
                     "The session and event sequence are already stored for another package.",
                     status_code=409,
                 ) from error
-            except (RepositoryError, OSError, StorageLimitError) as error:
+            except (EvidencePackageStoreError, OSError, StorageLimitError) as error:
                 raise ContractError(
                     "internal_error",
                     "The package could not be stored.",
@@ -402,9 +356,9 @@ async def upload_evidence_package(package_id: str, request: Request) -> JSONResp
                 request,
                 stored,
                 manifest=manifest,
-                created=True,
+                created=created,
             )
-            return _upload_response(stored, created=True)
+            return _upload_response(stored, created=created)
     except MultiPartException as error:
         raise ContractError(
             "invalid_request",
@@ -421,8 +375,8 @@ def get_evidence_package(package_id: str, request: Request) -> PackageMetadataRe
     """Return metadata for one stored evidence package."""
 
     requested_package_id = _parse_package_id(package_id)
-    repository: EvidenceRepository = request.app.state.repository
-    package = repository.get_package(requested_package_id)
+    package_store: EvidencePackageStore = request.app.state.evidence_package_store
+    package = package_store.get(requested_package_id)
     if package is None:
         raise ContractError(
             "package_not_found",
@@ -472,8 +426,8 @@ def get_evidence_video_snippet(package_id: str, request: Request) -> FileRespons
     """Return the original bytes for one stored complete video snippet."""
 
     requested_package_id = _parse_package_id(package_id)
-    repository: EvidenceRepository = request.app.state.repository
-    package = repository.get_package(requested_package_id)
+    package_store: EvidencePackageStore = request.app.state.evidence_package_store
+    package = package_store.get(requested_package_id)
     if package is None:
         raise ContractError(
             "package_not_found",
@@ -491,7 +445,7 @@ def get_evidence_video_snippet(package_id: str, request: Request) -> FileRespons
         )
 
     video_path = (
-        request.app.state.evidence_package_storage.package_path(package.package_id)
+        package_store.storage.package_path(package.package_id)
         / f"video/{snippet.part_name}.mp4"
     )
     if not video_path.is_file():
@@ -515,8 +469,8 @@ def get_package_table_observations(package_id: str, request: Request) -> list[Ta
     """Return immutable table observations for one stored package."""
 
     requested_package_id = _parse_package_id(package_id)
-    repository: EvidenceRepository = request.app.state.repository
-    if repository.get_package(requested_package_id) is None:
+    package_store: EvidencePackageStore = request.app.state.evidence_package_store
+    if package_store.get(requested_package_id) is None:
         raise ContractError(
             "package_not_found",
             "The package was not found.",
@@ -524,7 +478,9 @@ def get_package_table_observations(package_id: str, request: Request) -> list[Ta
         )
     return [
         _parse_stored_observation(row.observation_json)
-        for row in repository.list_table_observations(requested_package_id)
+        for row in request.app.state.table_observation_store.list_for_package(
+            requested_package_id
+        )
     ]
 
 
@@ -535,8 +491,7 @@ def get_package_table_observations(package_id: str, request: Request) -> list[Ta
 def get_table_observation(observation_id: str, request: Request) -> TableObservation:
     """Return one immutable table observation."""
 
-    repository: EvidenceRepository = request.app.state.repository
-    stored_observation = repository.get_table_observation(observation_id)
+    stored_observation = request.app.state.table_observation_store.get(observation_id)
     if stored_observation is None:
         raise ContractError(
             "table_observation_not_found",
@@ -942,21 +897,6 @@ def _log_evidence_package_stored(
         video_snippet_complete=(
             manifest.video_snippet is not None and manifest.video_snippet.capture_complete
         ),
-    )
-
-
-def _resolve_package_conflict(
-    repository: EvidenceRepository,
-    package_id: UUID,
-    fingerprint: str,
-) -> JSONResponse:
-    existing = repository.get_package(package_id)
-    if existing is not None and existing.package_fingerprint == fingerprint:
-        return _upload_response(existing, created=False)
-    raise ContractError(
-        "package_conflict",
-        "The package ID is already stored with different content.",
-        status_code=409,
     )
 
 

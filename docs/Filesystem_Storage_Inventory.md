@@ -82,7 +82,7 @@ M2 must persist it without changing the analyzer observation contract.
 | `observation_json` | Exact canonical bytes of `observation.json` |
 | `observation_sha256` | Digest of those canonical bytes |
 | `relative_path` | `table-observations/<observation_id>/observation.json` |
-| `created_at` | New immutable filesystem state field, to be defined by M2 |
+| `created_at` | UTC modification time of the committed immutable `observation.json` file |
 
 The uniqueness rule remains `(package_id, analyzer_name, analyzer_version)` until plan 0047.
 
@@ -173,6 +173,15 @@ Current SQL reads and consumers:
 - `create()`/`insert()` serve the round-analysis API and idempotent request replay.
 - `update_progress()`, `mark_complete()`, and `mark_failed()` serve the analysis worker.
 - `fail_non_terminal()` runs during app startup to preserve the restart failure rule.
+
+M2 filesystem consumers:
+
+- `EvidencePackageStore.get/list/get_by_logical_event/list_pending` validate package bundles and
+  derive package and frame metadata directly from their canonical members.
+- `TableObservationStore.get/list/list_for_package/get_for_analyzer` validate observation files and
+  derive observation metadata directly from the canonical document.
+- Package and observation publication stages complete directories and uses one atomic rename. No
+  SQL row or compensation delete is part of the write path.
 
 ## Non-SQL stores
 

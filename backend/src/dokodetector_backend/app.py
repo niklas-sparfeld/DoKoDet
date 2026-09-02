@@ -27,6 +27,7 @@ from dokodetector_backend.card_event_review_api import router as card_event_revi
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
+from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.gemini_analyzer import create_configured_analyzer
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.pending_video_api import router as pending_video_router
@@ -46,6 +47,7 @@ from dokodetector_backend.round_analysis_api import router as round_analysis_rou
 from dokodetector_backend.round_analysis_service import RoundAnalysisService
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.table_observation_store import TableObservationStore
 from dokodetector_backend.visible_card_review_api import router as visible_card_review_router
 from dokodetector_backend.visual_card_identity_review_api import (
     router as visual_card_identity_review_router,
@@ -98,9 +100,10 @@ def create_app(
     app.state.evidence_package_storage = EvidencePackageStorage(
         app_settings.evidence_package_intake_root
     )
+    app.state.evidence_package_store = EvidencePackageStore(app.state.evidence_package_storage)
+    app.state.table_observation_store = TableObservationStore(app.state.storage)
     app.state.persister = EvidencePackagePersister(
-        app.state.repository,
-        app.state.evidence_package_storage,
+        app.state.evidence_package_store,
     )
     app.state.repository_bundle_storage = RepositoryBundleStorage(
         app_settings.repository_intake_root
@@ -129,10 +132,6 @@ def create_app(
     )
     app.state.identity_review_batch_tasks = {}
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
-    app.state.repository.rebuild_from_intake(
-        app.state.evidence_package_storage,
-        observation_storage=app.state.storage,
-    )
     recovered_analysis_count = app.state.round_analysis_repository.fail_non_terminal()
     log_event(
         LOGGER,
@@ -150,9 +149,8 @@ def create_app(
         )
     app.state.round_analysis_service = RoundAnalysisService(
         app.state.round_analysis_repository,
-        app.state.repository,
-        app.state.evidence_package_storage,
-        app.state.storage,
+        app.state.evidence_package_store,
+        app.state.table_observation_store,
         app.state.round_analysis_storage,
         app.state.recording_bundle_store,
         app.state.repository_bundle_storage,

@@ -1,36 +1,28 @@
-"""Coordinate atomic evidence files and SQLite metadata."""
+"""Coordinate atomic publication of evidence and observation files."""
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import TYPE_CHECKING, BinaryIO
+from uuid import UUID
 
-from dokodetector_backend.evidence_package_storage import (
-    EvidencePackageStorage,
-    calculate_bundle_fingerprint,
-)
-from dokodetector_backend.repository import (
-    EvidenceRepository,
-    StoredPackage,
-    StoredTableObservation,
-    TableObservationInsert,
-)
-from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.evidence_package_store import EvidencePackageStore
+from dokodetector_backend.repository import StoredPackage, StoredTableObservation
+from dokodetector_backend.table_observation_store import TableObservationStore
 
 if TYPE_CHECKING:
     from table_evidence_analyzer import TableObservation
 
 
 class EvidencePackagePersister:
-    """Store files first, then commit their metadata in SQLite."""
+    """Validate and publish one complete evidence-package bundle."""
 
-    def __init__(self, repository: EvidenceRepository, storage: EvidencePackageStorage) -> None:
-        self.repository = repository
-        self.storage = storage
+    def __init__(self, store: EvidencePackageStore) -> None:
+        self.store = store
+        self.storage = store.storage
 
     def persist(
         self,
-        package: StoredPackage,
+        package_id: UUID,
         evidence_manifest_source: bytes | BinaryIO,
         package_record_source: bytes | BinaryIO,
         task_enrollment_source: bytes | BinaryIO,
@@ -43,11 +35,10 @@ class EvidencePackagePersister:
         max_manifest_bytes: int | None = None,
         max_frame_bytes: int | None = None,
         max_video_bytes: int | None = None,
-    ) -> StoredPackage:
-        """Persist one package and clean up files if the database insert fails."""
+    ) -> tuple[StoredPackage, bool]:
+        """Stage and publish one package without a metadata database write."""
 
-        committed = False
-        with self.storage.start_package(package.package_id) as upload:
+        with self.storage.start_package(package_id) as upload:
             upload.write_part(
                 "manifest.json",
                 bundle_manifest_source,
@@ -69,14 +60,12 @@ class EvidencePackagePersister:
                 max_bytes=max_manifest_bytes,
             )
             upload.write_part("lineage.json", lineage_source, max_bytes=max_manifest_bytes)
-            stored_frames = {
-                frame.part_name: upload.write_part(
-                    f"frames/{frame.part_name}.jpg",
-                    frame_sources[frame.part_name],
+            for part_name in frame_sources:
+                upload.write_part(
+                    f"frames/{part_name}.jpg",
+                    frame_sources[part_name],
                     max_bytes=max_frame_bytes,
                 )
-                for frame in package.frames
-            }
             if video_source is not None:
                 if video_part_name is None:
                     raise ValueError("A video part name is required for video bytes.")
@@ -85,60 +74,21 @@ class EvidencePackagePersister:
                     video_source,
                     max_bytes=max_video_bytes,
                 )
-            committed_files = upload.commit()
-            committed = True
-
-        package_with_paths = replace(
-            package,
-            package_fingerprint=calculate_bundle_fingerprint(committed_files),
-            frames=tuple(
-                replace(
-                    frame,
-                    relative_path=stored_frames[frame.part_name].relative_path,
-                )
-                for frame in package.frames
-            ),
-        )
-        try:
-            return self.repository.insert_package(package_with_paths)
-        except BaseException:
-            if committed:
-                self.storage.remove_package(package.package_id)
-            raise
+            return self.store.publish(upload)
 
 
 class TableObservationPersister:
-    """Store canonical table-observation bytes and database metadata together."""
+    """Validate and publish one immutable table observation."""
 
-    def __init__(self, repository: EvidenceRepository, storage: EvidenceStorage) -> None:
-        self.repository = repository
-        self.storage = storage
+    def __init__(self, store: TableObservationStore) -> None:
+        self.store = store
 
     def persist(
         self, observation: TableObservation, observation_bytes: bytes
     ) -> StoredTableObservation:
-        """Stage the observation, insert metadata, and clean up on failure."""
+        """Stage and publish one observation without database compensation."""
 
-        relative_path = f"table-observations/{observation.observation_id}/observation.json"
-        database_insert: TableObservationInsert | None = None
-        with self.storage.start_table_observation(observation.observation_id) as staged:
-            staged.write_observation(observation_bytes)
-            database_insert = self.repository.insert_table_observation(
-                observation,
-                observation_bytes,
-                relative_path,
-            )
-            if not database_insert.created:
-                return database_insert.observation
-            try:
-                staged.commit()
-            except BaseException:
-                self.repository.delete_table_observation(
-                    observation.observation_id,
-                    observation_sha256=database_insert.observation.observation_sha256,
-                )
-                raise
-        return database_insert.observation
+        return self.store.publish(observation, observation_bytes)[0]
 
 
 __all__ = ["EvidencePackagePersister", "TableObservationPersister"]

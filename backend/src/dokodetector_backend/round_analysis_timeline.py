@@ -29,9 +29,8 @@ from table_evidence_analyzer import TableObservation, canonical_json_bytes, pars
 
 from dokodetector_backend.analyzer_adapter import EvidenceIntegrityError, load_analyzer_evidence
 from dokodetector_backend.contract import ContractModel, Sha256, parse_manifest_bytes
-from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
+from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.repository import (
-    EvidenceRepository,
     StoredPackage,
     StoredRoundAnalysis,
     StoredTableObservation,
@@ -41,7 +40,7 @@ from dokodetector_backend.round_analysis_contract import (
     parse_round_analysis_create_request_bytes,
 )
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
-from dokodetector_backend.storage import EvidenceStorage
+from dokodetector_backend.table_observation_store import TableObservationStore
 
 ROUND_ANALYSIS_TIMELINE_SCHEMA_VERSION = "round-analysis-timeline/v1"
 FRAME_PART_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
@@ -258,14 +257,14 @@ class RoundAnalysisTimelineProjector:
 
     def __init__(
         self,
-        evidence_repository: EvidenceRepository,
-        evidence_package_storage: EvidencePackageStorage,
-        evidence_storage: EvidenceStorage,
+        package_store: EvidencePackageStore,
+        observation_store: TableObservationStore,
         artifact_storage: RoundAnalysisArtifactStorage,
     ) -> None:
-        self.evidence_repository = evidence_repository
-        self.evidence_package_storage = evidence_package_storage
-        self.evidence_storage = evidence_storage
+        self.package_store = package_store
+        self.observation_store = observation_store
+        self.evidence_package_storage = package_store.storage
+        self.evidence_storage = observation_store.storage
         self.artifact_storage = artifact_storage
 
     def project(self, analysis: StoredRoundAnalysis) -> RoundAnalysisTimeline:
@@ -595,9 +594,7 @@ class RoundAnalysisTimelineProjector:
                 raise RoundAnalysisTimelineError(
                     "The result source record does not match the input."
                 )
-            stored_observation = self.evidence_repository.get_table_observation(
-                source.observation_id
-            )
+            stored_observation = self.observation_store.get(source.observation_id)
             if stored_observation is None:
                 raise RoundAnalysisTimelineError("A source table observation is unavailable.")
             self._validate_stored_observation(
@@ -607,7 +604,7 @@ class RoundAnalysisTimelineProjector:
                 source.observation_path,
             )
             package_id = _package_uuid(observation.source.package_id)
-            package = self.evidence_repository.get_package(package_id)
+            package = self.package_store.get(package_id)
             if package is None:
                 raise RoundAnalysisTimelineError("A source evidence package is unavailable.")
             try:
