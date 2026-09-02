@@ -100,6 +100,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   >(null);
   const [reviewerName, setReviewerName] = useState("");
   const [completionBusy, setCompletionBusy] = useState(false);
+  const [revisionBusy, setRevisionBusy] = useState(false);
   const [removedEvent, setRemovedEvent] = useState<EditableEvent | null>(null);
 
   const setSelected = useCallback((eventId: string | null) => {
@@ -694,6 +695,41 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
     }
   }, [client, hydrate, isEditable, proposedCount, reviewId, reviewerName]);
 
+  const startRevision = useCallback(async () => {
+    const current = reviewRef.current;
+    if (
+      current === null ||
+      current.review_state !== "completed" ||
+      current.completed_version_id === null
+    )
+      return;
+    setRevisionBusy(true);
+    setSaveState("saving");
+    setError(null);
+    try {
+      const collection = await client.listCardEventReviews(
+        current.recording_id,
+      );
+      const existingDraft = collection.reviews.find(
+        (item) => item.review_state === "draft",
+      );
+      const revision =
+        existingDraft === undefined
+          ? await client.createCardEventReview(current.recording_id, {
+              operator: current.operator,
+              parent_review_id: current.review_id,
+            })
+          : existingDraft;
+      setRevisionBusy(false);
+      window.history.pushState({}, "", revision.review_url);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    } catch (reason: unknown) {
+      setRevisionBusy(false);
+      setSaveState(isConflictError(reason) ? "conflict" : "error");
+      setError(describeReviewPageError(reason));
+    }
+  }, [client]);
+
   const reloadWinningDraft = useCallback(async () => {
     try {
       const winning = await client.getCardEventReviewResource(reviewId);
@@ -876,7 +912,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
         </div>
         <p className={styles.detailLead}>
           {isCompleted
-            ? "This completed review is read-only. Its annotation and lineage are immutable."
+            ? "This completed version is read-only to preserve its lineage. Start a revision below to correct the annotations; the recording remains unchanged."
             : "Use the unified event table for a fast review loop. Changes appear at once and save in order."}
         </p>
         <dl className={styles.cardEventReviewPageMetadata}>
@@ -1415,7 +1451,32 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
           </details>
         </div>
 
-        {!isCompleted ? (
+        {isCompleted ? (
+          <section
+            className={styles.cardEventReviewPanel}
+            aria-label="Correct completed CardEvent review"
+          >
+            <div className={styles.sectionHeading}>
+              <div>
+                <p className={styles.statusLabel}>Review lifecycle</p>
+                <h3>Correct annotations</h3>
+              </div>
+              <span className={styles.countLabel}>New draft</span>
+            </div>
+            <p className={styles.cardEventRequirement}>
+              The published review stays available as history. Create a new
+              draft from it to edit event times, types, notes, and decisions.
+            </p>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={() => void startRevision()}
+              disabled={revisionBusy}
+            >
+              {revisionBusy ? "Starting revision…" : "Correct annotations"}
+            </button>
+          </section>
+        ) : (
           <section
             className={styles.cardEventReviewPanel}
             aria-label="Complete CardEvent review"
@@ -1485,7 +1546,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
               Complete full recording review
             </button>
           </section>
-        ) : null}
+        )}
       </section>
 
       {notice !== null ? (

@@ -69,9 +69,10 @@ const review = {
 describe("CardEventReviewPage", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    window.history.replaceState({}, "", "/");
   });
 
-  it("loads a stable review resource with the recording context and read-only history", async () => {
+  it("loads a stable review resource with the recording context and revision entry point", async () => {
     const fetchMock = vi.fn<typeof fetch>((input) =>
       Promise.resolve(
         new Response(
@@ -93,8 +94,11 @@ describe("CardEventReviewPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "This completed review is read-only. Its annotation and lineage are immutable.",
+        "This completed version is read-only to preserve its lineage. Start a revision below to correct the annotations; the recording remains unchanged.",
       ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Correct annotations" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("2 events")).toHaveLength(2);
     const eventCounts = screen.getByLabelText("Event counts");
@@ -113,6 +117,74 @@ describe("CardEventReviewPage", () => {
       2,
       "/v1/recordings/recording-detail-1",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("starts an editable revision from a completed review", async () => {
+    const revision = {
+      ...review,
+      review_id: "cardevent-review-revision-1",
+      review_url: "/card-event-reviews/cardevent-review-revision-1",
+      review_state: "draft" as const,
+      parent_review_id: review.review_id,
+      parent_version_id: review.completed_version_id,
+      parent_digest: review.completed_version_digest,
+      reviewer: null,
+      completed_at: null,
+      completed_version_id: null,
+      completed_version_digest: null,
+      completion_receipt_id: null,
+      reviewed_annotation_digest: null,
+      proposal_decision_digest: null,
+      full_video_acknowledged: false,
+    } satisfies CardEventReviewResource;
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const method = init?.method ?? "GET";
+      const url = String(input);
+      if (method === "GET" && url.endsWith("/card-event-reviews")) {
+        return new Response(
+          JSON.stringify({
+            schema_version: "cardevent-review-collection/v1",
+            recording_id: review.recording_id,
+            current_review_id: review.review_id,
+            draft_review_id: null,
+            latest_completed_review_id: review.review_id,
+            reviews: [],
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (method === "POST") {
+        expect(url).toBe(
+          "/v1/recordings/recording-detail-1/card-event-reviews",
+        );
+        expect(JSON.parse(String(init?.body))).toEqual({
+          operator: review.operator,
+          parent_review_id: review.review_id,
+        });
+        return new Response(JSON.stringify(revision), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify(
+          url.includes("/card-event-reviews/") ? review : emptyRecordingDetail,
+        ),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={review.review_id} />);
+    await screen.findByRole("button", { name: "Correct annotations" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Correct annotations" }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(window.location.pathname).toBe(
+      "/card-event-reviews/cardevent-review-revision-1",
     );
   });
 

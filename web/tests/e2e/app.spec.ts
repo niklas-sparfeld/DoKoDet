@@ -955,8 +955,13 @@ test("shows completed reviews and their draft revisions on the recording page", 
   ).toBeVisible();
   await expect(
     page.getByText(
-      "This completed review is read-only. Its annotation and lineage are immutable.",
+      "This completed version is read-only to preserve its lineage. Start a revision below to correct the annotations; the recording remains unchanged.",
     ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Correct annotations" }).click();
+  await expect(page).toHaveURL("/card-event-reviews/cardevent-review-revision");
+  await expect(
+    page.getByRole("heading", { name: "Draft review" }),
   ).toBeVisible();
 });
 
