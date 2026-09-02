@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { CardEventReviewResource } from "../api/client";
@@ -408,6 +414,127 @@ describe("CardEventReviewPage", () => {
     ).toHaveAttribute("aria-current", "true");
   });
 
+  it("blocks event timings within 10 ms before sending a command", async () => {
+    const draftReview = {
+      ...review,
+      review_state: "draft" as const,
+      completed_at: null,
+      completed_version_id: null,
+      completed_version_digest: null,
+      completion_receipt_id: null,
+      reviewed_annotation_digest: null,
+      proposal_decision_digest: null,
+      full_video_acknowledged: false,
+      events: [
+        review.events[0],
+        {
+          ...review.events[0],
+          event_id: "cardevent-event-2",
+          effective_time_s: 1.3,
+        },
+      ],
+    } satisfies CardEventReviewResource;
+    const methods: string[] = [];
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      methods.push(init?.method ?? "GET");
+      return Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input).includes("/card-event-reviews/")
+              ? draftReview
+              : emptyRecordingDetail,
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={draftReview.review_id} />);
+    const sourceVideo = await screen.findByLabelText(
+      "Source recording recording-detail-1",
+    );
+    Object.defineProperty(sourceVideo, "currentTime", {
+      configurable: true,
+      value: 1.295,
+      writable: true,
+    });
+    fireEvent(sourceVideo, new Event("timeupdate"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add event at playhead" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "CardEvent events must be more than 10 ms apart before saving.",
+    );
+    expect(methods.filter((method) => method !== "GET")).toEqual([]);
+
+    fireEvent.change(screen.getByLabelText("Time in event navigator"), {
+      target: { value: "1.305" },
+    });
+    expect(screen.getByLabelText("Time in event navigator")).toHaveValue(1.25);
+    expect(methods.filter((method) => method !== "GET")).toEqual([]);
+  });
+
+  it("does not retry a server-side validation failure", async () => {
+    const draftReview = {
+      ...review,
+      review_state: "draft" as const,
+      completed_at: null,
+      completed_version_id: null,
+      completed_version_digest: null,
+      completion_receipt_id: null,
+      reviewed_annotation_digest: null,
+      proposal_decision_digest: null,
+      full_video_acknowledged: false,
+    } satisfies CardEventReviewResource;
+    let patchCount = 0;
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      const method = init?.method ?? "GET";
+      if (method === "PATCH") {
+        patchCount += 1;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: {
+                message:
+                  "CardEvent events must be more than 10 ms apart before saving.",
+              },
+            }),
+            {
+              status: 422,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input).includes("/card-event-reviews/")
+              ? draftReview
+              : emptyRecordingDetail,
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CardEventReviewPage reviewId={draftReview.review_id} />);
+    await screen.findByRole("heading", { name: "Draft review" });
+    fireEvent.click(screen.getByRole("button", { name: /^Nudge \+1 frame/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "CardEvent events must be more than 10 ms apart before saving.",
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 20));
+    expect(patchCount).toBe(1);
+    expect(
+      screen.queryByRole("button", { name: "Retry queued commands" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("makes a selected dismissed event obvious in the source video", async () => {
     const fetchMock = vi.fn<typeof fetch>((input) =>
       Promise.resolve(
@@ -508,9 +635,9 @@ describe("CardEventReviewPage", () => {
       value: 1.25,
       writable: true,
     });
-    await userEvent.setup().click(
-      within(actions).getByRole("button", { name: /^Nudge \+1 frame/ }),
-    );
+    await userEvent
+      .setup()
+      .click(within(actions).getByRole("button", { name: /^Nudge \+1 frame/ }));
     expect(sourceVideo).toHaveProperty("currentTime", 1.25 + 1 / 30);
     const table = screen.getByRole("table", {
       name: "Unified time-ordered CardEvent review events",

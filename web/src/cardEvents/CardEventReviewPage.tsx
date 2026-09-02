@@ -56,6 +56,10 @@ type AddCommand = {
 };
 type PendingCommand = UpdateCommand | AddCommand;
 
+const CARD_EVENT_MIN_GAP_S = 0.01;
+const CARD_EVENT_TIMING_ERROR =
+  "CardEvent events must be more than 10 ms apart before saving.";
+
 const EVENT_TYPE_GUIDANCE: Record<string, string> = {
   card_played: "A card reaches its final position in the trick area.",
   trick_cleared: "The cards from the completed trick leave the play area.",
@@ -76,6 +80,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   const videoEventListRef = useRef<HTMLOListElement>(null);
   const playheadRef = useRef(0);
   const serverRevisionRef = useRef(0);
+  const serverEventsRef = useRef<EditableEvent[]>([]);
   const commandSequenceRef = useRef(0);
   const queueRef = useRef<PendingCommand[]>([]);
   const processingRef = useRef(false);
@@ -116,6 +121,22 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
     setEvents(sorted);
   }, []);
 
+  const setLocalEventTime = useCallback(
+    (eventId: string, effectiveTime: number) => {
+      const nextEvents = eventsRef.current.map((event) =>
+        event.localId === eventId
+          ? { ...event, effective_time_s: effectiveTime }
+          : event,
+      );
+      if (hasEventTimingConflict(nextEvents)) {
+        setError(CARD_EVENT_TIMING_ERROR);
+        return;
+      }
+      setLocalEvents(nextEvents);
+    },
+    [setLocalEvents],
+  );
+
   const hydrate = useCallback(
     (nextReview: CardEventReviewResource) => {
       const nextEvents = nextReview.events.map((event) => ({
@@ -124,6 +145,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       }));
       reviewRef.current = nextReview;
       serverRevisionRef.current = nextReview.draft_revision;
+      serverEventsRef.current = nextEvents;
       setReview(nextReview);
       setLocalEvents(nextEvents);
       setSelected(
@@ -321,6 +343,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
         const changed = { ...response.changed_event };
         if (command.kind === "add") {
           const localChanged = { ...changed, localId: command.localEventId };
+          serverEventsRef.current = [...serverEventsRef.current, localChanged];
           setLocalEvents(
             eventsRef.current.map((event) =>
               event.localId === command.localEventId ? localChanged : event,
@@ -335,6 +358,11 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
             }
           }
         } else {
+          serverEventsRef.current = serverEventsRef.current.map((event) =>
+            event.localId === command.eventId
+              ? { ...changed, localId: event.localId }
+              : event,
+          );
           setLocalEvents(
             eventsRef.current.map((event) =>
               event.localId === command.eventId
@@ -343,6 +371,10 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
             ),
           );
         }
+      } else if (command.kind === "update" && command.action === "remove") {
+        serverEventsRef.current = serverEventsRef.current.filter(
+          (event) => event.localId !== command.eventId,
+        );
       }
       queueRef.current.shift();
       setQueueLength(queueRef.current.length);
@@ -360,6 +392,25 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       inFlightCommandIdRef.current = null;
       if (isConflictError(reason)) {
         setSaveState("conflict");
+        setError(describeReviewPageError(reason));
+        return;
+      }
+      if (!isRetryableError(reason)) {
+        queueRef.current = [];
+        setQueueLength(0);
+        setFirstUnappliedCommand(null);
+        setLocalEvents(serverEventsRef.current);
+        removedEventRef.current = null;
+        setRemovedEvent(null);
+        setSelected(
+          selectedEventIdRef.current !== null &&
+            serverEventsRef.current.some(
+              (event) => event.localId === selectedEventIdRef.current,
+            )
+            ? selectedEventIdRef.current
+            : (serverEventsRef.current[0]?.localId ?? null),
+        );
+        setSaveState("error");
         setError(describeReviewPageError(reason));
         return;
       }
@@ -387,7 +438,14 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
     } else {
       setSaveState("saved");
     }
-  }, [client, reviewId, saveState, setLocalEvents, updateLocalReviewRevision]);
+  }, [
+    client,
+    reviewId,
+    saveState,
+    setLocalEvents,
+    setSelected,
+    updateLocalReviewRevision,
+  ]);
 
   useEffect(() => {
     processQueueRef.current = processQueue;
@@ -398,12 +456,28 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   }, [processQueue]);
 
   const enqueue = useCallback(
-    (command: PendingCommand, optimisticEvent?: EditableEvent) => {
+    (command: PendingCommand, optimisticEvent?: EditableEvent): boolean => {
       if (
         reviewRef.current?.review_state === "completed" ||
         saveState === "conflict"
       )
-        return;
+        return false;
+      const projectedEvents =
+        optimisticEvent !== undefined
+          ? [...eventsRef.current, optimisticEvent]
+          : command.kind === "update" &&
+              command.action === "retime" &&
+              command.effectiveTime !== undefined
+            ? eventsRef.current.map((event) =>
+                event.localId === command.eventId
+                  ? { ...event, effective_time_s: command.effectiveTime! }
+                  : event,
+              )
+            : eventsRef.current;
+      if (hasEventTimingConflict(projectedEvents)) {
+        setError(CARD_EVENT_TIMING_ERROR);
+        return false;
+      }
       if (optimisticEvent !== undefined)
         setLocalEvents([...eventsRef.current, optimisticEvent]);
       else if (command.kind === "update") updateOptimisticEvent(command);
@@ -447,6 +521,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       setSaveState("saving");
       setError(null);
       void processQueueRef.current?.();
+      return true;
     },
     [saveState, setLocalEvents, updateOptimisticEvent],
   );
@@ -493,8 +568,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       origin: "manual",
       proposal: null,
     };
-    setSelected(localId);
-    enqueue(
+    const queued = enqueue(
       {
         kind: "add",
         clientCommandId: nextCommandId(),
@@ -508,6 +582,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       },
       event,
     );
+    if (queued) setSelected(localId);
   }, [duration, enqueue, nextCommandId, setSelected]);
 
   const jumpToAdjacentMarker = useCallback(
@@ -628,6 +703,10 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
   const undoRemoval = useCallback(() => {
     const removed = removedEventRef.current;
     if (!isEditable || removed === null) return;
+    if (hasEventTimingConflict([...eventsRef.current, removed])) {
+      setError(CARD_EVENT_TIMING_ERROR);
+      return;
+    }
     const pendingIndex = queueRef.current.findIndex(
       (command) =>
         command.kind === "update" &&
@@ -645,8 +724,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
     }
     const localId = `local-event-${Date.now()}-${commandSequenceRef.current + 1}`;
     const restored = { ...removed, localId, event_id: localId };
-    setSelected(localId);
-    enqueue(
+    const queued = enqueue(
       {
         kind: "add",
         clientCommandId: nextCommandId(),
@@ -660,8 +738,11 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
       },
       restored,
     );
-    removedEventRef.current = null;
-    setRemovedEvent(null);
+    if (queued) {
+      setSelected(localId);
+      removedEventRef.current = null;
+      setRemovedEvent(null);
+    }
   }, [enqueue, isEditable, nextCommandId, setLocalEvents, setSelected]);
 
   const completeReview = useCallback(async () => {
@@ -1024,13 +1105,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                       onChange={(input) => {
                         const value = Number(input.target.value);
                         if (Number.isFinite(value))
-                          setLocalEvents(
-                            eventsRef.current.map((event) =>
-                              event.localId === selected.localId
-                                ? { ...event, effective_time_s: value }
-                                : event,
-                            ),
-                          );
+                          setLocalEventTime(selected.localId, value);
                       }}
                       onBlur={() => {
                         const current = eventsRef.current.find(
@@ -1164,7 +1239,8 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                           }
                           disabled={!isEditable}
                         >
-                          Dismiss <span className={styles.shortcutLabel}>D</span>
+                          Dismiss{" "}
+                          <span className={styles.shortcutLabel}>D</span>
                         </button>
                       </>
                     ) : selected.proposal !== null ? (
@@ -1190,7 +1266,8 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                       onClick={() => nudgeSelectedEvent(selected, -1)}
                       disabled={!isEditable || frameRate <= 0}
                     >
-                      Nudge −1 frame <span className={styles.shortcutLabel}>,</span>
+                      Nudge −1 frame{" "}
+                      <span className={styles.shortcutLabel}>,</span>
                     </button>
                     <button
                       className={styles.secondaryButton}
@@ -1198,7 +1275,8 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                       onClick={() => nudgeSelectedEvent(selected, 1)}
                       disabled={!isEditable || frameRate <= 0}
                     >
-                      Nudge +1 frame <span className={styles.shortcutLabel}>.</span>
+                      Nudge +1 frame{" "}
+                      <span className={styles.shortcutLabel}>.</span>
                     </button>
                     <button
                       className={styles.secondaryButton}
@@ -1221,7 +1299,8 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                       onClick={removeSelected}
                       disabled={
                         !isEditable ||
-                        (selected.proposal !== null && selected.state !== "reviewed")
+                        (selected.proposal !== null &&
+                          selected.state !== "reviewed")
                       }
                     >
                       Remove selected event{" "}
@@ -1508,13 +1587,7 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                     onChange={(input) => {
                       const value = Number(input.target.value);
                       if (Number.isFinite(value))
-                        setLocalEvents(
-                          eventsRef.current.map((event) =>
-                            event.localId === selected.localId
-                              ? { ...event, effective_time_s: value }
-                              : event,
-                          ),
-                        );
+                        setLocalEventTime(selected.localId, value);
                     }}
                     onBlur={() => {
                       const current = eventsRef.current.find(
@@ -1772,7 +1845,8 @@ export function CardEventReviewPage({ reviewId }: { reviewId: string }) {
                 Reload winning draft
               </button>
             ) : null}
-            {saveState === "error" || saveState === "retrying" ? (
+            {queueLength > 0 &&
+            (saveState === "error" || saveState === "retrying") ? (
               <button
                 className={styles.secondaryButton}
                 type="button"
@@ -2031,6 +2105,26 @@ function describeCommand(command: PendingCommand | undefined): string {
 }
 function isConflictError(reason: unknown): boolean {
   return reason instanceof ApiError && reason.status === 409;
+}
+function isRetryableError(reason: unknown): boolean {
+  return !(
+    reason instanceof ApiError &&
+    reason.status >= 400 &&
+    reason.status < 500
+  );
+}
+function hasEventTimingConflict(
+  events: Array<Pick<EditableEvent, "effective_time_s">>,
+): boolean {
+  const ordered = [...events].sort(
+    (first, second) => first.effective_time_s - second.effective_time_s,
+  );
+  return ordered.some(
+    (event, index) =>
+      index > 0 &&
+      event.effective_time_s - ordered[index - 1].effective_time_s <=
+        CARD_EVENT_MIN_GAP_S,
+  );
 }
 function describeReviewPageError(reason: unknown): string {
   if (reason instanceof ApiError && reason.body !== null) {
