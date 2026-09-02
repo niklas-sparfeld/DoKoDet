@@ -135,8 +135,12 @@ class CardEventReviewStore:
     def list_reviews(self, source: CardEventReviewSource) -> tuple[dict[str, Any], ...]:
         """List all recording-owned review resources in display order."""
 
-        with _review_lock(self._resource_root(), exclusive=False):
+        with _review_lock(self._resource_root(), exclusive=True):
             states = self._resource_states_locked(source)
+            if not states:
+                migrated = self._migrate_legacy_draft_locked(source, operator="legacy")
+                if migrated is not None:
+                    states.append(migrated)
         return tuple(_project_resource_summary(state) for state in _sort_resources(states))
 
     def create_review(
@@ -153,11 +157,14 @@ class CardEventReviewStore:
             states = self._resource_states_locked(source)
             if (
                 any(state["review_state"] == "draft" for state in states)
-                or self._draft_path(source.recording_id).is_file()
             ):
                 raise CardEventReviewConflict(
                     "A draft CardEvent review already exists for this recording."
                 )
+            if not states:
+                migrated = self._migrate_legacy_draft_locked(source, operator=operator)
+                if migrated is not None:
+                    return _project_resource(migrated, source)
 
             parent = _select_parent_resource(states, parent_review_id)
             parent_version_id: str | None = None
@@ -835,6 +842,49 @@ class CardEventReviewStore:
             states.append(state)
         return states
 
+    def _migrate_legacy_draft_locked(
+        self, source: CardEventReviewSource, *, operator: str
+    ) -> dict[str, Any] | None:
+        """Promote one old recording-keyed draft into the named review resource format."""
+
+        path = self._draft_path(source.recording_id)
+        if not path.is_file():
+            return None
+        try:
+            legacy = _read_json(path)
+        except OSError as error:
+            raise CardEventReviewWriteError(
+                "The CardEvent review draft could not be read."
+            ) from error
+        _validate_state_source(legacy, source)
+        if legacy.get("review_state") != "draft":
+            return None
+
+        decisions = _proposal_decisions_from_state(legacy)
+        annotation = _validate_annotation(legacy["annotation"], source)
+        state = _resource_state(
+            source,
+            review_id=_legacy_review_id(source),
+            operator=operator.strip(),
+            created_at=_now(),
+            updated_at=_now(),
+            events=_migrate_legacy_events(annotation, decisions, source),
+            draft_revision=legacy["draft_revision"],
+            full_video_acknowledged=legacy.get("full_video_acknowledged") is True,
+            parent_version_id=(
+                legacy.get("parent_version_id")
+                if isinstance(legacy.get("parent_version_id"), str)
+                else None
+            ),
+            parent_digest=(
+                legacy.get("parent_digest")
+                if isinstance(legacy.get("parent_digest"), str)
+                else None
+            ),
+        )
+        self._write_resource_locked(state)
+        return state
+
     def _current_resource(self, source: CardEventReviewSource) -> dict[str, Any] | None:
         with _review_lock(self._resource_root(), exclusive=False):
             states = self._resource_states_locked(source)
@@ -959,6 +1009,12 @@ def _proposal_event_id(proposal_id_value: str) -> str:
     return "cardevent-event-" + _digest({"proposal_id": proposal_id_value})[:32]
 
 
+def _legacy_review_id(source: CardEventReviewSource) -> str:
+    """Return the stable resource ID used when promoting an old singleton draft."""
+
+    return "cardevent-review-" + _digest({"legacy_recording_id": source.recording_id})[:32]
+
+
 def _resource_state(
     source: CardEventReviewSource,
     *,
@@ -967,6 +1023,8 @@ def _resource_state(
     created_at: str,
     updated_at: str,
     events: Sequence[Mapping[str, Any]],
+    draft_revision: int = 0,
+    full_video_acknowledged: bool = False,
     parent_review_id: str | None = None,
     parent_version_id: str | None = None,
     parent_digest: str | None = None,
@@ -984,9 +1042,9 @@ def _resource_state(
         "created_at": created_at,
         "updated_at": updated_at,
         "review_state": "draft",
-        "draft_revision": 0,
+        "draft_revision": draft_revision,
         "events": _validate_event_collection(list(events), source),
-        "full_video_acknowledged": False,
+        "full_video_acknowledged": full_video_acknowledged,
         "reviewer": None,
         "completed_at": None,
         "completed_version_id": None,
@@ -1622,6 +1680,70 @@ def _legacy_events_from_payload(
             event["state"] = "reviewed" if decision == "accepted" else "dismissed"
             event["confidence"] = "confirmed" if decision == "accepted" else None
             events.append(event)
+    return _validate_event_collection(events, source)
+
+
+def _migrate_legacy_events(
+    annotation: Mapping[str, Any],
+    decisions: Mapping[str, str],
+    source: CardEventReviewSource,
+) -> list[dict[str, Any]]:
+    """Convert old review data without duplicating accepted proposals."""
+
+    events: list[dict[str, Any]] = []
+    matched_proposals: set[str] = set()
+    for index, value in enumerate(annotation["events"]):
+        fields = _validate_event_fields(
+            effective_time_s=value["time_s"],
+            event_type=value["type"],
+            confidence=value.get("confidence"),
+            notes=value.get("notes"),
+        )
+        matching_proposal = next(
+            (
+                proposal
+                for proposal in source.proposals
+                if proposal.proposal_id not in matched_proposals
+                and proposal.time_s == fields["effective_time_s"]
+            ),
+            None,
+        )
+        if matching_proposal is not None:
+            event = _proposal_event(matching_proposal)
+            event["type"] = fields["type"]
+            decision = decisions[matching_proposal.proposal_id]
+            if decision == "accepted":
+                event["state"] = "reviewed"
+                event["confidence"] = "confirmed"
+            elif decision == "dismissed":
+                event["state"] = "dismissed"
+                event["confidence"] = "ignore"
+            if "notes" in fields:
+                event["notes"] = fields["notes"]
+            matched_proposals.add(matching_proposal.proposal_id)
+        else:
+            event = {
+                "event_id": "cardevent-event-"
+                + _digest({"manual": fields, "index": index})[:32],
+                **fields,
+                "state": "reviewed",
+                "origin": "manual",
+                "proposal": None,
+            }
+        events.append(event)
+
+    for proposal in source.proposals:
+        decision = decisions[proposal.proposal_id]
+        if proposal.proposal_id in matched_proposals:
+            continue
+        event = _proposal_event(proposal)
+        if decision == "accepted":
+            event["state"] = "reviewed"
+            event["confidence"] = "confirmed"
+        elif decision == "dismissed":
+            event["state"] = "dismissed"
+            event["confidence"] = "ignore"
+        events.append(event)
     return _validate_event_collection(events, source)
 
 

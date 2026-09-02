@@ -180,7 +180,7 @@ class RecordingBundleStore:
 
 
 def _assert_bundle_files(bundle: object, files: dict[str, StoredRepositoryFile]) -> None:
-    """Require the exact declared bundle members and their manifest digests."""
+    """Require declared bundle members and their manifest digests."""
 
     expected = {
         "manifest.json",
@@ -189,8 +189,10 @@ def _assert_bundle_files(bundle: object, files: dict[str, StoredRepositoryFile])
         *(item.relative_path for item in bundle.files.proposal_generator_runs),
         bundle.files.video.relative_path,
     }
-    if set(files) != expected:
-        raise IntakeContractError("canonical bundle contains unexpected or missing files")
+    missing = expected - set(files)
+    if missing:
+        missing_paths = ", ".join(sorted(missing))
+        raise IntakeContractError(f"canonical bundle is missing required files: {missing_paths}")
 
     descriptors = {
         "source-record.json": bundle.files.source_record,

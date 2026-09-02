@@ -128,7 +128,7 @@ def test_atomic_json_rejects_a_symlinked_parent(tmp_path: Path) -> None:
     assert not (outside / "state.json").exists()
 
 
-def test_directory_enumeration_is_sorted_and_reports_invalid_entries(tmp_path: Path) -> None:
+def test_directory_enumeration_is_sorted_and_ignores_neighbor_files(tmp_path: Path) -> None:
     root = tmp_path / "resources"
     (root / "b").mkdir(parents=True)
     (root / "a").mkdir()
@@ -145,6 +145,5 @@ def test_directory_enumeration_is_sorted_and_reports_invalid_entries(tmp_path: P
     assert [path.name for path in result.paths] == ["a", "b"]
     assert [(item.path.name, item.reason) for item in result.diagnostics] == [
         (".upload-abandoned", "staging directory ignored"),
-        ("file.txt", "non-directory resource ignored"),
         ("invalid", "invalid resource: manifest.json is missing"),
     ]

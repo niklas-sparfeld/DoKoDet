@@ -128,6 +128,8 @@ class TemporaryRepositoryBundle:
 
         files: dict[str, StoredRepositoryFile] = {}
         for path in sorted(path for path in self.temporary_path.rglob("*") if path.is_file()):
+            if path.name == ".DS_Store":
+                continue
             relative_path = path.relative_to(self.temporary_path).as_posix()
             files[relative_path] = _hash_file(path, relative_path)
         return files

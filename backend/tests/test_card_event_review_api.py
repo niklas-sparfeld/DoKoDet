@@ -402,6 +402,74 @@ def test_recording_owned_reviews_have_stable_identity_and_single_draft(
     assert persisted.json()["parent_review_id"] == review_id
 
 
+def test_recording_owned_review_collection_promotes_legacy_draft(
+    tmp_path: Path,
+) -> None:
+    client, settings, _ = _backend(tmp_path)
+    initial = client.get("/v1/recordings/recording-both/card-event-review").json()
+    proposal_id = initial["proposals"][0]["proposal_id"]
+    saved = client.put(
+        "/v1/recordings/recording-both/card-event-review/draft",
+        json={
+            "annotation": _annotation([]),
+            "proposals": [{"proposal_id": proposal_id, "decision": "accepted"}],
+            "expected_revision": 0,
+        },
+    )
+    assert saved.status_code == 200
+
+    collection = client.get("/v1/recordings/recording-both/card-event-reviews")
+
+    assert collection.status_code == 200
+    body = collection.json()
+    assert len(body["reviews"]) == 1
+    item = body["reviews"][0]
+    assert item["state"] == "draft"
+    assert body["draft_review_id"] == item["review_id"]
+    assert item["review_url"] == f"/card-event-reviews/{item['review_id']}"
+    assert item["reviewed_event_count"] == 1
+    assert item["proposed_event_count"] == 0
+
+    resource = client.get(
+        item["review_url"].replace("/card-event-reviews", "/v1/card-event-reviews")
+    )
+
+    assert resource.status_code == 200
+    assert resource.json()["draft_revision"] == saved.json()["draft_revision"]
+    assert resource.json()["events"][0]["proposal"]["proposal_id"] == proposal_id
+    assert (
+        settings.operations_root / "cardevent-reviews" / item["review_id"] / "review.json"
+    ).is_file()
+
+
+def test_create_review_promotes_legacy_draft_when_collection_was_not_loaded(
+    tmp_path: Path,
+) -> None:
+    client, _, _ = _backend(tmp_path)
+    initial = client.get("/v1/recordings/recording-both/card-event-review").json()
+    saved = client.put(
+        "/v1/recordings/recording-both/card-event-review/draft",
+        json={
+            "annotation": _annotation([]),
+            "proposals": [
+                {"proposal_id": initial["proposals"][0]["proposal_id"], "decision": "undecided"}
+            ],
+            "expected_revision": 0,
+        },
+    )
+    assert saved.status_code == 200
+
+    created = client.post(
+        "/v1/recordings/recording-both/card-event-reviews",
+        json={"operator": "Niklas"},
+    )
+
+    assert created.status_code == 201
+    assert created.json()["operator"] == "Niklas"
+    assert created.json()["draft_revision"] == saved.json()["draft_revision"]
+    assert created.json()["review_state"] == "draft"
+
+
 def test_review_resource_uses_one_idempotent_event_collection_and_preserves_lineage(
     tmp_path: Path,
 ) -> None:

@@ -56,6 +56,18 @@ def test_invalid_canonical_member_is_excluded_and_reported(tmp_path: Path, caplo
     assert warning.levelno == logging.WARNING
 
 
+def test_catalog_accepts_harmless_extra_files(tmp_path: Path) -> None:
+    intake_root = tmp_path / "intake"
+    bundle_path = _copy_fixture("both", intake_root)
+    (bundle_path / "operator-note.txt").write_text("local note", encoding="utf-8")
+    (bundle_path / ".DS_Store").write_bytes(b"finder metadata")
+    store = RecordingBundleStore(RepositoryBundleStorage(intake_root))
+
+    bundles = store.list()
+
+    assert [item.recording_id for item in bundles] == ["recording-both"]
+
+
 def test_catalog_order_is_stable_and_newest_received_first(tmp_path: Path) -> None:
     intake_root = tmp_path / "intake"
     first = _copy_fixture("both", intake_root, "recording-z")

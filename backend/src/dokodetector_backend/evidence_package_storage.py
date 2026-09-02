@@ -54,6 +54,8 @@ class EvidencePackageStorage:
         for path in sorted(path for path in package_path.rglob("*") if path.is_file()):
             if path.is_symlink():
                 raise OSError(f"evidence package member is a symlink: {path}")
+            if path.name == ".DS_Store":
+                continue
             relative_path = path.relative_to(package_path).as_posix()
             files[relative_path] = _hash_file(path, relative_path)
         return files
@@ -144,6 +146,8 @@ class TemporaryEvidencePackage:
         for path in sorted(path for path in self.temporary_path.rglob("*") if path.is_file()):
             if path.is_symlink():
                 raise OSError(f"evidence package member is a symlink: {path}")
+            if path.name == ".DS_Store":
+                continue
             relative_path = path.relative_to(self.temporary_path).as_posix()
             files[relative_path] = _hash_file(path, relative_path)
         return files

@@ -51,6 +51,19 @@ def test_package_store_reads_complete_bundles_without_rebuild(tmp_path: Path) ->
     assert store.list() == (first,)
 
 
+def test_package_store_accepts_harmless_extra_files(tmp_path: Path) -> None:
+    root = tmp_path / "evidence-packages"
+    package_root = root / str(PACKAGE_ID)
+    shutil.copytree(REPOSITORY_FIXTURE, package_root)
+    (package_root / "operator-note.txt").write_text("local note", encoding="utf-8")
+    (package_root / ".DS_Store").write_bytes(b"finder metadata")
+    store = EvidencePackageStore(EvidencePackageStorage(root))
+
+    packages = store.list()
+
+    assert [item.package_id for item in packages] == [PACKAGE_ID]
+
+
 def test_package_store_excludes_incomplete_bundles_and_reports_diagnostics(
     tmp_path: Path, caplog
 ) -> None:

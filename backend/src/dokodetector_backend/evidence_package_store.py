@@ -271,7 +271,7 @@ def _assert_package_files(
     evidence_manifest: EvidenceManifest,
     files: dict[str, StoredRepositoryFile],
 ) -> None:
-    """Require the exact declared package members and their digests."""
+    """Require declared package members and their digests."""
 
     expected_paths = {
         "manifest.json",
@@ -287,8 +287,12 @@ def _assert_package_files(
     ):
         assert evidence_manifest.video_snippet.part_name is not None
         expected_paths.add(f"video/{evidence_manifest.video_snippet.part_name}.mp4")
-    if set(files) != expected_paths:
-        raise IntakeContractError("canonical evidence package contains unexpected or missing files")
+    missing_paths = expected_paths - set(files)
+    if missing_paths:
+        missing = ", ".join(sorted(missing_paths))
+        raise IntakeContractError(
+            f"canonical evidence package is missing required files: {missing}"
+        )
 
     descriptors = {
         bundle.files.evidence_manifest.relative_path: bundle.files.evidence_manifest,

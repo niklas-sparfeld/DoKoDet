@@ -610,8 +610,10 @@ def validate_evidence_package_bundle(
         *declared_frame_paths,
         *([declared_snippet_path] if declared_snippet_path else []),
     }
-    if set(members) != declared_paths:
-        raise IntakeContractError("evidence package members contain an unexpected or missing file")
+    missing_paths = declared_paths - set(members)
+    if missing_paths:
+        missing = ", ".join(sorted(missing_paths))
+        raise IntakeContractError(f"evidence package is missing required files: {missing}")
     return bundle, record, enrollments, package_lineage
 
 

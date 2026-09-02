@@ -189,14 +189,14 @@ def enumerate_resource_directories(
     paths: list[Path] = []
     diagnostics: list[DirectoryDiagnostic] = []
     for path in sorted(root.iterdir(), key=lambda item: item.name):
+        if not path.is_dir():
+            # Finder and other local tools can leave harmless files beside resources.
+            continue
         if path.name.startswith(staging_prefixes):
             diagnostics.append(DirectoryDiagnostic(path, "staging directory ignored"))
             continue
         if path.is_symlink():
             diagnostics.append(DirectoryDiagnostic(path, "symlink resource ignored"))
-            continue
-        if not path.is_dir():
-            diagnostics.append(DirectoryDiagnostic(path, "non-directory resource ignored"))
             continue
         if validate is not None:
             try:
