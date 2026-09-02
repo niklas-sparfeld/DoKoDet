@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -495,7 +496,8 @@ def test_review_resource_uses_one_idempotent_event_collection_and_preserves_line
         == proposed["proposal"]["proposal_id"]
     )
     assert accepted_body["event_counts"] == {"reviewed": 3, "proposed": 0, "dismissed": 0}
-    assert len(accepted_body["review"]["events"]) == 3
+    assert "review" not in accepted_body
+    assert len(client.get(f"/v1/card-event-reviews/{review_id}").json()["events"]) == 3
 
     fresh = client.post(
         "/v1/recordings/recording-both/card-event-reviews",
@@ -667,3 +669,79 @@ def test_event_command_write_failure_keeps_the_previous_resource_revision(
     after = store.get_review(created["review_id"], source)
     assert after["draft_revision"] == before["draft_revision"] == 0
     assert after["events"] == before["events"] == []
+
+
+def test_source_context_cache_skips_bundle_verification_and_media_probe_on_warm_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _, _ = _backend(tmp_path)
+    app = client.app
+    first = client.get("/v1/recordings/recording-both/card-event-reviews")
+    assert first.status_code == 200
+    cold_timing = app.state.card_event_review_source_cache.recent_timings()[-1]
+    assert cold_timing["cache_hit"] is False
+    assert cold_timing["bundle_metadata_read_ms"] >= 0.0
+    assert cold_timing["bundle_member_verification_ms"] >= 0.0
+    assert cold_timing["media_probe_ms"] >= 0.0
+
+    def unexpected_verification(*args: object, **kwargs: object) -> None:
+        raise AssertionError("warm review commands must not verify bundle members")
+
+    def unexpected_probe(*args: object, **kwargs: object) -> None:
+        raise AssertionError("warm review commands must not probe video")
+
+    monkeypatch.setattr(
+        "dokodetector_backend.card_event_review_api._verify_bundle_members",
+        unexpected_verification,
+    )
+    monkeypatch.setattr(
+        "dokodetector_backend.card_event_review_api._video_duration",
+        unexpected_probe,
+    )
+    review = client.post(
+        "/v1/recordings/recording-both/card-event-reviews",
+        json={"operator": "Niklas"},
+    ).json()
+    command = client.post(
+        f"/v1/card-event-reviews/{review['review_id']}/events",
+        json={
+            "client_command_id": "warm-command-1",
+            "expected_revision": 0,
+            "effective_time_s": 1.2,
+            "type": "card_played",
+        },
+    )
+    assert command.status_code == 200
+    assert "review" not in command.json()
+    warm_timing = app.state.card_event_review_source_cache.recent_timings()[-1]
+    assert warm_timing["cache_hit"] is True
+    assert warm_timing["bundle_metadata_read_ms"] == 0.0
+    assert warm_timing["bundle_member_verification_ms"] == 0.0
+    assert warm_timing["media_probe_ms"] == 0.0
+
+
+def test_source_context_cache_invalidates_on_accepted_source_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _, _ = _backend(tmp_path)
+    app = client.app
+    assert client.get("/v1/recordings/recording-both/card-event-reviews").status_code == 200
+    stored = app.state.repository_bundle_repository.get("recording-both")
+    assert stored is not None
+    replacement = replace(
+        stored,
+        source_sha256="b" * 64,
+        bundle_fingerprint="c" * 64,
+    )
+    monkeypatch.setattr(
+        app.state.repository_bundle_repository,
+        "get",
+        lambda recording_id: replacement if recording_id == "recording-both" else None,
+    )
+
+    response = client.get("/v1/recordings/recording-both/card-event-reviews")
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "recording_metadata_invalid"
+    timing = app.state.card_event_review_source_cache.recent_timings()[-1]
+    assert timing["cache_hit"] is False

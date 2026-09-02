@@ -1572,6 +1572,8 @@ def _event_command_response(
     source: CardEventReviewSource,
     changed_event: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
+    """Return the small response used by one event command."""
+
     events = _validate_event_collection(state["events"], source)
     return {
         "schema_version": CARD_EVENT_REVIEW_EVENT_SCHEMA_VERSION,
@@ -1582,7 +1584,6 @@ def _event_command_response(
         "completion_blockers": (
             ["proposed_events"] if any(event["state"] == "proposed" for event in events) else []
         ),
-        "review": _project_resource(state, source),
     }
 
 

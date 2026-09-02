@@ -1075,7 +1075,6 @@ export interface components {
             event_counts: {
                 [key: string]: number;
             };
-            review: components["schemas"]["CardEventReviewResourceResponse"];
             /** Review Id */
             review_id: string;
             /**

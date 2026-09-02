@@ -20,7 +20,7 @@
 - **M0:** Complete — make the layout video-first and repair frame and keyboard controls.
 - **M1:** Complete — make each CardEvent review a recording-owned resource.
 - **M2:** Complete — unify proposals and human events with stable lineage.
-- **M3:** Not started — measure and remove local review-path latency.
+- **M3:** Complete — cache verified source context and meet the local review latency budget.
 - **M4:** Not started — add the recording review list and dedicated review page.
 - **M5:** Not started — deliver the optimistic, unified, shortcut-driven review loop.
 
@@ -276,6 +276,17 @@ Acceptance:
 - initial review-data p95 is at most 500 ms after recording metadata is available;
 - source replacement invalidates the cache and fails safely; and
 - restart, write-failure, stale revision, and immutable-source tests still pass.
+
+Recorded fixture measurements on 2026-09-02 (30 manual event commands, local TestClient):
+
+- M2 baseline: event-command p95 36.85 ms, review-load p95 34.20 ms, completion 35.26 ms, and
+  the final command response was 10,091 bytes because it included the full review.
+- M3 result: warm event-command p95 2.44 ms, warm review-load p95 1.70 ms, draft-write p95 2.05
+  ms, completion 3.83 ms, and the final command response was 443 bytes.
+- The cold source-context sample was 41.61 ms total: repository index 1.08 ms, bundle metadata
+  0.26 ms, source-context validation 0.19 ms, bundle-member verification 0.10 ms, media probe
+  39.78 ms, and proposal projection 0.10 ms. Warm samples skip all bundle reads, hashes, and
+  media probes.
 
 ### M4 — Move review work to its own page
 

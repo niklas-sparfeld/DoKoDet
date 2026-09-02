@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import re
+import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -29,7 +32,10 @@ from dokodetector_backend.intake_contract import (
     parse_repository_bundle,
     validate_repository_bundle,
 )
-from dokodetector_backend.repository_bundle_repository import RepositoryBundleRepository
+from dokodetector_backend.repository_bundle_repository import (
+    RepositoryBundleRepository,
+    StoredRepositoryBundle,
+)
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.video_probe import (
     VideoProbeError,
@@ -252,7 +258,6 @@ class CardEventCommandResponse(BaseModel):
     changed_event: CardEventResponse | None
     event_counts: dict[str, int]
     completion_blockers: list[str]
-    review: CardEventReviewResourceResponse
 
 
 class CardEventReviewListItemResponse(BaseModel):
@@ -291,6 +296,117 @@ class CardEventReviewCollectionResponse(BaseModel):
     draft_review_id: str | None
     latest_completed_review_id: str | None
     reviews: list[CardEventReviewListItemResponse]
+
+
+@dataclass(frozen=True, slots=True)
+class _CachedCardEventReviewSource:
+    """One verified source context keyed by an accepted repository digest."""
+
+    source: CardEventReviewSource
+    bundle_fingerprint: str
+    card_event_selected: bool
+
+
+class CardEventReviewSourceContextCache:
+    """Reuse verified immutable source context across local review requests."""
+
+    def __init__(self, *, max_entries: int = 128) -> None:
+        self.max_entries = max_entries
+        self._entries: dict[tuple[str, str], _CachedCardEventReviewSource] = {}
+        self._timings: list[dict[str, float | bool | str]] = []
+        self._lock = threading.Lock()
+
+    def load(
+        self,
+        request: Request,
+        recording_id: str,
+        *,
+        require_selected: bool = True,
+    ) -> CardEventReviewSource:
+        """Return verified source context and record raw cold or warm stage timings."""
+
+        started = time.perf_counter()
+        if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
+            raise ContractError("invalid_recording_id", "The recording ID is invalid.")
+
+        repository: RepositoryBundleRepository = request.app.state.repository_bundle_repository
+        index_started = time.perf_counter()
+        indexed = repository.get(recording_id)
+        index_ms = _elapsed_ms(index_started)
+        if indexed is None:
+            self._invalidate_recording(recording_id)
+            raise ContractError(
+                "recording_not_found",
+                "The recording was not found.",
+                status_code=404,
+            )
+
+        key = (recording_id, indexed.source_sha256)
+        with self._lock:
+            cached = self._entries.get(key)
+        if cached is not None and cached.bundle_fingerprint == indexed.bundle_fingerprint:
+            timing = {
+                "recording_id": recording_id,
+                "source_sha256": indexed.source_sha256,
+                "cache_hit": True,
+                "repository_index_lookup_ms": index_ms,
+                "bundle_metadata_read_ms": 0.0,
+                "source_context_validation_ms": 0.0,
+                "bundle_member_verification_ms": 0.0,
+                "media_probe_ms": 0.0,
+                "proposal_projection_ms": 0.0,
+            }
+            timing["total_ms"] = _elapsed_ms(started)
+            self._record_timing(timing)
+            return _require_selected(cached, require_selected=require_selected)
+
+        self._invalidate_recording(recording_id)
+        timing = {
+            "recording_id": recording_id,
+            "source_sha256": indexed.source_sha256,
+            "cache_hit": False,
+            "repository_index_lookup_ms": index_ms,
+            "bundle_metadata_read_ms": 0.0,
+            "source_context_validation_ms": 0.0,
+            "bundle_member_verification_ms": 0.0,
+            "media_probe_ms": 0.0,
+            "proposal_projection_ms": 0.0,
+        }
+        source, card_event_selected = _load_source_uncached(
+            request,
+            recording_id,
+            indexed,
+            timing,
+        )
+        cached_source = _CachedCardEventReviewSource(
+            source=source,
+            bundle_fingerprint=indexed.bundle_fingerprint,
+            card_event_selected=card_event_selected,
+        )
+        with self._lock:
+            self._entries[key] = cached_source
+            while len(self._entries) > self.max_entries:
+                self._entries.pop(next(iter(self._entries)))
+        timing["total_ms"] = _elapsed_ms(started)
+        self._record_timing(timing)
+        return _require_selected(cached_source, require_selected=require_selected)
+
+    def recent_timings(self) -> tuple[dict[str, float | bool | str], ...]:
+        """Return raw source-context timing samples for local performance tests."""
+
+        with self._lock:
+            return tuple(dict(item) for item in self._timings)
+
+    def _record_timing(self, timing: dict[str, float | bool | str]) -> None:
+        with self._lock:
+            self._timings.append(dict(timing))
+            del self._timings[:-256]
+
+    def _invalidate_recording(self, recording_id: str) -> None:
+        with self._lock:
+            for key in tuple(self._entries):
+                if key[0] == recording_id:
+                    del self._entries[key]
 
 
 def _resource_identity(
@@ -582,18 +698,25 @@ def _review_store(request: Request) -> CardEventReviewStore:
 def _load_source(
     request: Request, recording_id: str, *, require_selected: bool = True
 ) -> CardEventReviewSource:
-    if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
-        raise ContractError("invalid_recording_id", "The recording ID is invalid.")
-    repository: RepositoryBundleRepository = request.app.state.repository_bundle_repository
+    cache = getattr(request.app.state, "card_event_review_source_cache", None)
+    if cache is None:
+        cache = CardEventReviewSourceContextCache()
+        request.app.state.card_event_review_source_cache = cache
+    return cache.load(request, recording_id, require_selected=require_selected)
+
+
+def _load_source_uncached(
+    request: Request,
+    recording_id: str,
+    indexed: StoredRepositoryBundle,
+    timing: dict[str, float | bool | str],
+) -> tuple[CardEventReviewSource, bool]:
+    """Validate one complete bundle and build its immutable review context."""
+
     storage: RepositoryBundleStorage = request.app.state.repository_bundle_storage
-    if repository.get(recording_id) is None:
-        raise ContractError(
-            "recording_not_found",
-            "The recording was not found.",
-            status_code=404,
-        )
     bundle_path = storage.bundle_path(recording_id)
     try:
+        metadata_started = time.perf_counter()
         manifest = (bundle_path / "manifest.json").read_bytes()
         source_record = (bundle_path / "source-record.json").read_bytes()
         task_enrollment = (bundle_path / "initial-task-enrollment.json").read_bytes()
@@ -604,13 +727,24 @@ def _load_source(
             ).read_bytes()
             for descriptor in bundle_descriptor.files.proposal_generator_runs
         }
+        timing["bundle_metadata_read_ms"] = _elapsed_ms(metadata_started)
+        validation_started = time.perf_counter()
         bundle, source, enrollments, runs = validate_repository_bundle(
             manifest,
             source_record,
             task_enrollment,
             proposal_bytes,
         )
+        if (
+            bundle.recording_id != indexed.recording_id
+            or bundle.source_asset_id != indexed.source_asset_id
+            or bundle.source_sha256 != indexed.source_sha256
+        ):
+            raise IntakeContractError("repository index and bundle identity differs")
+        timing["source_context_validation_ms"] = _elapsed_ms(validation_started)
+        verification_started = time.perf_counter()
         _verify_bundle_members(bundle_path, bundle_descriptor)
+        timing["bundle_member_verification_ms"] = _elapsed_ms(verification_started)
     except (IntakeContractError, OSError, ValueError) as error:
         raise ContractError(
             "recording_metadata_invalid",
@@ -622,24 +756,44 @@ def _load_source(
         (item for item in enrollments.enrollments if item.task == TASK_CARD_EVENT),
         None,
     )
-    if require_selected and (card_event_task is None or card_event_task.disposition != "selected"):
+    card_event_selected = card_event_task is not None and card_event_task.disposition == "selected"
+
+    video_name = Path(bundle.files.video.relative_path).name
+    probe_started = time.perf_counter()
+    duration_s = _video_duration(bundle_path / bundle.files.video.relative_path)
+    timing["media_probe_ms"] = _elapsed_ms(probe_started)
+    proposal_started = time.perf_counter()
+    proposals = tuple(_proposals(source.source_asset_id, runs))
+    timing["proposal_projection_ms"] = _elapsed_ms(proposal_started)
+    return (
+        CardEventReviewSource(
+            recording_id=bundle.recording_id,
+            source_asset_id=source.source_asset_id,
+            source_sha256=source.sha256,
+            video=video_name,
+            proposals=proposals,
+            duration_s=duration_s,
+        ),
+        card_event_selected,
+    )
+
+
+def _require_selected(
+    cached: _CachedCardEventReviewSource,
+    *,
+    require_selected: bool,
+) -> CardEventReviewSource:
+    if require_selected and not cached.card_event_selected:
         raise ContractError(
             "card_event_review_unavailable",
             "The CardEvent task is not selected for this recording.",
             status_code=422,
         )
+    return cached.source
 
-    video_name = Path(bundle.files.video.relative_path).name
-    duration_s = _video_duration(bundle_path / bundle.files.video.relative_path)
-    proposals = tuple(_proposals(source.source_asset_id, runs))
-    return CardEventReviewSource(
-        recording_id=bundle.recording_id,
-        source_asset_id=source.source_asset_id,
-        source_sha256=source.sha256,
-        video=video_name,
-        proposals=proposals,
-        duration_s=duration_s,
-    )
+
+def _elapsed_ms(started: float) -> float:
+    return (time.perf_counter() - started) * 1000.0
 
 
 def _proposals(
@@ -714,6 +868,7 @@ __all__ = [
     "CardEventCommandResponse",
     "CardEventCreateRequest",
     "CardEventResponse",
+    "CardEventReviewSourceContextCache",
     "CardEventReviewCollectionResponse",
     "CardEventReviewCompletionRequest",
     "CardEventReviewCreateRequest",

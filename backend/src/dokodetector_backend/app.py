@@ -20,6 +20,9 @@ from dokodetector_backend.api import router
 from dokodetector_backend.card_event_development_split_api import (
     router as card_event_development_split_router,
 )
+from dokodetector_backend.card_event_review_api import (
+    CardEventReviewSourceContextCache,
+)
 from dokodetector_backend.card_event_review_api import router as card_event_review_router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
@@ -104,6 +107,7 @@ def create_app(
         app_settings.repository_intake_root
     )
     app.state.card_event_review_store = CardEventReviewStore(app_settings.operations_root)
+    app.state.card_event_review_source_cache = CardEventReviewSourceContextCache()
     app.state.card_event_development_split_store = CardEventDevelopmentSplitStore(
         app_settings.operations_root
     )
