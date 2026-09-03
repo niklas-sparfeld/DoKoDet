@@ -29,6 +29,7 @@ import type {
   RoundAnalysisTimeline,
   VisibleCardReviewBatch,
 } from "./api/client";
+import styles from "./App.module.css";
 
 describe("App", () => {
   afterEach(() => {
@@ -538,9 +539,9 @@ describe("App", () => {
       "Exact event source frame at 1.200 s",
     );
     expect(frameImage).toHaveAttribute("src", batch.items[1].source.image_url);
-    expect(frameImage.parentElement?.parentElement).toHaveStyle(
-      "aspect-ratio: 100 / 80",
-    );
+    const frameViewport = frameImage.parentElement?.parentElement;
+    expect(frameViewport).toHaveStyle("aspect-ratio: 100 / 80");
+    expect(frameViewport).toHaveClass(styles.visibleCardCanvasViewport);
     const batchProgress = screen.getByRole("complementary", {
       name: "Batch progress",
     });
