@@ -1545,19 +1545,26 @@ class VisibleCardReviewBatchStore:
 
         path = self.batch_path(batch_id)
         current = load_visible_card_review_batch(path)
-        if current["status"] != "ready":
+        if current["status"] not in {"ready", "failed"}:
             raise VisibleCardRedetectError(
-                "individual frame re-detection is available only for a ready draft"
+                "individual frame re-detection is available only for a draft batch"
             )
         queue_path_value = current.get("queue_path")
-        if not isinstance(queue_path_value, str):
-            raise VisibleCardRedetectError("the visible-card batch has no review queue")
-        queue_path = Path(queue_path_value)
-        queue = load_visible_card_review_queue(queue_path)
-        if queue.revision != expected_revision:
+        queue: VisibleCardReviewQueue | None = None
+        queue_path: Path | None = None
+        if current["status"] == "ready":
+            if not isinstance(queue_path_value, str):
+                raise VisibleCardRedetectError("the visible-card batch has no review queue")
+            queue_path = Path(queue_path_value)
+            queue = load_visible_card_review_queue(queue_path)
+            if queue.revision != expected_revision:
+                raise VisibleCardBatchConflict(
+                    "review queue revision changed: "
+                    f"expected {expected_revision}, current {queue.revision}"
+                )
+        elif expected_revision != 0:
             raise VisibleCardBatchConflict(
-                "review queue revision changed: "
-                f"expected {expected_revision}, current {queue.revision}"
+                "the failed visible-card batch has no review revision: expected 0"
             )
         item = next((value for value in current["items"] if value["item_id"] == item_id), None)
         if item is None:
@@ -1620,16 +1627,6 @@ class VisibleCardReviewBatchStore:
         artifact_bytes = _canonical(artifact) + b"\n"
         _atomic_write_bytes(result_path, artifact_bytes)
         artifact["artifact_path"] = str(result_path.resolve())
-        try:
-            updated_queue = replace_frame_finder_result(
-                queue_path,
-                item_id,
-                artifact,
-                expected_revision=expected_revision,
-            )
-        except VisibleCardReviewWorkflowError as error:
-            raise VisibleCardRedetectError(str(error)) from error
-
         updated = dict(current)
         updated_items: list[dict[str, Any]] = []
         finder = {
@@ -1658,17 +1655,94 @@ class VisibleCardReviewBatchStore:
                     }
                 )
             updated_items.append(next_item)
+
+        updated_queue: VisibleCardReviewQueue | None = None
+        if queue is not None and queue_path is not None:
+            try:
+                updated_queue = replace_frame_finder_result(
+                    queue_path,
+                    item_id,
+                    artifact,
+                    expected_revision=expected_revision,
+                )
+            except VisibleCardReviewWorkflowError as error:
+                raise VisibleCardRedetectError(str(error)) from error
+        elif all(
+            isinstance(value.get("frame"), Mapping)
+            and isinstance(value.get("finder"), Mapping)
+            and value.get("failure") is None
+            and isinstance(value["finder"].get("result"), Mapping)
+            and value["finder"]["result"].get("status") == "ok"
+            for value in updated_items
+        ):
+            queue_path = self.batch_root(batch_id) / "review-queue.json"
+            artifacts: list[dict[str, Any]] = []
+            lineage_by_item: dict[str, dict[str, Any]] = {}
+            try:
+                for value in updated_items:
+                    finder_value = value["finder"]
+                    result_path_value = finder_value.get("result_path")
+                    if not isinstance(result_path_value, str):
+                        raise VisibleCardBatchError(
+                            "successful finder item has no result artifact"
+                        )
+                    result_artifact = _read_json(
+                        Path(result_path_value), "visible-card finder result"
+                    )
+                    result_artifact["artifact_path"] = str(Path(result_path_value).resolve())
+                    artifacts.append(result_artifact)
+                    lineage_by_item[value["item_id"]] = _lineage_mapping(
+                        frozen_request, value
+                    )
+                updated_queue = build_visible_card_review_queue(
+                    artifacts,
+                    queue_path,
+                    run_id=batch_id,
+                    lineage_by_item=lineage_by_item,
+                )
+            except (OSError, VisibleCardBatchError, VisibleCardReviewWorkflowError) as error:
+                raise VisibleCardRedetectError(
+                    f"the visible-card review queue could not be created: {error}"
+                ) from error
+
+        if updated_queue is not None:
+            status = "ready"
+            phase = "ready"
+            failures: tuple[VisibleCardBatchFailure, ...] = ()
+            queue_path_value = str(queue_path.resolve())
+            queue_digest = hashlib.sha256(queue_path.read_bytes()).hexdigest()
+        else:
+            status = "failed"
+            phase = "failed"
+            failures = tuple(
+                VisibleCardBatchFailure.from_mapping(value["failure"])
+                for value in updated_items
+                if value.get("failure") is not None
+            )
+            if not failures:
+                failures = tuple(
+                    VisibleCardBatchFailure.from_mapping(value)
+                    for value in current["failures"]
+                )
+            queue_path_value = None
+            queue_digest = None
         updated.update(
             {
                 "updated_at_utc": _now(),
+                "status": status,
                 "items": updated_items,
-                "failures": [],
-                "progress": _progress(updated_items, phase="ready", total=len(updated_items)),
-                "queue_digest": hashlib.sha256(queue_path.read_bytes()).hexdigest(),
+                "failures": [failure.to_mapping() for failure in failures],
+                "progress": _progress(updated_items, phase=phase, total=len(updated_items)),
+                "queue_path": queue_path_value,
+                "queue_digest": queue_digest,
             }
         )
-        if updated_queue.revision != expected_revision + 1:
+        if queue is not None and (
+            updated_queue is None or updated_queue.revision != expected_revision + 1
+        ):
             raise VisibleCardRedetectError("the updated review queue has an invalid revision")
+        if queue is None and updated_queue is not None and updated_queue.revision != 0:
+            raise VisibleCardRedetectError("the created review queue has an invalid revision")
         _atomic_write_json(path, updated)
         return _validate_batch_state(updated)
 

@@ -166,6 +166,12 @@ describe("VisibleCardReviewPage failed finder output", () => {
       screen.getByRole("img", { name: "1 finder proposal" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Finder diagnostics")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Re-detect frame" }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: "Retry this item" }),
+    ).not.toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByText("Finder diagnostics"));

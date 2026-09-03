@@ -133,6 +133,7 @@ def _app(
         evidence_package_intake_root=tmp_path / "data" / "intake" / "evidence-packages",
         pending_video_root=tmp_path / "data" / "incoming" / "videos",
         visible_card_provider=provider_mode,
+        gemini_model="gemini-3.6-flash",
     )
     detector = VisibleCardDetectorIdentity(
         bundle_id="visible-card-fixture-bundle",
@@ -442,6 +443,44 @@ def test_redetects_one_frame_with_a_new_model_and_resets_only_that_review(
         assert item["finder"]["proposals"] == []
         assert item["review"]["status"] == "unreviewed"
         assert provider.models == ["gemini-3.6-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
+
+
+def test_redetects_a_failed_frame_without_restarting_the_batch(tmp_path: Path) -> None:
+    provider = _FlakyProvider()
+    app = _app(tmp_path, provider, _FixtureExtractor())
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/visible-card-review/preview", json={}
+        ).json()
+        created = client.post(
+            "/v1/recordings/recording-both/visible-card-review/batches",
+            json={
+                "preview_digest": preview["preview_digest"],
+                "request_digest": preview["request_digest"],
+            },
+        ).json()
+        failed = _wait_for_batch(client, created["batch_id"])
+        failed_item = next(item for item in failed["items"] if item["failure"] is not None)
+        encoded_item_id = failed_item["item_id"].replace(":", "%3A")
+
+        redetected = client.post(
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/{encoded_item_id}/redetect",
+            json={"expected_revision": failed["revision"]},
+        )
+
+        assert redetected.status_code == 200
+        body = redetected.json()
+        recovered = next(
+            item for item in body["items"] if item["item_id"] == failed_item["item_id"]
+        )
+        assert body["status"] == "ready"
+        assert recovered["failure"] is None
+        assert recovered["finder_status"] == "ok"
+        assert recovered["last_detector"]["bundle_id"] == "visible-card-fixture-bundle"
+        assert provider.calls == [failed_item["item_id"].split(":", 1)[0],
+                                  body["items"][1]["item_id"].split(":", 1)[0],
+                                  failed_item["item_id"].split(":", 1)[0]]
 
 
 def test_review_item_update_is_revision_safe(tmp_path: Path) -> None:

@@ -127,6 +127,21 @@ class _UnavailableProvider:
         return ProviderResult(status="unavailable", error="fixture provider error")
 
 
+class _RecoveringProvider:
+    name = "local"
+    version = "local-visible-cards-v1"
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def propose(self, request: object) -> ProviderResult:
+        del request
+        self.calls += 1
+        if self.calls == 1:
+            return ProviderResult(status="unavailable", error="fixture provider error")
+        return ProviderResult(status="ok", raw_response={"provider": self.name})
+
+
 def _request(
     root: Path, *, protected: tuple[str, ...] = ()
 ) -> tuple[VisibleCardBatchRequest, dict[float, bytes]]:
@@ -276,6 +291,36 @@ def test_redetect_updates_one_item_with_its_latest_detector_and_result(tmp_path:
     queue = load_visible_card_review_queue(second["queue_path"])
     queued = next(value for value in queue.items if value.item_id == item_id)
     assert queued.teacher.request["model"] == "gemini-3.8-flash"
+
+
+def test_redetect_can_recover_one_failed_item_without_retrying_the_batch(
+    tmp_path: Path,
+) -> None:
+    request, frames = _request(tmp_path)
+    provider = _RecoveringProvider()
+    store = VisibleCardReviewBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, provider, frame_extractor=_FixtureExtractor(frames))
+
+    assert prepared["status"] == "failed"
+    assert prepared["queue_path"] is None
+    failed_item = next(item for item in prepared["items"] if item["failure"] is not None)
+
+    updated = store.redetect(
+        request.batch_id,
+        failed_item["item_id"],
+        provider,
+        detector=request.detector,
+        expected_revision=0,
+    )
+
+    assert updated["status"] == "ready"
+    assert updated["failures"] == []
+    assert updated["progress"]["finder_completed"] == 2
+    assert provider.calls == 3
+    queue = load_visible_card_review_queue(updated["queue_path"])
+    recovered = next(item for item in queue.items if item.item_id == failed_item["item_id"])
+    assert recovered.review.status == "unreviewed"
+    assert recovered.teacher.result["status"] == "ok"
 
 
 def test_stale_annotation_and_protected_group_are_explicit_blocked_states(tmp_path: Path) -> None:

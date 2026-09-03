@@ -352,7 +352,7 @@ export function VisibleCardReviewPage({
                     busy || !batch.failures.some((failure) => failure.retryable)
                   }
                 >
-                  {busy ? "Retrying…" : "Retry failed items"}
+                  {busy ? "Retrying…" : "Retry all failed items"}
                 </button>
               </div>
             ) : null}
@@ -479,7 +479,6 @@ export function VisibleCardReviewPage({
                   onPreviousPending={() => moveSelection(-1, true)}
                   onNext={() => moveSelection(1, false)}
                   onNextPending={() => moveSelection(1, true)}
-                  onRetry={() => void retryBatch()}
                   onRedetect={redetectFrame}
                   onSaveReview={saveReview}
                   saveBusy={busy}
@@ -537,7 +536,6 @@ function VisibleCardFrame({
   onPreviousPending,
   onNext,
   onNextPending,
-  onRetry,
   onRedetect,
   onSaveReview,
   saveBusy,
@@ -555,7 +553,6 @@ function VisibleCardFrame({
   onPreviousPending: () => void;
   onNext: () => void;
   onNextPending: () => void;
-  onRetry: () => void;
   onRedetect: (itemId: string, model: string | null) => Promise<void>;
   onSaveReview: (itemId: string, review: ReviewUpdate) => Promise<void>;
   saveBusy: boolean;
@@ -569,7 +566,8 @@ function VisibleCardFrame({
     .map((action) => action.reviewed_card)
     .filter((card): card is ReviewedCard => card !== null);
   const imagePath = source?.image_url;
-  const interactionDisabled = readOnly || item.failure !== null;
+  const interactionDisabled =
+    readOnly || item.failure !== null || batch.status !== "ready";
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [outcomeMessage, setOutcomeMessage] = useState<string | null>(null);
@@ -937,15 +935,6 @@ function VisibleCardFrame({
         <div className={styles.detailBlocker}>
           <p>{item.failure.message}</p>
           <div className={styles.visibleCardFailureActions}>
-            {item.failure.retryable ? (
-              <button
-                className={styles.inlineAction}
-                type="button"
-                onClick={onRetry}
-              >
-                Retry this item
-              </button>
-            ) : null}
             {finder?.raw_response !== null &&
             finder?.raw_response !== undefined ? (
               <button
@@ -998,7 +987,7 @@ function VisibleCardFrame({
                   readOnly ||
                   saveBusy ||
                   detectorModel.trim() === "" ||
-                  batch.status !== "ready"
+                  (batch.status !== "ready" && batch.status !== "failed")
                 }
               >
                 {saveBusy ? "Re-detecting…" : "Re-detect frame"}
@@ -1011,7 +1000,7 @@ function VisibleCardFrame({
           <div className={styles.visibleCardCanvasToolbar}>
             <span className={styles.cardEventSaveStatus}>
               {item.failure !== null
-                ? "Display-only finder output; retry the failed item to review it."
+                ? "Display-only finder output; re-detect this frame to review it."
                 : saveBusy
                   ? "Saving review…"
                   : "Finder proposals are suggestions."}
