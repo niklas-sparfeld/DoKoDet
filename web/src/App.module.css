@@ -3293,14 +3293,14 @@ progress {
   stroke-width: 7;
 }
 
-.visibleCardOverlay g[data-active="true"] .visibleCardReviewedGeometry polygon {
+.visibleCardReviewedGeometry[data-active="true"] polygon {
   fill: rgb(255 190 73 / 34%);
   stroke: #ffd166;
   stroke-width: 7;
 }
 
 .visibleCardOverlay g[data-active="true"] .visibleCardProposalBox,
-.visibleCardOverlay g[data-active="true"] .visibleCardReviewedGeometry rect {
+.visibleCardReviewedGeometry[data-active="true"] rect {
   stroke: #fff0b3;
   stroke-width: 5;
 }
