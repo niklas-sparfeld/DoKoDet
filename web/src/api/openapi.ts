@@ -33,7 +33,7 @@ export interface paths {
         };
         /**
          * Readiness
-         * @description Check the local database and evidence directory.
+         * @description Check the required filesystem roots and atomic replacement support.
          */
         get: operations["readiness_health_ready_get"];
         put?: never;
@@ -669,7 +669,7 @@ export interface paths {
         };
         /**
          * Get Repository Bundle
-         * @description Return indexed metadata and current canonical member hashes.
+         * @description Return validated canonical metadata and current member hashes.
          */
         get: operations["get_repository_bundle_v1_repository_bundles__recording_id__get"];
         /**
@@ -918,6 +918,26 @@ export interface paths {
         get: operations["get_visible_card_review_item_image_v1_visible_card_reviews__batch_id__items__item_id__image_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visible-card-reviews/{batch_id}/items/{item_id}/redetect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redetect Visible Card Review Item
+         * @description Re-run one source frame and retain only its latest successful finder result.
+         */
+        post: operations["redetect_visible_card_review_item_v1_visible_card_reviews__batch_id__items__item_id__redetect_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3216,6 +3236,7 @@ export interface components {
             frame_index: number | null;
             /** Item Id */
             item_id: string;
+            last_detector: components["schemas"]["VisibleCardDetectorResponse"] | null;
             review: components["schemas"]["VisibleCardFrameReviewResponse"] | null;
             source: components["schemas"]["VisibleCardSourceLineageResponse"] | null;
             /** Status */
@@ -3546,6 +3567,16 @@ export interface components {
             preview_digest: string;
             /** Request Digest */
             request_digest: string;
+        };
+        /**
+         * VisibleCardReviewItemRedetectRequest
+         * @description The detector selection and revision guard for one frame re-detection.
+         */
+        VisibleCardReviewItemRedetectRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Model */
+            model?: string | null;
         };
         /**
          * VisibleCardReviewItemUpdateRequest
@@ -5274,6 +5305,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redetect_visible_card_review_item_v1_visible_card_reviews__batch_id__items__item_id__redetect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibleCardReviewItemRedetectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibleCardBatchResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

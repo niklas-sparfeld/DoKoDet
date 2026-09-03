@@ -13,6 +13,7 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     load_visible_card_review_queue,
     record_card_action,
     record_frame_review,
+    replace_frame_finder_result,
     update_frame_review,
     validate_completed_visible_card_review_queue,
 )
@@ -339,3 +340,44 @@ def test_full_frame_update_increments_revision_and_rejects_stale_writes(
             expected_revision=0,
         )
     assert queue_path.read_bytes() == before_stale_write
+
+
+def test_replacing_finder_result_resets_only_that_frame_review(tmp_path: Path) -> None:
+    queue_path = _queue(tmp_path, {"cards": []})
+    record_frame_review(
+        queue_path,
+        "package-001:frame_00",
+        "BAD",
+        reviewer="operator",
+        empty_frame=True,
+    )
+    replacement, _ = _artifact(
+        tmp_path,
+        {
+            "cards": [
+                {
+                    "box_2d": {"y_min": 100, "x_min": 100, "y_max": 800, "x_max": 800},
+                    "polygon": [
+                        {"x": 100, "y": 100},
+                        {"x": 800, "y": 100},
+                        {"x": 800, "y": 800},
+                        {"x": 100, "y": 800},
+                    ],
+                    "side": "unknown",
+                    "label": "replacement",
+                }
+            ]
+        },
+        package_id="package-001",
+    )
+
+    updated = replace_frame_finder_result(
+        queue_path,
+        "package-001:frame_00",
+        replacement,
+        expected_revision=1,
+    )
+
+    assert updated.revision == 2
+    assert updated.items[0].teacher.prediction["cards"][0]["label"] == "replacement"
+    assert updated.items[0].review.status == "unreviewed"

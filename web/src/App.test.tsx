@@ -393,6 +393,16 @@ describe("App", () => {
           failure: null,
           source: source(itemOne),
           finder: finder([]),
+          last_detector: {
+            bundle_id: "fixture-visible-card-detector",
+            bundle_digest: "1".repeat(64),
+            model: "fixture-model",
+            provider: "local",
+            provider_version: "fixture-provider-v1",
+            preprocessing: "fixture",
+            confidence_threshold: 0.8,
+            input_size: 224,
+          },
           review,
         },
         {
@@ -407,6 +417,16 @@ describe("App", () => {
           failure: null,
           source: source(itemTwo),
           finder: finder([proposal(0, 100), proposal(1, 550)]),
+          last_detector: {
+            bundle_id: "fixture-visible-card-detector",
+            bundle_digest: "1".repeat(64),
+            model: "fixture-model",
+            provider: "local",
+            provider_version: "fixture-provider-v1",
+            preprocessing: "fixture",
+            confidence_threshold: 0.8,
+            input_size: 224,
+          },
           review,
         },
       ],
@@ -452,6 +472,14 @@ describe("App", () => {
     );
     let currentBatch = batch as unknown as VisibleCardReviewBatch;
     const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "POST" && String(input).endsWith("/redetect")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(currentBatch), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
       if (init?.method === "PUT") {
         const payload = JSON.parse(String(init.body)) as {
           review: object;
@@ -590,6 +618,14 @@ describe("App", () => {
         /Act on every finder proposal and keep at least one visible card/,
       ),
     ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Re-detect frame" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/v1/visible-card-reviews/${batchId}/items/${encodeURIComponent(itemTwo)}/redetect`,
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
   });
 
   it("previews and confirms a development partition assignment", async () => {

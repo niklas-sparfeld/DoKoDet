@@ -1055,6 +1055,43 @@ def update_frame_review(
         return _write_updated_item(queue_path, queue, updated_item)
 
 
+def replace_frame_finder_result(
+    path: str | Path,
+    item_id: str,
+    artifact: Mapping[str, Any],
+    *,
+    expected_revision: int,
+) -> VisibleCardReviewQueue:
+    """Replace one frame's finder result and reset only its review state."""
+
+    queue_path = Path(path)
+    if not isinstance(artifact, Mapping):
+        raise VisibleCardReviewWorkflowError("finder result replacement must be an object")
+    with _queue_lock(queue_path):
+        queue = load_visible_card_review_queue(queue_path)
+        _check_expected_revision(queue, expected_revision)
+        item = _find_item(queue, item_id)
+        teacher = _teacher_from_artifact(artifact, artifact.get("artifact_path"))
+        if teacher.request.get("package_id") != item.source.package_id:
+            raise VisibleCardReviewWorkflowError(
+                "finder result replacement does not match the review item"
+            )
+        if teacher.request.get("frame_part_name") != item.source.frame_part_name:
+            raise VisibleCardReviewWorkflowError(
+                "finder result replacement does not match the review item"
+            )
+        if teacher.request.get("image_sha256") != item.source.frame_sha256:
+            raise VisibleCardReviewWorkflowError(
+                "finder result replacement does not match the source frame"
+            )
+        updated_item = VisibleCardReviewItem(
+            item_id=item.item_id,
+            source=item.source,
+            teacher=teacher,
+        )
+        return _write_updated_item(queue_path, queue, updated_item)
+
+
 def load_source_lineage_manifest(path: str | Path) -> dict[str, dict[str, Any]]:
     """Load explicit source lineage for queue construction."""
 
@@ -1130,6 +1167,7 @@ __all__ = [
     "record_card_action",
     "record_frame_review",
     "record_review",
+    "replace_frame_finder_result",
     "update_frame_review",
     "validate_completed_visible_card_review_queue",
 ]

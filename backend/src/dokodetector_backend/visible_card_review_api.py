@@ -18,6 +18,7 @@ from doko_operations import (
     VisibleCardBatchError,
     VisibleCardBatchRequest,
     VisibleCardDetectorIdentity,
+    VisibleCardRedetectError,
     VisibleCardReviewBatchStore,
     assess_visible_card_review_readiness,
     load_visible_card_review_batch,
@@ -107,6 +108,7 @@ class VisibleCardBatchItemResponse(BaseModel):
     failure: VisibleCardBatchFailureResponse | None
     source: "VisibleCardSourceLineageResponse | None"
     finder: "VisibleCardFinderResponse | None"
+    last_detector: "VisibleCardDetectorResponse | None"
     review: "VisibleCardFrameReviewResponse | None"
 
 
@@ -244,6 +246,19 @@ class VisibleCardReviewItemUpdateRequest(BaseModel):
 
     expected_revision: int = Field(ge=0)
     review: VisibleCardFrameReviewUpdateRequest
+
+
+class VisibleCardReviewItemRedetectRequest(BaseModel):
+    """The detector selection and revision guard for one frame re-detection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=0)
+    model: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+    )
 
 
 class VisibleCardDetectorResponse(BaseModel):
@@ -603,6 +618,52 @@ def get_visible_card_review_item_image(
     )
 
 
+@router.post(
+    "/v1/visible-card-reviews/{batch_id}/items/{item_id}/redetect",
+    response_model=VisibleCardBatchResponse,
+)
+def redetect_visible_card_review_item(
+    batch_id: str,
+    item_id: str,
+    payload: VisibleCardReviewItemRedetectRequest,
+    request: Request,
+) -> VisibleCardBatchResponse:
+    """Re-run one source frame and retain only its latest successful finder result."""
+
+    state = _read_batch(request, batch_id)
+    if not any(item.get("item_id") == item_id for item in state["items"]):
+        raise ContractError(
+            "visible_card_review_item_not_found",
+            "The visible-card review item was not found.",
+            status_code=404,
+        )
+    detector = _redetect_detector(request, state, item_id, payload.model)
+    try:
+        updated = VisibleCardReviewBatchStore(
+            request.app.state.settings.operations_root
+        ).redetect(
+            batch_id,
+            item_id,
+            request.app.state.visible_card_provider,
+            detector=detector,
+            expected_revision=payload.expected_revision,
+        )
+    except VisibleCardBatchConflict as error:
+        raise ContractError(
+            "visible_card_review_conflict",
+            "This review changed in another window. Reload the current revision before "
+            "re-detecting.",
+            status_code=409,
+        ) from error
+    except VisibleCardRedetectError as error:
+        raise ContractError(
+            "visible_card_redetect_failed",
+            str(error),
+            status_code=503,
+        ) from error
+    return _batch_response(request, updated)
+
+
 @router.put(
     "/v1/visible-card-reviews/{batch_id}/items/{item_id}",
     response_model=VisibleCardBatchResponse,
@@ -924,6 +985,58 @@ def _detector(
     )
 
 
+def _redetect_detector(
+    request: Request,
+    state: dict[str, Any],
+    item_id: str,
+    requested_model: str | None,
+) -> VisibleCardDetectorIdentity:
+    """Resolve a safe detector identity for one item-level run."""
+
+    configured, provider_name, available = _detector(request)
+    if configured is None or not available:
+        raise ContractError(
+            "visible_card_provider_unavailable",
+            "The configured visible-card finder is not available.",
+        )
+    item = next(item for item in state["items"] if item.get("item_id") == item_id)
+    previous = item.get("last_detector") or state["frozen_inputs"].get("detector")
+    if not isinstance(previous, dict):
+        previous = configured.to_mapping()
+    try:
+        previous_detector = VisibleCardDetectorIdentity.from_mapping(previous)
+    except VisibleCardBatchError:
+        previous_detector = configured
+    model = requested_model or (
+        previous_detector.model
+        if previous_detector.provider == provider_name
+        else configured.model
+    )
+    if provider_name == "local":
+        if model != configured.model:
+            raise ContractError(
+                "visible_card_detector_unavailable",
+                "The configured local detector does not support a different model.",
+                status_code=422,
+            )
+        return configured
+    identity_core = {
+        "provider": configured.provider,
+        "provider_version": configured.provider_version,
+        "model": model,
+        "preprocessing": configured.preprocessing,
+    }
+    identity_digest = hashlib.sha256(
+        json.dumps(identity_core, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return replace(
+        configured,
+        bundle_id=f"{configured.provider}-{model}",
+        bundle_digest=identity_digest,
+        model=model,
+    )
+
+
 def _protected_groups(request: Request) -> tuple[str, ...]:
     registry = load_system_holdout_registry(
         request.app.state.settings.operations_root / "system-holdout-registry.json"
@@ -1131,6 +1244,9 @@ def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatch
             finder,
             None if queue_item is None else queue_item.teacher.prediction,
         )
+        last_detector = item.get("last_detector")
+        if not isinstance(last_detector, dict) and isinstance(finder, dict):
+            last_detector = finder.get("detector")
         review_response = (
             None
             if queue_item is None
@@ -1155,6 +1271,7 @@ def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatch
                 ),
                 source=source,
                 finder=finder_response,
+                last_detector=_detector_response(last_detector),
                 review=review_response,
             )
         )
@@ -1372,6 +1489,26 @@ def _recover_prediction_for_display(raw_response: dict[str, Any] | None) -> dict
             except (TypeError, ValueError, json.JSONDecodeError):
                 continue
     return None
+
+
+def _detector_response(value: Any) -> VisibleCardDetectorResponse | None:
+    if not isinstance(value, dict):
+        return None
+    fields = {
+        "bundle_id",
+        "bundle_digest",
+        "model",
+        "provider",
+        "provider_version",
+        "preprocessing",
+        "confidence_threshold",
+        "input_size",
+    }
+    if not fields.issubset(value):
+        return None
+    return VisibleCardDetectorResponse.model_validate(
+        {field: value[field] for field in fields}
+    )
 
 
 def _batch_readiness(batch: VisibleCardBatchResponse) -> tuple[ReadinessState, str]:

@@ -17,6 +17,7 @@ import {
   roundAnalysisFramePath,
   roundCounterfactualPath,
   roundCounterfactualReadPath,
+  visibleCardReviewItemRedetectPath,
 } from "./client";
 
 describe("DokoDetector API client", () => {
@@ -253,6 +254,34 @@ describe("DokoDetector API client", () => {
     expect(roundAnalysisFramePath("analysis/1", "package/2", "frame 03")).toBe(
       "/v1/round-analyses/analysis%2F1/evidence-packages/package%2F2/frames/frame%2003",
     );
+  });
+
+  it("re-detects one visible-card frame through its item path", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.redetectVisibleCardReviewItem("batch/1", "item:1", {
+      expected_revision: 4,
+      model: "gemini-3.7-flash",
+    });
+
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      visibleCardReviewItemRedetectPath("batch/1", "item:1"),
+    );
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[0]?.[1]?.body)),
+    ).toEqual({
+      expected_revision: 4,
+      model: "gemini-3.7-flash",
+    });
   });
 
   it("encodes the complete recording path", () => {

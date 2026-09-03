@@ -224,6 +224,60 @@ def test_batch_preparation_builds_stable_two_item_v2_queue(tmp_path: Path) -> No
     )
 
 
+def test_redetect_updates_one_item_with_its_latest_detector_and_result(tmp_path: Path) -> None:
+    request, frames = _request(tmp_path)
+    provider = FakeVisibleCardProvider(
+        {hashlib.sha256(image).hexdigest(): _prediction() for image in frames.values()}
+    )
+    store = VisibleCardReviewBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, provider, frame_extractor=_FixtureExtractor(frames))
+    item_id = prepared["items"][0]["item_id"]
+    detector = replace(
+        request.detector,
+        bundle_id="fake-gemini-3.7-flash",
+        bundle_digest="c" * 64,
+        model="gemini-3.7-flash",
+        provider="fake",
+        provider_version="fake-visible-cards-test-v2",
+    )
+
+    updated = store.redetect(
+        request.batch_id,
+        item_id,
+        provider,
+        detector=detector,
+        expected_revision=0,
+    )
+
+    item = updated["items"][0]
+    assert updated["status"] == "ready"
+    assert item["last_detector"] == detector.to_mapping()
+    assert item["finder"]["detector"] == detector.to_mapping()
+    assert item["finder"]["request"]["model"] == "gemini-3.7-flash"
+    assert item["finder"]["result_path"].endswith("-latest.json")
+    queue = load_visible_card_review_queue(updated["queue_path"])
+    queued = next(value for value in queue.items if value.item_id == item_id)
+    assert queued.teacher.request["model"] == "gemini-3.7-flash"
+
+    second_detector = replace(
+        detector,
+        model="gemini-3.8-flash",
+        bundle_id="fake-gemini-3.8-flash",
+    )
+    second = store.redetect(
+        request.batch_id,
+        item_id,
+        provider,
+        detector=second_detector,
+        expected_revision=1,
+    )
+    assert second["items"][0]["last_detector"] == second_detector.to_mapping()
+    assert second["items"][0]["finder"]["result_path"] == item["finder"]["result_path"]
+    queue = load_visible_card_review_queue(second["queue_path"])
+    queued = next(value for value in queue.items if value.item_id == item_id)
+    assert queued.teacher.request["model"] == "gemini-3.8-flash"
+
+
 def test_stale_annotation_and_protected_group_are_explicit_blocked_states(tmp_path: Path) -> None:
     request, frames = _request(tmp_path, protected=("session-fixture",))
     provider = FakeVisibleCardProvider()

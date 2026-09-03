@@ -74,10 +74,12 @@ class _GeminiProvider:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
+        self.models: list[str] = []
 
     def propose(self, request) -> ProviderResult:
         assert request.provider == self.name
         self.calls.append(request.package_id)
+        self.models.append(request.model)
         return ProviderResult(status="ok", raw_response={"provider": self.name})
 
 
@@ -377,6 +379,7 @@ def test_ready_batch_exposes_queue_details_and_serves_owned_source_frames(tmp_pa
         assert item["finder"]["request_digest"]
         assert item["finder"]["result_digest"]
         assert item["finder"]["proposals"] == []
+        assert item["last_detector"]["bundle_id"] == "visible-card-fixture-bundle"
         assert item["review"]["status"] == "unreviewed"
 
         image = client.get(item["source"]["image_url"])
@@ -387,6 +390,58 @@ def test_ready_batch_exposes_queue_details_and_serves_owned_source_frames(tmp_pa
         direct = client.get(f"/v1/visible-card-reviews/{created['batch_id']}")
         assert direct.status_code == 200
         assert direct.json()["items"][0]["item_id"] == item["item_id"]
+
+
+def test_redetects_one_frame_with_a_new_model_and_resets_only_that_review(
+    tmp_path: Path,
+) -> None:
+    provider = _GeminiProvider()
+    app = _app(tmp_path, provider, _FixtureExtractor(), provider_mode="gemini")
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/visible-card-review/preview", json={}
+        ).json()
+        created = client.post(
+            "/v1/recordings/recording-both/visible-card-review/batches",
+            json={
+                "preview_digest": preview["preview_digest"],
+                "request_digest": preview["request_digest"],
+            },
+        ).json()
+        ready = _wait_for_batch(client, created["batch_id"])
+        item_id = ready["items"][0]["item_id"]
+        encoded_item_id = item_id.replace(":", "%3A")
+
+        reviewed = client.put(
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/{encoded_item_id}",
+            json={
+                "expected_revision": ready["revision"],
+                "review": {
+                    "status": "reviewed",
+                    "decision": "BAD",
+                    "empty_frame": True,
+                    "failure_tags": [],
+                    "actions": [],
+                    "reviewer": "fixture-operator",
+                },
+            },
+        )
+        assert reviewed.status_code == 200
+
+        redetected = client.post(
+            f"/v1/visible-card-reviews/{created['batch_id']}/items/{encoded_item_id}/redetect",
+            json={"expected_revision": reviewed.json()["revision"], "model": "gemini-3.7-flash"},
+        )
+
+        assert redetected.status_code == 200
+        body = redetected.json()
+        item = next(value for value in body["items"] if value["item_id"] == item_id)
+        assert body["detector"]["model"] == "gemini-3.6-flash"
+        assert item["last_detector"]["model"] == "gemini-3.7-flash"
+        assert item["finder"]["proposals"] == []
+        assert item["review"]["status"] == "unreviewed"
+        assert provider.models == ["gemini-3.6-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
 
 
 def test_review_item_update_is_revision_safe(tmp_path: Path) -> None:

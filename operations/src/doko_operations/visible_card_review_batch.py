@@ -26,6 +26,7 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     VisibleCardReviewWorkflowError,
     build_visible_card_review_queue,
     load_visible_card_review_queue,
+    replace_frame_finder_result,
     validate_completed_visible_card_review_queue,
 )
 from table_evidence_analyzer.visible_cards import (
@@ -98,6 +99,10 @@ class VisibleCardFrameExtractionError(RuntimeError):
 
 class VisibleCardMissingFrameError(VisibleCardFrameExtractionError):
     """Raised when the requested exact-event frame is outside the source video."""
+
+
+class VisibleCardRedetectError(VisibleCardBatchError):
+    """Raised when one frame cannot be re-detected without changing its current result."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -943,6 +948,7 @@ def _initial_item(item: _BatchItemDefinition) -> dict[str, Any]:
         "status": "pending",
         "frame": None,
         "finder": None,
+        "last_detector": None,
         "finder_attempt": 0,
         "failure": None,
     }
@@ -1088,6 +1094,11 @@ def _validate_batch_state(value: Any) -> dict[str, Any]:
             raise VisibleCardBatchError("visible-card batch progress counts are invalid")
     if not isinstance(value["items"], list) or not isinstance(value["failures"], list):
         raise VisibleCardBatchError("visible-card batch items and failures must be lists")
+    for item in value["items"]:
+        if not isinstance(item, Mapping) or "last_detector" not in item:
+            raise VisibleCardBatchError("visible-card batch item detector state is invalid")
+        if item["last_detector"] is not None:
+            VisibleCardDetectorIdentity.from_mapping(item["last_detector"])
     for failure in value["failures"]:
         VisibleCardBatchFailure.from_mapping(failure)
     if value["queue_schema_version"] != VISIBLE_CARD_REVIEW_QUEUE_SCHEMA:
@@ -1520,6 +1531,146 @@ class VisibleCardReviewBatchStore:
         )
         _atomic_write_json(path, state)
         return _validate_batch_state(state)
+
+    def redetect(
+        self,
+        batch_id: str,
+        item_id: str,
+        provider: VisibleCardProvider,
+        *,
+        detector: VisibleCardDetectorIdentity,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        """Run one frame through a detector and retain only its latest result."""
+
+        path = self.batch_path(batch_id)
+        current = load_visible_card_review_batch(path)
+        if current["status"] != "ready":
+            raise VisibleCardRedetectError(
+                "individual frame re-detection is available only for a ready draft"
+            )
+        queue_path_value = current.get("queue_path")
+        if not isinstance(queue_path_value, str):
+            raise VisibleCardRedetectError("the visible-card batch has no review queue")
+        queue_path = Path(queue_path_value)
+        queue = load_visible_card_review_queue(queue_path)
+        if queue.revision != expected_revision:
+            raise VisibleCardBatchConflict(
+                "review queue revision changed: "
+                f"expected {expected_revision}, current {queue.revision}"
+            )
+        item = next((value for value in current["items"] if value["item_id"] == item_id), None)
+        if item is None:
+            raise VisibleCardRedetectError(f"visible-card review item was not found: {item_id}")
+        frame = item.get("frame")
+        if not isinstance(frame, Mapping) or not isinstance(frame.get("path"), str):
+            raise VisibleCardRedetectError("the visible-card review item has no source frame")
+        frame_path = Path(frame["path"]).resolve()
+        try:
+            frame_path.relative_to(self.batch_root(batch_id).resolve())
+        except ValueError as error:
+            raise VisibleCardRedetectError(
+                "the visible-card review item source frame is outside its batch"
+            ) from error
+        if not frame_path.is_file():
+            raise VisibleCardRedetectError("the visible-card review item source frame is missing")
+        try:
+            if hashlib.sha256(frame_path.read_bytes()).hexdigest() != frame.get("sha256"):
+                raise VisibleCardRedetectError(
+                    "the visible-card review item source frame digest does not match"
+                )
+        except OSError as error:
+            raise VisibleCardRedetectError(
+                "the visible-card review item source frame could not be read"
+            ) from error
+        underlying = getattr(provider, "provider", provider)
+        if getattr(underlying, "name", None) != detector.provider:
+            raise VisibleCardRedetectError(
+                f"the configured provider cannot run detector {detector.provider!r}"
+            )
+
+        frozen_request = VisibleCardBatchRequest.from_mapping(current["frozen_inputs"])
+        try:
+            visible_request = build_request_from_image(
+                frame_path,
+                package_id=item_id.rsplit(":", 1)[0],
+                frame_part_name=item_id.rsplit(":", 1)[1],
+                target_offset_ms=frozen_request.target_offset_ms,
+                width=frame["width"],
+                height=frame["height"],
+                model=detector.model,
+                provider=detector.provider,
+                request_version=frozen_request.request_version,
+            )
+            result = provider.propose(visible_request)
+            if not isinstance(result, ProviderResult):
+                raise VisibleCardRedetectError("provider returned a non-ProviderResult value")
+            if result.status != "ok":
+                raise VisibleCardRedetectError(
+                    result.error or "the configured visible-card detector was unavailable"
+                )
+            artifact = _run_artifact_mapping(visible_request, result, image=str(frame_path))
+        except VisibleCardRedetectError:
+            raise
+        except Exception as error:
+            raise VisibleCardRedetectError(str(error)) from error
+
+        package_id = item_id.rsplit(":", 1)[0]
+        result_path = self.batch_root(batch_id) / "finder-results" / f"{package_id}-latest.json"
+        artifact_bytes = _canonical(artifact) + b"\n"
+        _atomic_write_bytes(result_path, artifact_bytes)
+        artifact["artifact_path"] = str(result_path.resolve())
+        try:
+            updated_queue = replace_frame_finder_result(
+                queue_path,
+                item_id,
+                artifact,
+                expected_revision=expected_revision,
+            )
+        except VisibleCardReviewWorkflowError as error:
+            raise VisibleCardRedetectError(str(error)) from error
+
+        updated = dict(current)
+        updated_items: list[dict[str, Any]] = []
+        finder = {
+            "provider": {
+                "name": detector.provider,
+                "version": detector.provider_version,
+            },
+            "detector": detector.to_mapping(),
+            "request_digest": visible_request.request_key,
+            "request": visible_request.to_mapping(),
+            "result_path": str(result_path.resolve()),
+            "result_digest": hashlib.sha256(artifact_bytes).hexdigest(),
+            "result": result.to_mapping(),
+            "prediction_sha256": _digest_value(result.prediction.to_mapping()),
+        }
+        for value in current["items"]:
+            next_item = dict(value)
+            if value["item_id"] == item_id:
+                next_item.update(
+                    {
+                        "status": "finder_complete",
+                        "finder": finder,
+                        "last_detector": detector.to_mapping(),
+                        "finder_attempt": int(value.get("finder_attempt", 0)) + 1,
+                        "failure": None,
+                    }
+                )
+            updated_items.append(next_item)
+        updated.update(
+            {
+                "updated_at_utc": _now(),
+                "items": updated_items,
+                "failures": [],
+                "progress": _progress(updated_items, phase="ready", total=len(updated_items)),
+                "queue_digest": hashlib.sha256(queue_path.read_bytes()).hexdigest(),
+            }
+        )
+        if updated_queue.revision != expected_revision + 1:
+            raise VisibleCardRedetectError("the updated review queue has an invalid revision")
+        _atomic_write_json(path, updated)
+        return _validate_batch_state(updated)
 
     def complete(
         self,
@@ -1982,6 +2133,7 @@ class VisibleCardReviewBatchStore:
             suffix = f"-retry-{attempt}" if attempt else ""
             result_path = batch_root / "finder-results" / f"{definition.package_id}{suffix}.json"
             artifact_paths[definition.item_id] = (Path(frame["path"]), result_path)
+            item["last_detector"] = request.detector.to_mapping()
             try:
                 visible_request = build_request_from_image(
                     frame["path"],
@@ -2239,6 +2391,7 @@ __all__ = [
     "VisibleCardDetectorIdentity",
     "VisibleCardFrameExtractionError",
     "VisibleCardMissingFrameError",
+    "VisibleCardRedetectError",
     "VisibleCardReviewBatchRequest",
     "VisibleCardReviewBatchStore",
     "VisibleCardFrameExtractor",

@@ -67,6 +67,8 @@ export type VisibleCardReviewBatch = JsonResponse<
 >;
 export type VisibleCardReviewItemUpdateRequest =
   components["schemas"]["VisibleCardReviewItemUpdateRequest"];
+export type VisibleCardReviewItemRedetectRequest =
+  components["schemas"]["VisibleCardReviewItemRedetectRequest"];
 export type VisibleCardReviewCompletionRequest =
   components["schemas"]["VisibleCardReviewCompletionRequest"];
 export type VisibleCardReviewRevisionRequest =
@@ -202,6 +204,12 @@ export interface DokoDetectorClient {
     batchId: string,
     itemId: string,
     payload: VisibleCardReviewItemUpdateRequest,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewBatch>;
+  redetectVisibleCardReviewItem(
+    batchId: string,
+    itemId: string,
+    payload: VisibleCardReviewItemRedetectRequest,
     init?: RequestInit,
   ): Promise<VisibleCardReviewBatch>;
   retryVisibleCardReviewBatch(
@@ -489,6 +497,17 @@ export function createDokoDetectorClient(
           body: JSON.stringify(payload),
         },
       ),
+    redetectVisibleCardReviewItem: (batchId, itemId, payload, init) =>
+      requestJson<VisibleCardReviewBatch>(
+        fetchImplementation,
+        visibleCardReviewItemRedetectPath(batchId, itemId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
     retryVisibleCardReviewBatch: (batchId, init) =>
       requestJson<VisibleCardReviewBatch>(
         fetchImplementation,
@@ -755,6 +774,13 @@ export function visibleCardReviewItemPath(
   itemId: string,
 ): string {
   return `${visibleCardReviewBatchPath(batchId)}/items/${encodeURIComponent(itemId)}`;
+}
+
+export function visibleCardReviewItemRedetectPath(
+  batchId: string,
+  itemId: string,
+): string {
+  return `${visibleCardReviewItemPath(batchId, itemId)}/redetect`;
 }
 
 export function visibleCardReviewBatchRetryPath(batchId: string): string {

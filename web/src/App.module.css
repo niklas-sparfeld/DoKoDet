@@ -3182,6 +3182,53 @@ progress {
   border-bottom: 1px solid var(--line);
 }
 
+.visibleCardDetectorControls {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.visibleCardDetectorHelp {
+  margin: 0.25rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.visibleCardDetectorLastRun {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.visibleCardDetectorForm {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.visibleCardDetectorForm label {
+  display: grid;
+  gap: 0.3rem;
+  min-width: min(100%, 18rem);
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+}
+
+.visibleCardDetectorForm input {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
 .visibleCardZoomControls > span {
   min-width: 3rem;
   color: var(--muted-ink);

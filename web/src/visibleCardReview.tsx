@@ -247,6 +247,29 @@ export function VisibleCardReviewPage({
     }
   }
 
+  async function redetectFrame(itemId: string, model: string | null) {
+    if (batch === null) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      setBatch(
+        await client.redetectVisibleCardReviewItem(batchId, itemId, {
+          expected_revision: batch.revision,
+          model,
+        }),
+      );
+    } catch (reason: unknown) {
+      if (reason instanceof ApiError && reason.status === 409) {
+        await loadBatch();
+      }
+      setError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const pendingCount =
     batch?.items.filter((item) => item.review?.status !== "reviewed").length ??
     0;
@@ -297,7 +320,7 @@ export function VisibleCardReviewPage({
                 value={`${reviewedCount}/${batch.items.length}`}
               />
               <Stat label="Pending" value={String(pendingCount)} />
-              <Stat label="Detector" value={batch.detector.bundle_id} />
+              <Stat label="Batch detector" value={batch.detector.bundle_id} />
             </dl>
             <dl
               className={`${styles.detailStats} ${styles.visibleCardSummaryStats}`}
@@ -459,6 +482,7 @@ export function VisibleCardReviewPage({
 
               {selectedItem !== null ? (
                 <VisibleCardFrame
+                  key={`${selectedItem.item_id}:${selectedItem.last_detector?.model ?? batch.detector.model}`}
                   batch={batch}
                   item={selectedItem}
                   itemIndex={selectedIndex ?? 0}
@@ -472,6 +496,7 @@ export function VisibleCardReviewPage({
                   onNext={() => moveSelection(1, false)}
                   onNextPending={() => moveSelection(1, true)}
                   onRetry={() => void retryBatch()}
+                  onRedetect={redetectFrame}
                   onSaveReview={saveReview}
                   saveBusy={busy}
                   readOnly={batch.status === "completed"}
@@ -512,6 +537,7 @@ function VisibleCardFrame({
   onNext,
   onNextPending,
   onRetry,
+  onRedetect,
   onSaveReview,
   saveBusy,
   readOnly,
@@ -529,6 +555,7 @@ function VisibleCardFrame({
   onNext: () => void;
   onNextPending: () => void;
   onRetry: () => void;
+  onRedetect: (itemId: string, model: string | null) => Promise<void>;
   onSaveReview: (itemId: string, review: ReviewUpdate) => Promise<void>;
   saveBusy: boolean;
   readOnly: boolean;
@@ -551,6 +578,9 @@ function VisibleCardFrame({
     pointIndex: number;
     pointerId: number;
   } | null>(null);
+  const [detectorModel, setDetectorModel] = useState(
+    item.last_detector?.model ?? batch.detector.model,
+  );
 
   function currentReview(changes: {
     status?: ReviewUpdate["status"];
@@ -916,6 +946,51 @@ function VisibleCardFrame({
       ) : null}
       {source !== null && imagePath !== undefined ? (
         <>
+          <section
+            className={styles.visibleCardDetectorControls}
+            aria-label="Frame detector"
+          >
+            <div>
+              <p className={styles.statusLabel}>Frame detector</p>
+              <p className={styles.visibleCardDetectorHelp}>
+                Re-detection replaces this frame&apos;s finder result and resets
+                its review. Other frames are unchanged.
+              </p>
+              <p className={styles.visibleCardDetectorLastRun}>
+                Last detector:{" "}
+                {item.last_detector?.bundle_id ?? "Not available"}
+              </p>
+            </div>
+            <div className={styles.visibleCardDetectorForm}>
+              <label>
+                Detector model
+                <input
+                  value={detectorModel}
+                  onChange={(event) => setDetectorModel(event.target.value)}
+                  disabled={readOnly || saveBusy}
+                  list="visible-card-detector-models"
+                />
+              </label>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() =>
+                  void onRedetect(item.item_id, detectorModel.trim() || null)
+                }
+                disabled={
+                  readOnly ||
+                  saveBusy ||
+                  detectorModel.trim() === "" ||
+                  batch.status !== "ready"
+                }
+              >
+                {saveBusy ? "Re-detecting…" : "Re-detect frame"}
+              </button>
+            </div>
+            <datalist id="visible-card-detector-models">
+              <option value={batch.detector.model} />
+            </datalist>
+          </section>
           <div className={styles.visibleCardCanvasToolbar}>
             <span className={styles.cardEventSaveStatus}>
               {item.failure !== null
@@ -1124,8 +1199,12 @@ function VisibleCardFrame({
             value={item.finder?.prediction_sha256 ?? "Not available"}
           />
           <Stat
-            label="Detector"
-            value={`${batch.detector.bundle_id} · ${batch.detector.bundle_digest}`}
+            label="Last detector"
+            value={
+              item.last_detector == null
+                ? "Not available"
+                : `${item.last_detector.bundle_id} · ${item.last_detector.bundle_digest}`
+            }
           />
         </dl>
       </details>
