@@ -2000,7 +2000,7 @@ function EditorOverlay({
       {polygon.length >= 3 ? <polygon points={points} /> : null}
       {polygon.map((point, index) => (
         <circle
-          key={`${point.x}:${point.y}:${index}`}
+          key={`point:${index}`}
           className={styles.visibleCardEditorPoint}
           cx={(point.x * width) / 1000}
           cy={(point.y * height) / 1000}
