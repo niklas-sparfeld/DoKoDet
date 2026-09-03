@@ -6,6 +6,7 @@ import pytest
 from table_evidence_analyzer.visible_cards import (
     CACHE_SCHEMA_VERSION,
     DEFAULT_MODEL,
+    GEMINI_THINKING_LEVEL,
     IMPROVED_PROMPT,
     IMPROVED_REQUEST_SCHEMA_VERSION,
     RESPONSE_SCHEMA_V2,
@@ -277,7 +278,7 @@ def test_gemini_provider_builds_structured_request_and_records_usage() -> None:
     assert timeout == 120.0
     assert request.headers["X-goog-api-key"] == "runtime-secret"
     payload = json.loads(request.data)
-    assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+    assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": GEMINI_THINKING_LEVEL}
     assert payload["generationConfig"]["responseMimeType"] == "application/json"
 
 
