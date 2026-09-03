@@ -2956,10 +2956,7 @@ progress {
 
 .visibleCardBatchSummary {
   display: grid;
-  grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 1.6fr) minmax(
-      13rem,
-      0.85fr
-    );
+  grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 1.6fr);
   align-items: start;
   gap: 1rem;
   margin-top: 2rem;
@@ -2988,8 +2985,6 @@ progress {
 
 .visibleCardBatchProgress {
   display: grid;
-  grid-column: 3;
-  grid-row: 1;
   align-content: start;
   gap: 0.5rem;
   min-width: 0;
@@ -2998,6 +2993,16 @@ progress {
   border: 1px solid var(--line);
   border-radius: 0.6rem;
   background: var(--surface);
+}
+
+.visibleCardPreparingState {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.visibleCardPreparingState .visibleCardReviewMessage {
+  margin: 0;
 }
 
 .visibleCardBatchProgress .statusLabel {
@@ -3067,10 +3072,19 @@ progress {
 
 .visibleCardWorkspace {
   display: grid;
-  grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(12rem, 17rem)
+    minmax(0, 1fr)
+    minmax(13rem, 17rem);
   gap: 1rem;
   margin-top: 1rem;
   min-width: 0;
+}
+
+.visibleCardWorkspace > .visibleCardBatchProgress {
+  position: sticky;
+  top: 1rem;
+  align-self: start;
 }
 
 .visibleCardItemRail,
@@ -4216,7 +4230,7 @@ progress {
 
 @media (max-width: 900px) {
   .visibleCardBatchSummary {
-    grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.85fr);
+    grid-template-columns: 1fr;
   }
 
   .visibleCardBatchStats {
@@ -4225,13 +4239,18 @@ progress {
   }
 
   .visibleCardSummaryStats {
-    grid-column: 1 / -1;
+    grid-column: 1;
     grid-row: 2;
   }
 
-  .visibleCardBatchProgress {
-    grid-column: 2;
-    grid-row: 1;
+  .visibleCardWorkspace {
+    grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr);
+  }
+
+  .visibleCardWorkspace > .visibleCardBatchProgress {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    position: static;
   }
 }
 
@@ -4264,8 +4283,7 @@ progress {
   }
 
   .visibleCardBatchStats,
-  .visibleCardSummaryStats,
-  .visibleCardBatchProgress {
+  .visibleCardSummaryStats {
     grid-column: 1;
     grid-row: auto;
   }

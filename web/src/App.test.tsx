@@ -513,6 +513,10 @@ describe("App", () => {
     expect(frameImage.parentElement?.parentElement).toHaveStyle(
       "aspect-ratio: 100 / 80",
     );
+    const batchProgress = screen.getByRole("complementary", {
+      name: "Batch progress",
+    });
+    expect(batchProgress.parentElement?.lastElementChild).toBe(batchProgress);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Previous" }));

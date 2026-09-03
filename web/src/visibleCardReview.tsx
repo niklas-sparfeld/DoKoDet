@@ -327,12 +327,6 @@ export function VisibleCardReviewPage({
                 value={String(batch.summary.added_cards)}
               />
             </dl>
-            <div className={styles.visibleCardBatchProgress}>
-              <p className={styles.statusLabel}>Batch progress</p>
-              <p className={styles.visibleCardProgressMessage}>
-                {batchMessage(batch)}
-              </p>
-            </div>
             {batch.status === "failed" ? (
               <div className={styles.visibleCardFailureBar}>
                 <p>
@@ -418,9 +412,12 @@ export function VisibleCardReviewPage({
           </section>
 
           {batch.status === "preparing" ? (
-            <p className={styles.visibleCardReviewMessage} aria-live="polite">
-              The review workspace will open when finder results are complete.
-            </p>
+            <div className={styles.visibleCardPreparingState}>
+              <BatchProgress batch={batch} />
+              <p className={styles.visibleCardReviewMessage} aria-live="polite">
+                The review workspace will open when finder results are complete.
+              </p>
+            </div>
           ) : null}
 
           {batch.items.length > 0 && batch.status !== "preparing" ? (
@@ -476,11 +473,24 @@ export function VisibleCardReviewPage({
                   readOnly={batch.status === "completed"}
                 />
               ) : null}
+              <BatchProgress batch={batch} />
             </div>
           ) : null}
         </>
       ) : null}
     </main>
+  );
+}
+
+function BatchProgress({ batch }: { batch: VisibleCardReviewBatch }) {
+  return (
+    <aside
+      className={styles.visibleCardBatchProgress}
+      aria-label="Batch progress"
+    >
+      <p className={styles.statusLabel}>Batch progress</p>
+      <p className={styles.visibleCardProgressMessage}>{batchMessage(batch)}</p>
+    </aside>
   );
 }
 
