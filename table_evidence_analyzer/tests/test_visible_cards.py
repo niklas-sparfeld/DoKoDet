@@ -9,8 +9,10 @@ from table_evidence_analyzer.visible_cards import (
     IMPROVED_PROMPT,
     IMPROVED_REQUEST_SCHEMA_VERSION,
     RESPONSE_SCHEMA_V2,
+    CachedVisibleCardProvider,
     FakeVisibleCardProvider,
     GeminiVisibleCardProvider,
+    ProviderResult,
     VisibleCardRequest,
     VisibleCardValidationError,
     build_request_from_image,
@@ -48,6 +50,20 @@ def _request(*, image: bytes = b"frame", target_offset_ms: int = 0) -> VisibleCa
         image_bytes=image,
         width=1920,
         height=1080,
+    )
+
+
+def _improved_request() -> VisibleCardRequest:
+    return VisibleCardRequest(
+        package_id="package-001",
+        frame_part_name="frame_00",
+        target_offset_ms=0,
+        image_bytes=b"frame",
+        width=1920,
+        height=1080,
+        prompt=IMPROVED_PROMPT,
+        response_schema=RESPONSE_SCHEMA_V2,
+        request_version=IMPROVED_REQUEST_SCHEMA_VERSION,
     )
 
 
@@ -105,14 +121,77 @@ def test_improved_request_is_versioned_and_changes_cache_identity() -> None:
     assert improved.request_key != legacy.request_key
 
 
-def test_improved_request_rejects_box_that_is_not_tight_to_visible_polygon() -> None:
+def test_improved_request_can_repair_box_that_is_not_tight_to_visible_polygon() -> None:
     invalid = _prediction()
     invalid["cards"][0]["box_2d"]["x_min"] = 201
 
     with pytest.raises(VisibleCardValidationError, match="tight bounds"):
         normalize_prediction(invalid, require_tight_boxes=True)
 
+    repaired = normalize_prediction(invalid, repair_tight_boxes=True)
+    assert repaired.cards[0].box_2d == normalize_prediction(_prediction()).cards[0].box_2d
+
     assert normalize_prediction(_prediction(), require_tight_boxes=True).cards
+
+
+def test_gemini_improved_response_repairs_non_tight_box_for_review() -> None:
+    invalid = _prediction()
+    invalid["cards"][0]["box_2d"]["x_min"] = 201
+
+    def urlopen(_request: object, timeout: float) -> _FakeHTTPResponse:
+        del timeout
+        return _FakeHTTPResponse(
+            {"candidates": [{"content": {"parts": [{"text": json.dumps(invalid)}]}}]}
+        )
+
+    result = GeminiVisibleCardProvider(
+        api_key="runtime-secret",
+        urlopen=urlopen,
+        sleep=lambda _seconds: None,
+    ).propose(_improved_request())
+
+    assert result.status == "ok"
+    assert result.proposals[0].box_2d.x_min == 200
+    assert normalize_prediction(result.prediction.to_mapping(), require_tight_boxes=True).cards
+    assert result.raw_response is not None
+
+
+def test_cached_old_tight_box_failure_is_retried_for_improved_request(tmp_path: Path) -> None:
+    class _OldGeminiProvider:
+        name = "gemini"
+        version = "gemini-visible-cards-v1"
+
+        def propose(self, _request: VisibleCardRequest) -> ProviderResult:
+            return ProviderResult(
+                status="unavailable",
+                error=(
+                    "Gemini returned a malformed response: card 1 "
+                    "box_2d must be the tight bounds of its visible polygon."
+                ),
+            )
+
+    request = _improved_request()
+    cache_dir = tmp_path / "cache"
+    first = CachedVisibleCardProvider(_OldGeminiProvider(), cache_dir).propose(request)
+    assert first.status == "unavailable"
+
+    invalid = _prediction()
+    invalid["cards"][0]["box_2d"]["x_min"] = 201
+    second = CachedVisibleCardProvider(
+        FakeVisibleCardProvider({request.image_sha256: invalid}), cache_dir
+    ).propose(request)
+
+    assert second.status == "ok"
+    assert second.cache_hit is False
+    assert second.proposals[0].box_2d.x_min == 200
+
+
+def test_improved_request_still_rejects_invalid_polygon_geometry() -> None:
+    invalid = _prediction()
+    invalid["cards"][0]["polygon"][0]["x"] = True
+
+    with pytest.raises(VisibleCardValidationError, match="normalized integer"):
+        normalize_prediction(invalid, repair_tight_boxes=True)
 
 
 def test_normalize_prediction_returns_strict_proposals() -> None:
@@ -137,8 +216,6 @@ def test_fake_provider_is_deterministic_and_cache_stores_raw_and_normalized_outp
     assert first.status == "ok"
     assert first.proposals[0].label == "patterned card back"
     assert first.estimated_cost_usd == 0.0
-
-    from table_evidence_analyzer.visible_cards import CachedVisibleCardProvider
 
     cached = CachedVisibleCardProvider(fake, tmp_path / "cache")
     cached_first = cached.propose(request)

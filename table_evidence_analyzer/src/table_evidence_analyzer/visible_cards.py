@@ -54,6 +54,7 @@ LOCAL_RFDETR_VERSION = "1.9.4"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SIDES = frozenset({"face_up", "face_down", "unknown"})
+_TIGHT_BOX_ERROR = "box_2d must be the tight bounds of its visible polygon."
 
 PROMPT = """Find every visible physical playing card in this image.
 
@@ -302,8 +303,20 @@ def _tight_box_for_polygon(polygon: Sequence[NormalizedPoint]) -> NormalizedBox:
     )
 
 
-def normalize_prediction(value: Any, *, require_tight_boxes: bool = False) -> VisibleCardPrediction:
-    """Validate and normalize the provider's closed JSON response shape."""
+def normalize_prediction(
+    value: Any, *, require_tight_boxes: bool = False, repair_tight_boxes: bool = False
+) -> VisibleCardPrediction:
+    """Validate and normalize the provider's closed JSON response shape.
+
+    ``repair_tight_boxes`` treats the polygon as authoritative and derives ``box_2d`` from it.
+    This is useful at a provider boundary because a valid response with a slightly inconsistent
+    redundant box can still enter review.
+    """
+
+    if require_tight_boxes and repair_tight_boxes:
+        raise VisibleCardValidationError(
+            "require_tight_boxes and repair_tight_boxes cannot be used together."
+        )
 
     if not isinstance(value, dict) or set(value) != {"cards"}:
         raise VisibleCardValidationError("prediction must be an object containing only cards.")
@@ -336,10 +349,15 @@ def normalize_prediction(value: Any, *, require_tight_boxes: bool = False) -> Vi
                     f"{context} polygon point {point_index} has an unexpected shape."
                 )
             points.append(NormalizedPoint(x=point_value["x"], y=point_value["y"]))
-        if require_tight_boxes and box != _tight_box_for_polygon(points):
+        tight_box = (
+            _tight_box_for_polygon(points) if require_tight_boxes or repair_tight_boxes else None
+        )
+        if require_tight_boxes and box != tight_box:
             raise VisibleCardValidationError(
                 f"{context} box_2d must be the tight bounds of its visible polygon."
             )
+        if repair_tight_boxes and tight_box is not None:
+            box = tight_box
         proposals.append(
             VisibleCardProposal(
                 box_2d=box,
@@ -352,11 +370,15 @@ def normalize_prediction(value: Any, *, require_tight_boxes: bool = False) -> Vi
 
 
 def validate_prediction(
-    value: Any, *, require_tight_boxes: bool = False
+    value: Any, *, require_tight_boxes: bool = False, repair_tight_boxes: bool = False
 ) -> dict[str, list[dict[str, Any]]]:
     """Return a canonical mapping after strict provider-response validation."""
 
-    return normalize_prediction(value, require_tight_boxes=require_tight_boxes).to_mapping()
+    return normalize_prediction(
+        value,
+        require_tight_boxes=require_tight_boxes,
+        repair_tight_boxes=repair_tight_boxes,
+    ).to_mapping()
 
 
 @dataclass(frozen=True, slots=True)
@@ -590,7 +612,7 @@ class FakeVisibleCardProvider:
     def propose(self, request: VisibleCardRequest) -> ProviderResult:
         prediction = self._predictions.get(request.image_sha256, VisibleCardPrediction(cards=()))
         if request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION:
-            prediction = normalize_prediction(prediction.to_mapping(), require_tight_boxes=True)
+            prediction = normalize_prediction(prediction.to_mapping(), repair_tight_boxes=True)
         return ProviderResult(
             status="ok",
             proposals=prediction.cards,
@@ -690,7 +712,7 @@ class GeminiVisibleCardProvider:
                     raise VisibleCardValidationError("Gemini candidate text must be a string.")
                 prediction = normalize_prediction(
                     json.loads(raw_text),
-                    require_tight_boxes=request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION,
+                    repair_tight_boxes=request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION,
                 )
                 usage = ProviderUsage.from_usage_metadata(raw_response.get("usageMetadata"))
                 return ProviderResult(
@@ -1085,6 +1107,15 @@ class CachedVisibleCardProvider:
             )
             if request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION:
                 normalize_prediction(result.prediction.to_mapping(), require_tight_boxes=True)
+            if (
+                request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION
+                and result.status == "unavailable"
+                and result.error is not None
+                and _TIGHT_BOX_ERROR in result.error
+            ):
+                # This failure was produced by the old v2 ingress check. Re-run it so the provider
+                # can repair the redundant box from its valid polygon.
+                return None
             return result
         except (OSError, ValueError, KeyError, TypeError, VisibleCardError, json.JSONDecodeError):
             return None
