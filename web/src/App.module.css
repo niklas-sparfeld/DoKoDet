@@ -3137,6 +3137,7 @@ progress {
 
 .visibleCardCanvasViewport {
   max-width: 100%;
+  max-height: min(60vh, 48rem);
   margin-top: 1rem;
   overflow: auto;
   border: 1px solid var(--line);
