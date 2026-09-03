@@ -598,6 +598,12 @@ function VisibleCardFrame({
   const finder = item.finder;
   const proposals = finder?.proposals ?? [];
   const actions = (item.review?.actions ?? []) as ReviewAction[];
+  const pendingProposals = proposals.filter(
+    (proposal) =>
+      !actions.some(
+        (action) => action.proposal_index === proposal.proposal_index,
+      ),
+  );
   const reviewedCards = actions
     .map((action) => action.reviewed_card)
     .filter((card): card is ReviewedCard => card !== null);
@@ -1097,7 +1103,7 @@ function VisibleCardFrame({
                 onPointerCancel={stopPointDrag}
                 style={{ pointerEvents: editor === null ? "none" : "auto" }}
               >
-                {proposals.map((proposal) => (
+                {pendingProposals.map((proposal) => (
                   <ProposalOverlay
                     key={proposal.proposal_index}
                     proposal={proposal}

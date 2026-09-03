@@ -225,6 +225,66 @@ describe("visible-card polygon editor", () => {
     ]);
   });
 
+  it("hides a finder overlay after its proposal is reviewed", async () => {
+    const batchId = "visible-card-batch-reviewed-overlay-0123456789";
+    const itemId = "reviewed-overlay-item";
+    const batch = makeEditorBatch(batchId, itemId);
+    batch.items[0].review = {
+      status: "reviewed",
+      decision: "GOOD",
+      empty_frame: false,
+      failure_tags: [],
+      reviewer: "web-operator",
+      review_id: "reviewed-overlay-review-1",
+      started_at_utc: "2026-09-03T07:00:00Z",
+      updated_at_utc: "2026-09-03T07:00:00Z",
+      completed_at_utc: "2026-09-03T07:00:00Z",
+      actions: [
+        {
+          card_id: "reviewed-card-1",
+          action: "reshaped",
+          proposal_index: 0,
+          reviewed_card: {
+            card_id: "reviewed-card-1",
+            side: "unknown",
+            visible_region: {
+              polygons: [
+                [
+                  { x: 120, y: 120 },
+                  { x: 880, y: 120 },
+                  { x: 880, y: 880 },
+                  { x: 120, y: 880 },
+                ],
+              ],
+            },
+            derived_box: { x_min: 120, y_min: 120, x_max: 880, y_max: 880 },
+            identity_usability: { usable: true, reason: "" },
+            failure_tags: [],
+          },
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(batch), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    render(<VisibleCardReviewPage batchId={batchId} selectedItemId={itemId} />);
+
+    const canvas = await screen.findByRole("img", {
+      name: "1 finder proposal",
+    });
+    expect(canvas.querySelectorAll("polygon")).toHaveLength(1);
+    expect(canvas.querySelectorAll("g")).toHaveLength(1);
+  });
+
   it("selects, drags, and deletes an existing point", async () => {
     const batchId = "visible-card-batch-editor-0123456789";
     const itemId = "editor-item";
