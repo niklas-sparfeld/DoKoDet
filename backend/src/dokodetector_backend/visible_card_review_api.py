@@ -1122,6 +1122,7 @@ def _batch_response(request: Request, state: dict[str, Any]) -> VisibleCardBatch
             item["item_id"],
             frame,
             None if queue_item is None else queue_item.source.to_mapping(),
+            frozen,
         )
         finder_response = _finder_response(
             finder,
@@ -1258,18 +1259,19 @@ def _source_response(
     item_id: str,
     frame: dict[str, Any] | None,
     queued_source: dict[str, Any] | None,
+    request: VisibleCardBatchRequest,
 ) -> VisibleCardSourceLineageResponse | None:
     source = queued_source
     if source is None and frame is not None:
         source = {
             "package_id": item_id.rsplit(":", 1)[0],
             "frame_part_name": item_id.rsplit(":", 1)[1],
-            "target_offset_ms": 0,
+            "target_offset_ms": request.target_offset_ms,
             "image": frame["path"],
             "frame_sha256": frame["sha256"],
-            "source_asset_id": "",
-            "source_lineage_group": "",
-            "source_asset_sha256": None,
+            "source_asset_id": request.source_asset_id,
+            "source_lineage_group": request.source_lineage_group,
+            "source_asset_sha256": request.source_sha256,
             "width": frame["width"],
             "height": frame["height"],
         }

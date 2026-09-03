@@ -190,6 +190,12 @@ def test_preview_create_and_reload_persist_progress_without_duplicate_work(tmp_p
         state = _wait_for_batch(client, created.json()["batch_id"])
         assert state["status"] == "failed"
         assert state["progress"]["total_items"] == 2
+        successful = next(item for item in state["items"] if item["failure"] is None)
+        assert successful["source"]["source_asset_id"] == "source-both"
+        image = client.get(successful["source"]["image_url"])
+        assert image.status_code == 200
+        assert image.headers["content-type"] == "image/jpeg"
+        assert image.content.startswith(b"\xff\xd8")
 
 
 def test_gemini_provider_can_create_a_visible_card_batch(tmp_path: Path) -> None:
