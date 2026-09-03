@@ -13,6 +13,7 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     update_frame_review,
 )
 from table_evidence_analyzer.visible_cards import (
+    CachedVisibleCardProvider,
     FakeVisibleCardProvider,
     ProviderResult,
     load_run_artifact,
@@ -291,6 +292,36 @@ def test_redetect_updates_one_item_with_its_latest_detector_and_result(tmp_path:
     queue = load_visible_card_review_queue(second["queue_path"])
     queued = next(value for value in queue.items if value.item_id == item_id)
     assert queued.teacher.request["model"] == "gemini-3.8-flash"
+
+
+def test_redetect_bypasses_the_visible_card_response_cache(tmp_path: Path) -> None:
+    class _CountingProvider:
+        name = "local"
+        version = "local-visible-cards-test-v1"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def propose(self, _request: object) -> ProviderResult:
+            self.calls += 1
+            return ProviderResult(status="ok", raw_response={"call": self.calls})
+
+    request, frames = _request(tmp_path)
+    underlying = _CountingProvider()
+    provider = CachedVisibleCardProvider(underlying, tmp_path / "cache")
+    store = VisibleCardReviewBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, provider, frame_extractor=_FixtureExtractor(frames))
+    assert underlying.calls == 2
+
+    store.redetect(
+        request.batch_id,
+        prepared["items"][0]["item_id"],
+        provider,
+        detector=request.detector,
+        expected_revision=0,
+    )
+
+    assert underlying.calls == 3
 
 
 def test_redetect_can_recover_one_failed_item_without_retrying_the_batch(

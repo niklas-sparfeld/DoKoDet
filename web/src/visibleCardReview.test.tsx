@@ -352,6 +352,55 @@ describe("visible-card polygon editor", () => {
       screen.getAllByRole("button", { name: /Polygon 1, point/ }),
     ).toHaveLength(3);
   });
+
+  it("shows re-detection progress and completion feedback", async () => {
+    const batchId = "visible-card-batch-redetect-feedback-0123456789";
+    const itemId = "redetect-feedback-item";
+    const batch = makeEditorBatch(batchId, itemId);
+    let resolveRedetect!: (response: Response) => void;
+    const redetectResponse = new Promise<Response>((resolve) => {
+      resolveRedetect = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_input, init) =>
+        init?.method === "POST"
+          ? redetectResponse
+          : Promise.resolve(
+              new Response(JSON.stringify(batch), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              }),
+            ),
+      ),
+    );
+
+    render(<VisibleCardReviewPage batchId={batchId} selectedItemId={itemId} />);
+    await screen.findByAltText("Exact event source frame at 0.400 s");
+
+    const user = userEvent.setup();
+    const button = screen.getByRole("button", { name: "Re-detect frame" });
+    await user.click(button);
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "running a fresh detector request",
+    );
+    expect(button).toHaveTextContent("Re-detecting…");
+    expect(button).toBeDisabled();
+
+    resolveRedetect(
+      new Response(JSON.stringify(batch), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(
+      await screen.findByText(/re-detection complete/),
+    ).toBeInTheDocument();
+    expect(button).toHaveTextContent("Re-detect frame");
+    expect(button).toBeEnabled();
+  });
 });
 
 function makeEditorBatch(

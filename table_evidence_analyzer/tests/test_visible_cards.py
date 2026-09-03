@@ -232,6 +232,35 @@ def test_fake_provider_is_deterministic_and_cache_stores_raw_and_normalized_outp
     assert cache["prediction"] == _prediction()
 
 
+def test_fresh_cached_provider_run_bypasses_and_refreshes_response_cache(
+    tmp_path: Path,
+) -> None:
+    class _CountingProvider:
+        name = "gemini"
+        version = "gemini-visible-cards-v1"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def propose(self, request: VisibleCardRequest) -> ProviderResult:
+            self.calls += 1
+            return FakeVisibleCardProvider(
+                {request.image_sha256: _prediction()}
+            ).propose(request)
+
+    underlying = _CountingProvider()
+    cached = CachedVisibleCardProvider(underlying, tmp_path / "cache")
+    request = _request()
+
+    cached.propose(request)
+    assert cached.propose(request).cache_hit is True
+    fresh = cached.propose_fresh(request)
+
+    assert fresh.cache_hit is False
+    assert underlying.calls == 2
+    assert cached.propose(request).cache_hit is True
+
+
 class _FakeHTTPResponse:
     def __init__(self, payload: dict) -> None:
         self.payload = json.dumps(payload).encode("utf-8")

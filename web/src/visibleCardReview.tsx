@@ -29,6 +29,12 @@ type ReviewUpdate = VisibleCardReviewItemUpdateRequest["review"];
 type ReviewAction = ReviewUpdate["actions"][number];
 type Point = ReviewedCard["visible_region"]["polygons"][number][number];
 type Outcome = "usable" | "empty" | "unusable";
+type RedetectFeedback = {
+  itemId: string;
+  frameLabel: string;
+  model: string;
+  state: "running" | "complete" | "failed";
+};
 type EditorState = {
   action: "reshaped" | "added";
   cardId: string;
@@ -69,6 +75,8 @@ export function VisibleCardReviewPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [redetectFeedback, setRedetectFeedback] =
+    useState<RedetectFeedback | null>(null);
   const [reviewer, setReviewer] = useState("web-operator");
 
   const loadBatch = useCallback(
@@ -251,6 +259,15 @@ export function VisibleCardReviewPage({
     if (batch === null) {
       return;
     }
+    const itemIndex = batch.items.findIndex((item) => item.item_id === itemId);
+    const frameLabel = itemIndex < 0 ? itemId : `Frame ${itemIndex + 1}`;
+    const requestedModel = model ?? "configured detector";
+    setRedetectFeedback({
+      itemId,
+      frameLabel,
+      model: requestedModel,
+      state: "running",
+    });
     setBusy(true);
     setError(null);
     try {
@@ -260,10 +277,22 @@ export function VisibleCardReviewPage({
           model,
         }),
       );
+      setRedetectFeedback({
+        itemId,
+        frameLabel,
+        model: requestedModel,
+        state: "complete",
+      });
     } catch (reason: unknown) {
       if (reason instanceof ApiError && reason.status === 409) {
         await loadBatch();
       }
+      setRedetectFeedback({
+        itemId,
+        frameLabel,
+        model: requestedModel,
+        state: "failed",
+      });
       setError(describeError(reason));
     } finally {
       setBusy(false);
@@ -301,6 +330,20 @@ export function VisibleCardReviewPage({
       {error !== null ? (
         <p className={styles.errorMessage} role="alert">
           {error}
+        </p>
+      ) : null}
+      {redetectFeedback !== null ? (
+        <p
+          className={styles.visibleCardRedetectStatus}
+          role="status"
+          aria-live="polite"
+          aria-busy={redetectFeedback.state === "running"}
+        >
+          {redetectFeedback.state === "running"
+            ? `${redetectFeedback.frameLabel}: running a fresh detector request with ${redetectFeedback.model}…`
+            : redetectFeedback.state === "complete"
+              ? `${redetectFeedback.frameLabel}: re-detection complete. The latest finder result is saved and the frame review was reset.`
+              : `${redetectFeedback.frameLabel}: re-detection failed.`}
         </p>
       ) : null}
       {batch !== null ? (
@@ -373,6 +416,10 @@ export function VisibleCardReviewPage({
                   onRedetect={redetectFrame}
                   onSaveReview={saveReview}
                   saveBusy={busy}
+                  redetecting={
+                    redetectFeedback?.state === "running" &&
+                    redetectFeedback.itemId === selectedItem.item_id
+                  }
                   readOnly={batch.status === "completed"}
                 />
               ) : null}
@@ -575,6 +622,7 @@ function VisibleCardFrame({
   onRedetect,
   onSaveReview,
   saveBusy,
+  redetecting,
   readOnly,
 }: {
   batch: VisibleCardReviewBatch;
@@ -592,6 +640,7 @@ function VisibleCardFrame({
   onRedetect: (itemId: string, model: string | null) => Promise<void>;
   onSaveReview: (itemId: string, review: ReviewUpdate) => Promise<void>;
   saveBusy: boolean;
+  redetecting: boolean;
   readOnly: boolean;
 }) {
   const source = item.source;
@@ -997,6 +1046,7 @@ function VisibleCardFrame({
           <section
             className={styles.visibleCardDetectorControls}
             aria-label="Frame detector"
+            aria-busy={redetecting}
           >
             <div>
               <p className={styles.statusLabel}>Frame detector</p>
@@ -1032,7 +1082,7 @@ function VisibleCardFrame({
                   (batch.status !== "ready" && batch.status !== "failed")
                 }
               >
-                {saveBusy ? "Re-detecting…" : "Re-detect frame"}
+                {redetecting ? "Re-detecting…" : "Re-detect frame"}
               </button>
             </div>
             <datalist id="visible-card-detector-models">
@@ -1041,11 +1091,13 @@ function VisibleCardFrame({
           </section>
           <div className={styles.visibleCardCanvasToolbar}>
             <span className={styles.cardEventSaveStatus}>
-              {item.failure !== null
-                ? "Display-only finder output; re-detect this frame to review it."
-                : saveBusy
-                  ? "Saving review…"
-                  : "Finder proposals are suggestions."}
+              {redetecting
+                ? "Running a fresh detector request…"
+                : item.failure !== null
+                  ? "Display-only finder output; re-detect this frame to review it."
+                  : saveBusy
+                    ? "Saving review…"
+                    : "Finder proposals are suggestions."}
             </span>
             <div className={styles.visibleCardZoomControls}>
               <button

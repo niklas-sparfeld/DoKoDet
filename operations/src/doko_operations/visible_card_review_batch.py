@@ -1609,7 +1609,7 @@ class VisibleCardReviewBatchStore:
                 provider=detector.provider,
                 request_version=frozen_request.request_version,
             )
-            result = provider.propose(visible_request)
+            result = _propose_fresh(provider, visible_request)
             if not isinstance(result, ProviderResult):
                 raise VisibleCardRedetectError("provider returned a non-ProviderResult value")
             if result.status != "ok":
@@ -2410,6 +2410,15 @@ def _run_artifact_mapping(request: Any, result: ProviderResult, *, image: str) -
         "overlay": None,
         **result.to_mapping(),
     }
+
+
+def _propose_fresh(provider: VisibleCardProvider, request: Any) -> ProviderResult:
+    """Run one explicit re-detection without reading a response cache when supported."""
+
+    propose_fresh = getattr(provider, "propose_fresh", None)
+    if callable(propose_fresh):
+        return propose_fresh(request)
+    return provider.propose(request)
 
 
 def _utc_timestamp(value: Any, field: str) -> str:

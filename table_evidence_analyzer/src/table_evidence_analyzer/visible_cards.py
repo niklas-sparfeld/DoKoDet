@@ -1048,8 +1048,13 @@ class CachedVisibleCardProvider:
         cached = self._load(cache_path, request)
         if cached is not None:
             return replace(cached, cache_hit=True)
+        return self.propose_fresh(request)
+
+    def propose_fresh(self, request: VisibleCardRequest) -> ProviderResult:
+        """Run the underlying provider and replace the cached response for this request."""
+
         result = self.provider.propose(request)
-        self._store(cache_path, request, result)
+        self._store(self._cache_path(request), request, result)
         return result
 
     def _cache_path(self, request: VisibleCardRequest) -> Path:
