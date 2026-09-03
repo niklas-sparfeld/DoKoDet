@@ -2956,6 +2956,11 @@ progress {
 
 .visibleCardBatchSummary {
   display: grid;
+  grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 1.6fr) minmax(
+      13rem,
+      0.85fr
+    );
+  align-items: start;
   gap: 1rem;
   margin-top: 2rem;
   padding: 1.1rem 1.25rem;
@@ -2969,11 +2974,47 @@ progress {
   margin-top: 0;
 }
 
+.visibleCardBatchStats {
+  grid-column: 1;
+  grid-row: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.visibleCardSummaryStats {
+  grid-column: 2;
+  grid-row: 1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.visibleCardBatchProgress {
+  display: grid;
+  grid-column: 3;
+  grid-row: 1;
+  align-content: start;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 100%;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--surface);
+}
+
+.visibleCardBatchProgress .statusLabel {
+  margin: 0;
+}
+
 .visibleCardProgressMessage {
-  margin: 0.45rem 0 0;
+  margin: 0;
   color: var(--ink);
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 800;
+  line-height: 1.4;
+}
+
+.visibleCardFailureBar,
+.visibleCardPublishPanel {
+  grid-column: 1 / -1;
 }
 
 .visibleCardFailureBar {
@@ -3136,10 +3177,11 @@ progress {
 }
 
 .visibleCardCanvasViewport {
+  width: 100%;
   max-width: 100%;
   max-height: min(60vh, 48rem);
   margin-top: 1rem;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 0.55rem;
   background: #161616;
@@ -4172,6 +4214,27 @@ progress {
   }
 }
 
+@media (max-width: 900px) {
+  .visibleCardBatchSummary {
+    grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.85fr);
+  }
+
+  .visibleCardBatchStats {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .visibleCardSummaryStats {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .visibleCardBatchProgress {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
 @media (max-width: 600px) {
   .detailHeader {
     flex-direction: column;
@@ -4194,6 +4257,22 @@ progress {
 
   .nestedAnalysisHeader {
     flex-direction: column;
+  }
+
+  .visibleCardBatchSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .visibleCardBatchStats,
+  .visibleCardSummaryStats,
+  .visibleCardBatchProgress {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .visibleCardBatchStats,
+  .visibleCardSummaryStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

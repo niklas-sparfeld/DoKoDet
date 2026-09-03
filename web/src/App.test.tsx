@@ -506,9 +506,13 @@ describe("App", () => {
     expect(await screen.findByText("Frame 2 of 2")).toBeInTheDocument();
     expect(screen.getByText("Proposal 1")).toBeInTheDocument();
     expect(screen.getByText("Proposal 2")).toBeInTheDocument();
-    expect(
-      screen.getByAltText("Exact event source frame at 1.200 s"),
-    ).toHaveAttribute("src", batch.items[1].source.image_url);
+    const frameImage = screen.getByAltText(
+      "Exact event source frame at 1.200 s",
+    );
+    expect(frameImage).toHaveAttribute("src", batch.items[1].source.image_url);
+    expect(frameImage.parentElement?.parentElement).toHaveStyle(
+      "aspect-ratio: 100 / 80",
+    );
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Previous" }));

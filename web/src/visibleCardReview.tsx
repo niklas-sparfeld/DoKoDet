@@ -281,13 +281,9 @@ export function VisibleCardReviewPage({
       {batch !== null ? (
         <>
           <section className={styles.visibleCardBatchSummary}>
-            <div>
-              <p className={styles.statusLabel}>Batch progress</p>
-              <p className={styles.visibleCardProgressMessage}>
-                {batchMessage(batch)}
-              </p>
-            </div>
-            <dl className={styles.detailStats}>
+            <dl
+              className={`${styles.detailStats} ${styles.visibleCardBatchStats}`}
+            >
               <Stat
                 label="Frames"
                 value={`${batch.progress.frames_extracted}/${batch.progress.total_items}`}
@@ -299,7 +295,9 @@ export function VisibleCardReviewPage({
               <Stat label="Pending" value={String(pendingCount)} />
               <Stat label="Detector" value={batch.detector.bundle_id} />
             </dl>
-            <dl className={styles.detailStats}>
+            <dl
+              className={`${styles.detailStats} ${styles.visibleCardSummaryStats}`}
+            >
               <Stat
                 label="Usable frames"
                 value={String(batch.summary.usable_frames)}
@@ -329,6 +327,12 @@ export function VisibleCardReviewPage({
                 value={String(batch.summary.added_cards)}
               />
             </dl>
+            <div className={styles.visibleCardBatchProgress}>
+              <p className={styles.statusLabel}>Batch progress</p>
+              <p className={styles.visibleCardProgressMessage}>
+                {batchMessage(batch)}
+              </p>
+            </div>
             {batch.status === "failed" ? (
               <div className={styles.visibleCardFailureBar}>
                 <p>
@@ -848,7 +852,10 @@ function VisibleCardFrame({
               </button>
             </div>
           </div>
-          <div className={styles.visibleCardCanvasViewport}>
+          <div
+            className={styles.visibleCardCanvasViewport}
+            style={{ aspectRatio: `${source.width} / ${source.height}` }}
+          >
             <div
               className={styles.visibleCardCanvasInner}
               style={{ width: `${zoom * 100}%` }}
