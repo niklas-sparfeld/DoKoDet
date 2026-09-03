@@ -1094,11 +1094,19 @@ def _validate_batch_state(value: Any) -> dict[str, Any]:
             raise VisibleCardBatchError("visible-card batch progress counts are invalid")
     if not isinstance(value["items"], list) or not isinstance(value["failures"], list):
         raise VisibleCardBatchError("visible-card batch items and failures must be lists")
-    for item in value["items"]:
-        if not isinstance(item, Mapping) or "last_detector" not in item:
+    normalized_items: list[dict[str, Any]] = []
+    for raw_item in value["items"]:
+        if not isinstance(raw_item, Mapping):
             raise VisibleCardBatchError("visible-card batch item detector state is invalid")
+        item = dict(raw_item)
+        if "last_detector" not in item:
+            finder = item.get("finder")
+            item["last_detector"] = finder.get("detector") if isinstance(finder, Mapping) else None
         if item["last_detector"] is not None:
             VisibleCardDetectorIdentity.from_mapping(item["last_detector"])
+        normalized_items.append(item)
+    value = dict(value)
+    value["items"] = normalized_items
     for failure in value["failures"]:
         VisibleCardBatchFailure.from_mapping(failure)
     if value["queue_schema_version"] != VISIBLE_CARD_REVIEW_QUEUE_SCHEMA:

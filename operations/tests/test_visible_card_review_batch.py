@@ -240,6 +240,28 @@ def test_batch_preparation_builds_stable_two_item_v2_queue(tmp_path: Path) -> No
     )
 
 
+def test_batch_loader_normalizes_items_from_before_last_detector_tracking(
+    tmp_path: Path,
+) -> None:
+    request, frames = _request(tmp_path)
+    provider = FakeVisibleCardProvider(
+        {hashlib.sha256(image).hexdigest(): _prediction() for image in frames.values()}
+    )
+    store = VisibleCardReviewBatchStore(tmp_path / "operations")
+    prepared = store.prepare(request, provider, frame_extractor=_FixtureExtractor(frames))
+    batch_root = tmp_path / "operations" / "visible-card-review-batches" / request.batch_id
+    batch_path = batch_root / "batch.json"
+    legacy = json.loads(batch_path.read_text(encoding="utf-8"))
+    for item in legacy["items"]:
+        item.pop("last_detector", None)
+    batch_path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    loaded = load_visible_card_review_batch(batch_path)
+
+    assert loaded["batch_id"] == prepared["batch_id"]
+    assert all(item["last_detector"] == request.detector.to_mapping() for item in loaded["items"])
+
+
 def test_redetect_updates_one_item_with_its_latest_detector_and_result(tmp_path: Path) -> None:
     request, frames = _request(tmp_path)
     provider = FakeVisibleCardProvider(
