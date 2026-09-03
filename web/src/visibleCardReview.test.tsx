@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import type { VisibleCardReviewBatch } from "./api/client";
 import {
@@ -179,6 +179,21 @@ describe("VisibleCardReviewPage failed finder output", () => {
     expect(
       screen.getByRole("button", { name: "Accept proposal 1" }),
     ).toBeDisabled();
+
+    const showRawResult = screen.getByRole("button", {
+      name: "Show raw result",
+    });
+    await user.click(showRawResult);
+    const rawDialog = screen.getByRole("dialog", {
+      name: "Gemini raw result",
+    });
+    expect(rawDialog).toHaveTextContent(/"candidates"/);
+    expect(rawDialog).toHaveTextContent(/\\"x_min\\":101/);
+    await user.click(
+      within(rawDialog).getByRole("button", { name: "Close raw result" }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(showRawResult);
   });
 });
 

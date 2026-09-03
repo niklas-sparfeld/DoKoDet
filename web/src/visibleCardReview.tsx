@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
   type Dispatch,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
   type PointerEvent,
   type SetStateAction,
@@ -582,6 +582,8 @@ function VisibleCardFrame({
   const [detectorModel, setDetectorModel] = useState(
     item.last_detector?.model ?? batch.detector.model,
   );
+  const [rawResultOpen, setRawResultOpen] = useState(false);
+  const rawResultButtonRef = useRef<HTMLButtonElement>(null);
 
   function currentReview(changes: {
     status?: ReviewUpdate["status"];
@@ -934,15 +936,29 @@ function VisibleCardFrame({
       {item.failure !== null ? (
         <div className={styles.detailBlocker}>
           <p>{item.failure.message}</p>
-          {item.failure.retryable ? (
-            <button
-              className={styles.inlineAction}
-              type="button"
-              onClick={onRetry}
-            >
-              Retry this item
-            </button>
-          ) : null}
+          <div className={styles.visibleCardFailureActions}>
+            {item.failure.retryable ? (
+              <button
+                className={styles.inlineAction}
+                type="button"
+                onClick={onRetry}
+              >
+                Retry this item
+              </button>
+            ) : null}
+            {finder?.raw_response !== null &&
+            finder?.raw_response !== undefined ? (
+              <button
+                ref={rawResultButtonRef}
+                className={styles.inlineAction}
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => setRawResultOpen(true)}
+              >
+                Show raw result
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
       {source !== null && imagePath !== undefined ? (
@@ -1168,6 +1184,26 @@ function VisibleCardFrame({
         </p>
       )}
       <FinderDiagnostics finder={finder} />
+      {item.failure === null &&
+      finder?.raw_response !== null &&
+      finder?.raw_response !== undefined ? (
+        <button
+          ref={rawResultButtonRef}
+          className={styles.secondaryButton}
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setRawResultOpen(true)}
+        >
+          Show raw result
+        </button>
+      ) : null}
+      <RawResultDialog
+        item={item}
+        rawResponse={finder?.raw_response ?? null}
+        open={rawResultOpen}
+        onClose={() => setRawResultOpen(false)}
+        openerRef={rawResultButtonRef}
+      />
 
       <details className={styles.visibleCardDiagnostics}>
         <summary>Source and finder lineage</summary>
@@ -1446,6 +1482,116 @@ function FinderDiagnostics({ finder }: { finder: BatchItem["finder"] }) {
         </>
       ) : null}
     </details>
+  );
+}
+
+function RawResultDialog({
+  item,
+  rawResponse,
+  open,
+  onClose,
+  openerRef,
+}: {
+  item: BatchItem;
+  rawResponse: Record<string, unknown> | null;
+  open: boolean;
+  onClose: () => void;
+  openerRef: import("react").RefObject<HTMLButtonElement | null>;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+
+  useEffect(() => {
+    if (!open || rawResponse === null) {
+      if (wasOpen.current) {
+        wasOpen.current = false;
+        openerRef.current?.focus();
+      }
+      return;
+    }
+    wasOpen.current = true;
+    closeButtonRef.current?.focus();
+    const dialog = dialogRef.current;
+    if (dialog === null) {
+      return;
+    }
+    const focusableSelector =
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") {
+        return;
+      }
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(focusableSelector),
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener("keydown", handleKeyDown);
+    return () => dialog.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open, openerRef, rawResponse]);
+
+  if (!open || rawResponse === null) {
+    return null;
+  }
+
+  return (
+    <div
+      className={styles.recordingDetailsOverlay}
+      onClick={onClose}
+      data-testid="raw-result-overlay"
+    >
+      <div
+        ref={dialogRef}
+        className={styles.recordingDetailsDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="raw-result-dialog-title"
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className={styles.recordingDetailsHeader}>
+          <div>
+            <p className={styles.statusLabel}>Finder diagnostics</p>
+            <h2 id="raw-result-dialog-title">Gemini raw result</h2>
+          </div>
+          <button
+            ref={closeButtonRef}
+            className={styles.recordingDetailsClose}
+            type="button"
+            onClick={onClose}
+            aria-label="Close raw result"
+          >
+            ×
+          </button>
+        </div>
+        <p className={styles.detailLead}>
+          Unmodified response for frame {formatSeconds(item.event_time_s)}.
+          Candidate JSON is shown exactly as Gemini returned it.
+        </p>
+        <pre className={styles.rawJson}>
+          {JSON.stringify(rawResponse, null, 2) ?? "null"}
+        </pre>
+      </div>
+    </div>
   );
 }
 
@@ -1842,7 +1988,7 @@ function EditorOverlay({
   onPointClick: (pointIndex: number) => void;
   onPointFocus: (pointIndex: number) => void;
   onPointKeyDown: (
-    event: KeyboardEvent<SVGCircleElement>,
+    event: ReactKeyboardEvent<SVGCircleElement>,
     pointIndex: number,
   ) => void;
 }) {
