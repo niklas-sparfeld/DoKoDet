@@ -282,7 +282,15 @@ describe("visible-card polygon editor", () => {
       name: "1 finder proposal",
     });
     expect(canvas.querySelectorAll("polygon")).toHaveLength(1);
-    expect(canvas.querySelectorAll("g")).toHaveLength(1);
+    expect(canvas.querySelectorAll('g[data-active="false"]')).toHaveLength(1);
+    expect(screen.getByText("Human correction")).toBeInTheDocument();
+
+    const proposalButton = screen.getByRole("button", { name: /Proposal 1/ });
+    await userEvent.setup().click(proposalButton);
+    expect(canvas.querySelectorAll('g[data-active="true"]')).toHaveLength(1);
+
+    await userEvent.setup().click(proposalButton);
+    expect(canvas.querySelectorAll('g[data-active="false"]')).toHaveLength(1);
   });
 
   it("selects, drags, and deletes an existing point", async () => {

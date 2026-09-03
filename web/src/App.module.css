@@ -3271,31 +3271,19 @@ progress {
   pointer-events: none;
 }
 
-.visibleCardProposalPolygon {
+.visibleCardProposalPolygon,
+.visibleCardReviewedGeometry polygon {
   fill: rgb(213 90 180 / 24%);
   stroke: #eaa0dc;
   stroke-width: 4;
   vector-effect: non-scaling-stroke;
 }
 
-.visibleCardProposalBox {
+.visibleCardProposalBox,
+.visibleCardReviewedGeometry rect {
   fill: none;
   stroke: #f5d3ef;
   stroke-dasharray: 8 5;
-  stroke-width: 3;
-  vector-effect: non-scaling-stroke;
-}
-
-.visibleCardReviewedGeometry polygon {
-  fill: rgb(60 190 70 / 25%);
-  stroke: #63d66d;
-  stroke-width: 5;
-  vector-effect: non-scaling-stroke;
-}
-
-.visibleCardReviewedGeometry rect {
-  fill: none;
-  stroke: #b9ffbe;
   stroke-width: 3;
   vector-effect: non-scaling-stroke;
 }
@@ -3306,7 +3294,14 @@ progress {
   stroke-width: 7;
 }
 
-.visibleCardOverlay g[data-active="true"] .visibleCardProposalBox {
+.visibleCardOverlay g[data-active="true"] .visibleCardReviewedGeometry polygon {
+  fill: rgb(255 190 73 / 34%);
+  stroke: #ffd166;
+  stroke-width: 7;
+}
+
+.visibleCardOverlay g[data-active="true"] .visibleCardProposalBox,
+.visibleCardOverlay g[data-active="true"] .visibleCardReviewedGeometry rect {
   stroke: #fff0b3;
   stroke-width: 5;
 }

@@ -654,8 +654,18 @@ function VisibleCardFrame({
       ),
   );
   const reviewedCards = actions
-    .map((action) => action.reviewed_card)
-    .filter((card): card is ReviewedCard => card !== null);
+    .map((action) => ({
+      card: action.reviewed_card,
+      proposalIndex: action.proposal_index,
+    }))
+    .filter(
+      (
+        reviewed,
+      ): reviewed is {
+        card: ReviewedCard;
+        proposalIndex: number | null;
+      } => reviewed.card !== null,
+    );
   const imagePath = source?.image_url;
   const interactionDisabled =
     readOnly || item.failure !== null || batch.status !== "ready";
@@ -1164,12 +1174,16 @@ function VisibleCardFrame({
                     active={proposal.proposal_index === activeProposalIndex}
                   />
                 ))}
-                {reviewedCards.map((card) => (
+                {reviewedCards.map(({ card, proposalIndex }) => (
                   <ReviewedOverlay
                     key={card.card_id}
                     card={card}
                     width={source.width}
                     height={source.height}
+                    active={
+                      proposalIndex !== null &&
+                      proposalIndex === activeProposalIndex
+                    }
                   />
                 ))}
                 {editor?.polygons.map((polygon, index) => (
@@ -1494,6 +1508,14 @@ function ProposalList({
                     <strong>Proposal {proposal.proposal_index + 1}</strong>
                     <small>
                       {proposal.label} · {formatIdentifier(proposal.side)}
+                    </small>
+                    <small>
+                      {proposalSourceLabel(
+                        actions.find(
+                          (action) =>
+                            action.proposal_index === proposal.proposal_index,
+                        ),
+                      )}
                     </small>
                   </span>
                 </button>
@@ -2013,10 +2035,12 @@ function ReviewedOverlay({
   card,
   width,
   height,
+  active,
 }: {
   card: ReviewedCard;
   width: number;
   height: number;
+  active: boolean;
 }) {
   const polygons = card.visible_region.polygons.map((polygon) =>
     polygon
@@ -2027,7 +2051,10 @@ function ReviewedOverlay({
   );
   const box = card.derived_box;
   return (
-    <g className={styles.visibleCardReviewedGeometry}>
+    <g
+      className={styles.visibleCardReviewedGeometry}
+      data-active={active}
+    >
       {polygons.map((points, index) => (
         <polygon key={`${card.card_id}:${index}`} points={points} />
       ))}
@@ -2039,6 +2066,19 @@ function ReviewedOverlay({
       />
     </g>
   );
+}
+
+function proposalSourceLabel(action: ReviewAction | undefined): string {
+  if (action === undefined) {
+    return "Model polygon";
+  }
+  if (action.action === "reshaped") {
+    return "Human correction";
+  }
+  if (action.action === "accepted") {
+    return "Model polygon · accepted";
+  }
+  return "Model polygon · removed";
 }
 
 function EditorOverlay({
