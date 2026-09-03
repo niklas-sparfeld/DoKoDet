@@ -1680,12 +1680,6 @@ function PolygonEditor({
     });
   }
 
-  function removeSelectedPoint() {
-    if (editor.selectedPointIndex !== null) {
-      removePoint(editor.polygonIndex, editor.selectedPointIndex);
-    }
-  }
-
   return (
     <section
       className={styles.visibleCardEditor}
@@ -1704,7 +1698,7 @@ function PolygonEditor({
       <p className={styles.visibleCardEditorHelp}>
         Click an empty part of the frame to add a point to the selected polygon.
         New points are inserted between the closest boundary edge. Click a point
-        to select it, then drag it to move it. Press Delete or use the delete
+        to select it, then drag it to move it. Press Delete or use the remove
         button to remove the selected point. Use at least three points with
         positive area.
       </p>
@@ -1802,10 +1796,20 @@ function PolygonEditor({
             <button
               className={styles.inlineAction}
               type="button"
-              disabled={polygon.length === 0}
-              onClick={() => updatePolygon(index, polygon.slice(0, -1))}
+              disabled={
+                index !== editor.polygonIndex ||
+                editor.selectedPointIndex === null
+              }
+              onClick={() => {
+                if (
+                  index === editor.polygonIndex &&
+                  editor.selectedPointIndex !== null
+                ) {
+                  removePoint(index, editor.selectedPointIndex);
+                }
+              }}
             >
-              Remove last point
+              Remove selected point
             </button>
             {polygon.map((point, pointIndex) => (
               <button
@@ -1857,14 +1861,6 @@ function PolygonEditor({
         ))}
       </ol>
       <div className={styles.visibleCardEditorButtons}>
-        <button
-          className={styles.secondaryButton}
-          type="button"
-          disabled={editor.selectedPointIndex === null}
-          onClick={removeSelectedPoint}
-        >
-          Delete selected point
-        </button>
         <button
           className={styles.secondaryButton}
           type="button"
@@ -2271,7 +2267,35 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function describeError(reason: unknown): string {
-  return reason instanceof ApiError
+  if (!(reason instanceof ApiError)) {
+    return "The backend could not be reached.";
+  }
+  const message = backendErrorMessage(reason.body);
+  return message === null
     ? `The backend returned HTTP ${reason.status}.`
-    : "The backend could not be reached.";
+    : `The backend returned HTTP ${reason.status}: ${message}`;
+}
+
+function backendErrorMessage(body: unknown): string | null {
+  if (typeof body === "string") {
+    return body;
+  }
+  if (!isRecord(body)) {
+    return null;
+  }
+  const error = isRecord(body.error) ? body.error : body;
+  const message = typeof error.message === "string" ? error.message : null;
+  const details = Array.isArray(error.details)
+    ? error.details
+        .filter(isRecord)
+        .map((detail) =>
+          typeof detail.message === "string" ? detail.message : null,
+        )
+        .filter((detail): detail is string => detail !== null)
+    : [];
+  return (
+    [message, ...details]
+      .filter((value): value is string => value !== null)
+      .join(" ") || null
+  );
 }

@@ -280,7 +280,7 @@ describe("visible-card polygon editor", () => {
       }),
     ).toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", { name: "Delete selected point" }),
+      screen.getByRole("button", { name: "Remove selected point" }),
     );
     expect(
       screen.getAllByRole("button", { name: /Polygon 1, point/ }),
