@@ -3398,7 +3398,21 @@ progress {
   fill: #fff0b3;
   stroke: #8b5e00;
   stroke-width: 3;
+  cursor: grab;
+  touch-action: none;
   vector-effect: non-scaling-stroke;
+}
+
+.visibleCardEditorGeometry circle:hover,
+.visibleCardEditorGeometry circle:focus-visible,
+.visibleCardEditorGeometry circle[data-selected="true"] {
+  fill: #ffffff;
+  stroke: #d97706;
+  stroke-width: 5;
+}
+
+.visibleCardEditorGeometry circle:active {
+  cursor: grabbing;
 }
 
 .visibleCardEditorGeometry[data-active="false"] polygon {

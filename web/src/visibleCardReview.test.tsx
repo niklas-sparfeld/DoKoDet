@@ -1,8 +1,11 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import type { VisibleCardReviewBatch } from "./api/client";
-import { VisibleCardReviewPage } from "./visibleCardReview";
+import {
+  insertPointIntoPolygon,
+  VisibleCardReviewPage,
+} from "./visibleCardReview";
 
 describe("VisibleCardReviewPage failed finder output", () => {
   afterEach(() => {
@@ -178,3 +181,211 @@ describe("VisibleCardReviewPage failed finder output", () => {
     ).toBeDisabled();
   });
 });
+
+describe("visible-card polygon editor", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("inserts a point into the closest polygon edge", () => {
+    const polygon = [
+      { x: 100, y: 100 },
+      { x: 900, y: 100 },
+      { x: 900, y: 900 },
+      { x: 100, y: 900 },
+    ];
+
+    expect(insertPointIntoPolygon(polygon, { x: 900, y: 500 })).toEqual([
+      polygon[0],
+      polygon[1],
+      { x: 900, y: 500 },
+      polygon[2],
+      polygon[3],
+    ]);
+  });
+
+  it("selects, drags, and deletes an existing point", async () => {
+    const batchId = "visible-card-batch-editor-0123456789";
+    const itemId = "editor-item";
+    const batch = makeEditorBatch(batchId, itemId);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(batch), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    render(<VisibleCardReviewPage batchId={batchId} selectedItemId={itemId} />);
+
+    await screen.findByAltText("Exact event source frame at 0.400 s");
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Correct proposal 1" }));
+    const canvas = screen.getByRole("img", { name: "1 finder proposal" });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const user = userEvent.setup();
+    const point = screen.getByRole("button", {
+      name: "Polygon 1, point 1 at 100, 100",
+    });
+    await user.click(point);
+    expect(
+      screen.getAllByRole("button", { name: /Polygon 1, point/ }),
+    ).toHaveLength(4);
+    fireEvent.pointerDown(point, {
+      clientX: 10,
+      clientY: 10,
+      pointerId: 7,
+    });
+    fireEvent.pointerMove(canvas, {
+      clientX: 20,
+      clientY: 25,
+      pointerId: 7,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 7 });
+
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 200, 250",
+      }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Delete selected point" }),
+    );
+    expect(
+      screen.getAllByRole("button", { name: /Polygon 1, point/ }),
+    ).toHaveLength(3);
+  });
+});
+
+function makeEditorBatch(
+  batchId: string,
+  itemId: string,
+): VisibleCardReviewBatch {
+  const polygon = [
+    { x: 100, y: 100 },
+    { x: 900, y: 100 },
+    { x: 900, y: 900 },
+    { x: 100, y: 900 },
+  ];
+  return {
+    schema_version: "visible-card-review-batch/v1",
+    batch_id: batchId,
+    recording_id: "editor-recording",
+    request_digest: "a".repeat(64),
+    status: "ready",
+    created_at_utc: "2026-09-03T07:00:00Z",
+    updated_at_utc: "2026-09-03T07:00:00Z",
+    detector: {
+      bundle_id: "editor-detector",
+      bundle_digest: "b".repeat(64),
+      model: "editor-model",
+      provider: "editor-provider",
+      provider_version: "editor-provider-v1",
+      preprocessing: "editor-preprocessing-v1",
+      confidence_threshold: 0,
+      input_size: 100,
+    },
+    progress: {
+      phase: "ready",
+      total_items: 1,
+      frames_extracted: 1,
+      finder_completed: 1,
+      failed_items: 0,
+    },
+    items: [
+      {
+        item_id: itemId,
+        status: "pending",
+        event_id: "editor-event",
+        event_index: 0,
+        event_time_s: 0.4,
+        event_time_ms: 400,
+        target_offset_ms: 0,
+        frame_index: 0,
+        actual_offset_ms: 0,
+        finder_status: "ok",
+        failure: null,
+        source: {
+          package_id: "editor-package",
+          frame_part_name: "frame_00",
+          target_offset_ms: 0,
+          image_url: "/editor-frame.png",
+          frame_sha256: "c".repeat(64),
+          source_asset_id: "editor-source",
+          source_lineage_group: "editor-lineage",
+          source_asset_sha256: "d".repeat(64),
+          width: 100,
+          height: 100,
+        },
+        finder: {
+          provider: "editor-provider",
+          provider_version: "editor-provider-v1",
+          request_digest: "e".repeat(64),
+          result_digest: "f".repeat(64),
+          prediction_sha256: "1".repeat(64),
+          proposals_recovered: false,
+          raw_response: null,
+          proposals: [
+            {
+              proposal_index: 0,
+              box_2d: { x_min: 100, y_min: 100, x_max: 900, y_max: 900 },
+              polygon,
+              side: "unknown",
+              label: "visible card",
+            },
+          ],
+        },
+        review: null,
+      },
+    ],
+    failures: [],
+    queue_schema_version: "visible-card-review-queue/v2",
+    queue_digest: null,
+    revision: 0,
+    summary: {
+      total_frames: 1,
+      reviewed_frames: 0,
+      pending_frames: 1,
+      failed_frames: 0,
+      usable_frames: 0,
+      empty_frames: 0,
+      unusable_frames: 0,
+      retained_cards: 0,
+      accepted_proposals: 0,
+      corrected_proposals: 0,
+      removed_proposals: 0,
+      added_cards: 0,
+      identity_unusable_cards: 0,
+    },
+    review_state: "draft",
+    reviewer: null,
+    completed_at_utc: null,
+    completed_version_id: null,
+    completed_version_digest: null,
+    completion_receipt_id: null,
+    completion_receipt_digest: null,
+    parent_version_id: null,
+    parent_digest: null,
+    downstream_readiness: {
+      state: "not_ready",
+      message: "Review is in progress.",
+      queue_digest: null,
+    },
+  } as unknown as VisibleCardReviewBatch;
+}

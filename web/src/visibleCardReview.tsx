@@ -2,9 +2,12 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
+  type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
   type SetStateAction,
 } from "react";
 
@@ -32,6 +35,7 @@ type EditorState = {
   proposalIndex: number | null;
   polygons: Point[][];
   polygonIndex: number;
+  selectedPointIndex: number | null;
   side: ReviewedCard["side"];
   usable: boolean;
   reason: string;
@@ -542,6 +546,11 @@ function VisibleCardFrame({
   const [editorError, setEditorError] = useState<string | null>(null);
   const [outcomeMessage, setOutcomeMessage] = useState<string | null>(null);
   const [pendingSave, setPendingSave] = useState<ReviewUpdate | null>(null);
+  const dragPoint = useRef<{
+    polygonIndex: number;
+    pointIndex: number;
+    pointerId: number;
+  } | null>(null);
 
   function currentReview(changes: {
     status?: ReviewUpdate["status"];
@@ -626,6 +635,7 @@ function VisibleCardFrame({
       proposalIndex: proposal.proposal_index,
       polygons: card.visible_region.polygons.map((polygon) => [...polygon]),
       polygonIndex: 0,
+      selectedPointIndex: null,
       side: card.side,
       usable: card.identity_usability.usable,
       reason: card.identity_usability.reason,
@@ -644,6 +654,7 @@ function VisibleCardFrame({
       proposalIndex: null,
       polygons: [[]],
       polygonIndex: 0,
+      selectedPointIndex: null,
       side: "unknown",
       usable: true,
       reason: "sufficient_identity_evidence",
@@ -655,28 +666,109 @@ function VisibleCardFrame({
     if (editor === null || source === null) {
       return;
     }
-    const bounds = event.currentTarget.getBoundingClientRect();
-    if (bounds.width <= 0 || bounds.height <= 0) {
+    const point = pointFromClientPosition(
+      event.clientX,
+      event.clientY,
+      event.currentTarget,
+    );
+    if (point === null) {
       return;
     }
-    const point: Point = {
-      x: clampNormalized(
-        Math.round(((event.clientX - bounds.left) / bounds.width) * 1000),
-      ),
-      y: clampNormalized(
-        Math.round(((event.clientY - bounds.top) / bounds.height) * 1000),
-      ),
-    };
     setEditor((current) => {
       if (current === null) {
         return current;
       }
       const polygons = current.polygons.map((polygon) => [...polygon]);
-      polygons[current.polygonIndex] = [
-        ...polygons[current.polygonIndex],
+      polygons[current.polygonIndex] = insertPointIntoPolygon(
+        polygons[current.polygonIndex],
         point,
-      ];
+      );
+      return {
+        ...current,
+        polygons,
+        selectedPointIndex: null,
+      };
+    });
+  }
+
+  function handlePointPointerDown(
+    event: PointerEvent<SVGCircleElement>,
+    polygonIndex: number,
+    pointIndex: number,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragPoint.current = {
+      polygonIndex,
+      pointIndex,
+      pointerId: event.pointerId,
+    };
+    if (typeof event.currentTarget.setPointerCapture === "function") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    setEditor((current) =>
+      current === null
+        ? current
+        : { ...current, polygonIndex, selectedPointIndex: pointIndex },
+    );
+  }
+
+  function handleCanvasPointerMove(event: PointerEvent<SVGSVGElement>) {
+    const drag = dragPoint.current;
+    if (drag === null || drag.pointerId !== event.pointerId) {
+      return;
+    }
+    const point = pointFromClientPosition(
+      event.clientX,
+      event.clientY,
+      event.currentTarget,
+    );
+    if (point === null) {
+      return;
+    }
+    setEditor((current) => {
+      if (
+        current === null ||
+        current.polygons[drag.polygonIndex] === undefined
+      ) {
+        return current;
+      }
+      const polygons = current.polygons.map((polygon) => [...polygon]);
+      const polygon = polygons[drag.polygonIndex];
+      if (polygon[drag.pointIndex] === undefined) {
+        return current;
+      }
+      polygon[drag.pointIndex] = point;
       return { ...current, polygons };
+    });
+  }
+
+  function stopPointDrag(event: PointerEvent<SVGSVGElement>) {
+    if (dragPoint.current?.pointerId === event.pointerId) {
+      dragPoint.current = null;
+    }
+  }
+
+  function removeEditorPoint(polygonIndex: number, pointIndex: number) {
+    setEditor((current) => {
+      const polygon = current?.polygons[polygonIndex];
+      if (
+        current === null ||
+        polygon === undefined ||
+        polygon[pointIndex] === undefined
+      ) {
+        return current;
+      }
+      const polygons = current.polygons.map((value) => [...value]);
+      polygons[polygonIndex] = polygon.filter(
+        (_, index) => index !== pointIndex,
+      );
+      return {
+        ...current,
+        polygons,
+        polygonIndex,
+        selectedPointIndex: null,
+      };
     });
   }
 
@@ -883,6 +975,9 @@ function VisibleCardFrame({
                 role="img"
                 aria-label={`${proposals.length} finder proposal${proposals.length === 1 ? "" : "s"}`}
                 onClick={handleCanvasClick}
+                onPointerMove={handleCanvasPointerMove}
+                onPointerUp={stopPointDrag}
+                onPointerCancel={stopPointDrag}
                 style={{ pointerEvents: editor === null ? "none" : "auto" }}
               >
                 {proposals.map((proposal) => (
@@ -909,6 +1004,41 @@ function VisibleCardFrame({
                     width={source.width}
                     height={source.height}
                     active={index === editor.polygonIndex}
+                    selectedPointIndex={
+                      index === editor.polygonIndex
+                        ? editor.selectedPointIndex
+                        : null
+                    }
+                    polygonIndex={index}
+                    onPointPointerDown={handlePointPointerDown}
+                    onPointClick={(pointIndex) =>
+                      setEditor((current) =>
+                        current === null
+                          ? current
+                          : {
+                              ...current,
+                              polygonIndex: index,
+                              selectedPointIndex: pointIndex,
+                            },
+                      )
+                    }
+                    onPointFocus={(pointIndex) =>
+                      setEditor((current) =>
+                        current === null
+                          ? current
+                          : {
+                              ...current,
+                              polygonIndex: index,
+                              selectedPointIndex: pointIndex,
+                            },
+                      )
+                    }
+                    onPointKeyDown={(event, pointIndex) => {
+                      if (event.key === "Delete" || event.key === "Backspace") {
+                        event.preventDefault();
+                        removeEditorPoint(index, pointIndex);
+                      }
+                    }}
                   />
                 ))}
               </svg>
@@ -1289,8 +1419,45 @@ function PolygonEditor({
       }
       const polygons = current.polygons.map((value) => [...value]);
       polygons[index] = polygon;
-      return { ...current, polygons };
+      return {
+        ...current,
+        polygons,
+        selectedPointIndex:
+          current.polygonIndex === index &&
+          (polygon.length === 0 ||
+            (current.selectedPointIndex !== null &&
+              current.selectedPointIndex >= polygon.length))
+            ? null
+            : current.selectedPointIndex,
+      };
     });
+  }
+
+  function removePoint(index: number, pointIndex: number) {
+    onChange((current) => {
+      const polygon = current?.polygons[index];
+      if (
+        current === null ||
+        polygon === undefined ||
+        polygon[pointIndex] === undefined
+      ) {
+        return current;
+      }
+      const polygons = current.polygons.map((value) => [...value]);
+      polygons[index] = polygon.filter((_, value) => value !== pointIndex);
+      return {
+        ...current,
+        polygons,
+        polygonIndex: index,
+        selectedPointIndex: null,
+      };
+    });
+  }
+
+  function removeSelectedPoint() {
+    if (editor.selectedPointIndex !== null) {
+      removePoint(editor.polygonIndex, editor.selectedPointIndex);
+    }
   }
 
   return (
@@ -1309,8 +1476,11 @@ function PolygonEditor({
         </div>
       </div>
       <p className={styles.visibleCardEditorHelp}>
-        Click the frame to add points to the selected polygon. Use at least
-        three points with positive area.
+        Click an empty part of the frame to add a point to the selected polygon.
+        New points are inserted between the closest boundary edge. Click a point
+        to select it, then drag it to move it. Press Delete or use the delete
+        button to remove the selected point. Use at least three points with
+        positive area.
       </p>
       <div className={styles.visibleCardEditorGrid}>
         <label>
@@ -1390,7 +1560,9 @@ function PolygonEditor({
               className={styles.secondaryButton}
               type="button"
               aria-pressed={index === editor.polygonIndex}
-              onClick={() => updateEditor({ polygonIndex: index })}
+              onClick={() =>
+                updateEditor({ polygonIndex: index, selectedPointIndex: null })
+              }
             >
               Polygon {index + 1} ({polygon.length} points)
             </button>
@@ -1407,8 +1579,27 @@ function PolygonEditor({
               disabled={polygon.length === 0}
               onClick={() => updatePolygon(index, polygon.slice(0, -1))}
             >
-              Undo point
+              Remove last point
             </button>
+            {polygon.map((point, pointIndex) => (
+              <button
+                key={`${point.x}:${point.y}:${pointIndex}`}
+                className={styles.inlineAction}
+                type="button"
+                aria-pressed={
+                  index === editor.polygonIndex &&
+                  pointIndex === editor.selectedPointIndex
+                }
+                onClick={() => {
+                  updateEditor({
+                    polygonIndex: index,
+                    selectedPointIndex: pointIndex,
+                  });
+                }}
+              >
+                Point {pointIndex + 1} ({point.x}, {point.y})
+              </button>
+            ))}
             {editor.polygons.length > 1 ? (
               <button
                 className={styles.inlineAction}
@@ -1428,6 +1619,7 @@ function PolygonEditor({
                         current.polygonIndex,
                         polygons.length - 1,
                       ),
+                      selectedPointIndex: null,
                     };
                   })
                 }
@@ -1442,6 +1634,14 @@ function PolygonEditor({
         <button
           className={styles.secondaryButton}
           type="button"
+          disabled={editor.selectedPointIndex === null}
+          onClick={removeSelectedPoint}
+        >
+          Delete selected point
+        </button>
+        <button
+          className={styles.secondaryButton}
+          type="button"
           onClick={() =>
             onChange((current) =>
               current === null
@@ -1450,6 +1650,7 @@ function PolygonEditor({
                     ...current,
                     polygons: [...current.polygons, []],
                     polygonIndex: current.polygons.length,
+                    selectedPointIndex: null,
                   },
             )
           }
@@ -1540,11 +1741,30 @@ function EditorOverlay({
   width,
   height,
   active,
+  selectedPointIndex,
+  polygonIndex,
+  onPointPointerDown,
+  onPointClick,
+  onPointFocus,
+  onPointKeyDown,
 }: {
   polygon: Point[];
   width: number;
   height: number;
   active: boolean;
+  selectedPointIndex: number | null;
+  polygonIndex: number;
+  onPointPointerDown: (
+    event: PointerEvent<SVGCircleElement>,
+    polygonIndex: number,
+    pointIndex: number,
+  ) => void;
+  onPointClick: (pointIndex: number) => void;
+  onPointFocus: (pointIndex: number) => void;
+  onPointKeyDown: (
+    event: KeyboardEvent<SVGCircleElement>,
+    pointIndex: number,
+  ) => void;
 }) {
   const points = polygon
     .map((point) => `${(point.x * width) / 1000},${(point.y * height) / 1000}`)
@@ -1555,9 +1775,24 @@ function EditorOverlay({
       {polygon.map((point, index) => (
         <circle
           key={`${point.x}:${point.y}:${index}`}
+          className={styles.visibleCardEditorPoint}
           cx={(point.x * width) / 1000}
           cy={(point.y * height) / 1000}
           r={Math.max(width, height) / 80}
+          data-selected={index === selectedPointIndex}
+          role="button"
+          tabIndex={0}
+          aria-label={`Polygon ${polygonIndex + 1}, point ${index + 1} at ${point.x}, ${point.y}`}
+          aria-pressed={index === selectedPointIndex}
+          onPointerDown={(event) =>
+            onPointPointerDown(event, polygonIndex, index)
+          }
+          onClick={(event) => {
+            event.stopPropagation();
+            onPointClick(index);
+          }}
+          onFocus={() => onPointFocus(index)}
+          onKeyDown={(event) => onPointKeyDown(event, index)}
         />
       ))}
     </g>
@@ -1622,6 +1857,83 @@ function validateEditorPolygons(polygons: Point[][]): string | null {
     return "Each visible region polygon needs positive area.";
   }
   return null;
+}
+
+function pointFromClientPosition(
+  clientX: number,
+  clientY: number,
+  element: SVGSVGElement,
+): Point | null {
+  const bounds = element.getBoundingClientRect();
+  if (bounds.width <= 0 || bounds.height <= 0) {
+    return null;
+  }
+  return {
+    x: clampNormalized(
+      Math.round(((clientX - bounds.left) / bounds.width) * 1000),
+    ),
+    y: clampNormalized(
+      Math.round(((clientY - bounds.top) / bounds.height) * 1000),
+    ),
+  };
+}
+
+export function insertPointIntoPolygon(
+  polygon: Point[],
+  point: Point,
+): Point[] {
+  if (polygon.length < 3) {
+    return [...polygon, point];
+  }
+
+  let closestEdgeIndex = 0;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < polygon.length; index += 1) {
+    const next = polygon[(index + 1) % polygon.length];
+    const distance = distanceToSegmentSquared(point, polygon[index], next);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestEdgeIndex = index;
+    }
+  }
+
+  const insertionIndex = closestEdgeIndex + 1;
+  return [
+    ...polygon.slice(0, insertionIndex),
+    point,
+    ...polygon.slice(insertionIndex),
+  ];
+}
+
+function distanceToSegmentSquared(
+  point: Point,
+  start: Point,
+  end: Point,
+): number {
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  if (lengthSquared === 0) {
+    return distanceSquared(point, start);
+  }
+  const projection = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - start.x) * deltaX + (point.y - start.y) * deltaY) /
+        lengthSquared,
+    ),
+  );
+  return distanceSquared(point, {
+    x: start.x + projection * deltaX,
+    y: start.y + projection * deltaY,
+  });
+}
+
+function distanceSquared(first: Point, second: Point): number {
+  const deltaX = first.x - second.x;
+  const deltaY = first.y - second.y;
+  return deltaX * deltaX + deltaY * deltaY;
 }
 
 function polygonArea(points: Point[]): number {
