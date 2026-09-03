@@ -516,12 +516,14 @@ function VisibleCardFrame({
   readOnly: boolean;
 }) {
   const source = item.source;
-  const proposals = item.finder?.proposals ?? [];
+  const finder = item.finder;
+  const proposals = finder?.proposals ?? [];
   const actions = (item.review?.actions ?? []) as ReviewAction[];
   const reviewedCards = actions
     .map((action) => action.reviewed_card)
     .filter((card): card is ReviewedCard => card !== null);
   const imagePath = source?.image_url;
+  const interactionDisabled = readOnly || item.failure !== null;
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [outcomeMessage, setOutcomeMessage] = useState<string | null>(null);
@@ -805,13 +807,16 @@ function VisibleCardFrame({
             </button>
           ) : null}
         </div>
-      ) : source !== null && imagePath !== undefined ? (
+      ) : null}
+      {source !== null && imagePath !== undefined ? (
         <>
           <div className={styles.visibleCardCanvasToolbar}>
             <span className={styles.cardEventSaveStatus}>
-              {saveBusy
-                ? "Saving review…"
-                : "Finder proposals are suggestions."}
+              {item.failure !== null
+                ? "Display-only finder output; retry the failed item to review it."
+                : saveBusy
+                  ? "Saving review…"
+                  : "Finder proposals are suggestions."}
             </span>
             <div className={styles.visibleCardZoomControls}>
               <button
@@ -899,7 +904,7 @@ function VisibleCardFrame({
             onFailureTags={(failureTags) =>
               void save(currentReview({ failureTags }))
             }
-            disabled={readOnly}
+            disabled={interactionDisabled}
             onRetrySave={
               pendingSave === null ? undefined : () => void save(pendingSave)
             }
@@ -912,13 +917,13 @@ function VisibleCardFrame({
             onAccept={(proposal) => saveProposalAction(proposal, "accepted")}
             onRemove={(proposal) => saveProposalAction(proposal, "removed")}
             onCorrect={openCorrection}
-            disabled={readOnly}
+            disabled={interactionDisabled}
           />
           <button
             className={styles.primaryButton}
             type="button"
             onClick={openAddCard}
-            disabled={readOnly}
+            disabled={interactionDisabled}
           >
             Add missed card
           </button>
@@ -934,9 +939,12 @@ function VisibleCardFrame({
         </>
       ) : (
         <p className={styles.detailEmptyState}>
-          The source frame is not available yet.
+          {item.failure !== null
+            ? "The source frame is not available for this failed item."
+            : "The source frame is not available yet."}
         </p>
       )}
+      <FinderDiagnostics finder={finder} />
 
       <details className={styles.visibleCardDiagnostics}>
         <summary>Source and finder lineage</summary>
@@ -1182,6 +1190,60 @@ function ProposalList({
       )}
     </section>
   );
+}
+
+function FinderDiagnostics({ finder }: { finder: BatchItem["finder"] }) {
+  const rawResponse = finder?.raw_response ?? null;
+  const proposalsRecovered = finder?.proposals_recovered === true;
+  if (rawResponse === null && !proposalsRecovered) {
+    return null;
+  }
+  return (
+    <details className={styles.visibleCardDiagnostics}>
+      <summary>Finder diagnostics</summary>
+      {proposalsRecovered ? (
+        <p className={styles.detailBlocker}>
+          The response was malformed, so the polygon was shown with a derived
+          tight box for diagnosis. These proposals are display-only. Retry the
+          item before using them for review.
+        </p>
+      ) : null}
+      {rawResponse !== null ? (
+        <>
+          <p className={styles.detailLead}>
+            Candidate JSON captured from the finder:
+          </p>
+          <pre className={styles.rawJson}>
+            {formatFinderResponse(rawResponse)}
+          </pre>
+        </>
+      ) : null}
+    </details>
+  );
+}
+
+function formatFinderResponse(rawResponse: Record<string, unknown>): string {
+  const candidates = rawResponse.candidates;
+  const firstCandidate = Array.isArray(candidates) ? candidates[0] : null;
+  const content = isRecord(firstCandidate) ? firstCandidate.content : null;
+  const parts = isRecord(content) ? content.parts : null;
+  const firstText = Array.isArray(parts)
+    ? parts.find((part) => isRecord(part) && typeof part.text === "string")
+    : undefined;
+  if (isRecord(firstText) && typeof firstText.text === "string") {
+    try {
+      return (
+        JSON.stringify(JSON.parse(firstText.text), null, 2) ?? firstText.text
+      );
+    } catch {
+      return firstText.text;
+    }
+  }
+  return JSON.stringify(rawResponse, null, 2) ?? "null";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function PolygonEditor({

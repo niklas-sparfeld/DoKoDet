@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import threading
 import time
@@ -78,6 +79,39 @@ class _GeminiProvider:
         assert request.provider == self.name
         self.calls.append(request.package_id)
         return ProviderResult(status="ok", raw_response={"provider": self.name})
+
+
+class _MalformedProvider:
+    name = "local"
+    version = "local-visible-cards-test-v1"
+
+    def propose(self, request) -> ProviderResult:
+        del request
+        prediction = {
+            "cards": [
+                {
+                    "box_2d": {"y_min": 100, "x_min": 101, "y_max": 800, "x_max": 800},
+                    "polygon": [
+                        {"x": 100, "y": 100},
+                        {"x": 800, "y": 100},
+                        {"x": 800, "y": 800},
+                        {"x": 100, "y": 800},
+                    ],
+                    "side": "unknown",
+                    "label": "visible card",
+                }
+            ]
+        }
+        return ProviderResult(
+            status="unavailable",
+            error=(
+                "Gemini returned a malformed response: card 0 box_2d must be the tight bounds "
+                "of its visible polygon."
+            ),
+            raw_response={
+                "candidates": [{"content": {"parts": [{"text": json.dumps(prediction)}]}}]
+            },
+        )
 
 
 def _app(
@@ -228,6 +262,32 @@ def test_gemini_provider_can_create_a_visible_card_batch(tmp_path: Path) -> None
         ready = _wait_for_batch(client, created.json()["batch_id"])
         assert ready["status"] == "ready"
         assert len(provider.calls) == 2
+
+
+def test_failed_finder_exposes_raw_response_and_recovered_display_proposals(
+    tmp_path: Path,
+) -> None:
+    app = _app(tmp_path, _MalformedProvider(), _FixtureExtractor())
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        preview = client.post(
+            "/v1/recordings/recording-both/visible-card-review/preview", json={}
+        ).json()
+        created = client.post(
+            "/v1/recordings/recording-both/visible-card-review/batches",
+            json={
+                "preview_digest": preview["preview_digest"],
+                "request_digest": preview["request_digest"],
+            },
+        ).json()
+        failed = _wait_for_batch(client, created["batch_id"])
+
+        assert failed["status"] == "failed"
+        item = failed["items"][0]
+        assert item["failure"]["message"].startswith("Gemini returned a malformed response")
+        assert item["finder"]["proposals_recovered"] is True
+        assert item["finder"]["proposals"][0]["box_2d"]["x_min"] == 100
+        assert item["finder"]["raw_response"]["candidates"]
 
 
 def test_retry_reuses_successful_items_and_keeps_frozen_identity(tmp_path: Path) -> None:

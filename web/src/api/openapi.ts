@@ -3388,17 +3388,23 @@ export interface components {
         };
         /**
          * VisibleCardFinderResponse
-         * @description Immutable finder request and prediction projection.
+         * @description Immutable finder request, prediction, and failure diagnostics projection.
          */
         VisibleCardFinderResponse: {
             /** Prediction Sha256 */
             prediction_sha256: string;
             /** Proposals */
             proposals: components["schemas"]["VisibleCardProposalResponse"][];
+            /** Proposals Recovered */
+            proposals_recovered: boolean;
             /** Provider */
             provider: string;
             /** Provider Version */
             provider_version: string;
+            /** Raw Response */
+            raw_response: {
+                [key: string]: unknown;
+            } | null;
             /** Request Digest */
             request_digest: string;
             /** Result Digest */

@@ -36,6 +36,7 @@ from table_evidence_analyzer.visible_card_review_workflow import (
     update_frame_review,
     validate_completed_visible_card_review_queue,
 )
+from table_evidence_analyzer.visible_cards import normalize_prediction
 
 from dokodetector_backend.card_event_review_api import _load_source
 from dokodetector_backend.errors import APIErrorDetail, ContractError
@@ -159,7 +160,7 @@ class VisibleCardProposalResponse(BaseModel):
 
 
 class VisibleCardFinderResponse(BaseModel):
-    """Immutable finder request and prediction projection."""
+    """Immutable finder request, prediction, and failure diagnostics projection."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -169,6 +170,8 @@ class VisibleCardFinderResponse(BaseModel):
     result_digest: str = Field(pattern=SHA256_PATTERN)
     prediction_sha256: str = Field(pattern=SHA256_PATTERN)
     proposals: list[VisibleCardProposalResponse]
+    proposals_recovered: bool
+    raw_response: dict[str, Any] | None
 
 
 class VisibleCardIdentityUsabilityResponse(BaseModel):
@@ -1300,10 +1303,21 @@ def _finder_response(
 ) -> VisibleCardFinderResponse | None:
     if finder is None:
         return None
+    result = finder.get("result")
     prediction = queued_prediction
-    if prediction is None:
-        result = finder.get("result")
-        prediction = result.get("prediction") if isinstance(result, dict) else None
+    proposals_recovered = False
+    raw_response = None
+    if isinstance(result, dict):
+        if prediction is None:
+            prediction = result.get("prediction")
+        if result.get("status") == "unavailable":
+            candidate_response = result.get("raw_response")
+            raw_response = candidate_response if isinstance(candidate_response, dict) else None
+            if _prediction_is_empty(prediction):
+                recovered = _recover_prediction_for_display(raw_response)
+                if recovered is not None:
+                    prediction = recovered
+                    proposals_recovered = True
     cards = prediction.get("cards") if isinstance(prediction, dict) else []
     if not isinstance(cards, list):
         cards = []
@@ -1320,7 +1334,44 @@ def _finder_response(
         result_digest=finder["result_digest"],
         prediction_sha256=finder["prediction_sha256"],
         proposals=proposals,
+        proposals_recovered=proposals_recovered,
+        raw_response=raw_response,
     )
+
+
+def _prediction_is_empty(prediction: Any) -> bool:
+    return (
+        not isinstance(prediction, dict)
+        or not isinstance(prediction.get("cards"), list)
+        or len(prediction["cards"]) == 0
+    )
+
+
+def _recover_prediction_for_display(raw_response: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Recover safe display geometry from a malformed Gemini response without approving it."""
+
+    if raw_response is None:
+        return None
+    candidates = raw_response.get("candidates")
+    if not isinstance(candidates, list):
+        return None
+    for candidate in candidates[:1]:
+        if not isinstance(candidate, dict):
+            continue
+        content = candidate.get("content")
+        parts = content.get("parts") if isinstance(content, dict) else None
+        if not isinstance(parts, list):
+            continue
+        for part in parts:
+            text = part.get("text") if isinstance(part, dict) else None
+            if not isinstance(text, str):
+                continue
+            try:
+                value = json.loads(text)
+                return normalize_prediction(value, repair_tight_boxes=True).to_mapping()
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+    return None
 
 
 def _batch_readiness(batch: VisibleCardBatchResponse) -> tuple[ReadinessState, str]:
