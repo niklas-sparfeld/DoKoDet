@@ -2956,7 +2956,7 @@ progress {
 
 .visibleCardBatchSummary {
   display: grid;
-  grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 1.6fr);
+  grid-template-columns: 1fr;
   align-items: start;
   gap: 1rem;
   margin-top: 2rem;
@@ -2972,15 +2972,13 @@ progress {
 }
 
 .visibleCardBatchStats {
-  grid-column: 1;
-  grid-row: 1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .visibleCardSummaryStats {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .visibleCardBatchProgress {
@@ -4290,18 +4288,10 @@ progress {
 }
 
 @media (max-width: 900px) {
-  .visibleCardBatchSummary {
-    grid-template-columns: 1fr;
-  }
-
-  .visibleCardBatchStats {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
   .visibleCardSummaryStats {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .visibleCardWorkspace {
@@ -4343,14 +4333,9 @@ progress {
     grid-template-columns: 1fr;
   }
 
-  .visibleCardBatchStats,
   .visibleCardSummaryStats {
     grid-column: 1;
     grid-row: auto;
-  }
-
-  .visibleCardBatchStats,
-  .visibleCardSummaryStats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

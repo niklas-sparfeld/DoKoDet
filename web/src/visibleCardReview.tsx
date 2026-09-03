@@ -273,8 +273,6 @@ export function VisibleCardReviewPage({
   const pendingCount =
     batch?.items.filter((item) => item.review?.status !== "reviewed").length ??
     0;
-  const reviewedCount = (batch?.items.length ?? 0) - pendingCount;
-
   return (
     <main className={`${styles.shell} ${styles.visibleCardReviewPage}`}>
       <header className={styles.visibleCardHeader}>
@@ -308,20 +306,6 @@ export function VisibleCardReviewPage({
       {batch !== null ? (
         <>
           <section className={styles.visibleCardBatchSummary}>
-            <dl
-              className={`${styles.detailStats} ${styles.visibleCardBatchStats}`}
-            >
-              <Stat
-                label="Frames"
-                value={`${batch.progress.frames_extracted}/${batch.progress.total_items}`}
-              />
-              <Stat
-                label="Reviewed"
-                value={`${reviewedCount}/${batch.items.length}`}
-              />
-              <Stat label="Pending" value={String(pendingCount)} />
-              <Stat label="Batch detector" value={batch.detector.bundle_id} />
-            </dl>
             <dl
               className={`${styles.detailStats} ${styles.visibleCardSummaryStats}`}
             >
@@ -512,6 +496,11 @@ export function VisibleCardReviewPage({
 }
 
 function BatchProgress({ batch }: { batch: VisibleCardReviewBatch }) {
+  const pendingCount = batch.items.filter(
+    (item) => item.review?.status !== "reviewed",
+  ).length;
+  const reviewedCount = batch.items.length - pendingCount;
+
   return (
     <aside
       className={styles.visibleCardBatchProgress}
@@ -519,6 +508,18 @@ function BatchProgress({ batch }: { batch: VisibleCardReviewBatch }) {
     >
       <p className={styles.statusLabel}>Batch progress</p>
       <p className={styles.visibleCardProgressMessage}>{batchMessage(batch)}</p>
+      <dl className={`${styles.detailStats} ${styles.visibleCardBatchStats}`}>
+        <Stat
+          label="Frames"
+          value={`${batch.progress.frames_extracted}/${batch.progress.total_items}`}
+        />
+        <Stat
+          label="Reviewed"
+          value={`${reviewedCount}/${batch.items.length}`}
+        />
+        <Stat label="Pending" value={String(pendingCount)} />
+        <Stat label="Detector" value={batch.detector.bundle_id} />
+      </dl>
     </aside>
   );
 }
