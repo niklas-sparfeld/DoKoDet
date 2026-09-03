@@ -545,6 +545,10 @@ describe("App", () => {
       name: "Batch progress",
     });
     expect(batchProgress.parentElement?.lastElementChild).toBe(batchProgress);
+    expect(
+      within(batchProgress).getByText("Usable frames"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Retry failed items")).not.toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Previous" }));

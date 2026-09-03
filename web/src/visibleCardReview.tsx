@@ -305,126 +305,17 @@ export function VisibleCardReviewPage({
       ) : null}
       {batch !== null ? (
         <>
-          <section className={styles.visibleCardBatchSummary}>
-            <dl
-              className={`${styles.detailStats} ${styles.visibleCardSummaryStats}`}
-            >
-              <Stat
-                label="Usable frames"
-                value={String(batch.summary.usable_frames)}
-              />
-              <Stat
-                label="Reviewed empty"
-                value={String(batch.summary.empty_frames)}
-              />
-              <Stat
-                label="Unusable frames"
-                value={String(batch.summary.unusable_frames)}
-              />
-              <Stat
-                label="Retained cards"
-                value={String(batch.summary.retained_cards)}
-              />
-              <Stat
-                label="Corrected proposals"
-                value={String(batch.summary.corrected_proposals)}
-              />
-              <Stat
-                label="Removed proposals"
-                value={String(batch.summary.removed_proposals)}
-              />
-              <Stat
-                label="Added cards"
-                value={String(batch.summary.added_cards)}
-              />
-            </dl>
-            {batch.status === "failed" ? (
-              <div className={styles.visibleCardFailureBar}>
-                <p>
-                  {batch.failures[0]?.message ??
-                    "One or more review items could not be prepared."}
-                </p>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={() => void retryBatch()}
-                  disabled={
-                    busy || !batch.failures.some((failure) => failure.retryable)
-                  }
-                >
-                  {busy ? "Retrying…" : "Retry all failed items"}
-                </button>
-              </div>
-            ) : null}
-            {batch.status === "ready" ? (
-              <div className={styles.visibleCardPublishPanel}>
-                <label>
-                  Reviewer
-                  <input
-                    value={reviewer}
-                    onChange={(event) => setReviewer(event.target.value)}
-                    disabled={busy}
-                  />
-                </label>
-                <p>
-                  {pendingCount === 0
-                    ? "Every frame is complete. Review the summary, then publish the immutable queue."
-                    : `${pendingCount} frame${pendingCount === 1 ? "" : "s"} remain${pendingCount === 1 ? "s" : ""}.`}
-                </p>
-                <button
-                  className={styles.primaryButton}
-                  type="button"
-                  onClick={() => void completeBatch()}
-                  disabled={busy || pendingCount > 0 || reviewer.trim() === ""}
-                >
-                  {busy ? "Publishing…" : "Complete review"}
-                </button>
-              </div>
-            ) : null}
-            {batch.status === "completed" ? (
-              <div className={styles.visibleCardPublishPanel} role="status">
-                <p>
-                  Published by {batch.reviewer ?? "unknown reviewer"} at{" "}
-                  {batch.completed_at_utc ?? "unknown time"}. The completed
-                  queue is immutable.
-                </p>
-                <dl className={styles.detailMetadata}>
-                  <Stat
-                    label="Reviewed version"
-                    value={batch.completed_version_id ?? "Not available"}
-                  />
-                  <Stat
-                    label="Version digest"
-                    value={batch.completed_version_digest ?? "Not available"}
-                  />
-                  <Stat
-                    label="Lifecycle receipt"
-                    value={batch.completion_receipt_id ?? "Not available"}
-                  />
-                  <Stat
-                    label="Receipt digest"
-                    value={batch.completion_receipt_digest ?? "Not available"}
-                  />
-                  <Stat
-                    label="Freeze readiness"
-                    value={batch.downstream_readiness.message}
-                  />
-                </dl>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={() => void startRevision()}
-                  disabled={busy}
-                >
-                  {busy ? "Starting revision…" : "Start a new revision"}
-                </button>
-              </div>
-            ) : null}
-          </section>
-
           {batch.status === "preparing" ? (
             <div className={styles.visibleCardPreparingState}>
-              <BatchProgress batch={batch} />
+              <BatchProgress
+                batch={batch}
+                busy={busy}
+                reviewer={reviewer}
+                onReviewerChange={(value) => setReviewer(value)}
+                onRetry={() => void retryBatch()}
+                onComplete={() => void completeBatch()}
+                onStartRevision={() => void startRevision()}
+              />
               <p className={styles.visibleCardReviewMessage} aria-live="polite">
                 The review workspace will open when finder results are complete.
               </p>
@@ -485,7 +376,27 @@ export function VisibleCardReviewPage({
                   readOnly={batch.status === "completed"}
                 />
               ) : null}
-              <BatchProgress batch={batch} />
+              <BatchProgress
+                batch={batch}
+                busy={busy}
+                reviewer={reviewer}
+                onReviewerChange={(value) => setReviewer(value)}
+                onRetry={() => void retryBatch()}
+                onComplete={() => void completeBatch()}
+                onStartRevision={() => void startRevision()}
+              />
+            </div>
+          ) : batch.status !== "preparing" ? (
+            <div className={styles.visibleCardPreparingState}>
+              <BatchProgress
+                batch={batch}
+                busy={busy}
+                reviewer={reviewer}
+                onReviewerChange={(value) => setReviewer(value)}
+                onRetry={() => void retryBatch()}
+                onComplete={() => void completeBatch()}
+                onStartRevision={() => void startRevision()}
+              />
             </div>
           ) : null}
         </>
@@ -494,7 +405,23 @@ export function VisibleCardReviewPage({
   );
 }
 
-function BatchProgress({ batch }: { batch: VisibleCardReviewBatch }) {
+function BatchProgress({
+  batch,
+  busy,
+  reviewer,
+  onReviewerChange,
+  onRetry,
+  onComplete,
+  onStartRevision,
+}: {
+  batch: VisibleCardReviewBatch;
+  busy: boolean;
+  reviewer: string;
+  onReviewerChange: (value: string) => void;
+  onRetry: () => void;
+  onComplete: () => void;
+  onStartRevision: () => void;
+}) {
   const pendingCount = batch.items.filter(
     (item) => item.review?.status !== "reviewed",
   ).length;
@@ -519,6 +446,115 @@ function BatchProgress({ batch }: { batch: VisibleCardReviewBatch }) {
         <Stat label="Pending" value={String(pendingCount)} />
         <Stat label="Detector" value={batch.detector.bundle_id} />
       </dl>
+      <dl className={`${styles.detailStats} ${styles.visibleCardSummaryStats}`}>
+        <Stat
+          label="Usable frames"
+          value={String(batch.summary.usable_frames)}
+        />
+        <Stat
+          label="Reviewed empty"
+          value={String(batch.summary.empty_frames)}
+        />
+        <Stat
+          label="Unusable frames"
+          value={String(batch.summary.unusable_frames)}
+        />
+        <Stat
+          label="Retained cards"
+          value={String(batch.summary.retained_cards)}
+        />
+        <Stat
+          label="Corrected proposals"
+          value={String(batch.summary.corrected_proposals)}
+        />
+        <Stat
+          label="Removed proposals"
+          value={String(batch.summary.removed_proposals)}
+        />
+        <Stat label="Added cards" value={String(batch.summary.added_cards)} />
+      </dl>
+      {batch.status === "failed" ? (
+        <div className={styles.visibleCardFailureBar}>
+          <p>
+            {batch.failures[0]?.message ??
+              "One or more review items could not be prepared."}
+          </p>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={onRetry}
+            disabled={
+              busy || !batch.failures.some((failure) => failure.retryable)
+            }
+          >
+            {busy ? "Retrying…" : "Retry failed items"}
+          </button>
+        </div>
+      ) : null}
+      {batch.status === "ready" ? (
+        <div className={styles.visibleCardPublishPanel}>
+          <label>
+            Reviewer
+            <input
+              value={reviewer}
+              onChange={(event) => onReviewerChange(event.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <p>
+            {pendingCount === 0
+              ? "Every frame is complete. Review the summary, then publish the immutable queue."
+              : `${pendingCount} frame${pendingCount === 1 ? "" : "s"} remain${pendingCount === 1 ? "s" : ""}.`}
+          </p>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={onComplete}
+            disabled={busy || pendingCount > 0 || reviewer.trim() === ""}
+          >
+            {busy ? "Publishing…" : "Complete review"}
+          </button>
+        </div>
+      ) : null}
+      {batch.status === "completed" ? (
+        <div className={styles.visibleCardPublishPanel} role="status">
+          <p>
+            Published by {batch.reviewer ?? "unknown reviewer"} at{" "}
+            {batch.completed_at_utc ?? "unknown time"}. The completed queue is
+            immutable.
+          </p>
+          <dl className={styles.detailMetadata}>
+            <Stat
+              label="Reviewed version"
+              value={batch.completed_version_id ?? "Not available"}
+            />
+            <Stat
+              label="Version digest"
+              value={batch.completed_version_digest ?? "Not available"}
+            />
+            <Stat
+              label="Lifecycle receipt"
+              value={batch.completion_receipt_id ?? "Not available"}
+            />
+            <Stat
+              label="Receipt digest"
+              value={batch.completion_receipt_digest ?? "Not available"}
+            />
+            <Stat
+              label="Freeze readiness"
+              value={batch.downstream_readiness.message}
+            />
+          </dl>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={onStartRevision}
+            disabled={busy}
+          >
+            {busy ? "Starting revision…" : "Start a new revision"}
+          </button>
+        </div>
+      ) : null}
     </aside>
   );
 }

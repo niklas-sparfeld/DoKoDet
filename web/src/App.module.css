@@ -2954,31 +2954,12 @@ progress {
   font-size: clamp(2.2rem, 5vw, 4.5rem);
 }
 
-.visibleCardBatchSummary {
-  display: grid;
-  grid-template-columns: 1fr;
-  align-items: start;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding: 1.1rem 1.25rem;
-  border: 1px solid var(--line);
-  border-radius: 0.8rem;
-  background: var(--panel);
-  box-shadow: 0 0.7rem 2rem rgb(20 31 45 / 5%);
-}
-
-.visibleCardBatchSummary .detailStats {
-  margin-top: 0;
-}
-
 .visibleCardBatchStats {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .visibleCardSummaryStats {
-  grid-column: 1;
-  grid-row: 1;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .visibleCardBatchProgress {
@@ -2990,7 +2971,7 @@ progress {
   padding: 0.85rem;
   border: 1px solid var(--line);
   border-radius: 0.6rem;
-  background: var(--surface);
+  background: var(--panel);
 }
 
 .visibleCardPreparingState {
@@ -3007,17 +2988,20 @@ progress {
   margin: 0;
 }
 
+.visibleCardBatchProgress > .detailStats {
+  margin-top: 0.75rem;
+}
+
+.visibleCardBatchProgress .detailMetadata {
+  grid-template-columns: 1fr;
+}
+
 .visibleCardProgressMessage {
   margin: 0;
   color: var(--ink);
   font-size: 0.85rem;
   font-weight: 800;
   line-height: 1.4;
-}
-
-.visibleCardFailureBar,
-.visibleCardPublishPanel {
-  grid-column: 1 / -1;
 }
 
 .visibleCardFailureBar {
@@ -3027,6 +3011,16 @@ progress {
   gap: 1rem;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
+}
+
+.visibleCardBatchProgress .visibleCardFailureBar {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.visibleCardBatchProgress .visibleCardFailureBar button,
+.visibleCardBatchProgress .visibleCardPublishPanel button {
+  width: 100%;
 }
 
 .visibleCardFailureBar p {
@@ -4288,12 +4282,6 @@ progress {
 }
 
 @media (max-width: 900px) {
-  .visibleCardSummaryStats {
-    grid-column: 1;
-    grid-row: 1;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
   .visibleCardWorkspace {
     grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr);
   }
@@ -4329,13 +4317,7 @@ progress {
     flex-direction: column;
   }
 
-  .visibleCardBatchSummary {
-    grid-template-columns: 1fr;
-  }
-
   .visibleCardSummaryStats {
-    grid-column: 1;
-    grid-row: auto;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
