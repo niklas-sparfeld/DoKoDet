@@ -5,7 +5,7 @@
 - **Summary:** Train and compare bounded DINOv3 identity candidates on reviewed real crops before
   any local classifier becomes productive or replaces Gemini.
 - **Status:** Blocked
-- **Depends on:** Plans 0041 and 0042 complete, plan 0046 M6 complete, plus reviewed real identity
+- **Depends on:** Plans 0041, 0042, 0048, and 0049 complete, plus reviewed real identity
   data from enough source-lineage groups to freeze development partitions
 - **Builds on:** Plans 0028 and 0038 comparison, candidate-lock, crop-policy, and promotion-gate
   mechanics
@@ -21,6 +21,22 @@
 - **M1:** Not started — train the bounded local candidate set.
 - **M2:** Not started — compare identity and composed crop behavior on unchanged data.
 - **M3:** Not started — calibrate, lock at most one candidate, and publish the proof report.
+
+## Planning decision — 2026-09-04
+
+Retain this bounded quality proof. Use completed maintained reference revisions and dataset adapters
+from 0048, with review coverage made practical by 0049. The identity model and comparison questions
+remain useful; the obsolete 0047 current-annotation contract is not a dependency.
+
+Freeze source video, frame selection, visible-region and identity reference revisions, crop policy,
+and source-group partition. Crops are reproducible derived views, not independent source assets.
+Retain every candidate's predictions as processor results. Use the same reviewed reference across
+candidates; a candidate result never edits it. Later reference corrections require a new dataset
+freeze and do not change an existing proof. Do not require device evidence packages.
+
+**Blocker:** Complete 0048 and 0049 and measure the coverage targets below. If they are not met,
+continue focused reference review instead of starting training or weakening the targets. Candidate
+quality and backend promotion are outside the completed 0041 PoC.
 
 ## 1. Purpose
 
@@ -116,7 +132,7 @@ Do not promote, change the backend default, or start another experiment from sea
 
 ### M0 — Freeze reviewed identity data
 
-- Add coverage, partition, crop-policy, and exclusion reports over completed plan 0042 reviews.
+- Add coverage, partition, crop-policy, and exclusion reports over selected completed maintained reference revisions from 0048.
 - Freeze train, validation, and challenge manifests with immutable digests.
 - Record source-lineage, class, deck-design, table-setup, and failure-tag coverage.
 
@@ -124,7 +140,7 @@ Acceptance:
 
 - every included label has complete human review and source lineage;
 - partitions have no source-lineage overlap and exclude the system holdout;
-- all crop bytes and policies reproduce from their source artifacts;
+- all crop bytes and policies reproduce from the original video and frozen reference revisions;
 - every reviewed identity remains identical across its reproducible crop-policy conditions;
 - the report states every unmet support target; and
 - candidate configuration cannot change the frozen membership.
@@ -148,7 +164,9 @@ Acceptance:
 
 - Evaluate candidates, Gemini, and the champion on identical validation and challenge items.
 - Run the three frozen crop-policy conditions.
-- Run the local-detector composed path without changing detector or classifier settings.
+- Run the local-detector composed path through 0048 without changing detector or classifier settings.
+- Record matching coverage, detector misses, false detections, and unusable crops against the same
+  reference; do not report accuracy only on conveniently matched crops.
 - Write machine-readable paired predictions and a concise report.
 
 Acceptance:

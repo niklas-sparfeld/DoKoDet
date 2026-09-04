@@ -5,158 +5,75 @@
 This document defines the target architecture and the order in which to build it. The active epics
 own implementation details. Update this document when an active epic changes the shared boundary.
 
-## 1. Decision summary
+## 1. Current development scope
 
-DokoDetector does not require the TableEvidenceAnalyzer to produce an authoritative sequence of card
-plays. The analyzer turns supplied evidence packages into an ordered stream of uncertain table
-observations. Game reconstruction uses those observations, round rules, deck limits, and human
-correction constraints to infer card plays and tricks.
+The current scope is pipeline development and feasibility. The device collects recordings. Keep
+its evidence packaging and upload as a showcase, but never use device packages or their media as
+recording pipeline inputs or fallbacks. Preserve original video as the source asset. Derive frames,
+crops, and bounded snippets from video using selected data revisions and explicit policies. Caching
+and materialization are implementation details. Synthetic component fixtures remain valid.
 
-CardEventNet remains an event-proposal model. An event proposal can trigger evidence capture. It is
-not proof that a card play occurred. False proposals can produce repeated observations. A missed
-proposal can produce a missing observation.
+The [glossary](glossary.md) defines pipeline data sets, data revisions, processor runs, maintained
+references, review coverage, and derived views. Inputs and outputs are roles of data in a run.
+Generated and reviewed content of the same type share a contract. Origin, scores, review state,
+and lineage are separate metadata. Human authorship alone does not establish ground truth.
 
-The first useful boundary stays small. Each table observation contains anonymous observed cards and
-ranked visual card identity candidates. Later TableEvidenceAnalyzer versions can add soft visual
-evidence:
+Retain completed processor results and completed reference revisions. Each recording has one
+maintained reference per visual review stage, with at most one draft. A model rerun creates a new
+result without changing that reference. The UI normally shows selected Generated and Reviewed
+content, with other runs and completed revisions available through secondary controls.
 
-- probability that an observed card exists;
-- score that a card became newly visible;
-- score that a card is in the active table area;
-- possible associations with observed cards from an earlier observation;
-- short card tracklets derived from a video snippet.
-
-The reconstruction engine does not consume pixels, boxes, corners, or optical flow. The
-TableEvidenceAnalyzer can use all of them internally.
+These are target decisions. Existing package and review-batch runtime contracts are replaced by
+0048 and 0049; this document does not claim that the cutover is already implemented.
 
 ## 2. Target process
 
 ```text
-camera frames
-  -> CardEventNet event proposals
-  -> selected frames and a bounded video snippet
-  -> immutable evidence package
-  -> TableEvidenceAnalyzer inspection and short-term visual analysis
-  -> ordered table observations
-  -> reconstruction hypotheses constrained by the deterministic rules core
-  -> resolved round or focused alternatives
-  -> optional human correction constraints
-  -> reviewed reconstruction
+original recording video
+  -> CardEventNet -> event data revision
+  -> detector -> visible-card data revision
+  -> classifier -> visual identity data revision
+  -> observation assembly -> table observations
+  -> game reconstruction -> reconstruction hypotheses and analysis
 ```
 
-Keep these responsibilities separate.
+Each processor selects exact input revisions. Detector and classifier runs can use generated or
+reviewed inputs. Resolve visual input from the video and selected content. Observation assembly
+uses compatible selected event, geometry, and identity results; it is not another learned model.
+The table evidence analyzer contains the detection, classification, and observation assembly work.
 
-### CardEventNet
+An event proposal is not proof of a card play. Table observations are uncertain visual evidence.
+The reconstruction engine consumes observations, rules, round context, and optional correction
+constraints. It does not consume pixels or make one recording equivalent to one round or game.
+A reviewed visual identity is not a human assertion that a player played that card.
 
-- Reports time-bounded event proposals.
-- Optimizes capture attention and cost.
-- Does not classify the card or declare a card play.
+## 3. Data, review, and reproducibility
 
-### Evidence capture and backend
+Every processor run pins its video source, input revisions, implementation, model, configuration,
+and extraction policies. Selection pointers are resolved once at creation. Retrying incomplete work
+uses frozen inputs; an intentional rerun retains another result. Failures remain distinct from
+successful empty predictions. Keep normal local tests independent of phones and cloud services.
 
-- Preserve selected frames for simple recognition, diagnostics, and fallback.
-- Add a bounded video snippet for movement and occlusion analysis.
-- Preserve immutable bytes, timing, hashes, and capture configuration.
-- Allow an evidence package without a usable snippet.
+A maintained reference can begin empty or use generated suggestions. Review changes its draft,
+not the original result. Completion publishes an immutable revision. Event review covers the full
+video; visible-card review covers named frames; identity review covers named visible cards.
+Unreviewed scope is never a reviewed negative. Input review does not confer truth on predictions.
 
-### TableEvidenceAnalyzer
+Upstream changes expose affected reference work. A changed event time can select a different frame;
+a changed region can alter an identity crop. Preserve unaffected work, require review on changed
+evidence, and keep old revisions valid for their original scope. Runs and datasets with pinned old
+revisions do not change when the maintained reference advances.
 
-- Detect visible card proposals in the supplied visual evidence.
-- Rank visual card identities for each observed card.
-- Compare pre-event and post-event evidence.
-- Add optional visual scores and card tracklets.
-- Remain free of players, turns, legal moves, deck counts, and round rules.
-
-The TableEvidenceAnalyzer is handed an evidence package. It can combine several models with
-classical image processing, matching, geometry, and tracking. It can also use bounded earlier table
-observations or overlapping visual evidence. It does not capture evidence and must not use game
-state.
-
-### Game reconstruction
-
-- Preserve the ordered raw table observations.
-- Infer persistent cards, card plays, trick clearing, and observation errors.
-- Apply deck multiplicity, turn order, following rules, and trick rules.
-- Rank reconstruction hypotheses without converting visual scores into false calibrated confidence.
-- Return focused differences when several hypotheses remain valid.
-- Apply immutable human correction constraints and recompute the result.
-
-The deterministic rules core is a dependency of reconstruction. It does not perform visual
-tracking or observation deduplication.
-
-## 3. Evidence contract target
-
-A future evidence-package version adds one optional bounded video snippet to the selected frames.
-The exact container, codec, duration, frame rate, and resolution come from the measurements in plan
-0025.
-
-The snippet metadata must contain:
-
-```text
-part name
-event-relative start and end
-duration
-container and codec
-width and height
-nominal frame rate, when known
-byte length and SHA-256
-capture completeness
-```
-
-The backend verifies the declared bytes and that the supported media can be decoded. It preserves
-the original bytes. Tests use a small checked-in media fixture and do not require a phone.
-
-Selected frames remain part of the evidence package. A consumer must not require the optional
-snippet unless its declared capability requires it.
+Dataset freezes select completed reference revisions, source groups, and derivation policies.
+Generated data can be robustness inputs or comparison results without becoming reviewed targets.
+Match comparisons on shared evidence and report missing reference coverage separately. Reuse the
+same reference across model runs; do not create one human reference per model.
 
 ## 4. Table-observation contract target
 
-Use the canonical `table-observation/v1` schema in active code and fixtures. The closed plan 0005
-remains the historical record. Do not maintain two runtime paths for these undeployed local
-contracts.
-
-An illustrative result is:
-
-```json
-{
-  "schema_version": "table-observation/v1",
-  "observation_id": "...",
-  "source": {
-    "package_id": "...",
-    "snippet_part_name": "event_snippet"
-  },
-  "session": {
-    "session_id": "...",
-    "event_sequence": 17
-  },
-  "observed_at_ms": 42125,
-  "status": "observed",
-  "capabilities": [
-    "identity_candidates",
-    "presence_score",
-    "newly_visible_score",
-    "active_area_score"
-  ],
-  "cards": [
-    {
-      "observed_card_id": "observation-17-card-01",
-      "identity_candidates": [
-        {"card": "HEARTS_10", "probability": 0.8},
-        {"card": "HEARTS_KING", "probability": 0.2}
-      ],
-      "presence_score": 0.97,
-      "newly_visible_score": 0.91,
-      "active_area_score": 0.86,
-      "association_candidates": []
-    }
-  ],
-  "calibration": "uncalibrated",
-  "analyzer": {"name": "...", "version": "..."},
-  "diagnostics": {}
-}
-```
-
-The exact schema is frozen in plan 0006. Apply these semantic rules:
+The existing observation contract and adapters are the starting implementation. Epic 0048 M6
+replaces package-based source identity with video and run/input lineage. Preserve the following
+semantics while changing the undeployed source contract:
 
 - `cards: []` means that the TableEvidenceAnalyzer detected no cards. It does not prove that the table was
   empty.
@@ -234,57 +151,16 @@ Store each correction as an immutable constraint with reviewer provenance. Re-ru
 after a correction. Do not overwrite the table observations or the earlier machine result. Show a
 clear conflict if a correction violates the selected ruleset or deck manifest.
 
-## 7. Additive implementation order
+## 7. Implementation order
 
-Implement the smallest end-to-end slice first. Add one evidence family at a time.
+Follow the [epic board next steps](plans/README.md#next-steps). Start 0048 for data and execution,
+then 0049 for recording review and comparison. Use their small milestones in order. The existing
+editors, local models, filesystem stores, and reconstruction engine are the starting point.
 
-### Step 0 — Contracts, rules, and synthetic truth
-
-Freeze deck manifests, the minimal table-observation schema, the reconstruction result, and the
-correction-constraint shape. Implement the deterministic rules core. Generate legal synthetic
-rounds and exact identity-only table observations.
-
-This step requires no model, video, phone, network, or GPU.
-
-### Step 1 — Identity-only reconstruction
-
-Reconstruct small scenarios from anonymous observed cards with identity candidate distributions.
-Cover repeated observations, empty observations, false event proposals, missing plays, and
-ambiguous identities. Use exhaustive search as the correctness oracle.
-
-### Step 2 — Presence evidence
-
-Add optional `presence_score`. Test false card proposals and duplicate detections. Compare results
-with and without the feature.
-
-### Step 3 — Transition evidence
-
-Add optional `newly_visible_score` and simple predecessor associations from selected frames. Test
-reappearance after occlusion and movement of an existing card. Do not require video tracking yet.
-
-### Step 4 — Spatial evidence
-
-Add optional `active_area_score` or normalized active-area distance. Test side piles, cards retained
-for scoring, and old tricks shown outside the active area.
-
-### Step 5 — Video snippets and card tracklets
-
-Add bounded snippet capture and storage. Derive short card tracklets inside the
-TableEvidenceAnalyzer. Add optional association and movement evidence to the same table-observation
-contract.
-
-Plan 0025 can implement snippet transport in parallel with steps 0 through 4. Step 5 controls when
-reconstruction begins to depend on derived tracklet evidence, not when transport work can start.
-
-### Step 6 — Scalable reconstruction
-
-Compare beam search, hypothesis merging, and targeted backtracking against the exhaustive oracle.
-Scale from bounded scenarios to complete uncertain rounds and games.
-
-### Step 7 — Human review
-
-Measure unresolved decisions. Build focused questions first. Add the complete editor and reviewed
-reconstruction lifecycle after the correction contract is proven with fixtures.
+After those foundations, use reviewed real coverage to select the bounded identity proof in 0043
+or detector/capability measurements in 0050. Productive model operations remain in 0044 after a
+passing candidate. Search development, full reconstruction correction, and production scope remain
+in 0023, 0026, and 0024. None is required to reconnect the existing local feasibility pipeline.
 
 ## 8. Rules for independent improvements
 
@@ -295,7 +171,8 @@ Each new evidence family must obey these rules:
 3. Treat a missing field as unavailable, not negative evidence.
 4. Add a synthetic scenario in which the feature helps and one in which it can mislead.
 5. Run an ablation that compares reconstruction with and without the feature.
-6. Preserve raw visual evidence and all derived outputs.
+6. Preserve source video, completed processor results, and completed reference revisions. Derived
+   views can be regenerated from their pinned policies.
 7. Version feature semantics, preprocessing, and model bundles.
 8. Do not multiply correlated visual scores as if they were independent calibrated probabilities.
 9. Keep deterministic rule rejection separate from visual ranking.
@@ -306,19 +183,17 @@ and tracking improve independently.
 
 ## 9. Plan ownership
 
-- [Plan 0006](plans/5-closed/0006-GameEngine_v1.md) owns the shared observation-to-reconstruction
-  contract, rules core, synthetic generator, and exhaustive oracle.
-- [Plan 0020](plans/5-closed/0020-Data_Foundation.md) owns source lineage and reviewed annotation
-  data for observed cards, snippets, and tracklets.
-- [Plan 0021](plans/5-closed/0021-Table_Evidence_Analyzer_Training_Pipeline.md) owns reusable model
-  training, evaluation, export, and capability metadata.
-- [Plan 0025](plans/5-closed/0025-Video_Snippet_Evidence.md) owns iOS and backend video-snippet
-  evidence transport.
-- [Plan 0022](plans/0-to-specify/0022-Table_Evidence_Analyzer_Development.md) will select measured
-  visible-card, transition, spatial, and tracking methods for the TableEvidenceAnalyzer.
-- [Plan 0023](plans/0-to-specify/0023-Game_Reconstruction_Development.md) will scale reconstruction
-  from the oracle to complete rounds and games.
-- [Plan 0026](plans/0-to-specify/0026-Reconstruction_Review_Workflow.md) will define the human
-  reconstruction-review workflow after ambiguity measurements exist.
-- [Plan 0024](plans/0-to-specify/0024-System_Production_Readiness.md) will select production work from
-  measured end-to-end requirements.
+- [0048](plans/2-ready/0048-Pipeline_Data_and_Execution.md) owns shared data and execution contracts,
+  video-derived inputs, maintained reference storage, analysis integration, and dataset adapters.
+- [0049](plans/4-blocked/0049-Recording_Pipeline_Review_and_Comparison.md) owns the recording UI,
+  reference editing, explicit run input selection, comparison, and obsolete review-route removal.
+- [0043](plans/4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) owns bounded identity quality.
+- [0044](plans/4-blocked/0044-Productive_Local_Identity_Model_Operations.md) owns later productive
+  campaigns, promotion, and rollback.
+- [0050](plans/4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) owns detector baseline
+  measurements and justified optional analyzer capabilities.
+- [0023](plans/0-to-specify/0023-Game_Reconstruction_Development.md),
+  [0026](plans/0-to-specify/0026-Reconstruction_Review_Workflow.md), and
+  [0024](plans/0-to-specify/0024-System_Production_Readiness.md) retain later specification work.
+
+Closed epics record delivered or superseded work. They do not override the current scope above.

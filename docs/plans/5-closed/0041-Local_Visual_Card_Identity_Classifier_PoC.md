@@ -4,7 +4,11 @@
 
 - **Summary:** Prove that one current pretrained vision encoder can train and run locally behind
   the existing visual card identity classifier contract.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** All M0–M3 capability milestones are complete. Real-data quality remains in 0043,
+  productive model operations in 0044, and pipeline integration changes in 0048. This closure makes
+  no model quality claim.
 - **Depends on:** Completed plans 0021 and 0028
 - **Builds on:** The existing deterministic crop, identity-candidate, capability-bundle, training,
   evaluation, and promotion contracts

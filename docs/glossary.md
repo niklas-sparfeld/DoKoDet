@@ -103,6 +103,55 @@ roles are not interchangeable.
 Immutable imported bytes, such as an original video or accepted evidence package. A source asset
 records or represents source material. It is not the real-world recording or activity itself.
 
+### Pipeline data set
+
+A bounded collection of one concrete content type for a recording or synthetic fixture. Examples
+are events, visible-card detections, visual card identities, and table observations. Human and
+processor versions use the same content contract. Origin and review state are separate metadata.
+A pipeline data set is not a training or evaluation dataset.
+
+### Data revision
+
+One immutable saved version of a pipeline data set. It records content, source references, coverage,
+and lineage. Completed processor results and completed human reviews produce data revisions.
+An autosaved review draft is mutable work toward a data revision.
+
+### Processor
+
+A component that transforms selected inputs into outputs. It can use a model, rules, or another
+algorithm. Input and output describe a data revision's role in an execution, not its storage type.
+
+### Processor run
+
+One execution of a processor against exact source and input revisions with a recorded implementation,
+model, configuration, and extraction policies. A completed run references its output data revisions.
+A run can consume unreviewed inputs. Review and dataset eligibility are separate decisions.
+
+### Maintained reference
+
+The single human-maintained reference for one recording and review stage. It has at most one current
+draft and selects one completed data revision when available. Earlier completed revisions remain
+available to runs and datasets. A model rerun does not replace the maintained reference.
+
+### Review coverage
+
+The explicit intervals, frames, or visible cards that a person inspected for one data revision.
+Review completion applies only to that coverage. Missing coverage is not a reviewed negative.
+Ground truth means the reviewed reference for the declared question and coverage; upstream review
+does not make downstream predictions ground truth.
+
+### Derived view
+
+A reproducible view calculated from source material, selected data revisions, and defined policies.
+Frames, identity crops, video snippets, and derived boxes can be derived views. Materialization and
+caching do not give them independent source or review authority.
+
+### Dataset
+
+A frozen selection of samples for training or evaluation. It records source groups, selected data
+revisions, target eligibility, and sampling and derivation policies. Processor results can be inputs
+or comparison predictions without becoming reviewed training or evaluation targets.
+
 ### Pending upload
 
 A received source upload that is not yet a complete repository intake bundle. A pending upload stays
@@ -180,7 +229,9 @@ unavailable, not that its score is zero.
 
 ### Table evidence analyzer
 
-The bounded component that analyzes a supplied evidence package and produces a table observation.
+The bounded component that analyzes supplied visual evidence and produces a table observation.
+For recording-based development, derive that evidence from the original recording video. Device
+evidence packages remain showcase artifacts and are not pipeline inputs.
 The `TableEvidenceAnalyzer` can combine models and classical algorithms. It does not capture
 evidence, apply game rules, or imply a deployment location.
 
@@ -201,8 +252,9 @@ evidence and can move between table setups. It does not determine whether a card
 
 ### Video snippet
 
-A bounded media segment around an event proposal in an evidence package. A video snippet is not a
-recording and can be incomplete or absent.
+A bounded media segment derived from a recording video around an event proposal or reviewed event.
+A video snippet is not a recording. An evidence package can contain a video snippet, but packaging
+is not required to derive or use one.
 
 ### Reconstruction hypothesis
 

@@ -4,7 +4,12 @@
 
 - **Summary:** Establish a cloud visible-card baseline, then produce measured table observations
   from reviewed real frames and video snippets
-- **Status:** To Specify
+- **Status:** Closed
+- **Closure reason:** Superseded
+- **Closure note:** The completed implementation evidence below remains historical. Pipeline
+  contracts and execution move to 0048; recording review and comparison move to 0049; remaining
+  detector and optional analyzer capability experiments move to 0050. Identity quality stays in
+  0043. The old cloud-first sequence and package input assumptions no longer direct implementation.
 - **Depends on:** Plans 0020 and 0021, with enough reviewed real evidence for held-out
   evaluation
 - **Tracking stages depend on:** Plan 0025 video snippets

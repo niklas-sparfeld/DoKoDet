@@ -4,10 +4,17 @@
 
 - **Summary:** Harden the proven pipeline for a defined deployment and supported devices
 - **Status:** To Specify
-- **Depends on:** Local integration, snippet transport, table-observation recognition, game
+- **Depends on:** A separately agreed production scope, local integration, table-observation recognition, game
   reconstruction, and human-review measurements
 - **Supersedes:** Plans 0017 and 0018 as active implementation plans
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
+
+## Current scope
+
+Production is outside the current pipeline development and feasibility work in 0048 and 0049.
+The device currently collects video; package generation and upload are showcase features. No
+package-only product or device inference requirement is implied by this plan. Agree a production
+scope explicitly before using the possible work areas below as requirements.
 
 ## 1. Purpose
 
@@ -59,9 +66,10 @@ change.
 
 ### Video evidence lifecycle
 
-Use the measurements from plan 0025 to select snippet limits, queued storage, upload policy,
-retention, encryption, playback authorization, and deletion behavior. Preserve selected frames as a
-fallback. Do not assume that PoC encoding settings are production settings.
+Use measurements from the video-based development pipeline to select source-video retention,
+derived-media caching, playback authorization, and deletion behavior. Reassess transport only for
+an explicitly selected production flow. Device package media are not a fallback in the current
+pipeline. Do not assume that PoC encoding settings are production settings.
 
 ### Human review operations
 

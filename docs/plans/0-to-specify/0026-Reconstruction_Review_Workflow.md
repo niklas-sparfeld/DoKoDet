@@ -6,8 +6,16 @@
 - **Status:** To Specify
 - **Depends on:** Plan 0006 result and correction contracts, plan 0023 focused alternatives, and
   measured review cases
-- **Uses evidence from:** Plans 0022 and 0025
+- **Uses evidence from:** Plans 0048, 0049, and 0050
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
+
+## Current scope
+
+This later epic owns full reconstruction correction. Epic 0049 only connects existing analysis
+inspection and counterfactual controls to the recording workflow. Resolve playback from original
+recording video through 0048. Maintain one reviewed reconstruction reference for each explicit
+round scope and retain its completed results and correction constraints across model runs. A
+recording can span multiple rounds; do not conflate their references.
 
 ## 1. Purpose
 

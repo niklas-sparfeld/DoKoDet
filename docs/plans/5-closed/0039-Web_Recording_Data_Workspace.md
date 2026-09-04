@@ -4,7 +4,10 @@
 
 - **Summary:** Make the recording the primary web resource and support complete CardEventNet event
   review plus bounded development-partition assignment.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** All M0–M4 milestones are complete. Further pipeline data, maintained reference,
+  and review workflow changes are outside this epic and belong to 0048 and 0049.
 - **Depends on:** Completed plans 0020, 0027, 0032, and 0033
 - **Related:** Plan 0038 owns the current visible-card geometry contracts. Plan 0026 owns later
   reconstruction correction.

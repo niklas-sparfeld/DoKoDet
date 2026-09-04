@@ -5,9 +5,9 @@
 - **Summary:** Make reviewed identity data, bounded training, comparison, promotion, and local
   runtime status productive in the web app after the quality proof succeeds.
 - **Status:** Blocked
-- **Depends on:** Plan 0043 locks a local candidate that passes its proof gates, and plan 0046 M6
-  provides current reviewed identity annotations and the frozen dataset boundary
-- **Builds on:** Plans 0028, 0039, 0040, 0041, 0042, 0043, and 0046
+- **Depends on:** Plan 0043 locks a local candidate that passes its proof gates, and plans 0048 and 0049
+  provide retained processor results, maintained references, comparison, and dataset boundaries
+- **Builds on:** Plans 0028, 0039, 0040, 0041, 0042, 0043, 0046, 0048, and 0049
 - **Outcome:** An operator can find priority identity work, publish reviewed data, launch and
   inspect a bounded local campaign, explicitly promote a passing bundle, and run the normal backend
   with local detection and local identity classification. The web app shows lineage, blockers,
@@ -22,6 +22,17 @@
 - **M2:** Not started — add explicit promotion, backend cutover, and rollback.
 - **M3:** Not started — measure the productive loop and close only the observed workflow gaps.
 
+## Planning decision — 2026-09-04
+
+Retain the campaign, explicit promotion, and rollback work. Reuse the maintained references and
+run comparisons in 0048 and 0049. A priority work list selects items in those references; it must
+not create a parallel human reference or another review lifecycle. Store campaign predictions and
+input revisions through the same pipeline data boundary.
+
+**Blocker:** 0043 must lock a passing local candidate, and 0048/0049 must be complete. Failure to
+prove local quality leaves this epic blocked; it does not justify changing the backend default.
+Device evidence packages are not an input to campaigns or normal recording analysis.
+
 ## 1. Purpose
 
 Turn the proven local identity path into routine local operations. Keep human review, immutable
@@ -33,14 +44,14 @@ The productive loop is:
 
 ```text
 eligible recordings
-  -> bounded visual card identity review batch
+  -> bounded work list over maintained identity references
   -> completed reviewed data
   -> group-safe dataset version
   -> bounded local campaign
   -> paired comparison and candidate lock
   -> explicit promotion
   -> local backend analysis
-  -> measured low-confidence and error work for a later bounded batch
+  -> measured low-confidence and error work for a later bounded work list
 ```
 
 ## 2. Scope
@@ -48,7 +59,7 @@ eligible recordings
 This epic includes:
 
 - a multi-recording identity work list with eligibility, coverage, and priority reasons;
-- bounded batch creation from completed visible-card reviews;
+- bounded work selection over the recording references provided by 0049;
 - dataset readiness and frozen-version status in the web app;
 - start, resume, status, comparison, and report views for declared plan 0028 campaigns;
 - explicit promotion confirmation with complete gate and rollback information;
@@ -98,7 +109,7 @@ This epic does not include:
 Add a **Models and data** area with three focused views:
 
 1. **Identity work** — eligible recordings, pending and completed review, class and source-group
-   coverage, priority reason, and bounded batch creation.
+   coverage, priority reason, and bounded work-list selection.
 2. **Identity campaigns** — resolved recipe, frozen data, progress, failed runs, comparison, gate
    results, candidate lock, and next action.
 3. **Identity runtime** — champion and prior bundle, backend selection, load state, recent local
@@ -113,18 +124,19 @@ open for a local training run.
 ### M0 — Add productive identity work selection
 
 - Add development-only coverage and priority projections across recordings.
-- Add preview and create operations for a bounded multi-recording review batch.
+- Add preview and create operations for a bounded multi-recording work list that links to existing
+  maintained references; freeze its selection and priority reasons.
 - Add an Identity work view with filters for state, identity coverage, failure tag, and priority
   reason.
-- Reuse the plan 0042 item editor and completion path.
+- Reuse the plan 0049 identity editor and maintained reference completion path.
 
 Acceptance:
 
-- an operator can create one fixed-budget batch from eligible recordings and open its first item;
+- an operator can create one fixed-budget work list from eligible recordings and open its first item;
 - every selected item records its priority reason and frozen source and proposal lineage;
 - group-safe exclusion prevents test, holdout, and related protected items from appearing;
 - repeated preview is deterministic for the same inputs; and
-- an unreviewed proposal never enters a dataset.
+- an unreviewed proposal never becomes a reviewed dataset target.
 
 ### M1 — Add bounded campaign operations
 
@@ -158,7 +170,7 @@ Acceptance:
 
 ### M3 — Exercise and measure the productive loop
 
-- Run one new bounded priority batch through review, dataset publication, campaign, promotion
+- Run one new bounded priority work list through review, dataset publication, campaign, promotion
   decision, and normal backend analysis.
 - Measure operator time, crop and label counts, proposal acceptance, correction rate, class and
   source coverage, training time, review rework, local latency, and terminal failures.

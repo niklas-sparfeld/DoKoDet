@@ -6,8 +6,14 @@
 - **Status:** To Specify
 - **Depends on:** Plan 0006 contracts, rules core, synthetic generator, exhaustive oracle, and search
   measurements
-- **Uses later evidence from:** Plan 0022 real table-observation behavior
+- **Uses later evidence from:** Plans 0048 and 0050 real table-observation behavior
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
+
+## Current scope
+
+This is later search and game-reconstruction research. It does not block the existing engine from
+running on selected observation revisions in 0048. Use 0048 run lineage and video-derived evidence
+for real cases. Keep synthetic oracle measurements independent of recording collection.
 
 ## 1. Purpose
 
@@ -139,7 +145,7 @@ Before splitting this plan into implementation milestones, record from plan 0006
 - how many focused decisions remain after merging;
 - correction-constraint recomputation cost.
 
-Also record from plan 0022 when available:
+Also record from plans 0048 and 0050 when available:
 
 - real observed-card candidate-list behavior;
 - false and duplicate observed-card rates;

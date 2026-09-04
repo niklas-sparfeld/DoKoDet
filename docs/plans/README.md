@@ -33,10 +33,9 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0022 — TableEvidenceAnalyzer capability development](0-to-specify/0022-Table_Evidence_Analyzer_Development.md) | 0020, 0021, and reviewed real evidence; tracking also needs 0025 | Establish a cloud visible-card baseline, then select measured transition, spatial, and tracking methods. |
-| [0023 — Scalable game reconstruction](0-to-specify/0023-Game_Reconstruction_Development.md) | 0006 search measurements | Scale observation inference to uncertain rounds and complete games. |
-| [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Integration, snippet, observation, reconstruction, and review measurements | Select production work from measured requirements. |
-| [0026 — Reconstruction review workflow](0-to-specify/0026-Reconstruction_Review_Workflow.md) | 0006 and 0023 review contracts and measured cases | Build focused review and complete human correction. |
+| [0023 — Scalable game reconstruction](0-to-specify/0023-Game_Reconstruction_Development.md) | Completed 0006 foundation; search measurements must define the next scope | Specify later search improvements. Existing reconstruction remains usable through 0048. |
+| [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Explicit production scope and measured development behavior | Select later production work. Package-only operation is not a current requirement. |
+| [0026 — Reconstruction review workflow](0-to-specify/0026-Reconstruction_Review_Workflow.md) | 0006 contracts, later 0023 focused alternatives, and measured review cases | Specify full reconstruction correction beyond the existing inspection exposed by 0049. |
 
 ### Backlog
 
@@ -48,26 +47,31 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0048 — Pipeline data and execution](2-ready/0048-Pipeline_Data_and_Execution.md) | 0039, 0040, 0041, 0042, 0045, and 0046 complete | Retain processor results and reference revisions; select generated or reviewed inputs; derive visual inputs from video; connect analysis and dataset consumers. M0–M10 not started. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0039 — Web recording data workspace](3-in-progress/0039-Web_Recording_Data_Workspace.md) | Completed data, intake, analysis, and frontend foundations | M0 complete: recording detail is the stable web resource and optional analyses are nested in it; M1 complete: source-linked conflict-safe CardEvent review API; M2 complete: video-backed CardEvent editor with autosave and proposal decisions; M3 complete: full-recording completion, immutable receipt metadata, eligibility feedback, and explicit revision flow; M4 complete: group-safe CardEventNet development partition assignment with immutable split versions and receipts. |
-| [0041 — Local visual card identity classifier PoC](3-in-progress/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | 0021 and 0028 complete | M0 complete: frozen DINOv3 model, license, weight materialization, deterministic 224 x 224 crop transform, strict 24-identity target map, and pinned optional dependencies; M1 complete: local frozen-encoder linear-head smoke training with CPU/MPS/CUDA selection, native checkpoints, resume, and failure records; M2 complete: self-contained digest-checked local bundle with runtime-only classifier, deterministic ranked candidates, explicit device and failure behavior; M3 complete: independent backend detector and identity selection, local credential-free mode, persisted bundle provenance and timing, and fixture/MPS proof. |
+| None | — | — |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041 and 0042 complete, 0046 M6 complete, plus reviewed real identity data | Freeze reviewed data, compare at most two DINOv3 candidates with current classifiers, and lock at most one local candidate without changing the backend default. |
-| [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate and 0046 M6 data contracts | Add multi-recording review selection, bounded campaigns, explicit promotion, local runtime cutover, and rollback to the web app. |
+| [0049 — Recording pipeline review and comparison](4-blocked/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per stage, simple input selection, retained results, and comparison. M0–M6 not started. |
+| [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, and 0049 complete, plus declared real reviewed coverage | Compare at most two DINOv3 candidates on frozen reference revisions, including generated-geometry inputs; lock at most one without changing the backend default. M0–M3 not started. |
+| [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
+| [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048 and 0049 complete, plus reviewed real evidence for a bounded measurement | Measure current detector/composed quality, then select at most one justified capability response. Carries forward useful 0022 experiments. M0–M3 not started. |
 
 ### Closed
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0047 — Current recording annotations and evidence](5-closed/0047-Current_Recording_Annotations_and_Evidence.md) | Superseded | Replaced before implementation by 0048 and 0049. Proposal loss and package management are not the target design. |
+| [0041 — Local visual card identity classifier PoC](5-closed/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | Complete | M0–M3 complete: local training, bundle, classifier runtime, and backend capability proved. Quality remains in 0043; new integration work belongs to 0048. |
+| [0039 — Web recording data workspace](5-closed/0039-Web_Recording_Data_Workspace.md) | Complete | M0–M4 complete: recording workspace, event review, completion, and development partitions. Further data and review work belongs to 0048/0049. |
+| [0022 — TableEvidenceAnalyzer capability development](5-closed/0022-Table_Evidence_Analyzer_Development.md) | Superseded | Retain completed implementation evidence. Foundation and UI work move to 0048/0049; remaining detector and capability experiments move to 0050; identity quality stays in 0043. |
 | [0046 — Filesystem storage engine](5-closed/0046-Filesystem_Storage_Engine.md) | Complete | Validated filesystem resources are the only backend storage. Recording bundles, evidence packages, table observations, round analyses, pending videos, and operations data survive restart from canonical files without SQLite, SQLAlchemy, or Alembic. |
 | [0038 — Visible-card training-data improvement](5-closed/0038-Visible_Card_Training_Data_Improvement.md) | Complete | Correct Gemini visible geometry and review visible regions with fixed source and teacher lineage. M0–M5 complete; real prompting and human review remain deferred. |
 | [0045 — Card event review workflow improvements](5-closed/0045-Card_Event_Review_Workflow_Improvements.md) | Complete | Complete the wide video-first CardEvent workflow with recording-owned review resources, unified event lineage, verified source-context caching, stable review pages, optimistic ordered commands, retry and conflict recovery, and keyboard and pointer review-loop coverage. |
@@ -75,6 +79,7 @@ The shared target architecture is
 | [0042 — Visual card identity annotation workspace](5-closed/0042-Visual_Card_Identity_Annotation_Workspace.md) | Complete | Create, review, publish, revise, and freeze visual card identity labels from source-linked visible-card reviews with immutable lineage, lifecycle receipts, and validated group-safe development data. |
 | [0037 — Local visible-card detector end-to-end PoC](5-closed/0037-Local_Visible_Card_Detector_PoC.md) | Complete | Prove local RF-DETR training with a real loadable smoke checkpoint, and preserve fixture-tested provider and backend contracts. Real backend execution is out of scope. |
 | [0033 — Round analysis timeline and counterfactual explorer](5-closed/0033-Round_Analysis_Timeline.md) | Complete | Explain one completed analysis as synchronized evidence, table-observation, and reconstruction-hypothesis rows, then compare immutable counterfactual runs. M0–M8 complete. |
+| [0035 — Backend terminal logging](5-closed/0035-Backend_Terminal_Logging.md) | Complete | Backend terminal logging and diagnostic context. |
 | [0034 — Gemini round analysis integration](5-closed/0034-Gemini_Round_Analysis_Integration.md) | Complete | Make the normal round-analysis backend use Gemini for every evidence package and require its runtime credential. |
 | [0032 — Round recording analysis PoC](5-closed/0032-Round_Recording_Analysis_PoC.md) | Complete | Use one iOS recording to create the complete video and its evidence packages; M0–M5 provide the reusable backend boundary, durable analysis lifecycle, worker, APIs, runtime artifacts, unified iOS recording boundary, upload gating, durable submission, polling, concise result UI, deterministic fixtures, and local flow documentation. |
 | [0036 — iOS recording workspace simplification](5-closed/0036-iOS_Recording_UI_Simplification.md) | Complete | Replace the separate Live and Record flows with one profile-based recording workspace and keep the existing durable upload and analysis lifecycle. M0–M4 complete. |
@@ -106,39 +111,45 @@ The shared target architecture is
 | [0020 — Data foundation](5-closed/0020-Data_Foundation.md) | Complete | Shared source, annotation, review, dataset, split, and lifecycle-receipt foundation. |
 | [0025 — Video snippet evidence](5-closed/0025-Video_Snippet_Evidence.md) | Complete | Bounded V2 video snippets with reviewed 960×540 exploratory evidence. |
 
-## Near-term delivery sequence
+## Next steps
 
-1. Plan 0037 is complete. Its real local RF-DETR smoke run proves training capability without a
-   quality claim. Real local-provider backend execution remains out of scope.
-2. Implement 0039 M0 through M4 to make new iOS recordings discoverable, complete CardEvent
-   review, and assign eligible development groups in the web app.
-3. Implement 0046 as the direct follow-up to 0045. Replace review resources with one current event
-   annotation per recording, add proposal reruns, and make evidence-package updates explicit.
-4. Implement 0041 independently to prove the local DINOv3 identity model, bundle, and backend
-   boundary without using smoke results as a quality claim.
-5. Plan 0040 is complete: it seeds exact-event visible-card review with the local finder,
-   supports geometry correction in the web app, and publishes reviewed data for the existing
-   freeze path.
-6. Implement 0043 after reviewed real identity coverage can support frozen development
-   partitions. Lock at most one passing local candidate.
-7. Implement 0044 only after the quality proof passes. Add productive review selection, campaign
-   controls, explicit promotion, backend cutover, and rollback at that point.
-8. Use the completed epic 0033 timeline and counterfactual surface as the read-only diagnostic
-   baseline for later review work.
-9. Extract 0022 evidence packages from reviewed `card_played` annotations first. Run the exact-event
-   `0 ms` binary review and the cloud visible-card baseline over that trusted event-time corpus. Add
-   CardEventNet-proposal packages later as a separate robustness corpus. Keep sealed system-holdout
-   groups out of development review. Do not treat the three 0025 M6 packages as a sufficient
-   recognition dataset by themselves.
-10. Put corrected 0025 packages through the completed 0027 table-evidence review path as the later
-   proposal corpus. Use the resulting coverage and failure measurements to specify 0022.
-11. Record the 0006 search, ambiguity, merging, correction, and feature-ablation measurements needed
-   to specify 0023.
-12. Specify 0022 after reviewed real frames and snippets provide its entry measurements.
-13. Specify 0023 after its 0006 measurement set is recorded. Add real observation behavior later
-   without replacing the identity-only oracle baseline.
-14. Specify 0026 after focused review cases and correction behavior are measured.
-15. Specify 0024 only after end-to-end product and operational measurements exist.
+1. **Start epic 0048.** Begin with M0. Implement one milestone per phase, in order through M10.
+   Move it to In Progress when work starts. This is the only epic selected to start now.
+2. **Then start 0049.** After 0048 is complete, move 0049 from Blocked to Ready. Deliver M0–M6
+   to expose the retained data and maintained references through the existing recording editors.
+3. **Collect and review real development coverage through that workflow.** Keep source groups and
+   sealed holdouts intact. Use the same maintained references to compare model runs. Record gaps;
+   do not lower review or coverage requirements merely to unblock model work.
+4. **Reassess 0043 and 0050 separately.** Make 0043 Ready when its class/session coverage gates and
+   frozen recipe are actionable. Make 0050 Ready when a bounded detector/composed measurement has
+   reviewed evidence, fixed inputs, metrics, thresholds, and a budget. Neither requires the other
+   to complete; prioritize the measured pipeline bottleneck. Do not run an open-ended search.
+5. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+   another review lifecycle. Promotion and backend default changes remain explicit later actions.
+6. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+   existing analysis inspection, or local feasibility workflow. Specify search improvements and full
+   reconstruction correction from measured cases. Agree a production scope before production work.
+
+For each started epic, `next phase` means its next incomplete milestone. After each milestone,
+commit to main, update the epic and this board, report all milestone states, and compact the working
+context. Check dependencies again before changing a Blocked epic to Ready.
+
+### Planning decisions — 2026-09-04
+
+- Close 0039 and 0041 because their listed milestones are complete. Do not extend their scope.
+- Supersede 0047 and retire the duplicate-numbered, unimplemented recording-simplification draft
+  formerly called 0046. Its developed proposal is preserved in closed 0047. The completed
+  **0046 — Filesystem storage engine** keeps its number and historical scope.
+- Supersede 0022; do not use its old cloud-first sequence, package contracts, prices, or provisional
+  thresholds as the new pipeline plan. Useful remaining measurement questions are in 0050.
+- Keep and refine 0043/0044 because bounded quality proof and explicit model operations are still
+  needed. Replace their obsolete 0047 dependencies with 0048/0049.
+- Keep all completed run results and completed reference revisions. One maintained reference is a
+  simple default, not a rule to overwrite processor output.
+- Use original video as the recording pipeline source. Derive frames, crops, and snippets with
+  defined policies. Device packages remain a showcase and are never pipeline inputs or fallbacks.
+- Planning changes do not implement these runtime contracts. The milestones in 0048 and 0049 own
+  the cutover and remove obsolete paths. Existing closed epics are historical, not new requirements.
 
 ## Closed-epic policy
 
