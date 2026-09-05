@@ -211,10 +211,23 @@ describe the inferred full-card extent.
 The reviewed decision that a visible-card crop contains enough evidence for visual card identity.
 An identity-unusable crop can still be a valid visible-card detection target.
 
+### Visual identity outcome
+
+The result of applying one visual identity processor to one visible-card proposal. A classified
+outcome contains identity candidates. An unusable outcome means that the supplied visual evidence
+cannot support an identity. A failed outcome means that processing did not complete. An unusable or
+failed visual identity outcome does not remove the visible-card proposal.
+
 ### Crop policy
 
 A frozen rule that converts a visible region and its derived box into an identity crop, or rejects
 the crop. A crop policy is an evaluation condition. It does not change the reviewed visible region.
+
+### Visible-region exclusion
+
+A derived crop operation that neutralizes pixels assigned to other visible-card proposals. It uses
+only eligible visible regions in the same source frame. It does not change stored geometry, infer
+hidden card pixels, determine stacking order, or assign a physical-card identity.
 
 ### Table observation
 

@@ -5,8 +5,9 @@
 - **Summary:** Train and compare bounded DINOv3 identity candidates on reviewed real crops before
   any local classifier becomes productive or replaces Gemini.
 - **Status:** Blocked
-- **Depends on:** Plans 0041, 0042, 0048, and 0049 complete, plus reviewed real identity
-  data from enough source-lineage groups to freeze development partitions
+- **Depends on:** Plans 0041, 0042, 0048, 0049, and 0051 complete; 0052 resolved when 0051 selects
+  a follow-up response; plus reviewed real identity data from enough source-lineage groups to freeze
+  development partitions
 - **Builds on:** Plans 0028 and 0038 comparison, candidate-lock, crop-policy, and promotion-gate
   mechanics
 - **Outcome:** Freeze one reviewed identity corpus, train at most two declared DINOv3 ViT-S/16
@@ -25,8 +26,9 @@
 ## Planning decision — 2026-09-04
 
 Retain this bounded quality proof. Use completed maintained reference revisions and dataset adapters
-from 0048, with review coverage made practical by 0049. The identity model and comparison questions
-remain useful; the obsolete 0047 current-annotation contract is not a dependency.
+from 0048, with review coverage made practical by 0049. Use the visual identity input and crop
+contract selected by 0051 and any required 0052 response. The identity model and comparison
+questions remain useful; the obsolete 0047 current-annotation contract is not a dependency.
 
 Freeze source video, frame selection, visible-region and identity reference revisions, crop policy,
 and source-group partition. Crops are reproducible derived views, not independent source assets.
@@ -34,9 +36,10 @@ Retain every candidate's predictions as processor results. Use the same reviewed
 candidates; a candidate result never edits it. Later reference corrections require a new dataset
 freeze and do not change an existing proof. Do not require device evidence packages.
 
-**Blocker:** Complete 0048 and 0049 and measure the coverage targets below. If they are not met,
-continue focused reference review instead of starting training or weakening the targets. Candidate
-quality and backend promotion are outside the completed 0041 PoC.
+**Blocker:** Complete 0048, 0049, and 0051, resolve 0052 when required, and measure the coverage
+targets below. If they are not met, continue focused reference review instead of starting training
+or weakening the targets. Candidate quality and backend promotion are outside the completed 0041
+PoC.
 
 ## 1. Purpose
 
@@ -48,9 +51,10 @@ reviewed human identities as the reference and use Gemini only as a paired basel
 
 Freeze three source-lineage-safe partitions:
 
-1. **Train:** reviewed identity-usable `raw_rectangular` crops for classifier fitting.
-2. **Validation:** reviewed cards that reproduce all three frozen crop-policy conditions for
-   candidate, threshold, calibration, and crop-policy decisions.
+1. **Train:** reviewed identity-usable crops from the fixed training-input policy selected after
+   0051 and any required 0052 response.
+2. **Validation:** reviewed cards that reproduce the historical crop-policy conditions and the
+   selected 0051/0052 condition for candidate, threshold, calibration, and input-policy decisions.
 3. **Challenge:** reviewed glare, blur, occlusion, small-card, perspective, contamination, and
    difficult deck-design cases used for failure measurement, not fitting.
 
@@ -64,10 +68,10 @@ candidate to the declared deck designs represented by reviewed training and vali
 
 ## 3. Fixed candidate recipe
 
-Keep the DINOv3 ViT-S/16 architecture, 224 x 224 transform, target map, pretrained weights, and
-input crop contract from plan 0041 fixed. Train both candidates with the `raw_rectangular` policy
-selected by plan 0042. This is the current runtime-aligned baseline. Train at most these two
-candidates:
+Keep the DINOv3 ViT-S/16 architecture, 224 x 224 transform, target map, and pretrained weights from
+plan 0041 fixed. Freeze one training-input policy from the completed 0051/0052 decision before M0
+ends. Retain `raw_rectangular` as a paired baseline; do not assume that it remains the selected
+training input. Train at most these two candidates:
 
 1. frozen encoder plus linear head; and
 2. the same model with only the last two encoder blocks and the head trainable.
@@ -98,7 +102,8 @@ local detector proposal -> same crop policy -> identity classifier
 
 This separates identity errors on trusted geometry from localization and crop contamination. Keep
 the raw derived-box, oracle visible-region mask, and conservative rejection policies from plan 0038
-fixed. The reviewed visual card identity stays constant across the three deterministic conditions.
+as historical paired baselines. Add the selected 0051/0052 identity input as the fixed runtime
+candidate. The reviewed visual card identity stays constant across all deterministic conditions.
 Treat `oracle_visible_region` as an upper bound that can justify later segmentation work, not as a
 deployable policy. Treat `conservative_box_only` as a selective-coverage measurement, not as a way
 to remove difficult reviewed labels. Do not tune labels or crop policies from validation
@@ -153,7 +158,7 @@ Acceptance:
 
 Acceptance:
 
-- both candidates use identical data, target, `raw_rectangular` training crops, seed, and evaluation
+- both candidates use identical data, target, selected training crops, seed, and evaluation
   contracts;
 - runs record pretrained, dataset, split, configuration, code, environment, and checkpoint digests;
 - failed or interrupted runs remain resumable and visible;
@@ -163,7 +168,7 @@ Acceptance:
 ### M2 — Compare crop and composed quality
 
 - Evaluate candidates, Gemini, and the champion on identical validation and challenge items.
-- Run the three frozen crop-policy conditions.
+- Run the historical crop-policy conditions and the selected 0051/0052 condition.
 - Run the local-detector composed path through 0048 without changing detector or classifier settings.
 - Record matching coverage, detector misses, false detections, and unusable crops against the same
   reference; do not report accuracy only on conveniently matched crops.

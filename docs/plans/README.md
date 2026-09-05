@@ -59,9 +59,11 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, and 0049 complete, plus declared real reviewed coverage | Compare at most two DINOv3 candidates on frozen reference revisions, including generated-geometry inputs; lock at most one without changing the backend default. M0–M3 not started. |
+| [0051 — Visible-region identity resilience baseline](4-blocked/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete, plus paired reviewed visible-card and identity coverage from at least two source-lineage groups | Preserve visible cards without usable identity, compare actual and corrupted visible regions, and decide whether simple visible-region exclusion is sufficient. M0–M4 not started. |
+| [0052 — Selected response to visible-region identity failures](4-blocked/0052-Selected_Visible_Region_Identity_Response.md) | 0051 selects one follow-up identity response | Implement and evaluate at most one response to the measured 0051 failure. Close as not required for any other 0051 conclusion. M0–M3 not started. |
+| [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, 0049, and 0051 complete; resolve 0052 if required; plus declared real reviewed coverage | Compare at most two DINOv3 candidates with the fixed resilient identity input contract; lock at most one without changing the backend default. M0–M3 not started. |
 | [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
-| [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048 and 0049 complete, plus reviewed real evidence for a bounded measurement | Measure current detector/composed quality, then select at most one justified capability response. Carries forward useful 0022 experiments. M0–M3 not started. |
+| [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and 0051 complete; resolve 0052 if required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against the fixed resilient identifier, then select at most one justified capability response. M0–M3 not started. |
 
 ### Closed
 
@@ -113,20 +115,25 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Start epic 0048.** Begin with M0. Implement one milestone per phase, in order through M10.
-   Move it to In Progress when work starts. This is the only epic selected to start now.
-2. **Continue 0049.** Deliver M1–M10 to expose the retained data and maintained references through
+1. **Continue 0049.** Deliver M1–M10 to expose the retained data and maintained references through
    the existing recording editors.
-3. **Collect and review real development coverage through that workflow.** Keep source groups and
+2. **Collect and review real development coverage through that workflow.** Keep source groups and
    sealed holdouts intact. Use the same maintained references to compare model runs. Record gaps;
    do not lower review or coverage requirements merely to unblock model work.
-4. **Reassess 0043 and 0050 separately.** Make 0043 Ready when its class/session coverage gates and
-   frozen recipe are actionable. Make 0050 Ready when a bounded detector/composed measurement has
-   reviewed evidence, fixed inputs, metrics, thresholds, and a budget. Neither requires the other
-   to complete; prioritize the measured pipeline bottleneck. Do not run an open-ended search.
-5. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+3. **Run 0051 before another identity or visible-region model experiment.** Freeze actual and
+   corrupted predicted-region conditions, preserve cards with unusable identity evidence, and
+   measure the simple exclusion crop policies. Use its decision to specify one response in 0052 or
+   close 0052 as not required.
+4. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+   required before another identity or visible-region model experiment.
+5. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+   its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
+   detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
+   budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
+   not run an open-ended search.
+6. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-6. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
@@ -150,6 +157,21 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   defined policies. Device packages remain a showcase and are never pipeline inputs or fallbacks.
 - Planning changes do not implement these runtime contracts. The milestones in 0048 and 0049 own
   the cutover and remove obsolete paths. Existing closed epics are historical, not new requirements.
+
+### Planning decisions — 2026-09-06
+
+- Add 0051 before another identity or visible-region model experiment. It owns visual identity
+  outcome resilience, deterministic imperfect-region conditions, visible-region exclusion, and the
+  fixed risk-versus-coverage baseline.
+- Add conditional 0052 for at most one identity response selected by 0051. Close it as not required
+  when a simple crop policy, more data, the current policy, or later provider work is the 0051
+  conclusion.
+- Keep all visible-card proposals in table observations when identity evidence is unusable or
+  processing fails. Do not fabricate an identity to preserve the proposal.
+- Keep RF-DETR segmentation and other visible-region provider changes out of 0051 and 0052. Epic
+  0050 can measure a provider candidate only after the resilient downstream identifier is fixed.
+- Keep temporal association in 0050. It remains optional evidence and does not replace the stream of
+  all currently visible cards.
 
 ## Closed-epic policy
 
