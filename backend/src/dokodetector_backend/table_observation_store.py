@@ -24,7 +24,7 @@ class TableObservationStoreError(RuntimeError):
 
 
 class TableObservationConflict(TableObservationStoreError):
-    """An observation ID or package/analyzer key is already used by different content."""
+    """An observation identity is already used by different content."""
 
 
 class TableObservationStore:
@@ -81,7 +81,34 @@ class TableObservationStore:
         return tuple(
             observation
             for observation in self.list()
-            if str(observation.package_id) == expected_package_id
+            if observation.package_id is not None
+            and str(observation.package_id) == expected_package_id
+        )
+
+    def list_for_recording(self, recording_id: str) -> tuple[StoredTableObservation, ...]:
+        """Return valid pipeline observations for one recording video."""
+
+        return tuple(
+            observation for observation in self.list() if observation.recording_id == recording_id
+        )
+
+    def list_for_lineage(
+        self,
+        recording_id: str,
+        *,
+        assembly_run_id: str | None = None,
+        input_revision_ids: tuple[str, ...] | list[str] | None = None,
+    ) -> tuple[StoredTableObservation, ...]:
+        """Filter pipeline observations by recording, run, and exact input lineage."""
+
+        expected_inputs = None if input_revision_ids is None else tuple(input_revision_ids)
+        return tuple(
+            observation
+            for observation in self.list_for_recording(recording_id)
+            if (assembly_run_id is None or observation.assembly_run_id == assembly_run_id)
+            and (
+                expected_inputs is None or observation.input_revision_ids == expected_inputs
+            )
         )
 
     def get_for_analyzer(
@@ -97,7 +124,8 @@ class TableObservationStore:
             (
                 observation
                 for observation in self.list()
-                if str(observation.package_id) == expected_package_id
+                if observation.package_id is not None
+                and str(observation.package_id) == expected_package_id
                 and observation.analyzer_name == analyzer_name
                 and observation.analyzer_version == analyzer_version
             ),
@@ -118,13 +146,14 @@ class TableObservationStore:
             existing = self.get(observation.observation_id)
             if existing is not None:
                 return self._resolve_replay(existing, observation, observation_bytes)
-            existing = self.get_for_analyzer(
-                observation.source.package_id,
-                observation.analyzer.name,
-                observation.analyzer.version,
-            )
-            if existing is not None:
-                return self._resolve_replay(existing, observation, observation_bytes)
+            if observation.source.package_id is not None:
+                existing = self.get_for_analyzer(
+                    observation.source.package_id,
+                    observation.analyzer.name,
+                    observation.analyzer.version,
+                )
+                if existing is not None:
+                    return self._resolve_replay(existing, observation, observation_bytes)
 
             try:
                 with self.storage.start_table_observation(observation.observation_id) as staged:
@@ -171,14 +200,24 @@ class TableObservationStore:
             raise ValueError("observation ID differs from its directory name")
         if observation_bytes != canonical_json_bytes(observation):
             raise ValueError("observation bytes are not canonical")
-        try:
-            package_id = UUID(observation.source.package_id)
-        except (TypeError, ValueError) as error:
-            raise ValueError("observation package ID is invalid") from error
+        package_id = None
+        if observation.source.package_id is not None:
+            try:
+                package_id = UUID(observation.source.package_id)
+            except (TypeError, ValueError) as error:
+                raise ValueError("observation package ID is invalid") from error
         created_at = datetime.fromtimestamp(observation_path.stat().st_mtime, tz=timezone.utc)
         return StoredTableObservation(
             observation_id=observation.observation_id,
             package_id=package_id,
+            recording_id=observation.source.recording_id,
+            video_sha256=observation.source.video_sha256,
+            assembly_run_id=observation.source.assembly_run_id,
+            input_revision_ids=(
+                None
+                if observation.source.input_revision_ids is None
+                else tuple(observation.source.input_revision_ids)
+            ),
             schema_version=observation.schema_version,
             analyzer_name=observation.analyzer.name,
             analyzer_version=observation.analyzer.version,
@@ -197,10 +236,7 @@ class TableObservationStore:
         observation_bytes: bytes,
     ) -> tuple[StoredTableObservation, bool]:
         if (
-            str(existing.package_id) == observation.source.package_id
-            and existing.analyzer_name == observation.analyzer.name
-            and existing.analyzer_version == observation.analyzer.version
-            and existing.observation_id == observation.observation_id
+            existing.observation_id == observation.observation_id
             and existing.observation_json.encode("utf-8") == observation_bytes
         ):
             return existing, False

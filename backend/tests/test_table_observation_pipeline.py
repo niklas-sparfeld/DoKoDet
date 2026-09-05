@@ -355,6 +355,49 @@ def test_observation_conflict_keeps_original_bytes(backend) -> None:
     assert (client.app.state.storage.root / stored.relative_path).read_bytes() == original_bytes
 
 
+def test_pipeline_observations_use_id_and_lineage_identity(backend) -> None:
+    client, _, _ = backend
+    upload_fixture(client, "example-complete")
+    original = parse_observation_bytes(OBSERVATION_FIXTURE.read_bytes())
+    source = {
+        "recording_id": "recording-01",
+        "video_sha256": "a" * 64,
+        "assembly_run_id": "assembly-01",
+        "input_revision_ids": ["events-01", "visible-01", "identity-01"],
+    }
+    first = TableObservation.model_validate(
+        original.model_dump(mode="python", exclude_none=True)
+        | {"observation_id": "pipeline-observation-01", "source": source}
+    )
+    second = TableObservation.model_validate(
+        first.model_dump(mode="python", exclude_none=True)
+        | {
+            "observation_id": "pipeline-observation-02",
+            "source": {**source, "assembly_run_id": "assembly-02"},
+        }
+    )
+    first_stored, first_created = client.app.state.table_observation_store.publish(
+        first, canonical_json_bytes(first)
+    )
+    second_stored, second_created = client.app.state.table_observation_store.publish(
+        second, canonical_json_bytes(second)
+    )
+
+    assert first_created is True and second_created is True
+    listed = client.app.state.table_observation_store.list_for_recording("recording-01")
+    assert [item.observation_id for item in listed] == [
+        first.observation_id,
+        second.observation_id,
+    ]
+    assert client.app.state.table_observation_store.list_for_lineage(
+        "recording-01", assembly_run_id="assembly-01"
+    ) == (first_stored,)
+    assert client.app.state.table_observation_store.list_for_lineage(
+        "recording-01",
+        input_revision_ids=("events-01", "visible-01", "identity-01"),
+    ) == (first_stored, second_stored)
+
+
 def test_filesystem_failure_leaves_no_observation_directory(backend, monkeypatch) -> None:
     client, repository, storage = backend
     payload, _ = upload_fixture(client, "example-complete")

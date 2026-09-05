@@ -21,6 +21,7 @@ DATA_REVISION_SCHEMA_VERSION = "data-revision/v1"
 EVENT_DATA_SCHEMA_VERSION = "event-data/v1"
 VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
 VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v1"
+TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 PROCESSOR_RUN_REQUEST_SCHEMA_VERSION = "processor-run-request/v1"
 PROCESSOR_RUN_STATE_SCHEMA_VERSION = "processor-run-state/v1"
 PIPELINE_SELECTION_SCHEMA_VERSION = "pipeline-selection/v1"
@@ -645,6 +646,7 @@ class DataRevision:
             "events": EVENT_DATA_SCHEMA_VERSION,
             "visible_cards": VISIBLE_CARD_DATA_SCHEMA_VERSION,
             "visual_identities": VISUAL_IDENTITY_DATA_SCHEMA_VERSION,
+            "table_observations": TABLE_OBSERVATION_DATA_SCHEMA_VERSION,
         }.get(content_type)
         if supported_schema is None or content_schema != supported_schema:
             raise PipelineDataContractError("content_type and content_schema do not match")

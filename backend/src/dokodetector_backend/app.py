@@ -31,6 +31,7 @@ from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.gemini_analyzer import create_configured_analyzer
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
+from dokodetector_backend.observation_pipeline_service import ObservationPipelineService
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
@@ -87,6 +88,7 @@ def create_app(
         await application.state.event_pipeline_service.start()
         await application.state.visible_card_pipeline_service.start()
         await application.state.visual_identity_pipeline_service.start()
+        await application.state.observation_pipeline_service.start()
         await application.state.round_analysis_service.start()
         log_event(
             LOGGER,
@@ -101,6 +103,7 @@ def create_app(
             await application.state.event_pipeline_service.stop()
             await application.state.visible_card_pipeline_service.stop()
             await application.state.visual_identity_pipeline_service.stop()
+            await application.state.observation_pipeline_service.stop()
             await application.state.round_analysis_service.stop()
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
@@ -189,6 +192,12 @@ def create_app(
         revision_store=app.state.pipeline_revision_store,
         run_store=app.state.pipeline_run_store,
         selection_store=app.state.pipeline_selection_store,
+    )
+    app.state.observation_pipeline_service = ObservationPipelineService(
+        revision_store=app.state.pipeline_revision_store,
+        run_store=app.state.pipeline_run_store,
+        selection_store=app.state.pipeline_selection_store,
+        runtime_root=app_settings.evidence_root,
     )
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     recovered_analysis_count = app.state.round_analysis_store.fail_non_terminal()

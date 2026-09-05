@@ -20,7 +20,7 @@
 - **M3:** Complete — run, import, validate, and retain event results from recording video.
 - **M4:** Complete — run and retain visible-card detector results.
 - **M5:** Complete — run and retain visual card identity results.
-- **M6:** Not started — assemble and store table observations from selected results.
+- **M6:** Complete — assemble and store table observations from selected results.
 - **M7:** Not started — run recording analysis without evidence-package inputs.
 - **M8:** Not started — implement maintained reference drafts and conflict-safe editing.
 - **M9:** Not started — validate coverage, track affected work, and complete references.

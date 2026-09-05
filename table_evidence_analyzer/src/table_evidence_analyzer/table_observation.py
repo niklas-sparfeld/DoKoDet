@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections.abc import Mapping
 from typing import Annotated, Literal
 
@@ -50,6 +51,7 @@ Identifier = Annotated[
     ),
 ]
 BoundedScore = Annotated[float, Field(ge=0.0, le=1.0)]
+Digest = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
 
 class ContractModel(BaseModel):
@@ -63,10 +65,46 @@ class ContractModel(BaseModel):
 
 
 class ObservationSource(ContractModel):
-    """The evidence package and optional snippet that produced an observation."""
+    """The legacy package or recording-pipeline source that produced an observation."""
 
-    package_id: Identifier
+    package_id: Identifier | None = None
     snippet_part_name: Identifier | None = None
+    recording_id: Identifier | None = None
+    video_sha256: Digest | None = None
+    assembly_run_id: Identifier | None = None
+    input_revision_ids: list[Identifier] | None = None
+
+    @field_validator("video_sha256")
+    @classmethod
+    def require_lowercase_digest(cls, value: str | None) -> str | None:
+        if value is not None and re.fullmatch(r"[0-9a-f]{64}", value) is None:
+            raise ValueError("video_sha256 must be a lower-case SHA-256 digest.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_source_shape(self) -> ObservationSource:
+        legacy = self.package_id is not None
+        pipeline_values = (
+            self.recording_id,
+            self.video_sha256,
+            self.assembly_run_id,
+            self.input_revision_ids,
+        )
+        pipeline = all(value is not None for value in pipeline_values)
+        if legacy == pipeline:
+            raise ValueError("observation source must be either package-backed or pipeline-backed.")
+        if legacy and self.snippet_part_name is None:
+            return self
+        if legacy:
+            return self
+        if self.snippet_part_name is not None:
+            raise ValueError("pipeline observation sources cannot contain a snippet part.")
+        assert self.input_revision_ids is not None
+        if len(self.input_revision_ids) != 3:
+            raise ValueError("pipeline observation sources need three input revisions.")
+        if len(set(self.input_revision_ids)) != len(self.input_revision_ids):
+            raise ValueError("pipeline observation input revisions must be unique.")
+        return self
 
 
 class ObservationSession(ContractModel):

@@ -11,9 +11,11 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from .cards import CARD_IDENTITIES
+from .table_observation import TableObservation, parse_observation_bytes
 
 VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
 VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v1"
+TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 EXACT_EVENT_FRAME_SCHEMA_VERSION = "exact-event/v1"
 DETECTOR_BOX_GEOMETRY_KIND = "detector-box/v1"
 
@@ -766,6 +768,49 @@ class VisualIdentityData:
 
 
 @dataclass(frozen=True, slots=True)
+class TableObservationData:
+    """The ordered table observations produced by one assembly run."""
+
+    observations: tuple[TableObservation, ...]
+
+    @classmethod
+    def from_mapping(cls, raw: Mapping[str, Any]) -> "TableObservationData":
+        data = _mapping(raw, "table-observation data")
+        _strict(data, {"schema_version", "observations"}, "table-observation data")
+        if data["schema_version"] != TABLE_OBSERVATION_DATA_SCHEMA_VERSION:
+            raise PipelineDataError("table-observation data has an unsupported schema")
+        raw_observations = data["observations"]
+        if not isinstance(raw_observations, list):
+            raise PipelineDataError("table-observation data.observations must be a list")
+        observations: list[TableObservation] = []
+        for index, item in enumerate(raw_observations):
+            try:
+                observations.append(
+                    parse_observation_bytes(
+                        canonical_json_bytes(_mapping(item, f"observations[{index}]"))
+                    )
+                )
+            except (TypeError, ValueError) as error:
+                raise PipelineDataError(f"observations[{index}] is invalid") from error
+        identifiers = [observation.observation_id for observation in observations]
+        if len(identifiers) != len(set(identifiers)):
+            raise PipelineDataError("table-observation data IDs must be unique")
+        times = [observation.observed_at_ms for observation in observations]
+        if times != sorted(times):
+            raise PipelineDataError("table-observation data must be ordered by observed_at_ms")
+        return cls(observations=tuple(observations))
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "schema_version": TABLE_OBSERVATION_DATA_SCHEMA_VERSION,
+            "observations": [
+                observation.model_dump(mode="json", exclude_none=True)
+                for observation in self.observations
+            ],
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class VisibleCardOutcome:
     """The durable result for one requested event."""
 
@@ -903,6 +948,38 @@ def parse_visual_identity_data_bytes(raw: bytes) -> VisualIdentityData:
     return VisualIdentityData.from_mapping(_mapping(value, "visual-identity data"))
 
 
+def parse_table_observation_data_bytes(raw: bytes) -> TableObservationData:
+    if not isinstance(raw, bytes):
+        raise TypeError("table-observation data must be bytes")
+
+    def reject_constant(value: str) -> None:
+        raise PipelineDataError(
+            f"table-observation data contains a non-finite JSON number: {value}"
+        )
+
+    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise PipelineDataError(
+                    f"table-observation data contains a duplicate field: {key}"
+                )
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(
+            raw.decode("utf-8"),
+            parse_constant=reject_constant,
+            object_pairs_hook=reject_duplicate_keys,
+        )
+    except PipelineDataError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PipelineDataError("table-observation data must be valid UTF-8 JSON") from error
+    return TableObservationData.from_mapping(_mapping(value, "table-observation data"))
+
+
 def canonical_visible_card_data_bytes(value: VisibleCardData | Mapping[str, Any]) -> bytes:
     data = value if isinstance(value, VisibleCardData) else VisibleCardData.from_mapping(value)
     return canonical_json_bytes(data.to_mapping())
@@ -917,11 +994,23 @@ def canonical_visual_identity_data_bytes(
     return canonical_json_bytes(data.to_mapping())
 
 
+def canonical_table_observation_data_bytes(
+    value: TableObservationData | Mapping[str, Any],
+) -> bytes:
+    data = (
+        value
+        if isinstance(value, TableObservationData)
+        else TableObservationData.from_mapping(value)
+    )
+    return canonical_json_bytes(data.to_mapping())
+
+
 __all__ = [
     "DETECTOR_BOX_GEOMETRY_KIND",
     "EXACT_EVENT_FRAME_SCHEMA_VERSION",
     "PipelineDataError",
     "PipelineGeometry",
+    "TABLE_OBSERVATION_DATA_SCHEMA_VERSION",
     "VISIBLE_CARD_DATA_SCHEMA_VERSION",
     "VISUAL_IDENTITY_DATA_SCHEMA_VERSION",
     "VisibleCardCandidate",
@@ -935,11 +1024,14 @@ __all__ = [
     "VisualIdentityCropIdentity",
     "VisualIdentityData",
     "VisualIdentityOutcome",
+    "TableObservationData",
     "canonical_json_bytes",
+    "canonical_table_observation_data_bytes",
     "canonical_visible_card_data_bytes",
     "canonical_visual_identity_data_bytes",
     "parse_pipeline_geometry",
     "parse_visible_card_data_bytes",
     "parse_visual_identity_data_bytes",
+    "parse_table_observation_data_bytes",
     "sha256_bytes",
 ]

@@ -47,10 +47,13 @@ from doko_operations.pipeline_data import (
 )
 from table_evidence_analyzer.pipeline_data import (
     PipelineDataError,
+    TableObservationData,
     VisibleCardData,
     VisualIdentityData,
+    canonical_table_observation_data_bytes,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
+    parse_table_observation_data_bytes,
     parse_visible_card_data_bytes,
     parse_visual_identity_data_bytes,
 )
@@ -140,7 +143,7 @@ class StoredPipelineRevision:
     """A validated manifest and content payload from the immutable revision store."""
 
     manifest: DataRevision
-    content: EventData | VisibleCardData | VisualIdentityData
+    content: EventData | VisibleCardData | VisualIdentityData | TableObservationData
 
     def to_mapping(self) -> dict[str, Any]:
         return {"manifest": self.manifest.to_mapping(), "content": self.content.to_mapping()}
@@ -256,7 +259,9 @@ class PipelineRevisionStore:
     def publish(
         self,
         revision: EventDataRevision | DataRevision,
-        content: EventData | VisibleCardData | VisualIdentityData | bytes | None = None,
+        content: (
+            EventData | VisibleCardData | VisualIdentityData | TableObservationData | bytes | None
+        ) = None,
     ) -> tuple[StoredPipelineRevision, bool]:
         """Publish one complete revision, or replay identical bytes."""
 
@@ -313,8 +318,12 @@ class PipelineRevisionStore:
     def _coerce_revision(
         self,
         revision: EventDataRevision | DataRevision,
-        content: EventData | VisibleCardData | VisualIdentityData | bytes | None,
-    ) -> tuple[DataRevision, EventData | VisibleCardData | VisualIdentityData]:
+        content: (
+            EventData | VisibleCardData | VisualIdentityData | TableObservationData | bytes | None
+        ),
+    ) -> tuple[
+        DataRevision, EventData | VisibleCardData | VisualIdentityData | TableObservationData
+    ]:
         if isinstance(revision, EventDataRevision):
             if content is not None:
                 raise TypeError("content must not be supplied with EventDataRevision")
@@ -327,14 +336,20 @@ class PipelineRevisionStore:
             return revision, content
         if revision.content_type == "visible_cards" and isinstance(content, VisibleCardData):
             return revision, content
-        if revision.content_type == "visual_identities" and isinstance(content, VisualIdentityData):
+        if revision.content_type == "visual_identities" and isinstance(
+            content, VisualIdentityData
+        ):
+            return revision, content
+        if revision.content_type == "table_observations" and isinstance(
+            content, TableObservationData
+        ):
             return revision, content
         raise TypeError("revision content does not match its content type")
 
     @staticmethod
     def _parse_content_bytes_for_manifest(
         manifest: DataRevision, raw: bytes
-    ) -> EventData | VisibleCardData | VisualIdentityData:
+    ) -> EventData | VisibleCardData | VisualIdentityData | TableObservationData:
         duration_us = (
             manifest.source.duration_us
             if isinstance(manifest.source, RecordingVideoSource)
@@ -352,11 +367,16 @@ class PipelineRevisionStore:
                 return parse_visual_identity_data_bytes(raw)
             except PipelineDataError as error:
                 raise PipelineDataContractError(str(error)) from error
+        if manifest.content_type == "table_observations":
+            try:
+                return parse_table_observation_data_bytes(raw)
+            except PipelineDataError as error:
+                raise PipelineDataContractError(str(error)) from error
         raise PipelineDataContractError("unsupported pipeline content type")
 
     @staticmethod
     def _canonical_content_bytes(
-        content: EventData | VisibleCardData | VisualIdentityData,
+        content: EventData | VisibleCardData | VisualIdentityData | TableObservationData,
     ) -> bytes:
         if isinstance(content, EventData):
             return canonical_event_data_bytes(content)
@@ -364,12 +384,14 @@ class PipelineRevisionStore:
             return canonical_visible_card_data_bytes(content)
         if isinstance(content, VisualIdentityData):
             return canonical_visual_identity_data_bytes(content)
+        if isinstance(content, TableObservationData):
+            return canonical_table_observation_data_bytes(content)
         raise TypeError("unsupported pipeline content")
 
     @staticmethod
     def _validate_content(
         manifest: DataRevision,
-        content: EventData | VisibleCardData | VisualIdentityData,
+        content: EventData | VisibleCardData | VisualIdentityData | TableObservationData,
     ) -> None:
         if manifest.content_type == "events" and isinstance(content, EventData):
             validate_event_revision_content(manifest, content)
@@ -391,12 +413,47 @@ class PipelineRevisionStore:
                     "content_sha256 does not match canonical visual-identity content"
                 )
             return
+        if manifest.content_type == "table_observations" and isinstance(
+            content, TableObservationData
+        ):
+            if (
+                not isinstance(manifest.source, RecordingVideoSource)
+                or manifest.recording_id is None
+            ):
+                raise PipelineDataContractError(
+                    "table-observation content needs a recording video source"
+                )
+            producer = manifest.producer
+            if not isinstance(producer, ProcessorProducer):
+                raise PipelineDataContractError(
+                    "table-observation content needs processor lineage"
+                )
+            for observation in content.observations:
+                source = observation.source
+                if (
+                    source.package_id is not None
+                    or source.recording_id != manifest.recording_id
+                    or source.video_sha256 != manifest.source.video_sha256
+                    or source.assembly_run_id != producer.run_id
+                    or tuple(source.input_revision_ids or ()) != manifest.input_revision_ids
+                ):
+                    raise PipelineDataContractError(
+                        "table-observation source lineage does not match its revision"
+                    )
+            if (
+                sha256_bytes(canonical_table_observation_data_bytes(content))
+                != manifest.content_sha256
+            ):
+                raise PipelineDataContractError(
+                    "content_sha256 does not match table-observation content"
+                )
+            return
         raise PipelineDataContractError("revision content does not match its manifest")
 
     @staticmethod
     def _validate_payload(
         manifest: DataRevision,
-        content: EventData | VisibleCardData | VisualIdentityData,
+        content: EventData | VisibleCardData | VisualIdentityData | TableObservationData,
         manifest_bytes: bytes,
         content_bytes: bytes,
     ) -> None:
@@ -910,6 +967,7 @@ class ProcessorRunStore:
                 "event-detection": "events",
                 "visible-card-detection": "visible_cards",
                 "visual-card-identity": "visual_identities",
+                "observation-assembly": "table_observations",
             }.get(request.processor_type)
             if expected_content_type is not None and manifest.content_type != expected_content_type:
                 raise PipelineStateError("run output revision has a different content type")

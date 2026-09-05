@@ -95,7 +95,11 @@ class StoredTableObservation:
     """Table-observation metadata projected from an immutable observation file."""
 
     observation_id: str
-    package_id: UUID
+    package_id: UUID | None
+    recording_id: str | None
+    video_sha256: str | None
+    assembly_run_id: str | None
+    input_revision_ids: tuple[str, ...] | None
     schema_version: str
     analyzer_name: str
     analyzer_version: str
