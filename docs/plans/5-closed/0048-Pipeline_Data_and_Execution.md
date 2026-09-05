@@ -4,12 +4,16 @@
 
 - **Summary:** Store reusable pipeline results and maintained references, and run the development
   pipeline from original recording videos with explicit input selection.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Completed 0039, 0040, 0041, 0042, 0045, and 0046
 - **Supersedes:** The data and execution direction of 0047 and the pipeline foundation work in 0022
 - **Outcome:** Each processor can consume selected generated or reviewed data revisions, preserve
   its results, and feed the next processor without creating a review batch or using device packages.
-- **Next:** [0049 — Recording pipeline review and comparison](../4-blocked/0049-Recording_Pipeline_Review_and_Comparison.md)
+- **Closure reason:** Complete
+- **Closure note:** M0–M10 complete: recording-video pipeline execution, maintained reference lifecycle,
+  coverage and downstream impact validation, immutable dataset consumer manifests, and the 0049
+  cutover handoff are complete. Real-data quality measurement remains in 0043 and 0050.
+- **Next:** [0049 — Recording pipeline review and comparison](../2-ready/0049-Recording_Pipeline_Review_and_Comparison.md)
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status
@@ -26,7 +30,8 @@
 - **M9:** Complete — validate full-recording event intervals, resolved-frame and upstream-card
   coverage; preserve matched draft decisions, track affected downstream work, and publish complete
   maintained references.
-- **M10:** Not started — freeze selected references for existing dataset consumers.
+- **M10:** Complete — freeze selected references for existing dataset consumers and document the 0049
+  cutover handoff.
 
 ## 1. Scope and ownership
 

@@ -47,19 +47,18 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0049 — Recording pipeline review and comparison](2-ready/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per stage, simple input selection, retained results, and comparison. M0–M6 not started. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0048 — Pipeline data and execution](3-in-progress/0048-Pipeline_Data_and_Execution.md) | 0039, 0040, 0041, 0042, 0045, and 0046 complete | M0–M9 complete: shared contracts, durable revision/run/selection stores, deterministic video-derived views, event execution/API, visible-card detector execution/API, visual identity classifier execution/API, observation assembly/storage lineage, recording-only round analysis, restart-safe maintained reference drafts with immutable human revisions and conflict-safe editing, type-specific coverage validation, downstream impact tracking, and rebase-aware completion. M10 not started. |
+| None | — | — |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0049 — Recording pipeline review and comparison](4-blocked/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per review stage, simple input selection, retained results, and comparison. M0–M10 not started. |
 | [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, and 0049 complete, plus declared real reviewed coverage | Compare at most two DINOv3 candidates on frozen reference revisions, including generated-geometry inputs; lock at most one without changing the backend default. M0–M3 not started. |
 | [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048 and 0049 complete, plus reviewed real evidence for a bounded measurement | Measure current detector/composed quality, then select at most one justified capability response. Carries forward useful 0022 experiments. M0–M3 not started. |
@@ -68,6 +67,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0048 — Pipeline data and execution](5-closed/0048-Pipeline_Data_and_Execution.md) | Complete | M0–M10 complete: recording-video pipeline execution, maintained references with coverage and downstream impact validation, immutable dataset consumer manifests with explicit source/policy/lineage inputs, and the 0049 cutover handoff. Real-data quality measurement remains in 0043 and 0050. |
 | [0047 — Current recording annotations and evidence](5-closed/0047-Current_Recording_Annotations_and_Evidence.md) | Superseded | Replaced before implementation by 0048 and 0049. Proposal loss and package management are not the target design. |
 | [0041 — Local visual card identity classifier PoC](5-closed/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | Complete | M0–M3 complete: local training, bundle, classifier runtime, and backend capability proved. Quality remains in 0043; new integration work belongs to 0048. |
 | [0039 — Web recording data workspace](5-closed/0039-Web_Recording_Data_Workspace.md) | Complete | M0–M4 complete: recording workspace, event review, completion, and development partitions. Further data and review work belongs to 0048/0049. |

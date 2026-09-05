@@ -4,10 +4,8 @@
 
 - **Summary:** Make the recording workspace show selected generated results and one maintained
   reference per review stage, with simple run, review, and comparison controls.
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** 0048 complete
-- **Blocker:** The shared run, data revision, reference, coverage, and dataset contracts in 0048
-  must exist before the editors switch to them.
 - **Builds on:** Completed 0039, 0040, 0042, and 0045 editors; 0033 analysis diagnostics
 - **Supersedes:** The recording UI direction of 0047
 - **Outcome:** An operator can run the pipeline on generated or reviewed inputs, maintain one
