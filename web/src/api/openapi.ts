@@ -2538,6 +2538,12 @@ export interface components {
          * @description The preview identity required to start preparation.
          */
         IdentityReviewCreateRequest: {
+            /**
+             * Crop Policy Id
+             * @default raw_rectangular
+             * @enum {string}
+             */
+            crop_policy_id: "raw_rectangular" | "oracle_visible_region" | "conservative_box_only";
             /** Preview Digest */
             preview_digest: string;
             /** Request Digest */
@@ -2573,6 +2579,18 @@ export interface components {
             visible_card_digest: string;
             /** Visible Card Review Item Id */
             visible_card_review_item_id: string;
+        };
+        /**
+         * IdentityReviewPreviewRequest
+         * @description The frozen crop policy to use for one identity batch preview.
+         */
+        IdentityReviewPreviewRequest: {
+            /**
+             * Crop Policy Id
+             * @default raw_rectangular
+             * @enum {string}
+             */
+            crop_policy_id: "raw_rectangular" | "oracle_visible_region" | "conservative_box_only";
         };
         /**
          * IdentityReviewPreviewResponse
@@ -6437,7 +6455,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityReviewPreviewRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

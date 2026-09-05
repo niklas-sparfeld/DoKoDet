@@ -34,6 +34,9 @@ from fastapi import APIRouter, Request
 from fastapi.responses import Response
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field
+from table_evidence_analyzer.visible_card_review_freeze import (
+    frozen_visible_card_crop_policy,
+)
 
 from dokodetector_backend.card_event_development_split_api import (
     load_card_event_development_recordings,
@@ -56,6 +59,11 @@ BatchPhase = Literal[
     "blocked",
 ]
 ReadinessState = Literal["not_ready", "ready", "preparing", "failed", "blocked"]
+IdentityCropPolicyId = Literal[
+    "raw_rectangular",
+    "oracle_visible_region",
+    "conservative_box_only",
+]
 
 
 class IdentityBatchFailureResponse(BaseModel):
@@ -362,6 +370,14 @@ class IdentityReviewPreviewResponse(BaseModel):
     validation: IdentityReviewPreviewValidationResponse
 
 
+class IdentityReviewPreviewRequest(BaseModel):
+    """The frozen crop policy to use for one identity batch preview."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    crop_policy_id: IdentityCropPolicyId = "raw_rectangular"
+
+
 class IdentityReviewReadinessResponse(BaseModel):
     """Recording-scoped identity review readiness."""
 
@@ -384,6 +400,7 @@ class IdentityReviewCreateRequest(BaseModel):
 
     preview_digest: str = Field(pattern=SHA256_PATTERN)
     request_digest: str = Field(pattern=SHA256_PATTERN)
+    crop_policy_id: IdentityCropPolicyId = "raw_rectangular"
 
 
 @dataclass(frozen=True, slots=True)
@@ -395,6 +412,7 @@ class _IdentityContext:
     visible_batch: dict[str, Any] | None
     classifier: Any | None
     request: VisualCardIdentityBatchRequest | None
+    crop_policy_id: IdentityCropPolicyId
     protected_groups: tuple[str, ...]
     source_permission: str
     allowed_uses: tuple[str, ...]
@@ -450,10 +468,16 @@ def get_identity_review_readiness(
     "/v1/recordings/{recording_id}/identity-review/preview",
     response_model=IdentityReviewPreviewResponse,
 )
-def preview_identity_review(recording_id: str, request: Request) -> IdentityReviewPreviewResponse:
+def preview_identity_review(
+    recording_id: str,
+    payload: IdentityReviewPreviewRequest,
+    request: Request,
+) -> IdentityReviewPreviewResponse:
     """Return the immutable visible-card and classifier facts for one preview."""
 
-    return IdentityReviewPreviewResponse.model_validate(_preview(_context(request, recording_id)))
+    return IdentityReviewPreviewResponse.model_validate(
+        _preview(_context(request, recording_id, crop_policy_id=payload.crop_policy_id))
+    )
 
 
 @router.post(
@@ -468,7 +492,7 @@ async def create_identity_review_batch(
 ) -> IdentityReviewBatchResponse:
     """Create one preview-bound batch and schedule preparation outside the request thread."""
 
-    context = _context(request, recording_id)
+    context = _context(request, recording_id, crop_policy_id=payload.crop_policy_id)
     preview = _preview(context)
     if not preview["validation"]["valid"] or context.request is None or context.classifier is None:
         raise ContractError(
@@ -738,6 +762,7 @@ async def retry_identity_review_batch(
         visible_batch=context.visible_batch,
         classifier=context.classifier,
         request=frozen,
+        crop_policy_id=frozen.crop_policy_id,
         protected_groups=context.protected_groups,
         source_permission=context.source_permission,
         allowed_uses=context.allowed_uses,
@@ -800,7 +825,12 @@ def _development_context(
     return "unassigned", (("source_lineage", source_lineage_group),)
 
 
-def _context(request: Request, recording_id: str) -> _IdentityContext:
+def _context(
+    request: Request,
+    recording_id: str,
+    *,
+    crop_policy_id: IdentityCropPolicyId = "raw_rectangular",
+) -> _IdentityContext:
     if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
         raise ContractError("invalid_recording_id", "The recording ID is invalid.")
     source = _load_source(request, recording_id, require_selected=False)
@@ -849,6 +879,7 @@ def _context(request: Request, recording_id: str) -> _IdentityContext:
                         visible_card_review_queue_path=Path(queue_path),
                         visible_card_review_queue_digest=visible_batch["queue_digest"],
                         classifier=identity,
+                        crop_policy_id=crop_policy_id,
                         protected_source_lineage_groups=_protected_groups(request),
                     )
                     if identity is not None
@@ -864,6 +895,7 @@ def _context(request: Request, recording_id: str) -> _IdentityContext:
         visible_batch=visible_batch,
         classifier=classifier,
         request=frozen_request,
+        crop_policy_id=crop_policy_id,
         protected_groups=_protected_groups(request),
         source_permission=source_record.source_permission,
         allowed_uses=_identity_allowed_uses(source_record),
@@ -882,13 +914,17 @@ def _protected_groups(request: Request) -> tuple[str, ...]:
 
 
 def _preview(context: _IdentityContext) -> dict[str, Any]:
-    policy = context.request.crop_policy if context.request is not None else None
-    if policy is None:
-        from table_evidence_analyzer import frozen_visible_card_crop_policy
-
-        policy = frozen_visible_card_crop_policy()
+    policy = (
+        context.request.crop_policy
+        if context.request is not None
+        else frozen_visible_card_crop_policy()
+    )
     crop_policy = {
-        "policy_id": "raw_rectangular",
+        "policy_id": (
+            context.request.crop_policy_id
+            if context.request is not None
+            else context.crop_policy_id
+        ),
         "policy_digest": policy["policy_digest"],
         "policy": policy,
     }

@@ -251,6 +251,63 @@ def test_identity_review_preview_create_and_crop_route(tmp_path: Path) -> None:
         assert classifier.calls == 1
 
 
+def test_identity_review_can_prepare_oracle_policy_without_mutating_raw_batch(
+    tmp_path: Path,
+) -> None:
+    app, classifier = _app(tmp_path)
+    with TestClient(app) as client:
+        _complete_card_event_review(client)
+        _complete_visible_card_review(client)
+
+        raw_preview = client.post(
+            "/v1/recordings/recording-both/identity-review/preview", json={}
+        ).json()
+        oracle_preview = client.post(
+            "/v1/recordings/recording-both/identity-review/preview",
+            json={"crop_policy_id": "oracle_visible_region"},
+        ).json()
+        assert raw_preview["crop_policy"]["policy_id"] == "raw_rectangular"
+        assert oracle_preview["crop_policy"]["policy_id"] == "oracle_visible_region"
+        assert raw_preview["request_digest"] != oracle_preview["request_digest"]
+        assert raw_preview["batch_id"] != oracle_preview["batch_id"]
+
+        raw_created = client.post(
+            "/v1/recordings/recording-both/identity-review/batches",
+            json={
+                "preview_digest": raw_preview["preview_digest"],
+                "request_digest": raw_preview["request_digest"],
+                "crop_policy_id": "raw_rectangular",
+            },
+        )
+        assert raw_created.status_code == 202
+        raw_state = _wait_for_identity_batch(client, raw_created.json()["batch_id"])
+        assert raw_state["crop_policy"]["policy_id"] == "raw_rectangular"
+
+        oracle_created = client.post(
+            "/v1/recordings/recording-both/identity-review/batches",
+            json={
+                "preview_digest": oracle_preview["preview_digest"],
+                "request_digest": oracle_preview["request_digest"],
+                "crop_policy_id": "oracle_visible_region",
+            },
+        )
+        assert oracle_created.status_code == 202
+        assert oracle_created.json()["batch_id"] != raw_state["batch_id"]
+        oracle_state = _wait_for_identity_batch(client, oracle_created.json()["batch_id"])
+        assert oracle_state["crop_policy"]["policy_id"] == "oracle_visible_region"
+        retried = client.post(f"/v1/identity-reviews/{oracle_state['batch_id']}/retry")
+        assert retried.status_code == 202
+        retried_state = _wait_for_identity_batch(client, oracle_state["batch_id"])
+        assert retried_state["crop_policy"]["policy_id"] == "oracle_visible_region"
+        assert (
+            client.get(f"/v1/identity-reviews/{raw_state['batch_id']}").json()["crop_policy"][
+                "policy_id"
+            ]
+            == "raw_rectangular"
+        )
+        assert classifier.calls == 2
+
+
 def test_identity_review_decisions_are_revision_guarded_and_completion_is_explicit(
     tmp_path: Path,
 ) -> None:

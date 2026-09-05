@@ -79,6 +79,8 @@ export type IdentityReviewReadiness = JsonResponse<
 export type IdentityReviewPreview = JsonResponse<
   paths["/v1/recordings/{recording_id}/identity-review/preview"]["post"]["responses"][200]
 >;
+export type IdentityReviewPreviewRequest =
+  components["schemas"]["IdentityReviewPreviewRequest"];
 export type IdentityReviewCreateRequest =
   components["schemas"]["IdentityReviewCreateRequest"];
 export type IdentityReviewBatch = JsonResponse<
@@ -232,6 +234,7 @@ export interface DokoDetectorClient {
   ): Promise<IdentityReviewReadiness>;
   previewIdentityReview(
     recordingId: string,
+    payload?: IdentityReviewPreviewRequest,
     init?: RequestInit,
   ): Promise<IdentityReviewPreview>;
   createIdentityReviewBatch(
@@ -547,7 +550,7 @@ export function createDokoDetectorClient(
         identityReviewReadinessPath(recordingId),
         init,
       ),
-    previewIdentityReview: (recordingId, init) =>
+    previewIdentityReview: (recordingId, payload, init) =>
       requestJson<IdentityReviewPreview>(
         fetchImplementation,
         identityReviewPreviewPath(recordingId),
@@ -555,7 +558,7 @@ export function createDokoDetectorClient(
           ...init,
           method: "POST",
           headers: jsonHeaders(init?.headers),
-          body: JSON.stringify({}),
+          body: JSON.stringify(payload ?? {}),
         },
       ),
     createIdentityReviewBatch: (recordingId, payload, init) =>

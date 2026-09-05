@@ -17,6 +17,7 @@ import {
   roundAnalysisFramePath,
   roundCounterfactualPath,
   roundCounterfactualReadPath,
+  identityReviewPreviewPath,
   visibleCardReviewItemRedetectPath,
 } from "./client";
 
@@ -282,6 +283,30 @@ describe("DokoDetector API client", () => {
       expected_revision: 4,
       model: "gemini-3.7-flash",
     });
+  });
+
+  it("sends the selected identity crop policy in the preview request", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.previewIdentityReview("recording/1", {
+      crop_policy_id: "oracle_visible_region",
+    });
+
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      identityReviewPreviewPath("recording/1"),
+    );
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[0]?.[1]?.body)),
+    ).toEqual({ crop_policy_id: "oracle_visible_region" });
   });
 
   it("encodes the complete recording path", () => {

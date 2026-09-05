@@ -7,6 +7,7 @@ import {
   type IdentityDecisionUpdateRequest,
   type IdentityReviewBatch,
   type IdentityReviewPreview,
+  type IdentityReviewPreviewRequest,
   type IdentityReviewReadiness,
 } from "./api/client";
 import styles from "./App.module.css";
@@ -14,6 +15,18 @@ import styles from "./App.module.css";
 type IdentityItem = IdentityReviewBatch["items"][number];
 type Point = { x: number; y: number };
 type Box = { x_min: number; y_min: number; x_max: number; y_max: number };
+type IdentityCropPolicyId = NonNullable<
+  IdentityReviewPreviewRequest["crop_policy_id"]
+>;
+
+const IDENTITY_CROP_POLICIES: ReadonlyArray<{
+  id: IdentityCropPolicyId;
+  label: string;
+}> = [
+  { id: "raw_rectangular", label: "Raw rectangular" },
+  { id: "oracle_visible_region", label: "Oracle visible region" },
+  { id: "conservative_box_only", label: "Conservative box only" },
+];
 
 const CANONICAL_IDENTITIES = [
   "CLUBS_ACE",
@@ -65,6 +78,8 @@ export function IdentityReviewSection({
 }) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [preview, setPreview] = useState<IdentityReviewPreview | null>(null);
+  const [cropPolicyId, setCropPolicyId] =
+    useState<IdentityCropPolicyId>("raw_rectangular");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -72,7 +87,11 @@ export function IdentityReviewSection({
     setBusy(true);
     setActionError(null);
     try {
-      setPreview(await client.previewIdentityReview(recordingId));
+      setPreview(
+        await client.previewIdentityReview(recordingId, {
+          crop_policy_id: cropPolicyId,
+        }),
+      );
     } catch (reason: unknown) {
       setActionError(describeError(reason));
     } finally {
@@ -95,6 +114,7 @@ export function IdentityReviewSection({
       const batch = await client.createIdentityReviewBatch(recordingId, {
         preview_digest: preview.preview_digest,
         request_digest: preview.request_digest,
+        crop_policy_id: preview.crop_policy.policy_id as IdentityCropPolicyId,
       });
       onChanged({
         ...review,
@@ -222,15 +242,37 @@ export function IdentityReviewSection({
               ) : null}
             </div>
           ) : null}
-          {review.state === "ready" && batch === null ? (
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={() => void loadPreview()}
-              disabled={busy}
-            >
-              {busy ? "Loading preview…" : "Preview identity batch"}
-            </button>
+          {review.state === "ready" && batch?.status !== "preparing" ? (
+            <div className={styles.identityPreviewControls}>
+              <label>
+                Crop policy
+                <select
+                  value={cropPolicyId}
+                  onChange={(event) =>
+                    setCropPolicyId(event.target.value as IdentityCropPolicyId)
+                  }
+                  disabled={busy}
+                >
+                  {IDENTITY_CROP_POLICIES.map((policy) => (
+                    <option key={policy.id} value={policy.id}>
+                      {policy.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className={styles.primaryButton}
+                type="button"
+                onClick={() => void loadPreview()}
+                disabled={busy}
+              >
+                {busy
+                  ? "Loading preview…"
+                  : batch === null
+                    ? "Preview identity batch"
+                    : "Prepare another identity batch"}
+              </button>
+            </div>
           ) : null}
           {preview !== null ? (
             <div className={styles.identityPreview} aria-live="polite">
@@ -239,6 +281,10 @@ export function IdentityReviewSection({
                 {preview.selected_card_count} identity-usable reviewed card
                 {preview.selected_card_count === 1 ? "" : "s"} will be copied
                 into frozen crops.
+              </p>
+              <p className={styles.detailMetaLine}>
+                Crop policy {formatIdentifier(preview.crop_policy.policy_id)} ·
+                request {preview.request_digest?.slice(0, 12) ?? "unavailable"}…
               </p>
               <p className={styles.detailMetaLine}>
                 Source {preview.source_asset_id} ·{" "}

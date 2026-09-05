@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
 
-import { IdentityReviewPage } from "./identityReview";
+import { IdentityReviewPage, IdentityReviewSection } from "./identityReview";
 import type { IdentityReviewBatch } from "./api/client";
 import { RecordingDetailView } from "./recordings";
 import { emptyRecordingDetail } from "./test/roundAnalysisFixture";
@@ -390,5 +390,110 @@ describe("IdentityReviewPage", () => {
     );
     await waitFor(() => expect(current.review_state).toBe("completed"));
     expect(screen.getByText(/Completed by web-operator/)).toBeInTheDocument();
+  });
+
+  it("previews and creates another batch with the selected crop policy", async () => {
+    const currentBatch = batchFixture() as IdentityReviewBatch;
+    const oraclePreview = {
+      schema_version: "visual-card-identity-review-preview/v1",
+      recording_id: "recording-fixture",
+      batch_id: "visual-card-identity-batch-oracle",
+      request_digest: "9".repeat(64),
+      preview_digest: "a".repeat(64),
+      visible_card_review_batch_id: "visible-card-batch-fixture",
+      visible_card_review_version_id: "visible-card-version",
+      visible_card_review_version_digest: "b".repeat(64),
+      visible_card_review_queue_digest: "c".repeat(64),
+      source_asset_id: "source-fixture",
+      source_sha256: "d".repeat(64),
+      source_lineage_group: "group-fixture",
+      classifier: currentBatch.classifier,
+      crop_policy: {
+        policy_id: "oracle_visible_region",
+        policy_digest: "e".repeat(64),
+        policy: { policy_id: "oracle_visible_region" },
+      },
+      selected_card_count: 2,
+      coverage: currentBatch.coverage,
+      validation: { valid: true, blockers: [] },
+    } as const;
+    const oracleBatch = {
+      ...currentBatch,
+      batch_id: "visual-card-identity-batch-oracle",
+      request_digest: oraclePreview.request_digest,
+      crop_policy: oraclePreview.crop_policy,
+      status: "preparing",
+      progress: {
+        ...currentBatch.progress,
+        phase: "validating_inputs",
+        crops_materialized: 0,
+        proposals_completed: 0,
+      },
+    } as IdentityReviewBatch;
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      const path = String(input);
+      if (path.endsWith("/identity-review/preview")) {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          crop_policy_id: "oracle_visible_region",
+        });
+        return Promise.resolve(
+          new Response(JSON.stringify(oraclePreview), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      expect(path.endsWith("/identity-review/batches")).toBe(true);
+      expect(JSON.parse(String(init?.body))).toEqual({
+        preview_digest: oraclePreview.preview_digest,
+        request_digest: oraclePreview.request_digest,
+        crop_policy_id: "oracle_visible_region",
+      });
+      return Promise.resolve(
+        new Response(JSON.stringify(oracleBatch), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const readiness = {
+      schema_version: "visual-card-identity-review-readiness/v1",
+      recording_id: "recording-fixture",
+      state: "ready",
+      message: "Ready to review.",
+      blocker: null,
+      selected_card_count: 2,
+      batch: currentBatch,
+      preview_digest: "f".repeat(64),
+    } as const;
+    const onChanged = vi.fn();
+
+    render(
+      <IdentityReviewSection
+        recordingId="recording-fixture"
+        review={readiness}
+        error={null}
+        onChanged={onChanged}
+      />,
+    );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Crop policy"),
+      "oracle_visible_region",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Prepare another identity batch" }),
+    );
+    expect(
+      await screen.findByText(/Crop policy Oracle Visible Region/),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create identity batch" }),
+    );
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(onChanged.mock.calls[0]?.[0].batch?.crop_policy.policy_id).toBe(
+      "oracle_visible_region",
+    );
   });
 });
