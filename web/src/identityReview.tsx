@@ -242,7 +242,8 @@ export function IdentityReviewSection({
               ) : null}
             </div>
           ) : null}
-          {review.state === "ready" && batch?.status !== "preparing" ? (
+          {(review.state === "ready" || review.state === "failed") &&
+          batch?.status !== "preparing" ? (
             <div className={styles.identityPreviewControls}>
               <label>
                 Crop policy

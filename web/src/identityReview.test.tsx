@@ -392,8 +392,25 @@ describe("IdentityReviewPage", () => {
     expect(screen.getByText(/Completed by web-operator/)).toBeInTheDocument();
   });
 
-  it("previews and creates another batch with the selected crop policy", async () => {
-    const currentBatch = batchFixture() as IdentityReviewBatch;
+  it("previews and creates another batch from an existing failed batch", async () => {
+    const currentBatch = {
+      ...batchFixture(),
+      status: "failed",
+      progress: {
+        ...batchFixture().progress,
+        phase: "failed",
+        failed_items: 1,
+      },
+      failures: [
+        {
+          code: "identity_classifier_error",
+          message: "The classifier proposal failed.",
+          stage: "proposal",
+          item_id: null,
+          retryable: true,
+        },
+      ],
+    } as IdentityReviewBatch;
     const oraclePreview = {
       schema_version: "visual-card-identity-review-preview/v1",
       recording_id: "recording-fixture",
@@ -460,9 +477,9 @@ describe("IdentityReviewPage", () => {
     const readiness = {
       schema_version: "visual-card-identity-review-readiness/v1",
       recording_id: "recording-fixture",
-      state: "ready",
-      message: "Ready to review.",
-      blocker: null,
+      state: "failed",
+      message: "Preparation failed.",
+      blocker: currentBatch.failures[0] ?? null,
       selected_card_count: 2,
       batch: currentBatch,
       preview_digest: "f".repeat(64),
