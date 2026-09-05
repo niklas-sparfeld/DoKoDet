@@ -132,6 +132,11 @@ class VisibleCardPipelineService:
     def get_run(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         run = self.run_store.require(run_id)
         self._require_recording(run.request, recording_id)
+        with self._lock:
+            future = self._futures.get(run_id)
+        if run.state.status == "complete" and future is not None and not future.done():
+            future.result()
+            run = self.run_store.require(run_id)
         return run
 
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
