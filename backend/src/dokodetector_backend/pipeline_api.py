@@ -1,0 +1,180 @@
+"""HTTP routes for recording event processor runs."""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from fastapi import APIRouter, Request
+
+from dokodetector_backend.errors import ContractError
+from dokodetector_backend.pipeline_service import (
+    EventPipelineService,
+    PipelineInputError,
+    PipelineServiceError,
+)
+from dokodetector_backend.pipeline_store import (
+    PipelineConflict,
+    PipelineNotFound,
+    PipelineSelectionConflict,
+)
+
+router = APIRouter()
+RECORDING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+BASE = "/api/recordings/{recording_id}/pipeline/events"
+
+
+@router.post(BASE, status_code=202)
+@router.post(BASE + "/runs", status_code=202, include_in_schema=False)
+def start_event_run(recording_id: str, payload: dict[str, Any], request: Request) -> dict[str, Any]:
+    """Freeze and queue one event processor request."""
+
+    service = _service(request)
+    _validate_recording_id(recording_id)
+    try:
+        return _run_response(service.start_inference(recording_id, payload))
+    except (PipelineInputError, PipelineConflict) as error:
+        raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
+    except PipelineNotFound as error:
+        raise ContractError("recording_not_found", str(error), status_code=404) from error
+    except PipelineServiceError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.get(BASE)
+@router.get(BASE + "/runs", include_in_schema=False)
+def list_event_runs(recording_id: str, request: Request) -> dict[str, Any]:
+    """List durable event processor runs for one recording."""
+
+    _validate_recording_id(recording_id)
+    try:
+        runs = _service(request).list_runs(recording_id)
+    except PipelineServiceError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+    return {"recording_id": recording_id, "runs": [_run_response(run) for run in runs]}
+
+
+@router.post(BASE + "/import", status_code=201)
+@router.post(BASE + "/imports", status_code=201, include_in_schema=False)
+def import_event_predictions(
+    recording_id: str,
+    payload: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Validate and import one recording-bundle event prediction artifact."""
+
+    _validate_recording_id(recording_id)
+    try:
+        run = _service(request).import_predictions(recording_id, payload)
+        return _run_response(run)
+    except PipelineInputError as error:
+        raise ContractError("invalid_event_import", str(error), status_code=422) from error
+    except PipelineNotFound as error:
+        raise ContractError("recording_not_found", str(error), status_code=404) from error
+    except PipelineConflict as error:
+        raise ContractError("pipeline_conflict", str(error), status_code=409) from error
+    except PipelineServiceError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.get(BASE + "/selection")
+@router.get(BASE + "/generated-selection", include_in_schema=False)
+def get_generated_selection(recording_id: str, request: Request) -> dict[str, Any]:
+    """Return the current generated and completed-reference event pointers."""
+
+    _validate_recording_id(recording_id)
+    selection = _service(request).selection_store.get(recording_id, "events")
+    return {
+        "recording_id": recording_id,
+        "selection": None if selection is None else selection.to_mapping(),
+    }
+
+
+@router.put(BASE + "/selection")
+@router.put(BASE + "/generated-selection", include_in_schema=False)
+def update_generated_selection(
+    recording_id: str,
+    payload: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Update the generated event pointer with an optimistic revision check."""
+
+    _validate_recording_id(recording_id)
+    try:
+        selection = _service(request).select_generated(recording_id, payload)
+    except PipelineSelectionConflict as error:
+        raise ContractError("selection_conflict", str(error), status_code=409) from error
+    except (PipelineInputError, PipelineConflict) as error:
+        raise ContractError("invalid_selection", str(error), status_code=422) from error
+    return {"recording_id": recording_id, "selection": selection.to_mapping()}
+
+
+@router.get(BASE + "/{run_id}")
+@router.get(BASE + "/runs/{run_id}", include_in_schema=False)
+def get_event_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
+    """Return one event processor run and its immutable request."""
+
+    try:
+        return _run_response(_service(request).get_run(recording_id, run_id))
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except PipelineServiceError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.post(BASE + "/{run_id}/retry", status_code=202)
+@router.post(BASE + "/runs/{run_id}/retry", status_code=202, include_in_schema=False)
+def retry_event_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
+    """Retry one failed or partial event processor run."""
+
+    try:
+        return _run_response(_service(request).retry(recording_id, run_id))
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except (PipelineInputError, PipelineConflict) as error:
+        raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
+    except PipelineServiceError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.get(BASE + "/{run_id}/result")
+@router.get(BASE + "/runs/{run_id}/result", include_in_schema=False)
+def get_event_result(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
+    """Return a completed event run and its stored data revisions."""
+
+    try:
+        run, revisions = _service(request).get_result(recording_id, run_id)
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except PipelineServiceError as error:
+        raise ContractError("pipeline_result_unavailable", str(error), status_code=409) from error
+    return {
+        **_run_response(run),
+        "revisions": [revision.to_mapping() for revision in revisions],
+    }
+
+
+def _service(request: Request) -> EventPipelineService:
+    return request.app.state.event_pipeline_service
+
+
+def _validate_recording_id(recording_id: str) -> None:
+    if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
+        raise ContractError("invalid_recording_id", "The recording ID is invalid.")
+
+
+def _run_response(run: Any) -> dict[str, Any]:
+    request = run.request.to_mapping()
+    state = run.state.to_mapping()
+    return {
+        "run_id": run.run_id,
+        "recording_id": run.request.source.recording_id,
+        "processor_type": run.request.processor_type,
+        "status": run.state.status,
+        "attempt": run.state.attempt,
+        "request": request,
+        "state": state,
+    }
+
+
+__all__ = ["router"]

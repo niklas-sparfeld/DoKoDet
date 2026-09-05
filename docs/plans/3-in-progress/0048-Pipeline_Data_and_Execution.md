@@ -17,7 +17,7 @@
 - **M0:** Complete — define shared revision and run contracts with concrete event content.
 - **M1:** Complete — persist runs, data revisions, and current selections.
 - **M2:** Complete — resolve deterministic frames and crops from recording videos.
-- **M3:** Not started — run and retain CardEventNet event results.
+- **M3:** Complete — run, import, validate, and retain event results from recording video.
 - **M4:** Not started — run and retain visible-card detector results.
 - **M5:** Not started — run and retain visual card identity results.
 - **M6:** Not started — assemble and store table observations from selected results.

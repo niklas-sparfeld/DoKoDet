@@ -34,6 +34,14 @@ from dokodetector_backend.logging_config import get_or_create_request_id, log_ev
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
+from dokodetector_backend.pipeline_api import router as pipeline_router
+from dokodetector_backend.pipeline_service import EventPipelineService, EventProcessorProvider
+from dokodetector_backend.pipeline_store import (
+    PipelineRevisionStore,
+    PipelineRuntimeStorage,
+    PipelineSelectionStore,
+    ProcessorRunStore,
+)
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
@@ -65,6 +73,7 @@ def create_app(
     visible_card_detector: Any | None = None,
     visible_card_frame_extractor: Any | None = None,
     visible_card_identity_classifier: Any | None = None,
+    event_provider: EventProcessorProvider | None = None,
 ) -> FastAPI:
     """Create the local backend application."""
 
@@ -72,6 +81,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        await application.state.event_pipeline_service.start()
         await application.state.round_analysis_service.start()
         log_event(
             LOGGER,
@@ -83,6 +93,7 @@ def create_app(
         try:
             yield
         finally:
+            await application.state.event_pipeline_service.stop()
             await application.state.round_analysis_service.stop()
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
@@ -102,6 +113,33 @@ def create_app(
         app_settings.repository_intake_root
     )
     app.state.recording_bundle_store = RecordingBundleStore(app.state.repository_bundle_storage)
+    pipeline_storage = PipelineRuntimeStorage(app_settings.evidence_root)
+    app.state.pipeline_revision_store = PipelineRevisionStore(pipeline_storage)
+    app.state.pipeline_run_store = ProcessorRunStore(
+        pipeline_storage,
+        revision_store=app.state.pipeline_revision_store,
+    )
+    app.state.pipeline_selection_store = PipelineSelectionStore(
+        pipeline_storage,
+        revision_store=app.state.pipeline_revision_store,
+        run_store=app.state.pipeline_run_store,
+    )
+    app.state.event_pipeline_service = EventPipelineService(
+        app_settings,
+        app.state.recording_bundle_store,
+        app.state.repository_bundle_storage,
+        event_provider=event_provider,
+        revision_store=app.state.pipeline_revision_store,
+        run_store=app.state.pipeline_run_store,
+        selection_store=app.state.pipeline_selection_store,
+    )
+    recovered_event_count = app.state.event_pipeline_service.recover_interrupted_runs()
+    log_event(
+        LOGGER,
+        logging.DEBUG,
+        "event_pipeline_recovery_checked",
+        failed_count=recovered_event_count,
+    )
     app.state.card_event_review_store = CardEventReviewStore(app_settings.operations_root)
     app.state.card_event_review_source_cache = CardEventReviewSourceContextCache()
     app.state.card_event_development_split_store = CardEventDevelopmentSplitStore(
@@ -159,6 +197,7 @@ def create_app(
     app.include_router(card_event_development_split_router)
     app.include_router(visible_card_review_router)
     app.include_router(visual_card_identity_review_router)
+    app.include_router(pipeline_router)
     _mount_frontend(app, app_settings.frontend_dist)
 
     @app.get("/health/live")
@@ -180,6 +219,7 @@ def create_app(
             _check_evidence_directory(app.state.pending_video_storage.root)
             _check_evidence_directory(app.state.card_event_review_store.workspace_root)
             _check_evidence_directory(app.state.card_event_development_split_store.workspace_root)
+            _check_evidence_directory(app.state.event_pipeline_service.storage.pipeline_root)
             _check_atomic_runtime_probe(app.state.storage.root)
         except OSError:
             log_event(

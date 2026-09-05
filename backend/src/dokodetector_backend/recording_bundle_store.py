@@ -33,6 +33,7 @@ class StoredRecordingBundle:
     video_id: str
     session_id: str
     source_sha256: str
+    video_byte_length: int
     manifest_sha256: str
     source_record_sha256: str
     task_enrollment_sha256: str
@@ -159,6 +160,7 @@ class RecordingBundleStore:
             video_id=bundle.video_id,
             session_id=bundle.session_id,
             source_sha256=bundle.source_sha256,
+            video_byte_length=bundle.files.video.byte_length,
             manifest_sha256=files["manifest.json"].sha256,
             source_record_sha256=files["source-record.json"].sha256,
             task_enrollment_sha256=files["initial-task-enrollment.json"].sha256,

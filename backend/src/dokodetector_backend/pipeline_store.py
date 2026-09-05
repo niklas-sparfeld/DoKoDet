@@ -701,6 +701,25 @@ class ProcessorRunStore:
             ),
         )
 
+    def fail_non_terminal(
+        self,
+        *,
+        failure: RunFailure | Mapping[str, Any],
+        updated_at: datetime | str | None = None,
+    ) -> int:
+        """Fail queued or running runs left behind by a stopped backend."""
+
+        failed = 0
+        for item in self.list():
+            if item.state.status == "queued":
+                self.start(item.run_id, started_at=updated_at)
+            current = self.get(item.run_id)
+            if current is None or current.state.status != "running":
+                continue
+            self.fail(item.run_id, failure, completed_at=updated_at)
+            failed += 1
+        return failed
+
     def state_path(self, run_id: str) -> Path:
         return self.run_path(run_id) / "state.json"
 
@@ -798,7 +817,9 @@ class ProcessorRunStore:
                 raise PipelineStoreError(f"run output revision is not published: {revision_id}")
             manifest = revision.manifest
             producer = manifest.producer
-            if not isinstance(producer, ProcessorProducer) or producer.run_id != request.run_id:
+            if not isinstance(producer, (ProcessorProducer, ImportProducer)):
+                raise PipelineStateError("run output revision has invalid processor lineage")
+            if producer.run_id != request.run_id:
                 raise PipelineStateError("run output revision has different processor lineage")
             if manifest.source != request.source:
                 raise PipelineStateError("run output revision has a different source")
@@ -974,14 +995,13 @@ class PipelineSelectionStore:
                 manifest.producer, (ProcessorProducer, ImportProducer)
             ):
                 raise PipelineStateError("generated selection must point to processor output")
-            if isinstance(manifest.producer, ProcessorProducer):
-                run = self.run_store.get(manifest.producer.run_id)
-                if run is None or run.state.status != "complete":
-                    raise PipelineStateError(
-                        "generated selection cannot point to a partial or failed run"
-                    )
-                if revision_id not in run.state.output_revision_ids:
-                    raise PipelineStateError("generated selection is not an output of its run")
+            run = self.run_store.get(manifest.producer.run_id)
+            if run is None or run.state.status != "complete":
+                raise PipelineStateError(
+                    "generated selection cannot point to a partial or failed run"
+                )
+            if revision_id not in run.state.output_revision_ids:
+                raise PipelineStateError("generated selection is not an output of its run")
         elif manifest.origin not in {"manual", "corrected"} or not isinstance(
             manifest.producer, HumanProducer
         ):
