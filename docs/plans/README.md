@@ -59,7 +59,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0049 — Recording pipeline review and comparison](4-blocked/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per stage, simple input selection, retained results, and comparison. M0–M6 not started. |
+| [0049 — Recording pipeline review and comparison](4-blocked/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per review stage, simple input selection, retained results, and comparison. M0–M10 not started. |
 | [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, and 0049 complete, plus declared real reviewed coverage | Compare at most two DINOv3 candidates on frozen reference revisions, including generated-geometry inputs; lock at most one without changing the backend default. M0–M3 not started. |
 | [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048 and 0049 complete, plus reviewed real evidence for a bounded measurement | Measure current detector/composed quality, then select at most one justified capability response. Carries forward useful 0022 experiments. M0–M3 not started. |
@@ -115,7 +115,7 @@ The shared target architecture is
 
 1. **Start epic 0048.** Begin with M0. Implement one milestone per phase, in order through M10.
    Move it to In Progress when work starts. This is the only epic selected to start now.
-2. **Then start 0049.** After 0048 is complete, move 0049 from Blocked to Ready. Deliver M0–M6
+2. **Then start 0049.** After 0048 is complete, move 0049 from Blocked to Ready. Deliver M0–M10
    to expose the retained data and maintained references through the existing recording editors.
 3. **Collect and review real development coverage through that workflow.** Keep source groups and
    sealed holdouts intact. Use the same maintained references to compare model runs. Record gaps;
