@@ -12,7 +12,6 @@ import hashlib
 import json
 import math
 import os
-import subprocess
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -36,6 +35,15 @@ from table_evidence_analyzer.visible_cards import (
     VisibleCardProvider,
     build_request_from_image,
 )
+
+from .derived_view import (
+    DerivedViewError,
+    DerivedViewMissingFrameError,
+    ExactEventRequest,
+    FFmpegFrameResolver,
+    OpenCVFrameResolver,
+)
+from .pipeline_data import RecordingVideoSource
 
 VISIBLE_CARD_BATCH_SCHEMA_VERSION = "visible-card-review-batch/v1"
 VISIBLE_CARD_BATCH_SCHEMA = VISIBLE_CARD_BATCH_SCHEMA_VERSION
@@ -407,7 +415,7 @@ class VisibleCardFrameExtractor(Protocol):
 
 
 class OpenCVVisibleCardFrameExtractor:
-    """Decode exact-event frames with the local OpenCV media boundary."""
+    """Adapt the optional OpenCV derived-view provider to the review-batch contract."""
 
     def __init__(self, *, jpeg_quality: int = 85) -> None:
         if (
@@ -426,55 +434,23 @@ class OpenCVVisibleCardFrameExtractor:
         target_offset_ms: int,
     ) -> ExtractedVisibleCardFrame | None:
         try:
-            import cv2
-        except ModuleNotFoundError as error:
-            raise VisibleCardFrameExtractionError(
-                "OpenCV is required for the default visible-card frame extractor"
-            ) from error
-        if not video_path.is_file():
-            raise VisibleCardFrameExtractionError(f"source video does not exist: {video_path}")
-        capture = cv2.VideoCapture(str(video_path))
-        try:
-            if not capture.isOpened():
-                raise VisibleCardFrameExtractionError(
-                    f"source video could not be opened: {video_path}"
-                )
-            fps = float(capture.get(cv2.CAP_PROP_FPS))
-            frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-            if not math.isfinite(fps) or fps <= 0 or frame_count <= 0:
-                raise VisibleCardFrameExtractionError("source video has invalid frame metadata")
-            frame_index = math.floor((event_time_s + target_offset_ms / 1000.0) * fps + 0.5)
-            if frame_index < 0 or frame_index >= frame_count:
-                return None
-            capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-            ok, frame = capture.read()
-            if not ok or frame is None:
-                return None
-            encoded, buffer = cv2.imencode(
-                ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
+            source = _adapter_source(video_path, requested_time_us=_event_time_us(event_time_s))
+            frame = OpenCVFrameResolver(jpeg_quality=self.jpeg_quality).resolve(
+                ExactEventRequest(
+                    source=source,
+                    requested_time_us=_event_time_us(event_time_s),
+                ),
+                video_path,
             )
-            if not encoded:
-                raise VisibleCardFrameExtractionError(
-                    f"source frame could not be encoded: frame {frame_index}"
-                )
-            height, width = frame.shape[:2]
-            actual_offset_ms = math.floor(frame_index / fps * 1000.0 + 0.5) - math.floor(
-                event_time_s * 1000.0 + 0.5
-            )
-            return ExtractedVisibleCardFrame(
-                frame_index=frame_index,
-                actual_offset_ms=actual_offset_ms,
-                image_bytes=buffer.tobytes(),
-                width=int(width),
-                height=int(height),
-                target_offset_ms=target_offset_ms,
-            )
-        finally:
-            capture.release()
+        except DerivedViewMissingFrameError:
+            return None
+        except (DerivedViewError, RuntimeError) as error:
+            raise VisibleCardFrameExtractionError(str(error)) from error
+        return _adapt_frame(frame, event_time_s=event_time_s, target_offset_ms=target_offset_ms)
 
 
 class FFmpegVisibleCardFrameExtractor:
-    """Decode an exact source frame with the repository's ffmpeg toolchain."""
+    """Adapt the FFmpeg derived-view provider to the review-batch contract."""
 
     def __init__(
         self,
@@ -482,10 +458,10 @@ class FFmpegVisibleCardFrameExtractor:
         ffmpeg_binary: str = "ffmpeg",
         ffprobe_binary: str = "ffprobe",
     ) -> None:
-        _text(ffmpeg_binary, "ffmpeg_binary")
-        _text(ffprobe_binary, "ffprobe_binary")
-        self.ffmpeg_binary = ffmpeg_binary
-        self.ffprobe_binary = ffprobe_binary
+        self._resolver = FFmpegFrameResolver(
+            ffmpeg_binary=ffmpeg_binary,
+            ffprobe_binary=ffprobe_binary,
+        )
 
     def extract(
         self,
@@ -494,104 +470,72 @@ class FFmpegVisibleCardFrameExtractor:
         event_time_s: float,
         target_offset_ms: int,
     ) -> ExtractedVisibleCardFrame | None:
-        if target_offset_ms != 0:
-            raise VisibleCardBatchError("exact-event ffmpeg extraction requires target_offset_ms=0")
-        if not video_path.is_file():
-            raise VisibleCardFrameExtractionError(f"source video does not exist: {video_path}")
-        metadata = self._probe(video_path)
-        fps = _probe_frame_rate(metadata)
-        width = _probe_positive_int(metadata, "width")
-        height = _probe_positive_int(metadata, "height")
-        frame_index = math.floor(event_time_s * fps + 0.5)
-        frame_count = _probe_optional_positive_int(metadata, "nb_frames")
-        if frame_count is not None and frame_index >= frame_count:
-            return None
-        filter_expression = f"select=eq(n\\,{frame_index})"
         try:
-            result = subprocess.run(
-                [
-                    self.ffmpeg_binary,
-                    "-v",
-                    "error",
-                    "-i",
-                    str(video_path),
-                    "-vf",
-                    filter_expression,
-                    "-frames:v",
-                    "1",
-                    "-f",
-                    "image2pipe",
-                    "-c:v",
-                    "mjpeg",
-                    "-q:v",
-                    "2",
-                    "-",
-                ],
-                capture_output=True,
-                check=False,
+            requested_time_us = _event_time_us(event_time_s)
+            source = _adapter_source(
+                video_path,
+                requested_time_us=requested_time_us,
+                duration_us=self._source_duration_us(video_path, requested_time_us),
             )
-        except (OSError, subprocess.SubprocessError) as error:
-            raise VisibleCardFrameExtractionError(
-                f"ffmpeg could not extract frame {frame_index}: {error}"
-            ) from error
-        if result.returncode != 0:
-            detail = result.stderr.decode("utf-8", errors="replace").strip()
-            raise VisibleCardFrameExtractionError(
-                f"ffmpeg could not extract frame {frame_index}: {detail or 'unknown error'}"
+            frame = self._resolver.resolve(
+                ExactEventRequest(source=source, requested_time_us=requested_time_us),
+                video_path,
             )
-        if not result.stdout:
+        except DerivedViewMissingFrameError:
             return None
-        actual_offset_ms = math.floor(frame_index / fps * 1000.0 + 0.5) - math.floor(
-            event_time_s * 1000.0 + 0.5
-        )
-        return ExtractedVisibleCardFrame(
-            frame_index=frame_index,
-            actual_offset_ms=actual_offset_ms,
-            image_bytes=result.stdout,
-            width=width,
-            height=height,
-            target_offset_ms=target_offset_ms,
-        )
+        except (DerivedViewError, RuntimeError) as error:
+            raise VisibleCardFrameExtractionError(str(error)) from error
+        return _adapt_frame(frame, event_time_s=event_time_s, target_offset_ms=target_offset_ms)
 
-    def _probe(self, video_path: Path) -> Mapping[str, Any]:
-        try:
-            result = subprocess.run(
-                [
-                    self.ffprobe_binary,
-                    "-v",
-                    "error",
-                    "-select_streams",
-                    "v:0",
-                    "-show_entries",
-                    "stream=avg_frame_rate,width,height,nb_frames",
-                    "-of",
-                    "json",
-                    str(video_path),
-                ],
-                capture_output=True,
-                check=False,
-            )
-        except (OSError, subprocess.SubprocessError) as error:
-            raise VisibleCardFrameExtractionError(
-                f"ffprobe could not inspect source video: {error}"
-            ) from error
-        if result.returncode != 0:
-            detail = result.stderr.decode("utf-8", errors="replace").strip()
-            raise VisibleCardFrameExtractionError(
-                f"ffprobe could not inspect source video: {detail or 'unknown error'}"
-            )
-        try:
-            value = json.loads(result.stdout.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise VisibleCardFrameExtractionError(
-                "ffprobe returned invalid video metadata"
-            ) from error
-        if not isinstance(value, Mapping) or not isinstance(value.get("streams"), list):
-            raise VisibleCardFrameExtractionError("ffprobe returned incomplete video metadata")
-        streams = value["streams"]
-        if not streams or not isinstance(streams[0], Mapping):
-            raise VisibleCardFrameExtractionError("source video has no video stream")
-        return streams[0]
+    def _source_duration_us(self, video_path: Path, requested_time_us: int) -> int:
+        frames = self._resolver._probe_frames(video_path)
+        return max(requested_time_us, frames[-1][0] + 1)
+
+
+def _event_time_us(event_time_s: float) -> int:
+    if isinstance(event_time_s, bool) or not isinstance(event_time_s, (int, float)):
+        raise VisibleCardBatchError("event_time_s must be a finite non-negative number")
+    if not math.isfinite(event_time_s) or event_time_s < 0:
+        raise VisibleCardBatchError("event_time_s must be a finite non-negative number")
+    return math.floor(event_time_s * 1_000_000 + 0.5)
+
+
+def _adapter_source(
+    video_path: Path,
+    *,
+    requested_time_us: int,
+    duration_us: int | None = None,
+) -> Any:
+    try:
+        byte_length = video_path.stat().st_size
+    except OSError as error:
+        raise VisibleCardFrameExtractionError(
+            f"source video cannot be inspected: {video_path}"
+        ) from error
+    return RecordingVideoSource(
+        recording_id="review-batch-adapter",
+        relative_path=video_path.name,
+        video_sha256=_file_digest(video_path),
+        byte_length=byte_length,
+        duration_us=max(requested_time_us, 1) if duration_us is None else duration_us,
+    )
+
+
+def _adapt_frame(
+    frame: Any,
+    *,
+    event_time_s: float,
+    target_offset_ms: int,
+) -> ExtractedVisibleCardFrame:
+    return ExtractedVisibleCardFrame(
+        frame_index=frame.frame_index,
+        actual_offset_ms=math.floor(frame.presentation_timestamp_us / 1000 + 0.5)
+        - math.floor(event_time_s * 1000 + 0.5),
+        image_bytes=frame.image_bytes,
+        width=frame.width,
+        height=frame.height,
+        target_offset_ms=target_offset_ms,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -687,38 +631,6 @@ def _text(value: Any, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise VisibleCardBatchError(f"{field} must be a non-empty string")
     return value
-
-
-def _probe_frame_rate(metadata: Mapping[str, Any]) -> float:
-    value = metadata.get("avg_frame_rate")
-    if not isinstance(value, str) or "/" not in value:
-        raise VisibleCardFrameExtractionError("ffprobe returned an invalid frame rate")
-    numerator, denominator = value.split("/", 1)
-    try:
-        fps = float(numerator) / float(denominator)
-    except (TypeError, ValueError, ZeroDivisionError) as error:
-        raise VisibleCardFrameExtractionError("ffprobe returned an invalid frame rate") from error
-    if not math.isfinite(fps) or fps <= 0:
-        raise VisibleCardFrameExtractionError("ffprobe returned an invalid frame rate")
-    return fps
-
-
-def _probe_positive_int(metadata: Mapping[str, Any], field: str) -> int:
-    value = metadata.get(field)
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError) as error:
-        raise VisibleCardFrameExtractionError(f"ffprobe returned an invalid {field}") from error
-    if parsed <= 0:
-        raise VisibleCardFrameExtractionError(f"ffprobe returned an invalid {field}")
-    return parsed
-
-
-def _probe_optional_positive_int(metadata: Mapping[str, Any], field: str) -> int | None:
-    value = metadata.get(field)
-    if value in {None, "N/A"}:
-        return None
-    return _probe_positive_int(metadata, field)
 
 
 def _now() -> str:
