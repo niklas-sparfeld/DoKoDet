@@ -183,9 +183,9 @@ and tracking improve independently.
 
 ## 9. Plan ownership
 
-- [0048](plans/2-ready/0048-Pipeline_Data_and_Execution.md) owns shared data and execution contracts,
+- [0048](plans/5-closed/0048-Pipeline_Data_and_Execution.md) owns shared data and execution contracts,
   video-derived inputs, maintained reference storage, analysis integration, and dataset adapters.
-- [0049](plans/4-blocked/0049-Recording_Pipeline_Review_and_Comparison.md) owns the recording UI,
+- [0049](plans/2-ready/0049-Recording_Pipeline_Review_and_Comparison.md) owns the recording UI,
   reference editing, explicit run input selection, comparison, and obsolete review-route removal.
 - [0043](plans/4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) owns bounded identity quality.
 - [0044](plans/4-blocked/0044-Productive_Local_Identity_Model_Operations.md) owns later productive
