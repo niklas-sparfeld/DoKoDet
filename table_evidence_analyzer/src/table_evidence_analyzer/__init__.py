@@ -83,6 +83,19 @@ from table_evidence_analyzer.local_identity import (
     validate_materialized_dinov3_weights,
     verify_materialized_dinov3_weights,
 )
+from table_evidence_analyzer.pipeline_data import (
+    DETECTOR_BOX_GEOMETRY_KIND,
+    EXACT_EVENT_FRAME_SCHEMA_VERSION,
+    VISIBLE_CARD_DATA_SCHEMA_VERSION,
+    PipelineDataError,
+    VisibleCardCandidate,
+    VisibleCardData,
+    VisibleCardFrameIdentity,
+    VisibleCardModelScore,
+    VisibleCardOutcome,
+    canonical_visible_card_data_bytes,
+    parse_visible_card_data_bytes,
+)
 from table_evidence_analyzer.repository_intake import (
     EvidencePackageBundle,
     EvidencePackageFile,
@@ -568,4 +581,15 @@ __all__ = [
     "load_frozen_visible_card_crop_policy",
     "load_frozen_visible_card_review_data",
     "load_visible_card_partition_manifest",
+    "DETECTOR_BOX_GEOMETRY_KIND",
+    "EXACT_EVENT_FRAME_SCHEMA_VERSION",
+    "PipelineDataError",
+    "VISIBLE_CARD_DATA_SCHEMA_VERSION",
+    "VisibleCardCandidate",
+    "VisibleCardData",
+    "VisibleCardFrameIdentity",
+    "VisibleCardModelScore",
+    "VisibleCardOutcome",
+    "canonical_visible_card_data_bytes",
+    "parse_visible_card_data_bytes",
 ]

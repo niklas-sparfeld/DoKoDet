@@ -42,7 +42,14 @@ from doko_operations.pipeline_data import (
     parse_pipeline_selection_bytes,
     parse_processor_run_request_bytes,
     parse_processor_run_state_bytes,
+    sha256_bytes,
     validate_event_revision_content,
+)
+from table_evidence_analyzer.pipeline_data import (
+    PipelineDataError,
+    VisibleCardData,
+    canonical_visible_card_data_bytes,
+    parse_visible_card_data_bytes,
 )
 
 from dokodetector_backend.filesystem import (
@@ -125,6 +132,17 @@ class StoredProcessorRun:
         return self.request.run_id
 
 
+@dataclass(frozen=True, slots=True)
+class StoredPipelineRevision:
+    """A validated manifest and content payload from the immutable revision store."""
+
+    manifest: DataRevision
+    content: EventData | VisibleCardData
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {"manifest": self.manifest.to_mapping(), "content": self.content.to_mapping()}
+
+
 def _storage(value: PipelineRuntimeStorage | Path | str) -> PipelineRuntimeStorage:
     return value if isinstance(value, PipelineRuntimeStorage) else PipelineRuntimeStorage(value)
 
@@ -199,7 +217,7 @@ class PipelineRevisionStore:
     def revision_path(self, revision_id: str) -> Path:
         return contained_path(self.root, _safe_id(revision_id, "revision_id"))
 
-    def get(self, revision_id: str) -> EventDataRevision | None:
+    def get(self, revision_id: str) -> StoredPipelineRevision | None:
         try:
             path = self.revision_path(revision_id)
         except (TypeError, ValueError):
@@ -211,20 +229,20 @@ class PipelineRevisionStore:
                 self._log_invalid(path, error)
             return None
 
-    def require(self, revision_id: str) -> EventDataRevision:
+    def require(self, revision_id: str) -> StoredPipelineRevision:
         revision = self.get(revision_id)
         if revision is None:
             raise PipelineNotFound(f"The pipeline revision was not found: {revision_id}")
         return revision
 
-    def list(self) -> tuple[EventDataRevision, ...]:
+    def list(self) -> tuple[StoredPipelineRevision, ...]:
         enumeration = enumerate_resource_directories(
             self.root,
             validate=self._read_path,
         )
         for diagnostic in enumeration.diagnostics:
             self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
-        revisions: list[EventDataRevision] = []
+        revisions: list[StoredPipelineRevision] = []
         for path in enumeration.paths:
             try:
                 revisions.append(self._read_path(path))
@@ -235,14 +253,14 @@ class PipelineRevisionStore:
     def publish(
         self,
         revision: EventDataRevision | DataRevision,
-        content: EventData | bytes | None = None,
-    ) -> tuple[EventDataRevision, bool]:
+        content: EventData | VisibleCardData | bytes | None = None,
+    ) -> tuple[StoredPipelineRevision, bool]:
         """Publish one complete revision, or replay identical bytes."""
 
-        manifest, event_content = self._coerce_revision(revision, content)
+        manifest, pipeline_content = self._coerce_revision(revision, content)
         manifest_bytes = canonical_data_revision_bytes(manifest)
-        content_bytes = canonical_event_data_bytes(event_content)
-        self._validate_payload(manifest, event_content, manifest_bytes, content_bytes)
+        content_bytes = self._canonical_content_bytes(pipeline_content)
+        self._validate_payload(manifest, pipeline_content, manifest_bytes, content_bytes)
         self._validate_lineage(manifest)
         revision_id = manifest.revision_id
         destination = self.revision_path(revision_id)
@@ -292,8 +310,8 @@ class PipelineRevisionStore:
     def _coerce_revision(
         self,
         revision: EventDataRevision | DataRevision,
-        content: EventData | bytes | None,
-    ) -> tuple[DataRevision, EventData]:
+        content: EventData | VisibleCardData | bytes | None,
+    ) -> tuple[DataRevision, EventData | VisibleCardData]:
         if isinstance(revision, EventDataRevision):
             if content is not None:
                 raise TypeError("content must not be supplied with EventDataRevision")
@@ -301,23 +319,56 @@ class PipelineRevisionStore:
         if not isinstance(revision, DataRevision) or content is None:
             raise TypeError("publish requires an EventDataRevision or manifest and content")
         if isinstance(content, bytes):
-            parsed = parse_event_data_bytes(
-                content,
-                duration_us=(
-                    revision.source.duration_us
-                    if isinstance(revision.source, RecordingVideoSource)
-                    else 2**63 - 1
-                ),
-            )
-            return revision, parsed
-        if not isinstance(content, EventData):
-            raise TypeError("revision content must be EventData or bytes")
-        return revision, content
+            return revision, self._parse_content_bytes_for_manifest(revision, content)
+        if revision.content_type == "events" and isinstance(content, EventData):
+            return revision, content
+        if revision.content_type == "visible_cards" and isinstance(content, VisibleCardData):
+            return revision, content
+        raise TypeError("revision content does not match its content type")
+
+    @staticmethod
+    def _parse_content_bytes_for_manifest(
+        manifest: DataRevision, raw: bytes
+    ) -> EventData | VisibleCardData:
+        duration_us = (
+            manifest.source.duration_us
+            if isinstance(manifest.source, RecordingVideoSource)
+            else 2**63 - 1
+        )
+        if manifest.content_type == "events":
+            return parse_event_data_bytes(raw, duration_us=duration_us)
+        if manifest.content_type == "visible_cards":
+            try:
+                return parse_visible_card_data_bytes(raw)
+            except PipelineDataError as error:
+                raise PipelineDataContractError(str(error)) from error
+        raise PipelineDataContractError("unsupported pipeline content type")
+
+    @staticmethod
+    def _canonical_content_bytes(content: EventData | VisibleCardData) -> bytes:
+        if isinstance(content, EventData):
+            return canonical_event_data_bytes(content)
+        if isinstance(content, VisibleCardData):
+            return canonical_visible_card_data_bytes(content)
+        raise TypeError("unsupported pipeline content")
+
+    @staticmethod
+    def _validate_content(manifest: DataRevision, content: EventData | VisibleCardData) -> None:
+        if manifest.content_type == "events" and isinstance(content, EventData):
+            validate_event_revision_content(manifest, content)
+            return
+        if manifest.content_type == "visible_cards" and isinstance(content, VisibleCardData):
+            if sha256_bytes(canonical_visible_card_data_bytes(content)) != manifest.content_sha256:
+                raise PipelineDataContractError(
+                    "content_sha256 does not match canonical visible-card content"
+                )
+            return
+        raise PipelineDataContractError("revision content does not match its manifest")
 
     @staticmethod
     def _validate_payload(
         manifest: DataRevision,
-        content: EventData,
+        content: EventData | VisibleCardData,
         manifest_bytes: bytes,
         content_bytes: bytes,
     ) -> None:
@@ -326,19 +377,18 @@ class PipelineRevisionStore:
             canonical_data_revision_bytes(manifest),
             "revision manifest",
         )
-        _strict_json_file(content_bytes, canonical_event_data_bytes(content), "revision content")
+        _strict_json_file(
+            content_bytes,
+            PipelineRevisionStore._canonical_content_bytes(content),
+            "revision content",
+        )
         parse_data_revision_bytes(manifest_bytes, content_bytes)
-        validate_event_revision_content(manifest, content)
+        PipelineRevisionStore._validate_content(manifest, content)
 
     @staticmethod
     def _validate_payload_bytes(manifest: DataRevision, raw: bytes, manifest_bytes: bytes) -> None:
-        duration_us = (
-            manifest.source.duration_us
-            if isinstance(manifest.source, RecordingVideoSource)
-            else 2**63 - 1
-        )
-        content = parse_event_data_bytes(raw, duration_us=duration_us)
-        expected = canonical_event_data_bytes(content)
+        content = PipelineRevisionStore._parse_content_bytes_for_manifest(manifest, raw)
+        expected = PipelineRevisionStore._canonical_content_bytes(content)
         _strict_json_file(raw, expected, "revision content")
         parse_data_revision_bytes(manifest_bytes, raw)
 
@@ -357,20 +407,22 @@ class PipelineRevisionStore:
                 "corrected revision base_revision_id must be an input revision"
             )
 
-    def _existing_or_error(self, path: Path) -> EventDataRevision:
+    def _existing_or_error(self, path: Path) -> StoredPipelineRevision:
         try:
             return self._read_path(path)
         except (OSError, TypeError, UnicodeError, ValueError) as error:
             raise PipelineStoreError("The existing pipeline revision is invalid.") from error
 
     @staticmethod
-    def _revision_bytes(revision: EventDataRevision) -> tuple[bytes, bytes]:
+    def _revision_bytes(revision: StoredPipelineRevision) -> tuple[bytes, bytes]:
         return (
             canonical_data_revision_bytes(revision.manifest),
-            canonical_event_data_bytes(revision.content),
+            PipelineRevisionStore._canonical_content_bytes(revision.content),
         )
 
-    def _read_path(self, path: Path, *, require_canonical_name: bool = True) -> EventDataRevision:
+    def _read_path(
+        self, path: Path, *, require_canonical_name: bool = True
+    ) -> StoredPipelineRevision:
         if path.is_symlink() or not path.is_dir():
             raise OSError("pipeline revision directory is unavailable")
         members = list(path.rglob("*"))
@@ -386,24 +438,18 @@ class PipelineRevisionStore:
         manifest_bytes = (path / "manifest.json").read_bytes()
         content_bytes = (path / "content.json").read_bytes()
         manifest = parse_data_revision_bytes(manifest_bytes, content_bytes)
-        content = parse_event_data_bytes(
-            content_bytes,
-            duration_us=(
-                manifest.source.duration_us
-                if isinstance(manifest.source, RecordingVideoSource)
-                else 2**63 - 1
-            ),
-        )
+        content = self._parse_content_bytes_for_manifest(manifest, content_bytes)
         _strict_json_file(
             manifest_bytes,
             canonical_data_revision_bytes(manifest),
             "revision manifest",
         )
-        _strict_json_file(content_bytes, canonical_event_data_bytes(content), "revision content")
+        _strict_json_file(content_bytes, self._canonical_content_bytes(content), "revision content")
         self._validate_lineage(manifest)
         if require_canonical_name and manifest.revision_id != path.name:
             raise ValueError("revision ID differs from its directory name")
-        return EventDataRevision(manifest=manifest, content=content)
+        self._validate_content(manifest, content)
+        return StoredPipelineRevision(manifest=manifest, content=content)
 
     @staticmethod
     def _log_invalid(path: Path, error: BaseException) -> None:
@@ -742,7 +788,18 @@ class ProcessorRunStore:
     def _read_path(self, path: Path, *, require_canonical_name: bool = True) -> StoredProcessorRun:
         if path.is_symlink() or not path.is_dir():
             raise OSError("processor run directory is unavailable")
-        members = list(path.rglob("*"))
+        members = [
+            member
+            for member in path.rglob("*")
+            if not (
+                member.is_file()
+                and member.name.endswith(".tmp")
+                and (
+                    member.name.startswith(".request.json.")
+                    or member.name.startswith(".state.json.")
+                )
+            )
+        ]
         if any(member.is_symlink() for member in members) or any(
             member.is_dir() for member in members
         ):
@@ -821,6 +878,12 @@ class ProcessorRunStore:
                 raise PipelineStateError("run output revision has invalid processor lineage")
             if producer.run_id != request.run_id:
                 raise PipelineStateError("run output revision has different processor lineage")
+            expected_content_type = {
+                "event-detection": "events",
+                "visible-card-detection": "visible_cards",
+            }.get(request.processor_type)
+            if expected_content_type is not None and manifest.content_type != expected_content_type:
+                raise PipelineStateError("run output revision has a different content type")
             if manifest.source != request.source:
                 raise PipelineStateError("run output revision has a different source")
             if manifest.input_revision_ids != request.input_revision_ids:
@@ -1051,5 +1114,6 @@ __all__ = [
     "PipelineStateError",
     "PipelineStoreError",
     "ProcessorRunStore",
+    "StoredPipelineRevision",
     "StoredProcessorRun",
 ]

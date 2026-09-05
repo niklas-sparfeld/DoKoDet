@@ -1,0 +1,349 @@
+from __future__ import annotations
+
+import hashlib
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
+from app_factory import create_test_app
+from doko_operations.derived_view import (
+    DerivedViewMissingFrameError,
+    ExactEventRequest,
+    ResolvedFrame,
+)
+from doko_operations.pipeline_data import (
+    DataRevision,
+    EventData,
+    EventDataRevision,
+    EventRecord,
+    HumanProducer,
+    canonical_event_data_bytes,
+    sha256_bytes,
+)
+from fastapi.testclient import TestClient
+from PIL import Image
+from table_evidence_analyzer.visible_cards import ProviderResult, normalize_prediction
+
+from dokodetector_backend.config import Settings
+
+FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
+RECORDING_ID = "recording-both"
+
+
+def _settings(tmp_path: Path) -> Settings:
+    return Settings(
+        _env_file=None,
+        repository_root=tmp_path,
+        evidence_root=tmp_path / "runtime",
+        repository_intake_root=tmp_path / "recordings",
+        evidence_package_intake_root=tmp_path / "evidence-packages",
+        pending_video_root=tmp_path / "pending-videos",
+    )
+
+
+def _install_recording(tmp_path: Path) -> None:
+    bundle = tmp_path / "recordings" / RECORDING_ID
+    shutil.copytree(FIXTURE_ROOT, bundle)
+    video_path = bundle / "videos" / "video-both.mov"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=64x64:r=2",
+            "-t",
+            "1",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-y",
+            str(video_path),
+        ],
+        check=True,
+    )
+    digest = hashlib.sha256(video_path.read_bytes()).hexdigest()
+    byte_length = video_path.stat().st_size
+    manifest_path = bundle / "manifest.json"
+    manifest = _read_json(manifest_path)
+    manifest["source_sha256"] = digest
+    manifest["files"]["video"].update(byte_length=byte_length, sha256=digest)
+    manifest_path.write_text(_json(manifest), encoding="utf-8")
+
+    source_path = bundle / "source-record.json"
+    source = _read_json(source_path)
+    source.update(byte_length=byte_length, sha256=digest)
+    source_path.write_text(_json(source), encoding="utf-8")
+    proposal_path = bundle / "predictions" / "proposal-both.json"
+    proposal = _read_json(proposal_path)
+    proposal["source_sha256"] = digest
+    proposal_path.write_text(_json(proposal), encoding="utf-8")
+    manifest = _read_json(manifest_path)
+    for relative_path, path in (
+        ("source_record", source_path),
+        ("proposal_generator_runs", proposal_path),
+    ):
+        descriptor = (
+            manifest["files"][relative_path]
+            if relative_path == "source_record"
+            else manifest["files"][relative_path][0]
+        )
+        raw = path.read_bytes()
+        descriptor.update(byte_length=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+    manifest_path.write_text(_json(manifest), encoding="utf-8")
+
+
+def _json(value: object) -> str:
+    import json
+
+    return json.dumps(value, separators=(",", ":"))
+
+
+def _read_json(path: Path) -> dict:
+    import json
+
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+class _EventProvider:
+    def infer(self, video_path: Path, *, request: object) -> dict[str, object]:
+        del video_path, request
+        return {
+            "events": [
+                {"time_s": 0.1, "probability": 0.9},
+                {"time_s": 0.3, "probability": 0.8},
+                {"time_s": 0.4, "probability": 0.7},
+                {"time_s": 0.5, "probability": 0.6},
+            ]
+        }
+
+
+class _FrameResolver:
+    decoder_version = "fixture-decoder/v1"
+    transform_version = "fixture-frame/v1"
+
+    def resolve(self, request: ExactEventRequest, video_path: Path) -> ResolvedFrame:
+        del video_path
+        if request.requested_time_us == 500_000:
+            raise DerivedViewMissingFrameError("fixture has no frame")
+        image = Image.new("RGB", (64, 64), (40, 50, 60))
+        from io import BytesIO
+
+        output = BytesIO()
+        image.save(output, format="JPEG")
+        image_bytes = output.getvalue()
+        return ResolvedFrame(
+            requested_time_us=request.requested_time_us,
+            frame_index=request.requested_time_us // 100_000,
+            presentation_timestamp_us=request.requested_time_us,
+            source_video_sha256=request.source.video_sha256,
+            width=64,
+            height=64,
+            decoder_version=self.decoder_version,
+            transform_version=self.transform_version,
+            output_encoding="jpeg",
+            image_bytes=image_bytes,
+        )
+
+
+class _Detector:
+    name = "fixture-detector"
+    version = "fixture-detector/v1"
+
+    def propose(self, request: object) -> ProviderResult:
+        package_id = request.package_id  # type: ignore[attr-defined]
+        if package_id.endswith("event-000002"):
+            return ProviderResult(status="unavailable", error="fixture detector failed")
+        if package_id.endswith("event-000000"):
+            prediction = normalize_prediction(
+                {
+                    "cards": [
+                        {
+                            "box_2d": {
+                                "x_min": 100,
+                                "y_min": 200,
+                                "x_max": 700,
+                                "y_max": 800,
+                            },
+                            "polygon": [
+                                {"x": 100, "y": 200},
+                                {"x": 700, "y": 200},
+                                {"x": 700, "y": 800},
+                                {"x": 100, "y": 800},
+                            ],
+                            "side": "unknown",
+                            "label": "visible card",
+                        }
+                    ]
+                }
+            )
+            return ProviderResult(status="ok", proposals=prediction.cards)
+        return ProviderResult(status="ok")
+
+
+def _wait(client: TestClient, run_id: str) -> dict:
+    deadline = time.monotonic() + 5
+    body: dict = {}
+    while time.monotonic() < deadline:
+        response = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{run_id}"
+        )
+        body = response.json()
+        if body["state"]["status"] in {"complete", "failed"}:
+            return body
+        time.sleep(0.01)
+    return body
+
+
+def _manual_event_revision(app, source, base: EventDataRevision) -> str:
+    content = EventData(
+        events=tuple(
+            EventRecord(
+                event_id=event.event_id,
+                event_type=event.event_type,
+                start_us=event.start_us,
+                end_us=event.end_us,
+            )
+            for event in base.content.events
+        )
+    )
+    revision_id = "events-manual-reference"
+    revision = EventDataRevision(
+        manifest=DataRevision(
+            revision_id=revision_id,
+            content_type="events",
+            content_schema="event-data/v1",
+            recording_id=RECORDING_ID,
+            source=source,
+            content_sha256=sha256_bytes(canonical_event_data_bytes(content)),
+            input_revision_ids=(),
+            origin="manual",
+            producer=HumanProducer(review_id="review-1", operator_id="operator-1"),
+            coverage={"kind": "fixture"},
+            created_at="2026-01-01T00:00:00Z",
+        ),
+        content=content,
+    )
+    stored, _ = app.state.pipeline_revision_store.publish(revision)
+    current = app.state.pipeline_selection_store.get(RECORDING_ID, "events")
+    app.state.pipeline_selection_store.update_pointers(
+        RECORDING_ID,
+        "events",
+        expected_revision=0 if current is None else current.revision,
+        selected_generated_revision_id=base.manifest.revision_id,
+        selected_completed_reference_revision_id=stored.manifest.revision_id,
+    )
+    return stored.manifest.revision_id
+
+
+def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcomes(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-generated"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-generated")
+        event_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-generated/result"
+        ).json()
+        generated_event_revision_id = event_result["state"]["output_revision_ids"][0]
+        generated_event_revision = app.state.pipeline_revision_store.require(
+            generated_event_revision_id
+        )
+
+        visible_generated = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={"run_id": "visible-generated", "configuration": {"threshold": 0.5}},
+        )
+        assert visible_generated.status_code == 202
+        generated_status = _wait(client, "visible-generated")
+        assert generated_status["state"]["status"] == "complete"
+        generated_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-generated/result"
+        ).json()
+        generated_content = generated_result["revisions"][0]["content"]
+        assert generated_result["request"]["input_revision_ids"] == [
+            generated_event_revision_id
+        ]
+        assert [outcome["status"] for outcome in generated_content["outcomes"]] == [
+            "detected",
+            "empty",
+            "failed",
+            "failed",
+        ]
+        assert generated_content["outcomes"][0]["candidates"][0]["geometry"]["kind"] == (
+            "detector-box/v1"
+        )
+        assert generated_content["outcomes"][2]["frame_identity"] is not None
+        assert generated_content["outcomes"][3]["frame_identity"] is None
+        generated_card_id = generated_content["outcomes"][0]["candidates"][0]["card_id"]
+        assert generated_result["request"]["configuration"]["detector"] == {
+            "name": "fixture-detector",
+            "version": "fixture-detector/v1",
+        }
+
+        manual_revision_id = _manual_event_revision(
+            app, generated_event_revision.manifest.source, generated_event_revision
+        )
+        visible_reference = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={"run_id": "visible-reference", "configuration": {"threshold": 0.6}},
+        )
+        assert visible_reference.status_code == 202
+        _wait(client, "visible-reference")
+        reference_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-reference/result"
+        ).json()
+        assert reference_result["request"]["input_revision_ids"] == [manual_revision_id]
+        reference_card_id = reference_result["revisions"][0]["content"]["outcomes"][0][
+            "candidates"
+        ][0]["card_id"]
+        assert reference_card_id != generated_card_id
+        selection = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/selection"
+        ).json()
+        assert selection["selection"]["selected_generated_revision_id"] == reference_result[
+            "state"
+        ]["output_revision_ids"][0]
+
+    restarted = create_test_app(
+        _settings(tmp_path),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+    with TestClient(restarted) as client:
+        persisted = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-generated/result"
+        )
+        assert persisted.status_code == 200
+        assert [
+            outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
+        ] == ["detected", "empty", "failed", "failed"]
+
+
+def _wait_event(client: TestClient, run_id: str) -> dict:
+    deadline = time.monotonic() + 5
+    body: dict = {}
+    while time.monotonic() < deadline:
+        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/{run_id}")
+        body = response.json()
+        if body["state"]["status"] == "complete":
+            return body
+        time.sleep(0.01)
+    return body

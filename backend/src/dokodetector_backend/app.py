@@ -52,6 +52,7 @@ from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactSto
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.table_observation_store import TableObservationStore
+from dokodetector_backend.visible_card_pipeline_service import VisibleCardPipelineService
 from dokodetector_backend.visible_card_review_api import router as visible_card_review_router
 from dokodetector_backend.visual_card_identity_review_api import (
     router as visual_card_identity_review_router,
@@ -72,6 +73,7 @@ def create_app(
     visible_card_provider: Any | None = None,
     visible_card_detector: Any | None = None,
     visible_card_frame_extractor: Any | None = None,
+    visible_card_frame_resolver: Any | None = None,
     visible_card_identity_classifier: Any | None = None,
     event_provider: EventProcessorProvider | None = None,
 ) -> FastAPI:
@@ -82,6 +84,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         await application.state.event_pipeline_service.start()
+        await application.state.visible_card_pipeline_service.start()
         await application.state.round_analysis_service.start()
         log_event(
             LOGGER,
@@ -94,6 +97,7 @@ def create_app(
             yield
         finally:
             await application.state.event_pipeline_service.stop()
+            await application.state.visible_card_pipeline_service.stop()
             await application.state.round_analysis_service.stop()
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
@@ -155,6 +159,7 @@ def create_app(
     )
     app.state.visible_card_detector = visible_card_detector
     app.state.visible_card_frame_extractor = visible_card_frame_extractor
+    app.state.visible_card_frame_resolver = visible_card_frame_resolver
     app.state.visible_card_batch_tasks = {}
     app.state.visible_card_identity_classifier = (
         visible_card_identity_classifier
@@ -162,6 +167,16 @@ def create_app(
         else getattr(app.state.analyzer, "classifier", None)
     )
     app.state.identity_review_batch_tasks = {}
+    app.state.visible_card_pipeline_service = VisibleCardPipelineService(
+        app_settings,
+        app.state.recording_bundle_store,
+        app.state.repository_bundle_storage,
+        detector_provider=app.state.visible_card_provider,
+        frame_resolver=visible_card_frame_resolver,
+        revision_store=app.state.pipeline_revision_store,
+        run_store=app.state.pipeline_run_store,
+        selection_store=app.state.pipeline_selection_store,
+    )
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     recovered_analysis_count = app.state.round_analysis_store.fail_non_terminal()
     log_event(

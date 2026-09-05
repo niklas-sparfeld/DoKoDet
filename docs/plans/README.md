@@ -53,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0048 — Pipeline data and execution](3-in-progress/0048-Pipeline_Data_and_Execution.md) | 0039, 0040, 0041, 0042, 0045, and 0046 complete | M0–M3 complete: shared contracts, durable revision/run/selection stores, deterministic video-derived views, and event execution/API. M4–M10 not started. |
+| [0048 — Pipeline data and execution](3-in-progress/0048-Pipeline_Data_and_Execution.md) | 0039, 0040, 0041, 0042, 0045, and 0046 complete | M0–M4 complete: shared contracts, durable revision/run/selection stores, deterministic video-derived views, event execution/API, and visible-card detector execution/API. M5–M10 not started. |
 
 ### Blocked
 

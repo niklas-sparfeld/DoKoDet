@@ -19,6 +19,7 @@ from typing import Any, TypeAlias
 
 DATA_REVISION_SCHEMA_VERSION = "data-revision/v1"
 EVENT_DATA_SCHEMA_VERSION = "event-data/v1"
+VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
 PROCESSOR_RUN_REQUEST_SCHEMA_VERSION = "processor-run-request/v1"
 PROCESSOR_RUN_STATE_SCHEMA_VERSION = "processor-run-state/v1"
 PIPELINE_SELECTION_SCHEMA_VERSION = "pipeline-selection/v1"
@@ -639,8 +640,12 @@ class DataRevision:
         if content_type not in PIPELINE_CONTENT_TYPES:
             raise PipelineDataContractError("content_type is unsupported")
         content_schema = _text(data["content_schema"], "content_schema")
-        if content_type != "events" or content_schema != EVENT_DATA_SCHEMA_VERSION:
-            raise PipelineDataContractError("M0 supports only events with event-data/v1 content")
+        supported_schema = {
+            "events": EVENT_DATA_SCHEMA_VERSION,
+            "visible_cards": VISIBLE_CARD_DATA_SCHEMA_VERSION,
+        }.get(content_type)
+        if supported_schema is None or content_schema != supported_schema:
+            raise PipelineDataContractError("content_type and content_schema do not match")
         recording_id = (
             _identifier(data["recording_id"], "recording_id") if recording_source else None
         )
@@ -753,7 +758,7 @@ def parse_data_revision_bytes(raw: bytes, content_bytes: bytes | None = None) ->
     manifest = DataRevision.from_mapping(
         _mapping(_parse_json_bytes(raw, "data revision"), "data revision")
     )
-    if content_bytes is not None:
+    if content_bytes is not None and manifest.content_type == "events":
         content = EventData.from_mapping(
             _mapping(_parse_json_bytes(content_bytes, "event data"), "event data"),
             duration_us=(
@@ -1349,6 +1354,7 @@ def canonical_pipeline_selection_update_bytes(
 __all__ = [
     "DATA_REVISION_SCHEMA_VERSION",
     "EVENT_DATA_SCHEMA_VERSION",
+    "VISIBLE_CARD_DATA_SCHEMA_VERSION",
     "PIPELINE_CONTENT_TYPES",
     "PIPELINE_ORIGINS",
     "PIPELINE_RUN_STATES",
