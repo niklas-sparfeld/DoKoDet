@@ -79,6 +79,29 @@ class AnalysisRoundSetup(ContractModel):
         return RoundSetup.from_mapping(self.model_dump(mode="python"))
 
 
+class AnalysisRoundContext(ContractModel):
+    """Explicit round identity and seating context for recording analysis."""
+
+    game_id: Identifier
+    round_id: Identifier
+    active_players: list[Identifier] = Field(min_length=4, max_length=4)
+    dealer: Identifier
+    first_trick_leader: Identifier
+
+    def to_setup(self, *, rules_version: Literal["v1"]) -> AnalysisRoundSetup:
+        """Build the engine setup from the explicit context and rules version."""
+
+        return AnalysisRoundSetup(
+            game_id=self.game_id,
+            round_id=self.round_id,
+            ruleset=AnalysisRoundRuleset(name="doko-normal", version=rules_version),
+            deck_variant="doko-40-v1",
+            active_players=self.active_players,
+            dealer=self.dealer,
+            first_trick_leader=self.first_trick_leader,
+        )
+
+
 class AnalysisSearchLimits(ContractModel):
     """The three explicit Plan 0031 search limits."""
 
@@ -110,22 +133,86 @@ class RoundAnalysisCreateRequest(ContractModel):
     recording_id: Identifier
     round_id: Identifier
     session_id: UUID
-    round_setup: AnalysisRoundSetup
-    evidence_package_ids: list[UUID] = Field(min_length=1)
+    round_setup: AnalysisRoundSetup | None = None
+    evidence_package_ids: list[UUID] = Field(default_factory=list)
+    table_observation_revision_id: Identifier | None = None
+    round_context: AnalysisRoundContext | None = None
+    rules_version: Literal["v1"] | None = None
+    correction_constraint_revision_ids: list[Identifier] = Field(default_factory=list)
     search: AnalysisSearchLimits
 
     @model_validator(mode="after")
     def validate_request_identity(self) -> RoundAnalysisCreateRequest:
-        if self.round_setup.round_id != self.round_id:
-            raise ValueError("round_setup.round_id must match round_id.")
         if len(self.evidence_package_ids) != len(set(self.evidence_package_ids)):
             raise ValueError("evidence_package_ids must contain unique values.")
+        if len(self.correction_constraint_revision_ids) != len(
+            set(self.correction_constraint_revision_ids)
+        ):
+            raise ValueError("correction_constraint_revision_ids must contain unique values.")
+        pipeline_fields_present = any(
+            value is not None
+            for value in (
+                self.table_observation_revision_id,
+                self.round_context,
+                self.rules_version,
+            )
+        ) or bool(self.correction_constraint_revision_ids)
+        if pipeline_fields_present:
+            if (
+                self.table_observation_revision_id is None
+                or self.round_context is None
+                or self.rules_version is None
+                or self.evidence_package_ids
+                or self.round_setup is not None
+            ):
+                raise ValueError(
+                    "pipeline analysis needs table_observation_revision_id, round_context, "
+                    "and rules_version without evidence packages."
+                )
+            if self.round_context.round_id != self.round_id:
+                raise ValueError("round_context.round_id must match round_id.")
+        elif self.round_setup is None or not self.evidence_package_ids:
+            raise ValueError(
+                "legacy analysis needs round_setup and at least one evidence package."
+            )
+        elif self.round_setup.round_id != self.round_id:
+            raise ValueError("round_setup.round_id must match round_id.")
         return self
+
+    @property
+    def is_pipeline_analysis(self) -> bool:
+        """Whether this request uses immutable recording-pipeline inputs."""
+
+        return self.table_observation_revision_id is not None
+
+    def resolved_round_setup(self) -> AnalysisRoundSetup:
+        """Return the explicit engine setup for either request mode."""
+
+        if self.round_setup is not None:
+            return self.round_setup
+        assert self.round_context is not None
+        assert self.rules_version is not None
+        return self.round_context.to_setup(rules_version=self.rules_version)
 
     def to_mapping(self) -> dict[str, Any]:
         """Return the JSON object used for canonical persistence."""
 
-        return self.model_dump(mode="json")
+        return self.model_dump(mode="json", exclude_none=True)
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Keep optional mode fields absent from the canonical JSON when unused."""
+
+        kwargs.setdefault("exclude_none", True)
+        value = super().model_dump(*args, **kwargs)
+        if self.is_pipeline_analysis:
+            value.pop("round_setup", None)
+            value.pop("evidence_package_ids", None)
+        else:
+            value.pop("table_observation_revision_id", None)
+            value.pop("round_context", None)
+            value.pop("rules_version", None)
+            value.pop("correction_constraint_revision_ids", None)
+        return value
 
 
 class RoundAnalysisResult(ContractModel):
@@ -364,6 +451,7 @@ def parse_round_analysis_create_request_bytes(raw: bytes) -> RoundAnalysisCreate
 
 __all__ = [
     "AnalysisRoundRuleset",
+    "AnalysisRoundContext",
     "AnalysisRoundSetup",
     "AnalysisSearchLimits",
     "CounterfactualArtifact",

@@ -111,7 +111,7 @@ class TimelineEvidenceRow(ContractModel):
     """One ordered evidence and table-observation row."""
 
     observation_id: str = Field(min_length=1, max_length=128)
-    package_id: UUID
+    package_id: UUID | None
     event_sequence: int = Field(ge=1)
     event_time_ms: int = Field(ge=0)
     observed_at_ms: int = Field(ge=0)
@@ -274,16 +274,27 @@ class RoundAnalysisTimelineProjector:
         rows: list[TimelineEvidenceRow] = []
         warnings: list[TimelineWarning] = []
         for observation in verified.input.observations:
-            package_id = _package_uuid(observation.source.package_id)
-            package = verified.packages[package_id]
-            central_frame = self._central_frame(analysis.analysis_id, package)
-            video_snippet = self._video_snippet(package)
+            package_id: UUID | None
+            if verified.request.is_pipeline_analysis:
+                package = None
+                package_id = None
+                central_frame = None
+                video_snippet = None
+                event_sequence = observation.session.event_sequence
+                event_time_ms = observation.observed_at_ms
+            else:
+                package_id = _package_uuid(observation.source.package_id)
+                package = verified.packages[package_id]
+                central_frame = self._central_frame(analysis.analysis_id, package)
+                video_snippet = self._video_snippet(package)
+                event_sequence = package.event_sequence
+                event_time_ms = package.event_time_ms
             rows.append(
                 TimelineEvidenceRow(
                     observation_id=observation.observation_id,
                     package_id=package_id,
-                    event_sequence=package.event_sequence,
-                    event_time_ms=package.event_time_ms,
+                    event_sequence=event_sequence,
+                    event_time_ms=event_time_ms,
                     observed_at_ms=observation.observed_at_ms,
                     central_frame=central_frame,
                     video_snippet=video_snippet,
@@ -292,7 +303,14 @@ class RoundAnalysisTimelineProjector:
                     ),
                 )
             )
-            if central_frame is None:
+            if central_frame is None and verified.request.is_pipeline_analysis:
+                warnings.append(
+                    TimelineWarning(
+                        code="recording_only",
+                        message="This analysis uses the accepted recording without showcase media.",
+                    )
+                )
+            elif central_frame is None:
                 warnings.append(
                     TimelineWarning(
                         code="missing_media",
@@ -420,7 +438,11 @@ class RoundAnalysisTimelineProjector:
             )
         self._validate_input_identity(request, reconstruction_input)
         self._validate_result_request(request, result)
-        packages = self._validate_sources(reconstruction_input, result)
+        packages = (
+            self._validate_pipeline_sources(reconstruction_input, result, request)
+            if request.is_pipeline_analysis
+            else self._validate_sources(reconstruction_input, result)
+        )
         self._validate_result_links(reconstruction_input, result)
         return VerifiedRoundAnalysis(
             analysis=analysis,
@@ -429,6 +451,35 @@ class RoundAnalysisTimelineProjector:
             result=result,
             packages=packages,
         )
+
+    def _validate_pipeline_sources(
+        self,
+        reconstruction_input: ReconstructionInput,
+        result: RoundReconstructionRunResult,
+        request: RoundAnalysisCreateRequest,
+    ) -> dict[UUID, StoredPackage]:
+        """Validate source records for a recording-only reconstruction."""
+
+        if len(reconstruction_input.observations) != len(result.sources):
+            raise RoundAnalysisTimelineError(
+                "The result sources do not match the input observations."
+            )
+        for observation, source in zip(
+            reconstruction_input.observations, result.sources, strict=True
+        ):
+            observation_bytes = canonical_json_bytes(observation)
+            if (
+                source.observation_id != observation.observation_id
+                or source.byte_length != len(observation_bytes)
+                or source.sha256 != _sha256(observation_bytes)
+                or observation.source.package_id is not None
+                or observation.source.recording_id != request.recording_id
+                or source.observation_path.startswith("table-observations/")
+            ):
+                raise RoundAnalysisTimelineError(
+                    "The result source record does not match recording-only input."
+                )
+        return {}
 
     def load_verified_artifacts(self, analysis: StoredRoundAnalysis) -> VerifiedRoundAnalysis:
         """Read analysis artifacts without requiring the rebuildable source index."""
@@ -666,7 +717,19 @@ class RoundAnalysisTimelineProjector:
         request: RoundAnalysisCreateRequest,
         reconstruction_input: ReconstructionInput,
     ) -> None:
-        setup = request.round_setup
+        setup = request.resolved_round_setup()
+        source_identity_valid = (
+            all(
+                observation.source.package_id is None
+                and observation.source.recording_id == request.recording_id
+                for observation in reconstruction_input.observations
+            )
+            if request.is_pipeline_analysis
+            else tuple(
+                observation.source.package_id for observation in reconstruction_input.observations
+            )
+            == tuple(str(package_id) for package_id in request.evidence_package_ids)
+        )
         if (
             reconstruction_input.game_id != setup.game_id
             or reconstruction_input.round_id != setup.round_id
@@ -680,10 +743,7 @@ class RoundAnalysisTimelineProjector:
                 observation.session.session_id != str(request.session_id)
                 for observation in reconstruction_input.observations
             )
-            or tuple(
-                observation.source.package_id for observation in reconstruction_input.observations
-            )
-            != tuple(str(package_id) for package_id in request.evidence_package_ids)
+            or not source_identity_valid
         ):
             raise RoundAnalysisTimelineError(
                 "The reconstruction input does not match the analysis request."
@@ -696,7 +756,7 @@ class RoundAnalysisTimelineProjector:
     ) -> None:
         reconstruction_request = RoundReconstructionRunRequest(
             run_id=str(request.analysis_id),
-            round_setup=request.round_setup.to_shared(),
+            round_setup=request.resolved_round_setup().to_shared(),
             observation_paths=tuple(source.observation_path for source in result.sources),
             search=request.search.to_shared(),
             output_root=".",

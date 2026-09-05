@@ -209,6 +209,18 @@ async def _queue_round_analysis(
 
     request_id = get_or_create_request_id(request)
     if created.created:
+        try:
+            service.prepare_inputs(payload)
+        except (OSError, TypeError, ValueError) as error:
+            service.store.mark_failed(
+                payload.analysis_id,
+                "The analysis inputs could not be copied.",
+            )
+            raise ContractError(
+                "analysis_input_error",
+                "The analysis inputs could not be prepared.",
+                status_code=500,
+            ) from error
         _log_round_analysis_created(request_id, created.analysis)
 
     if created.created and request.app.state.run_round_analysis_synchronously:

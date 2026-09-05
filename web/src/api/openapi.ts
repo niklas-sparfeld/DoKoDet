@@ -1441,6 +1441,22 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AnalysisRoundContext
+         * @description Explicit round identity and seating context for recording analysis.
+         */
+        AnalysisRoundContext: {
+            /** Active Players */
+            active_players: string[];
+            /** Dealer */
+            dealer: string;
+            /** First Trick Leader */
+            first_trick_leader: string;
+            /** Game Id */
+            game_id: string;
+            /** Round Id */
+            round_id: string;
+        };
+        /**
          * AnalysisRoundRuleset
          * @description The fixed ruleset accepted by the round reconstruction contract.
          */
@@ -3098,13 +3114,18 @@ export interface components {
              * Format: uuid
              */
             analysis_id: string;
+            /** Correction Constraint Revision Ids */
+            correction_constraint_revision_ids?: string[];
             /** Evidence Package Ids */
-            evidence_package_ids: string[];
+            evidence_package_ids?: string[];
             /** Recording Id */
             recording_id: string;
+            round_context?: components["schemas"]["AnalysisRoundContext"] | null;
             /** Round Id */
             round_id: string;
-            round_setup: components["schemas"]["AnalysisRoundSetup"];
+            round_setup?: components["schemas"]["AnalysisRoundSetup"] | null;
+            /** Rules Version */
+            rules_version?: "v1" | null;
             /**
              * Schema Version
              * @default round-analysis/v1
@@ -3117,6 +3138,8 @@ export interface components {
              * Format: uuid
              */
             session_id: string;
+            /** Table Observation Revision Id */
+            table_observation_revision_id?: string | null;
         };
         /**
          * RoundAnalysisResult
@@ -3425,11 +3448,8 @@ export interface components {
             observation_id: string;
             /** Observed At Ms */
             observed_at_ms: number;
-            /**
-             * Package Id
-             * Format: uuid
-             */
-            package_id: string;
+            /** Package Id */
+            package_id: string | null;
             table_observation: components["schemas"]["TableObservation"];
             video_snippet: components["schemas"]["TimelineVideoSnippet"] | null;
         };

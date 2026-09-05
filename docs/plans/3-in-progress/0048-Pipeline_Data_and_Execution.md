@@ -21,7 +21,7 @@
 - **M4:** Complete — run and retain visible-card detector results.
 - **M5:** Complete — run and retain visual card identity results.
 - **M6:** Complete — assemble and store table observations from selected results.
-- **M7:** Not started — run recording analysis without evidence-package inputs.
+- **M7:** Complete — run recording analysis from pinned table observations and explicit round context without evidence-package inputs; keep showcase package work independent.
 - **M8:** Not started — implement maintained reference drafts and conflict-safe editing.
 - **M9:** Not started — validate coverage, track affected work, and complete references.
 - **M10:** Not started — freeze selected references for existing dataset consumers.

@@ -7,6 +7,7 @@ import json
 import logging
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from threading import Lock
 from uuid import UUID, uuid4
 
@@ -17,6 +18,7 @@ from doko_operations.counterfactual import (
     parse_round_counterfactual_request_bytes,
     recompute_counterfactual,
 )
+from doko_operations.pipeline_data import RecordingVideoSource
 from doko_operations.round_reconstruction import (
     RoundReconstructionRunRequest,
     RoundReconstructionRunResult,
@@ -24,7 +26,13 @@ from doko_operations.round_reconstruction import (
 )
 from game_engine import canonical_json_bytes as canonical_engine_json_bytes
 from game_engine import parse_reconstruction_input_bytes
-from table_evidence_analyzer import TableEvidenceAnalyzer
+from table_evidence_analyzer import TableEvidenceAnalyzer, TableObservation
+from table_evidence_analyzer.pipeline_data import (
+    TableObservationData,
+    canonical_json_bytes,
+    canonical_table_observation_data_bytes,
+    parse_table_observation_data_bytes,
+)
 
 from dokodetector_backend.analyzer_runner import AnalyzerRunner
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
@@ -35,12 +43,18 @@ from dokodetector_backend.intake_contract import (
     parse_source_record,
 )
 from dokodetector_backend.logging_config import log_event
+from dokodetector_backend.pipeline_store import (
+    PipelineRevisionStore,
+    PipelineSelectionStore,
+    StoredPipelineRevision,
+)
 from dokodetector_backend.recording_bundle_store import (
     RecordingBundleStore,
     StoredRecordingBundle,
 )
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_contract import (
+    AnalysisRoundContext,
     AnalysisRoundRuleset,
     AnalysisRoundSetup,
     AnalysisSearchLimits,
@@ -96,6 +110,7 @@ class ValidatedRoundAnalysisInput:
 
     request: RoundAnalysisCreateRequest
     packages: tuple[StoredPackage, ...]
+    pipeline_revision: StoredPipelineRevision | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +146,8 @@ class RoundAnalysisService:
         recording_bundle_store: RecordingBundleStore,
         repository_bundle_storage: RepositoryBundleStorage,
         analyzer: TableEvidenceAnalyzer,
+        pipeline_revision_store: PipelineRevisionStore | None = None,
+        pipeline_selection_store: PipelineSelectionStore | None = None,
     ) -> None:
         self.store = store
         self.package_store = package_store
@@ -140,6 +157,8 @@ class RoundAnalysisService:
         self.artifact_storage = artifact_storage
         self.recording_bundle_store = recording_bundle_store
         self.repository_bundle_storage = repository_bundle_storage
+        self.pipeline_revision_store = pipeline_revision_store
+        self.pipeline_selection_store = pipeline_selection_store
         self.analyzer_runner = AnalyzerRunner(
             package_store,
             analyzer,
@@ -161,7 +180,7 @@ class RoundAnalysisService:
         return self._worker_task
 
     def validate_request(self, request: RoundAnalysisCreateRequest) -> ValidatedRoundAnalysisInput:
-        """Validate stored recording, package lineage, and shared session identity."""
+        """Validate stored recording and the immutable input selected by the request."""
 
         recording = self.recording_bundle_store.get(request.recording_id)
         if recording is None:
@@ -170,6 +189,37 @@ class RoundAnalysisService:
         if recording.session_id != expected_session_id:
             raise RoundAnalysisValidationError(
                 "The recording bundle session does not match the analysis session."
+            )
+
+        if request.is_pipeline_analysis:
+            if self.pipeline_revision_store is None:
+                raise RoundAnalysisValidationError("The recording pipeline is not available.")
+            revision = self.pipeline_revision_store.get(request.table_observation_revision_id or "")
+            if revision is None:
+                raise RoundAnalysisValidationError(
+                    "The selected table-observation revision is not stored."
+                )
+            source = revision.manifest.source
+            if (
+                revision.manifest.content_type != "table_observations"
+                or revision.manifest.recording_id != request.recording_id
+                or not isinstance(source, RecordingVideoSource)
+                or source.video_sha256 != recording.source_sha256
+                or not isinstance(revision.content, TableObservationData)
+                or not revision.content.observations
+            ):
+                raise RoundAnalysisValidationError(
+                    "The selected table-observation revision is not linked to the recording video."
+                )
+            for observation in revision.content.observations:
+                if observation.session.session_id != expected_session_id:
+                    raise RoundAnalysisValidationError(
+                        "All table observations must use the analysis session."
+                    )
+            return ValidatedRoundAnalysisInput(
+                request=request,
+                packages=(),
+                pipeline_revision=revision,
             )
 
         packages: list[StoredPackage] = []
@@ -220,7 +270,12 @@ class RoundAnalysisService:
             analyses = self.store.list_by_recording(recording.recording_id)
             try:
                 _, _, round_id = self._analysis_identifiers(recording)
-                blocker = None if packages else "No linked evidence packages are available."
+                pipeline_revision = self._selected_pipeline_revision(recording.recording_id)
+                blocker = (
+                    None
+                    if pipeline_revision is not None or packages
+                    else "No selected table observations or linked evidence packages are available."
+                )
             except RoundAnalysisValidationError as error:
                 round_id = analyses[0].round_id if analyses else f"round-{recording.recording_id}"
                 blocker = str(error)
@@ -237,11 +292,37 @@ class RoundAnalysisService:
         return tuple(entries)
 
     def default_request_for_recording(self, recording_id: str) -> RoundAnalysisCreateRequest:
-        """Build an analysis request from one recording and all linked packages."""
+        """Build an analysis request from one recording's selected pipeline revision."""
 
         recording = self.recording_bundle_store.get(recording_id)
         if recording is None:
             raise RoundAnalysisValidationError("The recording bundle is not stored.")
+        pipeline_revision = self._selected_pipeline_revision(recording_id)
+        session_id, game_id, round_id = self._analysis_identifiers(recording)
+        context = AnalysisRoundContext(
+            game_id=game_id,
+            round_id=round_id,
+            active_players=["seat-1", "seat-2", "seat-3", "seat-4"],
+            dealer="seat-1",
+            first_trick_leader="seat-1",
+        )
+        search = AnalysisSearchLimits(
+            max_missing_plays=1,
+            max_hypotheses=256,
+            max_search_nodes=250_000,
+        )
+        if pipeline_revision is not None:
+            return RoundAnalysisCreateRequest(
+                analysis_id=uuid4(),
+                recording_id=recording.recording_id,
+                round_id=round_id,
+                session_id=session_id,
+                table_observation_revision_id=pipeline_revision.manifest.revision_id,
+                round_context=context,
+                rules_version="v1",
+                search=search,
+            )
+
         packages = tuple(
             package_id
             for entry in self.recording_catalog()
@@ -249,8 +330,9 @@ class RoundAnalysisService:
             for package_id in entry.evidence_package_ids
         )
         if not packages:
-            raise RoundAnalysisValidationError("No linked evidence packages are available.")
-        session_id, game_id, round_id = self._analysis_identifiers(recording)
+            raise RoundAnalysisValidationError(
+                "No selected table observations or linked evidence packages are available."
+            )
         setup = AnalysisRoundSetup(
             game_id=game_id,
             round_id=round_id,
@@ -267,11 +349,67 @@ class RoundAnalysisService:
             session_id=session_id,
             round_setup=setup,
             evidence_package_ids=list(packages),
-            search=AnalysisSearchLimits(
-                max_missing_plays=1,
-                max_hypotheses=256,
-                max_search_nodes=250_000,
-            ),
+            search=search,
+        )
+
+    def _selected_pipeline_revision(self, recording_id: str) -> StoredPipelineRevision | None:
+        """Return the selected table-observation revision when it belongs to a recording."""
+
+        if self.pipeline_selection_store is None or self.pipeline_revision_store is None:
+            return None
+        selection = self.pipeline_selection_store.get(recording_id, "table_observations")
+        if selection is None:
+            return None
+        revision_id = (
+            selection.selected_generated_revision_id
+            or selection.selected_completed_reference_revision_id
+        )
+        if revision_id is None:
+            return None
+        revision = self.pipeline_revision_store.get(revision_id)
+        if revision is None or revision.manifest.recording_id != recording_id:
+            return None
+        if revision.manifest.content_type != "table_observations":
+            return None
+        return revision
+
+    def prepare_inputs(self, request: RoundAnalysisCreateRequest) -> None:
+        """Resolve and copy pipeline inputs before analysis work is queued."""
+
+        if not request.is_pipeline_analysis:
+            return
+        selected = self.validate_request(request)
+        assert selected.pipeline_revision is not None
+        revision = selected.pipeline_revision
+        content_bytes = canonical_table_observation_data_bytes(revision.content)
+        context = request.round_context
+        assert context is not None
+        self.artifact_storage.prepare_inputs(
+            request.analysis_id,
+            {
+                "table-observations.json": content_bytes,
+                "round-context.json": json.dumps(
+                    context.model_dump(mode="json"),
+                    ensure_ascii=True,
+                    allow_nan=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8"),
+                "input-manifest.json": json.dumps(
+                    {
+                        "table_observation_revision_id": revision.manifest.revision_id,
+                        "table_observation_content_sha256": revision.manifest.content_sha256,
+                        "rules_version": request.rules_version,
+                        "correction_constraint_revision_ids": list(
+                            request.correction_constraint_revision_ids
+                        ),
+                    },
+                    ensure_ascii=True,
+                    allow_nan=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8"),
+            },
         )
 
     def _analysis_identifiers(self, recording: StoredRecordingBundle) -> tuple[UUID, str, str]:
@@ -376,7 +514,10 @@ class RoundAnalysisService:
             )
             _log_state_change(analysis, updated, request_id)
             analysis = updated
-            observations: list[StoredTableObservation] = []
+            observations: list[StoredTableObservation | TableObservation] = []
+            if selected.request.is_pipeline_analysis:
+                assert selected.pipeline_revision is not None
+                observations.extend(self._read_prepared_pipeline_observations(request.analysis_id))
             for index, package in enumerate(selected.packages, start=1):
                 log_event(
                     LOGGER,
@@ -412,7 +553,7 @@ class RoundAnalysisService:
             updated = self.store.update_progress(
                 analysis_id,
                 state="reconstructing",
-                completed=len(observations),
+                completed=len(selected.packages),
             )
             _log_state_change(analysis, updated, request_id)
             analysis = updated
@@ -494,24 +635,41 @@ class RoundAnalysisService:
     def _run_reconstruction(
         self,
         selected: ValidatedRoundAnalysisInput,
-        observations: list[StoredTableObservation],
+        observations: list[StoredTableObservation | TableObservation],
     ) -> tuple[RoundReconstructionRunResult, tuple[bytes, bytes]]:
         request = selected.request
-        observation_paths = tuple(observation.relative_path for observation in observations)
-        source_paths = tuple(
-            self.evidence_storage.root / relative_path for relative_path in observation_paths
-        )
-        reconstruction_request = RoundReconstructionRunRequest(
-            run_id=str(request.analysis_id),
-            round_setup=request.round_setup.to_shared(),
-            observation_paths=observation_paths,
-            search=request.search.to_shared(),
-            output_root=".",
-        )
         self.artifact_storage.runtime_root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
             prefix=f".{request.analysis_id}-", dir=self.artifact_storage.runtime_root
         ) as scratch_root:
+            if request.is_pipeline_analysis:
+                observation_paths: list[str] = []
+                source_paths = []
+                for index, observation in enumerate(observations):
+                    assert isinstance(observation, TableObservation)
+                    relative_path = (
+                        f"pipeline-observations/{index:04d}-{observation.observation_id}.json"
+                    )
+                    path = Path(scratch_root) / relative_path
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(
+                        canonical_json_bytes(observation.model_dump(mode="json", exclude_none=True))
+                    )
+                    observation_paths.append(relative_path)
+                    source_paths.append(path)
+            else:
+                observation_paths = [observation.relative_path for observation in observations]
+                source_paths = [
+                    self.evidence_storage.root / relative_path
+                    for relative_path in observation_paths
+                ]
+            reconstruction_request = RoundReconstructionRunRequest(
+                run_id=str(request.analysis_id),
+                round_setup=request.resolved_round_setup().to_shared(),
+                observation_paths=tuple(observation_paths),
+                search=request.search.to_shared(),
+                output_root=".",
+            )
             artifacts = run_round_reconstruction_values(
                 reconstruction_request,
                 source_paths,
@@ -521,6 +679,27 @@ class RoundAnalysisService:
                 artifacts.result,
                 (artifacts.input_path.read_bytes(), artifacts.result_path.read_bytes()),
             )
+
+    def _read_prepared_pipeline_observations(
+        self, analysis_id: UUID
+    ) -> list[TableObservation]:
+        """Read the immutable observation copy prepared before queueing."""
+
+        path = (
+            self.artifact_storage.analysis_path(analysis_id)
+            / "inputs"
+            / "table-observations.json"
+        )
+        try:
+            raw = path.read_bytes()
+            data = parse_table_observation_data_bytes(raw)
+            if canonical_table_observation_data_bytes(data) != raw:
+                raise ValueError("the prepared table observations are not canonical")
+        except (OSError, TypeError, UnicodeError, ValueError) as error:
+            raise RoundAnalysisValidationError(
+                "The prepared table-observation input is unavailable or invalid."
+            ) from error
+        return list(data.observations)
 
     def status(self, analysis_id: UUID) -> RoundAnalysisStatus:
         """Convert one durable row to the public status document."""

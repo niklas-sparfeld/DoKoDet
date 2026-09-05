@@ -200,6 +200,66 @@ public struct RoundAnalysisResult: Codable, Equatable, Sendable {
     }
 }
 
+/// The explicit round context used by recording-pipeline analysis.
+public struct RoundAnalysisRoundContext: Codable, Equatable, Sendable {
+    public let gameID: String
+    public let roundID: String
+    public let activePlayers: [String]
+    public let dealer: String
+    public let firstTrickLeader: String
+
+    public init(
+        gameID: String,
+        roundID: String,
+        activePlayers: [String] = RoundRecordingSetup.fixedSeatIDs,
+        dealer: String = "seat-1",
+        firstTrickLeader: String = "seat-1"
+    ) throws {
+        guard roundAnalysisIsIdentifier(gameID),
+              roundAnalysisIsIdentifier(roundID),
+              activePlayers == RoundRecordingSetup.fixedSeatIDs,
+              RoundRecordingSetup.fixedSeatIDs.contains(dealer),
+              RoundRecordingSetup.fixedSeatIDs.contains(firstTrickLeader) else {
+            throw RoundAnalysisContractError.invalidRequest
+        }
+        self.gameID = gameID
+        self.roundID = roundID
+        self.activePlayers = activePlayers
+        self.dealer = dealer
+        self.firstTrickLeader = firstTrickLeader
+    }
+
+    public init(setup: RoundRecordingSetup) throws {
+        try self.init(
+            gameID: setup.gameID,
+            roundID: setup.roundID,
+            activePlayers: setup.activePlayers,
+            dealer: setup.dealer,
+            firstTrickLeader: setup.firstTrickLeader
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case gameID = "game_id"
+        case roundID = "round_id"
+        case activePlayers = "active_players"
+        case dealer
+        case firstTrickLeader = "first_trick_leader"
+    }
+
+    public init(from decoder: Decoder) throws {
+        try roundAnalysisRequireExactKeys(decoder, CodingKeys.self)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(
+            gameID: container.decode(String.self, forKey: .gameID),
+            roundID: container.decode(String.self, forKey: .roundID),
+            activePlayers: container.decode([String].self, forKey: .activePlayers),
+            dealer: container.decode(String.self, forKey: .dealer),
+            firstTrickLeader: container.decode(String.self, forKey: .firstTrickLeader)
+        )
+    }
+}
+
 /// The exact request accepted by `POST /v1/round-analyses`.
 public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
     public let schemaVersion: String
@@ -209,6 +269,10 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
     public let sessionID: UUID
     public let roundSetup: RoundRecordingSetup
     public let evidencePackageIDs: [UUID]
+    public let tableObservationRevisionID: String?
+    public let roundContext: RoundAnalysisRoundContext?
+    public let rulesVersion: String?
+    public let correctionConstraintRevisionIDs: [String]
     public let search: RoundAnalysisSearchLimits
 
     public init(
@@ -234,19 +298,105 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         self.sessionID = sessionID
         self.roundSetup = roundSetup
         self.evidencePackageIDs = evidencePackageIDs
+        tableObservationRevisionID = nil
+        roundContext = nil
+        rulesVersion = nil
+        correctionConstraintRevisionIDs = []
+        self.search = search
+    }
+
+    public init(
+        analysisID: UUID,
+        recordingID: String,
+        sessionID: UUID,
+        tableObservationRevisionID: String,
+        roundContext: RoundAnalysisRoundContext,
+        rulesVersion: String = "v1",
+        correctionConstraintRevisionIDs: [String] = [],
+        search: RoundAnalysisSearchLimits = RoundAnalysisSearchLimits()
+    ) throws {
+        guard roundAnalysisIsIdentifier(recordingID),
+              roundAnalysisIsIdentifier(tableObservationRevisionID),
+              roundContext.roundID == "round-\(recordingID)",
+              rulesVersion == "v1",
+              correctionConstraintRevisionIDs.allSatisfy(roundAnalysisIsIdentifier),
+              Set(correctionConstraintRevisionIDs).count == correctionConstraintRevisionIDs.count else {
+            throw RoundAnalysisContractError.invalidRequest
+        }
+        let ruleset = try RoundRecordingRuleset(version: rulesVersion)
+        let setup = try RoundRecordingSetup(
+            gameID: roundContext.gameID,
+            roundID: roundContext.roundID,
+            ruleset: ruleset,
+            deckVariant: RoundRecordingSetup.deckVariant,
+            activePlayers: roundContext.activePlayers,
+            dealer: roundContext.dealer,
+            firstTrickLeader: roundContext.firstTrickLeader
+        )
+        schemaVersion = roundAnalysisSchemaVersion
+        self.analysisID = analysisID
+        self.recordingID = recordingID
+        roundID = roundContext.roundID
+        self.sessionID = sessionID
+        roundSetup = setup
+        evidencePackageIDs = []
+        self.tableObservationRevisionID = tableObservationRevisionID
+        self.roundContext = roundContext
+        self.rulesVersion = rulesVersion
+        self.correctionConstraintRevisionIDs = correctionConstraintRevisionIDs
         self.search = search
     }
 
     public init(from decoder: Decoder) throws {
-        try roundAnalysisRequireExactKeys(decoder, CodingKeys.self)
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let allKeys = try decoder.container(keyedBy: RoundAnalysisAnyCodingKey.self)
+        let keys = Set(allKeys.allKeys.map(\.stringValue))
+        let legacyKeys: Set<String> = [
+            "schema_version", "analysis_id", "recording_id", "round_id", "session_id",
+            "round_setup", "evidence_package_ids", "search",
+        ]
+        let pipelineKeys: Set<String> = [
+            "schema_version", "analysis_id", "recording_id", "round_id", "session_id",
+            "table_observation_revision_id", "round_context", "rules_version",
+            "correction_constraint_revision_ids", "search",
+        ]
+        guard keys == legacyKeys || keys == pipelineKeys else {
+            throw RoundAnalysisContractError.invalidRequest
+        }
         schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
         analysisID = try container.decode(UUID.self, forKey: .analysisID)
         recordingID = try container.decode(String.self, forKey: .recordingID)
         roundID = try container.decode(String.self, forKey: .roundID)
         sessionID = try container.decode(UUID.self, forKey: .sessionID)
-        roundSetup = try container.decode(RoundRecordingSetup.self, forKey: .roundSetup)
-        evidencePackageIDs = try container.decode([UUID].self, forKey: .evidencePackageIDs)
+        if keys == legacyKeys {
+            roundSetup = try container.decode(RoundRecordingSetup.self, forKey: .roundSetup)
+            evidencePackageIDs = try container.decode([UUID].self, forKey: .evidencePackageIDs)
+            tableObservationRevisionID = nil
+            roundContext = nil
+            rulesVersion = nil
+            correctionConstraintRevisionIDs = []
+        } else {
+            let context = try container.decode(RoundAnalysisRoundContext.self, forKey: .roundContext)
+            let rulesVersion = try container.decode(String.self, forKey: .rulesVersion)
+            let ruleset = try RoundRecordingRuleset(version: rulesVersion)
+            roundSetup = try RoundRecordingSetup(
+                gameID: context.gameID,
+                roundID: context.roundID,
+                ruleset: ruleset,
+                deckVariant: RoundRecordingSetup.deckVariant,
+                activePlayers: context.activePlayers,
+                dealer: context.dealer,
+                firstTrickLeader: context.firstTrickLeader
+            )
+            evidencePackageIDs = []
+            tableObservationRevisionID = try container.decode(String.self, forKey: .tableObservationRevisionID)
+            self.roundContext = context
+            self.rulesVersion = rulesVersion
+            correctionConstraintRevisionIDs = try container.decode(
+                [String].self,
+                forKey: .correctionConstraintRevisionIDs
+            )
+        }
         search = try container.decode(RoundAnalysisSearchLimits.self, forKey: .search)
         guard schemaVersion == roundAnalysisSchemaVersion,
               roundAnalysisIsIdentifier(recordingID),
@@ -254,8 +404,10 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
               roundAnalysisIsIdentifier(roundSetup.roundID),
               roundSetup.roundID == roundID,
               roundID == "round-\(recordingID)",
-              !evidencePackageIDs.isEmpty,
-              Set(evidencePackageIDs).count == evidencePackageIDs.count else {
+              (tableObservationRevisionID != nil || (!evidencePackageIDs.isEmpty && roundContext == nil)),
+              Set(evidencePackageIDs).count == evidencePackageIDs.count,
+              Set(correctionConstraintRevisionIDs).count == correctionConstraintRevisionIDs.count,
+              correctionConstraintRevisionIDs.allSatisfy(roundAnalysisIsIdentifier) else {
             throw RoundAnalysisContractError.invalidRequest
         }
     }
@@ -268,6 +420,10 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         case sessionID = "session_id"
         case roundSetup = "round_setup"
         case evidencePackageIDs = "evidence_package_ids"
+        case tableObservationRevisionID = "table_observation_revision_id"
+        case roundContext = "round_context"
+        case rulesVersion = "rules_version"
+        case correctionConstraintRevisionIDs = "correction_constraint_revision_ids"
         case search
     }
 
@@ -278,11 +434,21 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         try container.encode(recordingID, forKey: .recordingID)
         try container.encode(roundID, forKey: .roundID)
         try container.encode(sessionID.uuidString.lowercased(), forKey: .sessionID)
-        try container.encode(roundSetup, forKey: .roundSetup)
-        try container.encode(
-            evidencePackageIDs.map { $0.uuidString.lowercased() },
-            forKey: .evidencePackageIDs
-        )
+        if let tableObservationRevisionID, let roundContext, let rulesVersion {
+            try container.encode(tableObservationRevisionID, forKey: .tableObservationRevisionID)
+            try container.encode(roundContext, forKey: .roundContext)
+            try container.encode(rulesVersion, forKey: .rulesVersion)
+            try container.encode(
+                correctionConstraintRevisionIDs,
+                forKey: .correctionConstraintRevisionIDs
+            )
+        } else {
+            try container.encode(roundSetup, forKey: .roundSetup)
+            try container.encode(
+                evidencePackageIDs.map { $0.uuidString.lowercased() },
+                forKey: .evidencePackageIDs
+            )
+        }
         try container.encode(search, forKey: .search)
     }
 }
@@ -459,6 +625,16 @@ public extension RoundRecordingState {
         }
         return allEvidencePackagesAcknowledged ? .ready : .waitingForUploads
     }
+
+    /// Recording-pipeline analysis only needs the accepted video bundle.
+    var recordingPipelineAnalysisSubmissionReadiness: RoundAnalysisSubmissionReadiness {
+        guard evidenceMembershipClosed,
+              recordingBundleFinalized,
+              recordingBundleAcknowledged else {
+            return .waitingForUploads
+        }
+        return .ready
+    }
 }
 
 /// Durable request identity and the latest remote status for one recording.
@@ -537,6 +713,22 @@ public struct RoundAnalysisSubmissionState: Codable, Equatable, Sendable {
             error: error,
             createdAtUTC: createdAtUTC,
             updatedAtUTC: updatedAtUTC
+        )
+    }
+
+    public func assigningAnalysisID(_ analysisID: UUID) throws -> Self {
+        try Self(
+            recordingID: recordingID,
+            sessionID: sessionID,
+            roundSetup: roundSetup,
+            evidencePackageIDs: evidencePackageIDs,
+            search: search,
+            analysisID: analysisID,
+            phase: phase,
+            remoteStatus: remoteStatus,
+            error: error,
+            createdAtUTC: createdAtUTC,
+            updatedAtUTC: Date()
         )
     }
 
@@ -803,6 +995,28 @@ public final class RoundAnalysisClient: @unchecked Sendable {
         return status
     }
 
+    public func create(
+        recordingID: String,
+        using configuration: BackendConfiguration
+    ) async throws -> RoundAnalysisStatus {
+        var request = URLRequest(url: configuration.recordingRoundAnalysisURL(for: recordingID))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (data, response) = try await session.data(for: request)
+        guard let response = response as? HTTPURLResponse else {
+            throw RoundAnalysisContractError.invalidResponse
+        }
+        guard response.statusCode == 202 else {
+            throw RoundAnalysisContractError.nonSuccessResponse(response.statusCode, data)
+        }
+        let status = try Self.decodeStatus(data)
+        guard status.recordingID == recordingID else {
+            throw RoundAnalysisContractError.invalidResponse
+        }
+        return status
+    }
+
     public func status(
         for analysisID: UUID,
         using configuration: BackendConfiguration
@@ -877,6 +1091,14 @@ public extension BackendConfiguration {
 
     func roundAnalysisURL(for analysisID: UUID) -> URL {
         roundAnalysesURL().appendingPathComponent(analysisID.uuidString.lowercased())
+    }
+
+    func recordingRoundAnalysisURL(for recordingID: String) -> URL {
+        baseURL
+            .appendingPathComponent("v1", isDirectory: true)
+            .appendingPathComponent("recordings", isDirectory: true)
+            .appendingPathComponent(recordingID, isDirectory: true)
+            .appendingPathComponent("round-analyses", isDirectory: false)
     }
 }
 

@@ -1460,11 +1460,7 @@ final class AppState: ObservableObject {
         guard let recordingState = roundRecordingState else {
             return
         }
-        guard recordingState.roundAnalysisSubmissionReadiness != .noEvidence else {
-            persistEmptyEvidenceFailure(for: recordingState)
-            return
-        }
-        guard recordingState.roundAnalysisSubmissionReadiness == .ready else {
+        guard recordingState.recordingPipelineAnalysisSubmissionReadiness == .ready else {
             if roundRecordingState != nil,
                trainingRecordingState != .recording,
                trainingRecordingState != .idle {
@@ -1494,7 +1490,6 @@ final class AppState: ObservableObject {
                     sessionID: recordingState.sessionID,
                     roundSetup: recordingState.roundSetup,
                     evidencePackageIDs: recordingState.evidencePackageIDs,
-                    analysisID: UUID(),
                     phase: .submitting
                 )
                 try roundAnalysisSubmissionStore.save(submission)
@@ -1513,21 +1508,19 @@ final class AppState: ObservableObject {
             }
             return
         }
-        guard let request = submission.createRequest else {
-            roundAnalysisState = .failed("The round-analysis request could not be created.")
-            return
-        }
-
         roundAnalysisState = .queued
         roundAnalysisRequestInFlight = true
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let status = try await self.roundAnalysisClient.create(
-                    request: request,
+                    recordingID: submission.recordingID,
                     using: configuration
                 )
-                self.applyRoundAnalysisStatus(status, to: submission)
+                let identified = submission.analysisID == nil
+                    ? (try? submission.assigningAnalysisID(status.analysisID)) ?? submission
+                    : submission
+                self.applyRoundAnalysisStatus(status, to: identified)
             } catch {
                 self.roundAnalysisState = .failed(error.localizedDescription)
                 if let failed = try? submission.updating(

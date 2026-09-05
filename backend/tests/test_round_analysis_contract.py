@@ -65,6 +65,42 @@ def test_create_request_is_strict_and_canonical() -> None:
     )
 
 
+def test_pipeline_create_request_requires_explicit_observation_context() -> None:
+    payload = {
+        "analysis_id": str(ANALYSIS_ID),
+        "recording_id": "recording-0032",
+        "round_id": "round-0032",
+        "session_id": str(SESSION_ID),
+        "table_observation_revision_id": "observations-0032",
+        "round_context": {
+            "game_id": "game-0032",
+            "round_id": "round-0032",
+            "active_players": ["seat-1", "seat-2", "seat-3", "seat-4"],
+            "dealer": "seat-1",
+            "first_trick_leader": "seat-2",
+        },
+        "rules_version": "v1",
+        "correction_constraint_revision_ids": [],
+        "search": {
+            "max_missing_plays": 2,
+            "max_hypotheses": 8,
+            "max_search_nodes": 1000,
+        },
+    }
+
+    request = RoundAnalysisCreateRequest.model_validate(payload)
+
+    assert request.is_pipeline_analysis
+    assert request.resolved_round_setup().game_id == "game-0032"
+    assert "evidence_package_ids" not in request.to_mapping()
+    assert RoundAnalysisCreateRequest.model_validate(request.to_mapping()) == request
+
+    with pytest.raises(ValidationError):
+        RoundAnalysisCreateRequest.model_validate(
+            {**payload, "evidence_package_ids": [str(PACKAGE_IDS[0])]}
+        )
+
+
 @pytest.mark.parametrize(
     "change",
     [

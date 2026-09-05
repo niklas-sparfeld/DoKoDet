@@ -65,6 +65,34 @@ public struct RoundRecordingSetup: Codable, Equatable, Sendable {
     public let dealer: String
     public let firstTrickLeader: String
 
+    public init(
+        gameID: String,
+        roundID: String,
+        ruleset: RoundRecordingRuleset,
+        deckVariant: String,
+        activePlayers: [String],
+        dealer: String,
+        firstTrickLeader: String
+    ) throws {
+        guard roundRecordingIsIdentifier(gameID),
+              roundRecordingIsIdentifier(roundID),
+              ruleset.name == "doko-normal",
+              ruleset.version == "v1",
+              deckVariant == Self.deckVariant,
+              activePlayers == Self.fixedSeatIDs,
+              Self.fixedSeatIDs.contains(dealer),
+              Self.fixedSeatIDs.contains(firstTrickLeader) else {
+            throw RoundRecordingSetupError.invalidRoundID
+        }
+        self.gameID = gameID
+        self.roundID = roundID
+        self.ruleset = ruleset
+        self.deckVariant = deckVariant
+        self.activePlayers = activePlayers
+        self.dealer = dealer
+        self.firstTrickLeader = firstTrickLeader
+    }
+
     init(recordingID: String, defaults: RoundRecordingSetupDefaults) throws {
         let gameID = defaults.gameID
         let dealer = defaults.dealer

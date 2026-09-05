@@ -53,6 +53,28 @@ final class RoundAnalysisTests: XCTestCase {
         )
     }
 
+    func testPipelineCreateRequestPinsObservationRevisionAndExplicitContext() throws {
+        let setup = try defaultSetup(recordingID: "recording-analysis-fixture")
+        let context = try RoundAnalysisRoundContext(setup: setup)
+        let request = try RoundAnalysisCreateRequest(
+            analysisID: UUID(uuidString: "00000000-0000-0000-0000-000000000032")!,
+            recordingID: "recording-analysis-fixture",
+            sessionID: UUID(uuidString: "00000000-0000-0000-0000-000000000033")!,
+            tableObservationRevisionID: "observations-revision-01",
+            roundContext: context,
+            correctionConstraintRevisionIDs: ["corrections-01"]
+        )
+
+        let data = try JSONEncoder().encode(request)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["table_observation_revision_id"] as? String, "observations-revision-01")
+        XCTAssertNotNil(object["round_context"] as? [String: Any])
+        XCTAssertEqual(object["rules_version"] as? String, "v1")
+        XCTAssertEqual(object["correction_constraint_revision_ids"] as? [String], ["corrections-01"])
+        XCTAssertNil(object["evidence_package_ids"])
+        XCTAssertEqual(try JSONDecoder().decode(RoundAnalysisCreateRequest.self, from: data), request)
+    }
+
     func testSubmissionStatePersistsAnalysisIDAndCanResumeAfterReload() throws {
         let directory = temporaryDirectory()
         defer {
@@ -119,6 +141,22 @@ final class RoundAnalysisTests: XCTestCase {
         XCTAssertEqual(acknowledged.roundAnalysisSubmissionReadiness, .ready)
     }
 
+    func testRecordingPipelineReadinessIgnoresShowcasePackageAcknowledgement() throws {
+        let setup = try defaultSetup(recordingID: "recording-analysis-fixture")
+        let state = try RoundRecordingState(
+            recordingID: "recording-analysis-fixture",
+            sessionID: UUID(),
+            roundSetup: setup
+        )
+        let ready = try state
+            .addingEvidencePackage(UUID())
+            .closingEvidenceMembership()
+            .markingRecordingBundleFinalized()
+            .markingRecordingBundleAcknowledged()
+
+        XCTAssertEqual(ready.recordingPipelineAnalysisSubmissionReadiness, .ready)
+    }
+
     func testClientPostsAndPollsCanonicalRoundAnalysisEndpoints() async throws {
         let setup = try defaultSetup(recordingID: "recording-analysis-fixture")
         let analysisID = UUID(uuidString: "00000000-0000-0000-0000-000000000032")!
@@ -150,6 +188,26 @@ final class RoundAnalysisTests: XCTestCase {
             JSONSerialization.jsonObject(with: RoundAnalysisURLProtocol.postedBody) as? [String: Any]
         )
         XCTAssertEqual(posted["analysis_id"] as? String, analysisID.uuidString.lowercased())
+    }
+
+    func testClientCanStartAnalysisFromRecordingWithoutPackagePayload() async throws {
+        let configuration = try BackendConfiguration.simulatorLocalhost()
+        let sessionConfiguration = URLSessionConfiguration.ephemeral
+        sessionConfiguration.protocolClasses = [RoundAnalysisURLProtocol.self]
+        let client = RoundAnalysisClient(session: URLSession(configuration: sessionConfiguration))
+
+        let status = try await client.create(
+            recordingID: "recording-analysis-fixture",
+            using: configuration
+        )
+
+        XCTAssertEqual(status.recordingID, "recording-analysis-fixture")
+        XCTAssertEqual(RoundAnalysisURLProtocol.methods, ["POST"])
+        XCTAssertEqual(
+            RoundAnalysisURLProtocol.paths,
+            ["/v1/recordings/recording-analysis-fixture/round-analyses"]
+        )
+        XCTAssertTrue(RoundAnalysisURLProtocol.postedBody.isEmpty)
     }
 
     func testClientRejectsUnknownStatusFields() async throws {
@@ -329,7 +387,9 @@ private final class RoundAnalysisURLProtocol: URLProtocol {
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
-        request.url?.path.hasPrefix("/v1/round-analyses") == true
+        guard let path = request.url?.path else { return false }
+        return path.hasPrefix("/v1/round-analyses")
+            || path.hasPrefix("/v1/recordings/") && path.hasSuffix("/round-analyses")
     }
 
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {

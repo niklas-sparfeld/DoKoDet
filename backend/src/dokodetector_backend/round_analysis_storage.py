@@ -82,6 +82,33 @@ class RoundAnalysisArtifactStorage:
             / str(UUID(str(counterfactual_id)))
         )
 
+    def prepare_inputs(
+        self,
+        analysis_id: UUID | str,
+        files: dict[str, bytes],
+    ) -> None:
+        """Copy immutable resolved inputs into an already-created analysis directory."""
+
+        destination = self.analysis_path(analysis_id)
+        if destination.is_symlink() or not destination.is_dir():
+            raise FileNotFoundError(f"analysis directory is unavailable: {destination}")
+        inputs = destination / "inputs"
+        inputs.mkdir(exist_ok=True)
+        for relative_path, content in files.items():
+            path = inputs / relative_path
+            if path.is_symlink() or (path.exists() and not path.is_file()):
+                raise FileExistsError(f"analysis input path is not a file: {path}")
+            if not isinstance(content, bytes):
+                raise TypeError("analysis input contents must be bytes.")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.exists():
+                if path.read_bytes() != content:
+                    raise FileExistsError(f"analysis input already differs: {path}")
+                continue
+            staging = path.with_name(f".{path.name}-{os.getpid()}")
+            self._write(staging, content)
+            self._rename(staging, path)
+
     def publish(
         self,
         analysis_id: UUID | str,
