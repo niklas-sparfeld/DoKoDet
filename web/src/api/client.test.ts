@@ -13,6 +13,7 @@ import {
   recordingCardEventReviewPath,
   recordingCardEventReviewRevisionPath,
   recordingDetailPath,
+  recordingPipelineWorkspacePath,
   repositoryBundleVideoPath,
   roundAnalysisFramePath,
   roundCounterfactualPath,
@@ -316,6 +317,25 @@ describe("DokoDetector API client", () => {
     expect(recordingDetailPath("recording/1")).toBe(
       "/v1/recordings/recording%2F1",
     );
+  });
+
+  it("loads the recording-owned pipeline workspace", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.getRecordingPipeline("recording/1");
+
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      recordingPipelineWorkspacePath("recording/1"),
+    );
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBeUndefined();
   });
 
   it("creates and reads a counterfactual through the generated API paths", async () => {

@@ -47,13 +47,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0049 — Recording pipeline review and comparison](2-ready/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per stage, simple input selection, retained results, and comparison. M0–M6 not started. |
+| None | — | — |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0049 — Recording pipeline review and comparison](3-in-progress/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per stage, simple input selection, retained results, and comparison. M0 complete; M1–M10 not started. |
 
 ### Blocked
 
@@ -115,8 +115,8 @@ The shared target architecture is
 
 1. **Start epic 0048.** Begin with M0. Implement one milestone per phase, in order through M10.
    Move it to In Progress when work starts. This is the only epic selected to start now.
-2. **Then start 0049.** After 0048 is complete, move 0049 from Blocked to Ready. Deliver M0–M10
-   to expose the retained data and maintained references through the existing recording editors.
+2. **Continue 0049.** Deliver M1–M10 to expose the retained data and maintained references through
+   the existing recording editors.
 3. **Collect and review real development coverage through that workflow.** Keep source groups and
    sealed holdouts intact. Use the same maintained references to compare model runs. Record gaps;
    do not lower review or coverage requirements merely to unblock model work.

@@ -144,6 +144,100 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
     assert len(provider.calls) == 1
 
 
+def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    provider = FakeEventProvider()
+    app = create_test_app(_settings(tmp_path), event_provider=provider)
+
+    with TestClient(app) as client:
+        initial = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
+        assert initial.status_code == 200
+        initial_body = initial.json()
+        assert initial_body["schema_version"] == "pipeline-workspace/v1"
+        assert initial_body["recording_id"] == RECORDING_ID
+        assert initial_body["video"]["duration_us"] == 1_000_000
+        assert [stage["key"] for stage in initial_body["stages"]] == [
+            "events",
+            "visible_cards",
+            "visual_identities",
+            "table_observations",
+            "round_analyses",
+        ]
+        assert initial_body["stages"][0]["state"] == "video-only"
+        assert initial_body["stages"][0]["selection_revision"] is None
+        assert initial_body["stages"][1]["state"] == "empty"
+
+        created = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json=_request("workspace-run"),
+        )
+        assert created.status_code == 202
+        _wait_for_status(client, "workspace-run", "complete")
+
+        workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
+        assert workspace.status_code == 200
+        body = workspace.json()
+        events = body["stages"][0]
+        revision_id = events["selected_generated_revision_id"]
+        assert events["state"] == "generated-only"
+        assert revision_id is not None
+        assert events["selection_revision"] == 1
+        assert events["comparable_run_ids"] == ["workspace-run"]
+        assert events["runs"][0]["run_id"] == "workspace-run"
+        assert events["runs"][0]["input_revision_ids"] == []
+        assert events["runs"][0]["implementation"] == {
+            "name": "fake-event-provider",
+            "version": "v1",
+        }
+        assert events["runs"][0]["output_revision_ids"] == [revision_id]
+        assert events["input_options"][0]["revision_id"] == revision_id
+        assert events["input_options"][0]["origin"] == "processor"
+
+        reloaded = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
+        assert reloaded.json() == body
+
+
+def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+
+    with TestClient(app) as client:
+        created = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json=_request("invalid-selection-run"),
+        )
+        assert created.status_code == 202
+        _wait_for_status(client, "invalid-selection-run", "complete")
+
+        selection_path = app.state.pipeline_selection_store.selection_path(
+            RECORDING_ID, "events"
+        )
+        selection = json.loads(selection_path.read_text(encoding="utf-8"))
+        selection["selected_generated_revision_id"] = "missing-revision"
+        selection_path.write_text(
+            json.dumps(selection, separators=(",", ":")),
+            encoding="utf-8",
+        )
+
+        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
+        assert response.status_code == 200, response.text
+        events = response.json()["stages"][0]
+        assert events["selection_revision"] is None
+        assert events["selected_generated_revision_id"] is None
+        assert not any(
+            option["revision_id"] == "missing-revision" for option in events["input_options"]
+        )
+        assert {
+            diagnostic["code"]
+            for diagnostic in response.json()["diagnostics"]
+            if diagnostic["content_type"] == "events"
+        } == {"invalid_selection"}
+
+
 def test_import_validates_bundle_prediction_and_preserves_absent_model_fields(
     tmp_path: Path,
 ) -> None:

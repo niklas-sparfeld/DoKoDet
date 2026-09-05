@@ -4,7 +4,7 @@
 
 - **Summary:** Make the recording workspace show selected generated results and one maintained
   reference per review stage, with simple run, review, and comparison controls.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0048 complete
 - **Builds on:** Completed 0039, 0040, 0042, and 0045 editors; 0033 analysis diagnostics
 - **Supersedes:** The recording UI direction of 0047
@@ -14,7 +14,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — add the recording workspace contract and generated client types.
+- **M0:** Complete — add the recording workspace contract and generated client types.
 - **M1:** Not started — add the recording pipeline shell, stage summaries, and selectors.
 - **M2:** Not started — switch event review to the maintained reference.
 - **M3:** Not started — switch visible-card review to the maintained reference.
@@ -25,6 +25,25 @@
 - **M8:** Not started — add deterministic visible-card and identity comparison.
 - **M9:** Not started — add the comparison workspace and source inspection.
 - **M10:** Not started — prove the local workflow and remove obsolete review routes.
+
+### M0 notes — 2026-09-06
+
+The 0048 cutover handoff was checked before implementation. Recording-pipeline resources use the
+shipped `/api` prefix. Round-analysis resources remain on `/v1`. The workspace route is a read-only
+aggregate over accepted recording, pipeline revision, run, selection, maintained-reference, and
+round-analysis stores. It does not create another current-state resource.
+
+| Resource | Shipped route | Client method name |
+| --- | --- | --- |
+| Recording workspace | `GET /api/recordings/{recording_id}/pipeline` | `getRecordingPipeline` |
+| Event runs and selection | `GET|POST /api/recordings/{recording_id}/pipeline/events`; `GET|PUT .../events/selection`; `GET .../events/{run_id}`; `POST .../events/{run_id}/retry`; `GET .../events/{run_id}/result` | `listEventRuns`, `startEventRun`, `getEventSelection`, `updateEventSelection`, `getEventRun`, `retryEventRun`, `getEventResult` |
+| Visible-card runs and selection | `GET|POST /api/recordings/{recording_id}/pipeline/visible-cards`; `GET|PUT .../visible-cards/selection`; `GET .../visible-cards/{run_id}`; `POST .../visible-cards/{run_id}/retry`; `GET .../visible-cards/{run_id}/result` | `listVisibleCardRuns`, `startVisibleCardRun`, `getVisibleCardSelection`, `updateVisibleCardSelection`, `getVisibleCardRun`, `retryVisibleCardRun`, `getVisibleCardResult` |
+| Visual-identity runs and selection | `GET|POST /api/recordings/{recording_id}/pipeline/visual-identities`; `GET|PUT .../visual-identities/selection`; `GET .../visual-identities/{run_id}`; `POST .../visual-identities/{run_id}/retry`; `GET .../visual-identities/{run_id}/result` | `listVisualIdentityRuns`, `startVisualIdentityRun`, `getVisualIdentitySelection`, `updateVisualIdentitySelection`, `getVisualIdentityRun`, `retryVisualIdentityRun`, `getVisualIdentityResult` |
+| Observation runs and selection | `GET|POST /api/recordings/{recording_id}/pipeline/observations`; `GET|PUT .../observations/selection`; `GET .../observations/{run_id}`; `POST .../observations/{run_id}/retry`; `GET .../observations/{run_id}/result` | `listObservationRuns`, `startObservationRun`, `getObservationSelection`, `updateObservationSelection`, `getObservationRun`, `retryObservationRun`, `getObservationResult` |
+| Maintained reference | `GET|POST /api/recordings/{recording_id}/pipeline/references/{content_type}`; `PUT .../references/{content_type}/draft`; `POST .../references/{content_type}/complete` | `getPipelineReference`, `createPipelineReference`, `updatePipelineReferenceDraft`, `completePipelineReference` |
+| Comparison | Planned in 0049; no shipped route in 0048 | `comparePipelineRuns` |
+| Round analysis start | `POST /v1/round-analyses` | `startRecordingAnalysis` |
+| Round analysis status | `GET /v1/round-analyses/{analysis_id}` | `getRoundAnalysisStatus` |
 
 ## 1. Experience
 
@@ -126,22 +145,22 @@ change this plan and the generated client in the M0 commit. Do not add a second 
 
 ### HTTP resource families
 
-Use the versioned route prefix that 0048 ships. The expected route family is `/v1`. These are the
-UI-facing resources after the cutover:
+Use the versioned route prefix that 0048 ships. Recording-pipeline resources use `/api`; round
+analysis keeps its existing `/v1` route. These are the UI-facing resources after the cutover:
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET /v1/recordings/{recording_id}/pipeline` | Load the complete recording workspace summary. |
-| `GET /v1/recordings/{recording_id}/pipeline/{content_type}/revisions/{revision_id}` | Load one selected data revision for display. |
-| `PUT /v1/recordings/{recording_id}/pipeline/{content_type}/selection` | Change selected generated or completed-reference revision with `expected_revision`. |
-| `POST /v1/recordings/{recording_id}/pipeline/{processor_type}/runs` | Start a new run with exact input revision IDs. |
-| `GET /v1/recordings/{recording_id}/pipeline/runs/{run_id}` | Read one run and its result or failure state. |
-| `POST /v1/recordings/{recording_id}/pipeline/runs/{run_id}/retry` | Retry the same frozen request after a partial or failed attempt. |
-| `GET /v1/recordings/{recording_id}/pipeline/{content_type}/reference` | Load the one maintained reference and its current draft. |
-| `POST /v1/recordings/{recording_id}/pipeline/{content_type}/reference/draft` | Start or resume a draft from an exact base and optional suggestion revision. |
-| `PUT /v1/recordings/{recording_id}/pipeline/{content_type}/reference/draft/commands/{command_id}` | Apply one idempotent, revision-guarded edit command. |
-| `POST /v1/recordings/{recording_id}/pipeline/{content_type}/reference/complete` | Complete coverage and publish the immutable reference revision. |
-| `POST /v1/recordings/{recording_id}/pipeline/comparisons` | Calculate one deterministic comparison without changing stored data. |
+| `GET /api/recordings/{recording_id}/pipeline` | Load the complete recording workspace summary. |
+| `GET /api/recordings/{recording_id}/pipeline/{content_type}/revisions/{revision_id}` | Load one selected data revision for display. |
+| `PUT /api/recordings/{recording_id}/pipeline/{content_type}/selection` | Change selected generated or completed-reference revision with `expected_revision`. |
+| `POST /api/recordings/{recording_id}/pipeline/{processor_type}/runs` | Start a new run with exact input revision IDs. |
+| `GET /api/recordings/{recording_id}/pipeline/runs/{run_id}` | Read one run and its result or failure state. |
+| `POST /api/recordings/{recording_id}/pipeline/runs/{run_id}/retry` | Retry the same frozen request after a partial or failed attempt. |
+| `GET /api/recordings/{recording_id}/pipeline/{content_type}/reference` | Load the one maintained reference and its current draft. |
+| `POST /api/recordings/{recording_id}/pipeline/{content_type}/reference/draft` | Start or resume a draft from an exact base and optional suggestion revision. |
+| `PUT /api/recordings/{recording_id}/pipeline/{content_type}/reference/draft/commands/{command_id}` | Apply one idempotent, revision-guarded edit command. |
+| `POST /api/recordings/{recording_id}/pipeline/{content_type}/reference/complete` | Complete coverage and publish the immutable reference revision. |
+| `POST /api/recordings/{recording_id}/pipeline/comparisons` | Calculate one deterministic comparison without changing stored data. |
 | `POST /v1/round-analyses` | Start reconstruction with an exact observation revision and round context. |
 | `GET /v1/round-analyses/{analysis_id}` | Read reconstruction status and exact frozen inputs. |
 

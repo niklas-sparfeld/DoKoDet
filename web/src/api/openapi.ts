@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/recordings/{recording_id}/pipeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recording Pipeline Workspace
+         * @description Return the persisted recording-pipeline workspace summary.
+         */
+        get: operations["get_recording_pipeline_workspace_api_recordings__recording_id__pipeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline/events": {
         parameters: {
             query?: never;
@@ -2860,6 +2880,297 @@ export interface components {
             upload_id: string;
         };
         /**
+         * PipelineWorkspaceAnalysisResponse
+         * @description The retained round-analysis lifecycle facts shown by the final stage.
+         */
+        PipelineWorkspaceAnalysisResponse: {
+            /** Analysis Id */
+            analysis_id: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Failure */
+            failure?: string | null;
+            /** Input Revision Ids */
+            input_revision_ids: string[];
+            progress: components["schemas"]["PipelineWorkspaceProgressResponse"];
+            /** Recording Id */
+            recording_id: string;
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Round Id */
+            round_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "queued" | "analyzing_evidence" | "reconstructing" | "complete" | "failed";
+        };
+        /**
+         * PipelineWorkspaceDiagnosticResponse
+         * @description A persisted resource that could not be used to build the workspace.
+         */
+        PipelineWorkspaceDiagnosticResponse: {
+            /** Code */
+            code: string;
+            /** Content Type */
+            content_type?: string | null;
+            /** Message */
+            message: string;
+            /** Revision Id */
+            revision_id?: string | null;
+        };
+        /**
+         * PipelineWorkspaceFailureResponse
+         * @description The public failure summary for one processor run.
+         */
+        PipelineWorkspaceFailureResponse: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * PipelineWorkspaceImplementationResponse
+         * @description The implementation identity frozen into one processor request.
+         */
+        PipelineWorkspaceImplementationResponse: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * PipelineWorkspaceInputOptionResponse
+         * @description One immutable generated or maintained input revision available to a stage.
+         */
+        PipelineWorkspaceInputOptionResponse: {
+            /**
+             * Completion State
+             * @constant
+             */
+            completion_state: "complete";
+            /** Content Sha256 */
+            content_sha256: string;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "events" | "visible_cards" | "visual_identities" | "table_observations";
+            /** Coverage */
+            coverage: {
+                [key: string]: unknown;
+            };
+            /** Coverage State */
+            coverage_state: string;
+            /** Created At */
+            created_at: string;
+            /** Display Label */
+            display_label: string;
+            /** Input Revision Ids */
+            input_revision_ids: string[];
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "processor" | "manual" | "corrected";
+            /** Producer */
+            producer: {
+                [key: string]: unknown;
+            };
+            /** Revision Id */
+            revision_id: string;
+        };
+        /**
+         * PipelineWorkspaceProgressResponse
+         * @description Progress persisted for one processor or analysis execution.
+         */
+        PipelineWorkspaceProgressResponse: {
+            /** Completed */
+            completed: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * PipelineWorkspaceReferenceResponse
+         * @description The one maintained reference and its current draft facts.
+         */
+        PipelineWorkspaceReferenceResponse: {
+            /** Affected Count */
+            affected_count: number;
+            /** Coverage */
+            coverage?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Coverage State
+             * @enum {string}
+             */
+            coverage_state: "none" | "incomplete" | "complete";
+            /** Draft Revision */
+            draft_revision?: number | null;
+            /** Selected Completion */
+            selected_completion?: string | null;
+            /** Source Revision Id */
+            source_revision_id?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "empty" | "draft" | "complete";
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * PipelineWorkspaceResponse
+         * @description Strict ``pipeline-workspace/v1`` response for one accepted recording.
+         */
+        PipelineWorkspaceResponse: {
+            /** Diagnostics */
+            diagnostics: components["schemas"]["PipelineWorkspaceDiagnosticResponse"][];
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "pipeline-workspace/v1";
+            /** Stages */
+            stages: components["schemas"]["PipelineWorkspaceStageResponse"][];
+            video: components["schemas"]["PipelineWorkspaceVideoResponse"];
+        };
+        /**
+         * PipelineWorkspaceRunResponse
+         * @description The retained execution facts needed to reproduce one stage result.
+         */
+        PipelineWorkspaceRunResponse: {
+            /** Attempt */
+            attempt: number;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Configuration */
+            configuration: {
+                [key: string]: unknown;
+            };
+            /** Created At */
+            created_at: string;
+            /** Crop Policy */
+            crop_policy?: {
+                [key: string]: unknown;
+            } | null;
+            /** Extraction Policy */
+            extraction_policy: {
+                [key: string]: unknown;
+            };
+            /** Failed Item Count */
+            failed_item_count: number;
+            failure?: components["schemas"]["PipelineWorkspaceFailureResponse"] | null;
+            implementation: components["schemas"]["PipelineWorkspaceImplementationResponse"];
+            /** Input Revision Ids */
+            input_revision_ids: string[];
+            /** Model */
+            model?: {
+                [key: string]: unknown;
+            } | null;
+            /** Output Revision Ids */
+            output_revision_ids: string[];
+            progress: components["schemas"]["PipelineWorkspaceProgressResponse"];
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Run Id */
+            run_id: string;
+            /** Started At */
+            started_at?: string | null;
+            /** State */
+            state: {
+                [key: string]: unknown;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "complete" | "partial" | "failed";
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * PipelineWorkspaceStageResponse
+         * @description One fixed recording-pipeline stage summary.
+         */
+        PipelineWorkspaceStageResponse: {
+            /** Analyses */
+            analyses: components["schemas"]["PipelineWorkspaceAnalysisResponse"][];
+            /** Can Review */
+            can_review: boolean;
+            /** Can Run */
+            can_run: boolean;
+            /** Comparable Run Ids */
+            comparable_run_ids: string[];
+            /** Has Maintained Reference */
+            has_maintained_reference: boolean;
+            /** Input Options */
+            input_options: components["schemas"]["PipelineWorkspaceInputOptionResponse"][];
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "events" | "visible_cards" | "visual_identities" | "table_observations" | "round_analyses";
+            /** Output Content Type */
+            output_content_type: string;
+            /** Processor Key */
+            processor_key: string;
+            /** Processor Type */
+            processor_type: string;
+            reference?: components["schemas"]["PipelineWorkspaceReferenceResponse"] | null;
+            /** Review Blockers */
+            review_blockers: string[];
+            /** Run Blockers */
+            run_blockers: string[];
+            /** Runs */
+            runs: components["schemas"]["PipelineWorkspaceRunResponse"][];
+            /** Selected Completed Reference Revision Id */
+            selected_completed_reference_revision_id?: string | null;
+            /** Selected Generated Revision Id */
+            selected_generated_revision_id?: string | null;
+            /** Selection Revision */
+            selection_revision?: number | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "generated-only" | "draft" | "affected" | "incomplete-coverage" | "complete";
+        };
+        /**
+         * PipelineWorkspaceVideoResponse
+         * @description The accepted recording video identity used by all pipeline stages.
+         */
+        PipelineWorkspaceVideoResponse: {
+            /** Byte Length */
+            byte_length: number;
+            /** Duration Us */
+            duration_us: number;
+            /** Recording Id */
+            recording_id: string;
+            /** Relative Path */
+            relative_path: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "recording-video/v1";
+            /** Video Sha256 */
+            video_sha256: string;
+        };
+        /**
          * RecordingAnalysisSummary
          * @description Small analysis status embedded in the recording catalog.
          */
@@ -4286,6 +4597,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_recording_pipeline_workspace_api_recordings__recording_id__pipeline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineWorkspaceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_event_runs_api_recordings__recording_id__pipeline_events_get: {
         parameters: {
             query?: never;

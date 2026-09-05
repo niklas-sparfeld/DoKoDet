@@ -15,6 +15,9 @@ export type RecordingListResponse = JsonResponse<
 export type RecordingDetail = JsonResponse<
   paths["/v1/recordings/{recording_id}"]["get"]["responses"][200]
 >;
+export type PipelineWorkspace = JsonResponse<
+  paths["/api/recordings/{recording_id}/pipeline"]["get"]["responses"][200]
+>;
 export type RecordingSummary = RecordingListResponse["recordings"][number];
 export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
 export type CardEventReview = JsonResponse<
@@ -119,6 +122,10 @@ export interface DokoDetectorClient {
     recordingId: string,
     init?: RequestInit,
   ): Promise<RecordingDetail>;
+  getRecordingPipeline(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<PipelineWorkspace>;
   getCardEventReview(
     recordingId: string,
     init?: RequestInit,
@@ -315,6 +322,12 @@ export function createDokoDetectorClient(
       requestJson<RecordingDetail>(
         fetchImplementation,
         recordingDetailPath(recordingId),
+        init,
+      ),
+    getRecordingPipeline: (recordingId, init) =>
+      requestJson<PipelineWorkspace>(
+        fetchImplementation,
+        recordingPipelineWorkspacePath(recordingId),
         init,
       ),
     getCardEventReview: (recordingId, init) =>
@@ -698,6 +711,10 @@ export function recordingAnalysisPath(recordingId: string): string {
 
 export function recordingDetailPath(recordingId: string): string {
   return `/v1/recordings/${encodeURIComponent(recordingId)}`;
+}
+
+export function recordingPipelineWorkspacePath(recordingId: string): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline`;
 }
 
 export function recordingCardEventReviewPath(recordingId: string): string {

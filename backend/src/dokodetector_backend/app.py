@@ -38,7 +38,11 @@ from dokodetector_backend.persistence import EvidencePackagePersister
 from dokodetector_backend.pipeline_api import router as pipeline_router
 from dokodetector_backend.pipeline_reference_service import PipelineReferenceService
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
-from dokodetector_backend.pipeline_service import EventPipelineService, EventProcessorProvider
+from dokodetector_backend.pipeline_service import (
+    EventPipelineService,
+    EventProcessorProvider,
+    RecordingPipelineWorkspaceService,
+)
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
@@ -211,6 +215,14 @@ def create_app(
         run_store=app.state.pipeline_run_store,
         selection_store=app.state.pipeline_selection_store,
         runtime_root=app_settings.evidence_root,
+    )
+    app.state.pipeline_workspace_service = RecordingPipelineWorkspaceService(
+        event_pipeline_service=app.state.event_pipeline_service,
+        revision_store=app.state.pipeline_revision_store,
+        run_store=app.state.pipeline_run_store,
+        selection_store=app.state.pipeline_selection_store,
+        reference_store=app.state.pipeline_reference_store,
+        round_analysis_store=app.state.round_analysis_store,
     )
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     recovered_analysis_count = app.state.round_analysis_store.fail_non_terminal()
