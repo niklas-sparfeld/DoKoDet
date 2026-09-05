@@ -12,12 +12,37 @@ from typing import Any
 
 PIPELINE_REFERENCE_STATE_SCHEMA_VERSION = "pipeline-reference-state/v1"
 PIPELINE_REFERENCE_DRAFT_SCHEMA_VERSION = "pipeline-reference-draft/v1"
+PIPELINE_REFERENCE_COVERAGE_SCHEMA_VERSION = "pipeline-reference-coverage/v1"
+PIPELINE_REFERENCE_IMPACT_SCHEMA_VERSION = "pipeline-reference-impact/v1"
 PIPELINE_REFERENCE_CONTENT_TYPES = frozenset({"events", "visible_cards", "visual_identities"})
 PIPELINE_REFERENCE_DRAFT_STATES = frozenset({"draft", "completed"})
 PIPELINE_REFERENCE_ITEM_STATES = frozenset(
-    {"pending", "accepted", "rejected", "added", "corrected"}
+    {
+        "pending",
+        "accepted",
+        "rejected",
+        "added",
+        "corrected",
+        "empty",
+        "unusable",
+        "identity_unusable",
+        "source_problem",
+        "affected",
+    }
 )
-PIPELINE_REFERENCE_OPERATIONS = frozenset({"accept", "reject", "add", "correct"})
+PIPELINE_REFERENCE_OPERATIONS = frozenset(
+    {"accept", "reject", "add", "correct", "decide", "rebase"}
+)
+PIPELINE_REFERENCE_DECISIONS = frozenset(
+    {
+        "accepted",
+        "rejected",
+        "empty",
+        "unusable",
+        "identity_unusable",
+        "source_problem",
+    }
+)
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 
@@ -60,6 +85,15 @@ def _identifier(value: Any, field: str) -> str:
 
 def _optional_identifier(value: Any, field: str) -> str | None:
     return None if value is None else _identifier(value, field)
+
+
+def _identifier_list(value: Any, field: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise PipelineReferenceContractError(f"{field} must be a list")
+    values = tuple(_identifier(item, f"{field}[{index}]") for index, item in enumerate(value))
+    if len(values) != len(set(values)):
+        raise PipelineReferenceContractError(f"{field} must contain unique identifiers")
+    return values
 
 
 def _non_negative_int(value: Any, field: str) -> int:
@@ -170,7 +204,15 @@ class ReferenceDraftItem:
             raise PipelineReferenceContractError(
                 f"{context}.corrected items need a base_item_id"
             )
-        if state not in {"accepted", "corrected", "rejected"} and base_item_id is not None:
+        if state not in {
+            "accepted",
+            "corrected",
+            "rejected",
+            "empty",
+            "unusable",
+            "identity_unusable",
+            "source_problem",
+        } and base_item_id is not None:
             raise PipelineReferenceContractError(
                 f"{context}.non-corrected items cannot have a base_item_id"
             )
@@ -199,6 +241,8 @@ class PipelineReferenceDraft:
     revision: int
     source_revision_id: str | None
     items: tuple[ReferenceDraftItem, ...]
+    coverage: dict[str, Any] | None
+    impact: tuple[dict[str, Any], ...]
     updated_at: str
 
     @classmethod
@@ -213,6 +257,8 @@ class PipelineReferenceDraft:
                 "revision",
                 "source_revision_id",
                 "items",
+                "coverage",
+                "impact",
                 "updated_at",
             },
             "pipeline reference draft",
@@ -231,6 +277,58 @@ class PipelineReferenceDraft:
         identifiers = [item.item_id for item in items]
         if len(identifiers) != len(set(identifiers)):
             raise PipelineReferenceContractError("pipeline reference draft item IDs must be unique")
+        coverage = data["coverage"]
+        if coverage is not None:
+            coverage = _mapping(coverage, "pipeline reference draft.coverage")
+            _validate_json(coverage, "pipeline reference draft.coverage")
+            coverage = json.loads(canonical_json_bytes(coverage).decode("utf-8"))
+        raw_impact = data["impact"]
+        if not isinstance(raw_impact, list):
+            raise PipelineReferenceContractError("pipeline reference draft.impact must be a list")
+        impact: list[dict[str, Any]] = []
+        for index, raw_entry in enumerate(raw_impact):
+            entry = _mapping(raw_entry, f"pipeline reference draft.impact[{index}]")
+            _strict(
+                entry,
+                {
+                    "schema_version",
+                    "source_content_type",
+                    "source_item_id",
+                    "downstream_content_type",
+                    "affected_item_ids",
+                    "reason",
+                    "re_review_required",
+                },
+                f"pipeline reference draft.impact[{index}]",
+            )
+            if entry["schema_version"] != PIPELINE_REFERENCE_IMPACT_SCHEMA_VERSION:
+                raise PipelineReferenceContractError(
+                    "pipeline reference draft.impact has an unsupported schema"
+                )
+            if not isinstance(entry["re_review_required"], bool):
+                raise PipelineReferenceContractError(
+                    f"pipeline reference draft.impact[{index}].re_review_required must be boolean"
+                )
+            affected_item_ids = _identifier_list(
+                entry["affected_item_ids"],
+                f"pipeline reference draft.impact[{index}].affected_item_ids",
+            )
+            impact.append(
+                {
+                    "schema_version": PIPELINE_REFERENCE_IMPACT_SCHEMA_VERSION,
+                    "source_content_type": _content_type(entry["source_content_type"]),
+                    "source_item_id": _identifier(
+                        entry["source_item_id"],
+                        f"pipeline reference draft.impact[{index}].source_item_id",
+                    ),
+                    "downstream_content_type": _content_type(entry["downstream_content_type"]),
+                    "affected_item_ids": list(affected_item_ids),
+                    "reason": _text(
+                        entry["reason"], f"pipeline reference draft.impact[{index}].reason"
+                    ),
+                    "re_review_required": entry["re_review_required"],
+                }
+            )
         return cls(
             recording_id=_identifier(data["recording_id"], "recording_id"),
             content_type=_content_type(data["content_type"]),
@@ -239,6 +337,8 @@ class PipelineReferenceDraft:
                 data["source_revision_id"], "source_revision_id"
             ),
             items=items,
+            coverage=coverage,
+            impact=tuple(impact),
             updated_at=_utc_timestamp(data["updated_at"], "updated_at"),
         )
 
@@ -250,6 +350,8 @@ class PipelineReferenceDraft:
             "revision": self.revision,
             "source_revision_id": self.source_revision_id,
             "items": [item.to_mapping() for item in self.items],
+            "coverage": self.coverage,
+            "impact": list(self.impact),
             "updated_at": self.updated_at,
         }
 
@@ -324,6 +426,8 @@ class PipelineReferenceOperation:
     operation: str
     item_id: str | None = None
     item: dict[str, Any] | None = None
+    decision: str | None = None
+    source_revision_id: str | None = None
 
     @classmethod
     def from_mapping(
@@ -347,6 +451,21 @@ class PipelineReferenceOperation:
                 _validate_json(item_value, f"{context}.item")
                 item = json.loads(canonical_json_bytes(item_value).decode("utf-8"))
             return cls(operation=operation, item_id=item_id, item=item)
+        if operation == "decide":
+            _strict(data, {"operation", "item_id", "decision"}, context)
+            item_id = _identifier(data["item_id"], f"{context}.item_id")
+            decision = _text(data["decision"], f"{context}.decision")
+            if decision not in PIPELINE_REFERENCE_DECISIONS:
+                raise PipelineReferenceContractError(f"{context}.decision is unsupported")
+            return cls(operation=operation, item_id=item_id, decision=decision)
+        if operation == "rebase":
+            _strict(data, {"operation", "source_revision_id"}, context)
+            return cls(
+                operation=operation,
+                source_revision_id=_identifier(
+                    data["source_revision_id"], f"{context}.source_revision_id"
+                ),
+            )
         _strict(data, {"operation", "item"}, context)
         item_value = _mapping(data["item"], f"{context}.item")
         _validate_json(item_value, f"{context}.item")
@@ -361,6 +480,10 @@ class PipelineReferenceOperation:
             value["item_id"] = self.item_id
         if self.item is not None:
             value["item"] = self.item
+        if self.decision is not None:
+            value["decision"] = self.decision
+        if self.source_revision_id is not None:
+            value["source_revision_id"] = self.source_revision_id
         return value
 
 
@@ -392,10 +515,13 @@ def parse_reference_draft_bytes(raw: bytes) -> PipelineReferenceDraft:
 
 __all__ = [
     "PIPELINE_REFERENCE_CONTENT_TYPES",
+    "PIPELINE_REFERENCE_COVERAGE_SCHEMA_VERSION",
     "PIPELINE_REFERENCE_DRAFT_SCHEMA_VERSION",
     "PIPELINE_REFERENCE_DRAFT_STATES",
+    "PIPELINE_REFERENCE_IMPACT_SCHEMA_VERSION",
     "PIPELINE_REFERENCE_ITEM_STATES",
     "PIPELINE_REFERENCE_OPERATIONS",
+    "PIPELINE_REFERENCE_DECISIONS",
     "PIPELINE_REFERENCE_STATE_SCHEMA_VERSION",
     "PipelineReferenceContractError",
     "PipelineReferenceDraft",

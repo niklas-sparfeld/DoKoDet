@@ -15,6 +15,7 @@ from dokodetector_backend.observation_pipeline_service import (
 )
 from dokodetector_backend.pipeline_reference_service import (
     PipelineReferenceConflict,
+    PipelineReferenceCoverageError,
     PipelineReferenceError,
     PipelineReferenceInputError,
 )
@@ -615,6 +616,13 @@ def complete_reference(
         ) from error
     except PipelineReferenceNotFound as error:
         raise ContractError("reference_not_found", str(error), status_code=404) from error
+    except PipelineReferenceCoverageError as error:
+        raise ContractError(
+            "incomplete_reference_coverage",
+            str(error),
+            status_code=422,
+            details=[APIErrorDetail(**detail) for detail in error.details],
+        ) from error
     except PipelineReferenceInputError as error:
         raise ContractError("invalid_reference_completion", str(error), status_code=422) from error
     except PipelineReferenceError as error:

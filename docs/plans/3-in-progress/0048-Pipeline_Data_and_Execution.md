@@ -23,7 +23,9 @@
 - **M6:** Complete — assemble and store table observations from selected results.
 - **M7:** Complete — run recording analysis from pinned table observations and explicit round context without evidence-package inputs; keep showcase package work independent.
 - **M8:** Complete — add independent event, visible-card, and identity references with restart-safe drafts, immutable human revisions, stable correction lineage, and optimistic conflict handling.
-- **M9:** Not started — validate coverage, track affected work, and complete references.
+- **M9:** Complete — validate full-recording event intervals, resolved-frame and upstream-card
+  coverage; preserve matched draft decisions, track affected downstream work, and publish complete
+  maintained references.
 - **M10:** Not started — freeze selected references for existing dataset consumers.
 
 ## 1. Scope and ownership

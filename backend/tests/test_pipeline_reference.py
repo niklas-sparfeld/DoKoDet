@@ -23,6 +23,7 @@ from table_evidence_analyzer.pipeline_data import (
 from dokodetector_backend.config import Settings
 from dokodetector_backend.pipeline_reference_service import (
     PipelineReferenceConflict,
+    PipelineReferenceCoverageError,
     PipelineReferenceService,
 )
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
@@ -124,9 +125,46 @@ def _source_revision(revision_store: PipelineRevisionStore) -> str:
     return manifest.revision_id
 
 
-def _vision_source_revision(
-    revision_store: PipelineRevisionStore, content_type: str
+def _event_revision_variant(
+    revision_store: PipelineRevisionStore,
+    revision_id: str,
+    *,
+    start_us: int = 1_000_000,
 ) -> str:
+    content = EventData(
+        events=(
+            EventRecord(
+                event_id="event-01",
+                event_type="card_played",
+                start_us=start_us,
+                end_us=start_us + 250_000,
+                model_scores=(),
+            ),
+        )
+    )
+    manifest = DataRevision(
+        revision_id=revision_id,
+        content_type="events",
+        content_schema="event-data/v1",
+        recording_id=SOURCE.recording_id,
+        source=SOURCE,
+        content_sha256=sha256_bytes(canonical_event_data_bytes(content)),
+        input_revision_ids=(),
+        origin="processor",
+        producer=ProcessorProducer(
+            run_id=f"run-{revision_id}",
+            processor_type="event-detection",
+            implementation_id="fixture.v1",
+            model_id="fixture-model.v1",
+        ),
+        coverage={"kind": "processed"},
+        created_at="2026-09-05T10:00:00Z",
+    )
+    revision_store.publish(EventDataRevision(manifest=manifest, content=content))
+    return manifest.revision_id
+
+
+def _vision_source_revision(revision_store: PipelineRevisionStore, content_type: str) -> str:
     frame = {
         "schema_version": "exact-event/v1",
         "source_video_sha256": DIGEST,
@@ -269,7 +307,11 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
     completed = service.complete_reference(
         "recording-01",
         "events",
-        {"operator_id": "operator-01", "expected_revision": 1},
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "coverage": {"kind": "full_recording"},
+        },
     )
     revision_id = completed.state.selected_completed_revision_id
     assert revision_id is not None
@@ -354,6 +396,311 @@ def test_correction_keeps_new_item_id_and_records_base_item_id(tmp_path: Path) -
     assert item.review_state == "corrected"
 
 
+def test_completion_requires_declared_coverage_and_reports_missing_scope(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _source_revision(revision_store)
+    service.create_reference(
+        "recording-01",
+        "events",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+
+    with pytest.raises(PipelineReferenceCoverageError) as error:
+        service.complete_reference(
+            "recording-01",
+            "events",
+            {"operator_id": "operator-01", "expected_revision": 0},
+        )
+    assert error.value.details == [
+        {"field": "coverage", "message": "declare the reviewed scope before completion"}
+    ]
+
+    with pytest.raises(PipelineReferenceCoverageError) as error:
+        service.complete_reference(
+            "recording-01",
+            "events",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 0,
+                "coverage": {"kind": "full_recording", "item_ids": []},
+            },
+        )
+    assert "missing explicit review decision" in error.value.details[0]["message"]
+
+    service.update_draft(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "accept", "item_id": "event-01"}],
+        },
+    )
+    with pytest.raises(PipelineReferenceCoverageError) as error:
+        service.complete_reference(
+            "recording-01",
+            "events",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "coverage": {
+                    "kind": "event_intervals",
+                    "intervals": [{"start_us": 0, "end_us": 5_000_000}],
+                },
+            },
+        )
+    assert "missing coverage interval" in error.value.details[0]["message"]
+
+
+def test_visible_and_identity_coverage_use_content_specific_decisions(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    visible_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    created = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": visible_revision_id},
+    )
+    service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {
+                    "operation": "decide",
+                    "item_id": "event-01",
+                    "decision": "empty",
+                }
+            ],
+        },
+    )
+    with pytest.raises(PipelineReferenceCoverageError) as error:
+        service.complete_reference(
+            "recording-01",
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "coverage": {
+                    "kind": "visible_frames",
+                    "frames": [
+                        {
+                            "frame_identity": created.draft.items[0].item["frame_identity"],
+                            "decision": "cards",
+                        }
+                    ],
+                },
+            },
+        )
+    assert (
+        "positive frame needs an accept, add, or correct decision"
+        in error.value.details[0]["message"]
+    )
+
+    identity_revision_id = _vision_source_revision(revision_store, "visual_identities")
+    identity_created = service.create_reference(
+        "recording-01",
+        "visual_identities",
+        {"operator_id": "operator-01", "source_revision_id": identity_revision_id},
+    )
+    service.update_draft(
+        "recording-01",
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {
+                    "operation": "decide",
+                    "item_id": "card-01",
+                    "decision": "source_problem",
+                }
+            ],
+        },
+    )
+    with pytest.raises(PipelineReferenceCoverageError) as error:
+        service.complete_reference(
+            "recording-01",
+            "visual_identities",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "coverage": {
+                    "kind": "visual_identities",
+                    "cards": [
+                        {"card_id": identity_created.draft.items[0].item_id, "decision": "identity"}
+                    ],
+                },
+            },
+        )
+    assert (
+        "card needs an accepted identity or a correct decision" in error.value.details[0]["message"]
+    )
+
+
+def test_correction_records_downstream_impact_and_coverage_survives_restart(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    event_revision_id = _source_revision(revision_store)
+    visible_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    identity_revision_id = _vision_source_revision(revision_store, "visual_identities")
+    for content_type, revision_id, kind in (
+        ("visible_cards", visible_revision_id, "visible_frames"),
+        ("visual_identities", identity_revision_id, "visual_identities"),
+    ):
+        service.create_reference(
+            "recording-01",
+            content_type,
+            {"operator_id": "operator-01", "source_revision_id": revision_id},
+        )
+        draft_item = service.get_reference("recording-01", content_type).draft.items[0]
+        item_id = draft_item.item_id
+        service.update_draft(
+            "recording-01",
+            content_type,
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 0,
+                "operations": [{"operation": "accept", "item_id": item_id}],
+            },
+        )
+        service.complete_reference(
+            "recording-01",
+            content_type,
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "coverage": {
+                    "kind": kind,
+                    "frames": [
+                        {
+                            "frame_identity": draft_item.item["frame_identity"],
+                            "decision": "cards",
+                        }
+                    ],
+                }
+                if content_type == "visible_cards"
+                else {
+                    "kind": kind,
+                    "cards": [{"card_id": item_id, "decision": "identity"}],
+                },
+            },
+        )
+    service.create_reference(
+        "recording-01",
+        "events",
+        {"operator_id": "operator-01", "source_revision_id": event_revision_id},
+    )
+    corrected = service.update_draft(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {
+                    "operation": "correct",
+                    "item_id": "event-01",
+                    "item": {
+                        "event_id": "event-corrected",
+                        "event_type": "card_played",
+                        "start_us": 2_000_000,
+                        "end_us": 2_250_000,
+                    },
+                }
+            ],
+        },
+    )
+    assert {
+        (entry["downstream_content_type"], tuple(entry["affected_item_ids"]))
+        for entry in corrected.draft.impact
+    } == {("visible_cards", ("event-01",)), ("visual_identities", ("card-01",))}
+
+    completed = service.complete_reference(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "coverage": {"kind": "full_recording"},
+        },
+    )
+    revision_id = completed.state.selected_completed_revision_id
+    assert revision_id is not None
+    assert revision_store.require(revision_id).manifest.coverage["impact"] == list(
+        completed.draft.impact
+    )
+    restored = PipelineReferenceStore(tmp_path / "operations" / "pipeline-references").require(
+        "recording-01", "events"
+    )
+    assert restored.draft.coverage == completed.draft.coverage
+    assert restored.draft.impact == completed.draft.impact
+
+
+def test_rebase_preserves_unchanged_event_decisions_and_marks_changed_items_affected(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    original_revision_id = _source_revision(revision_store)
+    matching_revision_id = _event_revision_variant(revision_store, "generated-events-02")
+    changed_revision_id = _event_revision_variant(
+        revision_store, "generated-events-03", start_us=2_000_000
+    )
+    service.create_reference(
+        "recording-01",
+        "events",
+        {"operator_id": "operator-01", "source_revision_id": original_revision_id},
+    )
+    service.update_draft(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "accept", "item_id": "event-01"}],
+        },
+    )
+    matching = service.update_draft(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "source_revision_id": matching_revision_id,
+        },
+    )
+    assert matching.draft.source_revision_id == matching_revision_id
+    assert matching.draft.items[0].review_state == "accepted"
+
+    changed = service.update_draft(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 2,
+            "source_revision_id": changed_revision_id,
+        },
+    )
+    assert changed.draft.items[0].review_state == "affected"
+    with pytest.raises(PipelineReferenceCoverageError) as error:
+        service.complete_reference(
+            "recording-01",
+            "events",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 3,
+                "coverage": {"kind": "full_recording"},
+            },
+        )
+    assert "evidence changed" in error.value.details[0]["message"]
+
+
 def test_empty_reference_can_add_a_source_linked_manual_item(tmp_path: Path) -> None:
     service, revision_store = _service(tmp_path)
     service._source_for = lambda recording_id, source_revision_id: SOURCE  # type: ignore[method-assign]
@@ -387,7 +734,11 @@ def test_empty_reference_can_add_a_source_linked_manual_item(tmp_path: Path) -> 
     completed = service.complete_reference(
         "recording-01",
         "events",
-        {"operator_id": "operator-01", "expected_revision": 1},
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "coverage": {"kind": "full_recording"},
+        },
     )
     revision_id = completed.state.selected_completed_revision_id
     assert revision_id is not None
@@ -424,6 +775,20 @@ def test_each_vision_content_type_has_an_independent_reference(
         {
             "operator_id": "operator-01",
             "expected_revision": 1,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": created.draft.items[0].item["frame_identity"],
+                        "decision": "cards",
+                    }
+                ],
+            }
+            if content_type == "visible_cards"
+            else {
+                "kind": "visual_identities",
+                "cards": [{"card_id": item_id, "decision": "identity"}],
+            },
         },
     )
     assert completed is not None
@@ -458,28 +823,34 @@ def test_reference_http_api_exposes_conflicts_and_completed_selection(tmp_path: 
             },
         )
         assert stale.status_code == 409
-        assert stale.json()["error"]["details"] == [
-            {"field": "current_revision", "message": "1"}
-        ]
-        completed = client.post(
+        assert stale.json()["error"]["details"] == [{"field": "current_revision", "message": "1"}]
+        incomplete = client.post(
             base + "/complete",
             json={"operator_id": "operator-01", "expected_revision": 1},
         )
+        assert incomplete.status_code == 422
+        assert incomplete.json()["error"]["code"] == "incomplete_reference_coverage"
+        assert incomplete.json()["error"]["details"] == [
+            {"field": "coverage", "message": "declare the reviewed scope before completion"}
+        ]
+        completed = client.post(
+            base + "/complete",
+            json={
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "coverage": {"kind": "full_recording"},
+            },
+        )
         assert completed.status_code == 201
         revision_id = completed.json()["state"]["selected_completed_revision_id"]
-        selection = client.get(
-            "/api/recordings/recording-01/pipeline/events/selection"
-        )
+        selection = client.get("/api/recordings/recording-01/pipeline/events/selection")
         assert selection.status_code == 200
         assert (
-            selection.json()["selection"]["selected_completed_reference_revision_id"]
-            == revision_id
+            selection.json()["selection"]["selected_completed_reference_revision_id"] == revision_id
         )
 
     restarted = create_test_app(settings)
     with TestClient(restarted) as client:
-        response = client.get(
-            "/api/recordings/recording-01/pipeline/references/events"
-        )
+        response = client.get("/api/recordings/recording-01/pipeline/references/events")
         assert response.status_code == 200
         assert response.json()["state"]["selected_completed_revision_id"] == revision_id
