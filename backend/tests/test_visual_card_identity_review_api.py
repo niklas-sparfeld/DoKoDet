@@ -243,8 +243,11 @@ def test_identity_review_preview_create_and_crop_route(tmp_path: Path) -> None:
         assert state["items"][0]["proposal"]["candidates"][0]["card"] == "CLUBS_NINE"
         crop = client.get(state["items"][0]["crop"]["image_url"])
         assert crop.status_code == 200
-        assert crop.headers["content-type"] == "image/x-portable-pixmap"
-        assert crop.content.startswith(b"P6\n")
+        assert crop.headers["content-type"] == "image/png"
+        assert crop.content.startswith(b"\x89PNG\r\n\x1a\n")
+        with Image.open(BytesIO(crop.content)) as browser_crop:
+            assert browser_crop.format == "PNG"
+            assert browser_crop.size == (16, 16)
         assert classifier.calls == 1
 
 

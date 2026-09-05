@@ -817,7 +817,7 @@ export interface paths {
         };
         /**
          * Get Identity Review Crop
-         * @description Serve one frozen identity crop after batch ownership and digest checks.
+         * @description Serve one frozen identity crop as a browser-compatible PNG image.
          */
         get: operations["get_identity_review_crop_v1_identity_reviews__batch_id__items__item_id__crop_get"];
         put?: never;

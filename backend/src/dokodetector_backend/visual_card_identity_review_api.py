@@ -8,6 +8,7 @@ import json
 import re
 from contextlib import suppress
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 
@@ -30,7 +31,8 @@ from doko_operations.visible_card_review_batch import (
     load_visible_card_review_batch,
 )
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
+from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field
 
 from dokodetector_backend.card_event_development_split_api import (
@@ -511,10 +513,10 @@ def get_identity_review_batch(batch_id: str, request: Request) -> IdentityReview
 
 @router.get(
     "/v1/identity-reviews/{batch_id}/items/{item_id}/crop",
-    response_class=FileResponse,
+    response_class=Response,
 )
-def get_identity_review_crop(batch_id: str, item_id: str, request: Request) -> FileResponse:
-    """Serve one frozen identity crop after batch ownership and digest checks."""
+def get_identity_review_crop(batch_id: str, item_id: str, request: Request) -> Response:
+    """Serve one frozen identity crop as a browser-compatible PNG image."""
 
     state = _read_batch(request, batch_id)
     item = next((value for value in state["items"] if value["item_id"] == item_id), None)
@@ -538,14 +540,32 @@ def get_identity_review_crop(batch_id: str, item_id: str, request: Request) -> F
             "The stored identity crop is outside its batch.",
             status_code=500,
         ) from error
-    if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != crop["sha256"]:
+    try:
+        crop_bytes = path.read_bytes()
+    except OSError as error:
+        raise ContractError(
+            "identity_review_batch_invalid",
+            "The frozen identity crop cannot be read.",
+            status_code=500,
+        ) from error
+    if hashlib.sha256(crop_bytes).hexdigest() != crop["sha256"]:
         raise ContractError(
             "identity_review_batch_invalid",
             "The frozen identity crop does not match its digest.",
             status_code=500,
         )
-    return FileResponse(
-        path, media_type=crop["content_type"], headers={"Cache-Control": "no-store"}
+    try:
+        output = BytesIO()
+        with Image.open(BytesIO(crop_bytes)) as image:
+            image.convert("RGB").save(output, format="PNG")
+    except (UnidentifiedImageError, OSError) as error:
+        raise ContractError(
+            "identity_review_batch_invalid",
+            "The frozen identity crop is not a valid image.",
+            status_code=500,
+        ) from error
+    return Response(
+        output.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"}
     )
 
 
