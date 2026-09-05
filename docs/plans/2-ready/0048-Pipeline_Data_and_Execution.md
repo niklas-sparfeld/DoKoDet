@@ -22,8 +22,8 @@
 - **M5:** Not started — run and retain visual card identity results.
 - **M6:** Not started — assemble and store table observations from selected results.
 - **M7:** Not started — run recording analysis without evidence-package inputs.
-- **M8:** Not started — implement maintained reference drafts and completion.
-- **M9:** Not started — track review coverage and affected downstream reference work.
+- **M8:** Not started — implement maintained reference drafts and conflict-safe editing.
+- **M9:** Not started — validate coverage, track affected work, and complete references.
 - **M10:** Not started — freeze selected references for existing dataset consumers.
 
 ## 1. Scope and ownership
@@ -134,115 +134,410 @@ Generated inputs are allowed for robustness experiments; unreviewed predictions 
 targets. Check target coverage and input-to-target alignment. Existing source permissions and
 protected split rules remain in force. Never make all downstream runs require completed review.
 
-## 3. Delivery milestones
+## 3. Implementation specification
+
+This section fixes the cross-milestone decisions. A milestone can add private helpers, but it must
+not choose a different owner, storage layout, lifecycle, or public contract.
+
+### Code ownership
+
+| Boundary | Owner and intended location |
+| --- | --- |
+| Shared revision, source, run, selection, and event contracts | `operations/src/doko_operations/pipeline_data.py` |
+| Visible-card and visual identity content contracts | `table_evidence_analyzer/src/table_evidence_analyzer/pipeline_data.py` |
+| Frame and crop resolution | `operations/src/doko_operations/derived_view.py` |
+| Immutable revisions, processor runs, and selection pointers | `backend/src/dokodetector_backend/pipeline_store.py` |
+| Processor orchestration and maintained references | `backend/src/dokodetector_backend/pipeline_service.py` |
+| Recording pipeline HTTP routes | `backend/src/dokodetector_backend/pipeline_api.py` |
+| Observation payload validation | Existing `table_evidence_analyzer/table_observation.py`, revised in M6 |
+| Reconstruction lifecycle | Existing `round_analysis_service.py` and `round_analysis_store.py` |
+
+`doko_operations` owns application contracts that local commands and the backend can share. The
+backend owns durable runtime stores because it already owns the 0046 filesystem helpers. The table
+evidence analyzer owns vision-content validation. Do not import backend modules from either lower
+package. Keep HTTP request models and generated-client models as translations of the application
+contracts, not as alternate contracts.
+
+M0 must add `docs/Pipeline_Data_Ownership.md`. Map each old event, visible-card, identity, and
+observation operation to its retained validator/provider and to the milestone that replaces its
+storage or orchestration. List the old review-batch and package entry points that remain until 0049.
+This inventory is the cutover checklist; it is not a second architecture specification.
+
+### Contract shapes
+
+Use strict Pydantic models or frozen dataclasses with explicit parsers. Reject unknown fields,
+non-finite numbers, booleans supplied as integers, unsafe identifiers, unsupported schema versions,
+and timestamps without a UTC offset. Canonical JSON uses UTF-8, sorted keys, compact separators,
+ASCII escaping, and rejects NaN. SHA-256 digests use lowercase hexadecimal.
+
+A `data-revision/v1` envelope has these fields:
+
+| Field | Type and rule |
+| --- | --- |
+| `revision_id` | Opaque safe identifier; unique within the pipeline root |
+| `content_type` | `events`, `visible_cards`, `visual_identities`, or `table_observations` |
+| `content_schema` | Exact schema identifier for `content.json` |
+| `recording_id` | Recording bundle identifier, or absent only for a synthetic source |
+| `source` | Tagged `recording-video/v1` or `synthetic-fixture/v1` reference |
+| `content_sha256` | Digest of the canonical `content.json` bytes |
+| `input_revision_ids` | Ordered unique upstream revision identifiers |
+| `origin` | `processor`, `manual`, or `corrected` |
+| `producer` | Tagged processor/import or human lineage; required fields depend on `origin` |
+| `coverage` | Content-specific reviewed or processed scope; never inferred from item count |
+| `created_at` | UTC timestamp used for display, never for identity |
+
+A recording-video source contains `recording_id`, the accepted video's repository-relative path,
+video SHA-256, byte length, and probed duration. A synthetic source contains a fixture identifier
+and fixture digest and cannot carry a recording identifier. A manual or corrected revision records
+review provenance and must not carry model metadata. A processor revision records `run_id` and may
+carry attributed scores. A corrected revision also records its immediate base revision. The parser
+checks that all items belong to the envelope source and recording.
+
+Use `event-data/v1` in M0. Each item contains an opaque `event_id`, qualified event type, start and
+end time in integer microseconds from the video start, and optional attributed model scores.
+Require `0 <= start_us <= end_us <= duration_us`, stable order by `(start_us, end_us, event_id)`, and
+unique item identifiers. Store workflow state, selections, draft commands, and review decisions
+outside this payload.
+
+A `processor-run-request/v1` contains a new `run_id`, processor type, recording-video source,
+ordered exact input revision IDs, implementation identity, optional model identity, canonical
+configuration, and named extraction/crop policies. The store resolves any requested selection to
+exact IDs before it writes the request. A `processor-run-state/v1` contains status, attempt number,
+timestamps, progress, per-item results or failures, terminal failure, and output revision IDs.
+Configuration and policy values are complete values, not names whose meaning can change.
+
+A `pipeline-selection/v1` document contains an integer `revision`, recording ID, content type,
+optional selected generated revision ID, optional selected completed reference revision ID, and
+`updated_at`. Every update supplies `expected_revision`; a mismatch is a conflict. Selection is a
+convenience pointer and is never copied into a frozen run request.
+
+### Filesystem layout and publication
+
+Use this layout below the configured backend runtime and operations roots:
+
+```text
+.runtime/pipeline/
+  revisions/<revision_id>/
+    manifest.json                 data-revision/v1 envelope; publish last in staging
+    content.json                  canonical content payload
+  runs/<run_id>/
+    request.json                  immutable after creation
+    state.json                    mutable run state
+  selections/<recording_id>/<content_type>.json
+  derived-views/<cache_key>/      disposable frame or crop bytes plus manifest
+
+data/operations/pipeline-references/<recording_id>/<content_type>/
+  state.json                      mutable reference pointer and draft revision number
+  draft.json                      mutable command-derived draft, absent when no draft exists
+```
+
+Completed reference content is published through the same immutable revision store as processor
+content. `state.json` only points to the draft and the selected completed revision. It does not copy
+completed content.
+
+Use `staging_directory`, `commit_staged_directory`, `atomic_replace_json`, `contained_path`, and
+`enumerate_resource_directories` from `backend/filesystem.py`. A revision becomes visible through
+one staged-directory rename after both files validate and their digests agree. Publication of the
+same ID and bytes is idempotent. The same ID with different bytes is a conflict. Ignore and report
+staging or invalid directories on reads; never repair them during a read.
+
+Create a run directory with its immutable request and initial state in one staged commit. Replace
+only `state.json` under a per-run process lock. Write and validate an output revision before the
+terminal run state references it. Update a generated selection only after the terminal state is
+durable. Selection and reference mutations use a per-resource process lock plus expected revision.
+The current local single-backend-process ownership rule from 0046 applies; do not add cross-process
+or network-filesystem coordination.
+
+Run states are `queued`, `running`, `complete`, `partial`, and `failed`. Transitions are
+`queued -> running -> complete|partial|failed` and `partial|failed -> running` for an explicit retry.
+A retry increments `attempt` and keeps the immutable request. It retains earlier per-item outcomes
+for diagnosis and can replace only failed item outcomes. An intentional full rerun creates a new
+run ID. Only `complete` can select an output revision. `partial` can retain successful item data in
+the run state but cannot publish or select a data revision.
+
+### Derived-view semantics
+
+Move the reusable parts of `OpenCVVisibleCardFrameExtractor` and `FFmpegVisibleCardFrameExtractor`
+out of `visible_card_review_batch.py`; keep temporary adapters there until 0049. The default resolver
+uses FFmpeg/ffprobe and records their project-pinned versions. Keep OpenCV only as a tested provider
+adapter when an existing local path needs it. Do not let the provider change within one run.
+
+`exact-event/v1` resolves the first presentation timestamp at or after the requested event time,
+subject to the source duration boundary. Record requested time, zero-based decoded frame index,
+presentation timestamp in integer microseconds, source video digest, resolver name/version, and
+policy. Use probed presentation timestamps for variable-frame-rate video; do not calculate them by
+multiplying a nominal frame rate. An unavailable timestamp is a per-item failure.
+
+`visible-region-crop/v1` accepts the resolved frame identity, stored geometry, image dimensions,
+and the frozen crop-policy value. It returns bytes plus pixel bounds and transform metadata, or an
+explicit unusable result. Detector boxes and reviewed polygons remain different tagged geometry
+forms. The cache key is the SHA-256 of canonical source digest, view kind, request, policy,
+decoder/transform versions, and output encoding. Verify the cached manifest and byte digest before
+use. A missing or corrupt entry is a cache miss.
+
+### Maintained-reference lifecycle
+
+A reference state is `empty`, `draft`, or `complete`. `empty -> draft` creates one draft from no
+suggestions or from one exact generated revision. `complete -> draft` creates the next draft from
+the selected completed revision, with optional suggestions kept separately. Draft commands require
+`expected_revision` and a unique command ID. Replaying the same command returns its earlier result;
+reusing a command ID with different bytes is a conflict.
+
+M8 supplies draft creation and editing for all three content types. M9 supplies coverage and affected
+work, then enables completion. Completion validates content and coverage, publishes one immutable
+manual or corrected data revision, atomically advances reference state, and finally updates the
+selected completed-reference pointer. If pointer update fails, the published revision remains valid
+and a retry can finish the pointer update. A generated selection change never mutates reference
+state. A reference completion never changes the generated selection.
+
+## 4. Delivery milestones
 
 Implement one milestone per phase. Commit it, update this status and the board, and report all
 milestone states. Use generated video, fake providers, and local filesystem fixtures for normal
 checks. Each phase adds only the boundary named below.
 
-### M0 — Contracts
+### M0 — Shared contracts and ownership
 
-Define the common revision envelope, source references, run request/result, and selection records.
-Use event content as the first concrete type. Record the ownership mapping for existing operations,
-backend, and analyzer modules. Other concrete payloads are added in their processor milestones.
+Add the shared contracts and canonical JSON support described above to `pipeline_data.py`. Add
+`event-data/v1` as the first concrete content type. Add the ownership inventory. Do not add stores,
+HTTP routes, visible-card content, or processor execution.
 
-Acceptance: strict round-trip fixtures cover generated, manual, corrected, and synthetic events;
-invalid source references and fake review metadata fail; no web-only or human-only event schema is
-introduced. Record the content and workflow fields separately.
+Acceptance:
 
-### M1 — Filesystem persistence
+- strict byte fixtures round-trip generated, manual, corrected, and synthetic event revisions;
+- invalid source digests, time bounds, input lineage, origin/producer combinations, unknown fields,
+  and fabricated review or model metadata fail;
+- run requests contain exact input IDs and complete configuration and policy values;
+- selection parsing enforces its revision and the generated/reference pointer roles; and
+- the ownership inventory names every retained implementation and every later cutover.
 
-Add run and immutable revision publication plus atomic selection updates using 0046 helpers.
+Run the operations contract tests and Ruff for `operations`.
 
-Acceptance: restart finds valid runs and revisions; duplicate publication is idempotent; conflicting
-bytes, stale writes, and partial directories fail safely; intentional reruns retain both results.
+### M1 — Revision, run, and selection stores
 
-### M2 — Video-derived views
+Add `PipelineRevisionStore`, `ProcessorRunStore`, and `PipelineSelectionStore` in
+`pipeline_store.py`. Implement the fixed layout, publication order, validation, deterministic lists,
+locks, state transitions, retries, and optimistic selection updates. Add no processor execution.
 
-Expose a reusable video frame and crop resolver around existing extraction implementations. Record
-policies and resolved frame identity; make cache lookup and regeneration internal to the resolver.
+Acceptance:
 
-Acceptance: cold and warm cache results agree; constant and variable-frame-rate fixtures select the
-specified frame; time or crop changes miss the cache; missing video cannot use a supplied device
-package. Resolve a crop from stored geometry without a review-batch directory.
+- a new store instance finds all complete runs, revisions, and selections without an index rebuild;
+- duplicate publication with identical bytes is idempotent and conflicting bytes fail;
+- injected failures before each rename or atomic replace expose the old state or the complete new
+  state, and staging or invalid directories remain invisible with a diagnostic;
+- illegal transitions, stale expected revisions, output-before-publication, and selection of a
+  partial or failed run fail;
+- an explicit retry keeps request bytes and increments its attempt; and
+- two intentional runs with identical inputs retain different run IDs and states.
 
-### M3 — Event execution
+Run focused backend store, restart, and failure-injection tests plus backend Ruff.
 
-Wrap existing CardEventNet inference in the run contract and import valid device event predictions
-into the same event content schema. Expose start/status/result through application and backend APIs.
+### M2 — Video-derived frame and crop resolution
 
-Acceptance: a video-only fixture produces an event revision; two configurations retain separate
-results; failure does not replace selected results or reference work; imported and backend events
-can be consumed by the same event loader.
+Add `derived_view.py`, extract the existing FFmpeg and OpenCV media boundaries, and leave adapters in
+the review-batch module. Implement `exact-event/v1`, `visible-region-crop/v1`, and the cache contract.
+Pin the decoder and transform versions through the existing project toolchain or dependency files.
 
-### M4 — Detector execution
+Acceptance:
 
-Add concrete visible-card content and a detector run that accepts any selected event revision.
-Resolve images through M2 and reuse the current detector provider. Preserve normalized results,
-provider metadata, empty results, and errors independently of review batches.
+- cold and warm resolutions produce equal identities and byte digests for constant-frame-rate and
+  variable-frame-rate generated fixtures;
+- a boundary request selects the defined presentation timestamp and records its actual frame index;
+- time, geometry, source digest, policy, decoder version, transform version, or encoding changes the
+  cache key;
+- corrupt cache content regenerates from video and missing video is a failure; and
+- a stored detector box and a disconnected reviewed polygon both resolve through their correct
+  tagged geometry path without a review-batch directory or device package.
 
-Acceptance: generated-event and reviewed-event inputs both run; two detector configurations on the
-same input retain separate outputs; missing/failed frames remain distinct from detected-empty
-frames; re-detection no longer overwrites a latest-result file in the new execution path.
+Run the operations derived-view tests, affected review-batch tests, and operations Ruff.
 
-### M5 — Identity execution
+### M3 — Event processor execution and API
 
-Add concrete identity content and a classifier run on selected generated or reviewed visible-card
-geometry. Reuse 0041 local and existing Gemini adapters with explicit provider selection.
+Add event orchestration to `pipeline_service.py`. Adapt the existing CardEventNet file inference path
+behind one provider protocol; do not duplicate model loading or event decoding. Add import validation
+for recording-bundle event predictions. Add start, get, list, retry, result, and generated-selection
+routes under `/api/recordings/{recording_id}/pipeline/events` in `pipeline_api.py`.
 
-Acceptance: both geometry origins use the same classifier boundary; raw candidate lists and scores
-survive storage; unusable input and classifier failure remain distinct; local fixtures require no
-credentials or model downloads. The same run does not silently switch providers.
+The service creates and freezes the run before work starts. It validates that the accepted video
+matches the request source. The worker publishes `event-data/v1`, completes the run, and then uses a
+compare-and-swap selection update. Import creates a completed run whose producer records the source
+artifact and known metadata; absent model fields stay absent.
 
-### M6 — Observation assembly
+Acceptance:
 
-Assemble table observations from exact selected upstream revisions. Update observation source
-references and storage identity to record run/input lineage rather than package/analyzer uniqueness.
+- a generated video with a fake local provider produces a stored event revision through the API;
+- the backend restart preserves status and results, and startup marks an interrupted running event
+  run failed with a restart reason;
+- two configurations retain separate runs and outputs;
+- a provider or import failure cannot change generated or completed-reference selections;
+- imported and inferred events pass the same loader and content validator; and
+- event inference works when the recording has no prediction file or evidence package.
 
-Acceptance: multiple runs on the same recording coexist; identity-only, empty, and insufficient
-observations keep their meanings; assembly rejects mismatched frames or card associations; all
-observations trace back to video and input revisions without a device package ID.
+Run operations CardEvent tests, focused backend pipeline API/service tests, generated OpenAPI/client
+checks, and Ruff for both packages.
+
+### M4 — Visible-card content and detector execution
+
+Add `visible-card-data/v1` in the analyzer package. Each requested event outcome records the event ID,
+resolved frame identity, status `detected|empty|failed`, and zero or more candidates. Each candidate
+has a run-local stable card ID, tagged detector-box geometry, normalization dimensions/policy, and
+optional attributed scores. `failed` requires an error and has no candidates; `empty` is successful
+and has an empty candidate list.
+
+Add a detector provider protocol and service path that accepts one exact event revision, resolves
+frames through M2, and adapts the detector provider currently used by
+`visible_card_review_batch.py`. Add matching start/status/result/retry/selection HTTP operations.
+
+Acceptance:
+
+- selected generated and completed-reference event inputs create valid detector runs;
+- run request bytes contain the resolved event revision, provider, detector/model identity,
+  configuration, and extraction policy before execution;
+- two configurations retain distinct results and card identifiers;
+- missing frames, provider failures, detected-empty frames, and detected candidates remain distinct
+  after restart; and
+- this path neither creates a visible-card review batch nor writes its latest-result artifact.
+
+Run analyzer contract tests, operations provider tests, focused backend service/API tests, generated
+client checks, and Ruff for affected packages.
+
+### M5 — Visual identity content and classifier execution
+
+Add `visual-identity-data/v1`. Each visible-card outcome records the upstream card ID, exact frame and
+geometry identity, crop identity, status `classified|unusable|failed`, and the provider's ordered raw
+candidates. A candidate has canonical visual card identity, optional score, score meaning, and
+producer attribution. `unusable` is an input decision and `failed` is an execution error.
+
+Add a classifier provider protocol. Adapt the 0041 local classifier and existing Gemini classifier
+behind it with an explicit request provider. Resolve crops through M2. Add matching processor HTTP
+operations.
+
+Acceptance:
+
+- detector and completed-reference geometry use the same classifier request and result contracts;
+- every outcome retains its upstream card, frame, geometry, crop, provider, and model lineage;
+- candidate order and supplied scores survive canonical storage without invented scores;
+- unusable input, empty candidates, and provider failure remain distinct after restart;
+- one frozen run never switches provider; and
+- fake local tests require no credentials or model downloads.
+
+Run local-identity, classifier-adapter, backend service/API, generated-client, and Ruff checks.
+
+### M6 — Observation assembly and storage identity
+
+Add a pure assembler that accepts exact compatible event, visible-card, and visual-identity revision
+IDs and returns existing `TableObservation` values. Revise `ObservationSource` to reference the
+recording video, assembly run, and ordered input revisions. Replace package/analyzer uniqueness in
+`TableObservationStore` with observation ID uniqueness; list and filter by recording and input/run
+lineage. Add an `observation-assembly` processor API. Do not infer gameplay state in the assembler.
+
+Compatibility validation requires one recording/video digest across all inputs, event IDs referenced
+by visible-card items, and card/frame/geometry identities referenced by identity items. Preserve the
+existing meanings of identity-only evidence, detected-empty evidence, and insufficient evidence.
+
+Acceptance:
+
+- several assembly runs on one recording coexist and remain selectable;
+- mismatched source digests, event associations, frames, cards, or geometry fail before publication;
+- all observations trace to the recording video and exact input revisions with no package ID;
+- identity-only, empty, failed-input, and insufficient observations round-trip distinctly; and
+- existing synthetic reconstruction fixtures still parse the revised observation contract.
+
+Run analyzer observation/assembly tests, backend observation store/API tests, reconstruction contract
+tests, generated-client checks, and Ruff.
 
 ### M7 — Recording reconstruction execution
 
-Change recording analysis creation to select observation revisions and explicit round/rules context.
-Reuse the engine and analysis lifecycle; source video provides diagnostic playback. Update the
-existing client submission boundary where needed so recording analysis does not wait for package
-upload. Keep the app's package generation and upload showcase available.
+Change round-analysis creation to accept a table-observation revision ID, explicit round context,
+rules version, and optional correction-constraint revision IDs. Resolve and copy those immutable
+inputs into the analysis directory before queueing. Adapt `RoundAnalysisService` and its HTTP models;
+reuse the existing worker, state transitions, result store, timeline, and counterfactual behavior.
 
-Acceptance: a video-only fixture reaches analysis; package presence cannot alter its input;
-observation revisions produce separate pinned analyses; synthetic reconstruction checks pass;
-recording boundaries do not silently become game or round boundaries. The iOS submission contract
-builds and package-upload failure does not prevent independent recording submission.
+Separate the iOS recording submission from evidence-package upload in the existing client boundary.
+Recording acceptance completes when the original video bundle commits. Package generation and upload
+remain an independently retryable showcase action. This milestone changes no recording UI.
 
-### M8 — Maintained reference lifecycle
+Acceptance:
 
-Add recording-owned drafts, suggestions, completion, and selected completed revisions for the three
-concrete review stages. Reuse existing edit validation, revision guards, command replay, and
-lifecycle receipts. Existing editors switch to these APIs in 0049.
+- a video-only fixture reaches completed analysis through exact observation and context inputs;
+- package presence, absence, or upload failure cannot alter or block the analysis input;
+- separate observation revisions produce separate pinned analysis inputs and results;
+- recording boundaries never supply implicit game or round boundaries;
+- restart and synthetic reconstruction lifecycle tests pass; and
+- the iOS submission contract builds and its focused tests cover independent package failure.
 
-Acceptance: manual creation and correction publish the same content types as processor runs;
-completion without edits is valid; a second draft conflicts; old completions remain byte-identical;
-a model rerun cannot modify a draft or its selected completed reference.
+Run engine, analyzer, round-analysis store/service/API, generated-client, and iOS contract/build
+checks plus applicable formatting.
 
-### M9 — Coverage and dependencies
+### M8 — Maintained-reference drafts
 
-Add explicit coverage and affected-item projections between event, visible-card, and identity
-references. Reuse unchanged reviewed items only when their source and relevant content match.
+Add `MaintainedReferenceStore` and draft APIs for events, visible cards, and visual identities. Apply
+the fixed lifecycle, locking, command replay, and source suggestions. Reuse content-specific edit
+validation from `cardevent_review.py`, `visible_card_review_workflow.py`, and
+`visual_card_identity_review_batch.py` through adapters; keep the old stores unchanged for 0049.
+M8 does not expose completion because M9 owns its coverage rules.
 
-Acceptance: a retimed event exposes new-frame review work; geometry changes expose affected identity
-work; unrelated items retain review; empty, unusable, and unreviewed frames remain distinct; an old
-pinned revision stays consumable for its original scope.
+Acceptance:
+
+- each recording and content type permits at most one draft and returns a conflict for a second;
+- a draft can start empty, from one exact generated revision, or from the selected completion;
+- manual creation and correction use the same content item shapes as processor outputs;
+- command replay is idempotent and stale revision or changed command bytes conflict;
+- model reruns and generated-selection changes leave draft bytes and reference state unchanged; and
+- restart preserves the draft, its base, suggestions, commands, and current draft revision.
+
+Run old edit-validation tests through the adapters, new reference-store/API tests, generated-client
+checks, and Ruff.
+
+### M9 — Coverage, affected work, and reference completion
+
+Add the three coverage validators and dependency projections before enabling completion APIs.
+Event coverage is a normalized union of reviewed video intervals and full completion requires
+`[0, duration_us]`. Visible-card coverage records every reviewed resolved-frame identity with
+`cards|empty|unusable`; an absent frame is unreviewed. Identity coverage records every upstream card
+and `identity|unusable`; an absent card is unreviewed.
+
+For draft rebasing, match an event only by preserved item lineage plus unchanged event type and time
+bounds. Match visible-card work only when event and frame identities are unchanged. Match identity
+work only when card, frame, geometry, crop policy, and crop-byte digest are unchanged. Preserve a
+matched decision and mark every unmatched downstream item as affected and incomplete. Never mutate
+an old completed revision.
+
+Acceptance:
+
+- incomplete event intervals, absent visible-card frames, and absent identity decisions block
+  completion with explicit gaps;
+- accepting all suggestions cannot substitute for source coverage;
+- a retimed event exposes its new frame, and changed geometry or crop bytes expose identity work;
+- unrelated matched items retain their decisions and coverage;
+- empty, unusable, failed, affected, and unreviewed states remain distinct; and
+- completion publishes immutable content, advances reference state and the completed-reference
+  selection in the defined order, and can recover from failure between those writes.
+
+Run reference coverage/projection/completion tests, failure-injection and restart tests, API/client
+checks, and Ruff.
 
 ### M10 — Dataset consumers and foundation proof
 
-Adapt existing event, detector, and identity dataset consumers to freeze selected reference revisions
-and derived-view policies. Keep current source-group partition rules and crop-policy conditions.
-Remove obsolete package requirements from the new execution and dataset paths. Record old review
-adapters that 0049 removes when the UI switches; do not add compatibility migrations by default.
+Adapt the existing event, detector, and identity dataset builders to accept explicit completed
+reference revision IDs and full derived-view policy values. Freeze those IDs and policies in each
+dataset manifest. Validate source-group permissions, protected splits, target coverage, and exact
+input-to-target alignment before materialization. Keep generated revisions available only through
+an explicit robustness-input option; they cannot supply reviewed targets.
 
-Acceptance: a generated local video passes events, detection, identity, observation assembly, and
-reconstruction; completed reference fixtures feed all three dataset consumers; uncovered targets
-fail eligibility; raw-input robustness cases stay possible; no device package is read. All relevant
-operations/backend/analyzer tests, formatting, typing, generated API checks, and client contract
-checks pass. Publish a concise handoff for 0049 and 0043, with remaining real-data gaps stated.
+Remove package reads from the new processor, reconstruction, and dataset paths. Add
+`docs/Pipeline_Data_Cutover_Handoff.md` with the precise old routes/adapters for 0049 to remove, the
+new API and storage entry points, commands used for the foundation proof, and measured real-data
+gaps for 0043. Do not add compatibility migrations.
+
+Acceptance:
+
+- one generated local video passes event detection, visible-card detection, classification,
+  observation assembly, and reconstruction with exact persisted lineage;
+- completed event, visible-card, and identity reference fixtures feed their dataset builders;
+- incomplete coverage, source mismatch, policy mismatch, permission failure, and protected-split
+  leakage fail before dataset publication;
+- an explicit generated-input robustness case works without labeling predictions as reviewed;
+- file-access tracing proves that the flow reads no evidence-package media or manifest; and
+- relevant operations, backend, analyzer, engine, generated API/client, and iOS checks pass from the
+  project toolchain documented in `mise.toml`.
