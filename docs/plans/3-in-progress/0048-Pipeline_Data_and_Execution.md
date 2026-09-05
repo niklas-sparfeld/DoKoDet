@@ -4,7 +4,7 @@
 
 - **Summary:** Store reusable pipeline results and maintained references, and run the development
   pipeline from original recording videos with explicit input selection.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0039, 0040, 0041, 0042, 0045, and 0046
 - **Supersedes:** The data and execution direction of 0047 and the pipeline foundation work in 0022
 - **Outcome:** Each processor can consume selected generated or reviewed data revisions, preserve
@@ -14,7 +14,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — define shared revision and run contracts with concrete event content.
+- **M0:** Complete — define shared revision and run contracts with concrete event content.
 - **M1:** Not started — persist runs, data revisions, and current selections.
 - **M2:** Not started — resolve visual inputs from recording videos.
 - **M3:** Not started — run and retain CardEventNet event results.

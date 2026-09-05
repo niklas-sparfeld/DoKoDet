@@ -47,13 +47,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0048 — Pipeline data and execution](2-ready/0048-Pipeline_Data_and_Execution.md) | 0039, 0040, 0041, 0042, 0045, and 0046 complete | Retain processor results and reference revisions; select generated or reviewed inputs; derive visual inputs from video; connect analysis and dataset consumers. M0–M10 not started. |
+| None | — | — |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0048 — Pipeline data and execution](3-in-progress/0048-Pipeline_Data_and_Execution.md) | 0039, 0040, 0041, 0042, 0045, and 0046 complete | M0 complete: shared revision and run contracts with concrete event content. M1–M10 not started. |
 
 ### Blocked
 
