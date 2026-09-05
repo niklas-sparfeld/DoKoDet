@@ -1,22 +1,40 @@
 :root {
   font-family:
-    Inter,
+    ui-rounded,
+    "SF Pro Rounded",
     ui-sans-serif,
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #24211d;
-  background: #f4f0e8;
+  color: #f4f6f8;
+  background: #090b0e;
+  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --accent: #a84a2a;
-  --ink: #24211d;
-  --muted-ink: #675f55;
-  --surface: #f4f0e8;
-  --panel: #fffdf8;
-  --line: #ded5c7;
+  -webkit-font-smoothing: antialiased;
+  --accent: #f0b34a;
+  --accent-bright: #ffd479;
+  --accent-ink: #1b1304;
+  --ink: #f4f6f8;
+  --muted-ink: #9aa5b1;
+  --faint-ink: #6f7a86;
+  --surface: #090b0e;
+  --surface-raised: #101318;
+  --panel: #15191f;
+  --panel-raised: #1a1f26;
+  --line: #2b323b;
+  --line-strong: #3c4652;
+  --success: #55d589;
+  --success-surface: #173425;
+  --danger: #ff7d72;
+  --danger-surface: #3a2021;
+  --warning: #f2c15f;
+  --warning-surface: #382d17;
+  --inferred: #c49aef;
+  --inferred-surface: #2f253c;
+  --shadow: rgb(0 0 0 / 32%);
 }
 
 * {
@@ -26,4 +44,59 @@
 body {
   margin: 0;
   min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(
+      circle at 12% -10%,
+      rgb(240 179 74 / 9%),
+      transparent 28rem
+    ),
+    radial-gradient(circle at 95% 0%, rgb(91 121 150 / 7%), transparent 34rem),
+    var(--surface);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+::selection {
+  background: rgb(240 179 74 / 30%);
+  color: var(--ink);
+}
+
+::-webkit-scrollbar {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--line-strong);
 }
