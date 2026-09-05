@@ -18,6 +18,28 @@ export type RecordingDetail = JsonResponse<
 export type PipelineWorkspace = JsonResponse<
   paths["/api/recordings/{recording_id}/pipeline"]["get"]["responses"][200]
 >;
+export type PipelineWorkspaceStage = PipelineWorkspace["stages"][number];
+export type PipelineStageKey = PipelineWorkspaceStage["key"];
+export type PipelineSelectableContentType = Exclude<
+  PipelineStageKey,
+  "round_analyses"
+>;
+export type PipelineSelectionUpdateRequest = {
+  expected_revision: number;
+  selected_generated_revision_id: string | null;
+};
+export type PipelineSelection = {
+  revision: number;
+  recording_id: string;
+  content_type: PipelineSelectableContentType;
+  selected_generated_revision_id: string | null;
+  selected_completed_reference_revision_id: string | null;
+  updated_at: string;
+};
+export type PipelineSelectionResponse = {
+  recording_id: string;
+  selection: PipelineSelection;
+};
 export type RecordingSummary = RecordingListResponse["recordings"][number];
 export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
 export type CardEventReview = JsonResponse<
@@ -126,6 +148,12 @@ export interface DokoDetectorClient {
     recordingId: string,
     init?: RequestInit,
   ): Promise<PipelineWorkspace>;
+  updatePipelineSelection(
+    recordingId: string,
+    contentType: PipelineSelectableContentType,
+    payload: PipelineSelectionUpdateRequest,
+    init?: RequestInit,
+  ): Promise<PipelineSelectionResponse>;
   getCardEventReview(
     recordingId: string,
     init?: RequestInit,
@@ -329,6 +357,17 @@ export function createDokoDetectorClient(
         fetchImplementation,
         recordingPipelineWorkspacePath(recordingId),
         init,
+      ),
+    updatePipelineSelection: (recordingId, contentType, payload, init) =>
+      requestJson<PipelineSelectionResponse>(
+        fetchImplementation,
+        recordingPipelineSelectionPath(recordingId, contentType),
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
       ),
     getCardEventReview: (recordingId, init) =>
       requestJson<CardEventReview>(
@@ -715,6 +754,21 @@ export function recordingDetailPath(recordingId: string): string {
 
 export function recordingPipelineWorkspacePath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline`;
+}
+
+export function recordingPipelineSelectionPath(
+  recordingId: string,
+  contentType: PipelineSelectableContentType,
+): string {
+  const route =
+    contentType === "events"
+      ? "events"
+      : contentType === "visible_cards"
+        ? "visible-cards"
+        : contentType === "visual_identities"
+          ? "visual-identities"
+          : "observations";
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/${route}/selection`;
 }
 
 export function recordingCardEventReviewPath(recordingId: string): string {

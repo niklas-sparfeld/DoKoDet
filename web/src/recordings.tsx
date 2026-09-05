@@ -22,6 +22,10 @@ import {
 } from "./api/client";
 import { RecordingAnalysisView } from "./analysis/AnalysisView";
 import { IdentityReviewSection } from "./identityReview";
+import {
+  RecordingPipelineWorkspace,
+  type PipelineStageKey,
+} from "./pipeline/RecordingPipelineWorkspace";
 import styles from "./App.module.css";
 
 export function RecordingListView() {
@@ -284,9 +288,13 @@ function RecordingCard({
 export function RecordingDetailView({
   recordingId,
   selectedAnalysisId,
+  pipelineStage = null,
+  pipelineCompare = false,
 }: {
   recordingId: string;
   selectedAnalysisId: string | null;
+  pipelineStage?: PipelineStageKey | null;
+  pipelineCompare?: boolean;
 }) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const sourceVideoRef = useRef<HTMLVideoElement>(null);
@@ -591,11 +599,28 @@ export function RecordingDetailView({
     }
   }
 
+  if (pipelineStage !== null && selectedAnalysisId === null) {
+    return (
+      <RecordingPipelineWorkspace
+        recordingId={recordingId}
+        stageKey={pipelineStage}
+        compare={pipelineCompare}
+      />
+    );
+  }
+
   return (
     <main className={`${styles.shell} ${styles.recordingsPage}`}>
       <a className={styles.backLink} href="/">
         ← Recordings
       </a>
+      {selectedAnalysisId === null ? (
+        <RecordingPipelineWorkspace
+          recordingId={recordingId}
+          stageKey={null}
+          compare={false}
+        />
+      ) : null}
       {error !== null && recording === null ? (
         <section className={styles.panel} aria-live="polite">
           <p className={styles.statusLabel}>Unable to load recording</p>

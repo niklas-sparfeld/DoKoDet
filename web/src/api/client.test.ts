@@ -14,6 +14,7 @@ import {
   recordingCardEventReviewRevisionPath,
   recordingDetailPath,
   recordingPipelineWorkspacePath,
+  recordingPipelineSelectionPath,
   repositoryBundleVideoPath,
   roundAnalysisFramePath,
   roundCounterfactualPath,
@@ -336,6 +337,44 @@ describe("DokoDetector API client", () => {
       recordingPipelineWorkspacePath("recording/1"),
     );
     expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBeUndefined();
+  });
+
+  it("updates a recording-owned pipeline selection with its expected revision", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            recording_id: "recording-1",
+            selection: {
+              revision: 5,
+              recording_id: "recording-1",
+              content_type: "events",
+              selected_generated_revision_id: "events-2",
+              selected_completed_reference_revision_id: null,
+              updated_at: "2026-09-06T00:00:00Z",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.updatePipelineSelection("recording/1", "events", {
+      expected_revision: 4,
+      selected_generated_revision_id: "events-2",
+    });
+
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      recordingPipelineSelectionPath("recording/1", "events"),
+    );
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("PUT");
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[0]?.[1]?.body)),
+    ).toEqual({
+      expected_revision: 4,
+      selected_generated_revision_id: "events-2",
+    });
   });
 
   it("creates and reads a counterfactual through the generated API paths", async () => {

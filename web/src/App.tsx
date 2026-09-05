@@ -3,14 +3,17 @@ import { useEffect, useState } from "react";
 import { CardEventReviewPage } from "./cardEvents/CardEventReviewPage";
 import { RecordingDetailView, RecordingListView } from "./recordings";
 import { IdentityReviewPage } from "./identityReview";
+import { readRecordingPipelineRoute } from "./pipeline/RecordingPipelineWorkspace";
 import { VisibleCardReviewPage } from "./visibleCardReview";
 
 export function App() {
   const location = useAppLocation();
+  const pipelineRoute = readRecordingPipelineRoute(location.pathname);
   const visibleCardBatchId = readVisibleCardBatchId(location.pathname);
   const identityReviewBatchId = readIdentityReviewBatchId(location.pathname);
   const cardEventReviewId = readCardEventReviewId(location.pathname);
-  const recordingId = readRecordingId(location.pathname);
+  const recordingId =
+    pipelineRoute?.recordingId ?? readRecordingId(location.pathname);
   const selectedAnalysisId = readSelectedAnalysisId(location.search);
   if (visibleCardBatchId !== null) {
     return (
@@ -35,9 +38,11 @@ export function App() {
     <RecordingListView />
   ) : (
     <RecordingDetailView
-      key={`${recordingId}:${selectedAnalysisId ?? ""}`}
+      key={`${recordingId}:${selectedAnalysisId ?? ""}:${pipelineRoute?.stage ?? ""}:${pipelineRoute?.compare ? "compare" : ""}`}
       recordingId={recordingId}
       selectedAnalysisId={selectedAnalysisId}
+      pipelineStage={pipelineRoute?.stage ?? null}
+      pipelineCompare={pipelineRoute?.compare ?? false}
     />
   );
 }

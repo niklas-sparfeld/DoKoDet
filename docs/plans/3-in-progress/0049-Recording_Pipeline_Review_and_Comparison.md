@@ -15,7 +15,7 @@
 ## Milestone status
 
 - **M0:** Complete — add the recording workspace contract and generated client types.
-- **M1:** Not started — add the recording pipeline shell, stage summaries, and selectors.
+- **M1:** Complete — add the recording pipeline shell, stage summaries, and selectors.
 - **M2:** Not started — switch event review to the maintained reference.
 - **M3:** Not started — switch visible-card review to the maintained reference.
 - **M4:** Not started — switch identity review to the maintained reference.
@@ -370,6 +370,23 @@ Acceptance:
 - stale URL identifiers are removed with a notice;
 - a stale selection update shows the winning selection and does not overwrite it; and
 - keyboard navigation, narrow layout, web tests, types, lint, and formatting pass.
+
+### M1 notes — 2026-09-06
+
+Added `RecordingPipelineWorkspace` with recording-owned stage and comparison paths, fixed five-stage
+navigation, summary cards, data-driven primary-action priority, generated/reviewed view controls,
+historical revision selection, and retained run or analysis history. `RecordingDetailView` composes
+the shell for pipeline paths while the recording list and legacy review routes remain unchanged for
+the later editor milestones.
+
+The workspace replaces the detail path with `history.replaceState`, keeps stage and query state in
+the browser URL, clamps playback time to the accepted video duration, and removes unavailable
+revision, item, and comparison identifiers with one notice. Generated default changes use the
+shipped 0048 selection route and the current selection revision. A `409` selection conflict reloads
+the workspace and shows the winning selection without applying the stale choice.
+
+Focused web fixtures cover the action-priority table, shell composition, URL state, stale state
+cleanup, client selection requests, and selection conflict recovery.
 
 ### M2 — Event maintained-reference editor
 
