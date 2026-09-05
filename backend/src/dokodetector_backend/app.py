@@ -36,6 +36,8 @@ from dokodetector_backend.pending_video_api import router as pending_video_route
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
 from dokodetector_backend.pipeline_api import router as pipeline_router
+from dokodetector_backend.pipeline_reference_service import PipelineReferenceService
+from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
 from dokodetector_backend.pipeline_service import EventPipelineService, EventProcessorProvider
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
@@ -133,6 +135,17 @@ def create_app(
         pipeline_storage,
         revision_store=app.state.pipeline_revision_store,
         run_store=app.state.pipeline_run_store,
+    )
+    app.state.pipeline_reference_store = PipelineReferenceStore(
+        app_settings.operations_root / "pipeline-references"
+    )
+    app.state.pipeline_reference_service = PipelineReferenceService(
+        app_settings,
+        app.state.recording_bundle_store,
+        app.state.repository_bundle_storage,
+        reference_store=app.state.pipeline_reference_store,
+        revision_store=app.state.pipeline_revision_store,
+        selection_store=app.state.pipeline_selection_store,
     )
     app.state.event_pipeline_service = EventPipelineService(
         app_settings,
