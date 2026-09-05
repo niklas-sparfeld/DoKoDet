@@ -24,11 +24,17 @@ from dokodetector_backend.visible_card_pipeline_service import (
     VisibleCardPipelineInputError,
     VisibleCardPipelineService,
 )
+from dokodetector_backend.visual_identity_pipeline_service import (
+    VisualIdentityPipelineError,
+    VisualIdentityPipelineInputError,
+    VisualIdentityPipelineService,
+)
 
 router = APIRouter()
 RECORDING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 BASE = "/api/recordings/{recording_id}/pipeline/events"
 VISIBLE_CARD_BASE = "/api/recordings/{recording_id}/pipeline/visible-cards"
+VISUAL_IDENTITY_BASE = "/api/recordings/{recording_id}/pipeline/visual-identities"
 
 
 @router.post(BASE, status_code=202)
@@ -267,12 +273,132 @@ def get_visible_card_result(recording_id: str, run_id: str, request: Request) ->
     }
 
 
+@router.post(VISUAL_IDENTITY_BASE, status_code=202)
+@router.post(VISUAL_IDENTITY_BASE + "/runs", status_code=202, include_in_schema=False)
+def start_visual_identity_run(
+    recording_id: str, payload: dict[str, Any], request: Request
+) -> dict[str, Any]:
+    """Freeze one visible-card revision and queue identity classification."""
+
+    _validate_recording_id(recording_id)
+    try:
+        return _run_response(
+            _visual_identity_service(request).start_classification(recording_id, payload)
+        )
+    except (VisualIdentityPipelineInputError, PipelineConflict) as error:
+        raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
+    except PipelineNotFound as error:
+        raise ContractError("recording_not_found", str(error), status_code=404) from error
+    except VisualIdentityPipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.get(VISUAL_IDENTITY_BASE)
+@router.get(VISUAL_IDENTITY_BASE + "/runs", include_in_schema=False)
+def list_visual_identity_runs(recording_id: str, request: Request) -> dict[str, Any]:
+    """List durable visual identity classifier runs for one recording."""
+
+    _validate_recording_id(recording_id)
+    try:
+        runs = _visual_identity_service(request).list_runs(recording_id)
+    except VisualIdentityPipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+    return {"recording_id": recording_id, "runs": [_run_response(run) for run in runs]}
+
+
+@router.get(VISUAL_IDENTITY_BASE + "/selection")
+@router.get(VISUAL_IDENTITY_BASE + "/generated-selection", include_in_schema=False)
+def get_visual_identity_selection(recording_id: str, request: Request) -> dict[str, Any]:
+    """Return the current visual identity generated and reference pointers."""
+
+    _validate_recording_id(recording_id)
+    selection = _visual_identity_service(request).selection_store.get(
+        recording_id, "visual_identities"
+    )
+    return {
+        "recording_id": recording_id,
+        "selection": None if selection is None else selection.to_mapping(),
+    }
+
+
+@router.put(VISUAL_IDENTITY_BASE + "/selection")
+@router.put(VISUAL_IDENTITY_BASE + "/generated-selection", include_in_schema=False)
+def update_visual_identity_selection(
+    recording_id: str, payload: dict[str, Any], request: Request
+) -> dict[str, Any]:
+    """Update the visual identity generated pointer with an optimistic revision check."""
+
+    _validate_recording_id(recording_id)
+    try:
+        selection = _visual_identity_service(request).select_generated(recording_id, payload)
+    except PipelineSelectionConflict as error:
+        raise ContractError("selection_conflict", str(error), status_code=409) from error
+    except (VisualIdentityPipelineInputError, PipelineConflict) as error:
+        raise ContractError("invalid_selection", str(error), status_code=422) from error
+    return {"recording_id": recording_id, "selection": selection.to_mapping()}
+
+
+@router.get(VISUAL_IDENTITY_BASE + "/{run_id}")
+@router.get(VISUAL_IDENTITY_BASE + "/runs/{run_id}", include_in_schema=False)
+def get_visual_identity_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
+    """Return one visual identity classifier run and its immutable request."""
+
+    try:
+        return _run_response(_visual_identity_service(request).get_run(recording_id, run_id))
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except VisualIdentityPipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.post(VISUAL_IDENTITY_BASE + "/{run_id}/retry", status_code=202)
+@router.post(
+    VISUAL_IDENTITY_BASE + "/runs/{run_id}/retry", status_code=202, include_in_schema=False
+)
+def retry_visual_identity_run(
+    recording_id: str, run_id: str, request: Request
+) -> dict[str, Any]:
+    """Retry one failed visual identity classifier run."""
+
+    try:
+        return _run_response(_visual_identity_service(request).retry(recording_id, run_id))
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except (VisualIdentityPipelineInputError, PipelineConflict, PipelineStateError) as error:
+        raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
+    except VisualIdentityPipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.get(VISUAL_IDENTITY_BASE + "/{run_id}/result")
+@router.get(VISUAL_IDENTITY_BASE + "/runs/{run_id}/result", include_in_schema=False)
+def get_visual_identity_result(
+    recording_id: str, run_id: str, request: Request
+) -> dict[str, Any]:
+    """Return a completed visual identity run and its stored revision."""
+
+    try:
+        run, revisions = _visual_identity_service(request).get_result(recording_id, run_id)
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except VisualIdentityPipelineError as error:
+        raise ContractError("pipeline_result_unavailable", str(error), status_code=409) from error
+    return {
+        **_run_response(run),
+        "revisions": [revision.to_mapping() for revision in revisions],
+    }
+
+
 def _service(request: Request) -> EventPipelineService:
     return request.app.state.event_pipeline_service
 
 
 def _visible_service(request: Request) -> VisibleCardPipelineService:
     return request.app.state.visible_card_pipeline_service
+
+
+def _visual_identity_service(request: Request) -> VisualIdentityPipelineService:
+    return request.app.state.visual_identity_pipeline_service
 
 
 def _validate_recording_id(recording_id: str) -> None:

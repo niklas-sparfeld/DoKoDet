@@ -295,6 +295,7 @@ class CachedCardClassifier:
         self.name = classifier.name
         self.version = classifier.version
         self.calibration = classifier.calibration
+        self.model = classifier.model
 
     def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
         request = CardClassificationRequest(crop_bytes=crop_bytes, model=self.classifier.model)

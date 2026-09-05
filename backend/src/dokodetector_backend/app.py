@@ -57,6 +57,7 @@ from dokodetector_backend.visible_card_review_api import router as visible_card_
 from dokodetector_backend.visual_card_identity_review_api import (
     router as visual_card_identity_review_router,
 )
+from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
 
 if TYPE_CHECKING:
     from table_evidence_analyzer import TableEvidenceAnalyzer
@@ -85,6 +86,7 @@ def create_app(
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         await application.state.event_pipeline_service.start()
         await application.state.visible_card_pipeline_service.start()
+        await application.state.visual_identity_pipeline_service.start()
         await application.state.round_analysis_service.start()
         log_event(
             LOGGER,
@@ -98,6 +100,7 @@ def create_app(
         finally:
             await application.state.event_pipeline_service.stop()
             await application.state.visible_card_pipeline_service.stop()
+            await application.state.visual_identity_pipeline_service.stop()
             await application.state.round_analysis_service.stop()
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
@@ -172,6 +175,16 @@ def create_app(
         app.state.recording_bundle_store,
         app.state.repository_bundle_storage,
         detector_provider=app.state.visible_card_provider,
+        frame_resolver=visible_card_frame_resolver,
+        revision_store=app.state.pipeline_revision_store,
+        run_store=app.state.pipeline_run_store,
+        selection_store=app.state.pipeline_selection_store,
+    )
+    app.state.visual_identity_pipeline_service = VisualIdentityPipelineService(
+        app_settings,
+        app.state.recording_bundle_store,
+        app.state.repository_bundle_storage,
+        identity_classifier=app.state.visible_card_identity_classifier,
         frame_resolver=visible_card_frame_resolver,
         revision_store=app.state.pipeline_revision_store,
         run_store=app.state.pipeline_run_store,
