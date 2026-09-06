@@ -22,7 +22,10 @@ import {
 } from "../cardEvents/PipelineCardEventEditor";
 import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
 import type { PipelineVisibleCardRailItem } from "../visibleCards/PipelineVisibleCardEditor";
-import { PipelineVisualIdentityEditor } from "../visualIdentities/PipelineVisualIdentityEditor";
+import {
+  PipelineVisualIdentityEditor,
+  type PipelineVisualIdentityRailItem,
+} from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
 import {
   ObservationRunControls,
@@ -155,10 +158,15 @@ export function RecordingPipelineWorkspace({
     key: string;
     items: RecordingTimelineRailItem[];
   } | null>(null);
+  const [visualIdentityRail, setVisualIdentityRail] = useState<{
+    key: string;
+    items: RecordingTimelineRailItem[];
+  } | null>(null);
   const workspaceDurationUsRef = useRef(0);
   workspaceDurationUsRef.current = workspace?.video.duration_us ?? 0;
   const eventRailKeyRef = useRef("");
   const visibleCardRailKeyRef = useRef("");
+  const visualIdentityRailKeyRef = useRef("");
   const handleEventRailItemsChange = useCallback(
     (items: PipelineCardEventRailItem[]) => {
       setEventRail({
@@ -254,6 +262,42 @@ export function RecordingPipelineWorkspace({
               selectionParam: "item" as const,
               laneId: "proposals",
               label: `${item.label} · ${item.proposalCount} proposal${item.proposalCount === 1 ? "" : "s"}`,
+              state: item.state,
+              timeRange,
+              runId: null,
+            },
+          ];
+        }),
+      });
+    },
+    [],
+  );
+  const handleVisualIdentityRailItemsChange = useCallback(
+    (items: PipelineVisualIdentityRailItem[]) => {
+      setVisualIdentityRail({
+        key: visualIdentityRailKeyRef.current,
+        items: items.flatMap((item) => {
+          const timeRange = {
+            startUs: item.timeUs,
+            endUs: Math.min(workspaceDurationUsRef.current, item.timeUs + 1),
+          };
+          return [
+            {
+              id: `identity:${item.itemId}`,
+              itemId: item.itemId,
+              selectionParam: "item" as const,
+              laneId: "identity-cards",
+              label: item.label,
+              state: item.state,
+              timeRange,
+              runId: null,
+            },
+            {
+              id: `identity:${item.itemId}:review`,
+              itemId: item.itemId,
+              selectionParam: "item" as const,
+              laneId: "review-state",
+              label: `${item.label} · ${item.state}`,
               state: item.state,
               timeRange,
               runId: null,
@@ -494,6 +538,8 @@ export function RecordingPipelineWorkspace({
   eventRailKeyRef.current = eventRailKey;
   const visibleCardRailKey = `${recordingId}:${stage.key}:${activeView}:${compare ? "compare" : "task"}`;
   visibleCardRailKeyRef.current = visibleCardRailKey;
+  const visualIdentityRailKey = `${recordingId}:${stage.key}:${activeView}:${compare ? "compare" : "task"}`;
+  visualIdentityRailKeyRef.current = visualIdentityRailKey;
   const visibleRail =
     stage.key === "events" && activeView === "reviewed" && !compare
       ? eventRail?.key === eventRailKey && rail !== null
@@ -541,6 +587,31 @@ export function RecordingPipelineWorkspace({
                 lanes: rail.lanes.map((lane) => ({ ...lane, itemCount: 0 })),
               }
         : rail;
+  const identityRail =
+    stage.key === "visual_identities" && !compare
+      ? visualIdentityRail?.key === visualIdentityRailKey && rail !== null
+        ? {
+            ...rail,
+            items: visualIdentityRail.items,
+            selectedItemId:
+              visualIdentityRail.items.find(
+                (item) => item.itemId === urlState.item,
+              )?.id ?? null,
+            lanes: rail.lanes.map((lane) => ({
+              ...lane,
+              itemCount: visualIdentityRail.items.filter(
+                (item) => item.laneId === lane.id,
+              ).length,
+            })),
+          }
+        : rail === null
+          ? null
+          : {
+              ...rail,
+              items: [],
+              lanes: rail.lanes.map((lane) => ({ ...lane, itemCount: 0 })),
+            }
+      : visibleRail;
   const selectedEventRunId =
     stage.key === "events" && displayedRevision !== null
       ? (stage.runs.find((run) =>
@@ -774,6 +845,8 @@ export function RecordingPipelineWorkspace({
                 }
                 generatedRunId={selectedVisualIdentityRunId}
                 view={activeView}
+                inspectorEnabled={action.kind !== "blocked"}
+                onRailItemsChange={handleVisualIdentityRailItemsChange}
               />
             ) : null}
           </div>
@@ -803,15 +876,15 @@ export function RecordingPipelineWorkspace({
         aria-label="Timeline Rail"
         data-slot="bottom"
       >
-        {visibleRail !== null ? (
+        {identityRail !== null ? (
           <RecordingTimelineRail
             key={`${stage.key}:${activeView}:${compare ? "compare" : "task"}`}
             recordingId={recordingId}
-            durationUs={visibleRail.durationUs}
-            currentTimeUs={visibleRail.currentTimeUs}
-            selectedItemId={visibleRail.selectedItemId}
-            lanes={visibleRail.lanes}
-            items={visibleRail.items}
+            durationUs={identityRail.durationUs}
+            currentTimeUs={identityRail.currentTimeUs}
+            selectedItemId={identityRail.selectedItemId}
+            lanes={identityRail.lanes}
+            items={identityRail.items}
             onTimeChange={handleRailTimeChange}
             onItemSelect={handleRailItemSelect}
           />
@@ -902,7 +975,9 @@ function RecordingWorkspaceInspector({
   const usesEditorInspector =
     !compare &&
     action.kind !== "blocked" &&
-    (stage.key === "events" || stage.key === "visible_cards");
+    (stage.key === "events" ||
+      stage.key === "visible_cards" ||
+      stage.key === "visual_identities");
 
   return (
     <aside
@@ -952,6 +1027,7 @@ function RecordingWorkspaceInspector({
           <div
             data-event-inspector-slot="action"
             data-visible-card-inspector-slot="action"
+            data-identity-inspector-slot="action"
           />
         ) : (
           <>
@@ -1009,6 +1085,7 @@ function RecordingWorkspaceInspector({
             <div
               data-event-inspector-slot="save"
               data-visible-card-inspector-slot="save"
+              data-identity-inspector-slot="save"
             />
             {executionControls}
           </>
@@ -1111,6 +1188,7 @@ function RecordingWorkspaceInspector({
           <div
             data-event-inspector-slot="selection"
             data-visible-card-inspector-slot="selection"
+            data-identity-inspector-slot="selection"
           />
         ) : null}
       </section>

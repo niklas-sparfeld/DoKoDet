@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   ApiError,
   createDokoDetectorClient,
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
-  repositoryBundleVideoPath,
   type PipelineReferenceItem,
   type PipelineReferenceOperation,
   type PipelineReferenceResource,
@@ -105,7 +105,6 @@ const CANONICAL_IDENTITIES = [
 
 export type PipelineVisualIdentityEditorProps = {
   recordingId: string;
-  videoUrl?: string;
   durationUs: number;
   selectionItemId?: string | null;
   selectionTimeUs?: number | null;
@@ -113,11 +112,20 @@ export type PipelineVisualIdentityEditorProps = {
   displayedRevisionId?: string | null;
   generatedRunId: string | null;
   view: "generated" | "reviewed";
+  onRailItemsChange?: (items: PipelineVisualIdentityRailItem[]) => void;
+  inspectorEnabled?: boolean;
+};
+
+export type PipelineVisualIdentityRailItem = {
+  itemId: string;
+  label: string;
+  state: IdentityReviewState | IdentityOutcome["status"];
+  timeUs: number;
+  cropPolicy: string | null;
 };
 
 export function PipelineVisualIdentityEditor({
   recordingId,
-  videoUrl = repositoryBundleVideoPath(recordingId),
   durationUs,
   selectionItemId,
   selectionTimeUs,
@@ -125,6 +133,8 @@ export function PipelineVisualIdentityEditor({
   displayedRevisionId = generatedRevisionId,
   generatedRunId,
   view,
+  onRailItemsChange,
+  inspectorEnabled = true,
 }: PipelineVisualIdentityEditorProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -144,7 +154,6 @@ export function PipelineVisualIdentityEditor({
   const [items, setItems] = useState<EditableIdentity[]>([]);
   const [generatedItems, setGeneratedItems] = useState<EditableIdentity[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [playheadUs, setPlayheadUs] = useState(0);
   const [loading, setLoading] = useState(view === "reviewed");
   const [generatedLoading, setGeneratedLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +170,11 @@ export function PipelineVisualIdentityEditor({
   );
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
+  const [inspectorSlots, setInspectorSlots] = useState<{
+    action: HTMLElement;
+    save: HTMLElement;
+    selection: HTMLElement;
+  } | null>(null);
 
   const setLocalItems = useCallback((next: EditableIdentity[]) => {
     itemsRef.current = next;
@@ -180,7 +194,6 @@ export function PipelineVisualIdentityEditor({
   const setCurrentTime = useCallback(
     (nextUs: number, updateUrl = true) => {
       const clamped = clamp(nextUs, durationUs);
-      setPlayheadUs(clamped);
       if (videoRef.current !== null) {
         videoRef.current.currentTime = clamped / 1_000_000;
       }
@@ -532,15 +545,6 @@ export function PipelineVisualIdentityEditor({
     [applyReviewState],
   );
 
-  const rebaseReference = useCallback(() => {
-    if (generatedRevisionId === null) return;
-    enqueue(
-      { operation: "rebase", source_revision_id: generatedRevisionId },
-      "Identity review refreshed from the selected result. Changed cards need review.",
-      (current) => current,
-    );
-  }, [enqueue, generatedRevisionId]);
-
   const completeReference = useCallback(async () => {
     const current = referenceRef.current;
     const currentItems = itemsRef.current;
@@ -713,19 +717,51 @@ export function PipelineVisualIdentityEditor({
     return () => window.removeEventListener("keydown", handler);
   }, [acceptSuggestion, markUnusable, reportSourceProblem, selectItem]);
 
+  useEffect(() => {
+    if (!inspectorEnabled) return;
+    const timer = window.setTimeout(() => {
+      const action = document.querySelector<HTMLElement>(
+        "[data-identity-inspector-slot='action']",
+      );
+      const save = document.querySelector<HTMLElement>(
+        "[data-identity-inspector-slot='save']",
+      );
+      const selection = document.querySelector<HTMLElement>(
+        "[data-identity-inspector-slot='selection']",
+      );
+      setInspectorSlots(
+        action !== null && save !== null && selection !== null
+          ? { action, save, selection }
+          : null,
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [inspectorEnabled, view]);
+
+  useEffect(() => {
+    const source = view === "reviewed" ? items : generatedItems;
+    onRailItemsChange?.(
+      source.map((item, index) => ({
+        itemId: item.itemId,
+        label: `Card ${index + 1}`,
+        state: item.reviewState,
+        timeUs: item.outcome.frame_identity.requested_time_us,
+        cropPolicy: item.outcome.crop_identity?.crop_policy ?? null,
+      })),
+    );
+  }, [generatedItems, items, onRailItemsChange, view]);
+
   const activeItems = view === "reviewed" ? items : generatedItems;
   const activeItem =
-    activeItems.find((item) => item.itemId === selectedItemId) ?? null;
+    activeItems.find((item) => item.itemId === selectedItemId) ??
+    activeItems[0] ??
+    null;
   const reviewed = view === "reviewed";
   const pendingCount = items.filter(
     (item) => item.reviewState === "pending" || item.reviewState === "affected",
   ).length;
   const coveragePercent =
     items.length === 0 ? 0 : (inspectedItemIds.size / items.length) * 100;
-  const sourceMismatch =
-    reference !== null &&
-    generatedRevisionId !== null &&
-    reference.draft.source_revision_id !== generatedRevisionId;
   const completionBlocker =
     !reviewed || reference === null
       ? null
@@ -742,88 +778,111 @@ export function PipelineVisualIdentityEditor({
               : reviewerId.trim() === ""
                 ? "Enter the reviewer ID before completing the reference."
                 : null;
-  const exactCoverage = reference?.draft.coverage;
-  const datasetReadiness =
-    reference?.state.draft_state === "completed" &&
-    readIdentityCoverage(exactCoverage).length === items.length
-      ? "Ready"
-      : "Blocked until complete identity coverage";
+  const inspector = (
+    <IdentityInspectorPortals
+      slots={inspectorSlots}
+      inspectorEnabled={inspectorEnabled}
+      view={view}
+      reference={reference}
+      item={activeItem}
+      itemCount={activeItems.length}
+      pendingCount={pendingCount}
+      coveragePercent={coveragePercent}
+      inspectedCount={inspectedItemIds.size}
+      saveState={saveState}
+      queueLength={queueLength}
+      firstUnappliedCommand={firstUnappliedCommand}
+      error={error}
+      notice={notice}
+      operatorId={operatorId}
+      reviewerId={reviewerId}
+      setOperatorId={setOperatorId}
+      setReviewerId={setReviewerId}
+      completionBusy={completionBusy}
+      completionBlocker={completionBlocker}
+      creatingReference={creatingReference}
+      createReference={createReference}
+      completeReference={completeReference}
+      retryQueuedCommands={retryQueuedCommands}
+      reloadWinningDraft={reloadWinningDraft}
+      acceptSuggestion={() =>
+        activeItem !== null && acceptSuggestion(activeItem)
+      }
+      markUnusable={() => activeItem !== null && markUnusable(activeItem)}
+      reportSourceProblem={() =>
+        activeItem !== null && reportSourceProblem(activeItem)
+      }
+      selectIdentity={(identity) =>
+        activeItem !== null && selectIdentity(activeItem, identity)
+      }
+    />
+  );
 
   if (!reviewed) {
     return (
-      <GeneratedIdentityView
-        items={generatedItems}
-        loading={generatedLoading}
-        revisionId={displayedRevisionId}
-        recordingId={recordingId}
-        onSelect={(item) => selectItem(item)}
-      />
+      <>
+        {inspector}
+        <IdentitySourceSurface
+          recordingId={recordingId}
+          item={activeItem}
+          loading={generatedLoading}
+          sourceRevisionId={displayedRevisionId}
+        />
+      </>
     );
   }
   if (loading) {
     return (
-      <p className={styles.detailEmptyState}>
-        Loading maintained visual-identity reference…
-      </p>
+      <>
+        {inspector}
+        <p className={styles.detailEmptyState}>
+          Loading maintained visual-identity reference…
+        </p>
+      </>
     );
   }
   if (reference === null) {
     return (
-      <section
-        className={styles.cardEventReviewPanel}
-        aria-label="Start visual identity review"
-      >
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Maintained reference</p>
-            <h3>Start visual identity review</h3>
-          </div>
-          <span className={styles.countLabel}>
-            {generatedItems.length} identity items
-          </span>
-        </div>
-        <p className={styles.detailLead}>
-          Classifier output is immutable. Review one recording-owned identity
-          reference.
+      <>
+        {inspector}
+        <p className={styles.detailEmptyState}>
+          Start review in the workspace inspector to create a maintained
+          visual-identity reference.
         </p>
-        <label className={styles.cardEventReviewer}>
-          Operator ID
-          <input
-            value={operatorId}
-            onChange={(event) => setOperatorId(event.target.value)}
-            placeholder="operator-01"
-          />
-        </label>
-        {error !== null ? (
-          <p className={styles.errorMessage} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => void createReference()}
-          disabled={creatingReference || operatorId.trim() === ""}
-        >
-          {creatingReference ? "Starting review…" : "Start review"}
-        </button>
-      </section>
+      </>
     );
   }
 
   return (
-    <section
-      className={styles.cardEventPipelineEditor}
-      aria-label="Visual identity maintained reference editor"
-    >
+    <>
+      {inspector}
+      <IdentitySourceSurface
+        recordingId={recordingId}
+        item={activeItem}
+        loading={false}
+        sourceRevisionId={reference.draft.source_revision_id}
+      />
+      <details className={styles.cardEventGuidance}>
+        <summary>Keyboard shortcuts</summary>
+        <p>
+          Space play/pause · ←/→ previous/next card · A accept suggestion · U
+          identity unusable · S source problem.
+        </p>
+      </details>
+    </>
+  );
+
+  /* obsolete identity list, stage timeline, and completion bar removed */
+  /*
+    <section className={styles.cardEventPipelineEditor}>
       <div className={styles.cardEventReviewHeader}>
         <div>
           <p className={styles.statusLabel}>Maintained reference</p>
           <h3>Visual identity review</h3>
           <p className={styles.detailLead}>
-            {reference.draft.source_revision_id === null
+            {reference?.draft.source_revision_id === null
               ? "Manual visual-identity reference"
-              : `Used visual-identity suggestions ${reference.draft.source_revision_id}`}
+              : `Used visual-identity suggestions ${reference?.draft.source_revision_id ?? ""}`}
           </p>
         </div>
         <div
@@ -941,7 +1000,7 @@ export function PipelineVisualIdentityEditor({
           ) : (
             <IdentityItemPanel
               recordingId={recordingId}
-              sourceRevisionId={reference.draft.source_revision_id}
+              sourceRevisionId={reference?.draft.source_revision_id ?? null}
               item={activeItem}
               onAccept={() => acceptSuggestion(activeItem)}
               onSelectIdentity={(identity) =>
@@ -1053,7 +1112,7 @@ export function PipelineVisualIdentityEditor({
         </div>
       ) : null}
     </section>
-  );
+  */
 }
 
 function IdentityItemPanel({
@@ -1068,10 +1127,10 @@ function IdentityItemPanel({
   recordingId: string;
   sourceRevisionId: string | null;
   item: EditableIdentity;
-  onAccept: () => void;
-  onSelectIdentity: (identity: string) => void;
-  onMarkUnusable: () => void;
-  onReportSourceProblem: () => void;
+  onAccept?: () => void;
+  onSelectIdentity?: (identity: string) => void;
+  onMarkUnusable?: () => void;
+  onReportSourceProblem?: () => void;
 }) {
   const crop = item.outcome.crop_identity;
   const frame = item.outcome.frame_identity;
@@ -1191,156 +1250,369 @@ function IdentityItemPanel({
           </ol>
         )}
       </section>
-      <section className={styles.identityDecisionCard}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Human decision</p>
-            <h4>{formatIdentifier(item.reviewState)}</h4>
+      {onAccept !== undefined &&
+      onSelectIdentity !== undefined &&
+      onMarkUnusable !== undefined &&
+      onReportSourceProblem !== undefined ? (
+        <section className={styles.identityDecisionCard}>
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.statusLabel}>Human decision</p>
+              <h4>{formatIdentifier(item.reviewState)}</h4>
+            </div>
           </div>
-        </div>
-        <div className={styles.visibleCardOutcomeButtons}>
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={onAccept}
-            disabled={item.outcome.candidates.length === 0}
-          >
-            Accept identity suggestion
-          </button>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={onMarkUnusable}
-            disabled={crop === null}
-          >
-            Mark identity unusable
-          </button>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={onReportSourceProblem}
-          >
-            Report source problem
-          </button>
-        </div>
-        <div
-          className={styles.identityChoiceGrid}
-          aria-label="Canonical identities"
-        >
-          {CANONICAL_IDENTITIES.map((identity) => (
+          <div className={styles.visibleCardOutcomeButtons}>
             <button
-              key={identity}
-              className={styles.identityChoiceButton}
-              data-selected={selectedIdentity === identity}
+              className={styles.primaryButton}
               type="button"
-              aria-pressed={selectedIdentity === identity}
-              onClick={() => onSelectIdentity(identity)}
+              onClick={onAccept}
+              disabled={item.outcome.candidates.length === 0}
+            >
+              Accept identity suggestion
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={onMarkUnusable}
               disabled={crop === null}
             >
-              {identity}
+              Mark identity unusable
             </button>
-          ))}
-        </div>
-        {item.outcome.error !== null ? (
-          <p className={styles.detailBlocker}>{item.outcome.error}</p>
-        ) : null}
-      </section>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={onReportSourceProblem}
+            >
+              Report source problem
+            </button>
+          </div>
+          <div
+            className={styles.identityChoiceGrid}
+            aria-label="Canonical identities"
+          >
+            {CANONICAL_IDENTITIES.map((identity) => (
+              <button
+                key={identity}
+                className={styles.identityChoiceButton}
+                data-selected={selectedIdentity === identity}
+                type="button"
+                aria-pressed={selectedIdentity === identity}
+                onClick={() => onSelectIdentity(identity)}
+                disabled={crop === null}
+              >
+                {identity}
+              </button>
+            ))}
+          </div>
+          {item.outcome.error !== null ? (
+            <p className={styles.detailBlocker}>{item.outcome.error}</p>
+          ) : null}
+        </section>
+      ) : null}
     </section>
   );
 }
 
-function GeneratedIdentityView({
-  items,
+type IdentityInspectorProps = {
+  slots: {
+    action: HTMLElement;
+    save: HTMLElement;
+    selection: HTMLElement;
+  } | null;
+  inspectorEnabled: boolean;
+  view: "generated" | "reviewed";
+  reference: PipelineReferenceResource | null;
+  item: EditableIdentity | null;
+  itemCount: number;
+  pendingCount: number;
+  coveragePercent: number;
+  inspectedCount: number;
+  saveState: SaveState;
+  queueLength: number;
+  firstUnappliedCommand: string | null;
+  error: string | null;
+  notice: string | null;
+  operatorId: string;
+  reviewerId: string;
+  setOperatorId: (value: string) => void;
+  setReviewerId: (value: string) => void;
+  completionBusy: boolean;
+  completionBlocker: string | null;
+  creatingReference: boolean;
+  createReference: () => Promise<void>;
+  completeReference: () => Promise<void>;
+  retryQueuedCommands: () => void;
+  reloadWinningDraft: () => Promise<void>;
+  acceptSuggestion: () => void;
+  markUnusable: () => void;
+  reportSourceProblem: () => void;
+  selectIdentity: (identity: string) => void;
+};
+
+function IdentityInspectorPortals(props: IdentityInspectorProps) {
+  if (!props.inspectorEnabled) return null;
+  const content = (
+    <>
+      <IdentityInspectorAction {...props} />
+      <IdentityInspectorSave {...props} />
+      <IdentityInspectorSelection {...props} />
+    </>
+  );
+  if (props.slots === null)
+    return <div className={styles.cardEventStandaloneInspector}>{content}</div>;
+  return (
+    <>
+      {createPortal(<IdentityInspectorAction {...props} />, props.slots.action)}
+      {createPortal(<IdentityInspectorSave {...props} />, props.slots.save)}
+      {createPortal(
+        <IdentityInspectorSelection {...props} />,
+        props.slots.selection,
+      )}
+    </>
+  );
+}
+
+function IdentityInspectorAction(props: IdentityInspectorProps) {
+  if (props.view === "generated")
+    return (
+      <>
+        <p className={styles.statusLabel}>Generated result</p>
+        <h2>Visual identity suggestions</h2>
+        <p className={styles.pipelineInspectorEmpty}>
+          Generated classifier output is immutable. Choose Review to create a
+          maintained reference.
+        </p>
+      </>
+    );
+  if (props.reference === null)
+    return (
+      <>
+        <p className={styles.statusLabel}>Maintained reference</p>
+        <h2>Start visual identity review</h2>
+        <label className={styles.cardEventReviewer}>
+          Operator ID
+          <input
+            value={props.operatorId}
+            onChange={(event) => props.setOperatorId(event.target.value)}
+            placeholder="operator-01"
+          />
+        </label>
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={() => void props.createReference()}
+          disabled={props.creatingReference || props.operatorId.trim() === ""}
+        >
+          {props.creatingReference ? "Starting review…" : "Start review"}
+        </button>
+      </>
+    );
+  const crop = props.item?.outcome.crop_identity ?? null;
+  return (
+    <>
+      <p className={styles.statusLabel}>Maintained reference</p>
+      <h2>Visual identity review</h2>
+      <label className={styles.cardEventReviewer}>
+        Operator ID
+        <input
+          value={props.operatorId}
+          onChange={(event) => props.setOperatorId(event.target.value)}
+          placeholder="operator-01"
+        />
+      </label>
+      <p className={styles.statusLabel}>Human decision</p>
+      <h3>
+        {props.item === null
+          ? "Select a card"
+          : formatIdentifier(props.item.reviewState)}
+      </h3>
+      {props.item === null ? (
+        <p className={styles.pipelineInspectorEmpty}>
+          Select a card from the Timeline Rail.
+        </p>
+      ) : (
+        <>
+          <div className={styles.visibleCardOutcomeButtons}>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={props.acceptSuggestion}
+              disabled={props.item.outcome.candidates.length === 0}
+            >
+              Accept identity suggestion
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={props.markUnusable}
+              disabled={crop === null}
+            >
+              Mark identity unusable
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={props.reportSourceProblem}
+            >
+              Report source problem
+            </button>
+          </div>
+          <div
+            className={styles.identityChoiceGrid}
+            aria-label="Canonical identities"
+          >
+            {CANONICAL_IDENTITIES.map((identity) => (
+              <button
+                key={identity}
+                className={styles.identityChoiceButton}
+                type="button"
+                onClick={() => props.selectIdentity(identity)}
+                disabled={crop === null}
+              >
+                {identity}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function IdentityInspectorSave(props: IdentityInspectorProps) {
+  return (
+    <>
+      <div className={styles.pipelineInspectorSectionHeading}>
+        <div>
+          <p className={styles.statusLabel}>Save state</p>
+          <h2>{formatIdentifier(props.saveState)}</h2>
+        </div>
+      </div>
+      {props.notice !== null ? (
+        <p className={styles.recordingNotice} role="status">
+          {props.notice}
+        </p>
+      ) : null}
+      {props.error !== null ? (
+        <p className={styles.detailBlocker} role="alert">
+          {props.saveState === "conflict"
+            ? `Conflict: ${props.firstUnappliedCommand ?? "unknown"}. ${props.error}`
+            : props.error}
+        </p>
+      ) : null}
+      {props.queueLength > 0 &&
+      (props.saveState === "error" || props.saveState === "retrying") ? (
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={props.retryQueuedCommands}
+        >
+          Retry queued commands
+        </button>
+      ) : null}
+      {props.saveState === "conflict" ? (
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={() => void props.reloadWinningDraft()}
+        >
+          Reload winning draft and retry
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+function IdentityInspectorSelection(props: IdentityInspectorProps) {
+  const item = props.item;
+  return (
+    <>
+      <p className={styles.statusLabel}>Current identity</p>
+      <h2>{item?.itemId ?? "None"}</h2>
+      <dl className={styles.pipelineInspectorFacts}>
+        <div>
+          <dt>Identity outcome</dt>
+          <dd>
+            {item === null ? "None" : formatIdentifier(item.outcome.status)}
+          </dd>
+        </div>
+        <div>
+          <dt>Crop policy</dt>
+          <dd>{item?.outcome.crop_identity?.crop_policy ?? "Unavailable"}</dd>
+        </div>
+        <div>
+          <dt>Candidates</dt>
+          <dd>
+            {item?.outcome.candidates
+              .map((candidate) => candidate.identity)
+              .join(", ") || "None"}
+          </dd>
+        </div>
+        <div>
+          <dt>Review coverage</dt>
+          <dd>
+            {props.inspectedCount}/{props.itemCount} inspected (
+            {Math.round(props.coveragePercent)}%)
+          </dd>
+        </div>
+      </dl>
+      {props.view === "reviewed" && props.reference !== null ? (
+        <>
+          <label className={styles.cardEventCompletionReviewer}>
+            Reviewer ID
+            <input
+              value={props.reviewerId}
+              onChange={(event) => props.setReviewerId(event.target.value)}
+              placeholder="reviewer-01"
+            />
+          </label>
+          {props.completionBlocker !== null ? (
+            <p className={styles.detailBlocker}>{props.completionBlocker}</p>
+          ) : null}
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={() => void props.completeReference()}
+            disabled={props.completionBusy || props.completionBlocker !== null}
+          >
+            {props.completionBusy
+              ? "Completing reference…"
+              : "Complete reference"}
+          </button>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function IdentitySourceSurface({
+  item,
   loading,
-  revisionId,
   recordingId,
-  onSelect,
+  sourceRevisionId,
 }: {
-  items: EditableIdentity[];
+  item: EditableIdentity | null;
   loading: boolean;
-  revisionId: string | null;
   recordingId: string;
-  onSelect: (item: EditableIdentity) => void;
+  sourceRevisionId: string | null;
 }) {
   return (
     <section
-      className={styles.cardEventReviewPanel}
-      aria-label="Generated visual identity result"
+      className={styles.visibleCardWorkbenchSurface}
+      aria-label="Visual identity source and crop"
     >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Generated result</p>
-          <h3>Visual identity suggestions</h3>
-        </div>
-        <span className={styles.countLabel}>{items.length} cards</span>
-      </div>
-      <p className={styles.detailLead}>
-        Generated classifier output is immutable. Choose Review to copy this
-        exact result into the maintained reference.
-      </p>
-      {revisionId !== null ? (
-        <p className={styles.pipelineUrlState}>Source revision {revisionId}</p>
-      ) : null}
       {loading ? (
+        <p className={styles.detailEmptyState}>Loading visual identities…</p>
+      ) : item === null ? (
         <p className={styles.detailEmptyState}>
-          Loading generated visual identities…
-        </p>
-      ) : items.length === 0 ? (
-        <p className={styles.detailEmptyState}>
-          No generated visual-identity result is selected.
+          Select an identity card from the Timeline Rail.
         </p>
       ) : (
-        <div className={styles.tableScroller}>
-          <table className={styles.cardEventReviewTable}>
-            <caption className={styles.visuallyHidden}>
-              Generated visual identity suggestions
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Card</th>
-                <th scope="col">Resolved time</th>
-                <th scope="col">Status</th>
-                <th scope="col">Suggestion</th>
-                <th scope="col">Crop</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.itemId}>
-                  <td>
-                    <button
-                      className={styles.cardEventTableSelect}
-                      type="button"
-                      onClick={() => onSelect(item)}
-                    >
-                      {item.itemId}
-                    </button>
-                  </td>
-                  <td>
-                    {formatMicroseconds(
-                      item.outcome.frame_identity.requested_time_us,
-                    )}
-                  </td>
-                  <td>{formatIdentifier(item.outcome.status)}</td>
-                  <td>{item.outcome.candidates[0]?.identity ?? "None"}</td>
-                  <td>
-                    {item.outcome.crop_identity?.image_sha256 ?? "Unavailable"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {items[0] !== undefined ? (
-            <p className={styles.detailMetaLine}>
-              Source frames use{" "}
-              {pipelineDerivedFramePath(
-                recordingId,
-                items[0].outcome.frame_identity.requested_time_us,
-              )}
-              .
-            </p>
-          ) : null}
-        </div>
+        <IdentityItemPanel
+          recordingId={recordingId}
+          sourceRevisionId={sourceRevisionId}
+          item={item}
+        />
       )}
     </section>
   );
@@ -1572,24 +1844,4 @@ function formatMicroseconds(value: number): string {
 
 function formatScore(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
-}
-
-function ReviewCount({
-  label,
-  value,
-  suffix = "",
-}: {
-  label: string;
-  value: number;
-  suffix?: string;
-}) {
-  return (
-    <span>
-      <small>{label}</small>
-      <strong>
-        {value}
-        {suffix}
-      </strong>
-    </span>
-  );
 }

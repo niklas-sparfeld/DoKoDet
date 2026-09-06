@@ -30,7 +30,7 @@
 - **M4:** Complete — migrate generated event proposals and maintained-reference review to the
   shared video, inspector, and Timeline Rail workbench; remove the event timeline and tables.
 - **M5:** Complete — migrate visible-card generation and review to the shared workbench.
-- **M6:** Not started — migrate visual identity generation and review to the shared workbench.
+- **M6:** Complete — migrate visual identity generation and review to the shared workbench.
 - **M7:** Not started — migrate table-observation work to the shared workbench.
 - **M8:** Not started — migrate round-analysis work to the shared workbench.
 - **M9:** Not started — migrate comparison work to the shared workbench.

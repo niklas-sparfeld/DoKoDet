@@ -146,10 +146,12 @@ describe("PipelineVisualIdentityEditor", () => {
         name: "Visual identity suggestions",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("None")).toBeInTheDocument();
     expect(
-      screen.getByText(/derived-views\/exact-event\/750000/),
-    ).toBeInTheDocument();
+      screen.getByRole("img", { name: `Resolved source frame for ${CARD_ID}` }),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining("derived-views/exact-event/750000"),
+    );
     expect(screen.getByText(/immutable/)).toBeInTheDocument();
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
