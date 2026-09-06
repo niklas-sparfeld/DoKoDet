@@ -185,6 +185,9 @@ describe("recording pipeline workspace", () => {
     expect(
       await screen.findByRole("heading", { name: "Recording pipeline" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Back to recordings" }),
+    ).toHaveAttribute("href", "/recordings");
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "Events task surface" }),

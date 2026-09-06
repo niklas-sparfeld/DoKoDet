@@ -408,11 +408,8 @@ export function RecordingPipelineWorkspace({
       <div className={styles.pipelineTopSlot} data-slot="top">
         <header className={styles.pipelineTopBar} role="banner">
           <h1 className={styles.visuallyHidden}>Recording pipeline</h1>
-          <a
-            className={styles.pipelineBackLink}
-            href={recordingPagePath(recordingId)}
-          >
-            <span aria-hidden="true">←</span> Recording
+          <a className={styles.pipelineBackLink} href="/recordings">
+            <span aria-hidden="true">←</span> Back to recordings
           </a>
           <div className={styles.pipelineRecordingContext}>
             <span className={styles.statusLabel}>Recording</span>
