@@ -384,369 +384,349 @@ export function RecordingPipelineWorkspace({
 
   return (
     <main
-      className={`${styles.shell} ${styles.recordingsPage} ${styles.pipelinePage}`}
+      className={`${styles.shell} ${styles.recordingsPage} ${styles.pipelinePage} ${styles.pipelineViewport}`}
     >
-      <a className={styles.backLink} href={recordingPagePath(recordingId)}>
-        ← Recording details
-      </a>
-      <header className={styles.pipelineHeader}>
-        <div>
-          <p className={styles.eyebrow}>DokoDetector · Recording workspace</p>
-          <h1>Recording pipeline</h1>
-          <p className={styles.detailContext}>
-            {recordingId} · {formatDuration(workspace.video.duration_us)}
-          </p>
-        </div>
-        <div className={styles.pipelineVideoIdentity}>
-          <span className={styles.statusLabel}>Accepted video</span>
-          <strong>{workspace.video.video_sha256.slice(0, 12)}…</strong>
-        </div>
-      </header>
-
-      {notice !== null ? (
-        <p className={styles.recordingNotice} role="status">
-          {notice}
-        </p>
-      ) : null}
-      {error !== null ? (
-        <p className={styles.errorMessage} role="alert">
-          {error}
-        </p>
-      ) : null}
-      {workspace.diagnostics.length > 0 ? (
-        <ul
-          className={styles.pipelineDiagnostics}
-          aria-label="Pipeline diagnostics"
-        >
-          {workspace.diagnostics.map((diagnostic) => (
-            <li key={`${diagnostic.code}:${diagnostic.revision_id ?? ""}`}>
-              <strong>{formatIdentifier(diagnostic.code)}</strong>
-              <span>{diagnostic.message}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      <nav aria-label="Recording pipeline stages">
-        <ol className={styles.pipelineStageNavigation}>
-          {workspace.stages.map((candidate) => (
-            <li key={candidate.key}>
-              <a
-                aria-current={candidate.key === stage.key ? "page" : undefined}
-                className={
-                  candidate.key === stage.key
-                    ? styles.pipelineStageLinkActive
-                    : styles.pipelineStageLink
-                }
-                href={recordingPipelinePath(recordingId, candidate.key, {
-                  ...urlState,
-                  left: null,
-                  right: null,
-                  reference: null,
-                  analysis: null,
-                })}
-                onClick={(event) => {
-                  if (isModifiedClick(event)) {
-                    return;
-                  }
-                  event.preventDefault();
-                  navigateTo(
-                    recordingPipelinePath(recordingId, candidate.key, {
+      <div className={styles.pipelineTopSlot} data-slot="top">
+        <header className={styles.pipelineTopBar} role="banner">
+          <h1 className={styles.visuallyHidden}>Recording pipeline</h1>
+          <a
+            className={styles.pipelineBackLink}
+            href={recordingPagePath(recordingId)}
+          >
+            <span aria-hidden="true">←</span> Recording
+          </a>
+          <div className={styles.pipelineRecordingContext}>
+            <span className={styles.statusLabel}>Recording</span>
+            <strong title={recordingId}>{recordingId}</strong>
+            <span>{formatDuration(workspace.video.duration_us)}</span>
+          </div>
+          <nav aria-label="Recording pipeline stages">
+            <ol className={styles.pipelineStageNavigation}>
+              {workspace.stages.map((candidate) => (
+                <li key={candidate.key}>
+                  <a
+                    aria-current={
+                      candidate.key === stage.key ? "page" : undefined
+                    }
+                    className={
+                      candidate.key === stage.key
+                        ? styles.pipelineStageLinkActive
+                        : styles.pipelineStageLink
+                    }
+                    href={recordingPipelinePath(recordingId, candidate.key, {
                       ...urlState,
                       left: null,
                       right: null,
                       reference: null,
                       analysis: null,
-                    }),
-                  );
-                }}
-              >
-                <span>{STAGE_LABELS[candidate.key]}</span>
-                <StatusBadge value={candidate.state} />
-              </a>
-            </li>
-          ))}
-        </ol>
-      </nav>
-
-      <section
-        className={styles.pipelineSummaryGrid}
-        aria-label="Pipeline stage summary"
-      >
-        {workspace.stages.map((candidate) => (
-          <StageSummaryCard
-            key={candidate.key}
-            recordingId={recordingId}
-            stage={candidate}
-            current={candidate.key === stage.key}
-            state={urlState}
-            onNavigate={navigateTo}
-          />
-        ))}
-      </section>
-
-      <section
-        className={styles.pipelineStagePanel}
-        aria-labelledby="pipeline-stage-heading"
-      >
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Selected stage</p>
-            <h2 id="pipeline-stage-heading">{STAGE_LABELS[stage.key]}</h2>
-          </div>
-          <StatusBadge value={stage.state} />
-        </div>
-        <div className={styles.pipelineActionRow}>
-          <div>
-            <span className={styles.statusLabel}>Next action</span>
-            <strong>{action.label}</strong>
-          </div>
-          {action.kind === "blocked" ? (
-            <p className={styles.detailBlocker}>{action.blocker}</p>
-          ) : (
-            <a
-              className={styles.primaryButton}
-              href={actionHref(
-                recordingId,
-                stage.key,
-                action.kind,
-                actionState,
-              )}
-              onClick={(event) => {
-                if (isModifiedClick(event)) {
-                  return;
-                }
-                event.preventDefault();
-                navigateTo(
-                  actionHref(recordingId, stage.key, action.kind, actionState),
-                );
-              }}
-              data-action={action.kind}
-            >
-              {action.label}
-            </a>
-          )}
-        </div>
-        <div className={styles.pipelineSelectorGrid}>
-          <fieldset className={styles.pipelineSelector}>
-            <legend>View</legend>
-            <div className={styles.pipelineToggleGroup}>
-              {(["generated", "reviewed"] as const).map((view) => (
-                <button
-                  key={view}
-                  className={
-                    activeView === view
-                      ? styles.pipelineToggleActive
-                      : styles.pipelineToggle
-                  }
-                  type="button"
-                  aria-pressed={activeView === view}
-                  disabled={
-                    view === "reviewed" && !stage.has_maintained_reference
-                  }
-                  onClick={() =>
-                    navigateTo(
-                      recordingPipelinePath(recordingId, stage.key, {
-                        ...urlState,
-                        view,
-                        revision: null,
-                        left: compare ? urlState.left : null,
-                        right: compare ? urlState.right : null,
-                        reference: compare ? urlState.reference : null,
-                      }),
-                    )
-                  }
-                >
-                  {formatIdentifier(view)}
-                </button>
+                    })}
+                    onClick={(event) => {
+                      if (isModifiedClick(event)) {
+                        return;
+                      }
+                      event.preventDefault();
+                      navigateTo(
+                        recordingPipelinePath(recordingId, candidate.key, {
+                          ...urlState,
+                          left: null,
+                          right: null,
+                          reference: null,
+                          analysis: null,
+                        }),
+                      );
+                    }}
+                  >
+                    <span>{STAGE_LABELS[candidate.key]}</span>
+                    <StatusBadge value={candidate.state} />
+                  </a>
+                </li>
               ))}
-            </div>
-          </fieldset>
-          {stage.key !== "round_analyses" ? (
-            <label className={styles.pipelineSelector}>
-              <span>Default generated revision</span>
-              <select
-                aria-label="Default generated revision"
-                value={stage.selected_generated_revision_id ?? ""}
-                disabled={selectionBusy}
-                onChange={(event) =>
-                  void selectGeneratedRevision(event.target.value || null)
-                }
-              >
-                <option value="">No generated revision selected</option>
-                {generatedOptions.map((option) => (
-                  <option key={option.revision_id} value={option.revision_id}>
-                    {option.display_label}
-                  </option>
+            </ol>
+          </nav>
+          {stage.has_maintained_reference ? (
+            <fieldset className={styles.pipelineViewSwitch}>
+              <legend className={styles.visuallyHidden}>Pipeline view</legend>
+              <div className={styles.pipelineToggleGroup}>
+                {(["generated", "reviewed"] as const).map((view) => (
+                  <button
+                    key={view}
+                    className={
+                      activeView === view
+                        ? styles.pipelineToggleActive
+                        : styles.pipelineToggle
+                    }
+                    type="button"
+                    aria-pressed={activeView === view}
+                    disabled={
+                      view === "reviewed" && !stage.has_maintained_reference
+                    }
+                    onClick={() =>
+                      navigateTo(
+                        recordingPipelinePath(recordingId, stage.key, {
+                          ...urlState,
+                          view,
+                          revision: null,
+                          left: compare ? urlState.left : null,
+                          right: compare ? urlState.right : null,
+                          reference: compare ? urlState.reference : null,
+                        }),
+                      )
+                    }
+                  >
+                    {formatIdentifier(view)}
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </fieldset>
           ) : null}
-          <label className={styles.pipelineSelector}>
-            <span>Displayed revision</span>
-            <select
-              aria-label="Displayed revision"
-              value={displayedRevision ?? ""}
-              disabled={stage.input_options.length === 0}
-              onChange={(event) => {
-                const nextRevision = event.target.value || null;
-                const defaultRevision =
-                  activeView === "generated"
-                    ? stage.selected_generated_revision_id
-                    : stage.selected_completed_reference_revision_id;
-                replaceUrlState({
-                  ...urlState,
-                  revision:
-                    nextRevision === defaultRevision ? null : nextRevision,
-                });
-              }}
-            >
-              <option value="">No revision selected</option>
-              {stage.input_options.map((option) => (
-                <option key={option.revision_id} value={option.revision_id}>
-                  {option.display_label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {urlState.item !== null || urlState.tUs !== null ? (
-          <p className={styles.pipelineUrlState}>
-            {urlState.item === null ? null : `Item ${urlState.item}`}
-            {urlState.item !== null && urlState.tUs !== null ? " · " : null}
-            {urlState.tUs === null
-              ? null
-              : `${formatMicroseconds(urlState.tUs)} position`}
+        </header>
+
+        {notice !== null ? (
+          <p className={styles.recordingNotice} role="status">
+            {notice}
           </p>
         ) : null}
-        <details className={styles.pipelineHistory}>
-          <summary>History and exact inputs</summary>
-          <PipelineHistory stage={stage} />
-        </details>
-        {compare ? (
-          <ComparisonView
-            recordingId={recordingId}
-            stage={stage}
-            durationUs={workspace.video.duration_us}
-            urlState={urlState}
-            onNavigate={navigateTo}
-          />
+        {error !== null ? (
+          <p className={styles.errorMessage} role="alert">
+            {error}
+          </p>
         ) : null}
-        {!compare ? (
-          <RunControls
-            recordingId={recordingId}
-            stage={stage}
-            stages={workspace.stages}
-            onRefresh={() => loadWorkspace()}
-          />
+        {workspace.diagnostics.length > 0 ? (
+          <ul
+            className={styles.pipelineDiagnostics}
+            aria-label="Pipeline diagnostics"
+          >
+            {workspace.diagnostics.map((diagnostic) => (
+              <li key={`${diagnostic.code}:${diagnostic.revision_id ?? ""}`}>
+                <strong>{formatIdentifier(diagnostic.code)}</strong>
+                <span>{diagnostic.message}</span>
+              </li>
+            ))}
+          </ul>
         ) : null}
-        {stage.key === "table_observations" && !compare ? (
-          <ObservationRunControls
-            recordingId={recordingId}
-            stage={stage}
-            stages={workspace.stages}
-            onRefresh={() => loadWorkspace()}
-          />
-        ) : null}
-        {stage.key === "round_analyses" && !compare ? (
-          <RoundAnalysisControls
-            recordingId={recordingId}
-            stage={stage}
-            selectedAnalysisId={urlState.analysis}
-            onRefresh={() => loadWorkspace()}
-            onSelectAnalysis={(analysisId) =>
-              replaceUrlState({ ...urlState, analysis: analysisId })
-            }
-          />
-        ) : null}
-        {stage.key === "round_analyses" && !compare ? (
-          <SelectedAnalysisTimeline
-            analysisId={urlState.analysis}
-            recordingId={recordingId}
-          />
-        ) : null}
-        {stage.key === "events" && !compare ? (
-          <PipelineCardEventEditor
-            recordingId={recordingId}
-            durationUs={workspace.video.duration_us}
-            generatedRevisionId={stage.selected_generated_revision_id ?? null}
-            generatedRunId={selectedEventRunId}
-            view={activeView}
-          />
-        ) : null}
-        {stage.key === "visible_cards" && !compare ? (
-          <PipelineVisibleCardEditor
-            recordingId={recordingId}
-            durationUs={workspace.video.duration_us}
-            generatedRevisionId={stage.selected_generated_revision_id ?? null}
-            displayedRevisionId={
-              activeView === "generated" ? displayedRevision : null
-            }
-            generatedRunId={selectedVisibleCardRunId}
-            view={activeView}
-          />
-        ) : null}
-        {stage.key === "visual_identities" && !compare ? (
-          <PipelineVisualIdentityEditor
-            recordingId={recordingId}
-            durationUs={workspace.video.duration_us}
-            generatedRevisionId={stage.selected_generated_revision_id ?? null}
-            displayedRevisionId={
-              activeView === "generated" ? displayedRevision : null
-            }
-            generatedRunId={selectedVisualIdentityRunId}
-            view={activeView}
-          />
-        ) : null}
+      </div>
+
+      <div className={styles.pipelineWorkspaceGrid} data-slot="workspace">
+        <section
+          className={styles.pipelineTaskSurface}
+          aria-label={`${STAGE_LABELS[stage.key]} task surface`}
+          data-slot="center"
+        >
+          <div className={styles.pipelineTaskSurfaceContent}>
+            <div className={styles.pipelineActionRow}>
+              <div>
+                <span className={styles.statusLabel}>Next action</span>
+                <strong>{action.label}</strong>
+              </div>
+              {action.kind === "blocked" ? (
+                <p className={styles.detailBlocker}>{action.blocker}</p>
+              ) : (
+                <a
+                  className={styles.primaryButton}
+                  href={actionHref(
+                    recordingId,
+                    stage.key,
+                    action.kind,
+                    actionState,
+                  )}
+                  onClick={(event) => {
+                    if (isModifiedClick(event)) {
+                      return;
+                    }
+                    event.preventDefault();
+                    navigateTo(
+                      actionHref(
+                        recordingId,
+                        stage.key,
+                        action.kind,
+                        actionState,
+                      ),
+                    );
+                  }}
+                  data-action={action.kind}
+                >
+                  {action.label}
+                </a>
+              )}
+            </div>
+            <div className={styles.pipelineSelectorGrid}>
+              {stage.key !== "round_analyses" ? (
+                <label className={styles.pipelineSelector}>
+                  <span>Default generated revision</span>
+                  <select
+                    aria-label="Default generated revision"
+                    value={stage.selected_generated_revision_id ?? ""}
+                    disabled={selectionBusy}
+                    onChange={(event) =>
+                      void selectGeneratedRevision(event.target.value || null)
+                    }
+                  >
+                    <option value="">No generated revision selected</option>
+                    {generatedOptions.map((option) => (
+                      <option
+                        key={option.revision_id}
+                        value={option.revision_id}
+                      >
+                        {option.display_label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label className={styles.pipelineSelector}>
+                <span>Displayed revision</span>
+                <select
+                  aria-label="Displayed revision"
+                  value={displayedRevision ?? ""}
+                  disabled={stage.input_options.length === 0}
+                  onChange={(event) => {
+                    const nextRevision = event.target.value || null;
+                    const defaultRevision =
+                      activeView === "generated"
+                        ? stage.selected_generated_revision_id
+                        : stage.selected_completed_reference_revision_id;
+                    replaceUrlState({
+                      ...urlState,
+                      revision:
+                        nextRevision === defaultRevision ? null : nextRevision,
+                    });
+                  }}
+                >
+                  <option value="">No revision selected</option>
+                  {stage.input_options.map((option) => (
+                    <option key={option.revision_id} value={option.revision_id}>
+                      {option.display_label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {urlState.item !== null || urlState.tUs !== null ? (
+              <p className={styles.pipelineUrlState}>
+                {urlState.item === null ? null : `Item ${urlState.item}`}
+                {urlState.item !== null && urlState.tUs !== null ? " · " : null}
+                {urlState.tUs === null
+                  ? null
+                  : `${formatMicroseconds(urlState.tUs)} position`}
+              </p>
+            ) : null}
+            <details className={styles.pipelineHistory}>
+              <summary>History and exact inputs</summary>
+              <PipelineHistory stage={stage} />
+            </details>
+            {compare ? (
+              <ComparisonView
+                recordingId={recordingId}
+                stage={stage}
+                durationUs={workspace.video.duration_us}
+                urlState={urlState}
+                onNavigate={navigateTo}
+              />
+            ) : null}
+            {!compare ? (
+              <RunControls
+                recordingId={recordingId}
+                stage={stage}
+                stages={workspace.stages}
+                onRefresh={() => loadWorkspace()}
+              />
+            ) : null}
+            {stage.key === "table_observations" && !compare ? (
+              <ObservationRunControls
+                recordingId={recordingId}
+                stage={stage}
+                stages={workspace.stages}
+                onRefresh={() => loadWorkspace()}
+              />
+            ) : null}
+            {stage.key === "round_analyses" && !compare ? (
+              <RoundAnalysisControls
+                recordingId={recordingId}
+                stage={stage}
+                selectedAnalysisId={urlState.analysis}
+                onRefresh={() => loadWorkspace()}
+                onSelectAnalysis={(analysisId) =>
+                  replaceUrlState({ ...urlState, analysis: analysisId })
+                }
+              />
+            ) : null}
+            {stage.key === "round_analyses" && !compare ? (
+              <SelectedAnalysisTimeline
+                analysisId={urlState.analysis}
+                recordingId={recordingId}
+              />
+            ) : null}
+            {stage.key === "events" && !compare ? (
+              <PipelineCardEventEditor
+                recordingId={recordingId}
+                durationUs={workspace.video.duration_us}
+                generatedRevisionId={
+                  stage.selected_generated_revision_id ?? null
+                }
+                generatedRunId={selectedEventRunId}
+                view={activeView}
+              />
+            ) : null}
+            {stage.key === "visible_cards" && !compare ? (
+              <PipelineVisibleCardEditor
+                recordingId={recordingId}
+                durationUs={workspace.video.duration_us}
+                generatedRevisionId={
+                  stage.selected_generated_revision_id ?? null
+                }
+                displayedRevisionId={
+                  activeView === "generated" ? displayedRevision : null
+                }
+                generatedRunId={selectedVisibleCardRunId}
+                view={activeView}
+              />
+            ) : null}
+            {stage.key === "visual_identities" && !compare ? (
+              <PipelineVisualIdentityEditor
+                recordingId={recordingId}
+                durationUs={workspace.video.duration_us}
+                generatedRevisionId={
+                  stage.selected_generated_revision_id ?? null
+                }
+                displayedRevisionId={
+                  activeView === "generated" ? displayedRevision : null
+                }
+                generatedRunId={selectedVisualIdentityRunId}
+                view={activeView}
+              />
+            ) : null}
+          </div>
+        </section>
+
+        <aside
+          className={styles.pipelineInspectorSlot}
+          aria-label="Workspace inspector"
+          data-slot="inspector"
+        >
+          <p className={styles.statusLabel}>Workspace inspector</p>
+          <h2>Stage status</h2>
+          <StatusBadge value={stage.state} />
+          <p className={styles.pipelinePlaceholderText}>
+            Progress, actions, and recording metadata will stay here as each
+            stage moves into the shared workbench.
+          </p>
+        </aside>
+      </div>
+
+      <section
+        className={styles.pipelineRailSlot}
+        aria-label="Timeline Rail"
+        data-slot="bottom"
+      >
+        <div>
+          <span className={styles.statusLabel}>Timeline Rail</span>
+          <p>Shared temporal navigation slot</p>
+        </div>
+        <span className={styles.pipelineRailHint}>
+          The recording stays in view while the task surface changes.
+        </span>
       </section>
     </main>
-  );
-}
-
-function StageSummaryCard({
-  recordingId,
-  stage,
-  current,
-  state,
-  onNavigate,
-}: {
-  recordingId: string;
-  stage: PipelineWorkspaceStage;
-  current: boolean;
-  state: PipelineUrlState;
-  onNavigate: (path: string) => void;
-}) {
-  const action = primaryActionForStage(stage);
-  const path = recordingPipelinePath(
-    recordingId,
-    stage.key,
-    actionStateForStage(stage, state, action.kind),
-  );
-  return (
-    <article className={styles.pipelineSummaryCard} data-current={current}>
-      <div className={styles.pipelineSummaryCardHeading}>
-        <h3>{STAGE_LABELS[stage.key]}</h3>
-        <StatusBadge value={stage.state} />
-      </div>
-      <p className={styles.pipelineSummaryText}>
-        {stage.input_options.length} revision
-        {stage.input_options.length === 1 ? "" : "s"} · {stage.runs.length} run
-        {stage.runs.length === 1 ? "" : "s"}
-      </p>
-      <a
-        className={styles.recordingLink}
-        href={path}
-        onClick={(event) => {
-          if (isModifiedClick(event)) {
-            return;
-          }
-          event.preventDefault();
-          onNavigate(path);
-        }}
-      >
-        {action.label}
-      </a>
-    </article>
   );
 }
 

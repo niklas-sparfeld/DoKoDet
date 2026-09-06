@@ -129,7 +129,7 @@ describe("recording pipeline workspace", () => {
     expect(getPrimaryAction(stage("events", overrides))).toEqual(action);
   });
 
-  it("renders fixed navigation, summary cards, and generated/reviewed selectors", async () => {
+  it("renders the compact workspace shell and generated/reviewed selectors", async () => {
     const generated = {
       revision_id: "events-2",
       content_type: "events",
@@ -176,6 +176,20 @@ describe("recording pipeline workspace", () => {
     expect(
       await screen.findByRole("heading", { name: "Recording pipeline" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Events task surface" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "Workspace inspector" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Timeline Rail" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Pipeline stage summary" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Accepted video")).not.toBeInTheDocument();
     expect(
       screen.getByRole("navigation", { name: "Recording pipeline stages" }),
     ).toBeInTheDocument();

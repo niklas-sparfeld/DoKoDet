@@ -260,10 +260,17 @@ test("opens fresh accepted video in the recording-owned pipeline", async ({
   const requests = await stubPipeline(page, "fresh");
   await page.goto(`/recordings/${RECORDING_ID}`);
 
+  await expect(page.getByRole("banner")).toBeVisible();
+  await expect(page.getByText(RECORDING_ID).first()).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Recording pipeline" }),
+    page.getByRole("region", { name: "Events task surface" }),
   ).toBeVisible();
-  await expect(page.getByText("Accepted video")).toBeVisible();
+  await expect(
+    page.getByRole("complementary", { name: "Workspace inspector" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Timeline Rail" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Run processor" }),
   ).toBeVisible();
@@ -278,14 +285,69 @@ test("opens fresh accepted video in the recording-owned pipeline", async ({
   expect(requests.workspaceRequestCount()).toBeGreaterThan(0);
 });
 
+test("keeps the workspace shell within desktop bounds and preserves task order on mobile", async ({
+  page,
+}) => {
+  await stubPipeline(page, "fresh");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/recordings/${RECORDING_ID}/pipeline/events`);
+  await expect(
+    page.getByRole("region", { name: "Events task surface" }),
+  ).toBeVisible();
+
+  const desktopLayout = await page.evaluate(() => {
+    const rect = (slot: string) =>
+      document
+        .querySelector(`[data-slot="${slot}"]`)
+        ?.getBoundingClientRect() ?? null;
+    return {
+      documentHeight: document.documentElement.scrollHeight,
+      viewportHeight: window.innerHeight,
+      topBarHeight:
+        document.querySelector("header")?.getBoundingClientRect().height ?? 0,
+      centerWidth: rect("center")?.width ?? 0,
+      inspectorWidth: rect("inspector")?.width ?? 0,
+      railHeight: rect("bottom")?.height ?? 0,
+    };
+  });
+  expect(desktopLayout.documentHeight).toBeLessThanOrEqual(
+    desktopLayout.viewportHeight,
+  );
+  expect(desktopLayout.topBarHeight).toBeLessThanOrEqual(112);
+  expect(desktopLayout.inspectorWidth).toBeGreaterThanOrEqual(288);
+  expect(desktopLayout.inspectorWidth).toBeLessThanOrEqual(368);
+  expect(desktopLayout.centerWidth).toBeGreaterThan(
+    desktopLayout.inspectorWidth,
+  );
+  expect(desktopLayout.railHeight).toBeGreaterThanOrEqual(96);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileLayout = await page.evaluate(() => {
+    const rect = (slot: string) =>
+      document
+        .querySelector(`[data-slot="${slot}"]`)
+        ?.getBoundingClientRect() ?? null;
+    return {
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+      centerTop: rect("center")?.top ?? 0,
+      inspectorTop: rect("inspector")?.top ?? 0,
+      railTop: rect("bottom")?.top ?? 0,
+    };
+  });
+  expect(mobileLayout.documentWidth).toBeLessThanOrEqual(
+    mobileLayout.viewportWidth,
+  );
+  expect(mobileLayout.centerTop).toBeLessThan(mobileLayout.inspectorTop);
+  expect(mobileLayout.inspectorTop).toBeLessThan(mobileLayout.railTop);
+});
+
 test("covers generated suggestions, reruns, failed jobs, upstream correction, cold reloads, and save conflicts", async ({
   page,
 }) => {
   const requests = await stubPipeline(page, "generated");
   await page.goto(`/recordings/${RECORDING_ID}/pipeline/events?view=generated`);
-  await expect(
-    page.getByRole("heading", { name: "Recording pipeline" }),
-  ).toBeVisible();
+  await expect(page.getByRole("banner")).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Review" }).first(),
   ).toBeVisible();
@@ -302,9 +364,7 @@ test("covers generated suggestions, reruns, failed jobs, upstream correction, co
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Run again" })).toBeVisible();
   await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Recording pipeline" }),
-  ).toBeVisible();
+  await expect(page.getByRole("banner")).toBeVisible();
 
   requests.setScenario("failed");
   await page.goto(`/recordings/${RECORDING_ID}/pipeline/events`);

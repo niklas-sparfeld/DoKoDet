@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
 import { expect, it, afterEach, describe, vi } from "vitest";
 
@@ -124,6 +125,51 @@ describe("App", () => {
         String(input).startsWith(`/api/recordings/${recordingId}/pipeline`),
       ),
     ).toBe(true);
+  });
+
+  it("restores stage and view changes through browser history", async () => {
+    window.history.pushState(
+      {},
+      "",
+      `/recordings/${recordingId}/pipeline/events?view=generated`,
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(response(workspace()))),
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("region", { name: "Events task surface" }),
+    ).toBeInTheDocument();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Reviewed" }));
+    await waitFor(() => expect(window.location.search).toBe("?view=reviewed"));
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole("link", { name: /Visible cards/ }));
+    await waitFor(() =>
+      expect(window.location.pathname).toBe(
+        `/recordings/${recordingId}/pipeline/visible_cards`,
+      ),
+    );
+    expect(
+      screen.getByRole("region", { name: "Visible cards task surface" }),
+    ).toBeInTheDocument();
+
+    window.history.back();
+    await waitFor(() =>
+      expect(window.location.pathname).toBe(
+        `/recordings/${recordingId}/pipeline/events`,
+      ),
+    );
+    expect(window.location.search).toBe("?view=reviewed");
+    expect(
+      await screen.findByRole("region", { name: "Events task surface" }),
+    ).toBeInTheDocument();
   });
 
   it("shows a loading error instead of a blank page when a recording cannot load", async () => {

@@ -21,7 +21,8 @@
 
 - **M0:** Complete — add the shared presentation model, representative pipeline states, browser
   viewport fixtures, and geometry helpers with focused unit coverage.
-- **M1:** Not started — replace the tall page preamble with the viewport workspace shell.
+- **M1:** Complete — replace the tall page preamble with a bounded viewport shell, compact top bar,
+  internal task and inspector scroll regions, and a Timeline Rail slot.
 - **M2:** Not started — add the persistent metadata inspector and move global controls into it.
 - **M3:** Not started — build the shared Timeline Rail and connect video navigation.
 - **M4:** Not started — migrate event generation and review to the shared workbench.
