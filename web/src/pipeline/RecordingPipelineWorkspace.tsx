@@ -21,6 +21,7 @@ import {
   type PipelineCardEventRailItem,
 } from "../cardEvents/PipelineCardEventEditor";
 import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
+import type { PipelineVisibleCardRailItem } from "../visibleCards/PipelineVisibleCardEditor";
 import { PipelineVisualIdentityEditor } from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
 import {
@@ -150,9 +151,14 @@ export function RecordingPipelineWorkspace({
     key: string;
     items: RecordingTimelineRailItem[];
   } | null>(null);
+  const [visibleCardRail, setVisibleCardRail] = useState<{
+    key: string;
+    items: RecordingTimelineRailItem[];
+  } | null>(null);
   const workspaceDurationUsRef = useRef(0);
   workspaceDurationUsRef.current = workspace?.video.duration_us ?? 0;
   const eventRailKeyRef = useRef("");
+  const visibleCardRailKeyRef = useRef("");
   const handleEventRailItemsChange = useCallback(
     (items: PipelineCardEventRailItem[]) => {
       setEventRail({
@@ -202,6 +208,58 @@ export function RecordingPipelineWorkspace({
             },
             runId: null,
           }),
+      });
+    },
+    [],
+  );
+  const handleVisibleCardRailItemsChange = useCallback(
+    (items: PipelineVisibleCardRailItem[]) => {
+      setVisibleCardRail({
+        key: visibleCardRailKeyRef.current,
+        items: items.flatMap<RecordingTimelineRailItem>((item) => {
+          const timeRange =
+            item.timeUs === null
+              ? null
+              : {
+                  startUs: item.timeUs,
+                  endUs: Math.min(
+                    workspaceDurationUsRef.current,
+                    item.timeUs + 1,
+                  ),
+                };
+          return [
+            {
+              id: `visible-card:${item.itemId}`,
+              itemId: item.itemId,
+              selectionParam: "item" as const,
+              laneId: "resolved-frames",
+              label: item.label,
+              state: item.state,
+              timeRange,
+              runId: null,
+            },
+            {
+              id: `visible-card:${item.itemId}:decision`,
+              itemId: item.itemId,
+              selectionParam: "item" as const,
+              laneId: "frame-decision",
+              label: `${item.label} · ${item.decision ?? "pending decision"}`,
+              state: item.decision ?? item.state,
+              timeRange,
+              runId: null,
+            },
+            {
+              id: `visible-card:${item.itemId}:proposals`,
+              itemId: item.itemId,
+              selectionParam: "item" as const,
+              laneId: "proposals",
+              label: `${item.label} · ${item.proposalCount} proposal${item.proposalCount === 1 ? "" : "s"}`,
+              state: item.state,
+              timeRange,
+              runId: null,
+            },
+          ];
+        }),
       });
     },
     [],
@@ -434,6 +492,8 @@ export function RecordingPipelineWorkspace({
   const rail = presentation.rail;
   const eventRailKey = `${recordingId}:${stage.key}:${activeView}:${compare ? "compare" : "task"}`;
   eventRailKeyRef.current = eventRailKey;
+  const visibleCardRailKey = `${recordingId}:${stage.key}:${activeView}:${compare ? "compare" : "task"}`;
+  visibleCardRailKeyRef.current = visibleCardRailKey;
   const visibleRail =
     stage.key === "events" && activeView === "reviewed" && !compare
       ? eventRail?.key === eventRailKey && rail !== null
@@ -457,7 +517,30 @@ export function RecordingPipelineWorkspace({
               items: [],
               lanes: rail.lanes.map((lane) => ({ ...lane, itemCount: 0 })),
             }
-      : rail;
+      : stage.key === "visible_cards" && !compare
+        ? visibleCardRail?.key === visibleCardRailKey && rail !== null
+          ? {
+              ...rail,
+              items: visibleCardRail.items,
+              selectedItemId:
+                visibleCardRail.items.find(
+                  (item) => item.itemId === urlState.item,
+                )?.id ?? null,
+              lanes: rail.lanes.map((lane) => ({
+                ...lane,
+                itemCount: visibleCardRail.items.filter(
+                  (item) => item.laneId === lane.id,
+                ).length,
+              })),
+            }
+          : rail === null
+            ? null
+            : {
+                ...rail,
+                items: [],
+                lanes: rail.lanes.map((lane) => ({ ...lane, itemCount: 0 })),
+              }
+        : rail;
   const selectedEventRunId =
     stage.key === "events" && displayedRevision !== null
       ? (stage.runs.find((run) =>
@@ -666,6 +749,13 @@ export function RecordingPipelineWorkspace({
                 }
                 generatedRunId={selectedVisibleCardRunId}
                 view={activeView}
+                inspectorEnabled={action.kind !== "blocked"}
+                onRailItemsChange={handleVisibleCardRailItemsChange}
+                onReviewRequested={() =>
+                  navigateTo(
+                    actionHref(recordingId, stage.key, "review", urlState),
+                  )
+                }
               />
             ) : null}
             {stage.key === "visual_identities" && !compare ? (
@@ -809,6 +899,10 @@ function RecordingWorkspaceInspector({
   );
   const actionOwnsExecution =
     action.kind === "run" || action.kind === "run_again";
+  const usesEditorInspector =
+    !compare &&
+    action.kind !== "blocked" &&
+    (stage.key === "events" || stage.key === "visible_cards");
 
   return (
     <aside
@@ -854,8 +948,11 @@ function RecordingWorkspaceInspector({
         data-inspector-section="action"
         aria-labelledby="pipeline-inspector-action"
       >
-        {stage.key === "events" && !compare && action.kind !== "blocked" ? (
-          <div data-event-inspector-slot="action" />
+        {usesEditorInspector ? (
+          <div
+            data-event-inspector-slot="action"
+            data-visible-card-inspector-slot="action"
+          />
         ) : (
           <>
             <p className={styles.statusLabel}>Primary action</p>
@@ -907,9 +1004,12 @@ function RecordingWorkspaceInspector({
         data-inspector-section="save-state"
         aria-labelledby="pipeline-inspector-save-state"
       >
-        {stage.key === "events" && !compare && action.kind !== "blocked" ? (
+        {usesEditorInspector ? (
           <>
-            <div data-event-inspector-slot="save" />
+            <div
+              data-event-inspector-slot="save"
+              data-visible-card-inspector-slot="save"
+            />
             {executionControls}
           </>
         ) : (
@@ -1007,8 +1107,11 @@ function RecordingWorkspaceInspector({
             </select>
           </label>
         </div>
-        {stage.key === "events" && !compare && action.kind !== "blocked" ? (
-          <div data-event-inspector-slot="selection" />
+        {usesEditorInspector ? (
+          <div
+            data-event-inspector-slot="selection"
+            data-visible-card-inspector-slot="selection"
+          />
         ) : null}
       </section>
 

@@ -139,6 +139,7 @@ describe("PipelineVisibleCardEditor", () => {
       Promise.resolve(jsonResponse(generatedResult())),
     );
     vi.stubGlobal("fetch", fetchImplementation);
+    const railItems = vi.fn();
 
     render(
       <PipelineVisibleCardEditor
@@ -147,6 +148,7 @@ describe("PipelineVisibleCardEditor", () => {
         generatedRevisionId={REVISION_ID}
         generatedRunId={RUN_ID}
         view="generated"
+        onRailItemsChange={railItems}
       />,
     );
 
@@ -159,6 +161,19 @@ describe("PipelineVisibleCardEditor", () => {
     expect(
       screen.getByText(/Generated detector output is immutable/),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Resolved-frame timeline"),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(railItems).toHaveBeenLastCalledWith([
+        expect.objectContaining({
+          itemId: ITEM_ID,
+          proposalCount: 1,
+          timeUs: FRAME_IDENTITY.requested_time_us,
+        }),
+      ]),
+    );
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
     expect(fetchImplementation.mock.calls[0]?.[0]).toContain(
       "/pipeline/visible-cards/visible-run-1/result",

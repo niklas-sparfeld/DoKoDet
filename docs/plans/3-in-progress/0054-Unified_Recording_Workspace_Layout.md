@@ -29,7 +29,7 @@
   synchronized URL/video selection, exact-frame previews, zoom, and accessible interaction states.
 - **M4:** Complete — migrate generated event proposals and maintained-reference review to the
   shared video, inspector, and Timeline Rail workbench; remove the event timeline and tables.
-- **M5:** Not started — migrate visible-card generation and review to the shared workbench.
+- **M5:** Complete — migrate visible-card generation and review to the shared workbench.
 - **M6:** Not started — migrate visual identity generation and review to the shared workbench.
 - **M7:** Not started — migrate table-observation work to the shared workbench.
 - **M8:** Not started — migrate round-analysis work to the shared workbench.
@@ -333,6 +333,21 @@ Acceptance:
 - no event list or table duplicates rail navigation.
 
 ### M5 — Visible-card workbench
+
+Status: Complete (2026-09-06).
+
+- Generated and reviewed visible-card views now use one source-video context and selected exact
+  frame surface. Polygon overlays and reviewed geometry editing keep the existing derived-frame and
+  correction lineage.
+- Resolved frames, frame decisions, and proposal counts now use the shared Timeline Rail for both
+  generated and reviewed views. Rail selection restores `item` and `t_us` state.
+- Frame outcomes, coverage, review completion, operator and reviewer fields, save or conflict state,
+  and retry actions now use the shared inspector. The fixed completion bar is gone.
+- Removed the resolved-frame list, generated-result table, and visible-card timeline. Added
+  regression coverage for generated and reviewed rail hydration, exact-frame rendering, URL
+  selection, and duplicate-list removal.
+
+Verification: `mise exec -- npm run check` and `mise exec -- npm run build` in `web` passed.
 
 - Make the selected exact source frame and polygon editor the central surface.
 - Put resolved frames, decision state, and proposal count on rail lanes for generated and reviewed

@@ -385,6 +385,156 @@ describe("recording pipeline workspace", () => {
     expect(window.location.search).toContain("t_us=2000000");
   });
 
+  it("uses the shared rail and exact-frame surface for generated visible cards", async () => {
+    const revisionId = "visible-rail-revision";
+    const runId = "visible-rail-run";
+    const itemId = "visible-frame-1";
+    const frameIdentity = {
+      requested_time_us: 4_000_000,
+      frame_index: 120,
+      presentation_timestamp_us: 4_000_000,
+      width: 640,
+      height: 360,
+      image_sha256: "c".repeat(64),
+    };
+    const generated = {
+      revision_id: revisionId,
+      content_type: "visible_cards",
+      origin: "processor",
+      completion_state: "complete",
+      coverage_state: "full-recording",
+      display_label: "Generated visible cards",
+      content_sha256: "d".repeat(64),
+      input_revision_ids: [],
+      producer: {},
+      coverage: {},
+      created_at: "2026-09-06T00:00:00Z",
+    } as PipelineWorkspaceStage["input_options"][number];
+    const body = workspace();
+    body.stages = PIPELINE_STAGE_KEYS.map((key) =>
+      stage(
+        key,
+        key === "visible_cards"
+          ? {
+              state: "generated-only",
+              input_options: [generated],
+              selected_generated_revision_id: revisionId,
+              can_run: false,
+              can_review: true,
+              runs: [
+                {
+                  attempt: 1,
+                  completed_at: null,
+                  configuration: {},
+                  created_at: "2026-09-06T00:00:00Z",
+                  crop_policy: null,
+                  extraction_policy: {},
+                  failed_item_count: 0,
+                  failure: null,
+                  implementation: { name: "fixture", version: "1" },
+                  input_revision_ids: [],
+                  model: null,
+                  output_revision_ids: [revisionId],
+                  progress: { completed: 1, total: 1 },
+                  request: {},
+                  run_id: runId,
+                  started_at: null,
+                  state: {
+                    items: [
+                      {
+                        item_id: itemId,
+                        status: "succeeded",
+                        result: {},
+                        failure: null,
+                      },
+                    ],
+                  },
+                  status: "complete",
+                  updated_at: "2026-09-06T00:00:00Z",
+                },
+              ],
+            }
+          : {},
+      ),
+    );
+    const result = {
+      run_id: runId,
+      recording_id: RECORDING_ID,
+      processor_type: "visible-card-detection",
+      status: "complete",
+      attempt: 1,
+      request: {},
+      state: {},
+      revisions: [
+        {
+          manifest: { revision_id: revisionId },
+          content: {
+            outcomes: [
+              {
+                event_id: itemId,
+                frame_identity: frameIdentity,
+                status: "detected",
+                candidates: [
+                  {
+                    card_id: "proposal-1",
+                    geometry: {
+                      kind: "detector-box/v1",
+                      box_2d: {
+                        x_min: 100,
+                        y_min: 100,
+                        x_max: 400,
+                        y_max: 300,
+                      },
+                    },
+                    normalization: { width: 640, height: 360 },
+                  },
+                ],
+                error: null,
+              },
+            ],
+          },
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify(
+              String(input).includes("/pipeline/visible-cards/")
+                ? result
+                : body,
+            ),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="visible_cards"
+        compare={false}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Visible-card suggestions" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole("img", { name: "1 visible-card proposal" }),
+    ).toBeInTheDocument();
+    const railItems = await screen.findAllByRole("button", {
+      name: /Frame 1 · 4\.000 s/,
+    });
+    fireEvent.click(railItems[0]);
+    expect(window.location.search).toContain(`item=${itemId}`);
+    expect(window.location.search).toContain("t_us=4000000");
+  });
+
   it("hydrates reviewed event selection into the shared rail", async () => {
     window.history.pushState(
       {},

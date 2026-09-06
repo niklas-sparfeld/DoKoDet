@@ -6,6 +6,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   ApiError,
@@ -90,6 +91,18 @@ export type PipelineVisibleCardEditorProps = {
   displayedRevisionId?: string | null;
   generatedRunId: string | null;
   view: "generated" | "reviewed";
+  onRailItemsChange?: (items: PipelineVisibleCardRailItem[]) => void;
+  onReviewRequested?: () => void;
+  inspectorEnabled?: boolean;
+};
+
+export type PipelineVisibleCardRailItem = {
+  itemId: string;
+  label: string;
+  state: FrameReviewState | Outcome["status"];
+  timeUs: number | null;
+  proposalCount: number;
+  decision: "cards" | "empty" | "unusable" | null;
 };
 
 export function PipelineVisibleCardEditor({
@@ -102,6 +115,9 @@ export function PipelineVisibleCardEditor({
   displayedRevisionId = generatedRevisionId,
   generatedRunId,
   view,
+  onRailItemsChange,
+  onReviewRequested,
+  inspectorEnabled = true,
 }: PipelineVisibleCardEditorProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -148,6 +164,11 @@ export function PipelineVisibleCardEditor({
   const [editorError, setEditorError] = useState<string | null>(null);
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
+  const [inspectorSlots, setInspectorSlots] = useState<{
+    action: HTMLElement;
+    save: HTMLElement;
+    selection: HTMLElement;
+  } | null>(null);
 
   const setLocalFrames = useCallback((nextFrames: EditableFrame[]) => {
     framesRef.current = nextFrames;
@@ -180,13 +201,13 @@ export function PipelineVisibleCardEditor({
   const selectFrame = useCallback(
     (frame: EditableFrame, seek = true) => {
       setSelected(frame.itemId);
-      markInspected(frame);
+      if (view === "reviewed") markInspected(frame);
       updatePipelineUrl({ item: frame.itemId });
       if (seek && frame.outcome.frame_identity !== null) {
         setCurrentTime(frame.outcome.frame_identity.requested_time_us);
       }
     },
-    [markInspected, setCurrentTime, setSelected],
+    [markInspected, setCurrentTime, setSelected, view],
   );
 
   const hydrateReference = useCallback(
@@ -317,6 +338,38 @@ export function PipelineVisibleCardEditor({
     selectFrame,
     view,
   ]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const action = document.querySelector<HTMLElement>(
+        '[data-visible-card-inspector-slot="action"]',
+      );
+      const save = document.querySelector<HTMLElement>(
+        '[data-visible-card-inspector-slot="save"]',
+      );
+      const selection = document.querySelector<HTMLElement>(
+        '[data-visible-card-inspector-slot="selection"]',
+      );
+      if (action !== null && save !== null && selection !== null) {
+        setInspectorSlots({ action, save, selection });
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [inspectorEnabled, view]);
+
+  useEffect(() => {
+    const candidates = view === "reviewed" ? frames : generatedFrames;
+    onRailItemsChange?.(
+      candidates.map((frame, index) => ({
+        itemId: frame.itemId,
+        label: `Frame ${index + 1} · ${formatFrameTime(frame)}`,
+        state: view === "reviewed" ? frame.reviewState : frame.outcome.status,
+        timeUs: frame.outcome.frame_identity?.requested_time_us ?? null,
+        proposalCount: frame.outcome.candidates.length,
+        decision: view === "reviewed" ? frameDecision(frame) : null,
+      })),
+    );
+  }, [frames, generatedFrames, onRailItemsChange, view]);
 
   const nextCommandId = useCallback(() => {
     commandSequenceRef.current += 1;
@@ -773,7 +826,7 @@ export function PipelineVisibleCardEditor({
       ) {
         return;
       }
-      const current = framesRef.current;
+      const current = view === "reviewed" ? framesRef.current : generatedFrames;
       const index = current.findIndex(
         (frame) => frame.itemId === selectedFrameIdRef.current,
       );
@@ -794,25 +847,37 @@ export function PipelineVisibleCardEditor({
       ) {
         event.preventDefault();
         selectFrame(current[index + 1]);
-      } else if (event.key === "n" || event.key === "N") {
+      } else if (
+        view === "reviewed" &&
+        (event.key === "n" || event.key === "N")
+      ) {
         const frame = current[index >= 0 ? index : 0];
         if (frame !== undefined) {
           event.preventDefault();
           openEditor(frame, null);
         }
-      } else if (event.key === "a" || event.key === "A") {
+      } else if (
+        view === "reviewed" &&
+        (event.key === "a" || event.key === "A")
+      ) {
         const frame = current[index];
         if (frame?.outcome.status === "detected") {
           event.preventDefault();
           acceptSuggestions(frame);
         }
-      } else if (event.key === "e" || event.key === "E") {
+      } else if (
+        view === "reviewed" &&
+        (event.key === "e" || event.key === "E")
+      ) {
         const frame = current[index];
         if (frame !== undefined) {
           event.preventDefault();
           setFrameOutcome(frame, "empty");
         }
-      } else if (event.key === "u" || event.key === "U") {
+      } else if (
+        view === "reviewed" &&
+        (event.key === "u" || event.key === "U")
+      ) {
         const frame = current[index];
         if (frame !== undefined) {
           event.preventDefault();
@@ -822,12 +887,20 @@ export function PipelineVisibleCardEditor({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [acceptSuggestions, openEditor, selectFrame, setFrameOutcome]);
+  }, [
+    acceptSuggestions,
+    generatedFrames,
+    openEditor,
+    selectFrame,
+    setFrameOutcome,
+    view,
+  ]);
 
+  const displayedFrames = view === "reviewed" ? frames : generatedFrames;
   const activeFrame =
-    (view === "reviewed" ? frames : generatedFrames).find(
-      (frame) => frame.itemId === selectedFrameId,
-    ) ?? null;
+    displayedFrames.find((frame) => frame.itemId === selectedFrameId) ??
+    displayedFrames[0] ??
+    null;
   const reviewed = view === "reviewed";
   const pendingCount = frames.filter(
     (frame) =>
@@ -857,56 +930,298 @@ export function PipelineVisibleCardEditor({
                   ? "Enter the reviewer ID before completing the reference."
                   : null;
 
-  if (!reviewed) {
-    return (
-      <GeneratedVisibleCardView
-        frames={generatedFrames}
-        loading={generatedLoading}
-        revisionId={displayedRevisionId}
-        recordingId={recordingId}
-        onSelect={(frame) => selectFrame(frame)}
-      />
-    );
-  }
+  const inspector = (
+    <VisibleCardInspectorPortals
+      slots={inspectorSlots}
+      inspectorEnabled={inspectorEnabled}
+      view={view}
+      reference={reference}
+      frames={view === "reviewed" ? frames : generatedFrames}
+      selectedFrame={activeFrame}
+      generatedFrames={generatedFrames}
+      generatedRevisionId={displayedRevisionId}
+      generatedLoading={generatedLoading}
+      pendingCount={pendingCount}
+      completedFrameCount={completedFrameCount}
+      coveragePercent={coveragePercent}
+      inspectedCount={inspectedFrameKeys.size}
+      saveState={saveState}
+      queueLength={queueLength}
+      firstUnappliedCommand={firstUnappliedCommand}
+      error={error}
+      operatorId={operatorId}
+      reviewerId={reviewerId}
+      setOperatorId={setOperatorId}
+      setReviewerId={setReviewerId}
+      creatingReference={creatingReference}
+      completionBusy={completionBusy}
+      completionBlocker={completionBlocker}
+      acceptSuggestions={() =>
+        activeFrame === null ? undefined : acceptSuggestions(activeFrame)
+      }
+      markEmpty={() =>
+        activeFrame === null ? undefined : setFrameOutcome(activeFrame, "empty")
+      }
+      markUnusable={() =>
+        activeFrame === null
+          ? undefined
+          : setFrameOutcome(activeFrame, "unusable")
+      }
+      retryQueuedCommands={retryQueuedCommands}
+      reloadWinningDraft={reloadWinningDraft}
+      completeReference={completeReference}
+      createReference={createReference}
+      onReviewRequested={onReviewRequested}
+    />
+  );
+
   if (loading) {
     return (
-      <p className={styles.detailEmptyState}>
-        Loading maintained visible-card reference…
-      </p>
+      <>
+        {inspector}
+        <p className={styles.detailEmptyState}>
+          Loading maintained visible-card reference…
+        </p>
+      </>
+    );
+  }
+
+  const sourceSurface = (
+    <div className={styles.visibleCardWorkbenchSurface}>
+      <video
+        ref={videoRef}
+        className={styles.cardEventSourceVideo}
+        data-recording-source-video={recordingId}
+        src={videoUrl}
+        controls
+        preload="metadata"
+        aria-label={`Visible-card source video ${recordingId}`}
+        onTimeUpdate={(event) => {
+          const value = clamp(
+            event.currentTarget.currentTime * 1_000_000,
+            durationUs,
+          );
+          setPlayheadUs(value);
+          updatePipelineUrl({ t_us: value });
+        }}
+      />
+      {activeFrame === null ? (
+        <p className={styles.detailEmptyState}>
+          {view === "generated"
+            ? generatedLoading
+              ? "Loading generated visible cards…"
+              : "Select a proposal from the Timeline Rail."
+            : reference === null
+              ? "Start review to create a maintained visible-card reference."
+              : "Select a resolved frame from the Timeline Rail."}
+        </p>
+      ) : (
+        <VisibleCardFramePanel
+          recordingId={recordingId}
+          frame={activeFrame}
+          editor={editor?.frameItemId === activeFrame.itemId ? editor : null}
+          editorError={editorError}
+          readOnly={!reviewed}
+          onOpenEditor={
+            reviewed
+              ? (candidate) => openEditor(activeFrame, candidate)
+              : undefined
+          }
+          onSaveEditor={reviewed ? saveEditor : undefined}
+          onCancelEditor={reviewed ? () => setEditor(null) : undefined}
+          onRemoveCard={
+            reviewed ? (cardId) => removeCard(activeFrame, cardId) : undefined
+          }
+          onPointerMove={handleCanvasPointerMove}
+          onPointerUp={stopCanvasPointer}
+          onPointPointerDown={startPointDrag}
+        />
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      {inspector}
+      <section
+        className={styles.cardEventPipelineEditor}
+        aria-label={`${reviewed ? "Visible-card maintained reference" : "Generated visible-card result"} workbench`}
+      >
+        <div className={styles.cardEventReviewHeader}>
+          <div>
+            <p className={styles.statusLabel}>
+              {reviewed ? "Maintained reference" : "Generated result"}
+            </p>
+            <h3>
+              {reviewed ? "Visible-card review" : "Visible-card suggestions"}
+            </h3>
+            <p className={styles.detailLead}>
+              {reviewed
+                ? reference === null
+                  ? "Start a recording-owned reference from the selected generated result."
+                  : reference.draft.source_revision_id === null
+                    ? "Manual visible-card reference"
+                    : `Used visible-card suggestions ${reference.draft.source_revision_id}`
+                : "Generated detector output is immutable. Choose Review to copy this exact result into the maintained reference."}
+            </p>
+          </div>
+          <span className={styles.countLabel}>
+            {(reviewed ? frames : generatedFrames).length} frames
+          </span>
+        </div>
+        {displayedRevisionId !== null ? (
+          <p className={styles.pipelineUrlState}>
+            Source revision {displayedRevisionId} · Playhead{" "}
+            {formatMicroseconds(playheadUs)}
+          </p>
+        ) : null}
+        {sourceSurface}
+        <details className={styles.cardEventGuidance}>
+          <summary>Keyboard shortcuts</summary>
+          <p>
+            Space play/pause · ←/→ previous/next frame · A accept suggestions ·
+            E reviewed empty · U unusable · N add missed card.
+          </p>
+        </details>
+        {notice !== null ? (
+          <p className={styles.recordingNotice} role="status">
+            {notice}
+          </p>
+        ) : null}
+        {inspectorSlots === null && error !== null ? (
+          <div className={styles.cardEventError} role="alert">
+            <p>{error}</p>
+          </div>
+        ) : null}
+      </section>
+    </>
+  );
+}
+
+type VisibleCardInspectorProps = {
+  slots: {
+    action: HTMLElement;
+    save: HTMLElement;
+    selection: HTMLElement;
+  } | null;
+  inspectorEnabled: boolean;
+  view: "generated" | "reviewed";
+  reference: PipelineReferenceResource | null;
+  frames: EditableFrame[];
+  selectedFrame: EditableFrame | null;
+  generatedFrames: EditableFrame[];
+  generatedRevisionId: string | null;
+  generatedLoading: boolean;
+  pendingCount: number;
+  completedFrameCount: number;
+  coveragePercent: number;
+  inspectedCount: number;
+  saveState: SaveState;
+  queueLength: number;
+  firstUnappliedCommand: string | null;
+  error: string | null;
+  operatorId: string;
+  reviewerId: string;
+  setOperatorId: (value: string) => void;
+  setReviewerId: (value: string) => void;
+  creatingReference: boolean;
+  completionBusy: boolean;
+  completionBlocker: string | null;
+  acceptSuggestions: () => void;
+  markEmpty: () => void;
+  markUnusable: () => void;
+  retryQueuedCommands: () => void;
+  reloadWinningDraft: () => Promise<void>;
+  completeReference: () => Promise<void>;
+  createReference: () => Promise<void>;
+  onReviewRequested?: () => void;
+};
+
+function VisibleCardInspectorPortals(props: VisibleCardInspectorProps) {
+  if (!props.inspectorEnabled) return null;
+  if (props.slots === null) {
+    return (
+      <div className={styles.cardEventStandaloneInspector}>
+        <VisibleCardInspectorAction {...props} />
+        <VisibleCardInspectorSaveState {...props} />
+        <VisibleCardInspectorSelection {...props} />
+      </div>
+    );
+  }
+  return (
+    <>
+      {createPortal(
+        <VisibleCardInspectorAction {...props} />,
+        props.slots.action,
+      )}
+      {createPortal(
+        <VisibleCardInspectorSaveState {...props} />,
+        props.slots.save,
+      )}
+      {createPortal(
+        <VisibleCardInspectorSelection {...props} />,
+        props.slots.selection,
+      )}
+    </>
+  );
+}
+
+function VisibleCardInspectorAction({
+  view,
+  reference,
+  generatedFrames,
+  generatedRevisionId,
+  generatedLoading,
+  operatorId,
+  reviewerId,
+  setOperatorId,
+  setReviewerId,
+  creatingReference,
+  completionBusy,
+  completionBlocker,
+  completeReference,
+  createReference,
+  onReviewRequested,
+}: VisibleCardInspectorProps) {
+  if (view === "generated") {
+    return (
+      <>
+        <p className={styles.statusLabel}>Primary action</p>
+        <h2 id="pipeline-inspector-action">Review visible cards</h2>
+        <p className={styles.pipelineInspectorEmpty}>
+          {generatedLoading
+            ? "Loading generated visible cards…"
+            : generatedRevisionId === null
+              ? "No generated revision is selected."
+              : `${generatedFrames.length} resolved frame${generatedFrames.length === 1 ? "" : "s"} · immutable source result.`}
+        </p>
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={onReviewRequested}
+          disabled={onReviewRequested === undefined}
+        >
+          Review
+        </button>
+      </>
     );
   }
   if (reference === null) {
     return (
-      <section
-        className={styles.cardEventReviewPanel}
-        aria-label="Start visible-card review"
-      >
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Maintained reference</p>
-            <h3>Start visible-card review</h3>
-          </div>
-          <span className={styles.countLabel}>
-            {generatedFrames.length} frame suggestions
-          </span>
-        </div>
-        <p className={styles.detailLead}>
-          Review visible regions in one recording-owned reference. Generated
-          detector output stays immutable.
+      <>
+        <p className={styles.statusLabel}>Primary action</p>
+        <h2 id="pipeline-inspector-action">Start visible-card review</h2>
+        <p className={styles.pipelineInspectorEmpty}>
+          Copy the selected generated result into the maintained reference.
         </p>
-        <label className={styles.cardEventReviewer}>
-          Operator ID
+        <label className={styles.pipelineSelector}>
+          <span>Operator ID</span>
           <input
             value={operatorId}
             onChange={(event) => setOperatorId(event.target.value)}
             placeholder="operator-01"
           />
         </label>
-        {error !== null ? (
-          <p className={styles.errorMessage} role="alert">
-            {error}
-          </p>
-        ) : null}
         <button
           className={styles.primaryButton}
           type="button"
@@ -915,196 +1230,76 @@ export function PipelineVisibleCardEditor({
         >
           {creatingReference ? "Starting review…" : "Start review"}
         </button>
-      </section>
+      </>
     );
   }
-
   return (
-    <section
-      className={styles.cardEventPipelineEditor}
-      aria-label="Visible-card maintained reference editor"
-    >
-      <div className={styles.cardEventReviewHeader}>
-        <div>
-          <p className={styles.statusLabel}>Maintained reference</p>
-          <h3>Visible-card review</h3>
-          <p className={styles.detailLead}>
-            {reference.draft.source_revision_id === null
-              ? "Manual visible-card reference"
-              : `Used visible-card suggestions ${reference.draft.source_revision_id}`}
-          </p>
-        </div>
-        <div
-          className={styles.cardEventReviewCounts}
-          aria-label="Visible-card counts"
-        >
-          <ReviewCount label="Decided" value={completedFrameCount} />
-          <ReviewCount label="Pending" value={pendingCount} />
-          <ReviewCount
-            label="Coverage"
-            value={Math.round(coveragePercent)}
-            suffix="%"
-          />
-        </div>
-      </div>
-
-      <div className={styles.cardEventPipelineVideoGrid}>
-        <aside
-          className={styles.visibleCardItemRail}
-          aria-label="Resolved frames"
-        >
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Source items</p>
-              <h4>Resolved frames</h4>
-            </div>
-            <span className={styles.countLabel}>{frames.length}</span>
-          </div>
-          <ol className={styles.visibleCardItemList}>
-            {frames.map((frame, index) => (
-              <li key={frame.itemId}>
-                <button
-                  className={styles.visibleCardItemButton}
-                  type="button"
-                  data-selected={frame.itemId === selectedFrameId}
-                  onClick={() => selectFrame(frame)}
-                >
-                  <span>Frame {index + 1}</span>
-                  <strong>{formatFrameTime(frame)}</strong>
-                  <small>{formatFrameState(frame)}</small>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </aside>
-
-        <div>
-          <video
-            ref={videoRef}
-            className={styles.cardEventSourceVideo}
-            data-recording-source-video={recordingId}
-            src={videoUrl}
-            controls
-            preload="metadata"
-            aria-label={`Visible-card source video ${recordingId}`}
-            onTimeUpdate={(event) => {
-              const value = clamp(
-                event.currentTarget.currentTime * 1_000_000,
-                durationUs,
-              );
-              setPlayheadUs(value);
-              updatePipelineUrl({ t_us: value });
-            }}
-          />
-          <div
-            className={styles.cardEventTimeline}
-            aria-label="Resolved-frame timeline"
-          >
-            {frames.map((frame) => (
-              <button
-                key={frame.itemId}
-                className={styles.cardEventMarker}
-                type="button"
-                data-selected={frame.itemId === selectedFrameId}
-                data-state={frame.reviewState}
-                style={{
-                  left: `${((frame.outcome.frame_identity?.requested_time_us ?? 0) / Math.max(durationUs, 1)) * 100}%`,
-                }}
-                aria-label={`Select frame ${formatFrameTime(frame)}`}
-                onClick={() => selectFrame(frame)}
-              />
-            ))}
-          </div>
-          <p className={styles.pipelineUrlState}>
-            Playhead {formatMicroseconds(playheadUs)} ·{" "}
-            {inspectedFrameKeys.size}/{frames.length} resolved frames inspected
-          </p>
-
-          {activeFrame === null ? (
-            <p className={styles.detailEmptyState}>Select a resolved frame.</p>
-          ) : (
-            <VisibleCardFramePanel
-              recordingId={recordingId}
-              frame={activeFrame}
-              editor={
-                editor?.frameItemId === activeFrame.itemId ? editor : null
-              }
-              editorError={editorError}
-              onOpenEditor={(candidate) => openEditor(activeFrame, candidate)}
-              onSaveEditor={saveEditor}
-              onCancelEditor={() => setEditor(null)}
-              onAccept={() => acceptSuggestions(activeFrame)}
-              onEmpty={() => setFrameOutcome(activeFrame, "empty")}
-              onUnusable={() => setFrameOutcome(activeFrame, "unusable")}
-              onRemoveCard={(cardId) => removeCard(activeFrame, cardId)}
-              onPointerMove={handleCanvasPointerMove}
-              onPointerUp={stopCanvasPointer}
-              onPointPointerDown={startPointDrag}
-              disabled={false}
-            />
-          )}
-        </div>
-      </div>
-
-      <section
-        className={styles.cardEventCoverage}
-        aria-label="Visible-card review coverage"
-      >
-        <span>Resolved-frame coverage</span>
-        <strong>{Math.round(coveragePercent)}% inspected</strong>
-        <progress
-          max={100}
-          value={coveragePercent}
-          aria-label="Resolved-frame coverage"
-        />
-        <p>
-          Each frame needs an explicit cards, reviewed empty, or unusable
-          decision.
-        </p>
-      </section>
-      <section
-        className={styles.cardEventCompletionBar}
-        aria-label="Complete maintained visible-card reference"
-      >
-        <div>
-          <p className={styles.statusLabel}>Review completion</p>
-          <strong>Complete resolved-frame review</strong>
-          {completionBlocker !== null ? (
-            <p className={styles.cardEventCompletionRequirement}>
-              {completionBlocker}
-            </p>
-          ) : null}
-        </div>
-        <label className={styles.cardEventCompletionReviewer}>
-          Reviewer ID
-          <input
-            value={reviewerId}
-            onChange={(event) => setReviewerId(event.target.value)}
-            placeholder="reviewer-01"
-          />
-        </label>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => void completeReference()}
-          disabled={completionBusy || completionBlocker !== null}
-        >
-          {completionBusy ? "Completing reference…" : "Complete reference"}
-        </button>
-      </section>
-
-      <details className={styles.cardEventGuidance}>
-        <summary>Keyboard shortcuts</summary>
-        <p>
-          Space play/pause · ←/→ previous/next frame · A accept suggestions · E
-          reviewed empty · U unusable · N add missed card.
-        </p>
-      </details>
-      {notice !== null ? (
-        <p className={styles.recordingNotice} role="status">
-          {notice}
+    <>
+      <p className={styles.statusLabel}>Primary action</p>
+      <h2 id="pipeline-inspector-action">
+        {reference.state.draft_state === "completed"
+          ? "Publish corrected reference"
+          : "Complete visible-card review"}
+      </h2>
+      {completionBlocker !== null ? (
+        <p className={styles.detailBlocker} role="alert">
+          {completionBlocker}
         </p>
       ) : null}
+      <label className={styles.pipelineSelector}>
+        <span>Operator ID</span>
+        <input
+          value={operatorId}
+          onChange={(event) => setOperatorId(event.target.value)}
+          placeholder="operator-01"
+        />
+      </label>
+      <label className={styles.pipelineSelector}>
+        <span>Reviewer ID</span>
+        <input
+          value={reviewerId}
+          onChange={(event) => setReviewerId(event.target.value)}
+          placeholder="reviewer-01"
+        />
+      </label>
+      <button
+        className={styles.primaryButton}
+        type="button"
+        onClick={() => void completeReference()}
+        disabled={completionBusy || completionBlocker !== null}
+      >
+        {completionBusy
+          ? "Completing reference…"
+          : reference.state.draft_state === "completed"
+            ? "Publish corrected reference"
+            : "Complete reference"}
+      </button>
+    </>
+  );
+}
+
+function VisibleCardInspectorSaveState({
+  view,
+  saveState,
+  queueLength,
+  firstUnappliedCommand,
+  error,
+  retryQueuedCommands,
+  reloadWinningDraft,
+}: VisibleCardInspectorProps) {
+  return (
+    <div className={styles.cardEventInspectorState}>
+      <div className={styles.pipelineInspectorSectionHeading}>
+        <div>
+          <p className={styles.statusLabel}>Save or execution state</p>
+          <h2 id="pipeline-inspector-save-state">
+            {view === "generated"
+              ? "Read-only result"
+              : formatIdentifier(saveState)}
+          </h2>
+        </div>
+        <ReviewStateBadge value={view === "generated" ? "saved" : saveState} />
+      </div>
       {error !== null ? (
         <div className={styles.cardEventError} role="alert">
           <p>
@@ -1135,7 +1330,112 @@ export function PipelineVisibleCardEditor({
           </div>
         </div>
       ) : null}
-    </section>
+    </div>
+  );
+}
+
+function VisibleCardInspectorSelection({
+  view,
+  reference,
+  frames,
+  selectedFrame,
+  pendingCount,
+  completedFrameCount,
+  coveragePercent,
+  inspectedCount,
+  acceptSuggestions,
+  markEmpty,
+  markUnusable,
+}: VisibleCardInspectorProps) {
+  return (
+    <div className={styles.cardEventInspectorSelection}>
+      <p className={styles.statusLabel}>Current frame</p>
+      <div
+        className={styles.cardEventReviewCounts}
+        aria-label="Visible-card counts"
+      >
+        <ReviewCount label="Decided" value={completedFrameCount} />
+        <ReviewCount label="Pending" value={pendingCount} />
+        <ReviewCount
+          label="Proposals"
+          value={frames.reduce(
+            (count, frame) => count + frame.outcome.candidates.length,
+            0,
+          )}
+        />
+      </div>
+      <p className={styles.pipelineInspectorEmpty}>
+        {selectedFrame === null
+          ? view === "generated"
+            ? "Select a proposal from the Timeline Rail."
+            : "Select a resolved frame from the Timeline Rail."
+          : `${formatFrameTime(selectedFrame)} · ${formatFrameState(selectedFrame)}`}
+      </p>
+      {selectedFrame !== null ? (
+        <dl className={styles.pipelineInspectorFacts}>
+          <div>
+            <dt>Frame item</dt>
+            <dd>{selectedFrame.itemId}</dd>
+          </div>
+          <div>
+            <dt>Proposal count</dt>
+            <dd>{selectedFrame.outcome.candidates.length}</dd>
+          </div>
+        </dl>
+      ) : null}
+      {view === "reviewed" && reference !== null ? (
+        <>
+          <div
+            className={styles.visibleCardOutcomeButtons}
+            aria-label="Frame outcome"
+          >
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={acceptSuggestions}
+              disabled={
+                selectedFrame === null ||
+                selectedFrame.outcome.status !== "detected"
+              }
+            >
+              Accept frame suggestions
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={markEmpty}
+              disabled={selectedFrame === null}
+            >
+              Reviewed empty frame
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={markUnusable}
+              disabled={selectedFrame === null}
+            >
+              Unusable frame
+            </button>
+          </div>
+          <div className={styles.cardEventCoverageInspector}>
+            <span>Resolved-frame coverage</span>
+            <strong>
+              {Math.round(coveragePercent)}% inspected ({inspectedCount}/
+              {frames.length})
+            </strong>
+            <progress
+              max={100}
+              value={coveragePercent}
+              aria-label="Resolved-frame coverage"
+            />
+            <p>
+              Each frame needs an explicit cards, reviewed empty, or unusable
+              decision.
+            </p>
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -1147,26 +1447,20 @@ function VisibleCardFramePanel({
   onOpenEditor,
   onSaveEditor,
   onCancelEditor,
-  onAccept,
-  onEmpty,
-  onUnusable,
   onRemoveCard,
   onPointerMove,
   onPointerUp,
   onPointPointerDown,
-  disabled,
+  readOnly,
 }: {
   recordingId: string;
   frame: EditableFrame;
   editor: EditorState | null;
   editorError: string | null;
-  onOpenEditor: (candidate: Candidate | null) => void;
-  onSaveEditor: () => void;
-  onCancelEditor: () => void;
-  onAccept: () => void;
-  onEmpty: () => void;
-  onUnusable: () => void;
-  onRemoveCard: (cardId: string) => void;
+  onOpenEditor?: (candidate: Candidate | null) => void;
+  onSaveEditor?: () => void;
+  onCancelEditor?: () => void;
+  onRemoveCard?: (cardId: string) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerUp: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointPointerDown: (
@@ -1174,7 +1468,7 @@ function VisibleCardFramePanel({
     polygonIndex: number,
     pointIndex: number,
   ) => void;
-  disabled: boolean;
+  readOnly: boolean;
 }) {
   const identity = frame.outcome.frame_identity;
   const width = identity?.width ?? 1;
@@ -1198,105 +1492,81 @@ function VisibleCardFramePanel({
         </span>
       </header>
       {sourceUrl !== null ? (
-        <div
-          className={styles.visibleCardCanvasViewport}
-          style={{ aspectRatio: `${width} / ${height}` }}
-        >
-          <img
-            className={styles.visibleCardCanvasImage}
-            src={sourceUrl}
-            width={width}
-            height={height}
-            alt={`Resolved source frame at ${formatFrameTime(frame)}`}
-          />
-          <svg
-            className={styles.visibleCardOverlay}
-            viewBox={`0 0 ${width} ${height}`}
-            role="img"
-            aria-label={`${frame.outcome.candidates.length} visible-card proposal${frame.outcome.candidates.length === 1 ? "" : "s"}`}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            style={{ pointerEvents: editor === null ? "none" : "auto" }}
+        <>
+          <div
+            className={styles.visibleCardCanvasViewport}
+            style={{ aspectRatio: `${width} / ${height}` }}
           >
-            {frame.outcome.candidates.map((candidate) => (
-              <CandidateOverlay
-                key={candidate.card_id}
-                candidate={candidate}
-                width={width}
-                height={height}
-              />
-            ))}
-            {editor?.polygons.map((polygon, polygonIndex) => (
-              <g key={`editor-${polygonIndex}`}>
-                {polygon.length >= 2 ? (
-                  <polygon
-                    points={polygon
-                      .map(
-                        (point) =>
-                          `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
-                      )
-                      .join(" ")}
-                    fill="rgba(255, 210, 79, 0.25)"
-                    stroke="#ffd24f"
-                    strokeWidth={Math.max(1, width / 250)}
-                  />
-                ) : null}
-                {polygon.map((point, pointIndex) => (
-                  <circle
-                    key={`${point.x}:${point.y}:${pointIndex}`}
-                    cx={(point.x * width) / 1000}
-                    cy={(point.y * height) / 1000}
-                    r={Math.max(3, width / 55)}
-                    fill="#ffd24f"
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Polygon ${polygonIndex + 1}, point ${pointIndex + 1} at ${point.x}, ${point.y}`}
-                    onPointerDown={(event) =>
-                      onPointPointerDown(event, polygonIndex, pointIndex)
-                    }
-                    onClick={(event) => event.stopPropagation()}
-                  />
-                ))}
-              </g>
-            ))}
-          </svg>
-        </div>
+            <img
+              className={styles.visibleCardCanvasImage}
+              src={sourceUrl}
+              width={width}
+              height={height}
+              alt={`Resolved source frame at ${formatFrameTime(frame)}`}
+            />
+            <svg
+              className={styles.visibleCardOverlay}
+              viewBox={`0 0 ${width} ${height}`}
+              role="img"
+              aria-label={`${frame.outcome.candidates.length} visible-card proposal${frame.outcome.candidates.length === 1 ? "" : "s"}`}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              style={{ pointerEvents: editor === null ? "none" : "auto" }}
+            >
+              {frame.outcome.candidates.map((candidate) => (
+                <CandidateOverlay
+                  key={candidate.card_id}
+                  candidate={candidate}
+                  width={width}
+                  height={height}
+                />
+              ))}
+              {editor?.polygons.map((polygon, polygonIndex) => (
+                <g key={`editor-${polygonIndex}`}>
+                  {polygon.length >= 2 ? (
+                    <polygon
+                      points={polygon
+                        .map(
+                          (point) =>
+                            `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
+                        )
+                        .join(" ")}
+                      fill="rgba(255, 210, 79, 0.25)"
+                      stroke="#ffd24f"
+                      strokeWidth={Math.max(1, width / 250)}
+                    />
+                  ) : null}
+                  {polygon.map((point, pointIndex) => (
+                    <circle
+                      key={`${point.x}:${point.y}:${pointIndex}`}
+                      cx={(point.x * width) / 1000}
+                      cy={(point.y * height) / 1000}
+                      r={Math.max(3, width / 55)}
+                      fill="#ffd24f"
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Polygon ${polygonIndex + 1}, point ${pointIndex + 1} at ${point.x}, ${point.y}`}
+                      onPointerDown={(event) =>
+                        onPointPointerDown(event, polygonIndex, pointIndex)
+                      }
+                      onClick={(event) => event.stopPropagation()}
+                    />
+                  ))}
+                </g>
+              ))}
+            </svg>
+          </div>
+          <p className={styles.pipelineUrlState}>
+            Derived source frame {sourceUrl}
+          </p>
+        </>
       ) : (
         <p className={styles.detailBlocker}>
           {frame.outcome.error ??
             "No resolved source frame is available. Mark this frame unusable."}
         </p>
       )}
-      <div
-        className={styles.visibleCardOutcomeButtons}
-        aria-label="Frame outcome"
-      >
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={onAccept}
-          disabled={disabled || frame.outcome.status !== "detected"}
-        >
-          Accept frame suggestions
-        </button>
-        <button
-          className={styles.secondaryButton}
-          type="button"
-          onClick={onEmpty}
-          disabled={disabled}
-        >
-          Reviewed empty frame
-        </button>
-        <button
-          className={styles.secondaryButton}
-          type="button"
-          onClick={onUnusable}
-          disabled={disabled}
-        >
-          Unusable frame
-        </button>
-      </div>
       {frame.outcome.error !== null ? (
         <p className={styles.detailBlocker}>{frame.outcome.error}</p>
       ) : null}
@@ -1331,20 +1601,24 @@ function VisibleCardFramePanel({
                     </small>
                   </span>
                   <div className={styles.visibleCardActionButtons}>
-                    <button
-                      className={styles.inlineAction}
-                      type="button"
-                      onClick={() => onOpenEditor(candidate)}
-                    >
-                      Reshape proposal {index + 1}
-                    </button>
-                    <button
-                      className={styles.inlineAction}
-                      type="button"
-                      onClick={() => onRemoveCard(candidate.card_id)}
-                    >
-                      Remove card {index + 1}
-                    </button>
+                    {!readOnly ? (
+                      <>
+                        <button
+                          className={styles.inlineAction}
+                          type="button"
+                          onClick={() => onOpenEditor?.(candidate)}
+                        >
+                          Reshape proposal {index + 1}
+                        </button>
+                        <button
+                          className={styles.inlineAction}
+                          type="button"
+                          onClick={() => onRemoveCard?.(candidate.card_id)}
+                        >
+                          Remove card {index + 1}
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               </li>
@@ -1352,15 +1626,17 @@ function VisibleCardFramePanel({
           </ol>
         )}
       </section>
-      <button
-        className={styles.primaryButton}
-        type="button"
-        onClick={() => onOpenEditor(null)}
-        disabled={identity === null}
-      >
-        Add missed card
-      </button>
-      {editor !== null ? (
+      {!readOnly ? (
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={() => onOpenEditor?.(null)}
+          disabled={identity === null}
+        >
+          Add missed card
+        </button>
+      ) : null}
+      {!readOnly && editor !== null ? (
         <section
           className={styles.visibleCardEditor}
           aria-label="Visible region editor"
@@ -1451,94 +1727,6 @@ function CandidateOverlay({
   );
 }
 
-function GeneratedVisibleCardView({
-  frames,
-  loading,
-  revisionId,
-  recordingId,
-  onSelect,
-}: {
-  frames: EditableFrame[];
-  loading: boolean;
-  revisionId: string | null;
-  recordingId: string;
-  onSelect: (frame: EditableFrame) => void;
-}) {
-  return (
-    <section
-      className={styles.cardEventReviewPanel}
-      aria-label="Generated visible-card result"
-    >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Generated result</p>
-          <h3>Visible-card suggestions</h3>
-        </div>
-        <span className={styles.countLabel}>{frames.length} frames</span>
-      </div>
-      <p className={styles.detailLead}>
-        Generated detector output is immutable. Choose Review to copy this exact
-        result into the maintained reference.
-      </p>
-      {revisionId !== null ? (
-        <p className={styles.pipelineUrlState}>Source revision {revisionId}</p>
-      ) : null}
-      {loading ? (
-        <p className={styles.detailEmptyState}>
-          Loading generated visible cards…
-        </p>
-      ) : frames.length === 0 ? (
-        <p className={styles.detailEmptyState}>
-          No generated visible-card result is selected.
-        </p>
-      ) : (
-        <div className={styles.tableScroller}>
-          <table className={styles.cardEventReviewTable}>
-            <caption className={styles.visuallyHidden}>
-              Generated visible-card suggestions
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Frame</th>
-                <th scope="col">Resolved time</th>
-                <th scope="col">Status</th>
-                <th scope="col">Cards</th>
-                <th scope="col">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {frames.map((frame, index) => (
-                <tr key={frame.itemId}>
-                  <td>
-                    <button
-                      className={styles.cardEventTableSelect}
-                      type="button"
-                      onClick={() => onSelect(frame)}
-                    >
-                      Frame {index + 1}
-                    </button>
-                  </td>
-                  <td>{formatFrameTime(frame)}</td>
-                  <td>{formatIdentifier(frame.outcome.status)}</td>
-                  <td>{frame.outcome.candidates.length}</td>
-                  <td>
-                    {frame.outcome.frame_identity === null
-                      ? "Unavailable"
-                      : pipelineDerivedFramePath(
-                          recordingId,
-                          frame.outcome.frame_identity.requested_time_us,
-                        )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function toEditableFrame(item: PipelineReferenceItem): EditableFrame | null {
   const outcome = readOutcome(item.item);
   if (outcome === null || !isFrameReviewState(item.review_state)) return null;
@@ -1554,6 +1742,7 @@ function readFramesFromResult(
   result: PipelineVisibleCardResult,
   revisionId: string,
 ): EditableFrame[] {
+  if (!Array.isArray(result.revisions)) return [];
   const revision =
     result.revisions.find(
       (candidate) => candidate.manifest.revision_id === revisionId,
@@ -1876,6 +2065,7 @@ function updatePipelineUrl(values: {
     "",
     `${window.location.pathname}${query === "" ? "" : `?${query}`}`,
   );
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 function ReviewCount({
   label,
@@ -1894,5 +2084,13 @@ function ReviewCount({
         {suffix}
       </strong>
     </div>
+  );
+}
+
+function ReviewStateBadge({ value }: { value: string }) {
+  return (
+    <span className={styles.status} data-state={value}>
+      {formatIdentifier(value)}
+    </span>
   );
 }
