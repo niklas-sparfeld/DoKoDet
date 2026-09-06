@@ -223,6 +223,7 @@ class VisibleCardPipelineService:
         provider_name = _provider_text(provider, "name")
         provider_version = _provider_text(provider, "version")
         values = dict(raw)
+        values.pop("event_revision_id", None)
         values.setdefault("schema_version", "processor-run-request/v1")
         values.setdefault("run_id", payload.get("run_id"))
         if not values.get("run_id"):

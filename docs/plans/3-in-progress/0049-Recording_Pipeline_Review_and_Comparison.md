@@ -19,7 +19,7 @@
 - **M2:** Complete — switch event review to the maintained reference.
 - **M3:** Complete — switch visible-card review to the maintained reference.
 - **M4:** Complete — switch identity review to the maintained reference.
-- **M5:** Not started — add run controls for event, visible-card, and identity processors.
+- **M5:** Complete — add run controls for event, visible-card, and identity processors.
 - **M6:** Not started — add observation assembly and reconstruction controls.
 - **M7:** Not started — add deterministic event comparison.
 - **M8:** Not started — add deterministic visible-card and identity comparison.
@@ -512,6 +512,17 @@ Acceptance:
 - reload resumes active polling and stops after a terminal state;
 - retry retains the run ID and frozen inputs, while run-again creates a new run ID; and
 - missing video, incompatible input, partial result, and processor failure have different messages.
+
+### M5 notes — 2026-09-06
+
+Added `RunControls` to the recording workspace for event detection, visible-card detection, and
+visual identity classification. The form uses the selected generated or reviewed upstream revision,
+offers retained historical revisions in a secondary panel, and displays the exact input and frozen
+implementation, model, configuration, and policy values after a run starts. Active runs poll once per
+second and resume from the workspace after reload. Retry keeps the run ID and frozen request. Run
+again creates a new run ID. Terminal, partial, missing-video, and incompatible-input messages remain
+distinct. The visible-card adapter now accepts and removes its explicit event-revision selector
+before strict request validation.
 
 ### M6 — Observation assembly and reconstruction controls
 

@@ -267,7 +267,12 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
 
         visible_generated = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "visible-generated", "configuration": {"threshold": 0.5}},
+            json={
+                "run_id": "visible-generated",
+                "event_revision_id": generated_event_revision_id,
+                "input_revision_ids": [generated_event_revision_id],
+                "configuration": {"threshold": 0.5},
+            },
         )
         assert visible_generated.status_code == 202
         generated_status = _wait(client, "visible-generated")

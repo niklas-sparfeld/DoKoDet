@@ -19,6 +19,7 @@ import { PipelineCardEventEditor } from "../cardEvents/PipelineCardEventEditor";
 import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
 import { PipelineVisualIdentityEditor } from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
+import { RunControls } from "./RunControls";
 
 export type { PipelineStageKey } from "../api/client";
 
@@ -667,6 +668,14 @@ export function RecordingPipelineWorkspace({
           <summary>History and exact inputs</summary>
           <PipelineHistory stage={stage} />
         </details>
+        {!compare ? (
+          <RunControls
+            recordingId={recordingId}
+            stage={stage}
+            stages={workspace.stages}
+            onRefresh={() => loadWorkspace()}
+          />
+        ) : null}
         {stage.key === "events" && !compare ? (
           <PipelineCardEventEditor
             recordingId={recordingId}
@@ -980,9 +989,35 @@ function formatMicroseconds(value: number): string {
 }
 
 function describePipelineError(reason: unknown): string {
-  return reason instanceof ApiError
-    ? `The backend returned HTTP ${reason.status}.`
-    : "The backend could not be reached.";
+  if (!(reason instanceof ApiError)) {
+    return "The backend could not be reached.";
+  }
+  const body =
+    typeof reason.body === "object" && reason.body !== null
+      ? (reason.body as Record<string, unknown>)
+      : null;
+  const detail =
+    typeof body?.detail === "object" && body.detail !== null
+      ? (body.detail as Record<string, unknown>)
+      : null;
+  const message =
+    typeof detail?.message === "string"
+      ? detail.message
+      : typeof body?.message === "string"
+        ? body.message
+        : null;
+  if (
+    message?.toLowerCase().includes("video") ||
+    message?.toLowerCase().includes("recording")
+  ) {
+    return `The accepted recording video is unavailable: ${message}`;
+  }
+  if (reason.status === 422) {
+    return message === null
+      ? "The selected pipeline input is incompatible with this stage."
+      : `The selected pipeline input is incompatible with this stage: ${message}`;
+  }
+  return message ?? `The backend returned HTTP ${reason.status}.`;
 }
 
 function isPipelineWorkspace(value: unknown): value is PipelineWorkspace {
