@@ -1,5 +1,11 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 import {
   getPrimaryAction,
@@ -288,6 +294,92 @@ describe("recording pipeline workspace", () => {
     expect(
       within(inspector).getByText("Video Unavailable"),
     ).toBeInTheDocument();
+  });
+
+  it("routes shared rail item selection through the restorable URL state", async () => {
+    const generated = {
+      revision_id: "events-rail-revision",
+      content_type: "events",
+      origin: "processor",
+      completion_state: "complete",
+      coverage_state: "full-recording",
+      display_label: "Generated events",
+      content_sha256: "b".repeat(64),
+      input_revision_ids: [],
+      producer: {},
+      coverage: {},
+      created_at: "2026-09-06T00:00:00Z",
+    } as PipelineWorkspaceStage["input_options"][number];
+    const body = workspace({
+      state: "generated-only",
+      input_options: [generated],
+      selected_generated_revision_id: generated.revision_id,
+      can_run: false,
+      can_review: true,
+      runs: [
+        {
+          attempt: 1,
+          completed_at: null,
+          configuration: {},
+          created_at: "2026-09-06T00:00:00Z",
+          crop_policy: null,
+          extraction_policy: {},
+          failed_item_count: 0,
+          failure: null,
+          implementation: { name: "fixture", version: "1" },
+          input_revision_ids: [],
+          model: null,
+          output_revision_ids: [generated.revision_id],
+          progress: { completed: 1, total: 1 },
+          request: {},
+          run_id: "run-rail-1",
+          started_at: null,
+          state: {
+            items: [
+              {
+                item_id: "event-rail-1",
+                status: "succeeded",
+                result: {
+                  event_type: "card_played",
+                  start_us: 2_000_000,
+                  end_us: 3_000_000,
+                },
+                failure: null,
+              },
+            ],
+          },
+          status: "complete",
+          updated_at: "2026-09-06T00:00:00Z",
+        },
+      ],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="events"
+        compare={false}
+      />,
+    );
+
+    const item = await screen.findByRole("button", {
+      name: "card_played, 0:02–0:03, succeeded",
+    });
+    fireEvent.click(item);
+
+    expect(window.location.search).toContain("item=event-rail-1");
+    expect(window.location.search).toContain("t_us=2000000");
   });
 
   it("is composed by App for a recording-owned pipeline path", async () => {

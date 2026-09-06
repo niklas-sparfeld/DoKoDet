@@ -84,6 +84,8 @@ export type PipelineVisibleCardEditorProps = {
   recordingId: string;
   videoUrl?: string;
   durationUs: number;
+  selectionItemId?: string | null;
+  selectionTimeUs?: number | null;
   generatedRevisionId: string | null;
   displayedRevisionId?: string | null;
   generatedRunId: string | null;
@@ -94,6 +96,8 @@ export function PipelineVisibleCardEditor({
   recordingId,
   videoUrl = repositoryBundleVideoPath(recordingId),
   durationUs,
+  selectionItemId,
+  selectionTimeUs,
   generatedRevisionId,
   displayedRevisionId = generatedRevisionId,
   generatedRunId,
@@ -290,17 +294,29 @@ export function PipelineVisibleCardEditor({
   useEffect(() => {
     const candidates = view === "reviewed" ? frames : generatedFrames;
     const urlState = readPipelineEditorUrlState();
+    const requestedItemId =
+      selectionItemId === undefined ? urlState.item : selectionItemId;
     const selected =
-      (urlState.item === null
+      (requestedItemId === null
         ? undefined
-        : candidates.find((frame) => frame.itemId === urlState.item)) ??
+        : candidates.find((frame) => frame.itemId === requestedItemId)) ??
       candidates[0];
+    const requestedTimeUs =
+      selectionTimeUs === undefined ? urlState.tUs : selectionTimeUs;
     const timer = window.setTimeout(() => {
       if (selected !== undefined) selectFrame(selected, false);
-      if (urlState.tUs !== null) setCurrentTime(urlState.tUs, false);
+      if (requestedTimeUs !== null) setCurrentTime(requestedTimeUs, false);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [frames, generatedFrames, setCurrentTime, selectFrame, view]);
+  }, [
+    frames,
+    generatedFrames,
+    selectionItemId,
+    selectionTimeUs,
+    setCurrentTime,
+    selectFrame,
+    view,
+  ]);
 
   const nextCommandId = useCallback(() => {
     commandSequenceRef.current += 1;
@@ -966,6 +982,7 @@ export function PipelineVisibleCardEditor({
           <video
             ref={videoRef}
             className={styles.cardEventSourceVideo}
+            data-recording-source-video={recordingId}
             src={videoUrl}
             controls
             preload="metadata"

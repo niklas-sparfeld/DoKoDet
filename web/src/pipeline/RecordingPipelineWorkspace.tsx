@@ -25,6 +25,7 @@ import {
   SelectedAnalysisTimeline,
 } from "./ObservationAndAnalysisControls";
 import { RunControls } from "./RunControls";
+import { RecordingTimelineRail } from "./RecordingTimelineRail";
 import { ComparisonView } from "./ComparisonView";
 import {
   buildRecordingWorkspacePresentation,
@@ -365,6 +366,7 @@ export function RecordingPipelineWorkspace({
     presentation.inspector.primaryAction ?? primaryActionForStage(stage);
   const actionState = actionStateForStage(stage, urlState, action.kind);
   const displayedRevision = presentation.stage?.displayedRevisionId ?? null;
+  const rail = presentation.rail;
   const selectedEventRunId =
     stage.key === "events" && displayedRevision !== null
       ? (stage.runs.find((run) =>
@@ -383,6 +385,21 @@ export function RecordingPipelineWorkspace({
           run.output_revision_ids.includes(displayedRevision),
         )?.run_id ?? null)
       : null;
+
+  function handleRailTimeChange(timeUs: number): void {
+    replaceUrlState({ ...urlState, tUs: timeUs });
+  }
+
+  function handleRailItemSelect(
+    item: NonNullable<RecordingWorkspacePresentation["rail"]>["items"][number],
+  ): void {
+    replaceUrlState({
+      ...urlState,
+      item: item.selectionParam === "item" ? item.itemId : null,
+      analysis: item.selectionParam === "analysis" ? item.itemId : null,
+      tUs: item.timeRange?.startUs ?? urlState.tUs,
+    });
+  }
 
   return (
     <main
@@ -521,6 +538,10 @@ export function RecordingPipelineWorkspace({
               <PipelineCardEventEditor
                 recordingId={recordingId}
                 durationUs={workspace.video.duration_us}
+                selectionItemId={presentation.surface.selectedItemId}
+                selectionTimeUs={
+                  presentation.inspector.selection?.timeUs ?? null
+                }
                 generatedRevisionId={
                   stage.selected_generated_revision_id ?? null
                 }
@@ -532,6 +553,10 @@ export function RecordingPipelineWorkspace({
               <PipelineVisibleCardEditor
                 recordingId={recordingId}
                 durationUs={workspace.video.duration_us}
+                selectionItemId={presentation.surface.selectedItemId}
+                selectionTimeUs={
+                  presentation.inspector.selection?.timeUs ?? null
+                }
                 generatedRevisionId={
                   stage.selected_generated_revision_id ?? null
                 }
@@ -546,6 +571,10 @@ export function RecordingPipelineWorkspace({
               <PipelineVisualIdentityEditor
                 recordingId={recordingId}
                 durationUs={workspace.video.duration_us}
+                selectionItemId={presentation.surface.selectedItemId}
+                selectionTimeUs={
+                  presentation.inspector.selection?.timeUs ?? null
+                }
                 generatedRevisionId={
                   stage.selected_generated_revision_id ?? null
                 }
@@ -583,13 +612,21 @@ export function RecordingPipelineWorkspace({
         aria-label="Timeline Rail"
         data-slot="bottom"
       >
-        <div>
-          <span className={styles.statusLabel}>Timeline Rail</span>
-          <p>Shared temporal navigation slot</p>
-        </div>
-        <span className={styles.pipelineRailHint}>
-          The recording stays in view while the task surface changes.
-        </span>
+        {rail !== null ? (
+          <RecordingTimelineRail
+            key={`${stage.key}:${activeView}:${compare ? "compare" : "task"}`}
+            recordingId={recordingId}
+            durationUs={rail.durationUs}
+            currentTimeUs={rail.currentTimeUs}
+            selectedItemId={rail.selectedItemId}
+            lanes={rail.lanes}
+            items={rail.items}
+            onTimeChange={handleRailTimeChange}
+            onItemSelect={handleRailItemSelect}
+          />
+        ) : (
+          <p className={styles.pipelineRailHint}>Timeline unavailable.</p>
+        )}
       </section>
     </main>
   );

@@ -2442,12 +2442,10 @@ progress {
 }
 
 .pipelineRailSlot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  display: block;
   min-height: 6rem;
-  padding: 0.85rem 1rem;
+  padding: 0;
+  overflow: hidden;
   background: var(--surface-raised);
 }
 
@@ -2461,6 +2459,263 @@ progress {
 .pipelineRailHint {
   margin: 0;
   text-align: right;
+}
+
+.recordingTimelineRail {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.75rem 1rem 0.85rem;
+}
+
+.recordingTimelineRailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.recordingTimelineRailHeader h2 {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.recordingTimelineTransport {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.recordingTimelineTransport .secondaryButton,
+.recordingTimelineTransport .tertiaryButton {
+  min-height: 2rem;
+  padding: 0.25rem 0.55rem;
+}
+
+.tertiaryButton {
+  min-width: 1.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--muted-ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.tertiaryButton:hover:not(:disabled),
+.tertiaryButton:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+}
+
+.tertiaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.recordingTimelineTime {
+  min-width: 7rem;
+  color: var(--ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.recordingTimelineScrubber,
+.recordingTimelineLanes {
+  min-width: var(--timeline-track-width);
+}
+
+.recordingTimelineScrubberViewport,
+.recordingTimelineLanesViewport {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.recordingTimelineScrubber {
+  position: relative;
+  padding-top: 1.1rem;
+}
+
+.recordingTimelineTickLabels {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1rem;
+  color: var(--muted-ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.64rem;
+  pointer-events: none;
+}
+
+.recordingTimelineTickLabels span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.recordingTimelineTickLabels span:first-child {
+  transform: none;
+}
+
+.recordingTimelineTickLabels span:last-child {
+  transform: translateX(-100%);
+}
+
+.recordingTimelineRange {
+  display: block;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.recordingTimelineRail[data-dragging="true"] .recordingTimelineRange {
+  cursor: grabbing;
+}
+
+.recordingTimelinePreview {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2rem;
+  color: var(--muted-ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7rem;
+}
+
+.recordingTimelinePreview img {
+  width: 7rem;
+  height: 3.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  background: var(--surface);
+  object-fit: contain;
+}
+
+.recordingTimelineLanes {
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 0.15rem;
+}
+
+.recordingTimelineLane {
+  display: grid;
+  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.recordingTimelineLaneLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.45rem;
+  min-width: 0;
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.recordingTimelineLaneLabel span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recordingTimelineLaneLabel small {
+  color: var(--ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.recordingTimelineLaneTrack {
+  position: relative;
+  min-width: 0;
+  min-height: 1.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--surface) 80%, var(--panel));
+}
+
+.recordingTimelineLaneTrack::before {
+  position: absolute;
+  inset: 50% 0 auto;
+  height: 1px;
+  background: var(--line);
+  content: "";
+}
+
+.recordingTimelineLaneTrack::after {
+  position: absolute;
+  inset: 0 auto 0 var(--timeline-playhead-position);
+  width: 1px;
+  background: var(--accent-bright);
+  content: "";
+  pointer-events: none;
+  z-index: 2;
+}
+
+.recordingTimelineItem {
+  position: absolute;
+  top: 0.2rem;
+  bottom: 0.2rem;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.12rem 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.66rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.recordingTimelineItem:hover,
+.recordingTimelineItem:focus-visible,
+.recordingTimelineItem[data-selected="true"] {
+  border-color: var(--accent-bright);
+  background: color-mix(in srgb, var(--accent) 35%, var(--panel));
+  color: var(--ink);
+  outline: none;
+}
+
+.recordingTimelineItem[data-state="failed"],
+.recordingTimelineItem[data-state="rejected"],
+.recordingTimelineItem[data-state="affected"] {
+  border-color: color-mix(in srgb, var(--warning) 70%, var(--line));
+  background: color-mix(in srgb, var(--warning) 18%, var(--panel));
+}
+
+.recordingTimelineItem[data-no-time="true"] {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.recordingTimelineLaneEmpty {
+  position: absolute;
+  inset: 0.45rem;
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+}
+
+.recordingTimelineRail[data-reduced-motion="true"] .recordingTimelinePreview {
+  transition: none;
 }
 
 .pipelineDiagnostics {
@@ -4454,9 +4709,22 @@ progress {
     overflow: visible;
   }
 
-  .pipelineRailSlot {
+  .recordingTimelineRailHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .recordingTimelineTransport {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .recordingTimelineTime {
+    text-align: left;
+  }
+
+  .recordingTimelineLane {
+    grid-template-columns: minmax(6rem, 7rem) minmax(26rem, 1fr);
   }
 
   .pipelineRailHint {

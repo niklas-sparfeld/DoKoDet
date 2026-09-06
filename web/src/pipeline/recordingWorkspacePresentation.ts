@@ -134,6 +134,7 @@ export type RailTimeRange = {
 export type RecordingTimelineRailItem = {
   id: string;
   itemId: string;
+  selectionParam: "item" | "analysis";
   laneId: string;
   label: string;
   state: string;
@@ -530,6 +531,7 @@ function runRailItems(
       return {
         id: `${run.run_id}:${itemId}`,
         itemId,
+        selectionParam: "item",
         laneId: railLaneForStage(stage.key),
         label: railItemLabel(item, itemId),
         state: typeof item.status === "string" ? item.status : run.status,
@@ -547,6 +549,7 @@ function analysisRailItems(
   return stage.analyses.map((analysis) => ({
     id: `analysis:${analysis.analysis_id}`,
     itemId: analysis.analysis_id,
+    selectionParam: "analysis" as const,
     laneId: "analysis-evidence",
     label: analysis.round_id,
     state: analysis.state,

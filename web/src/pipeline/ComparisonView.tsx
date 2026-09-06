@@ -642,6 +642,7 @@ function ComparisonSourcePanel({
       <video
         ref={videoRef}
         className={styles.comparisonVideo}
+        data-recording-source-video={recordingId}
         src={repositoryBundleVideoPath(recordingId)}
         controls
         preload="metadata"

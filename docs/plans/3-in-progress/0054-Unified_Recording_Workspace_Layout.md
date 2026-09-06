@@ -25,7 +25,8 @@
   internal task and inspector scroll regions, and a Timeline Rail slot.
 - **M2:** Complete — add the persistent inspector with stable progress, action, state, selection,
   metadata, and lineage/history sections; move workspace controls, diagnostics, and history into it.
-- **M3:** Not started — build the shared Timeline Rail and connect video navigation.
+- **M3:** Complete — add the shared Timeline Rail with transport, scrubbing, item lanes,
+  synchronized URL/video selection, exact-frame previews, zoom, and accessible interaction states.
 - **M4:** Not started — migrate event generation and review to the shared workbench.
 - **M5:** Not started — migrate visible-card generation and review to the shared workbench.
 - **M6:** Not started — migrate visual identity generation and review to the shared workbench.
@@ -279,6 +280,8 @@ Acceptance:
 - no action is duplicated between the shell, stage body, and inspector.
 
 ### M3 — Shared Timeline Rail and video synchronization
+
+Status: Complete.
 
 - Add the rail, transport, playhead, time ticks, lanes, selection model, and zoom appropriate for
   short and long recordings.

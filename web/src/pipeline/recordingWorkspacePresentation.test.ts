@@ -201,6 +201,7 @@ describe("recording workspace presentation model", () => {
       {
         id: "run-events-1:event-1",
         itemId: "event-1",
+        selectionParam: "item",
         laneId: "events",
         label: "card_played",
         state: "succeeded",

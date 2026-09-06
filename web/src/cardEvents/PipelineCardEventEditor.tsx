@@ -60,6 +60,8 @@ export type PipelineCardEventEditorProps = {
   recordingId: string;
   videoUrl?: string;
   durationUs: number;
+  selectionItemId?: string | null;
+  selectionTimeUs?: number | null;
   generatedRevisionId: string | null;
   generatedRunId: string | null;
   view: "generated" | "reviewed";
@@ -69,6 +71,8 @@ export function PipelineCardEventEditor({
   recordingId,
   videoUrl = repositoryBundleVideoPath(recordingId),
   durationUs,
+  selectionItemId,
+  selectionTimeUs,
   generatedRevisionId,
   generatedRunId,
   view,
@@ -252,10 +256,15 @@ export function PipelineCardEventEditor({
   useEffect(() => {
     if (view !== "reviewed" || reference === null) return;
     const urlState = readPipelineEditorUrlState();
+    const requestedItemId =
+      selectionItemId === undefined ? urlState.item : selectionItemId;
     const selected =
-      (urlState.item === null
+      (requestedItemId === null
         ? undefined
-        : events.find((event) => event.itemId === urlState.item)) ?? events[0];
+        : events.find((event) => event.itemId === requestedItemId)) ??
+      events[0];
+    const requestedTimeUs =
+      selectionTimeUs === undefined ? urlState.tUs : selectionTimeUs;
     const timer = window.setTimeout(() => {
       if (
         selected !== undefined &&
@@ -263,10 +272,18 @@ export function PipelineCardEventEditor({
       ) {
         setSelected(selected.localId);
       }
-      if (urlState.tUs !== null) setCurrentTime(urlState.tUs, false);
+      if (requestedTimeUs !== null) setCurrentTime(requestedTimeUs, false);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [events, reference, setCurrentTime, setSelected, view]);
+  }, [
+    events,
+    reference,
+    selectionItemId,
+    selectionTimeUs,
+    setCurrentTime,
+    setSelected,
+    view,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -846,6 +863,7 @@ export function PipelineCardEventEditor({
           <video
             ref={videoRef}
             className={styles.cardEventSourceVideo}
+            data-recording-source-video={recordingId}
             src={videoUrl}
             controls
             preload="metadata"

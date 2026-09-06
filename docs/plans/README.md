@@ -53,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0054 — Unified recording workspace layout](3-in-progress/0054-Unified_Recording_Workspace_Layout.md) | 0048 and 0049 complete | M0–M2 complete: shared presentation model, compact viewport shell, top-bar navigation, persistent metadata inspector, and reusable desktop/mobile geometry checks. Continue with the shared Timeline Rail and stage migrations. |
+| [0054 — Unified recording workspace layout](3-in-progress/0054-Unified_Recording_Workspace_Layout.md) | 0048 and 0049 complete | M0–M3 complete: shared presentation model, compact viewport shell, persistent metadata inspector, and shared Timeline Rail with synchronized video/URL selection and exact-frame previews. Continue with the event workbench. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -116,9 +116,8 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0054 with M3 to make recording review usable in a normal laptop viewport.** Keep the
-   completed 0048 and 0049 contracts. Build the shared Timeline Rail, then migrate one stage per
-   milestone and remove its duplicate lists and tables.
+1. **Continue 0054 with M4 to make event review use the shared workbench.** Keep the completed 0048
+   and 0049 contracts. Migrate one stage per milestone and remove its duplicate lists and tables.
 2. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.
    Keep the scan broad and shallow. Create only evidence-based work-area epics. Use one Terra agent
    to specify each area and Luna-sized milestones for delivery. Do not add a third epic layer by

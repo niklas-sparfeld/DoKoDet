@@ -107,6 +107,8 @@ export type PipelineVisualIdentityEditorProps = {
   recordingId: string;
   videoUrl?: string;
   durationUs: number;
+  selectionItemId?: string | null;
+  selectionTimeUs?: number | null;
   generatedRevisionId: string | null;
   displayedRevisionId?: string | null;
   generatedRunId: string | null;
@@ -117,6 +119,8 @@ export function PipelineVisualIdentityEditor({
   recordingId,
   videoUrl = repositoryBundleVideoPath(recordingId),
   durationUs,
+  selectionItemId,
+  selectionTimeUs,
   generatedRevisionId,
   displayedRevisionId = generatedRevisionId,
   generatedRunId,
@@ -296,18 +300,32 @@ export function PipelineVisualIdentityEditor({
 
   useEffect(() => {
     const candidates = view === "reviewed" ? items : generatedItems;
-    const itemId = new URLSearchParams(window.location.search).get("item");
+    const urlState = new URLSearchParams(window.location.search);
+    const itemId =
+      selectionItemId === undefined ? urlState.get("item") : selectionItemId;
     const selected =
       candidates.find((item) => item.itemId === itemId) ?? candidates[0];
-    const rawTime = new URLSearchParams(window.location.search).get("t_us");
+    const rawTime = urlState.get("t_us");
+    const requestedTimeUs =
+      selectionTimeUs === undefined
+        ? rawTime !== null && /^\d+$/.test(rawTime)
+          ? Number(rawTime)
+          : null
+        : selectionTimeUs;
     const timer = window.setTimeout(() => {
       if (selected !== undefined) selectItem(selected, false);
-      if (rawTime !== null && /^\d+$/.test(rawTime)) {
-        setCurrentTime(Number(rawTime), false);
-      }
+      if (requestedTimeUs !== null) setCurrentTime(requestedTimeUs, false);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [generatedItems, items, selectItem, setCurrentTime, view]);
+  }, [
+    generatedItems,
+    items,
+    selectionItemId,
+    selectionTimeUs,
+    selectItem,
+    setCurrentTime,
+    view,
+  ]);
 
   const nextCommandId = useCallback(() => {
     commandSequenceRef.current += 1;
@@ -881,6 +899,7 @@ export function PipelineVisualIdentityEditor({
           <video
             ref={videoRef}
             className={styles.cardEventSourceVideo}
+            data-recording-source-video={recordingId}
             src={videoUrl}
             controls
             preload="metadata"
