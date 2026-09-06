@@ -47,7 +47,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0051 — Visible-region identity resilience baseline](2-ready/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | Start M0 now: inventory eligible recording groups, freeze the reusable measurement contract, and report the precise paired-review gap. Do not run validation classification until two source-lineage groups have paired completed maintained visible-card and identity references. |
 
 ### In Progress
 
@@ -59,7 +59,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0051 — Visible-region identity resilience baseline](4-blocked/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete, plus paired completed maintained visible-card and identity references from at least two source-lineage groups | The next epic after the coverage gate: preserve visible cards without usable identity, compare actual and corrupted visible regions, and decide whether simple visible-region exclusion is sufficient. M0–M4 not started. |
 | [0052 — Selected response to visible-region identity failures](4-blocked/0052-Selected_Visible_Region_Identity_Response.md) | 0051 selects one follow-up identity response | Implement and evaluate at most one response to the measured 0051 failure. Close as not required for any other 0051 conclusion. M0–M3 not started. |
 | [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, 0049, and 0051 complete; resolve 0052 if required; plus declared real reviewed coverage | Compare at most two DINOv3 candidates with the fixed resilient identity input contract; lock at most one without changing the backend default. M0–M3 not started. |
 | [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
@@ -116,25 +115,28 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Collect and review the 0051 entry coverage through the recording pipeline.** For at least two
+1. **Start 0051 M0.** Inventory eligible recording groups, freeze the measurement contract, and
+   produce a sample-linked coverage report. This is engineering work and does not need new human
+   input. It must name the paired reviews still needed for validation; legacy review-batch
+   artifacts do not count.
+2. **Collect and review the reported coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
-   references. Then confirm a disjoint development and validation partition; legacy review-batch
-   artifacts do not count. Keep sealed holdouts intact. Record gaps; do not lower review or
-   coverage requirements merely to unblock model work.
-2. **Start 0051 when its entry coverage exists.** Freeze actual and
+   references. Then confirm a disjoint development and validation partition. Keep sealed holdouts
+   intact. Do not lower review or coverage requirements merely to unblock model work.
+3. **Continue 0051 after its coverage gate is met.** Freeze actual and
    corrupted predicted-region conditions, preserve cards with unusable identity evidence, and
    measure the simple exclusion crop policies. Use its decision to specify one response in 0052 or
    close 0052 as not required.
-3. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+4. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-4. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+5. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-5. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+6. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-6. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
@@ -173,10 +175,10 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   0050 can measure a provider candidate only after the resilient downstream identifier is fixed.
 - Keep temporal association in 0050. It remains optional evidence and does not replace the stream of
   all currently visible cards.
-- 0049 now satisfies the recording-workspace dependency for 0051. The next action is data
-  collection and review, not 0051 implementation: the local operations store has no
-  `pipeline-references` artifacts, so it has no completed paired maintained references. Keep 0051
-  Blocked until the stated two-group gate is met.
+- 0049 now satisfies the recording-workspace dependency for 0051. Make 0051 Ready for M0 because
+  its coverage inventory and measurement-contract work can proceed without new review. The local
+  operations store has no `pipeline-references` artifacts, so M0 must report the paired-review gap
+  and stop before validation classification.
 
 ## Closed-epic policy
 

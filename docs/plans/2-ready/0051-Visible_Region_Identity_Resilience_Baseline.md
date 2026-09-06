@@ -5,13 +5,11 @@
 - **Summary:** Make visual identity processing safe under inaccurate predicted visible regions and
   measure whether visible-region exclusion can recover contaminated crops before any detector or
   identity-model change.
-- **Status:** Blocked
-- **Depends on:** 0048 and 0049 complete, plus paired reviewed visible-card and visual identity
-  coverage from at least two source-lineage groups
-- **Blocker:** The maintained-reference workflow is complete, but no completed maintained
-  visible-card and visual identity reference revisions exist yet. Create paired reviews through
-  that workflow for at least two source-lineage groups, then confirm disjoint development and
-  validation partitions. Legacy review-batch artifacts do not satisfy this gate.
+- **Status:** Ready
+- **Depends on:** 0048 and 0049 complete
+- **Readiness:** M0 can inventory coverage, freeze the reusable measurement contract, and report
+  the exact review gap. Completed paired maintained visible-card and visual identity references
+  from at least two source-lineage groups remain required before validation classification.
 - **Builds on:** 0038 crop-policy evidence and the 0048 visual identity outcome, derived-view, and
   observation-assembly contracts
 - **Outcome:** Publish a reproducible risk-versus-coverage baseline for the current identifier under
@@ -23,8 +21,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze the reviewed corpus, predicted regions, corruption conditions,
-  classifier, metrics, and decision gates.
+- **M0:** Not started — inventory eligible recording groups, freeze the measurement contract, and
+  report the exact paired-review coverage gap before validation classification.
 - **M1:** Not started — preserve every visible-card proposal across classified, unusable, and failed
   visual identity outcomes.
 - **M2:** Not started — add deterministic predicted-region and visible-region-exclusion crop
