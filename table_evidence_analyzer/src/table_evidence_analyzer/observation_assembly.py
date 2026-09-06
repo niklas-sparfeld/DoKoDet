@@ -105,31 +105,46 @@ def assemble_table_observations(
     for event_index, event in enumerate(events.events, start=1):
         visible_outcome = visible_by_event.get(event.event_id)
         if visible_outcome is None:
-            raise ObservationAssemblyError(
-                f"event has no visible-card outcome: {event.event_id}"
-            )
+            raise ObservationAssemblyError(f"event has no visible-card outcome: {event.event_id}")
         cards: list[ObservedCard] = []
         identity_statuses: dict[str, str] = {}
+        identity_details: dict[str, dict[str, str]] = {}
         for candidate in visible_outcome.candidates:
             identity = next(
-                (
-                    item
-                    for item in visual_identities.outcomes
-                    if item.card_id == candidate.card_id
-                ),
+                (item for item in visual_identities.outcomes if item.card_id == candidate.card_id),
                 None,
             )
             if identity is None:
-                identity_statuses[candidate.card_id] = "missing"
+                identity_status = "failed"
+                identity_statuses[candidate.card_id] = identity_status
+                identity_details[candidate.card_id] = {
+                    "status": identity_status,
+                    "reason": "missing visual identity outcome",
+                }
+                cards.append(
+                    ObservedCard(
+                        observed_card_id=candidate.card_id,
+                        identity_status=identity_status,
+                        identity_candidates=[],
+                    )
+                )
                 continue
-            identity_statuses[candidate.card_id] = identity.status
             converted = _identity_candidates(identity.candidates)
-            if identity.status != "classified" or not converted:
-                continue
+            identity_status = identity.status
+            if identity_status == "classified" and not converted:
+                identity_status = "unusable"
+            identity_statuses[candidate.card_id] = identity_status
+            detail = {"status": identity_status}
+            if identity.unusable_reason is not None:
+                detail["unusable_reason"] = identity.unusable_reason
+            if identity.error is not None:
+                detail["error"] = identity.error
+            identity_details[candidate.card_id] = detail
             cards.append(
                 ObservedCard(
                     observed_card_id=candidate.card_id,
-                    identity_candidates=converted,
+                    identity_status=identity_status,
+                    identity_candidates=converted if identity_status == "classified" else [],
                 )
             )
 
@@ -139,7 +154,7 @@ def assemble_table_observations(
         elif visible_outcome.status == "empty":
             status = "observed"
             cards = []
-        elif cards:
+        elif visible_outcome.status == "detected":
             status = "observed"
         else:
             status = "insufficient_evidence"
@@ -150,6 +165,11 @@ def assemble_table_observations(
                 "event_type": event.event_type,
                 "visible_card_status": visible_outcome.status,
                 "identity_statuses": identity_statuses,
+                "identity_details": identity_details,
+                "retained_card_count": len(cards),
+                "usable_identity_count": sum(
+                    card.identity_status == "classified" for card in cards
+                ),
             }
         }
         observations.append(

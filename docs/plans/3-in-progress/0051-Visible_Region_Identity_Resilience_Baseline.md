@@ -7,9 +7,9 @@
   identity-model change.
 - **Status:** In Progress
 - **Depends on:** 0048 and 0049 complete
-- **Readiness:** M0 can inventory coverage, freeze the reusable measurement contract, and report
-  the exact review gap. Completed paired maintained visible-card and visual identity references
-  from at least two source-lineage groups remain required before validation classification.
+- **Readiness:** M0 and M1 freeze the reusable measurement and outcome-preservation contracts.
+  Completed paired maintained visible-card and visual identity references from at least two
+  source-lineage groups remain required before validation classification.
 - **Builds on:** 0038 crop-policy evidence and the 0048 visual identity outcome, derived-view, and
   observation-assembly contracts
 - **Outcome:** Publish a reproducible risk-versus-coverage baseline for the current identifier under
@@ -24,8 +24,9 @@
 - **M0:** Complete — add the frozen resilience manifest and read-only coverage report. The current
   inventory has four accepted recording bundles across three session groups, but no completed
   paired maintained references and no validation classification is allowed.
-- **M1:** Not started — preserve every visible-card proposal across classified, unusable, and failed
-  visual identity outcomes.
+- **M1:** Complete — preserve every visible-card proposal across classified, unusable, and failed
+  visual identity outcomes. Empty successful classifier output is normalized to unusable, and
+  reconstruction treats empty identity evidence as neutral.
 - **M2:** Not started — add deterministic predicted-region and visible-region-exclusion crop
   conditions without changing stored geometry.
 - **M3:** Not started — run the paired resilience comparison with the current identifier.

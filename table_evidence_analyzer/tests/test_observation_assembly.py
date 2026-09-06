@@ -154,6 +154,78 @@ def test_assembler_preserves_order_lineage_and_detected_empty_evidence() -> None
     assert parsed == result
 
 
+def test_assembler_retains_classified_unusable_and_failed_proposals() -> None:
+    events, visible, identities = _inputs()
+    visible = VisibleCardData(
+        outcomes=(
+            replace(
+                visible.outcomes[0],
+                candidates=(
+                    visible.outcomes[0].candidates[0],
+                    VisibleCardCandidate(
+                        card_id="card-02",
+                        geometry=GEOMETRY,
+                        normalization={"width": 100, "height": 100, "policy_id": "fixture/v1"},
+                    ),
+                    VisibleCardCandidate(
+                        card_id="card-03",
+                        geometry=GEOMETRY,
+                        normalization={"width": 100, "height": 100, "policy_id": "fixture/v1"},
+                    ),
+                ),
+            ),
+            visible.outcomes[1],
+        )
+    )
+    identities = VisualIdentityData(
+        outcomes=(
+            identities.outcomes[0],
+            replace(
+                identities.outcomes[0],
+                card_id="card-02",
+                status="unusable",
+                candidates=(),
+                unusable_reason="UNKNOWN",
+                crop_identity=CROP,
+            ),
+            replace(
+                identities.outcomes[0],
+                card_id="card-03",
+                status="failed",
+                candidates=(),
+                crop_identity=None,
+                error="timeout",
+            ),
+        )
+    )
+
+    result = assemble_table_observations(
+        events,
+        visible,
+        identities,
+        recording_id="recording-01",
+        video_sha256=DIGEST,
+        assembly_run_id="assembly-mixed-01",
+        input_revision_ids=("events-01", "visible-01", "identity-01"),
+    )
+
+    cards = result.observations[0].cards
+    assert [card.observed_card_id for card in cards] == ["card-01", "card-02", "card-03"]
+    assert [card.identity_status for card in cards] == ["classified", "unusable", "failed"]
+    assert cards[1].identity_candidates == []
+    assert cards[2].identity_candidates == []
+    assert result.observations[0].status == "observed"
+    assert result.observations[0].diagnostics["assembly"]["retained_card_count"] == 3
+    assert result.observations[0].diagnostics["assembly"]["identity_details"]["card-02"] == {
+        "status": "unusable",
+        "unusable_reason": "UNKNOWN",
+    }
+    assert result.observations[0].diagnostics["assembly"]["identity_details"]["card-03"] == {
+        "status": "failed",
+        "error": "timeout",
+    }
+
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -167,53 +239,61 @@ def test_assembler_rejects_incompatible_lineage(change: str) -> None:
     events, visible, identities = _inputs()
     if change == "event":
         visible = VisibleCardData(
-            outcomes=(visible.outcomes[0].__class__(
-                event_id="event-missing",
-                frame_identity=FRAME,
-                status="detected",
-                candidates=visible.outcomes[0].candidates,
-            ),)
+            outcomes=(
+                visible.outcomes[0].__class__(
+                    event_id="event-missing",
+                    frame_identity=FRAME,
+                    status="detected",
+                    candidates=visible.outcomes[0].candidates,
+                ),
+            )
         )
     elif change == "frame":
         altered = replace(FRAME, frame_index=11)
         identities = VisualIdentityData(
-            outcomes=(identities.outcomes[0].__class__(
-                card_id="card-01",
-                frame_identity=altered,
-                geometry=GEOMETRY,
-                crop_identity=None,
-                classifier=CLASSIFIER,
-                status="failed",
-                candidates=(),
-                error="fixture",
-            ),)
+            outcomes=(
+                identities.outcomes[0].__class__(
+                    card_id="card-01",
+                    frame_identity=altered,
+                    geometry=GEOMETRY,
+                    crop_identity=None,
+                    classifier=CLASSIFIER,
+                    status="failed",
+                    candidates=(),
+                    error="fixture",
+                ),
+            )
         )
     elif change == "geometry":
         altered = DetectorBoxGeometry(200, 200, 900, 900)
         identities = VisualIdentityData(
-            outcomes=(identities.outcomes[0].__class__(
-                card_id="card-01",
-                frame_identity=FRAME,
-                geometry=altered,
-                crop_identity=None,
-                classifier=CLASSIFIER,
-                status="failed",
-                candidates=(),
-                error="fixture",
-            ),)
+            outcomes=(
+                identities.outcomes[0].__class__(
+                    card_id="card-01",
+                    frame_identity=FRAME,
+                    geometry=altered,
+                    crop_identity=None,
+                    classifier=CLASSIFIER,
+                    status="failed",
+                    candidates=(),
+                    error="fixture",
+                ),
+            )
         )
     else:
         identities = VisualIdentityData(
-            outcomes=(identities.outcomes[0].__class__(
-                card_id="unknown-card",
-                frame_identity=FRAME,
-                geometry=GEOMETRY,
-                crop_identity=None,
-                classifier=CLASSIFIER,
-                status="failed",
-                candidates=(),
-                error="fixture",
-            ),)
+            outcomes=(
+                identities.outcomes[0].__class__(
+                    card_id="unknown-card",
+                    frame_identity=FRAME,
+                    geometry=GEOMETRY,
+                    crop_identity=None,
+                    classifier=CLASSIFIER,
+                    status="failed",
+                    candidates=(),
+                    error="fixture",
+                ),
+            )
         )
 
     with pytest.raises(ObservationAssemblyError):

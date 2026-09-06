@@ -53,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0 complete: the frozen measurement contract and sample-linked coverage report are reproducible. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
+| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M1 complete: the frozen measurement and outcome-preservation contracts are reproducible. Visible-card proposals survive classified, unusable, and failed identity outcomes. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
 
@@ -124,9 +124,8 @@ The shared target architecture is
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts
    intact. Do not lower review or coverage requirements merely to unblock model work.
 3. **Continue 0051 after its coverage gate is met.** Freeze actual and
-   corrupted predicted-region conditions, preserve cards with unusable identity evidence, and
-   measure the simple exclusion crop policies. Use its decision to specify one response in 0052 or
-   close 0052 as not required.
+   corrupted predicted-region conditions, then measure the simple exclusion crop policies. Use its
+   decision to specify one response in 0052 or close 0052 as not required.
 4. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
 5. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
@@ -175,8 +174,9 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   0050 can measure a provider candidate only after the resilient downstream identifier is fixed.
 - Keep temporal association in 0050. It remains optional evidence and does not replace the stream of
   all currently visible cards.
-- 0049 satisfies the recording-workspace dependency for 0051. M0 is complete because its coverage
-  inventory and measurement contract proceed without new review. The local operations store has
+- 0049 satisfies the recording-workspace dependency for 0051. M0–M1 are complete because the
+  coverage contract and outcome-preservation boundary proceed without new review. The local
+  operations store has
   no `pipeline-references` artifacts, so the baseline reports the paired-review gap and stops
   before validation classification.
 - Add 0053 as an independent repository cleanup discovery pass. Optimize cleanup for lower agent

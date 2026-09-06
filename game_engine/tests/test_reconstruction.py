@@ -143,6 +143,33 @@ def test_missing_bound_keeps_incomplete_distinct_from_impossible() -> None:
     assert "fewer card proposals" in " ".join(result.diagnostics.rejected_branches)
 
 
+def test_unusable_identity_evidence_is_neutral_and_stays_in_proposal_count() -> None:
+    scenario = load_round_scenario(FIXTURE_ROOT / "rounds" / "unambiguous.json")
+    first = scenario.input.observations[0]
+    unusable_card = first.cards[0].model_copy(
+        update={"identity_status": "unusable", "identity_candidates": []}
+    )
+    input_value = scenario.input.model_copy(
+        update={
+            "observations": [
+                first.model_copy(update={"cards": [unusable_card]}),
+                *scenario.input.observations[1:],
+            ]
+        }
+    )
+
+    result = reconstruct_round(input_value, max_hypotheses=1)
+
+    assert result.status == "resolved"
+    assert result.diagnostics.card_proposals_seen == 40
+    assert all(
+        action.observed_card_id != unusable_card.observed_card_id
+        for hypothesis in result.hypotheses
+        for action in hypothesis.actions
+        if action.kind in {"selected", "ignored"}
+    )
+
+
 def test_presence_evidence_ranks_a_low_presence_false_proposal_below_the_source_round() -> None:
     synthetic_round = generate_round(0)
     observations = generate_observations(

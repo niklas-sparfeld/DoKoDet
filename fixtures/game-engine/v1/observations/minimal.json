@@ -16,6 +16,7 @@
   ],
   "cards": [
     {
+      "identity_status": "classified",
       "observed_card_id": "observation-001-card-01",
       "identity_candidates": [
         {

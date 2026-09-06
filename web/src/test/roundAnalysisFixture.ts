@@ -74,6 +74,7 @@ function observation(
     cards: [
       {
         observed_card_id: `${observationId}-card-01`,
+        identity_status: "classified" as const,
         identity_candidates: [
           { card, probability },
           ...(probability < 1

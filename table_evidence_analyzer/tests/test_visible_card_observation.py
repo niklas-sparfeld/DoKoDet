@@ -10,12 +10,14 @@ import pytest
 from PIL import Image
 
 from table_evidence_analyzer.analyzer import AnalyzerEvidence, AnalyzerFrame
+from table_evidence_analyzer.card_classification import CardClassificationResult
 from table_evidence_analyzer.cli import main
 from table_evidence_analyzer.export import BUNDLE_SCHEMA, CapabilityBundle
-from table_evidence_analyzer.table_observation import parse_observation_bytes
+from table_evidence_analyzer.table_observation import IdentityCandidate, parse_observation_bytes
 from table_evidence_analyzer.visible_card_observation import (
     ObservationAdapterError,
     VisibleCardTableAnalyzer,
+    adapt_visible_card_result,
     polygon_to_ppm,
     write_observation,
 )
@@ -163,7 +165,7 @@ def test_unavailable_provider_becomes_insufficient_evidence() -> None:
     assert observation.cards == []
 
 
-def test_provider_proposal_without_usable_crop_is_insufficient() -> None:
+def test_provider_proposal_without_usable_crop_is_retained_as_failed_identity() -> None:
     image = _jpeg()
     request = VisibleCardRequest(
         package_id=str(PACKAGE_ID),
@@ -179,9 +181,64 @@ def test_provider_proposal_without_usable_crop_is_insufficient() -> None:
     )
     observation = VisibleCardTableAnalyzer(provider, _bundle()).analyze(_evidence(image))
 
-    assert observation.status == "insufficient_evidence"
-    assert observation.cards == []
+    assert observation.status == "observed"
+    assert len(observation.cards) == 1
+    assert observation.cards[0].identity_status == "failed"
+    assert observation.cards[0].identity_candidates == []
     assert observation.diagnostics["dropped_proposal_count"] == 1
+
+
+def test_mixed_identity_outcomes_keep_every_visible_card_proposal() -> None:
+    image = _jpeg()
+    request = VisibleCardRequest(
+        package_id=str(PACKAGE_ID),
+        frame_part_name="frame_00",
+        target_offset_ms=0,
+        image_bytes=image,
+        width=20,
+        height=20,
+        provider="fake",
+    )
+
+    class MixedClassifier:
+        name = "mixed"
+        version = "mixed-v1"
+        calibration = "uncalibrated"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
+            del crop_bytes
+            self.calls += 1
+            if self.calls == 1:
+                return CardClassificationResult(
+                    status="ok",
+                    candidates=(IdentityCandidate(card="CLUBS_NINE", probability=1.0),),
+                )
+            if self.calls == 2:
+                return CardClassificationResult(status="ok", candidates=())
+            return CardClassificationResult(status="unavailable", error="fixture timeout")
+
+    proposals = [_proposal(), _proposal(100, 100, 900, 900), _proposal(200, 200, 800, 800)]
+    observation = adapt_visible_card_result(
+        request,
+        ProviderResult(
+            status="ok",
+            proposals=tuple(normalize_prediction({"cards": proposals}).cards),
+        ),
+        MixedClassifier(),
+        observed_at_ms=1,
+        session_id="session-mixed",
+        event_sequence=1,
+    )
+
+    assert [card.identity_status for card in observation.cards] == [
+        "classified",
+        "unusable",
+        "failed",
+    ]
+    assert len(observation.cards) == 3
 
 
 def test_observation_write_is_canonical_and_parseable(tmp_path: Path) -> None:

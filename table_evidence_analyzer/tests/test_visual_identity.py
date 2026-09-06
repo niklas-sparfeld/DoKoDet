@@ -112,9 +112,7 @@ def test_visual_identity_data_preserves_lineage_order_and_optional_scores() -> N
     "mutate",
     [
         lambda value: value["outcomes"][0].update(status="unusable"),
-        lambda value: value["outcomes"][0]["candidates"][0].update(
-            score=0.5, score_meaning=None
-        ),
+        lambda value: value["outcomes"][0]["candidates"][0].update(score=0.5, score_meaning=None),
         lambda value: value["outcomes"][0]["candidates"][0].update(identity="UNKNOWN"),
         lambda value: value["outcomes"][0].update(unexpected=True),
     ],
@@ -122,6 +120,14 @@ def test_visual_identity_data_preserves_lineage_order_and_optional_scores() -> N
 def test_visual_identity_data_rejects_invalid_outcomes(mutate) -> None:
     value = _content()
     mutate(value)
+
+    with pytest.raises(PipelineDataError):
+        VisualIdentityData.from_mapping(value)
+
+
+def test_visual_identity_data_rejects_classified_outcome_without_candidates() -> None:
+    value = _content()
+    value["outcomes"][0].update(candidates=[])
 
     with pytest.raises(PipelineDataError):
         VisualIdentityData.from_mapping(value)

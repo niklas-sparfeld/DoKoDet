@@ -474,6 +474,17 @@ class VisualIdentityPipelineService:
                 raise VisualIdentityPipelineError(
                     "The visual identity classifier returned no result."
                 )
+            if not result.candidates:
+                return VisualIdentityOutcome(
+                    card_id=card.card_id,
+                    frame_identity=frame_identity,
+                    geometry=geometry,
+                    crop_identity=crop_identity,
+                    classifier=classifier_identity,
+                    status="unusable",
+                    candidates=(),
+                    unusable_reason="The classifier returned no identity candidates.",
+                )
             candidates = tuple(
                 VisualIdentityCandidate(
                     identity=identity.card,

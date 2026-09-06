@@ -1178,6 +1178,12 @@ export interface components {
             card_tracklet_id?: string | null;
             /** Identity Candidates */
             identity_candidates: components["schemas"]["IdentityCandidate"][];
+            /**
+             * Identity Status
+             * @default classified
+             * @enum {string}
+             */
+            identity_status: "classified" | "unusable" | "failed";
             /** Newly Visible Score */
             newly_visible_score?: number | null;
             /** Observed Card Id */

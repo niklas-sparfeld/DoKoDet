@@ -264,6 +264,9 @@ def reconstruct_round(
         raise ValueError("forced player play indices must be within the manifest play count.")
 
     tokens, incomplete_observations = _flatten_observations(reconstruction_input.observations)
+    proposal_count = sum(
+        len(observation.cards) for observation in reconstruction_input.observations
+    )
     missing_budget = min(max_missing_plays, max(0, expected_plays - len(tokens)))
     players = tuple(reconstruction_input.active_players)
     selected_evidence_weights = evidence_weights or VisualEvidenceWeights()
@@ -439,8 +442,7 @@ def reconstruct_round(
                             candidate_probability=probability,
                             identity_log_score_contribution=math.log(probability),
                             visual_evidence_score=selected_card_evidence,
-                            score_contribution=math.log(probability)
-                            + selected_card_evidence.total,
+                            score_contribution=math.log(probability) + selected_card_evidence.total,
                         ),
                     ),
                     next_tracklet_ids,
@@ -577,7 +579,7 @@ def reconstruct_round(
             sorted({observation.calibration for observation in reconstruction_input.observations})
         ),
         observations_seen=len(reconstruction_input.observations),
-        card_proposals_seen=len(tokens),
+        card_proposals_seen=proposal_count,
         search_nodes=search_nodes,
         complete_branches=complete_branches,
         merged_branches=merged_branches,
@@ -790,6 +792,9 @@ def _flatten_observations(
         if not observation.cards:
             incomplete_observations.append(observation.observation_id)
         for card in observation.cards:
+            if not card.identity_candidates:
+                incomplete_observations.append(observation.observation_id)
+                continue
             tokens.append(
                 _ObservedCardToken(
                     observation_id=observation.observation_id,

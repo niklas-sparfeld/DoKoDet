@@ -697,13 +697,13 @@ class VisualIdentityOutcome:
         error = data["error"]
         if error is not None:
             error = _text(error, f"{context}.error")
-        if status == "classified" and (unusable_reason is not None or error is not None):
+        if status == "classified" and (
+            not candidates or unusable_reason is not None or error is not None
+        ):
             raise PipelineDataError(f"{context}.classified outcome has a failure reason")
         if status in {"classified", "unusable"} and crop is None:
             raise PipelineDataError(f"{context}.{status} outcome needs a crop identity")
-        if status == "unusable" and (
-            candidates or unusable_reason is None or error is not None
-        ):
+        if status == "unusable" and (candidates or unusable_reason is None or error is not None):
             raise PipelineDataError(f"{context}.unusable outcome is invalid")
         if status == "failed" and (candidates or error is None or unusable_reason is not None):
             raise PipelineDataError(f"{context}.failed outcome is invalid")
@@ -908,9 +908,12 @@ def parse_visible_card_data_bytes(raw: bytes) -> VisibleCardData:
     if not isinstance(raw, bytes):
         raise TypeError("visible-card data must be bytes")
     try:
-        value = json.loads(raw.decode("utf-8"), parse_constant=lambda value: (_ for _ in ()).throw(
-            PipelineDataError(f"visible-card data contains a non-finite JSON number: {value}")
-        ))
+        value = json.loads(
+            raw.decode("utf-8"),
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                PipelineDataError(f"visible-card data contains a non-finite JSON number: {value}")
+            ),
+        )
     except PipelineDataError:
         raise
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -923,9 +926,7 @@ def parse_visual_identity_data_bytes(raw: bytes) -> VisualIdentityData:
         raise TypeError("visual-identity data must be bytes")
 
     def reject_constant(value: str) -> None:
-        raise PipelineDataError(
-            f"visual-identity data contains a non-finite JSON number: {value}"
-        )
+        raise PipelineDataError(f"visual-identity data contains a non-finite JSON number: {value}")
 
     def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -961,9 +962,7 @@ def parse_table_observation_data_bytes(raw: bytes) -> TableObservationData:
         result: dict[str, Any] = {}
         for key, value in pairs:
             if key in result:
-                raise PipelineDataError(
-                    f"table-observation data contains a duplicate field: {key}"
-                )
+                raise PipelineDataError(f"table-observation data contains a duplicate field: {key}")
             result[key] = value
         return result
 

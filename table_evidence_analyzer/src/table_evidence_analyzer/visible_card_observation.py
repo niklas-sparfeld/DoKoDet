@@ -310,6 +310,13 @@ def adapt_visible_card_result(
 
     if result.status == "ok":
         for proposal_index, proposal in enumerate(result.proposals):
+            card_id = f"{observation_id}-card-{proposal_index + 1:02d}"
+            identity_status = "failed"
+            candidates = ()
+            reason: str | None = None
+            crop_bytes: bytes | None = None
+            bounds: PixelBounds | None = None
+            classification: CardClassificationResult | None = None
             try:
                 crop_bytes, bounds = polygon_to_ppm(
                     request.image_bytes,
@@ -320,29 +327,30 @@ def adapt_visible_card_result(
                 classification = identity_classifier.classify_ppm(crop_bytes)
                 identity_inference_latency_ms += classification.latency_ms
                 if classification.status == "unavailable":
-                    raise ObservationAdapterError(
-                        classification.error or "identity classifier was unavailable"
-                    )
-                candidates = classification.candidates
-                if not candidates:
-                    raise ObservationAdapterError("identity classifier could not identify the crop")
+                    reason = classification.error or "identity classifier was unavailable"
+                elif not classification.candidates:
+                    identity_status = "unusable"
+                    reason = "identity classifier could not identify the crop"
+                else:
+                    identity_status = "classified"
+                    candidates = classification.candidates
             except (ObservationAdapterError, ValueError) as error:
-                dropped.append({"proposal_index": proposal_index, "reason": str(error)})
-                continue
-            card_id = f"{observation_id}-card-{proposal_index + 1:02d}"
+                reason = str(error)
             cards.append(
                 ObservedCard(
                     observed_card_id=card_id,
-                    identity_candidates=candidates,
+                    identity_status=identity_status,
+                    identity_candidates=list(candidates),
                 )
             )
-            classified.append(
-                {
+            if crop_bytes is not None and bounds is not None and classification is not None:
+                detail = {
                     "proposal_index": proposal_index,
                     "observed_card_id": card_id,
                     "side": proposal.side,
                     "crop_bounds": bounds.to_mapping(),
                     "crop_sha256": _sha256(crop_bytes),
+                    "identity_status": identity_status,
                     "classifier": {
                         "status": classification.status,
                         "input_tokens": classification.usage.input_tokens,
@@ -354,14 +362,23 @@ def adapt_visible_card_result(
                         "cache_hit": classification.cache_hit,
                     },
                 }
-            )
+            else:
+                detail = {
+                    "proposal_index": proposal_index,
+                    "observed_card_id": card_id,
+                    "side": proposal.side,
+                    "identity_status": identity_status,
+                }
+            if reason is not None:
+                detail["reason"] = reason
+            if identity_status == "classified":
+                classified.append(detail)
+            else:
+                dropped.append(detail)
 
     if result.status == "unavailable":
         status = "insufficient_evidence"
         reason = "visible-card provider unavailable"
-    elif result.proposals and not cards:
-        status = "insufficient_evidence"
-        reason = "no detected proposal produced a usable identity crop"
     else:
         status = "observed"
         reason = None

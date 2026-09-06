@@ -41,6 +41,7 @@ Capability = Literal[
     "card_tracklets",
 ]
 CalibrationState = Literal["fixture", "uncalibrated", "calibrated"]
+IdentityStatus = Literal["classified", "unusable", "failed"]
 ObservationStatus = Literal["observed", "insufficient_evidence"]
 Identifier = Annotated[
     str,
@@ -153,7 +154,8 @@ class ObservedCard(ContractModel):
     """One anonymous visual card proposal inside one table observation."""
 
     observed_card_id: Identifier
-    identity_candidates: list[IdentityCandidate] = Field(min_length=1, max_length=24)
+    identity_status: IdentityStatus = "classified"
+    identity_candidates: list[IdentityCandidate] = Field(max_length=24)
     presence_score: BoundedScore | None = None
     newly_visible_score: BoundedScore | None = None
     active_area_score: BoundedScore | None = None
@@ -162,6 +164,14 @@ class ObservedCard(ContractModel):
 
     @model_validator(mode="after")
     def validate_candidates(self) -> ObservedCard:
+        if self.identity_status == "classified" and not self.identity_candidates:
+            raise ValueError("classified observed cards need identity candidates.")
+        if self.identity_status != "classified" and self.identity_candidates:
+            raise ValueError(
+                f"{self.identity_status} observed cards must not contain identity candidates."
+            )
+        if not self.identity_candidates:
+            return self
         cards = [candidate.card for candidate in self.identity_candidates]
         if len(cards) != len(set(cards)):
             raise ValueError("identity candidate cards must be unique.")

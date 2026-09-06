@@ -225,7 +225,7 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         outcomes = result["revisions"][0]["content"]["outcomes"]
         assert [outcome["status"] for outcome in outcomes] == [
             "classified",
-            "classified",
+            "unusable",
             "unusable",
             "failed",
         ]
@@ -253,7 +253,7 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert persisted.status_code == 200
         assert [
             outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
-        ] == ["classified", "classified", "unusable", "failed"]
+        ] == ["classified", "unusable", "unusable", "failed"]
 
 
 def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:
