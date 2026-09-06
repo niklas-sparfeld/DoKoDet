@@ -6,7 +6,7 @@
 }
 
 .analysisPage {
-  width: min(100%, 1440px);
+  width: min(100%, 200rem);
   margin: 0 auto;
 }
 
