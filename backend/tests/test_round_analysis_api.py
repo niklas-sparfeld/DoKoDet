@@ -184,29 +184,11 @@ def test_recording_detail_projects_source_video_and_workflow(
         "cardevent_event_detection",
         "table_evidence_analysis",
     }
-    assert body["card_event_review"] == {
-        "state": "not_started",
-        "event_count": 0,
-        "reviewed_at": None,
-    }
-    assert body["training_use"] == {
-        "card_event_task": next(
-            item for item in body["task_enrollments"] if item["task"] == "cardevent_event_detection"
-        ),
-        "eligibility": "review_required",
-        "development_partition": "unassigned",
-        "active_split_version_id": "cardevent-development-split-initial",
-        "active_split_digest": body["training_use"]["active_split_digest"],
-        "development_group_keys": [
-            ["game_id", "game-round-analysis"],
-            ["session_id", SESSION_ID],
-            ["source_lineage", "source-round-analysis"],
-            ["table_setup", "default-table"],
-        ],
-        "blocker": "Complete the full recording CardEvent review before training use.",
-    }
     assert body["analyses"] == []
-    assert body["next_action"] == "Review CardEvent events"
+    assert "card_event_review" not in body
+    assert "training_use" not in body
+    assert "identity_dataset" not in body
+    assert "next_action" not in body
 
 
 def test_recording_detail_returns_not_found_for_unknown_recording(

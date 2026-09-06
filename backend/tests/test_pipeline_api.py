@@ -213,9 +213,7 @@ def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
         assert created.status_code == 202
         _wait_for_status(client, "invalid-selection-run", "complete")
 
-        selection_path = app.state.pipeline_selection_store.selection_path(
-            RECORDING_ID, "events"
-        )
+        selection_path = app.state.pipeline_selection_store.selection_path(RECORDING_ID, "events")
         selection = json.loads(selection_path.read_text(encoding="utf-8"))
         selection["selected_generated_revision_id"] = "missing-revision"
         selection_path.write_text(
@@ -236,6 +234,34 @@ def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
             for diagnostic in response.json()["diagnostics"]
             if diagnostic["content_type"] == "events"
         } == {"invalid_selection"}
+
+
+def test_pipeline_workspace_does_not_read_evidence_package_media_or_manifests(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_recording(tmp_path)
+    evidence_package_root = tmp_path / "evidence-packages"
+    package_path = evidence_package_root / "package-fixture"
+    package_path.mkdir(parents=True)
+    (package_path / "manifest.json").write_text("{}", encoding="utf-8")
+    (package_path / "frames").mkdir()
+    (package_path / "frames" / "frame-0001.jpg").write_bytes(b"fixture")
+    app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    accesses: list[Path] = []
+    original_open = Path.open
+
+    def traced_open(path: Path, *args, **kwargs):
+        accesses.append(path)
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", traced_open)
+    with TestClient(app) as client:
+        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
+
+    assert response.status_code == 200, response.text
+    assert not any(
+        evidence_package_root == path or evidence_package_root in path.parents for path in accesses
+    )
 
 
 def test_import_validates_bundle_prediction_and_preserves_absent_model_fields(

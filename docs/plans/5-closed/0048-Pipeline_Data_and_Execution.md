@@ -13,7 +13,7 @@
 - **Closure note:** M0–M10 complete: recording-video pipeline execution, maintained reference lifecycle,
   coverage and downstream impact validation, immutable dataset consumer manifests, and the 0049
   cutover handoff are complete. Real-data quality measurement remains in 0043 and 0050.
-- **Next:** [0049 — Recording pipeline review and comparison](../2-ready/0049-Recording_Pipeline_Review_and_Comparison.md)
+- **Next:** [0049 — Recording pipeline review and comparison](0049-Recording_Pipeline_Review_and_Comparison.md)
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status

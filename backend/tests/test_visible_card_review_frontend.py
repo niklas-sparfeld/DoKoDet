@@ -6,7 +6,9 @@ from fastapi.testclient import TestClient
 from dokodetector_backend.config import Settings
 
 
-def test_packaged_frontend_serves_direct_visible_card_batch_route(tmp_path: Path) -> None:
+def test_packaged_frontend_does_not_serve_retired_visible_card_batch_route(
+    tmp_path: Path,
+) -> None:
     frontend_dist = tmp_path / "frontend-dist"
     (frontend_dist / "assets").mkdir(parents=True)
     (frontend_dist / "index.html").write_text(
@@ -26,6 +28,4 @@ def test_packaged_frontend_serves_direct_visible_card_batch_route(tmp_path: Path
         "/visible-card-reviews/visible-card-batch-0123456789abcdef01234567"
     )
 
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/html")
-    assert "review workspace" in response.text
+    assert response.status_code == 404

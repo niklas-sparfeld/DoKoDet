@@ -4,12 +4,13 @@
 
 - **Summary:** Make the recording workspace show selected generated results and one maintained
   reference per review stage, with simple run, review, and comparison controls.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0048 complete
 - **Builds on:** Completed 0039, 0040, 0042, and 0045 editors; 0033 analysis diagnostics
 - **Supersedes:** The recording UI direction of 0047
 - **Outcome:** An operator can run the pipeline on generated or reviewed inputs, maintain one
   reference, and compare retained results without managing review batches or evidence packages.
+- **Closure reason:** Complete
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status
@@ -24,7 +25,7 @@
 - **M7:** Complete — add deterministic event comparison.
 - **M8:** Complete — add deterministic visible-card and identity comparison.
 - **M9:** Complete — add the comparison workspace and source inspection.
-- **M10:** Not started — prove the local workflow and remove obsolete review routes.
+- **M10:** Complete — prove the local workflow and remove obsolete review routes.
 
 ### M0 notes — 2026-09-06
 
@@ -658,6 +659,31 @@ Acceptance:
   link checks pass through the project toolchain; and
 - one bounded real operator exercise is recorded when local recordings are available. Report data
   gaps without a quality claim. A missing real corpus does not keep fixture-proven work open.
+
+### M10 notes — 2026-09-06
+
+Completed the cutover proof and cleanup. The recording page now enters the recording-owned pipeline
+workspace. The app no longer registers the CardEvent, visible-card, visual-identity, or development
+split review-batch route modules. The old batch web pages, client methods, generated API paths, and
+duplicate recording detail projections are removed. The accepted-video repository bundle and
+evidence-package upload and inspection routes remain available as separate showcase and analysis
+surfaces.
+
+Added browser coverage for fresh video, generated suggestions, reruns, failed jobs, upstream draft
+impact, cold reloads, save conflicts, and retired-route handling. Added backend file-access tracing
+for the pipeline workspace. It proves that the workspace does not open evidence-package media or
+manifests. The generated OpenAPI document and client contain only the maintained pipeline routes.
+
+The project checks passed through the local toolchain: 248 backend tests, 43 web tests, three
+Playwright tests, web typecheck, lint, formatting, build, OpenAPI verification, backend Ruff, and
+backend formatting for changed files. The relevant operations contract and comparison tests, plus
+the analyzer, engine, and CardEventNet package suites, also pass. Two unrelated operations skill
+tests still require a missing `.codex/skills/model-improvement` fixture path in this worktree; no
+0049 code depends on that path.
+
+No checked-in real recording has all three maintained references and a frozen real pipeline dataset,
+so no real operator exercise was available. This is the data gap recorded by the 0048 handoff. It
+does not support a quality claim and does not keep this fixture-proven epic open.
 
 ## 6. Handoff
 

@@ -49,9 +49,18 @@ def test_packaged_frontend_serves_catalog_recording_route_and_hashed_assets(
     catalog = client.get("/")
     entry = client.get("/recordings/550e8400-e29b-41d4-a716-446655440033")
     refresh = client.get("/recordings/550e8400-e29b-41d4-a716-446655440033")
+    pipeline_refresh = client.get(
+        "/recordings/550e8400-e29b-41d4-a716-446655440033/pipeline/events/compare"
+    )
     review_entry = client.get(
         "/card-event-reviews/cardevent-review-00000000000000000000000000000000"
     )
+    retired_api_routes = [
+        "/v1/recordings/recording-1/card-event-review",
+        "/v1/recordings/recording-1/visible-card-review",
+        "/v1/recordings/recording-1/identity-review",
+        "/v1/data/cardevent-development-split/preview",
+    ]
     asset = client.get("/round-analyses/assets/index-test.js")
     root_asset = client.get("/assets/index-test.js")
 
@@ -61,8 +70,12 @@ def test_packaged_frontend_serves_catalog_recording_route_and_hashed_assets(
     assert entry.headers["content-type"].startswith("text/html")
     assert 'id="root"' in entry.text
     assert refresh.status_code == 200
-    assert review_entry.status_code == 200
-    assert review_entry.headers["content-type"].startswith("text/html")
+    assert pipeline_refresh.status_code == 200
+    assert pipeline_refresh.headers["content-type"].startswith("text/html")
+    assert review_entry.status_code == 404
+    assert [client.get(path).status_code for path in retired_api_routes] == [404] * len(
+        retired_api_routes
+    )
     assert asset.status_code == 200
     assert asset.text == "console.log('smoke');"
     assert root_asset.status_code == 200

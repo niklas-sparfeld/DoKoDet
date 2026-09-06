@@ -53,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0049 — Recording pipeline review and comparison](3-in-progress/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per stage, simple input selection, retained results, and comparison. M0–M9 complete; M10 not started. |
+| None | — | — |
 
 ### Blocked
 
@@ -70,6 +70,7 @@ The shared target architecture is
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
 | [0048 — Pipeline data and execution](5-closed/0048-Pipeline_Data_and_Execution.md) | Complete | M0–M10 complete: recording-video pipeline execution, maintained references with coverage and downstream impact validation, immutable dataset consumer manifests with explicit source/policy/lineage inputs, and the 0049 cutover handoff. Real-data quality measurement remains in 0043 and 0050. |
+| [0049 — Recording pipeline review and comparison](5-closed/0049-Recording_Pipeline_Review_and_Comparison.md) | Complete | M0–M10 complete: one recording-owned pipeline workspace for accepted video, generated and reviewed inputs, maintained references, reconstruction, comparison, analysis, and dataset readiness. Obsolete review-batch routes and duplicate recording state are removed. Real-data quality measurement remains outside this epic. |
 | [0047 — Current recording annotations and evidence](5-closed/0047-Current_Recording_Annotations_and_Evidence.md) | Superseded | Replaced before implementation by 0048 and 0049. Proposal loss and package management are not the target design. |
 | [0041 — Local visual card identity classifier PoC](5-closed/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | Complete | M0–M3 complete: local training, bundle, classifier runtime, and backend capability proved. Quality remains in 0043; new integration work belongs to 0048. |
 | [0039 — Web recording data workspace](5-closed/0039-Web_Recording_Data_Workspace.md) | Complete | M0–M4 complete: recording workspace, event review, completion, and development partitions. Further data and review work belongs to 0048/0049. |
@@ -115,25 +116,23 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0049.** Deliver M1–M10 to expose the retained data and maintained references through
-   the existing recording editors.
-2. **Collect and review real development coverage through that workflow.** Keep source groups and
-   sealed holdouts intact. Use the same maintained references to compare model runs. Record gaps;
-   do not lower review or coverage requirements merely to unblock model work.
-3. **Run 0051 before another identity or visible-region model experiment.** Freeze actual and
+1. **Collect and review real development coverage through the recording pipeline.** Keep source
+   groups and sealed holdouts intact. Use the same maintained references to compare model runs.
+   Record gaps; do not lower review or coverage requirements merely to unblock model work.
+2. **Run 0051 before another identity or visible-region model experiment.** Freeze actual and
    corrupted predicted-region conditions, preserve cards with unusable identity evidence, and
    measure the simple exclusion crop policies. Use its decision to specify one response in 0052 or
    close 0052 as not required.
-4. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+3. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-5. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+4. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-6. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+5. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+6. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 

@@ -11,19 +11,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator
 
-from doko_operations import CardEventDevelopmentSplitStore, CardEventReviewStore
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.staticfiles import StaticFiles
 
 from dokodetector_backend.api import router
-from dokodetector_backend.card_event_development_split_api import (
-    router as card_event_development_split_router,
-)
-from dokodetector_backend.card_event_review_api import (
-    CardEventReviewSourceContextCache,
-)
-from dokodetector_backend.card_event_review_api import router as card_event_review_router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
@@ -61,10 +53,6 @@ from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.table_observation_store import TableObservationStore
 from dokodetector_backend.visible_card_pipeline_service import VisibleCardPipelineService
-from dokodetector_backend.visible_card_review_api import router as visible_card_review_router
-from dokodetector_backend.visual_card_identity_review_api import (
-    router as visual_card_identity_review_router,
-)
 from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
 
 if TYPE_CHECKING:
@@ -80,8 +68,6 @@ def create_app(
     run_round_analysis_synchronously: bool = False,
     analyzer: TableEvidenceAnalyzer | None = None,
     visible_card_provider: Any | None = None,
-    visible_card_detector: Any | None = None,
-    visible_card_frame_extractor: Any | None = None,
     visible_card_frame_resolver: Any | None = None,
     visible_card_identity_classifier: Any | None = None,
     event_provider: EventProcessorProvider | None = None,
@@ -172,11 +158,6 @@ def create_app(
         "event_pipeline_recovery_checked",
         failed_count=recovered_event_count,
     )
-    app.state.card_event_review_store = CardEventReviewStore(app_settings.operations_root)
-    app.state.card_event_review_source_cache = CardEventReviewSourceContextCache()
-    app.state.card_event_development_split_store = CardEventDevelopmentSplitStore(
-        app_settings.operations_root
-    )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.readiness_state = "unknown"
     app.state.analyzer = analyzer or create_configured_analyzer(app_settings)
@@ -185,16 +166,11 @@ def create_app(
         if visible_card_provider is not None
         else getattr(app.state.analyzer, "provider", None)
     )
-    app.state.visible_card_detector = visible_card_detector
-    app.state.visible_card_frame_extractor = visible_card_frame_extractor
-    app.state.visible_card_frame_resolver = visible_card_frame_resolver
-    app.state.visible_card_batch_tasks = {}
     app.state.visible_card_identity_classifier = (
         visible_card_identity_classifier
         if visible_card_identity_classifier is not None
         else getattr(app.state.analyzer, "classifier", None)
     )
-    app.state.identity_review_batch_tasks = {}
     app.state.visible_card_pipeline_service = VisibleCardPipelineService(
         app_settings,
         app.state.recording_bundle_store,
@@ -262,10 +238,6 @@ def create_app(
     app.include_router(pending_video_router)
     app.include_router(round_analysis_router)
     app.include_router(recordings_router)
-    app.include_router(card_event_review_router)
-    app.include_router(card_event_development_split_router)
-    app.include_router(visible_card_review_router)
-    app.include_router(visual_card_identity_review_router)
     app.include_router(pipeline_router)
     _mount_frontend(app, app_settings.frontend_dist)
 
@@ -286,8 +258,6 @@ def create_app(
             _check_evidence_directory(app.state.evidence_package_storage.root)
             _check_evidence_directory(app.state.repository_bundle_storage.root)
             _check_evidence_directory(app.state.pending_video_storage.root)
-            _check_evidence_directory(app.state.card_event_review_store.workspace_root)
-            _check_evidence_directory(app.state.card_event_development_split_store.workspace_root)
             _check_evidence_directory(app.state.event_pipeline_service.storage.pipeline_root)
             _check_atomic_runtime_probe(app.state.storage.root)
         except OSError:
@@ -364,6 +334,28 @@ def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
             headers={"Cache-Control": "no-cache"},
         )
 
+    @app.get("/recordings/{recording_id}/pipeline", include_in_schema=False)
+    def frontend_recording_pipeline(recording_id: str) -> FileResponse:
+        """Return the SPA entry document for a direct pipeline load or refresh."""
+
+        del recording_id
+        return FileResponse(
+            entrypoint,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    @app.get("/recordings/{recording_id}/pipeline/{stage:path}", include_in_schema=False)
+    def frontend_recording_pipeline_stage(recording_id: str, stage: str) -> FileResponse:
+        """Return the SPA entry document for a pipeline stage or comparison refresh."""
+
+        del recording_id, stage
+        return FileResponse(
+            entrypoint,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
+
     @app.get("/round-analyses/", include_in_schema=False)
     def frontend_catalog() -> FileResponse:
         """Return the SPA entry document for the recording catalog."""
@@ -379,28 +371,6 @@ def _mount_frontend(app: FastAPI, frontend_dist: Path) -> None:
         """Return the SPA entry document for a direct analysis load or refresh."""
 
         del analysis_id
-        return FileResponse(
-            entrypoint,
-            media_type="text/html",
-            headers={"Cache-Control": "no-cache"},
-        )
-
-    @app.get("/visible-card-reviews/{batch_id}", include_in_schema=False)
-    def frontend_visible_card_review(batch_id: str) -> FileResponse:
-        """Return the SPA entry document for a direct visible-card batch load or refresh."""
-
-        del batch_id
-        return FileResponse(
-            entrypoint,
-            media_type="text/html",
-            headers={"Cache-Control": "no-cache"},
-        )
-
-    @app.get("/card-event-reviews/{review_id}", include_in_schema=False)
-    def frontend_card_event_review(review_id: str) -> FileResponse:
-        """Return the SPA entry document for a direct CardEvent review load or refresh."""
-
-        del review_id
         return FileResponse(
             entrypoint,
             media_type="text/html",

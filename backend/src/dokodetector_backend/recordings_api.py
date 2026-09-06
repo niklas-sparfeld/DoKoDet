@@ -8,22 +8,11 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
-from doko_operations import (
-    CardEventReviewError,
-    VisualCardIdentityBatchError,
-    VisualCardIdentityBatchStore,
-    load_visual_card_identity_review_batch,
-)
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict
 
-from dokodetector_backend.card_event_development_split_api import (
-    load_card_event_development_recordings,
-)
-from dokodetector_backend.card_event_review_api import _load_source
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.intake_contract import (
-    TASK_CARD_EVENT,
     DataTask,
     Disposition,
     LifecycleState,
@@ -87,9 +76,6 @@ class RecordingSummary(BaseModel):
     source_sha256: str
     received_at: datetime
     round_id: str
-    card_event_review_state: str
-    card_event_event_count: int
-    development_partition: str | None
     evidence_package_ids: list[UUID]
     analyses: list[RecordingAnalysisSummary]
     can_start_analysis: bool
@@ -162,46 +148,6 @@ class RecordingTaskEnrollmentResponse(BaseModel):
     reason: str | None
 
 
-class RecordingCardEventReviewSummary(BaseModel):
-    """Current CardEvent review placeholder until the review workspace exists."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    state: str
-    event_count: int
-    reviewed_at: str | None
-
-
-class RecordingTrainingUseSummary(BaseModel):
-    """Current task-enrollment and development-use projection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    card_event_task: RecordingTaskEnrollmentResponse | None
-    eligibility: str
-    development_partition: str | None
-    active_split_version_id: str | None
-    active_split_digest: str | None
-    development_group_keys: list[list[str]]
-    blocker: str | None
-
-
-class RecordingIdentityDatasetSummary(BaseModel):
-    """Identity classifier dataset eligibility shown on the recording page."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    state: str
-    dataset_version_id: str | None
-    dataset_version_digest: str | None
-    split_version_id: str | None
-    split_version_digest: str | None
-    sample_count: int
-    excluded_count: int
-    development_partition: str | None
-    blocker: str | None
-
-
 class RecordingDetailResponse(BaseModel):
     """Strict recording resource projection for the web workspace."""
 
@@ -219,13 +165,9 @@ class RecordingDetailResponse(BaseModel):
     video: RecordingVideoResponse
     evidence_package_ids: list[UUID]
     task_enrollments: list[RecordingTaskEnrollmentResponse]
-    card_event_review: RecordingCardEventReviewSummary
-    training_use: RecordingTrainingUseSummary
-    identity_dataset: RecordingIdentityDatasetSummary
     analyses: list[RecordingAnalysisSummary]
     can_start_analysis: bool
     analysis_blocker: str | None
-    next_action: str
 
 
 @router.get("/v1/recordings", response_model=RecordingListResponse)
@@ -233,7 +175,6 @@ def list_recordings(request: Request) -> RecordingListResponse:
     """List accepted recordings with linked packages and analyses."""
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
-    training_projection = _catalog_training_projection(request)
     return RecordingListResponse(
         recordings=[
             RecordingSummary(
@@ -245,15 +186,6 @@ def list_recordings(request: Request) -> RecordingListResponse:
                 source_sha256=entry.recording.source_sha256,
                 received_at=entry.recording.received_at,
                 round_id=entry.round_id,
-                card_event_review_state=training_projection.get(
-                    entry.recording.recording_id, ("not_started", 0, None)
-                )[0],
-                card_event_event_count=training_projection.get(
-                    entry.recording.recording_id, ("not_started", 0, None)
-                )[1],
-                development_partition=training_projection.get(
-                    entry.recording.recording_id, ("not_started", 0, None)
-                )[2],
                 evidence_package_ids=list(entry.evidence_package_ids),
                 analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
                 can_start_analysis=entry.can_start_analysis,
@@ -264,97 +196,12 @@ def list_recordings(request: Request) -> RecordingListResponse:
     )
 
 
-def _catalog_training_projection(
-    request: Request,
-) -> dict[str, tuple[str, int, str | None]]:
-    """Return review and partition facts for the recording catalog."""
-
-    try:
-        facts = load_card_event_development_recordings(request)
-        split = request.app.state.card_event_development_split_store.read(facts)
-    except (CardEventReviewError, ContractError, RuntimeError, ValueError):
-        return {}
-    partitions = {
-        recording_id: partition
-        for partition in ("train", "validation", "unassigned", "test")
-        for recording_id in split[partition]
-    }
-    return {
-        item.recording_id: (
-            item.review_state,
-            item.review_event_count,
-            partitions.get(item.recording_id),
-        )
-        for item in facts
-    }
-
-
-def _identity_dataset_projection(
-    request: Request, recording_id: str
-) -> RecordingIdentityDatasetSummary:
-    """Project the latest identity review dataset status for a recording."""
-
-    root = (
-        VisualCardIdentityBatchStore(request.app.state.settings.operations_root).workspace_root
-        / "visual-card-identity-review-batches"
-    )
-    states: list[dict[str, object]] = []
-    if root.is_dir():
-        for path in root.glob("visual-card-identity-batch-*/batch.json"):
-            try:
-                state = load_visual_card_identity_review_batch(path)
-            except (VisualCardIdentityBatchError, OSError, ValueError):
-                continue
-            if state["recording_id"] == recording_id:
-                states.append(state)
-    current = max(states, key=lambda value: str(value["updated_at_utc"]), default=None)
-    if current is None:
-        return RecordingIdentityDatasetSummary(
-            state="not_ready",
-            dataset_version_id=None,
-            dataset_version_digest=None,
-            split_version_id=None,
-            split_version_digest=None,
-            sample_count=0,
-            excluded_count=0,
-            development_partition=None,
-            blocker="Complete the visual card identity review before dataset use.",
-        )
-    dataset = current.get("dataset")
-    if not isinstance(dataset, dict):
-        identity_state = (
-            "review_required" if current["review_state"] == "draft" else "publication_required"
-        )
-        return RecordingIdentityDatasetSummary(
-            state=identity_state,
-            dataset_version_id=None,
-            dataset_version_digest=None,
-            split_version_id=None,
-            split_version_digest=None,
-            sample_count=0,
-            excluded_count=0,
-            development_partition=None,
-            blocker="Complete and publish the visual card identity review.",
-        )
-    return RecordingIdentityDatasetSummary(
-        state="eligible" if dataset["status"] == "eligible" else "blocked",
-        dataset_version_id=dataset["dataset_version_id"],
-        dataset_version_digest=dataset["dataset_version_digest"],
-        split_version_id=dataset["split_version_id"],
-        split_version_digest=dataset["split_version_digest"],
-        sample_count=dataset["sample_count"],
-        excluded_count=dataset["excluded_count"],
-        development_partition=dataset["development_partition"],
-        blocker=dataset["blocker"],
-    )
-
-
 @router.get(
     "/v1/recordings/{recording_id}",
     response_model=RecordingDetailResponse,
 )
 def get_recording(recording_id: str, request: Request) -> RecordingDetailResponse:
-    """Return one strict recording projection for the web workspace."""
+    """Return accepted recording metadata for the recording workspace."""
 
     if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
         raise ContractError("invalid_recording_id", "The recording ID is invalid.")
@@ -403,64 +250,6 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
             status_code=500,
         )
 
-    task_enrollments = [_task_enrollment_response(item) for item in enrollments.enrollments]
-    card_event_task = next(
-        (item for item in task_enrollments if item.task == TASK_CARD_EVENT),
-        None,
-    )
-    review_state = "not_started"
-    review_event_count = 0
-    reviewed_at: str | None = None
-    try:
-        review_source = _load_source(request, recording_id, require_selected=False)
-        review = request.app.state.card_event_review_store.read(review_source)
-        review_state = review["review_state"]
-        review_event_count = len(review["annotation"]["events"])
-        reviewed_at = review.get("completed_at")
-    except (CardEventReviewError, ContractError):
-        # The recording projection remains readable if an operations workspace is unavailable.
-        pass
-
-    development_partition: str | None = None
-    active_split_version_id: str | None = None
-    active_split_digest: str | None = None
-    development_group_keys: list[list[str]] = []
-    try:
-        development_recordings = load_card_event_development_recordings(request)
-        development_split = request.app.state.card_event_development_split_store.read(
-            development_recordings
-        )
-        development_by_id = {
-            item["recording_id"]: item for item in development_split["recordings"]
-        }
-        development_entry = development_by_id.get(recording_id)
-        if development_entry is not None:
-            development_group_keys = list(development_entry["group_keys"])
-        for partition in ("train", "validation", "test", "unassigned"):
-            if recording_id in development_split[partition]:
-                development_partition = partition
-                break
-        active_split_version_id = development_split["split_version_id"]
-        active_split_digest = development_split["split_version_digest"]
-        if development_partition in {"train", "validation", "test"}:
-            next_action = f"Assigned to {development_partition}"
-    except (CardEventReviewError, ContractError, RuntimeError, ValueError):
-        # The recording projection remains readable if split artifacts are unavailable.
-        pass
-
-    if card_event_task is None or card_event_task.disposition != "selected":
-        eligibility = "not_enrolled"
-        blocker = "Select the CardEvent task before reviewing this recording."
-        next_action = "Resolve CardEvent task enrollment"
-    elif review_state == "completed":
-        eligibility = "eligible"
-        blocker = None
-        next_action = "Assign a development partition"
-    else:
-        eligibility = "review_required"
-        blocker = "Complete the full recording CardEvent review before training use."
-        next_action = "Review CardEvent events"
-
     return RecordingDetailResponse(
         recording_id=recording.recording_id,
         source_asset_id=recording.source_asset_id,
@@ -491,26 +280,10 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
             media_facts=_probe_recording_video(bundle_path),
         ),
         evidence_package_ids=list(entry.evidence_package_ids),
-        task_enrollments=task_enrollments,
-        card_event_review=RecordingCardEventReviewSummary(
-            state=review_state,
-            event_count=review_event_count,
-            reviewed_at=reviewed_at,
-        ),
-        training_use=RecordingTrainingUseSummary(
-            card_event_task=card_event_task,
-            eligibility=eligibility,
-            development_partition=development_partition,
-            active_split_version_id=active_split_version_id,
-            active_split_digest=active_split_digest,
-            development_group_keys=development_group_keys,
-            blocker=blocker,
-        ),
-        identity_dataset=_identity_dataset_projection(request, recording_id),
+        task_enrollments=[_task_enrollment_response(item) for item in enrollments.enrollments],
         analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
         can_start_analysis=entry.can_start_analysis,
         analysis_blocker=entry.analysis_blocker,
-        next_action=next_action,
     )
 
 
@@ -520,7 +293,7 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
     status_code=202,
 )
 async def start_recording_analysis(recording_id: str, request: Request) -> RoundAnalysisStatus:
-    """Start a new analysis using all valid evidence linked to one recording."""
+    """Start a new analysis using the recording pipeline selection when available."""
 
     if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
         raise ContractError("invalid_recording_id", "The recording ID is invalid.")

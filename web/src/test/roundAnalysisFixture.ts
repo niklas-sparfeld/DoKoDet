@@ -49,40 +49,9 @@ export const emptyRecordingDetail = {
   },
   evidence_package_ids: [],
   task_enrollments: [],
-  card_event_review: {
-    state: "not_started",
-    event_count: 0,
-    reviewed_at: null,
-  },
-  training_use: {
-    card_event_task: null,
-    eligibility: "not_enrolled",
-    development_partition: null,
-    active_split_version_id: "cardevent-development-split-initial",
-    active_split_digest: "b".repeat(64),
-    development_group_keys: [
-      ["game_id", "game-detail-1"],
-      ["session_id", "550e8400-e29b-41d4-a716-446655440034"],
-      ["source_lineage", "source-detail-1"],
-      ["table_setup", "four_players"],
-    ],
-    blocker: "Select the CardEvent task before reviewing this recording.",
-  },
-  identity_dataset: {
-    state: "not_ready",
-    dataset_version_id: null,
-    dataset_version_digest: null,
-    split_version_id: null,
-    split_version_digest: null,
-    sample_count: 0,
-    excluded_count: 0,
-    development_partition: null,
-    blocker: "Complete the visual card identity review before dataset use.",
-  },
   analyses: [],
   can_start_analysis: true,
   analysis_blocker: null,
-  next_action: "Resolve CardEvent task enrollment",
 } satisfies RecordingDetail;
 
 function observation(
