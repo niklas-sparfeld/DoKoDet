@@ -561,16 +561,27 @@ function analysisRailItems(
   stage: PipelineWorkspaceStage,
   durationUs: number,
 ): RecordingTimelineRailItem[] {
-  return stage.analyses.map((analysis) => ({
-    id: `analysis:${analysis.analysis_id}`,
-    itemId: analysis.analysis_id,
-    selectionParam: "analysis" as const,
-    laneId: "analysis-evidence",
-    label: analysis.round_id,
-    state: analysis.state,
-    timeRange: readTimeRange(analysis.request, durationUs),
-    runId: null,
-  }));
+  return stage.analyses.flatMap((analysis) => {
+    const item = {
+      id: `analysis:${analysis.analysis_id}`,
+      itemId: analysis.analysis_id,
+      selectionParam: "analysis" as const,
+      laneId: "analysis-evidence",
+      label: analysis.round_id,
+      state: analysis.state,
+      timeRange: readTimeRange(analysis.request, durationUs),
+      runId: null,
+    };
+    return [
+      item,
+      {
+        ...item,
+        id: `${item.id}:reconstruction`,
+        laneId: "reconstruction",
+        label: `${item.label} · ${item.state}`,
+      },
+    ];
+  });
 }
 
 function railLaneForStage(stage: PipelineStageKey): string {

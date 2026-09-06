@@ -865,6 +865,86 @@ describe("recording pipeline workspace", () => {
     expect(screen.getByText("1 visible card")).toBeInTheDocument();
   });
 
+  it("uses the shared source surface and rail for round analyses", async () => {
+    const analysisId = "analysis-rail-1";
+    const body = workspace();
+    body.stages[4] = stage("round_analyses", {
+      state: "complete",
+      can_run: true,
+      analyses: [
+        {
+          analysis_id: analysisId,
+          recording_id: RECORDING_ID,
+          round_id: "round-rail-1",
+          session_id: "session-rail-1",
+          state: "complete",
+          progress: { completed: 2, total: 2 },
+          input_revision_ids: ["observations-rail-1"],
+          request: {
+            rules_version: "v1",
+            requested_time_us: 18_000_000,
+          },
+          created_at: "2026-09-06T00:00:00Z",
+          started_at: null,
+          completed_at: "2026-09-06T00:00:01Z",
+          failure: null,
+        },
+      ],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify(
+              String(input).endsWith(`/recordings/${RECORDING_ID}`)
+                ? {
+                    recording_id: RECORDING_ID,
+                    session_id: "session-rail-1",
+                    round_id: "round-rail-1",
+                    source: {
+                      game_id: "game-rail-1",
+                      round_id: "round-rail-1",
+                    },
+                  }
+                : body,
+            ),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="round_analyses"
+        compare={false}
+      />,
+    );
+
+    expect(
+      await screen.findByLabelText(
+        `Round-analysis source video ${RECORDING_ID}`,
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: /round-rail-1, 0:18.*complete/i }),
+    );
+    expect(window.location.search).toContain(`analysis=${analysisId}`);
+    expect(window.location.search).toContain("t_us=18000000");
+    expect(screen.getByText("Selected round analysis")).toBeInTheDocument();
+    expect(screen.getByText("observations-rail-1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Open evidence and counterfactual workbench",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("reloads the winning selection after an optimistic conflict", async () => {
     const first = workspace({
       state: "generated-only",

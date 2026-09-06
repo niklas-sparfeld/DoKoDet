@@ -30,12 +30,12 @@ import styles from "../App.module.css";
 import {
   ObservationRunControls,
   RoundAnalysisControls,
-  SelectedAnalysisTimeline,
 } from "./ObservationAndAnalysisControls";
 import { RunControls } from "./RunControls";
 import { RecordingTimelineRail } from "./RecordingTimelineRail";
 import { ComparisonView } from "./ComparisonView";
 import { PipelineObservationWorkbench } from "./PipelineObservationWorkbench";
+import { PipelineRoundAnalysisWorkbench } from "./PipelineRoundAnalysisWorkbench";
 import {
   buildRecordingWorkspacePresentation,
   PIPELINE_STAGE_KEYS,
@@ -778,9 +778,16 @@ export function RecordingPipelineWorkspace({
               />
             ) : null}
             {stage.key === "round_analyses" && !compare ? (
-              <SelectedAnalysisTimeline
-                analysisId={urlState.analysis}
+              <PipelineRoundAnalysisWorkbench
                 recordingId={recordingId}
+                stage={stage}
+                selectedAnalysisId={
+                  presentation.inspector.selection?.analysisId ?? null
+                }
+                selectedTimeUs={
+                  presentation.inspector.selection?.timeUs ?? null
+                }
+                onTimeChange={handleRailTimeChange}
               />
             ) : null}
             {stage.key === "events" && !compare ? (

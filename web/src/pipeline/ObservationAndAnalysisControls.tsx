@@ -624,7 +624,7 @@ export function RoundAnalysisControls({
           ) : null}
         </div>
       ) : null}
-      {stage.analyses.length > 0 ? (
+      {stage.analyses.length > 0 && !compact ? (
         <details
           className={styles.pipelineRunHistory}
           open={completedAnalysis !== undefined}

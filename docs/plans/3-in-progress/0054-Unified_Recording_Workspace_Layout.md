@@ -32,7 +32,7 @@
 - **M5:** Complete — migrate visible-card generation and review to the shared workbench.
 - **M6:** Complete — migrate visual identity generation and review to the shared workbench.
 - **M7:** Complete — migrate table-observation work to the shared workbench.
-- **M8:** Not started — migrate round-analysis work to the shared workbench.
+- **M8:** Complete — migrate round-analysis work to the shared workbench.
 - **M9:** Not started — migrate comparison work to the shared workbench.
 - **M10:** Not started — finish responsive, accessibility, visual, and obsolete-UI cleanup.
 
@@ -403,6 +403,18 @@ Acceptance:
 - observation controls and pipeline component tests pass.
 
 ### M8 — Round-analysis workbench
+
+Status: Complete (2026-09-06).
+
+- The round-analysis stage now keeps the accepted source video in the central task surface.
+  Analysis and reconstruction selection use two shared Timeline Rail lanes and restore the selected
+  analysis and source time through `analysis` and `t_us` URL state.
+- Exact observation input, rules version, execution state, retained history, and failures stay in
+  the inspector. The compact inspector no longer contains a second selectable analysis list.
+- A completed analysis opens its existing evidence and counterfactual workbench as a task-surface
+  mode inside the shared shell.
+
+Verification: `mise exec -- npm run check` and `mise exec -- npm run build` in `web` passed.
 
 - Compose the existing round-analysis evidence and reconstruction state into the shared source
   surface, rail, and inspector.
