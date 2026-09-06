@@ -2996,25 +2996,55 @@ export interface components {
             delta_us: number | null;
             /** Event Type */
             event_type: string;
+            /** Frame Identity */
+            frame_identity: {
+                [key: string]: unknown;
+            } | null;
+            /** Iou */
+            iou: number | null;
             /** Item Id */
             item_id: string;
             /**
              * Outcome
              * @enum {string}
              */
-            outcome: "match" | "miss" | "extra" | "disagreement" | "failure" | "not_reviewed" | "unpaired_input";
+            outcome: "match" | "miss" | "extra" | "disagreement" | "failure" | "empty" | "not_reviewed" | "unpaired_input";
+            /** Reference Candidates */
+            reference_candidates: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Reference Card */
+            reference_card: {
+                [key: string]: unknown;
+            } | null;
+            /** Reference Card Id */
+            reference_card_id: string | null;
             /** Reference Event */
             reference_event: {
                 [key: string]: unknown;
             } | null;
             /** Reference Event Id */
             reference_event_id: string | null;
+            /** Reference Identity */
+            reference_identity: string | null;
+            /** Run Candidates */
+            run_candidates: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Run Card */
+            run_card: {
+                [key: string]: unknown;
+            } | null;
+            /** Run Card Id */
+            run_card_id: string | null;
             /** Run Event */
             run_event: {
                 [key: string]: unknown;
             } | null;
             /** Run Event Id */
             run_event_id: string | null;
+            /** Run Identity */
+            run_identity: string | null;
             /**
              * Side
              * @enum {string}
@@ -3032,17 +3062,20 @@ export interface components {
          * @description The event timing policy supplied by the comparison client.
          */
         PipelineComparisonMatchingPolicyRequest: {
-            /**
-             * Anchor
-             * @enum {string}
-             */
-            anchor: "start_us" | "end_us" | "midpoint_us";
+            /** Anchor */
+            anchor?: ("start_us" | "end_us" | "midpoint_us") | null;
+            /** Derived Box Policy */
+            derived_box_policy?: "bounding_box" | null;
             /** Event Type */
             event_type?: string | null;
+            /** Iou Threshold */
+            iou_threshold?: number | null;
+            /** Kind */
+            kind?: ("event_timing" | "visible_card_geometry" | "visual_identity_geometry") | null;
             /** Policy Id */
             policy_id: string;
             /** Tolerance Us */
-            tolerance_us: number;
+            tolerance_us?: number | null;
         };
         /**
          * PipelineComparisonMetricsResponse
@@ -3084,9 +3117,9 @@ export interface components {
         PipelineComparisonRequest: {
             /**
              * Content Type
-             * @constant
+             * @enum {string}
              */
-            content_type: "events";
+            content_type: "events" | "visible_cards" | "visual_identities";
             /** Left Run Id */
             left_run_id: string;
             matching_policy: components["schemas"]["PipelineComparisonMatchingPolicyRequest"];
@@ -3113,9 +3146,9 @@ export interface components {
             comparison_id: string;
             /**
              * Content Type
-             * @constant
+             * @enum {string}
              */
-            content_type: "events";
+            content_type: "events" | "visible_cards" | "visual_identities";
             /** Counts */
             counts: {
                 [key: string]: components["schemas"]["PipelineComparisonCountsResponse"];
@@ -3152,12 +3185,28 @@ export interface components {
         PipelineComparisonScopeResponse: {
             /** Common Covered */
             common_covered: components["schemas"]["PipelineComparisonIntervalResponse"][];
+            /** Common Frame Identities */
+            common_frame_identities: {
+                [key: string]: unknown;
+            }[];
             /** Left Only */
             left_only: components["schemas"]["PipelineComparisonIntervalResponse"][];
+            /** Left Only Frame Identities */
+            left_only_frame_identities: {
+                [key: string]: unknown;
+            }[];
             /** Reviewed */
             reviewed: components["schemas"]["PipelineComparisonIntervalResponse"][];
+            /** Reviewed Frame Identities */
+            reviewed_frame_identities: {
+                [key: string]: unknown;
+            }[];
             /** Right Only */
             right_only: components["schemas"]["PipelineComparisonIntervalResponse"][];
+            /** Right Only Frame Identities */
+            right_only_frame_identities: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * PipelineComparisonSideResponse

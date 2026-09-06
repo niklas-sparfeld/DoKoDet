@@ -39,7 +39,10 @@ from doko_operations.pipeline_comparison import (
     PipelineComparisonRequest,
     PipelineComparisonSide,
     build_comparison_scope,
+    build_frame_comparison_scope,
     compare_event_data,
+    compare_visible_card_data,
+    compare_visual_identity_data,
     normalize_event_coverage,
 )
 from doko_operations.pipeline_data import canonical_json_bytes
@@ -612,36 +615,70 @@ class PipelineComparisonService:
             comparison_request.content_type,
             left_run.request.source,
         )
-        duration_us = left_run.request.source.duration_us
-        try:
-            left_coverage = normalize_event_coverage(
-                left_revision.manifest.coverage, duration_us=duration_us
+        if comparison_request.content_type == "events":
+            duration_us = left_run.request.source.duration_us
+            try:
+                left_coverage = normalize_event_coverage(
+                    left_revision.manifest.coverage, duration_us=duration_us
+                )
+                right_coverage = normalize_event_coverage(
+                    right_revision.manifest.coverage, duration_us=duration_us
+                )
+                reviewed = normalize_event_coverage(
+                    reference.manifest.coverage, duration_us=duration_us
+                )
+            except PipelineComparisonContractError as error:
+                raise PipelineComparisonInputError(str(error)) from error
+            scope = build_comparison_scope(
+                reviewed=reviewed,
+                left_coverage=left_coverage,
+                right_coverage=right_coverage,
             )
-            right_coverage = normalize_event_coverage(
-                right_revision.manifest.coverage, duration_us=duration_us
+            counts, metrics, items = compare_event_data(
+                recording_id=recording_id,
+                left_run_id=left_run.run_id,
+                right_run_id=right_run.run_id,
+                reference=reference.content,
+                left=left_revision.content,
+                right=right_revision.content,
+                policy=comparison_request.matching_policy,
+                scope=scope,
+                left_coverage=left_coverage,
+                right_coverage=right_coverage,
             )
-            reviewed = normalize_event_coverage(
-                reference.manifest.coverage, duration_us=duration_us
+        else:
+            scope = build_frame_comparison_scope(
+                reviewed=_frame_mappings(reference.content.outcomes),
+                left=_frame_mappings(left_revision.content.outcomes),
+                right=_frame_mappings(right_revision.content.outcomes),
             )
-        except PipelineComparisonContractError as error:
-            raise PipelineComparisonInputError(str(error)) from error
-        scope = build_comparison_scope(
-            reviewed=reviewed,
-            left_coverage=left_coverage,
-            right_coverage=right_coverage,
-        )
-        counts, metrics, items = compare_event_data(
-            recording_id=recording_id,
-            left_run_id=left_run.run_id,
-            right_run_id=right_run.run_id,
-            reference=reference.content,
-            left=left_revision.content,
-            right=right_revision.content,
-            policy=comparison_request.matching_policy,
-            scope=scope,
-            left_coverage=left_coverage,
-            right_coverage=right_coverage,
-        )
+            if comparison_request.content_type == "visible_cards":
+                counts, metrics, items = compare_visible_card_data(
+                    recording_id=recording_id,
+                    reference=reference.content,
+                    left=left_revision.content,
+                    right=right_revision.content,
+                    policy=comparison_request.matching_policy,
+                    scope=scope,
+                )
+            else:
+                reference_inputs = reference.manifest.input_revision_ids
+                counts, metrics, items = compare_visual_identity_data(
+                    recording_id=recording_id,
+                    reference=reference.content,
+                    left=left_revision.content,
+                    right=right_revision.content,
+                    policy=comparison_request.matching_policy,
+                    scope=scope,
+                    left_exact_upstream=(
+                        len(reference_inputs) == 1
+                        and left_run.request.input_revision_ids == reference_inputs
+                    ),
+                    right_exact_upstream=(
+                        len(reference_inputs) == 1
+                        and right_run.request.input_revision_ids == reference_inputs
+                    ),
+                )
         mode = (
             "paired_processor"
             if self._paired_inputs(left_run, right_run)
@@ -669,7 +706,7 @@ class PipelineComparisonService:
         return PipelineComparison(
             comparison_id=comparison_id,
             recording_id=recording_id,
-            content_type="events",
+            content_type=comparison_request.content_type,
             mode=mode,
             algorithm_version=PIPELINE_COMPARISON_ALGORITHM_VERSION,
             left=left_side,
@@ -768,6 +805,14 @@ def _paired_delta(metrics: dict[str, Any]) -> Any:
         f1=difference("f1"),
         mean_error_us=difference("mean_error_us"),
         max_error_us=None if max_left is None or max_right is None else max_right - max_left,
+    )
+
+
+def _frame_mappings(outcomes: Sequence[Any]) -> tuple[dict[str, Any], ...]:
+    return tuple(
+        outcome.frame_identity.to_mapping()
+        for outcome in outcomes
+        if getattr(outcome, "frame_identity", None) is not None
     )
 
 

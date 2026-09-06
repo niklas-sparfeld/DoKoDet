@@ -244,9 +244,19 @@ class PipelineComparisonMatchingPolicyRequest(ContractModel):
     """The event timing policy supplied by the comparison client."""
 
     policy_id: str = Field(min_length=1, max_length=128)
-    anchor: Literal["start_us", "end_us", "midpoint_us"]
-    tolerance_us: int = Field(ge=0)
+    kind: (
+        Literal[
+            "event_timing",
+            "visible_card_geometry",
+            "visual_identity_geometry",
+        ]
+        | None
+    ) = None
+    anchor: Literal["start_us", "end_us", "midpoint_us"] | None = None
+    tolerance_us: int | None = Field(default=None, ge=0)
     event_type: str | None = Field(default=None, min_length=1, max_length=128)
+    iou_threshold: float | None = Field(default=None, gt=0, le=1)
+    derived_box_policy: Literal["bounding_box"] | None = None
 
 
 class PipelineComparisonRequest(ContractModel):
@@ -254,7 +264,7 @@ class PipelineComparisonRequest(ContractModel):
 
     schema_version: Literal["pipeline-comparison-request/v1"]
     recording_id: str = Field(min_length=1, max_length=128)
-    content_type: Literal["events"]
+    content_type: Literal["events", "visible_cards", "visual_identities"]
     left_run_id: str = Field(min_length=1, max_length=128)
     right_run_id: str = Field(min_length=1, max_length=128)
     reference_revision_id: str = Field(min_length=1, max_length=128)
@@ -275,6 +285,10 @@ class PipelineComparisonScopeResponse(ContractModel):
     common_covered: list[PipelineComparisonIntervalResponse]
     left_only: list[PipelineComparisonIntervalResponse]
     right_only: list[PipelineComparisonIntervalResponse]
+    reviewed_frame_identities: list[dict[str, Any]]
+    common_frame_identities: list[dict[str, Any]]
+    left_only_frame_identities: list[dict[str, Any]]
+    right_only_frame_identities: list[dict[str, Any]]
 
 
 class PipelineComparisonCountsResponse(ContractModel):
@@ -339,6 +353,7 @@ class PipelineComparisonItemResponse(ContractModel):
         "extra",
         "disagreement",
         "failure",
+        "empty",
         "not_reviewed",
         "unpaired_input",
     ]
@@ -350,6 +365,16 @@ class PipelineComparisonItemResponse(ContractModel):
     run_event: dict[str, Any] | None
     delta_us: int | None
     source_links: dict[str, str]
+    frame_identity: dict[str, Any] | None
+    reference_card_id: str | None
+    run_card_id: str | None
+    reference_card: dict[str, Any] | None
+    run_card: dict[str, Any] | None
+    iou: float | None
+    reference_identity: str | None
+    run_identity: str | None
+    reference_candidates: list[dict[str, Any]] | None
+    run_candidates: list[dict[str, Any]] | None
 
 
 class PipelineComparisonResponse(ContractModel):
@@ -358,7 +383,7 @@ class PipelineComparisonResponse(ContractModel):
     schema_version: Literal["pipeline-comparison/v1"]
     comparison_id: str
     recording_id: str
-    content_type: Literal["events"]
+    content_type: Literal["events", "visible_cards", "visual_identities"]
     mode: Literal["paired_processor", "upstream_experiment"]
     algorithm_version: str
     left: PipelineComparisonSideResponse

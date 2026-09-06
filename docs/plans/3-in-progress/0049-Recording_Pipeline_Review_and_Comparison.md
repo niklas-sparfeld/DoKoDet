@@ -22,7 +22,7 @@
 - **M5:** Complete — add run controls for event, visible-card, and identity processors.
 - **M6:** Complete — add observation assembly and reconstruction controls.
 - **M7:** Complete — add deterministic event comparison.
-- **M8:** Not started — add deterministic visible-card and identity comparison.
+- **M8:** Complete — add deterministic visible-card and identity comparison.
 - **M9:** Not started — add the comparison workspace and source inspection.
 - **M10:** Not started — prove the local workflow and remove obsolete review routes.
 
@@ -591,6 +591,17 @@ Acceptance:
 - disconnected reviewed polygons use the declared derived box policy;
 - different frame selections expose common and unmatched scope without scoring uncovered frames; and
 - deterministic ordering and comparison IDs survive input-order changes.
+
+### M8 notes — 2026-09-06
+
+Extended the comparison contract to visible-card and visual-identity content. The backend compares
+only equal exact-frame identities, reports common and side-only frame scope, and applies inclusive
+IoU thresholds to detector boxes or bounding boxes over all reviewed polygons. Visible-card empty,
+failure, unreviewed, and unpaired outcomes stay distinct. Identity results use exact upstream card
+IDs when available. Otherwise they use deterministic frame-and-geometry pairing and retain full
+candidate context for top-candidate matches and disagreements. Changed upstream inputs remain
+`upstream_experiment` without a paired delta. The API and generated client types are extended. No
+UI or comparison state was added.
 
 ### M9 — Comparison workspace
 
