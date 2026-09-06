@@ -20,6 +20,8 @@ export type PipelineWorkspace = JsonResponse<
 >;
 export type PipelineWorkspaceStage = PipelineWorkspace["stages"][number];
 export type PipelineRun = PipelineWorkspaceStage["runs"][number];
+export type PipelineCompatibleInputSet =
+  PipelineWorkspaceStage["compatible_input_sets"][number];
 export type PipelineStageKey = PipelineWorkspaceStage["key"];
 export type PipelineSelectableContentType = Exclude<
   PipelineStageKey,
@@ -64,6 +66,8 @@ export type PipelineRunResponse = {
   request: Record<string, unknown>;
   state: Record<string, unknown>;
 };
+export type RoundAnalysisCreateRequest =
+  components["schemas"]["RoundAnalysisCreateRequest"];
 export type PipelineReferenceItem = {
   item_id: string;
   base_item_id: string | null;
@@ -357,6 +361,21 @@ export interface DokoDetectorClient {
     runId: string,
     init?: RequestInit,
   ): Promise<PipelineRunResponse>;
+  startObservationRun(
+    recordingId: string,
+    payload: PipelineRunStartRequest,
+    init?: RequestInit,
+  ): Promise<PipelineRunResponse>;
+  getObservationRun(
+    recordingId: string,
+    runId: string,
+    init?: RequestInit,
+  ): Promise<PipelineRunResponse>;
+  retryObservationRun(
+    recordingId: string,
+    runId: string,
+    init?: RequestInit,
+  ): Promise<PipelineRunResponse>;
   getEventResult(
     recordingId: string,
     runId: string,
@@ -551,6 +570,10 @@ export interface DokoDetectorClient {
     recordingId: string,
     init?: RequestInit,
   ): Promise<RoundAnalysisStatus>;
+  createRoundAnalysis(
+    payload: RoundAnalysisCreateRequest,
+    init?: RequestInit,
+  ): Promise<RoundAnalysisStatus>;
   getRoundAnalysisStatus(
     analysisId: string,
     init?: RequestInit,
@@ -677,6 +700,29 @@ export function createDokoDetectorClient(
       requestJson<PipelineRunResponse>(
         fetchImplementation,
         pipelineVisualIdentityRunRetryPath(recordingId, runId),
+        { ...init, method: "POST" },
+      ),
+    startObservationRun: (recordingId, payload, init) =>
+      requestJson<PipelineRunResponse>(
+        fetchImplementation,
+        pipelineObservationRunsPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    getObservationRun: (recordingId, runId, init) =>
+      requestJson<PipelineRunResponse>(
+        fetchImplementation,
+        pipelineObservationRunPath(recordingId, runId),
+        init,
+      ),
+    retryObservationRun: (recordingId, runId, init) =>
+      requestJson<PipelineRunResponse>(
+        fetchImplementation,
+        pipelineObservationRunRetryPath(recordingId, runId),
         { ...init, method: "POST" },
       ),
     getEventResult: (recordingId, runId, init) =>
@@ -1057,6 +1103,17 @@ export function createDokoDetectorClient(
         recordingAnalysisPath(recordingId),
         { ...init, method: "POST" },
       ),
+    createRoundAnalysis: (payload, init) =>
+      requestJson<RoundAnalysisStatus>(
+        fetchImplementation,
+        roundAnalysisPath(),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
     getRoundAnalysisStatus: (analysisId, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -1197,6 +1254,24 @@ export function pipelineVisualIdentityRunRetryPath(
   runId: string,
 ): string {
   return `${pipelineVisualIdentityRunPath(recordingId, runId)}/retry`;
+}
+
+export function pipelineObservationRunsPath(recordingId: string): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/observations`;
+}
+
+export function pipelineObservationRunPath(
+  recordingId: string,
+  runId: string,
+): string {
+  return `${pipelineObservationRunsPath(recordingId)}/${encodeURIComponent(runId)}`;
+}
+
+export function pipelineObservationRunRetryPath(
+  recordingId: string,
+  runId: string,
+): string {
+  return `${pipelineObservationRunPath(recordingId, runId)}/retry`;
 }
 
 export function pipelineVisibleCardResultPath(
@@ -1407,6 +1482,10 @@ function recordingsPath(): string {
 
 function roundAnalysisStatusPath(analysisId: string): string {
   return `/v1/round-analyses/${encodeURIComponent(analysisId)}`;
+}
+
+function roundAnalysisPath(): string {
+  return "/v1/round-analyses";
 }
 
 function roundAnalysisTimelinePath(analysisId: string): string {

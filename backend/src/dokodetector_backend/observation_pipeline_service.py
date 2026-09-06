@@ -84,9 +84,7 @@ class ObservationPipelineService:
         with self._lock:
             self._futures.clear()
 
-    def start_assembly(
-        self, recording_id: str, payload: Mapping[str, Any]
-    ) -> StoredProcessorRun:
+    def start_assembly(self, recording_id: str, payload: Mapping[str, Any]) -> StoredProcessorRun:
         request = self._build_request(recording_id, payload)
         run, created = self.run_store.create(request)
         if not created:
@@ -130,15 +128,11 @@ class ObservationPipelineService:
             self._futures[run_id] = self._executor.submit(self._execute, run_id)
         return retried
 
-    def select_generated(
-        self, recording_id: str, payload: Mapping[str, Any]
-    ) -> PipelineSelection:
+    def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> PipelineSelection:
         expected_revision = payload.get("expected_revision")
         selected = payload.get("selected_generated_revision_id")
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
-            raise ObservationPipelineInputError(
-                "expected_revision must be a non-negative integer."
-            )
+            raise ObservationPipelineInputError("expected_revision must be a non-negative integer.")
         if selected is not None and not isinstance(selected, str):
             raise ObservationPipelineInputError(
                 "selected_generated_revision_id must be a string or null."
@@ -158,9 +152,7 @@ class ObservationPipelineService:
         except (PipelineNotFound, PipelineStateError) as error:
             raise ObservationPipelineInputError(str(error)) from error
 
-    def _build_request(
-        self, recording_id: str, payload: Mapping[str, Any]
-    ) -> ProcessorRunRequest:
+    def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
         if not isinstance(payload, Mapping):
             raise ObservationPipelineInputError("The processor request must be an object.")
         raw = payload.get("request", payload)
@@ -196,14 +188,30 @@ class ObservationPipelineService:
             values.pop(field, None)
         values["input_revision_ids"] = list(input_ids)
         values.setdefault("schema_version", "processor-run-request/v1")
-        values.setdefault("run_id", payload.get("run_id"))
-        if not values.get("run_id"):
+        run_id = raw.get("run_id") or payload.get("run_id")
+        if not isinstance(run_id, str) or not run_id:
             raise ObservationPipelineInputError("run_id is required.")
+        assert isinstance(event_revision.content, EventData)
+        assert isinstance(visible_revision.content, VisibleCardData)
+        assert isinstance(identity_revision.content, VisualIdentityData)
+        try:
+            assemble_table_observations(
+                event_revision.content,
+                visible_revision.content,
+                identity_revision.content,
+                recording_id=recording_id,
+                video_sha256=source.video_sha256,
+                assembly_run_id=run_id,
+                input_revision_ids=input_ids,
+            )
+        except (ObservationAssemblyError, TypeError, ValueError) as error:
+            raise ObservationPipelineInputError(
+                f"the selected revisions are not compatible: {error}"
+            ) from error
+        values.setdefault("run_id", run_id)
         values.setdefault("processor_type", "observation-assembly")
         values.setdefault("source", source.to_mapping())
-        values.setdefault(
-            "implementation", {"name": "observation-assembler", "version": "v1"}
-        )
+        values.setdefault("implementation", {"name": "observation-assembler", "version": "v1"})
         values.setdefault("model", None)
         values.setdefault("configuration", {})
         values.setdefault("extraction_policy", {"policy_id": "exact-event/v1"})
@@ -260,17 +268,13 @@ class ObservationPipelineService:
     def _selected_revision_id(self, recording_id: str, content_type: str) -> str:
         selection = self.selection_store.get(recording_id, content_type)
         if selection is None:
-            raise ObservationPipelineInputError(
-                f"no selected {content_type} revision is available"
-            )
+            raise ObservationPipelineInputError(f"no selected {content_type} revision is available")
         selected = (
             selection.selected_completed_reference_revision_id
             or selection.selected_generated_revision_id
         )
         if selected is None:
-            raise ObservationPipelineInputError(
-                f"no selected {content_type} revision is available"
-            )
+            raise ObservationPipelineInputError(f"no selected {content_type} revision is available")
         return selected
 
     def _require_revision(
@@ -301,9 +305,7 @@ class ObservationPipelineService:
             assert isinstance(visible_revision.content, VisibleCardData)
             assert isinstance(identity_revision.content, VisualIdentityData)
             total = len(event_revision.content.events)
-            self.run_store.update_progress(
-                run_id, progress=RunProgress(completed=0, total=total)
-            )
+            self.run_store.update_progress(run_id, progress=RunProgress(completed=0, total=total))
             configuration = run.request.configuration
             content = assemble_table_observations(
                 event_revision.content,
@@ -352,9 +354,7 @@ class ObservationPipelineService:
     def _publish_revision(
         self, run: StoredProcessorRun, content: TableObservationData
     ) -> StoredPipelineRevision:
-        revision_id = (
-            f"table-observations-{_safe(run.run_id)}-attempt-{run.state.attempt}"
-        )
+        revision_id = f"table-observations-{_safe(run.run_id)}-attempt-{run.state.attempt}"
         manifest = DataRevision(
             revision_id=revision_id,
             content_type="table_observations",

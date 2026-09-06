@@ -599,7 +599,7 @@ export function RecordingDetailView({
     }
   }
 
-  if (pipelineStage !== null && selectedAnalysisId === null) {
+  if (pipelineStage !== null) {
     return (
       <RecordingPipelineWorkspace
         recordingId={recordingId}

@@ -20,7 +20,7 @@
 - **M3:** Complete — switch visible-card review to the maintained reference.
 - **M4:** Complete — switch identity review to the maintained reference.
 - **M5:** Complete — add run controls for event, visible-card, and identity processors.
-- **M6:** Not started — add observation assembly and reconstruction controls.
+- **M6:** Complete — add observation assembly and reconstruction controls.
 - **M7:** Not started — add deterministic event comparison.
 - **M8:** Not started — add deterministic visible-card and identity comparison.
 - **M9:** Not started — add the comparison workspace and source inspection.
@@ -539,6 +539,16 @@ Acceptance:
 - each result displays its actual inputs and a stable recording-owned analysis link;
 - video-only fixture analysis does not read or require an evidence package; and
 - existing timeline and counterfactual component tests remain valid.
+
+### M6 notes — 2026-09-06
+
+Added backend-approved compatible revision triples and preflight lineage validation for observation
+assembly. Added recording-workspace controls for observation assembly and explicit round
+reconstruction, including exact inputs, polling, retry and run-again behavior for assembly,
+secondary round context and search fields, rules version, actual input display, and retained
+analysis links. A completed analysis opens the existing diagnostic timeline and counterfactual
+workbench on the recording-owned pipeline route. Pipeline analyses use table-observation artifacts
+only and do not require evidence packages.
 
 ### M7 — Event comparison
 

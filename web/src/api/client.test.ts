@@ -18,6 +18,9 @@ import {
   pipelineEventResultPath,
   pipelineVisibleCardResultPath,
   pipelineVisualIdentityResultPath,
+  pipelineObservationRunPath,
+  pipelineObservationRunRetryPath,
+  pipelineObservationRunsPath,
   pipelineIdentityCropPath,
   pipelineDerivedFramePath,
   pipelineReferencePath,
@@ -27,6 +30,7 @@ import {
   roundAnalysisFramePath,
   roundCounterfactualPath,
   roundCounterfactualReadPath,
+  type RoundAnalysisCreateRequest,
   identityReviewPreviewPath,
   visibleCardReviewItemRedetectPath,
 } from "./client";
@@ -114,6 +118,60 @@ describe("DokoDetector API client", () => {
     );
     expect(pipelineDerivedFramePath("recording/1", 123456)).toBe(
       "/api/recordings/recording%2F1/pipeline/derived-views/exact-event/123456",
+    );
+  });
+
+  it("runs observation assembly and explicit round analysis through typed paths", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+    const runPayload = {
+      request: {
+        run_id: "observation-run-1",
+        input_revision_ids: ["events-1", "visible-1", "identity-1"],
+      },
+    };
+    await client.startObservationRun("recording/1", runPayload);
+    await client.getObservationRun("recording/1", "observation-run-1");
+    await client.retryObservationRun("recording/1", "observation-run-1");
+    await client.createRoundAnalysis({
+      analysis_id: "550e8400-e29b-41d4-a716-446655440033",
+      recording_id: "recording-1",
+      round_id: "round-1",
+      session_id: "550e8400-e29b-41d4-a716-446655440034",
+      schema_version: "round-analysis/v1",
+      table_observation_revision_id: "observations-1",
+      round_context: {
+        game_id: "game-1",
+        round_id: "round-1",
+        active_players: ["seat-1", "seat-2", "seat-3", "seat-4"],
+        dealer: "seat-1",
+        first_trick_leader: "seat-1",
+      },
+      rules_version: "v1",
+      search: {
+        max_missing_plays: 1,
+        max_hypotheses: 256,
+        max_search_nodes: 250000,
+      },
+    } satisfies RoundAnalysisCreateRequest);
+
+    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
+      pipelineObservationRunsPath("recording/1"),
+      pipelineObservationRunPath("recording/1", "observation-run-1"),
+      pipelineObservationRunRetryPath("recording/1", "observation-run-1"),
+      "/v1/round-analyses",
+    ]);
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[2]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[3]?.[1]?.body).toContain(
+      "table_observation_revision_id",
     );
   });
 

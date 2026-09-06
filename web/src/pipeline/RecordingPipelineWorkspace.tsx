@@ -19,6 +19,11 @@ import { PipelineCardEventEditor } from "../cardEvents/PipelineCardEventEditor";
 import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
 import { PipelineVisualIdentityEditor } from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
+import {
+  ObservationRunControls,
+  RoundAnalysisControls,
+  SelectedAnalysisTimeline,
+} from "./ObservationAndAnalysisControls";
 import { RunControls } from "./RunControls";
 
 export type { PipelineStageKey } from "../api/client";
@@ -59,6 +64,7 @@ export type PipelineUrlState = {
   left: string | null;
   right: string | null;
   reference: string | null;
+  analysis: string | null;
 };
 
 export type PipelinePrimaryActionKind =
@@ -119,6 +125,7 @@ export function readPipelineUrlState(search: string): PipelineUrlState {
     left: readOptionalParameter(params.get("left")),
     right: readOptionalParameter(params.get("right")),
     reference: readOptionalParameter(params.get("reference")),
+    analysis: readOptionalParameter(params.get("analysis")),
   };
 }
 
@@ -406,6 +413,7 @@ export function RecordingPipelineWorkspace({
 
   const activeView = urlState.view ?? defaultViewForStage(stage);
   const action = primaryActionForStage(stage);
+  const actionState = actionStateForStage(stage, urlState, action.kind);
   const generatedOptions = stage.input_options.filter(
     (option) => option.origin === "processor",
   );
@@ -495,6 +503,7 @@ export function RecordingPipelineWorkspace({
                   left: null,
                   right: null,
                   reference: null,
+                  analysis: null,
                 })}
                 onClick={(event) => {
                   if (isModifiedClick(event)) {
@@ -507,6 +516,7 @@ export function RecordingPipelineWorkspace({
                       left: null,
                       right: null,
                       reference: null,
+                      analysis: null,
                     }),
                   );
                 }}
@@ -556,14 +566,19 @@ export function RecordingPipelineWorkspace({
           ) : (
             <a
               className={styles.primaryButton}
-              href={actionHref(recordingId, stage.key, action.kind, urlState)}
+              href={actionHref(
+                recordingId,
+                stage.key,
+                action.kind,
+                actionState,
+              )}
               onClick={(event) => {
                 if (isModifiedClick(event)) {
                   return;
                 }
                 event.preventDefault();
                 navigateTo(
-                  actionHref(recordingId, stage.key, action.kind, urlState),
+                  actionHref(recordingId, stage.key, action.kind, actionState),
                 );
               }}
               data-action={action.kind}
@@ -676,6 +691,31 @@ export function RecordingPipelineWorkspace({
             onRefresh={() => loadWorkspace()}
           />
         ) : null}
+        {stage.key === "table_observations" && !compare ? (
+          <ObservationRunControls
+            recordingId={recordingId}
+            stage={stage}
+            stages={workspace.stages}
+            onRefresh={() => loadWorkspace()}
+          />
+        ) : null}
+        {stage.key === "round_analyses" && !compare ? (
+          <RoundAnalysisControls
+            recordingId={recordingId}
+            stage={stage}
+            selectedAnalysisId={urlState.analysis}
+            onRefresh={() => loadWorkspace()}
+            onSelectAnalysis={(analysisId) =>
+              replaceUrlState({ ...urlState, analysis: analysisId })
+            }
+          />
+        ) : null}
+        {stage.key === "round_analyses" && !compare ? (
+          <SelectedAnalysisTimeline
+            analysisId={urlState.analysis}
+            recordingId={recordingId}
+          />
+        ) : null}
         {stage.key === "events" && !compare ? (
           <PipelineCardEventEditor
             recordingId={recordingId}
@@ -728,7 +768,11 @@ function StageSummaryCard({
   onNavigate: (path: string) => void;
 }) {
   const action = primaryActionForStage(stage);
-  const path = recordingPipelinePath(recordingId, stage.key, state);
+  const path = recordingPipelinePath(
+    recordingId,
+    stage.key,
+    actionStateForStage(stage, state, action.kind),
+  );
   return (
     <article className={styles.pipelineSummaryCard} data-current={current}>
       <div className={styles.pipelineSummaryCardHeading}>
@@ -829,6 +873,22 @@ function actionHref(
   });
 }
 
+function actionStateForStage(
+  stage: PipelineWorkspaceStage,
+  state: PipelineUrlState,
+  action: PipelinePrimaryActionKind,
+): PipelineUrlState {
+  if (action !== "open_analysis") {
+    return state;
+  }
+  return {
+    ...state,
+    analysis:
+      stage.analyses.find((analysis) => analysis.state === "complete")
+        ?.analysis_id ?? null,
+  };
+}
+
 function chooseInitialStage(
   workspace: PipelineWorkspace,
 ): PipelineWorkspaceStage {
@@ -889,6 +949,14 @@ function sanitizeUrlState(
         : null,
     reference:
       compare && state.reference === selectedReference ? state.reference : null,
+    analysis:
+      !compare && stage.key === "round_analyses" && state.analysis !== null
+        ? stage.analyses.some(
+            (analysis) => analysis.analysis_id === state.analysis,
+          )
+          ? state.analysis
+          : null
+        : null,
   };
 }
 
@@ -932,6 +1000,13 @@ function pipelineSearch(
       params.set("right", state.right);
     if (state.reference !== null && state.reference !== undefined)
       params.set("reference", state.reference);
+  }
+  if (
+    !includeCompare &&
+    state.analysis !== null &&
+    state.analysis !== undefined
+  ) {
+    params.set("analysis", state.analysis);
   }
   const query = params.toString();
   return query === "" ? "" : `?${query}`;

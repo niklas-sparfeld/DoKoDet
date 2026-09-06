@@ -94,6 +94,13 @@ class PipelineWorkspaceInputOptionResponse(ContractModel):
     created_at: str
 
 
+class PipelineWorkspaceCompatibleInputSetResponse(ContractModel):
+    """One exact revision set accepted by observation assembly."""
+
+    input_revision_ids: list[str] = Field(min_length=3, max_length=3)
+    display_label: str
+
+
 class PipelineWorkspaceImplementationResponse(ContractModel):
     """The implementation identity frozen into one processor request."""
 
@@ -205,6 +212,7 @@ class PipelineWorkspaceStageResponse(ContractModel):
         "complete",
     ]
     input_options: list[PipelineWorkspaceInputOptionResponse]
+    compatible_input_sets: list[PipelineWorkspaceCompatibleInputSetResponse]
     selection_revision: int | None = Field(default=None, ge=0)
     selected_generated_revision_id: str | None = None
     selected_completed_reference_revision_id: str | None = None

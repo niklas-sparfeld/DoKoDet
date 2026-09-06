@@ -33,6 +33,7 @@ function stage(
     selected_completed_reference_revision_id: null,
     runs: [],
     analyses: [],
+    compatible_input_sets: [],
     reference: null,
     can_run: true,
     run_blockers: [],
@@ -269,6 +270,7 @@ describe("recording pipeline workspace", () => {
       left: null,
       right: null,
       reference: null,
+      analysis: null,
     });
     expect(
       recordingPipelinePath(RECORDING_ID, "events", { view: "reviewed" }),

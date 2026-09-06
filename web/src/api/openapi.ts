@@ -2954,6 +2954,16 @@ export interface components {
             state: "queued" | "analyzing_evidence" | "reconstructing" | "complete" | "failed";
         };
         /**
+         * PipelineWorkspaceCompatibleInputSetResponse
+         * @description One exact revision set accepted by observation assembly.
+         */
+        PipelineWorkspaceCompatibleInputSetResponse: {
+            /** Display Label */
+            display_label: string;
+            /** Input Revision Ids */
+            input_revision_ids: string[];
+        };
+        /**
          * PipelineWorkspaceDiagnosticResponse
          * @description A persisted resource that could not be used to build the workspace.
          */
@@ -3155,6 +3165,8 @@ export interface components {
             can_run: boolean;
             /** Comparable Run Ids */
             comparable_run_ids: string[];
+            /** Compatible Input Sets */
+            compatible_input_sets: components["schemas"]["PipelineWorkspaceCompatibleInputSetResponse"][];
             /** Has Maintained Reference */
             has_maintained_reference: boolean;
             /** Input Options */

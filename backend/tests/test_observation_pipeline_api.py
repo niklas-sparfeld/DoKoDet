@@ -36,15 +36,32 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         visible_revision_id = _run_pipeline(client, "visible-assembly", "visible-cards")
         identity_revision_id = _run_pipeline(client, "identity-assembly", "visual-identities")
 
-        first = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/observations",
-            json={
-                "run_id": "assembly-01",
+        workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
+        assert workspace.status_code == 200
+        assert workspace.json()["stages"][3]["compatible_input_sets"] == [
+            {
                 "input_revision_ids": [
                     event_revision_id,
                     visible_revision_id,
                     identity_revision_id,
                 ],
+                "display_label": (
+                    "Generated events + Generated visible cards + Generated visual identities"
+                ),
+            }
+        ]
+
+        first = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations",
+            json={
+                "request": {
+                    "run_id": "assembly-01",
+                    "input_revision_ids": [
+                        event_revision_id,
+                        visible_revision_id,
+                        identity_revision_id,
+                    ],
+                }
             },
         )
         assert first.status_code == 202
@@ -84,16 +101,15 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         assert second.status_code == 202
         second_body = _wait_observation(client, "assembly-02")
         assert second_body["state"]["status"] == "complete"
-        listed = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/observations"
-        ).json()["runs"]
+        listed = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/observations").json()["runs"]
         assert {run["run_id"] for run in listed} >= {"assembly-01", "assembly-02"}
         selection = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations/selection"
         ).json()
-        assert selection["selection"]["selected_generated_revision_id"] == second_body[
-            "state"
-        ]["output_revision_ids"][0]
+        assert (
+            selection["selection"]["selected_generated_revision_id"]
+            == second_body["state"]["output_revision_ids"][0]
+        )
 
         mismatch = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
@@ -112,9 +128,12 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations/assembly-01/result"
         )
         assert persisted.status_code == 200
-        assert persisted.json()["revisions"][0]["content"]["observations"][0]["source"][
-            "assembly_run_id"
-        ] == "assembly-01"
+        assert (
+            persisted.json()["revisions"][0]["content"]["observations"][0]["source"][
+                "assembly_run_id"
+            ]
+            == "assembly-01"
+        )
 
 
 def _run_pipeline(
@@ -127,15 +146,11 @@ def _run_pipeline(
     payload: dict[str, object] = {"run_id": run_id}
     if configuration is not None:
         payload["configuration"] = configuration
-    response = client.post(
-        f"/api/recordings/{RECORDING_ID}/pipeline/{stage}", json=payload
-    )
+    response = client.post(f"/api/recordings/{RECORDING_ID}/pipeline/{stage}", json=payload)
     assert response.status_code == 202
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        body = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/{stage}/{run_id}"
-        ).json()
+        body = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/{stage}/{run_id}").json()
         if body["state"]["status"] == "complete":
             return body["state"]["output_revision_ids"][0]
         assert body["state"]["status"] != "failed", body
@@ -147,9 +162,7 @@ def _wait_observation(client: TestClient, run_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 5
     body: dict[str, Any] = {}
     while time.monotonic() < deadline:
-        body = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/observations/{run_id}"
-        ).json()
+        body = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/observations/{run_id}").json()
         if body["state"]["status"] in {"complete", "failed"}:
             return body
         time.sleep(0.01)

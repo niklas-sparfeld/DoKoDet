@@ -30,6 +30,8 @@ from doko_operations import (
     canonical_event_data_bytes,
     sha256_bytes,
 )
+from table_evidence_analyzer import ObservationAssemblyError, assemble_table_observations
+from table_evidence_analyzer.pipeline_data import VisibleCardData, VisualIdentityData
 
 from dokodetector_backend.intake_contract import parse_proposal_generator_run
 from dokodetector_backend.pipeline_store import (
@@ -623,9 +625,7 @@ class RecordingPipelineWorkspaceService:
             if revision.manifest.recording_id == recording_id
         )
         runs = tuple(
-            run
-            for run in self.run_store.list()
-            if run.request.source.recording_id == recording_id
+            run for run in self.run_store.list() if run.request.source.recording_id == recording_id
         )
         diagnostics: list[dict[str, Any]] = []
         selections = {
@@ -694,14 +694,15 @@ class RecordingPipelineWorkspaceService:
             if definition.key == "round_analyses"
             else []
         )
-        selection_revision = None if selection is None else selection.revision
-        selected_generated = (
-            None if selection is None else selection.selected_generated_revision_id
+        compatible_input_sets = (
+            self._compatible_input_sets(recording_id, source, revisions)
+            if definition.key == "table_observations"
+            else []
         )
+        selection_revision = None if selection is None else selection.revision
+        selected_generated = None if selection is None else selection.selected_generated_revision_id
         selected_completed = (
-            None
-            if selection is None
-            else selection.selected_completed_reference_revision_id
+            None if selection is None else selection.selected_completed_reference_revision_id
         )
         comparable_run_ids = [
             run.run_id
@@ -722,10 +723,9 @@ class RecordingPipelineWorkspaceService:
             selections={
                 "events": self._selection_value(recording_id, "events"),
                 "visible_cards": self._selection_value(recording_id, "visible_cards"),
-                "visual_identities": self._selection_value(
-                    recording_id, "visual_identities"
-                ),
+                "visual_identities": self._selection_value(recording_id, "visual_identities"),
             },
+            compatible_input_sets=compatible_input_sets,
         )
         review_blockers = self._review_blockers(definition, options, reference_summary)
         return {
@@ -743,6 +743,7 @@ class RecordingPipelineWorkspaceService:
                 analyses,
             ),
             "input_options": options,
+            "compatible_input_sets": compatible_input_sets,
             "selection_revision": selection_revision,
             "selected_generated_revision_id": selected_generated,
             "selected_completed_reference_revision_id": selected_completed,
@@ -837,9 +838,7 @@ class RecordingPipelineWorkspaceService:
                     "revision_id": selected_completion,
                 }
             )
-        affected_count = sum(
-            item.review_state == "affected" for item in reference.draft.items
-        )
+        affected_count = sum(item.review_state == "affected" for item in reference.draft.items)
         coverage = reference.draft.coverage
         state = "complete" if reference.state.draft_state == "completed" else "draft"
         return {
@@ -958,6 +957,7 @@ class RecordingPipelineWorkspaceService:
         stage_revisions: tuple[Any, ...],
         *,
         selections: dict[str, Any],
+        compatible_input_sets: list[dict[str, Any]],
     ) -> list[str]:
         if definition.key == "events":
             return []
@@ -971,6 +971,11 @@ class RecordingPipelineWorkspaceService:
                 return [f"Select a complete {upstream.replace('_', ' ')} revision first."]
             return []
         if definition.key == "table_observations":
+            if not compatible_input_sets:
+                return [
+                    "No compatible event, visible-card, and visual-identity revision set "
+                    "is available."
+                ]
             missing = [
                 content_type.replace("_", " ")
                 for content_type in ("events", "visible_cards", "visual_identities")
@@ -980,15 +985,87 @@ class RecordingPipelineWorkspaceService:
                     or selections[content_type].selected_generated_revision_id
                 )
             ]
-            return [
-                "Select complete event, visible-card, and visual-identity revisions first."
-            ] if missing else []
+            return (
+                ["Select complete event, visible-card, and visual-identity revisions first."]
+                if missing
+                else []
+            )
         if definition.key == "round_analyses":
             if not stage_revisions:
                 return ["Create a complete table-observation revision first."]
             return ["Round context is required before starting analysis."]
         del source
         return ["The pipeline stage is not available."]
+
+    def _compatible_input_sets(
+        self,
+        recording_id: str,
+        source: RecordingVideoSource,
+        revisions: tuple[Any, ...],
+    ) -> list[dict[str, Any]]:
+        """Return exact revision triples that pass the shared assembly checks."""
+
+        event_revisions = tuple(
+            revision
+            for revision in revisions
+            if revision.manifest.content_type == "events"
+            and revision.manifest.recording_id == recording_id
+            and revision.manifest.source == source
+            and isinstance(revision.content, EventData)
+        )
+        visible_revisions = tuple(
+            revision
+            for revision in revisions
+            if revision.manifest.content_type == "visible_cards"
+            and revision.manifest.recording_id == recording_id
+            and revision.manifest.source == source
+            and isinstance(revision.content, VisibleCardData)
+        )
+        identity_revisions = tuple(
+            revision
+            for revision in revisions
+            if revision.manifest.content_type == "visual_identities"
+            and revision.manifest.recording_id == recording_id
+            and revision.manifest.source == source
+            and isinstance(revision.content, VisualIdentityData)
+        )
+        labels = {
+            revision.manifest.revision_id: self._revision_option(
+                revision, revision.manifest.content_type
+            )["display_label"]
+            for revision in (*event_revisions, *visible_revisions, *identity_revisions)
+        }
+        compatible: list[dict[str, Any]] = []
+        for event_revision in event_revisions:
+            for visible_revision in visible_revisions:
+                for identity_revision in identity_revisions:
+                    input_revision_ids = [
+                        event_revision.manifest.revision_id,
+                        visible_revision.manifest.revision_id,
+                        identity_revision.manifest.revision_id,
+                    ]
+                    try:
+                        assemble_table_observations(
+                            event_revision.content,
+                            visible_revision.content,
+                            identity_revision.content,
+                            recording_id=recording_id,
+                            video_sha256=source.video_sha256,
+                            assembly_run_id="compatibility-check",
+                            input_revision_ids=input_revision_ids,
+                        )
+                    except (ObservationAssemblyError, TypeError, ValueError):
+                        continue
+                    compatible.append(
+                        {
+                            "input_revision_ids": input_revision_ids,
+                            "display_label": " + ".join(
+                                labels[revision_id] for revision_id in input_revision_ids
+                            ),
+                        }
+                    )
+        compatible.sort(key=lambda item: tuple(item["input_revision_ids"]))
+        return compatible
 
     @staticmethod
     def _review_blockers(
