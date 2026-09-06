@@ -8,9 +8,10 @@
 - **Status:** Blocked
 - **Depends on:** 0048 and 0049 complete, plus paired reviewed visible-card and visual identity
   coverage from at least two source-lineage groups
-- **Blocker:** The maintained-reference workflow must expose completed visible-card and visual
-  identity revisions, and the reviewed corpus must support source-group-separated development and
-  validation partitions.
+- **Blocker:** The maintained-reference workflow is complete, but no completed maintained
+  visible-card and visual identity reference revisions exist yet. Create paired reviews through
+  that workflow for at least two source-lineage groups, then confirm disjoint development and
+  validation partitions. Legacy review-batch artifacts do not satisfy this gate.
 - **Builds on:** 0038 crop-policy evidence and the 0048 visual identity outcome, derived-view, and
   observation-assembly contracts
 - **Outcome:** Publish a reproducible risk-versus-coverage baseline for the current identifier under
