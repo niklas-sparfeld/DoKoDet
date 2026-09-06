@@ -112,7 +112,10 @@ describe("recording workspace presentation model", () => {
 
     expect(presentation.surface.mode).toBe("comparison");
     expect(presentation.rail?.items).toEqual([]);
-    expect(presentation.rail?.lanes).toHaveLength(4);
+    expect(presentation.rail?.lanes).toEqual([
+      expect.objectContaining({ id: "differences", label: "Differences" }),
+      expect.objectContaining({ id: "matches", label: "Matches" }),
+    ]);
     expect(presentation.inspector.primaryAction).toMatchObject({
       kind: "compare",
       label: "Compare",

@@ -33,7 +33,7 @@
 - **M6:** Complete — migrate visual identity generation and review to the shared workbench.
 - **M7:** Complete — migrate table-observation work to the shared workbench.
 - **M8:** Complete — migrate round-analysis work to the shared workbench.
-- **M9:** Not started — migrate comparison work to the shared workbench.
+- **M9:** Complete — migrate comparison work to the shared workbench.
 - **M10:** Not started — finish responsive, accessibility, visual, and obsolete-UI cleanup.
 
 ## 1. Current state and decision
@@ -432,6 +432,17 @@ Acceptance:
 - analysis loading, failure, retry, completion, timeline, and counterfactual tests pass.
 
 ### M9 — Comparison workbench
+
+Status: Complete (2026-09-07).
+
+- The comparison route now keeps the selected source context in the central task surface. The
+  Timeline Rail provides separate Differences and Matches lanes. Selecting an outcome restores its
+  `item` and `t_us` URL state and seeks the accepted video.
+- Left and right runs, the completed reference, matching policy, exact inputs, reviewed scope, and
+  comparison summary are in the shared inspector. The source-ordered outcome list is no longer
+  part of the workspace route.
+
+Verification: `mise exec -- npm run check` and `mise exec -- npm run build` in `web` passed.
 
 - Put the selected source context and compared outcomes in the center.
 - Represent source-ordered matches and differences as rail lanes.

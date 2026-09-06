@@ -865,6 +865,190 @@ describe("recording pipeline workspace", () => {
     expect(screen.getByText("1 visible card")).toBeInTheDocument();
   });
 
+  it("uses the shared source surface, inspector, and rail for comparisons", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/recordings/recording-shell/pipeline/events/compare?left=run-left&right=run-right&reference=reference-compare-1",
+    );
+    const body = workspace();
+    body.stages[0] = stage("events", {
+      state: "complete",
+      can_run: false,
+      comparable_run_ids: ["run-left", "run-right"],
+      selected_completed_reference_revision_id: "reference-compare-1",
+      input_options: [
+        {
+          revision_id: "reference-compare-1",
+          content_type: "events",
+          origin: "manual",
+          completion_state: "complete",
+          coverage_state: "full-recording",
+          display_label: "Reviewed events",
+          content_sha256: "b".repeat(64),
+          input_revision_ids: [],
+          producer: {},
+          coverage: {},
+          created_at: "2026-09-06T00:00:00Z",
+        },
+      ],
+      runs: ["run-left", "run-right"].map((run_id) => ({
+        run_id,
+        status: "complete",
+        created_at: "2026-09-06T00:00:00Z",
+        input_revision_ids: ["events-input-1"],
+        output_revision_ids: [`${run_id}-output`],
+        implementation: { name: "event-detector", version: "v1" },
+        progress: { completed: 1, total: 1 },
+        failure: null,
+        state: {},
+      })),
+    });
+    const comparison = {
+      schema_version: "pipeline-comparison/v1",
+      comparison_id: "comparison-rail-1",
+      recording_id: RECORDING_ID,
+      content_type: "events",
+      mode: "paired_processor",
+      algorithm_version: "pipeline-comparison.v2",
+      left: {
+        run_id: "run-left",
+        revision_id: "run-left-output",
+        status: "complete",
+        input_revision_ids: ["events-input-1"],
+        content_sha256: "c".repeat(64),
+        implementation: { name: "event-detector", version: "v1" },
+        model: null,
+        configuration: {},
+        extraction_policy: {},
+        failure: null,
+      },
+      right: {
+        run_id: "run-right",
+        revision_id: "run-right-output",
+        status: "complete",
+        input_revision_ids: ["events-input-1"],
+        content_sha256: "d".repeat(64),
+        implementation: { name: "event-detector", version: "v1" },
+        model: null,
+        configuration: {},
+        extraction_policy: {},
+        failure: null,
+      },
+      reference: {
+        revision_id: "reference-compare-1",
+        input_revision_ids: [],
+        content_sha256: "b".repeat(64),
+        origin: "manual",
+      },
+      scope: {
+        reviewed: [{ start_us: 0, end_us: 90_000_000 }],
+        common_covered: [{ start_us: 0, end_us: 90_000_000 }],
+        left_only: [],
+        right_only: [],
+        reviewed_frame_identities: [],
+        common_frame_identities: [],
+        left_only_frame_identities: [],
+        right_only_frame_identities: [],
+      },
+      matching_policy: {
+        policy_id: "event-timing/v1",
+        kind: "event_timing",
+        anchor: "start_us",
+        tolerance_us: 50_000,
+      },
+      counts: {
+        left: {
+          reference_events: 1,
+          run_events: 1,
+          matches: 0,
+          misses: 1,
+          extras: 0,
+          failures: 0,
+          not_reviewed: 0,
+          unpaired_input: 0,
+        },
+        right: {
+          reference_events: 1,
+          run_events: 1,
+          matches: 0,
+          misses: 1,
+          extras: 0,
+          failures: 0,
+          not_reviewed: 0,
+          unpaired_input: 0,
+        },
+      },
+      metrics: { left: {}, right: {} },
+      paired_delta: null,
+      items: [
+        {
+          item_id: "comparison-outcome-1",
+          side: "left",
+          outcome: "miss",
+          source_time_us: 12_000_000,
+          event_type: "card_played",
+          reference_event_id: null,
+          run_event_id: null,
+          reference_event: null,
+          run_event: null,
+          delta_us: null,
+          source_links: { derived_view: null },
+          frame_identity: null,
+          reference_card_id: null,
+          run_card_id: null,
+          reference_card: null,
+          run_card: null,
+          iou: null,
+          reference_identity: null,
+          run_identity: null,
+          reference_candidates: null,
+          run_candidates: null,
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_input, init) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify(init?.method === "POST" ? comparison : body),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="events"
+        compare
+      />,
+    );
+
+    const inspector = await screen.findByRole("complementary", {
+      name: "Workspace inspector",
+    });
+    expect(
+      within(inspector).getByRole("combobox", { name: "Left terminal run" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Source-ordered outcomes"),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /miss.*0:12.*miss/i }),
+    );
+    expect(window.location.search).toContain("item=comparison-outcome-1");
+    expect(window.location.search).toContain("t_us=12000000");
+    expect(
+      await screen.findByLabelText(`Comparison source video ${RECORDING_ID}`),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByText(/Matching policy: event-timing/),
+    ).toBeInTheDocument();
+  });
+
   it("uses the shared source surface and rail for round analyses", async () => {
     const analysisId = "analysis-rail-1";
     const body = workspace();

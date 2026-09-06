@@ -53,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0054 — Unified recording workspace layout](3-in-progress/0054-Unified_Recording_Workspace_Layout.md) | 0048 and 0049 complete | M0–M8 complete: shared presentation model, compact viewport shell, persistent metadata inspector, shared Timeline Rail, and event, visible-card, visual-identity, table-observation, and round-analysis workbenches with synchronized URL selection and conflict-safe review commands. Continue with comparison work. |
+| [0054 — Unified recording workspace layout](3-in-progress/0054-Unified_Recording_Workspace_Layout.md) | 0048 and 0049 complete | M0–M9 complete: shared presentation model, compact viewport shell, persistent metadata inspector, shared Timeline Rail, and event, visible-card, visual-identity, table-observation, round-analysis, and comparison workbenches with synchronized URL selection and conflict-safe review commands. Continue with responsive proof and cleanup. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -116,9 +116,9 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0054 with M9 to make comparison work use the shared workbench.** Keep the
-   completed 0048 and 0049 contracts. Migrate one stage per milestone and remove its duplicate
-   lists and tables.
+1. **Continue 0054 with M10 for responsive proof and cleanup.** Keep the completed 0048 and
+   0049 contracts. Verify the shared workspace at desktop and narrow sizes, then remove obsolete
+   presentation code.
 2. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.
    Keep the scan broad and shallow. Create only evidence-based work-area epics. Use one Terra agent
    to specify each area and Luna-sized milestones for delivery. Do not add a third epic layer by

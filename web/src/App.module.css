@@ -2782,6 +2782,16 @@ progress {
   gap: 0.8rem;
 }
 
+.comparisonInspectorContent {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+}
+
+.comparisonInspectorContent .comparisonSelectors {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .comparisonFacts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

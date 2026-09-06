@@ -11,6 +11,7 @@ import {
   ApiError,
   createDokoDetectorClient,
   type PipelineSelectionUpdateRequest,
+  type PipelineComparisonResponse,
   type PipelineSelectableContentType,
   type PipelineStageKey,
   type PipelineWorkspace,
@@ -33,7 +34,7 @@ import {
 } from "./ObservationAndAnalysisControls";
 import { RunControls } from "./RunControls";
 import { RecordingTimelineRail } from "./RecordingTimelineRail";
-import { ComparisonView } from "./ComparisonView";
+import { ComparisonInspectorControls, ComparisonView } from "./ComparisonView";
 import { PipelineObservationWorkbench } from "./PipelineObservationWorkbench";
 import { PipelineRoundAnalysisWorkbench } from "./PipelineRoundAnalysisWorkbench";
 import {
@@ -163,11 +164,44 @@ export function RecordingPipelineWorkspace({
     key: string;
     items: RecordingTimelineRailItem[];
   } | null>(null);
+  const [comparisonRail, setComparisonRail] = useState<{
+    key: string;
+    items: RecordingTimelineRailItem[];
+  } | null>(null);
+  const [comparisonDetails, setComparisonDetails] =
+    useState<PipelineComparisonResponse | null>(null);
   const workspaceDurationUsRef = useRef(0);
   workspaceDurationUsRef.current = workspace?.video.duration_us ?? 0;
   const eventRailKeyRef = useRef("");
   const visibleCardRailKeyRef = useRef("");
   const visualIdentityRailKeyRef = useRef("");
+  const comparisonRailKeyRef = useRef("");
+  const handleComparisonRailItemsChange = useCallback(
+    (items: RecordingTimelineRailItem[]) => {
+      setComparisonRail((current) => {
+        const key = comparisonRailKeyRef.current;
+        if (
+          current?.key === key &&
+          current.items.length === items.length &&
+          current.items.every(
+            (item, index) =>
+              item.id === items[index].id &&
+              item.state === items[index].state &&
+              item.timeRange?.startUs === items[index].timeRange?.startUs,
+          )
+        ) {
+          return current;
+        }
+        return { key, items };
+      });
+    },
+    [],
+  );
+  const handleComparisonChange = useCallback(
+    (comparison: PipelineComparisonResponse) =>
+      setComparisonDetails(comparison),
+    [],
+  );
   const handleEventRailItemsChange = useCallback(
     (items: PipelineCardEventRailItem[]) => {
       setEventRail({
@@ -541,6 +575,8 @@ export function RecordingPipelineWorkspace({
   visibleCardRailKeyRef.current = visibleCardRailKey;
   const visualIdentityRailKey = `${recordingId}:${stage.key}:${activeView}:${compare ? "compare" : "task"}`;
   visualIdentityRailKeyRef.current = visualIdentityRailKey;
+  const comparisonRailKey = `${recordingId}:${stage.key}:comparison`;
+  comparisonRailKeyRef.current = comparisonRailKey;
   const visibleRail =
     stage.key === "events" && activeView === "reviewed" && !compare
       ? eventRail?.key === eventRailKey && rail !== null
@@ -612,7 +648,27 @@ export function RecordingPipelineWorkspace({
               items: [],
               lanes: rail.lanes.map((lane) => ({ ...lane, itemCount: 0 })),
             }
-      : visibleRail;
+      : compare && comparisonRail?.key === comparisonRailKey && rail !== null
+        ? {
+            ...rail,
+            items: comparisonRail.items,
+            selectedItemId:
+              comparisonRail.items.find((item) => item.itemId === urlState.item)
+                ?.id ?? null,
+            lanes: rail.lanes.map((lane) => ({
+              ...lane,
+              itemCount: comparisonRail.items.filter(
+                (item) => item.laneId === lane.id,
+              ).length,
+            })),
+          }
+        : compare && rail !== null
+          ? {
+              ...rail,
+              items: [],
+              lanes: rail.lanes.map((lane) => ({ ...lane, itemCount: 0 })),
+            }
+          : visibleRail;
   const selectedEventRunId =
     stage.key === "events" && displayedRevision !== null
       ? (stage.runs.find((run) =>
@@ -775,6 +831,10 @@ export function RecordingPipelineWorkspace({
                 durationUs={workspace.video.duration_us}
                 urlState={urlState}
                 onNavigate={navigateTo}
+                layout="surface"
+                onRailItemsChange={handleComparisonRailItemsChange}
+                onTimeChange={handleRailTimeChange}
+                onComparisonChange={handleComparisonChange}
               />
             ) : null}
             {stage.key === "round_analyses" && !compare ? (
@@ -878,6 +938,7 @@ export function RecordingPipelineWorkspace({
           action={action}
           actionState={actionState}
           presentation={presentation}
+          comparison={comparisonDetails}
           selectionBusy={selectionBusy}
           onNavigate={navigateTo}
           onReplaceUrlState={replaceUrlState}
@@ -924,6 +985,7 @@ type RecordingWorkspaceInspectorProps = {
   >;
   actionState: PipelineUrlState;
   presentation: RecordingWorkspacePresentation;
+  comparison: PipelineComparisonResponse | null;
   selectionBusy: boolean;
   onNavigate: (path: string) => void;
   onReplaceUrlState: (state: PipelineUrlState) => void;
@@ -942,6 +1004,7 @@ function RecordingWorkspaceInspector({
   action,
   actionState,
   presentation,
+  comparison,
   selectionBusy,
   onNavigate,
   onReplaceUrlState,
@@ -1127,7 +1190,7 @@ function RecordingWorkspaceInspector({
       >
         <p className={styles.statusLabel}>Current selection</p>
         <h2 id="pipeline-inspector-selection">
-          {formatIdentifier(activeView)}
+          {compare ? "Comparison inputs" : formatIdentifier(activeView)}
         </h2>
         <div className={styles.pipelineInspectorSelectionFacts}>
           <span>Displayed revision</span>
@@ -1148,57 +1211,70 @@ function RecordingWorkspaceInspector({
             </>
           ) : null}
         </div>
-        <div className={styles.pipelineInspectorFields}>
-          {stage.key !== "round_analyses" ? (
+        {compare ? (
+          <ComparisonInspectorControls
+            recordingId={recordingId}
+            stage={stage}
+            urlState={urlState}
+            onNavigate={onNavigate}
+            comparison={comparison}
+          />
+        ) : (
+          <div className={styles.pipelineInspectorFields}>
+            {stage.key !== "round_analyses" ? (
+              <label className={styles.pipelineSelector}>
+                <span>Default generated revision</span>
+                <select
+                  aria-label="Default generated revision"
+                  value={stage.selected_generated_revision_id ?? ""}
+                  disabled={selectionBusy}
+                  onChange={(event) =>
+                    void onSelectGeneratedRevision(event.target.value || null)
+                  }
+                >
+                  <option value="">No generated revision selected</option>
+                  {stage.input_options
+                    .filter((option) => option.origin === "processor")
+                    .map((option) => (
+                      <option
+                        key={option.revision_id}
+                        value={option.revision_id}
+                      >
+                        {option.display_label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            ) : null}
             <label className={styles.pipelineSelector}>
-              <span>Default generated revision</span>
+              <span>Displayed revision</span>
               <select
-                aria-label="Default generated revision"
-                value={stage.selected_generated_revision_id ?? ""}
-                disabled={selectionBusy}
-                onChange={(event) =>
-                  void onSelectGeneratedRevision(event.target.value || null)
-                }
+                aria-label="Displayed revision"
+                value={displayedRevision ?? ""}
+                disabled={stage.input_options.length === 0}
+                onChange={(event) => {
+                  const nextRevision = event.target.value || null;
+                  const defaultRevision =
+                    activeView === "generated"
+                      ? stage.selected_generated_revision_id
+                      : stage.selected_completed_reference_revision_id;
+                  onReplaceUrlState({
+                    ...urlState,
+                    revision:
+                      nextRevision === defaultRevision ? null : nextRevision,
+                  });
+                }}
               >
-                <option value="">No generated revision selected</option>
-                {stage.input_options
-                  .filter((option) => option.origin === "processor")
-                  .map((option) => (
-                    <option key={option.revision_id} value={option.revision_id}>
-                      {option.display_label}
-                    </option>
-                  ))}
+                <option value="">No revision selected</option>
+                {stage.input_options.map((option) => (
+                  <option key={option.revision_id} value={option.revision_id}>
+                    {option.display_label}
+                  </option>
+                ))}
               </select>
             </label>
-          ) : null}
-          <label className={styles.pipelineSelector}>
-            <span>Displayed revision</span>
-            <select
-              aria-label="Displayed revision"
-              value={displayedRevision ?? ""}
-              disabled={stage.input_options.length === 0}
-              onChange={(event) => {
-                const nextRevision = event.target.value || null;
-                const defaultRevision =
-                  activeView === "generated"
-                    ? stage.selected_generated_revision_id
-                    : stage.selected_completed_reference_revision_id;
-                onReplaceUrlState({
-                  ...urlState,
-                  revision:
-                    nextRevision === defaultRevision ? null : nextRevision,
-                });
-              }}
-            >
-              <option value="">No revision selected</option>
-              {stage.input_options.map((option) => (
-                <option key={option.revision_id} value={option.revision_id}>
-                  {option.display_label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+          </div>
+        )}
         {usesEditorInspector ? (
           <div
             data-event-inspector-slot="selection"

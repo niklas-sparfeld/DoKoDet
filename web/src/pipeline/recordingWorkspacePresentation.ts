@@ -498,7 +498,12 @@ function buildRail(
   selection: WorkspaceSelection,
   compare: boolean,
 ): RecordingWorkspacePresentation["rail"] {
-  const lanes = RAIL_LANES[stage.key];
+  const lanes = compare
+    ? [
+        { id: "differences", label: "Differences" },
+        { id: "matches", label: "Matches" },
+      ]
+    : RAIL_LANES[stage.key];
   const items = compare
     ? []
     : stage.key === "round_analyses"
