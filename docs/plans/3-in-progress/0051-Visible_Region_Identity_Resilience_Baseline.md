@@ -31,7 +31,8 @@
   conditions without changing stored geometry. Crop lineage records the frozen exclusion policy,
   every input, every decision, and the original target geometry. Corruption generation records
   family, severity, seed, source digest, output digest, and transform version.
-- **M3:** Not started — run the paired resilience comparison with the current identifier.
+- **M3:** Blocked — add the guarded paired comparison and metric retention boundary, but do not
+  classify because M0 still has no completed paired maintained references.
 - **M4:** Not started — publish the decision and resolve the scope of 0052 and later detector work.
 
 ## 1. Purpose and boundary
@@ -241,6 +242,12 @@ Acceptance:
 - Calculate paired risk, coverage, recovery, and harm results.
 - Retain item-level crops, outcomes, and diagnostics for UI inspection through 0049.
 - Do not tune a condition after reading validation results.
+
+Implementation note: the local M3 comparison boundary now validates retained rows, preserves
+`classified`, `unusable`, and `failed` outcomes, calculates deterministic paired metrics, and
+writes immutable item-level row artifacts. It refuses to run while
+`validation_classification_allowed` is false. The current M0 manifest has no eligible paired
+maintained references, so classification remains stopped.
 
 Acceptance:
 

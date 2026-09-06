@@ -289,6 +289,17 @@ from .pipeline_reference import (
     parse_reference_draft_bytes,
     parse_reference_state_bytes,
 )
+from .resilience_comparison import (
+    INPUT_FAMILIES,
+    OUTCOME_STATUSES,
+    RESILIENCE_COMPARISON_ROW_SCHEMA_VERSION,
+    RESILIENCE_COMPARISON_SCHEMA_VERSION,
+    ResilienceComparisonBlocked,
+    ResilienceComparisonError,
+    render_resilience_comparison_human,
+    run_resilience_comparison,
+    write_resilience_comparison,
+)
 from .review import (
     GenericReviewAdapter,
     ReviewInput,
@@ -892,6 +903,15 @@ __all__ = [
     "render_review_human",
     "render_review_json",
     "run_review",
+    "INPUT_FAMILIES",
+    "OUTCOME_STATUSES",
+    "RESILIENCE_COMPARISON_ROW_SCHEMA_VERSION",
+    "RESILIENCE_COMPARISON_SCHEMA_VERSION",
+    "ResilienceComparisonBlocked",
+    "ResilienceComparisonError",
+    "render_resilience_comparison_human",
+    "run_resilience_comparison",
+    "write_resilience_comparison",
     "seal_system_holdout_group",
     "analyze_repository_impacts",
     "analyze_source_impact",

@@ -32,6 +32,21 @@ predicted-region, oracle, and generated or reviewed neighboring-region exclusion
 keeps source geometry immutable, records exclusion decisions, and generates seeded corruptions with
 source and output geometry digests. It does not classify crops or change the runtime default.
 
+M3 provides the guarded paired comparison boundary. It keeps `classified`, `unusable`, and
+`failed` outcomes in their required denominators, reports actual Gemini regions separately from
+synthetic corruptions, calculates paired recovery and harm, and writes item-level row artifacts for
+local inspection:
+
+```bash
+doko data resilience-comparison \
+  --manifest data/operations/visible-region-identity-resilience-m0.json \
+  --rows data/operations/visible-region-identity-resilience-m3-rows.json \
+  --output data/operations/visible-region-identity-resilience-m3
+```
+
+The command stops before classification when the M0 coverage gate is false. It does not tune or
+change the configured identifier.
+
 M1 adds a resumable CardEventNet campaign runner:
 
 ```bash

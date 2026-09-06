@@ -43,6 +43,13 @@ from .resilience_baseline import (
     render_resilience_baseline_human,
     write_resilience_baseline_manifest,
 )
+from .resilience_comparison import (
+    ResilienceComparisonBlocked,
+    ResilienceComparisonError,
+    render_resilience_comparison_human,
+    run_resilience_comparison,
+    write_resilience_comparison,
+)
 from .review import (
     REVIEW_TASK_ALL,
     ReviewRunError,
@@ -117,6 +124,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     baseline.add_argument("--format", choices=("human", "json"), default="human")
     baseline.add_argument("--json", action="store_true", help="Alias for --format json.")
+    comparison = data_commands.add_parser(
+        "resilience-comparison",
+        help="Run the frozen paired visible-region resilience comparison.",
+        description="Run the frozen paired visible-region resilience comparison.",
+    )
+    _add_path_options(comparison, suppress_defaults=True)
+    comparison.add_argument("--manifest", type=Path, required=True)
+    comparison.add_argument(
+        "--rows", type=Path, required=True, help="JSON list of retained M3 comparison rows."
+    )
+    comparison.add_argument(
+        "--output", type=Path, required=True, help="Directory for comparison and row artifacts."
+    )
+    comparison.add_argument("--elapsed-wall-clock-seconds", type=float, default=0)
+    comparison.add_argument("--format", choices=("human", "json"), default="human")
+    comparison.add_argument("--json", action="store_true", help="Alias for --format json.")
     complete = data_commands.add_parser(
         "complete-video",
         help="Complete one pending video and publish a recording bundle.",
@@ -548,6 +571,34 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"error: {error}", file=sys.stderr)
             return 2
         return 0 if manifest["validation_classification_allowed"] else 1
+    if args.command == "data" and args.data_command == "resilience-comparison":
+        try:
+            manifest_path = args.manifest.expanduser()
+            rows_path = args.rows.expanduser()
+            output_path = args.output.expanduser()
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            rows_value = json.loads(rows_path.read_text(encoding="utf-8"))
+            if isinstance(rows_value, dict):
+                rows_value = rows_value.get("rows")
+            if not isinstance(rows_value, list):
+                raise ResilienceComparisonError("retained rows file must contain a JSON list")
+            comparison_result = run_resilience_comparison(
+                manifest,
+                rows_value,
+                elapsed_wall_clock_seconds=args.elapsed_wall_clock_seconds,
+            )
+            write_resilience_comparison(output_path, comparison_result)
+        except ResilienceComparisonBlocked as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 1
+        except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(comparison_result, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_resilience_comparison_human(comparison_result))
+        return 0
     if args.command == "data" and args.data_command == "source":
         if args.source_command != "retire":
             parser.parse_args(["data", "source", "--help"])
@@ -951,8 +1002,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"error: {error}", file=sys.stderr)
             return 2
         sys.stdout.write(
-            f"artifact directory: {artifacts.directory}\n"
-            f"status: {artifacts.result.status}\n"
+            f"artifact directory: {artifacts.directory}\nstatus: {artifacts.result.status}\n"
         )
         return 0
     try:
