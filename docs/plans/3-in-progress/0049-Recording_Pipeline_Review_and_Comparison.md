@@ -23,7 +23,7 @@
 - **M6:** Complete — add observation assembly and reconstruction controls.
 - **M7:** Complete — add deterministic event comparison.
 - **M8:** Complete — add deterministic visible-card and identity comparison.
-- **M9:** Not started — add the comparison workspace and source inspection.
+- **M9:** Complete — add the comparison workspace and source inspection.
 - **M10:** Not started — prove the local workflow and remove obsolete review routes.
 
 ### M0 notes — 2026-09-06
@@ -619,6 +619,25 @@ Acceptance:
 - `not_reviewed`, processor failure, empty, miss, extra, and disagreement use distinct text; and
 - back/forward navigation, loading, error, narrow-layout, type, lint, formatting, and component tests
   pass.
+
+### M9 notes — 2026-09-06
+
+Added the recording-owned comparison route and `ComparisonView`. The view selects two terminal
+complete or partial runs and one completed manual or corrected reference. It writes `left`, `right`,
+and `reference` to the recording comparison URL. It defaults to the newest pair with the same exact
+input revisions. It does not change pipeline selections.
+
+The view shows exact inputs, the comparison mode, matching policy, reviewed and common scope, side
+coverage, metrics, and source-ordered outcomes. It keeps `not_reviewed`, processor failure, empty,
+miss, extra, disagreement, and unpaired input text distinct. An upstream experiment shows no paired
+quality claim. Selecting an outcome updates the URL, seeks the accepted recording video, and opens
+the derived frame or identity crop when available. Browser back and forward restore comparison
+selection and item state.
+
+Added event, visible-card, and visual-identity fixture tests for the outcome list and source actions,
+plus selector, history, loading, and error coverage. Web typecheck, lint, build, API verification, and
+all 97 web tests pass. The full `web` check still reports the pre-existing formatting warning in
+`src/visibleCardReview.tsx`; M9 does not change that file.
 
 ### M10 — Workflow proof and cleanup
 

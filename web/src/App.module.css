@@ -1467,6 +1467,16 @@ progress {
 }
 
 @media (max-width: 820px) {
+  .comparisonSelectors,
+  .comparisonFacts,
+  .comparisonInspectionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparisonSourcePanel {
+    position: static;
+  }
+
   .explanationArea {
     grid-template-columns: 1fr;
   }
@@ -2289,6 +2299,179 @@ progress {
     linear-gradient(135deg, rgb(255 255 255 / 1.5%), transparent 28rem),
     var(--panel);
   box-shadow: 0 0.7rem 2rem var(--shadow);
+}
+
+.comparisonWorkspace {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.comparisonWorkspaceHeading,
+.comparisonSourceHeading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.comparisonWorkspaceHeading h3,
+.comparisonWorkspace h4 {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+}
+
+.comparisonMode,
+.comparisonSourceMeta {
+  margin: 0.45rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+}
+
+.comparisonSelectors {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.comparisonFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.comparisonFacts > section,
+.comparisonOutcomePanel,
+.comparisonSourcePanel {
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--panel) 96%, var(--accent));
+}
+
+.comparisonFactsList,
+.comparisonSelectedFacts {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.75rem 0 0;
+}
+
+.comparisonFactsList div,
+.comparisonSelectedFacts div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 0.7fr) minmax(0, 1.3fr);
+  gap: 0.55rem;
+}
+
+.comparisonFactsList dt,
+.comparisonSelectedFacts dt {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.comparisonFactsList dd,
+.comparisonSelectedFacts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.comparisonInspectionGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+  align-items: start;
+  gap: 1rem;
+}
+
+.comparisonOutcomePanel {
+  overflow: hidden;
+}
+
+.comparisonOutcomeList {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 38rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.comparisonOutcomeList li {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--panel-raised);
+}
+
+.comparisonOutcomeList li[data-selected="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+
+.comparisonOutcomeButton {
+  display: grid;
+  width: 100%;
+  gap: 0.25rem;
+  padding: 0.65rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.comparisonOutcomeButton span,
+.comparisonOutcomeButton small {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+}
+
+.comparisonOutcomeButton strong {
+  font-size: 0.82rem;
+}
+
+.comparisonOutcomeButton:hover,
+.comparisonOutcomeButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.comparisonSourcePanel {
+  position: sticky;
+  top: 1rem;
+}
+
+.comparisonVideo {
+  display: block;
+  width: 100%;
+  margin-top: 0.8rem;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.45rem;
+  background: #1f1d1a;
+  object-fit: contain;
+}
+
+.comparisonSourceLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.comparisonSourceLinks a {
+  color: var(--accent-bright);
 }
 
 .pipelineActionRow {

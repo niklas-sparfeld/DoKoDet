@@ -25,6 +25,7 @@ import {
   SelectedAnalysisTimeline,
 } from "./ObservationAndAnalysisControls";
 import { RunControls } from "./RunControls";
+import { ComparisonView } from "./ComparisonView";
 
 export type { PipelineStageKey } from "../api/client";
 
@@ -683,6 +684,15 @@ export function RecordingPipelineWorkspace({
           <summary>History and exact inputs</summary>
           <PipelineHistory stage={stage} />
         </details>
+        {compare ? (
+          <ComparisonView
+            recordingId={recordingId}
+            stage={stage}
+            durationUs={workspace.video.duration_us}
+            urlState={urlState}
+            onNavigate={navigateTo}
+          />
+        ) : null}
         {!compare ? (
           <RunControls
             recordingId={recordingId}
@@ -921,6 +931,13 @@ function sanitizeUrlState(
     stage.input_options.map((option) => option.revision_id),
   );
   const validRunIds = new Set(stage.runs.map((run) => run.run_id));
+  const validReferenceIds = new Set(
+    stage.input_options
+      .filter(
+        (option) => option.origin === "manual" || option.origin === "corrected",
+      )
+      .map((option) => option.revision_id),
+  );
   const selectedReference =
     stage.selected_completed_reference_revision_id ??
     stage.reference?.selected_completion ??
@@ -948,7 +965,12 @@ function sanitizeUrlState(
         ? state.right
         : null,
     reference:
-      compare && state.reference === selectedReference ? state.reference : null,
+      compare &&
+      state.reference !== null &&
+      (validReferenceIds.has(state.reference) ||
+        state.reference === selectedReference)
+        ? state.reference
+        : null,
     analysis:
       !compare && stage.key === "round_analyses" && state.analysis !== null
         ? stage.analyses.some(
