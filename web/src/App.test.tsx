@@ -101,6 +101,53 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders each recording as a compact row with a random screenshot", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          response({
+            recordings: [
+              {
+                recording_id: recordingId,
+                source_asset_id: "source-fixture",
+                video_id: "video-fixture",
+                session_id: "session-fixture",
+                state: "accepted",
+                source_sha256: "a".repeat(64),
+                received_at: "2026-09-06T12:00:00Z",
+                round_id: "round-7",
+                evidence_package_ids: [],
+                analyses: [],
+                can_start_analysis: false,
+                analysis_blocker: "The pipeline is not ready.",
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    render(<App />);
+
+    const row = await screen.findByRole("link", { name: "Open round-7" });
+    expect(row).toHaveAttribute("href", `/recordings/${recordingId}`);
+    expect(
+      screen.getByRole("img", { name: "Random screenshot from round-7" }),
+    ).toBeInTheDocument();
+    expect(row.querySelector("video")).toHaveAttribute(
+      "src",
+      `/v1/repository-bundles/${recordingId}/video`,
+    );
+    expect(row.querySelectorAll("button")).toHaveLength(0);
+    expect(
+      screen.queryByRole("button", { name: "Refresh" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Open pipeline")).not.toBeInTheDocument();
+    expect(screen.queryByText("Start reconstruction")).not.toBeInTheDocument();
+    expect(screen.queryByText("Analyses")).not.toBeInTheDocument();
+  });
+
   it("enters the recording pipeline without loading retired review routes", async () => {
     window.history.pushState({}, "", `/recordings/${recordingId}`);
     const fetchMock = vi.fn<typeof fetch>((input) => {

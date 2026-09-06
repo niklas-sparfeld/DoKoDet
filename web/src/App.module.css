@@ -1602,9 +1602,7 @@ progress {
 .recordingsHeader {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 2rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 .recordingsHeader h1 {
@@ -1622,125 +1620,86 @@ progress {
 
 .recordingList {
   display: grid;
-  gap: 1.25rem;
+  gap: 0.55rem;
 }
 
-.recordingCard {
-  padding: 1.35rem;
+.recordingRow {
+  display: grid;
+  grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 1rem;
+  min-height: 7rem;
+  padding: 0.6rem;
   background:
     linear-gradient(135deg, rgb(240 179 74 / 3%), transparent 24rem),
     var(--panel);
   border: 1px solid var(--line);
   border-radius: 0.8rem;
   box-shadow: 0 0.7rem 2rem var(--shadow);
+  color: inherit;
+  text-decoration: none;
   transition:
     border-color 140ms ease,
     box-shadow 140ms ease;
 }
 
-.recordingCard:hover {
-  border-color: var(--line-strong);
+.recordingRow:hover,
+.recordingRow:focus-visible {
+  border-color: var(--accent);
   box-shadow: 0 1rem 2.5rem var(--shadow);
+  outline: none;
 }
 
-.recordingCardHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem;
-}
-
-.recordingCardHeader h2 {
-  margin: 0.15rem 0 0.35rem;
-  overflow-wrap: anywhere;
-}
-
-.recordingId,
-.analysisId,
-.recordingBlocker,
-.analysisError {
-  margin: 0;
-  color: var(--muted-ink);
-  overflow-wrap: anywhere;
-}
-
-.recordingAction {
-  flex: 0 0 auto;
-  text-align: right;
-}
-
-.recordingBlocker {
-  max-width: 16rem;
-  margin-top: 0.55rem;
-  font-size: 0.82rem;
-}
-
-.recordingStats {
+.recordingThumbnail {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  padding: 1rem 0;
-  margin: 1.25rem 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
-
-.recordingStats div {
+  align-self: center;
+  aspect-ratio: 16 / 9;
   min-width: 0;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: var(--surface-raised);
 }
 
-.recordingStats dt {
+.recordingThumbnail img,
+.recordingThumbnail video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recordingThumbnailFallback {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--panel-raised),
+    var(--panel-raised) 0.6rem,
+    var(--surface-raised) 0.6rem,
+    var(--surface-raised) 1.2rem
+  );
+}
+
+.recordingThumbnail span {
+  position: absolute;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.35rem;
+  background: rgb(9 11 14 / 78%);
   color: var(--muted-ink);
-  font-size: 0.76rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 0.7rem;
 }
 
-.recordingStats dd {
-  margin: 0.25rem 0 0;
-  overflow-wrap: anywhere;
-}
-
-.recordingAnalyses .sectionHeading {
-  margin-bottom: 0.75rem;
-}
-
-.analysisList {
-  display: grid;
-  gap: 0.65rem;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.analysisListItem {
+.recordingRowContent {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 0;
-  border-top: 1px solid var(--line);
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.4rem;
 }
 
-.analysisTimestamp {
-  margin-left: 0.55rem;
-  color: var(--muted-ink);
-  font-size: 0.82rem;
-}
-
-.analysisListItem .analysisId {
-  margin-top: 0.35rem;
-  font-size: 0.82rem;
-}
-
-.analysisResult,
-.analysisError {
-  margin: 0.5rem 0 0;
-  font-size: 0.85rem;
-}
-
-.analysisError {
-  color: var(--danger, #a23b3b);
+.recordingRowContent h2 {
+  overflow-wrap: anywhere;
 }
 
 .recordingLink {
@@ -1753,11 +1712,6 @@ progress {
 .recordingLink:hover,
 .recordingLink:focus-visible {
   text-decoration: underline;
-}
-
-.recordingAction .recordingLink {
-  display: block;
-  margin-bottom: 0.7rem;
 }
 
 .cardEventReviewCollectionEmpty {
@@ -1985,23 +1939,13 @@ progress {
 }
 
 @media (max-width: 600px) {
-  .recordingsHeader,
-  .recordingCardHeader,
-  .analysisListItem {
-    flex-direction: column;
+  .recordingRow {
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    min-height: 4.7rem;
   }
 
-  .recordingAction {
-    width: 100%;
-    text-align: left;
-  }
-
-  .recordingAction button {
-    width: 100%;
-  }
-
-  .recordingStats {
-    grid-template-columns: 1fr;
+  .recordingThumbnail {
+    min-height: 0;
   }
 
   .recordingContextBar {
@@ -5623,18 +5567,6 @@ progress {
   .cardEventProposalActions {
     justify-content: start;
   }
-}
-
-.recordingCardLink {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: inherit;
-  text-decoration: none;
-}
-
-.recordingCardLink:hover h2,
-.recordingCardLink:focus-visible h2 {
-  color: var(--accent);
 }
 
 @media (max-width: 800px) {

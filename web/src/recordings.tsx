@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ApiError,
   createDokoDetectorClient,
+  repositoryBundleVideoPath,
   type RecordingSummary,
 } from "./api/client";
 import {
   RecordingPipelineWorkspace,
-  recordingPipelinePath,
   type PipelineStageKey,
 } from "./pipeline/RecordingPipelineWorkspace";
 import styles from "./App.module.css";
@@ -17,10 +17,6 @@ export function RecordingListView() {
   const [recordings, setRecordings] = useState<RecordingSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [triggeringRecordingId, setTriggeringRecordingId] = useState<
-    string | null
-  >(null);
 
   const loadRecordings = useCallback(
     async (signal?: AbortSignal) => {
@@ -60,51 +56,15 @@ export function RecordingListView() {
     return () => window.clearInterval(timer);
   }, [loadRecordings, recordings]);
 
-  async function startAnalysis(recording: RecordingSummary) {
-    setTriggeringRecordingId(recording.recording_id);
-    setNotice(null);
-    try {
-      const status = await client.startRecordingAnalysis(
-        recording.recording_id,
-      );
-      setNotice(`Analysis ${status.analysis_id} was queued.`);
-      await loadRecordings();
-    } catch (reason: unknown) {
-      setError(describeError(reason));
-    } finally {
-      setTriggeringRecordingId(null);
-    }
-  }
-
   return (
     <main className={`${styles.shell} ${styles.recordingsPage}`}>
       <header className={styles.recordingsHeader}>
         <div>
           <p className={styles.eyebrow}>DokoDetector</p>
           <h1>Recordings</h1>
-          <p className={styles.description}>
-            Open an accepted recording to run processors, review maintained
-            references, and inspect reconstruction results.
-          </p>
         </div>
-        <button
-          className={styles.secondaryButton}
-          type="button"
-          onClick={() => {
-            setLoading(true);
-            void loadRecordings();
-          }}
-          disabled={loading}
-        >
-          Refresh
-        </button>
       </header>
 
-      {notice !== null ? (
-        <p className={styles.recordingNotice} role="status">
-          {notice}
-        </p>
-      ) : null}
       {error !== null ? (
         <section className={styles.panel} aria-live="polite">
           <p className={styles.statusLabel}>Unable to load recordings</p>
@@ -123,12 +83,7 @@ export function RecordingListView() {
       ) : (
         <div className={styles.recordingList} aria-label="Recordings">
           {recordings.map((recording) => (
-            <RecordingCard
-              key={recording.recording_id}
-              recording={recording}
-              isTriggering={triggeringRecordingId === recording.recording_id}
-              onStart={() => void startAnalysis(recording)}
-            />
+            <RecordingRow key={recording.recording_id} recording={recording} />
           ))}
         </div>
       )}
@@ -136,113 +91,109 @@ export function RecordingListView() {
   );
 }
 
-function RecordingCard({
-  recording,
-  isTriggering,
-  onStart,
-}: {
-  recording: RecordingSummary;
-  isTriggering: boolean;
-  onStart: () => void;
-}) {
+function RecordingRow({ recording }: { recording: RecordingSummary }) {
   return (
-    <article className={styles.recordingCard}>
-      <header className={styles.recordingCardHeader}>
-        <a
-          className={styles.recordingCardLink}
-          href={recordingPagePath(recording.recording_id)}
-        >
-          <p className={styles.eyebrow}>Recording</p>
-          <h2>{recording.round_id}</h2>
-          <p className={styles.recordingId} title={recording.recording_id}>
-            {recording.recording_id}
-          </p>
-        </a>
-        <div className={styles.recordingAction}>
-          <a
-            className={styles.recordingLink}
-            href={recordingPagePath(recording.recording_id)}
-          >
-            Open pipeline
-          </a>
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={onStart}
-            disabled={!recording.can_start_analysis || isTriggering}
-          >
-            {isTriggering ? "Starting…" : "Start reconstruction"}
-          </button>
-          {!recording.can_start_analysis ? (
-            <p className={styles.recordingBlocker}>
-              {recording.analysis_blocker}
-            </p>
-          ) : null}
-        </div>
-      </header>
+    <a
+      className={styles.recordingRow}
+      href={recordingPagePath(recording.recording_id)}
+      aria-label={`Open ${recording.round_id}`}
+    >
+      <RecordingThumbnail
+        recordingId={recording.recording_id}
+        roundId={recording.round_id}
+      />
+      <div className={styles.recordingRowContent}>
+        <h2>{recording.round_id}</h2>
+      </div>
+    </a>
+  );
+}
 
-      <dl className={styles.recordingStats}>
-        <Stat label="Received" value={formatTimestamp(recording.received_at)} />
-        <Stat label="Session" value={recording.session_id} />
-        <Stat
-          label="Evidence packages"
-          value={String(recording.evidence_package_ids.length)}
-        />
-        <Stat
-          label="Round analyses"
-          value={formatAnalysisCount(recording.analyses.length)}
-        />
-      </dl>
+function RecordingThumbnail({
+  recordingId,
+  roundId,
+}: {
+  recordingId: string;
+  roundId: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [screenshot, setScreenshot] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
-      <section className={styles.recordingAnalyses}>
-        <div className={styles.sectionHeading}>
-          <h3>Analyses</h3>
-          <span className={styles.countLabel}>{recording.analyses.length}</span>
-        </div>
-        {recording.analyses.length === 0 ? (
-          <p className={styles.emptyInline}>No analyses have been started.</p>
-        ) : (
-          <ul className={styles.analysisList}>
-            {recording.analyses.map((analysis) => (
-              <li
-                key={analysis.analysis_id}
-                className={styles.analysisListItem}
-              >
-                <div>
-                  <StatusBadge value={analysis.state} />
-                  <span className={styles.analysisTimestamp}>
-                    {formatTimestamp(analysis.created_at)}
-                  </span>
-                  <p className={styles.analysisId} title={analysis.analysis_id}>
-                    {analysis.analysis_id}
-                  </p>
-                  {analysis.state === "complete" &&
-                  analysis.result_status !== null ? (
-                    <p className={styles.analysisResult}>
-                      Result: <StatusBadge value={analysis.result_status} />
-                    </p>
-                  ) : null}
-                  {analysis.state === "failed" && analysis.error !== null ? (
-                    <p className={styles.analysisError}>{analysis.error}</p>
-                  ) : null}
-                </div>
-                {analysis.state === "complete" ? (
-                  <a
-                    className={styles.recordingLink}
-                    href={analysisSelectionPath(
-                      recording.recording_id,
-                      analysis.analysis_id,
-                    )}
-                  >
-                    Open analysis
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </article>
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null) return;
+
+    let disposed = false;
+
+    const captureScreenshot = () => {
+      if (disposed || video.videoWidth === 0 || video.videoHeight === 0) return;
+
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d");
+        if (context === null)
+          throw new Error("The thumbnail canvas is unavailable.");
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        setScreenshot(canvas.toDataURL("image/jpeg", 0.78));
+      } catch {
+        setFailed(true);
+      }
+    };
+
+    const seekToRandomFrame = () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0) {
+        setFailed(true);
+        return;
+      }
+
+      const margin = Math.min(video.duration * 0.15, 2);
+      const usableDuration = Math.max(0, video.duration - margin * 2);
+      try {
+        video.currentTime = margin + Math.random() * usableDuration;
+      } catch {
+        setFailed(true);
+      }
+    };
+
+    const handleError = () => setFailed(true);
+    video.addEventListener("loadedmetadata", seekToRandomFrame);
+    video.addEventListener("seeked", captureScreenshot);
+    video.addEventListener("error", handleError);
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      seekToRandomFrame();
+    }
+
+    return () => {
+      disposed = true;
+      video.removeEventListener("loadedmetadata", seekToRandomFrame);
+      video.removeEventListener("seeked", captureScreenshot);
+      video.removeEventListener("error", handleError);
+    };
+  }, [recordingId]);
+
+  return (
+    <div
+      className={`${styles.recordingThumbnail} ${failed ? styles.recordingThumbnailFallback : ""}`}
+      role="img"
+      aria-label={`Random screenshot from ${roundId}`}
+    >
+      {screenshot !== null ? (
+        <img src={screenshot} alt="" />
+      ) : (
+        <video
+          ref={videoRef}
+          src={repositoryBundleVideoPath(recordingId)}
+          preload="metadata"
+          muted
+          playsInline
+          aria-hidden="true"
+        />
+      )}
+      {failed ? <span>Preview unavailable</span> : null}
+    </div>
   );
 }
 
@@ -264,59 +215,14 @@ export function RecordingDetailView({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
-}
-
-function StatusBadge({ value }: { value: string }) {
-  return (
-    <span className={styles.status} data-state={value}>
-      {formatIdentifier(value)}
-    </span>
-  );
-}
-
 function isActiveAnalysis(
   analysis: RecordingSummary["analyses"][number],
 ): boolean {
   return analysis.state !== "complete" && analysis.state !== "failed";
 }
 
-function formatTimestamp(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
 export function recordingPagePath(recordingId: string): string {
   return `/recordings/${encodeURIComponent(recordingId)}`;
-}
-
-function analysisSelectionPath(
-  recordingId: string,
-  analysisId: string,
-): string {
-  return recordingPipelinePath(recordingId, "round_analyses", {
-    analysis: analysisId,
-  });
-}
-
-function formatAnalysisCount(count: number): string {
-  return count === 0 ? "Not started" : `${count} available`;
-}
-
-function formatIdentifier(value: string): string {
-  return value
-    .replaceAll("_", " ")
-    .replaceAll("-", " ")
-    .toLowerCase()
-    .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
 }
 
 function describeError(reason: unknown): string {
