@@ -415,7 +415,7 @@ class VisibleCardFrameExtractor(Protocol):
 
 
 class OpenCVVisibleCardFrameExtractor:
-    """Adapt the optional OpenCV derived-view provider to the review-batch contract."""
+    """Decode a review video once and select all requested source frames in order."""
 
     def __init__(self, *, jpeg_quality: int = 85) -> None:
         if (
@@ -447,6 +447,80 @@ class OpenCVVisibleCardFrameExtractor:
         except (DerivedViewError, RuntimeError) as error:
             raise VisibleCardFrameExtractionError(str(error)) from error
         return _adapt_frame(frame, event_time_s=event_time_s, target_offset_ms=target_offset_ms)
+
+    def extract_many(
+        self,
+        video_path: Path,
+        *,
+        requests: Sequence[tuple[float, int]],
+    ) -> list[ExtractedVisibleCardFrame | None]:
+        """Return the first decoded frame at or after each requested event time.
+
+        A review batch commonly has many events in one video.  Opening a decoder for each event
+        makes the decoder repeatedly process the beginning of that video.  This mirrors
+        ``cardevent prepare``: one sequential decode supplies every requested frame.
+        """
+        try:
+            import cv2
+        except ModuleNotFoundError as error:
+            raise VisibleCardFrameExtractionError(
+                "OpenCV is required for sequential review-frame extraction"
+            ) from error
+
+        requested_times_us = [_event_time_us(event_time_s) for event_time_s, _ in requests]
+        indexed_requests = sorted(enumerate(requested_times_us), key=lambda item: item[1])
+        results: list[ExtractedVisibleCardFrame | None] = [None] * len(requests)
+        capture = cv2.VideoCapture(str(video_path))
+        try:
+            if not capture.isOpened():
+                raise VisibleCardFrameExtractionError(
+                    f"OpenCV could not open source video: {video_path}"
+                )
+            orientation_auto = getattr(cv2, "CAP_PROP_ORIENTATION_AUTO", None)
+            if orientation_auto is not None:
+                capture.set(orientation_auto, 1)
+            fps = float(capture.get(cv2.CAP_PROP_FPS))
+            if not math.isfinite(fps) or fps <= 0:
+                raise VisibleCardFrameExtractionError("OpenCV returned an invalid frame rate")
+
+            pending = 0
+            frame_index = 0
+            while pending < len(indexed_requests):
+                ok, frame = capture.read()
+                if not ok or frame is None:
+                    break
+                timestamp_us = int(round(frame_index / fps * 1_000_000))
+                selected: list[int] = []
+                while (
+                    pending < len(indexed_requests)
+                    and indexed_requests[pending][1] <= timestamp_us
+                ):
+                    selected.append(indexed_requests[pending][0])
+                    pending += 1
+                if selected:
+                    encoded, buffer = cv2.imencode(
+                        ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
+                    )
+                    if not encoded:
+                        raise VisibleCardFrameExtractionError(
+                            f"OpenCV could not encode frame {frame_index}"
+                        )
+                    height, width = frame.shape[:2]
+                    image_bytes = buffer.tobytes()
+                    for result_index in selected:
+                        event_time_s, target_offset_ms = requests[result_index]
+                        results[result_index] = ExtractedVisibleCardFrame(
+                            frame_index=frame_index,
+                            actual_offset_ms=math.floor(timestamp_us / 1000 + 0.5)
+                            - math.floor(event_time_s * 1000 + 0.5),
+                            image_bytes=image_bytes,
+                            width=int(width),
+                            height=int(height),
+                        )
+                frame_index += 1
+        finally:
+            capture.release()
+        return results
 
 
 class FFmpegVisibleCardFrameExtractor:
@@ -2019,8 +2093,27 @@ class VisibleCardReviewBatchStore:
             items=items,
         )
         _atomic_write_json(state_path, current)
-        extractor = frame_extractor or FFmpegVisibleCardFrameExtractor()
+        # Decode the source only once for all newly needed frames.  This is the same sequential
+        # extraction strategy used by ``cardevent prepare``.
+        extractor = frame_extractor or OpenCVVisibleCardFrameExtractor()
         artifact_paths: dict[str, tuple[Path, Path]] = {}
+        pending_definitions = [
+            definition
+            for index, definition in enumerate(definitions)
+            if items[index]["frame"] is None
+        ]
+        pending_frames = _call_batch_extractor(
+            extractor,
+            request.video_path,
+            [
+                (definition.event.time_s, request.target_offset_ms)
+                for definition in pending_definitions
+            ],
+        )
+        extracted_frames = {
+            definition.item_id: frame
+            for definition, frame in zip(pending_definitions, pending_frames, strict=True)
+        }
         for index, definition in enumerate(definitions):
             item = items[index]
             if item["frame"] is not None:
@@ -2030,12 +2123,7 @@ class VisibleCardReviewBatchStore:
                 )
                 continue
             try:
-                frame = _call_extractor(
-                    extractor,
-                    request.video_path,
-                    event_time_s=definition.event.time_s,
-                    target_offset_ms=request.target_offset_ms,
-                )
+                frame = extracted_frames[definition.item_id]
                 if frame is None:
                     raise VisibleCardMissingFrameError(
                         f"exact event frame is missing at {definition.event.time_s:.3f}s"
@@ -2317,6 +2405,33 @@ def _call_extractor(
     if callable(extractor):
         return extractor(video_path, event_time_s=event_time_s, target_offset_ms=target_offset_ms)  # type: ignore[misc]
     raise VisibleCardFrameExtractionError("frame extractor does not implement extract")
+
+
+def _call_batch_extractor(
+    extractor: VisibleCardFrameExtractor,
+    video_path: Path,
+    requests: Sequence[tuple[float, int]],
+) -> list[ExtractedVisibleCardFrame | None]:
+    """Use a one-pass extractor when available, otherwise preserve the single-frame adapter."""
+    if not requests:
+        return []
+    method = getattr(extractor, "extract_many", None)
+    if callable(method):
+        frames = method(video_path, requests=requests)
+        if not isinstance(frames, Sequence) or len(frames) != len(requests):
+            raise VisibleCardFrameExtractionError(
+                "batch frame extractor must return one frame result for each request"
+            )
+        return list(frames)
+    return [
+        _call_extractor(
+            extractor,
+            video_path,
+            event_time_s=event_time_s,
+            target_offset_ms=target_offset_ms,
+        )
+        for event_time_s, target_offset_ms in requests
+    ]
 
 
 def _run_artifact_mapping(request: Any, result: ProviderResult, *, image: str) -> dict[str, Any]:

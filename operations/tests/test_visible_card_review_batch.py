@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
@@ -21,6 +22,7 @@ from table_evidence_analyzer.visible_cards import (
 
 from doko_operations.visible_card_review_batch import (
     ExtractedVisibleCardFrame,
+    OpenCVVisibleCardFrameExtractor,
     VisibleCardBatchConflict,
     VisibleCardBatchError,
     VisibleCardBatchRequest,
@@ -119,6 +121,31 @@ class _FixtureExtractor:
         )
 
 
+class _BatchFixtureExtractor(_FixtureExtractor):
+    def __init__(self, frames: dict[float, bytes]) -> None:
+        super().__init__(frames)
+        self.batch_calls: list[list[tuple[float, int]]] = []
+
+    def extract_many(
+        self,
+        video_path: Path,
+        *,
+        requests: list[tuple[float, int]],
+    ) -> list[ExtractedVisibleCardFrame | None]:
+        del video_path
+        self.batch_calls.append(requests)
+        return [
+            ExtractedVisibleCardFrame(
+                frame_index=round(event_time_s * 10),
+                actual_offset_ms=0,
+                image_bytes=self.frames[event_time_s],
+                width=20,
+                height=20,
+            )
+            for event_time_s, target_offset_ms in requests
+        ]
+
+
 class _UnavailableProvider:
     name = "local"
     version = "local-visible-cards-v1"
@@ -126,6 +153,69 @@ class _UnavailableProvider:
     def propose(self, request: object) -> ProviderResult:
         del request
         return ProviderResult(status="unavailable", error="fixture provider error")
+
+
+def test_sequential_opencv_extractor_decodes_once_for_all_events(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    class _Frame:
+        shape = (20, 30, 3)
+
+    class _Buffer:
+        def tobytes(self) -> bytes:
+            return b"jpeg"
+
+    class _Capture:
+        def __init__(self) -> None:
+            self.frames = [_Frame(), _Frame(), _Frame(), _Frame()]
+            self.read_count = 0
+            self.released = False
+
+        def isOpened(self) -> bool:
+            return True
+
+        def get(self, property_id: int) -> float:
+            del property_id
+            return 5.0
+
+        def read(self) -> tuple[bool, _Frame | None]:
+            if not self.frames:
+                return False, None
+            self.read_count += 1
+            return True, self.frames.pop(0)
+
+        def release(self) -> None:
+            self.released = True
+
+    class _CV2:
+        CAP_PROP_FPS = 5
+        IMWRITE_JPEG_QUALITY = 1
+        captures: list[_Capture] = []
+
+        @classmethod
+        def VideoCapture(cls, path: str) -> _Capture:
+            del path
+            capture = _Capture()
+            cls.captures.append(capture)
+            return capture
+
+        @staticmethod
+        def imencode(extension: str, frame: _Frame, options: list[int]) -> tuple[bool, _Buffer]:
+            del extension, frame, options
+            return True, _Buffer()
+
+    monkeypatch.setitem(sys.modules, "cv2", _CV2)
+
+    frames = OpenCVVisibleCardFrameExtractor().extract_many(
+        tmp_path / "video.mov",
+        requests=[(0.1, 0), (0.4, 0), (0.6, 0)],
+    )
+
+    assert [frame.frame_index if frame is not None else None for frame in frames] == [1, 2, 3]
+    assert len(_CV2.captures) == 1
+    assert _CV2.captures[0].read_count == 4
+    assert _CV2.captures[0].released is True
 
 
 class _RecoveringProvider:
@@ -238,6 +328,24 @@ def test_batch_preparation_builds_stable_two_item_v2_queue(tmp_path: Path) -> No
         )["queue_digest"]
         == first["queue_digest"]
     )
+
+
+def test_batch_preparation_uses_one_pass_frame_extractor_when_available(tmp_path: Path) -> None:
+    request, frames = _request(tmp_path)
+    provider = FakeVisibleCardProvider(
+        {hashlib.sha256(image).hexdigest(): _prediction() for image in frames.values()}
+    )
+    extractor = _BatchFixtureExtractor(frames)
+
+    prepared = VisibleCardReviewBatchStore(tmp_path / "operations").prepare(
+        request,
+        provider,
+        frame_extractor=extractor,
+    )
+
+    assert prepared["status"] == "ready"
+    assert extractor.batch_calls == [[(0.4, 0), (1.2, 0)]]
+    assert extractor.calls == []
 
 
 def test_batch_loader_normalizes_items_from_before_last_detector_tracking(
