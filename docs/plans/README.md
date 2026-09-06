@@ -53,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0054 — Unified recording workspace layout](3-in-progress/0054-Unified_Recording_Workspace_Layout.md) | 0048 and 0049 complete | M0–M6 complete: shared presentation model, compact viewport shell, persistent metadata inspector, shared Timeline Rail, and event, visible-card, and visual-identity workbenches with synchronized URL selection and conflict-safe review commands. Continue with table-observation work. |
+| [0054 — Unified recording workspace layout](3-in-progress/0054-Unified_Recording_Workspace_Layout.md) | 0048 and 0049 complete | M0–M7 complete: shared presentation model, compact viewport shell, persistent metadata inspector, shared Timeline Rail, and event, visible-card, visual-identity, and table-observation workbenches with synchronized URL selection and conflict-safe review commands. Continue with round-analysis work. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -116,7 +116,7 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0054 with M7 to make table-observation work use the shared workbench.** Keep the
+1. **Continue 0054 with M8 to make round-analysis work use the shared workbench.** Keep the
    completed 0048 and 0049 contracts. Migrate one stage per milestone and remove its duplicate
    lists and tables.
 2. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.

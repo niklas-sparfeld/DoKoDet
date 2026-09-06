@@ -459,13 +459,17 @@ function normalizeSelection(
       : (defaultRevisionId ?? null);
   const railItemIds = knownRailItemIds(stage);
   const itemId =
-    stage.key === "table_observations" || stage.key === "round_analyses"
+    stage.key === "round_analyses"
       ? null
-      : urlState.item === null || railItemIds.length === 0
-        ? urlState.item
-        : railItemIds.includes(urlState.item)
+      : stage.key === "table_observations"
+        ? urlState.item !== null && railItemIds.includes(urlState.item)
           ? urlState.item
-          : null;
+          : null
+        : urlState.item === null || railItemIds.length === 0
+          ? urlState.item
+          : railItemIds.includes(urlState.item)
+            ? urlState.item
+            : null;
   const timeUs =
     urlState.tUs === null
       ? null
@@ -525,19 +529,30 @@ function runRailItems(
     const rawItems = Array.isArray(run.state.items)
       ? run.state.items.filter(isRecord)
       : [];
-    return rawItems.map((item) => {
+    return rawItems.flatMap((item) => {
       const itemId =
         typeof item.item_id === "string" ? item.item_id : "unknown";
-      return {
+      const observationItem = {
         id: `${run.run_id}:${itemId}`,
         itemId,
-        selectionParam: "item",
+        selectionParam: "item" as const,
         laneId: railLaneForStage(stage.key),
         label: railItemLabel(item, itemId),
         state: typeof item.status === "string" ? item.status : run.status,
         timeRange: readTimeRange(item, durationUs),
         runId: run.run_id,
       };
+      return stage.key === "table_observations"
+        ? [
+            observationItem,
+            {
+              ...observationItem,
+              id: `${run.run_id}:${itemId}:execution`,
+              laneId: "execution",
+              label: `${observationItem.label} · ${observationItem.state}`,
+            },
+          ]
+        : [observationItem];
     });
   });
 }

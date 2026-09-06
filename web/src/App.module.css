@@ -5495,6 +5495,50 @@ progress {
   gap: 0.85rem;
 }
 
+.observationWorkbenchSurface {
+  display: grid;
+  min-width: 0;
+  gap: 0.85rem;
+}
+
+.observationWorkbenchSurface > .cardEventSourceVideo {
+  max-height: min(32rem, 62vh);
+}
+
+.observationWorkbenchSummary {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface) 45%, var(--panel));
+}
+
+.observationWorkbenchSummary h2 {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.observationWorkbenchSummary dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.observationWorkbenchSummary dt {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.observationWorkbenchSummary dd {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
 .visibleCardWorkbenchSurface > .cardEventSourceVideo {
   max-height: 14rem;
 }

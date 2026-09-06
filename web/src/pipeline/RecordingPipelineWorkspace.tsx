@@ -35,6 +35,7 @@ import {
 import { RunControls } from "./RunControls";
 import { RecordingTimelineRail } from "./RecordingTimelineRail";
 import { ComparisonView } from "./ComparisonView";
+import { PipelineObservationWorkbench } from "./PipelineObservationWorkbench";
 import {
   buildRecordingWorkspacePresentation,
   PIPELINE_STAGE_KEYS,
@@ -849,6 +850,13 @@ export function RecordingPipelineWorkspace({
                 onRailItemsChange={handleVisualIdentityRailItemsChange}
               />
             ) : null}
+            {stage.key === "table_observations" && !compare ? (
+              <PipelineObservationWorkbench
+                recordingId={recordingId}
+                stage={stage}
+                selectedItemId={presentation.surface.selectedItemId}
+              />
+            ) : null}
           </div>
         </section>
 
@@ -1459,7 +1467,7 @@ function sanitizeUrlState(
 }
 
 function isKnownItem(stage: PipelineWorkspaceStage, itemId: string): boolean {
-  if (stage.key === "table_observations" || stage.key === "round_analyses") {
+  if (stage.key === "round_analyses") {
     return false;
   }
   const knownItemIds = stage.runs.flatMap((run) => {
@@ -1475,6 +1483,9 @@ function isKnownItem(stage: PipelineWorkspaceStage, itemId: string): boolean {
         )
       : [];
   });
+  if (stage.key === "table_observations") {
+    return knownItemIds.includes(itemId);
+  }
   return knownItemIds.length === 0 || knownItemIds.includes(itemId);
 }
 

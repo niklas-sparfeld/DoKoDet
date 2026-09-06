@@ -771,6 +771,100 @@ describe("recording pipeline workspace", () => {
     expect(window.location.search).toBe("?t_us=90000000");
   });
 
+  it("uses an observation interval to synchronize the source surface and URL", async () => {
+    const observationRun = {
+      run_id: "observation-run-1",
+      status: "complete",
+      attempt: 1,
+      input_revision_ids: ["events-1", "visible-1", "identity-1"],
+      implementation: { name: "observation-assembler", version: "v1" },
+      model: null,
+      configuration: {},
+      extraction_policy: { policy_id: "exact-event/v1" },
+      crop_policy: null,
+      progress: { completed: 1, total: 1 },
+      failure: null,
+      output_revision_ids: ["observations-1"],
+      state: {
+        status: "complete",
+        progress: { completed: 1, total: 1 },
+        items: [
+          {
+            item_id: "observation-1",
+            status: "succeeded",
+            result: {
+              observation_id: "observation-1",
+              observed_at_ms: 12_000,
+              status: "observed",
+              capabilities: ["identity_candidates"],
+              cards: [
+                {
+                  observed_card_id: "card-1",
+                  identity_status: "classified",
+                  identity_candidates: [],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    } as unknown as PipelineWorkspaceStage["runs"][number];
+    const body = workspace();
+    body.stages[3] = stage("table_observations", {
+      state: "complete",
+      selected_generated_revision_id: "observations-1",
+      input_options: [
+        {
+          revision_id: "observations-1",
+          content_type: "table_observations",
+          origin: "processor",
+          completion_state: "complete",
+          coverage_state: "assembled-events",
+          display_label: "Generated observations",
+          content_sha256: "b".repeat(64),
+          input_revision_ids: ["events-1", "visible-1", "identity-1"],
+          producer: {},
+          coverage: {},
+          created_at: "2026-09-06T00:00:00Z",
+        },
+      ],
+      runs: [observationRun],
+      can_run: true,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="table_observations"
+        compare={false}
+      />,
+    );
+
+    expect(
+      await screen.findByLabelText(
+        `Table-observation source video ${RECORDING_ID}`,
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: /^observation-1,.*0:12/i }),
+    );
+    expect(window.location.search).toContain("item=observation-1");
+    expect(window.location.search).toContain("t_us=12000000");
+    expect(screen.getByText("Observation observation-1")).toBeInTheDocument();
+    expect(screen.getByText("1 visible card")).toBeInTheDocument();
+  });
+
   it("reloads the winning selection after an optimistic conflict", async () => {
     const first = workspace({
       state: "generated-only",

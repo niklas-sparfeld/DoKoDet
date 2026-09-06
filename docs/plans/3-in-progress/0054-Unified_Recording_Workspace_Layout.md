@@ -31,7 +31,7 @@
   shared video, inspector, and Timeline Rail workbench; remove the event timeline and tables.
 - **M5:** Complete — migrate visible-card generation and review to the shared workbench.
 - **M6:** Complete — migrate visual identity generation and review to the shared workbench.
-- **M7:** Not started — migrate table-observation work to the shared workbench.
+- **M7:** Complete — migrate table-observation work to the shared workbench.
 - **M8:** Not started — migrate round-analysis work to the shared workbench.
 - **M9:** Not started — migrate comparison work to the shared workbench.
 - **M10:** Not started — finish responsive, accessibility, visual, and obsolete-UI cleanup.
@@ -377,6 +377,19 @@ Acceptance:
 - source-frame, crop, command ordering, keyboard, retry, conflict, and completion tests pass.
 
 ### M7 — Table-observation workbench
+
+Status: Complete (2026-09-06).
+
+- The table-observation stage now keeps the accepted source video in the central task surface.
+  Selecting an observation interval in the shared Timeline Rail seeks that video and restores the
+  selected observation and source time through `item` and `t_us` URL state.
+- The rail now exposes observation intervals and their execution state without a second temporal
+  list. The central summary shows the selected observation's source time, outcome, visible-card
+  count, and analyzer capabilities.
+- Compatible revision-set selection, exact frozen inputs, assembly progress, execution state,
+  failure, retry, retained runs, and output metadata remain in the shared inspector.
+
+Verification: `mise exec -- npm run check` and `mise exec -- npm run build` in `web` passed.
 
 - Put selected table-observation source context in the center and its intervals on the rail.
 - Put compatible input selection, assembly progress, execution, and result metadata in the
