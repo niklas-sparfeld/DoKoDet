@@ -53,6 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0054 — Unified recording workspace layout](3-in-progress/0054-Unified_Recording_Workspace_Layout.md) | 0048 and 0049 complete | M0 complete: pure presentation model, representative pipeline states, and reusable viewport geometry fixtures. Continue with one viewport shell, metadata inspector, shared Timeline Rail, and stage migrations. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -115,27 +116,30 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.
+1. **Continue 0054 with M1 to make recording review usable in a normal laptop viewport.** Keep the
+   completed 0048 and 0049 contracts. Build one viewport shell, metadata inspector, and shared
+   Timeline Rail, then migrate one stage per milestone and remove its duplicate lists and tables.
+2. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.
    Keep the scan broad and shallow. Create only evidence-based work-area epics. Use one Terra agent
    to specify each area and Luna-sized milestones for delivery. Do not add a third epic layer by
    default.
-2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
+3. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts
    intact. Do not lower review or coverage requirements merely to unblock model work.
-3. **Continue 0051 after its coverage gate is met.** Freeze actual and
+4. **Continue 0051 after its coverage gate is met.** Freeze actual and
    corrupted predicted-region conditions, then measure the simple exclusion crop policies. Use its
    decision to specify one response in 0052 or close 0052 as not required.
-4. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+5. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-5. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+6. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-6. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+7. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+8. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
@@ -183,6 +187,11 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   navigation and context cost. Use three model tiers but only two epic levels: Sol discovers work
   areas, Terra specifies each work-area epic, and Luna implements its milestones. Do not create a
   separate implementation epic for every Luna milestone.
+- Add 0054 as a presentation-only follow-up to completed 0048 and 0049. The current implementation
+  puts duplicate stage summaries, selectors, history, and run controls before the video and repeats
+  temporal navigation in lists or tables. Use one viewport shell, central task surface, right-side
+  metadata inspector, and shared bottom Timeline Rail. Keep backend and persistence contracts
+  unchanged.
 
 ## Closed-epic policy
 

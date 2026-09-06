@@ -26,24 +26,30 @@ import {
 } from "./ObservationAndAnalysisControls";
 import { RunControls } from "./RunControls";
 import { ComparisonView } from "./ComparisonView";
+import {
+  PIPELINE_STAGE_KEYS,
+  STAGE_LABELS,
+  isPipelineStageKey,
+  primaryActionForStage,
+  type PipelinePrimaryActionKind,
+  type PipelineUrlState,
+  type PipelineView,
+} from "./recordingWorkspacePresentation";
 
 export type { PipelineStageKey } from "../api/client";
-
-export const PIPELINE_STAGE_KEYS: readonly PipelineStageKey[] = [
-  "events",
-  "visible_cards",
-  "visual_identities",
-  "table_observations",
-  "round_analyses",
-];
-
-const STAGE_LABELS: Record<PipelineStageKey, string> = {
-  events: "Events",
-  visible_cards: "Visible cards",
-  visual_identities: "Visual identities",
-  table_observations: "Table observations",
-  round_analyses: "Round analyses",
-};
+export {
+  PIPELINE_STAGE_KEYS,
+  STAGE_LABELS,
+  getPrimaryAction,
+  isPipelineStageKey,
+  primaryActionForStage,
+} from "./recordingWorkspacePresentation";
+export type {
+  PipelinePrimaryAction,
+  PipelinePrimaryActionKind,
+  PipelineUrlState,
+  PipelineView,
+} from "./recordingWorkspacePresentation";
 
 const STAGE_CONTENT_TYPES: Record<
   Exclude<PipelineStageKey, "round_analyses">,
@@ -54,38 +60,6 @@ const STAGE_CONTENT_TYPES: Record<
   visual_identities: "visual_identities",
   table_observations: "table_observations",
 };
-
-export type PipelineView = "generated" | "reviewed";
-
-export type PipelineUrlState = {
-  view: PipelineView | null;
-  revision: string | null;
-  item: string | null;
-  tUs: number | null;
-  left: string | null;
-  right: string | null;
-  reference: string | null;
-  analysis: string | null;
-};
-
-export type PipelinePrimaryActionKind =
-  | "continue_review"
-  | "run"
-  | "review"
-  | "compare"
-  | "open_analysis"
-  | "run_again"
-  | "blocked";
-
-export type PipelinePrimaryAction = {
-  kind: PipelinePrimaryActionKind;
-  label: string;
-  blocker: string | null;
-};
-
-export function isPipelineStageKey(value: string): value is PipelineStageKey {
-  return PIPELINE_STAGE_KEYS.includes(value as PipelineStageKey);
-}
 
 export function readRecordingPipelineRoute(pathname: string): {
   recordingId: string;
@@ -145,53 +119,6 @@ export function recordingPipelineComparePath(
 ): string {
   return `${recordingPipelineBasePath(recordingId, stage)}/compare${pipelineSearch(state, true)}`;
 }
-
-export function primaryActionForStage(
-  stage: PipelineWorkspaceStage,
-): PipelinePrimaryAction {
-  const reference = stage.reference ?? null;
-  if (
-    stage.has_maintained_reference &&
-    (reference?.state === "draft" || (reference?.affected_count ?? 0) > 0)
-  ) {
-    return { kind: "continue_review", label: "Continue review", blocker: null };
-  }
-  if (stage.selected_generated_revision_id === null && stage.can_run) {
-    return { kind: "run", label: "Run", blocker: null };
-  }
-  if (
-    stage.selected_generated_revision_id !== null &&
-    stage.selected_completed_reference_revision_id === null &&
-    stage.can_review
-  ) {
-    return { kind: "review", label: "Review", blocker: null };
-  }
-  if (
-    stage.selected_completed_reference_revision_id !== null &&
-    stage.comparable_run_ids.length >= 2
-  ) {
-    return { kind: "compare", label: "Compare", blocker: null };
-  }
-  if (
-    stage.key === "round_analyses" &&
-    stage.analyses.some((analysis) => analysis.state === "complete")
-  ) {
-    return { kind: "open_analysis", label: "Open analysis", blocker: null };
-  }
-  if (stage.can_run) {
-    return { kind: "run_again", label: "Run again", blocker: null };
-  }
-  return {
-    kind: "blocked",
-    label: "Blocked",
-    blocker:
-      stage.run_blockers[0] ??
-      stage.review_blockers[0] ??
-      "No action is available.",
-  };
-}
-
-export const getPrimaryAction = primaryActionForStage;
 
 export function RecordingPipelineWorkspace({
   recordingId,
