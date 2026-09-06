@@ -23,6 +23,9 @@ cd backend
 uv sync
 ```
 
+The backend sync installs the local CardEventNet provider used by the event processor. Its
+checkpoint and prepared video cache are still required for an inference run.
+
 For the local visible-card provider, install its pinned native inference dependency as well:
 
 ```bash
