@@ -134,7 +134,7 @@ export type RailTimeRange = {
 export type RecordingTimelineRailItem = {
   id: string;
   itemId: string;
-  selectionParam: "item" | "analysis";
+  selectionParam: "item" | "analysis" | "none";
   laneId: string;
   label: string;
   state: string;
@@ -561,7 +561,7 @@ function analysisRailItems(
 function railLaneForStage(stage: PipelineStageKey): string {
   switch (stage) {
     case "events":
-      return "events";
+      return "proposals";
     case "visible_cards":
       return "resolved-frames";
     case "visual_identities":

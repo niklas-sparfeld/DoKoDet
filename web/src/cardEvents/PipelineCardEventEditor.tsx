@@ -5,7 +5,9 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   ApiError,
@@ -53,6 +55,14 @@ type PendingCommand = {
   attempts: number;
 };
 
+export type PipelineCardEventRailItem = {
+  itemId: string;
+  label: string;
+  state: EventState;
+  startUs: number;
+  endUs: number;
+};
+
 const CONTENT_TYPE = "events" as const;
 const RETRY_LIMIT = 3;
 
@@ -65,6 +75,9 @@ export type PipelineCardEventEditorProps = {
   generatedRevisionId: string | null;
   generatedRunId: string | null;
   view: "generated" | "reviewed";
+  onRailItemsChange?: (items: PipelineCardEventRailItem[]) => void;
+  onReviewRequested?: () => void;
+  inspectorEnabled?: boolean;
 };
 
 export function PipelineCardEventEditor({
@@ -76,6 +89,9 @@ export function PipelineCardEventEditor({
   generatedRevisionId,
   generatedRunId,
   view,
+  onRailItemsChange,
+  onReviewRequested,
+  inspectorEnabled = true,
 }: PipelineCardEventEditorProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -112,6 +128,11 @@ export function PipelineCardEventEditor({
   const [coverageComplete, setCoverageComplete] = useState(false);
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
+  const [inspectorSlots, setInspectorSlots] = useState<{
+    action: HTMLElement;
+    save: HTMLElement;
+    selection: HTMLElement;
+  } | null>(null);
 
   const frameRate = 30;
 
@@ -254,15 +275,15 @@ export function PipelineCardEventEditor({
   }, [loadGenerated, loadReference, view]);
 
   useEffect(() => {
-    if (view !== "reviewed" || reference === null) return;
+    if (view === "reviewed" && reference === null) return;
     const urlState = readPipelineEditorUrlState();
     const requestedItemId =
       selectionItemId === undefined ? urlState.item : selectionItemId;
     const selected =
-      (requestedItemId === null
+      view !== "reviewed" || requestedItemId === null
         ? undefined
-        : events.find((event) => event.itemId === requestedItemId)) ??
-      events[0];
+        : (events.find((event) => event.itemId === requestedItemId) ??
+          (view === "reviewed" ? events[0] : undefined));
     const requestedTimeUs =
       selectionTimeUs === undefined ? urlState.tUs : selectionTimeUs;
     const timer = window.setTimeout(() => {
@@ -314,6 +335,39 @@ export function PipelineCardEventEditor({
       video.removeEventListener("ended", update);
     };
   }, [durationUs, reference]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const action = document.querySelector<HTMLElement>(
+        '[data-event-inspector-slot="action"]',
+      );
+      const save = document.querySelector<HTMLElement>(
+        '[data-event-inspector-slot="save"]',
+      );
+      const selection = document.querySelector<HTMLElement>(
+        '[data-event-inspector-slot="selection"]',
+      );
+      if (action !== null && save !== null && selection !== null) {
+        setInspectorSlots({ action, save, selection });
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [inspectorEnabled, view]);
+
+  useEffect(() => {
+    if (view !== "reviewed") {
+      return;
+    }
+    onRailItemsChange?.(
+      events.map((event) => ({
+        itemId: event.itemId,
+        label: formatIdentifier(event.event.event_type),
+        state: event.reviewState,
+        startUs: event.event.start_us,
+        endUs: event.event.end_us,
+      })),
+    );
+  }, [events, onRailItemsChange, view]);
 
   const nextCommandId = useCallback(() => {
     commandSequenceRef.current += 1;
@@ -741,8 +795,6 @@ export function PipelineCardEventEditor({
     selectEvent,
   ]);
 
-  const { captureVideoRef, captureCanvasRef, screenshots } =
-    usePipelineEventScreenshots(videoUrl, events, durationUs);
   const pendingCount = events.filter(
     (event) =>
       event.reviewState === "pending" || event.reviewState === "affected",
@@ -774,56 +826,330 @@ export function PipelineCardEventEditor({
                   ? "Enter the reviewer ID before completing the reference."
                   : null;
 
+  const selectedGeneratedEvent = selectGeneratedEvent(
+    generatedEvents,
+    selectionItemId ?? readPipelineEditorUrlState().item,
+    selectionTimeUs ?? readPipelineEditorUrlState().tUs,
+  );
+  const inspector = (
+    <EventInspectorPortals
+      slots={inspectorSlots}
+      inspectorEnabled={inspectorEnabled}
+      view={view}
+      reference={reference}
+      generatedEvents={generatedEvents}
+      generatedRevisionId={generatedRevisionId}
+      generatedLoading={generatedLoading}
+      selectedEvent={selectedEvent}
+      selectedGeneratedEvent={selectedGeneratedEvent}
+      pendingCount={pendingCount}
+      acceptedCount={acceptedCount}
+      rejectedCount={rejectedCount}
+      saveState={saveState}
+      queueLength={queueLength}
+      firstUnappliedCommand={firstUnappliedCommand}
+      error={error}
+      operatorId={operatorId}
+      reviewerId={reviewerId}
+      setOperatorId={setOperatorId}
+      setReviewerId={setReviewerId}
+      creatingReference={creatingReference}
+      completionBusy={completionBusy}
+      completionBlocker={completionBlocker}
+      watchedPercent={watchedPercent}
+      watchedThroughUs={watchedThroughUs}
+      coverageComplete={coverageComplete}
+      durationUs={durationUs}
+      addEvent={addEvent}
+      markCoverage={() => setCoverageComplete(true)}
+      retryQueuedCommands={retryQueuedCommands}
+      reloadWinningDraft={reloadWinningDraft}
+      completeReference={completeReference}
+      createReference={createReference}
+      onReviewRequested={onReviewRequested}
+    />
+  );
+  const fallbackInspector = null;
+
   if (view === "generated") {
     return (
-      <GeneratedEventView
-        events={generatedEvents}
-        loading={generatedLoading}
-        revisionId={generatedRevisionId}
-        videoUrl={videoUrl}
-        durationUs={durationUs}
-      />
+      <>
+        {inspector}
+        {fallbackInspector}
+        <GeneratedEventView
+          events={generatedEvents}
+          loading={generatedLoading}
+          revisionId={generatedRevisionId}
+          videoUrl={videoUrl}
+          durationUs={durationUs}
+          selectedEvent={selectedGeneratedEvent}
+          videoRef={videoRef}
+        />
+      </>
     );
   }
 
   if (loading)
     return (
-      <p className={styles.detailEmptyState}>
-        Loading maintained event reference…
-      </p>
+      <>
+        {inspector}
+        {fallbackInspector}
+        <p className={styles.detailEmptyState}>
+          Loading maintained event reference…
+        </p>
+      </>
     );
   if (reference === null) {
     return (
+      <>
+        {inspector}
+        {fallbackInspector}
+        <EventSourceSurface
+          videoRef={videoRef}
+          videoUrl={videoUrl}
+          recordingId={recordingId}
+          durationUs={durationUs}
+          watchedPercent={watchedPercent}
+          watchedThroughUs={watchedThroughUs}
+          coverageComplete={coverageComplete}
+          onAddEvent={addEvent}
+          onMarkCoverage={() => setCoverageComplete(true)}
+          showCoverageControls={onRailItemsChange === undefined}
+        />
+        <section
+          className={styles.cardEventReviewPanel}
+          aria-label="Start event review"
+        >
+          <p className={styles.detailLead}>
+            No maintained event reference exists yet. Use the primary action in
+            the inspector to start review.
+          </p>
+        </section>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {inspector}
+      {fallbackInspector}
       <section
-        className={styles.cardEventReviewPanel}
-        aria-label="Start event review"
+        className={styles.cardEventPipelineEditor}
+        aria-label="CardEvent maintained reference editor"
       >
-        <div className={styles.sectionHeading}>
+        <div className={styles.cardEventReviewHeader}>
           <div>
             <p className={styles.statusLabel}>Maintained reference</p>
-            <h3>Start event review</h3>
+            <h3>CardEvent review</h3>
+            <p className={styles.detailLead}>
+              {reference.draft.source_revision_id === null
+                ? "Manual event reference"
+                : `Used generated events ${reference.draft.source_revision_id}`}
+            </p>
           </div>
-          <span className={styles.countLabel}>
-            {generatedEvents.length} suggestions
-          </span>
+          <div
+            className={styles.cardEventReviewCounts}
+            aria-label="Event counts"
+          >
+            <ReviewCount label="Accepted" value={acceptedCount} />
+            <ReviewCount label="Pending" value={pendingCount} />
+            <ReviewCount label="Rejected" value={rejectedCount} />
+          </div>
         </div>
-        <p className={styles.detailLead}>
-          Review changes stay in one recording-owned reference. The selected
-          generated result is only a suggestion source.
+
+        <div className={styles.cardEventPipelineVideoGrid}>
+          <EventSourceSurface
+            videoRef={videoRef}
+            videoUrl={videoUrl}
+            recordingId={recordingId}
+            durationUs={durationUs}
+            watchedPercent={watchedPercent}
+            watchedThroughUs={watchedThroughUs}
+            coverageComplete={coverageComplete}
+            onAddEvent={addEvent}
+            onMarkCoverage={() => setCoverageComplete(true)}
+            showCoverageControls={onRailItemsChange === undefined}
+          />
+          {selectedEvent === undefined ? (
+            <p className={styles.detailEmptyState}>
+              Select an event from the Timeline Rail.
+            </p>
+          ) : (
+            <EventDetails
+              event={selectedEvent}
+              durationUs={durationUs}
+              editable
+              onChange={(changes) =>
+                updateEvent(selectedEvent, changes, "Event corrected.")
+              }
+              onAccept={() => decideEvent(selectedEvent, "accept")}
+              onReject={() => decideEvent(selectedEvent, "reject")}
+              onUndo={undoRemoval}
+              onNudge={nudgeSelected}
+            />
+          )}
+        </div>
+
+        <div className={styles.cardEventGuidance}>
+          <details>
+            <summary>Keyboard shortcuts</summary>
+            <p>
+              Space play/pause · Alt + ←/→ previous/next event · A accept · D
+              reject · N add · comma/period nudge one frame · Delete remove.
+            </p>
+          </details>
+          <details>
+            <summary>Event-type guidance</summary>
+            <ul>
+              {PIPELINE_CARD_EVENT_TYPES.map((type) => (
+                <li key={type}>
+                  <strong>{formatIdentifier(type)}:</strong>{" "}
+                  {eventTypeGuidance(type)}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+
+        {notice !== null ? (
+          <p className={styles.recordingNotice} role="status">
+            {notice}
+          </p>
+        ) : null}
+        {inspectorSlots === null && error !== null ? (
+          <div className={styles.cardEventError} role="alert">
+            <p>
+              {saveState === "conflict"
+                ? `Conflict: the first unapplied command is ${firstUnappliedCommand ?? "unknown"}. ${error}`
+                : error}
+            </p>
+          </div>
+        ) : null}
+      </section>
+    </>
+  );
+}
+
+type EventInspectorSlots = {
+  action: HTMLElement;
+  save: HTMLElement;
+  selection: HTMLElement;
+};
+
+type EventInspectorProps = {
+  slots: EventInspectorSlots | null;
+  inspectorEnabled: boolean;
+  view: "generated" | "reviewed";
+  reference: PipelineReferenceResource | null;
+  generatedEvents: PipelineEvent[];
+  generatedRevisionId: string | null;
+  generatedLoading: boolean;
+  selectedEvent: EditableEvent | undefined;
+  selectedGeneratedEvent: PipelineEvent | undefined;
+  pendingCount: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  saveState: SaveState;
+  queueLength: number;
+  firstUnappliedCommand: string | null;
+  error: string | null;
+  operatorId: string;
+  reviewerId: string;
+  setOperatorId: (value: string) => void;
+  setReviewerId: (value: string) => void;
+  creatingReference: boolean;
+  completionBusy: boolean;
+  completionBlocker: string | null;
+  watchedPercent: number;
+  watchedThroughUs: number;
+  coverageComplete: boolean;
+  durationUs: number;
+  addEvent: () => void;
+  markCoverage: () => void;
+  retryQueuedCommands: () => void;
+  reloadWinningDraft: () => Promise<void>;
+  completeReference: () => Promise<void>;
+  createReference: () => Promise<void>;
+  onReviewRequested?: () => void;
+};
+
+function EventInspectorPortals(props: EventInspectorProps) {
+  const content = (
+    <>
+      <EventInspectorAction {...props} />
+      <EventInspectorSaveState {...props} />
+      <EventInspectorSelection {...props} />
+    </>
+  );
+  if (!props.inspectorEnabled) {
+    return null;
+  }
+  if (props.slots === null) {
+    return <div className={styles.cardEventStandaloneInspector}>{content}</div>;
+  }
+  return (
+    <>
+      {createPortal(<EventInspectorAction {...props} />, props.slots.action)}
+      {createPortal(<EventInspectorSaveState {...props} />, props.slots.save)}
+      {createPortal(
+        <EventInspectorSelection {...props} />,
+        props.slots.selection,
+      )}
+    </>
+  );
+}
+
+function EventInspectorAction({
+  view,
+  reference,
+  generatedEvents,
+  generatedRevisionId,
+  operatorId,
+  reviewerId,
+  setOperatorId,
+  setReviewerId,
+  creatingReference,
+  completionBusy,
+  completionBlocker,
+  completeReference,
+  createReference,
+  onReviewRequested,
+}: EventInspectorProps) {
+  if (view === "generated") {
+    return (
+      <>
+        <p className={styles.statusLabel}>Primary action</p>
+        <h2 id="pipeline-inspector-action">Review generated events</h2>
+        <p className={styles.pipelineInspectorEmpty}>
+          {generatedLoadingLabel(generatedEvents.length, generatedRevisionId)}
         </p>
-        <label className={styles.cardEventReviewer}>
-          Operator ID
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={onReviewRequested}
+          disabled={onReviewRequested === undefined}
+        >
+          Review
+        </button>
+      </>
+    );
+  }
+  if (reference === null) {
+    return (
+      <>
+        <p className={styles.statusLabel}>Primary action</p>
+        <h2 id="pipeline-inspector-action">Start event review</h2>
+        <p className={styles.pipelineInspectorEmpty}>
+          Copy the selected generated result into the maintained reference.
+        </p>
+        <label className={styles.pipelineSelector}>
+          <span>Operator ID</span>
           <input
             value={operatorId}
             onChange={(event) => setOperatorId(event.target.value)}
             placeholder="operator-01"
           />
         </label>
-        {error !== null ? (
-          <p className={styles.errorMessage} role="alert">
-            {error}
-          </p>
-        ) : null}
         <button
           className={styles.primaryButton}
           type="button"
@@ -832,248 +1158,76 @@ export function PipelineCardEventEditor({
         >
           {creatingReference ? "Starting review…" : "Start review"}
         </button>
-      </section>
+      </>
     );
   }
-
   return (
-    <section
-      className={styles.cardEventPipelineEditor}
-      aria-label="CardEvent maintained reference editor"
-    >
-      <div className={styles.cardEventReviewHeader}>
-        <div>
-          <p className={styles.statusLabel}>Maintained reference</p>
-          <h3>CardEvent review</h3>
-          <p className={styles.detailLead}>
-            {reference.draft.source_revision_id === null
-              ? "Manual event reference"
-              : `Used generated events ${reference.draft.source_revision_id}`}
-          </p>
-        </div>
-        <div className={styles.cardEventReviewCounts} aria-label="Event counts">
-          <ReviewCount label="Accepted" value={acceptedCount} />
-          <ReviewCount label="Pending" value={pendingCount} />
-          <ReviewCount label="Rejected" value={rejectedCount} />
-        </div>
-      </div>
-
-      <div className={styles.cardEventPipelineVideoGrid}>
-        <div>
-          <video
-            ref={videoRef}
-            className={styles.cardEventSourceVideo}
-            data-recording-source-video={recordingId}
-            src={videoUrl}
-            controls
-            preload="metadata"
-            aria-label={`CardEvent source video ${recordingId}`}
-          />
-          <div className={styles.cardEventTimeline} aria-label="Event timeline">
-            {events.map((event, index) => (
-              <button
-                key={event.localId}
-                className={styles.cardEventMarker}
-                data-selected={event.localId === selectedId}
-                data-state={event.reviewState}
-                style={{
-                  left: `${(event.event.start_us / Math.max(durationUs, 1)) * 100}%`,
-                }}
-                type="button"
-                aria-label={`Select event ${index + 1} at ${formatMicroseconds(event.event.start_us)}`}
-                onClick={() => selectEvent(event)}
-              />
-            ))}
-          </div>
-          <div className={styles.cardEventCoverage}>
-            <span>Full-recording coverage</span>
-            <strong>{Math.round(watchedPercent)}% watched</strong>
-            <progress
-              max={100}
-              value={watchedPercent}
-              aria-label="Full-recording coverage"
-            />
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={addEvent}
-            >
-              Add event at playhead
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              disabled={durationUs <= 0 || watchedThroughUs < durationUs}
-              onClick={() => setCoverageComplete(true)}
-            >
-              {coverageComplete
-                ? "Full recording covered"
-                : "Mark full recording covered"}
-            </button>
-          </div>
-        </div>
-        {selectedEvent === undefined ? (
-          <p className={styles.detailEmptyState}>
-            Select an event from the timeline or table.
-          </p>
-        ) : (
-          <EventDetails
-            event={selectedEvent}
-            durationUs={durationUs}
-            editable
-            onChange={(changes) =>
-              updateEvent(selectedEvent, changes, "Event corrected.")
-            }
-            onAccept={() => decideEvent(selectedEvent, "accept")}
-            onReject={() => decideEvent(selectedEvent, "reject")}
-            onUndo={undoRemoval}
-            onNudge={nudgeSelected}
-          />
-        )}
-      </div>
-
-      <div className={styles.tableScroller}>
-        <table
-          className={`${styles.cardEventReviewTable} ${styles.cardEventUnifiedTable}`}
-        >
-          <caption className={styles.visuallyHidden}>
-            Maintained event reference
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Screenshot</th>
-              <th scope="col">Start</th>
-              <th scope="col">End</th>
-              <th scope="col">Type</th>
-              <th scope="col">State</th>
-              <th scope="col">Source</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((event, index) => (
-              <tr
-                key={event.localId}
-                data-state={event.reviewState}
-                data-selected={event.localId === selectedId}
-              >
-                <td className={styles.cardEventScreenshotCell}>
-                  <button
-                    className={styles.cardEventScreenshotButton}
-                    type="button"
-                    onClick={() => selectEvent(event)}
-                    aria-label={`Open screenshot for event ${index + 1}`}
-                  >
-                    {screenshots[event.localId] === undefined ? (
-                      <span className={styles.cardEventScreenshotPlaceholder}>
-                        Preparing…
-                      </span>
-                    ) : (
-                      <img
-                        className={styles.cardEventScreenshot}
-                        src={screenshots[event.localId].src}
-                        alt={`Screenshot at ${formatMicroseconds(event.event.start_us)}`}
-                      />
-                    )}
-                  </button>
-                </td>
-                <td>
-                  <button
-                    className={styles.cardEventTableSelect}
-                    type="button"
-                    onClick={() => selectEvent(event)}
-                  >
-                    {formatMicroseconds(event.event.start_us)}
-                  </button>
-                </td>
-                <td>{formatMicroseconds(event.event.end_us)}</td>
-                <td>{formatIdentifier(event.event.event_type)}</td>
-                <td>
-                  <ReviewStateBadge value={event.reviewState} />
-                </td>
-                <td>
-                  {event.baseItemId === null
-                    ? "Manual"
-                    : (reference.draft.source_revision_id ?? "Generated")}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <section
-        className={styles.cardEventCompletionBar}
-        aria-label="Complete maintained event reference"
-      >
-        <div>
-          <p className={styles.statusLabel}>Review completion</p>
-          <strong>
-            {reference.state.draft_state === "completed"
-              ? "Publish a corrected reference"
-              : "Complete full recording review"}
-          </strong>
-          {completionBlocker !== null ? (
-            <p className={styles.cardEventCompletionRequirement}>
-              {completionBlocker}
-            </p>
-          ) : null}
-        </div>
-        <label className={styles.cardEventCompletionReviewer}>
-          Operator ID
-          <input
-            value={operatorId}
-            onChange={(event) => setOperatorId(event.target.value)}
-            placeholder="operator-01"
-          />
-        </label>
-        <label className={styles.cardEventCompletionReviewer}>
-          Reviewer ID
-          <input
-            value={reviewerId}
-            onChange={(event) => setReviewerId(event.target.value)}
-            placeholder="reviewer-01"
-          />
-        </label>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => void completeReference()}
-          disabled={completionBusy || completionBlocker !== null}
-        >
-          {completionBusy
-            ? "Completing reference…"
-            : reference.state.draft_state === "completed"
-              ? "Publish corrected reference"
-              : "Complete reference"}
-        </button>
-      </section>
-
-      <div className={styles.cardEventGuidance}>
-        <details>
-          <summary>Keyboard shortcuts</summary>
-          <p>
-            Space play/pause · Alt + ←/→ previous/next event · A accept · D
-            reject · N add · comma/period nudge one frame · Delete remove.
-          </p>
-        </details>
-        <details>
-          <summary>Event-type guidance</summary>
-          <ul>
-            {PIPELINE_CARD_EVENT_TYPES.map((type) => (
-              <li key={type}>
-                <strong>{formatIdentifier(type)}:</strong>{" "}
-                {eventTypeGuidance(type)}
-              </li>
-            ))}
-          </ul>
-        </details>
-      </div>
-
-      {notice !== null ? (
-        <p className={styles.recordingNotice} role="status">
-          {notice}
+    <>
+      <p className={styles.statusLabel}>Primary action</p>
+      <h2 id="pipeline-inspector-action">
+        {reference.state.draft_state === "completed"
+          ? "Publish corrected reference"
+          : "Complete event review"}
+      </h2>
+      {completionBlocker !== null ? (
+        <p className={styles.detailBlocker} role="alert">
+          {completionBlocker}
         </p>
       ) : null}
+      <label className={styles.pipelineSelector}>
+        <span>Operator ID</span>
+        <input
+          value={operatorId}
+          onChange={(event) => setOperatorId(event.target.value)}
+          placeholder="operator-01"
+        />
+      </label>
+      <label className={styles.pipelineSelector}>
+        <span>Reviewer ID</span>
+        <input
+          value={reviewerId}
+          onChange={(event) => setReviewerId(event.target.value)}
+          placeholder="reviewer-01"
+        />
+      </label>
+      <button
+        className={styles.primaryButton}
+        type="button"
+        onClick={() => void completeReference()}
+        disabled={completionBusy || completionBlocker !== null}
+      >
+        {completionBusy
+          ? "Completing reference…"
+          : reference.state.draft_state === "completed"
+            ? "Publish corrected reference"
+            : "Complete reference"}
+      </button>
+    </>
+  );
+}
+
+function EventInspectorSaveState({
+  view,
+  saveState,
+  queueLength,
+  firstUnappliedCommand,
+  error,
+  retryQueuedCommands,
+  reloadWinningDraft,
+}: EventInspectorProps) {
+  return (
+    <div className={styles.cardEventInspectorState}>
+      <div className={styles.pipelineInspectorSectionHeading}>
+        <div>
+          <p className={styles.statusLabel}>Save or execution state</p>
+          <h2 id="pipeline-inspector-save-state">
+            {view === "generated"
+              ? "Read-only result"
+              : formatIdentifier(saveState)}
+          </h2>
+        </div>
+        <ReviewStateBadge value={view === "generated" ? "saved" : saveState} />
+      </div>
       {error !== null ? (
         <div className={styles.cardEventError} role="alert">
           <p>
@@ -1104,21 +1258,149 @@ export function PipelineCardEventEditor({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
 
+function EventInspectorSelection({
+  slots,
+  view,
+  reference,
+  selectedEvent,
+  selectedGeneratedEvent,
+  pendingCount,
+  acceptedCount,
+  rejectedCount,
+  watchedPercent,
+  watchedThroughUs,
+  coverageComplete,
+  durationUs,
+  addEvent,
+  markCoverage,
+}: EventInspectorProps) {
+  return (
+    <div className={styles.cardEventInspectorSelection}>
+      <p className={styles.statusLabel}>Event selection</p>
+      <div className={styles.cardEventReviewCounts} aria-label="Event counts">
+        <ReviewCount label="Accepted" value={acceptedCount} />
+        <ReviewCount label="Pending" value={pendingCount} />
+        <ReviewCount label="Rejected" value={rejectedCount} />
+      </div>
+      <p className={styles.pipelineInspectorEmpty}>
+        {view === "reviewed"
+          ? selectedEvent === undefined
+            ? "Select an event from the Timeline Rail."
+            : `${formatIdentifier(selectedEvent.event.event_type)} at ${formatMicroseconds(selectedEvent.event.start_us)}`
+          : selectedGeneratedEvent === undefined
+            ? "Select a proposal from the Timeline Rail."
+            : `${formatIdentifier(selectedGeneratedEvent.event_type)} at ${formatMicroseconds(selectedGeneratedEvent.start_us)}`}
+      </p>
+      {view === "reviewed" && reference !== null && slots !== null ? (
+        <>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={addEvent}
+          >
+            Add event at playhead
+          </button>
+          <div className={styles.cardEventCoverageInspector}>
+            <span>Full-recording coverage</span>
+            <strong>{Math.round(watchedPercent)}% watched</strong>
+            <progress
+              max={100}
+              value={watchedPercent}
+              aria-label="Full-recording coverage"
+            />
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              disabled={durationUs <= 0 || watchedThroughUs < durationUs}
+              onClick={markCoverage}
+            >
+              {coverageComplete
+                ? "Full recording covered"
+                : "Mark full recording covered"}
+            </button>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function generatedLoadingLabel(
+  count: number,
+  revisionId: string | null,
+): string {
+  return revisionId === null
+    ? "No generated revision is selected."
+    : `${count} generated suggestion${count === 1 ? "" : "s"} · immutable source result.`;
+}
+
+function EventSourceSurface({
+  videoRef,
+  videoUrl,
+  recordingId,
+  watchedPercent,
+  watchedThroughUs,
+  coverageComplete,
+  durationUs,
+  onAddEvent,
+  onMarkCoverage,
+  showCoverageControls,
+}: {
+  videoRef: RefObject<HTMLVideoElement | null>;
+  videoUrl: string;
+  recordingId: string;
+  watchedPercent: number;
+  watchedThroughUs: number;
+  coverageComplete: boolean;
+  durationUs: number;
+  onAddEvent: () => void;
+  onMarkCoverage: () => void;
+  showCoverageControls: boolean;
+}) {
+  return (
+    <div className={styles.cardEventSourceSurface}>
       <video
-        ref={captureVideoRef}
-        className={styles.visuallyHidden}
+        ref={videoRef}
+        className={styles.cardEventSourceVideo}
+        data-recording-source-video={recordingId}
         src={videoUrl}
+        controls
         preload="metadata"
-        muted
-        aria-hidden="true"
+        aria-label={`CardEvent source video ${recordingId}`}
       />
-      <canvas
-        ref={captureCanvasRef}
-        className={styles.visuallyHidden}
-        aria-hidden="true"
-      />
-    </section>
+      {showCoverageControls ? (
+        <div className={styles.cardEventCoverage}>
+          <span>Full-recording coverage</span>
+          <strong>{Math.round(watchedPercent)}% watched</strong>
+          <progress
+            max={100}
+            value={watchedPercent}
+            aria-label="Full-recording coverage"
+          />
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={onAddEvent}
+          >
+            Add event at playhead
+          </button>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={durationUs <= 0 || watchedThroughUs < durationUs}
+            onClick={onMarkCoverage}
+          >
+            {coverageComplete
+              ? "Full recording covered"
+              : "Mark full recording covered"}
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1128,12 +1410,16 @@ function GeneratedEventView({
   revisionId,
   videoUrl,
   durationUs,
+  selectedEvent,
+  videoRef,
 }: {
   events: PipelineEvent[];
   loading: boolean;
   revisionId: string | null;
   videoUrl: string;
   durationUs: number;
+  selectedEvent: PipelineEvent | undefined;
+  videoRef: RefObject<HTMLVideoElement | null>;
 }) {
   return (
     <section
@@ -1163,32 +1449,38 @@ function GeneratedEventView({
           No generated event result is selected.
         </p>
       ) : (
-        <div className={styles.tableScroller}>
-          <table className={styles.cardEventReviewTable}>
-            <caption className={styles.visuallyHidden}>
-              Generated event suggestions
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Start</th>
-                <th scope="col">End</th>
-                <th scope="col">Type</th>
-                <th scope="col">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((event) => (
-                <tr key={event.event_id}>
-                  <td>{formatMicroseconds(event.start_us)}</td>
-                  <td>{formatMicroseconds(event.end_us)}</td>
-                  <td>{formatIdentifier(event.event_type)}</td>
-                  <td>
-                    {videoUrl} · {formatDuration(durationUs)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={styles.cardEventGeneratedSurface}>
+          <video
+            ref={videoRef}
+            className={styles.cardEventSourceVideo}
+            src={videoUrl}
+            controls
+            preload="metadata"
+            aria-label="CardEvent generated result source video"
+          />
+          {selectedEvent === undefined ? (
+            <p className={styles.detailEmptyState}>
+              Select a proposal from the Timeline Rail.
+            </p>
+          ) : (
+            <dl className={styles.pipelineInspectorFacts}>
+              <div>
+                <dt>Selected proposal</dt>
+                <dd>{formatIdentifier(selectedEvent.event_type)}</dd>
+              </div>
+              <div>
+                <dt>Time</dt>
+                <dd>
+                  <span>{formatMicroseconds(selectedEvent.start_us)}</span>–
+                  <span>{formatMicroseconds(selectedEvent.end_us)}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Source</dt>
+                <dd>{formatDuration(durationUs)} accepted video</dd>
+              </div>
+            </dl>
+          )}
         </div>
       )}
     </section>
@@ -1386,6 +1678,25 @@ function readEventsFromResult(
     .filter((event): event is PipelineEvent => event !== null);
 }
 
+function selectGeneratedEvent(
+  events: PipelineEvent[],
+  itemId: string | null,
+  timeUs: number | null,
+): PipelineEvent | undefined {
+  if (events.length === 0) return undefined;
+  const byId =
+    itemId === null
+      ? undefined
+      : events.find((event) => event.event_id === itemId);
+  if (byId !== undefined) return byId;
+  if (timeUs === null) return events[0];
+  return events.reduce((closest, event) =>
+    Math.abs(event.start_us - timeUs) < Math.abs(closest.start_us - timeUs)
+      ? event
+      : closest,
+  );
+}
+
 function readPipelineEvent(
   value: Record<string, unknown>,
 ): PipelineEvent | null {
@@ -1528,126 +1839,5 @@ function updatePipelineUrl(values: {
     "",
     `${window.location.pathname}${query === "" ? "" : `?${query}`}`,
   );
-}
-
-function usePipelineEventScreenshots(
-  videoUrl: string,
-  events: EditableEvent[],
-  durationUs: number,
-) {
-  const captureVideoRef = useRef<HTMLVideoElement>(null);
-  const captureCanvasRef = useRef<HTMLCanvasElement>(null);
-  const cacheRef = useRef(new Map<string, { timeUs: number; src: string }>());
-  const [screenshots, setScreenshots] = useState<
-    Record<string, { timeUs: number; src: string }>
-  >({});
-  useEffect(() => {
-    const video = captureVideoRef.current;
-    const canvas = captureCanvasRef.current;
-    if (video === null || canvas === null || videoUrl === "") return;
-    const captureVideo = video;
-    const captureCanvas = canvas;
-    const activeIds = new Set(events.map((event) => event.localId));
-    for (const id of cacheRef.current.keys())
-      if (!activeIds.has(id)) cacheRef.current.delete(id);
-    const pending = events.filter(
-      (event) =>
-        cacheRef.current.get(event.localId)?.timeUs !== event.event.start_us,
-    );
-    const controller = new AbortController();
-    async function capture() {
-      try {
-        await waitForVideoReady(captureVideo, controller.signal);
-        const width = Math.min(captureVideo.videoWidth || 640, 640);
-        const height = Math.max(
-          1,
-          Math.round(
-            (width * (captureVideo.videoHeight || 360)) /
-              (captureVideo.videoWidth || 640),
-          ),
-        );
-        captureCanvas.width = width;
-        captureCanvas.height = height;
-        const context = captureCanvas.getContext("2d");
-        if (context === null) throw new Error("Canvas is unavailable.");
-        for (const event of pending) {
-          if (controller.signal.aborted) return;
-          await seekVideo(
-            captureVideo,
-            clampMicroseconds(event.event.start_us, durationUs) / 1_000_000,
-            controller.signal,
-          );
-          context.drawImage(captureVideo, 0, 0, width, height);
-          const screenshot = {
-            timeUs: event.event.start_us,
-            src: captureCanvas.toDataURL("image/jpeg", 0.78),
-          };
-          cacheRef.current.set(event.localId, screenshot);
-          if (!controller.signal.aborted)
-            setScreenshots((current) => ({
-              ...current,
-              [event.localId]: screenshot,
-            }));
-        }
-      } catch {
-        /* The table remains usable when a source frame is unavailable. */
-      }
-    }
-    void capture();
-    return () => controller.abort();
-  }, [durationUs, events, videoUrl]);
-  return { captureVideoRef, captureCanvasRef, screenshots };
-}
-
-function waitForVideoReady(
-  video: HTMLVideoElement,
-  signal: AbortSignal,
-): Promise<void> {
-  if (video.readyState >= HTMLMediaElement.HAVE_METADATA)
-    return Promise.resolve();
-  return waitForMediaEvent(video, "loadedmetadata", signal);
-}
-function seekVideo(
-  video: HTMLVideoElement,
-  time: number,
-  signal: AbortSignal,
-): Promise<void> {
-  if (
-    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-    Math.abs(video.currentTime - time) < 0.001
-  )
-    return Promise.resolve();
-  const ready = waitForMediaEvent(video, "seeked", signal);
-  video.currentTime = time;
-  return ready;
-}
-function waitForMediaEvent(
-  video: HTMLVideoElement,
-  eventName: "loadedmetadata" | "seeked",
-  signal: AbortSignal,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      video.removeEventListener(eventName, finish);
-      video.removeEventListener("error", fail);
-      signal.removeEventListener("abort", abort);
-      window.clearTimeout(timeout);
-    };
-    const finish = () => {
-      cleanup();
-      resolve();
-    };
-    const fail = () => {
-      cleanup();
-      reject(new Error("The recording frame could not be loaded."));
-    };
-    const abort = () => {
-      cleanup();
-      reject(new Error("Screenshot capture was cancelled."));
-    };
-    const timeout = window.setTimeout(fail, 10_000);
-    video.addEventListener(eventName, finish);
-    video.addEventListener("error", fail);
-    signal.addEventListener("abort", abort, { once: true });
-  });
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }

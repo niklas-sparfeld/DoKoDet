@@ -283,11 +283,33 @@ describe("PipelineCardEventEditor", () => {
     expect(
       screen.getByText(/Generated events are immutable suggestions/),
     ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("CardEvent generated result source video"),
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toContain(
       "/pipeline/events/run-1/result",
     );
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBeUndefined();
+  });
+
+  it("uses the source video and Timeline Rail selection instead of an event table", async () => {
+    const server = referenceResponse([eventItem()]);
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(response(server)),
+    );
+
+    renderReviewed(fetchMock);
+    await screen.findByRole("heading", { name: "CardEvent review" });
+
+    expect(
+      screen.getByLabelText(`CardEvent source video ${recordingId}`),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Event timeline")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Select an event from the timeline or table."),
+    ).not.toBeInTheDocument();
   });
 
   it("requires complete coverage before publishing and sends full-recording microseconds", async () => {

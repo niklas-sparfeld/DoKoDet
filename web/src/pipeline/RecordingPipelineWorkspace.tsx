@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -15,7 +16,10 @@ import {
   type PipelineWorkspace,
   type PipelineWorkspaceStage,
 } from "../api/client";
-import { PipelineCardEventEditor } from "../cardEvents/PipelineCardEventEditor";
+import {
+  PipelineCardEventEditor,
+  type PipelineCardEventRailItem,
+} from "../cardEvents/PipelineCardEventEditor";
 import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
 import { PipelineVisualIdentityEditor } from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
@@ -34,6 +38,7 @@ import {
   isPipelineStageKey,
   primaryActionForStage,
   type RecordingWorkspacePresentation,
+  type RecordingTimelineRailItem,
   type PipelinePrimaryActionKind,
   type PipelineUrlState,
   type PipelineView,
@@ -141,6 +146,66 @@ export function RecordingPipelineWorkspace({
     readPipelineUrlState(window.location.search),
   );
   const [selectionBusy, setSelectionBusy] = useState(false);
+  const [eventRail, setEventRail] = useState<{
+    key: string;
+    items: RecordingTimelineRailItem[];
+  } | null>(null);
+  const workspaceDurationUsRef = useRef(0);
+  workspaceDurationUsRef.current = workspace?.video.duration_us ?? 0;
+  const eventRailKeyRef = useRef("");
+  const handleEventRailItemsChange = useCallback(
+    (items: PipelineCardEventRailItem[]) => {
+      setEventRail({
+        key: eventRailKeyRef.current,
+        items: items
+          .flatMap<RecordingTimelineRailItem>((item) => [
+            {
+              id: `event:${item.itemId}`,
+              itemId: item.itemId,
+              selectionParam: "item" as const,
+              laneId:
+                item.state === "pending" || item.state === "affected"
+                  ? "review-state"
+                  : "events",
+              label: item.label,
+              state: item.state,
+              timeRange: {
+                startUs: item.startUs,
+                endUs: item.endUs,
+              },
+              runId: null,
+            },
+            {
+              id: `event:${item.itemId}:state`,
+              itemId: item.itemId,
+              selectionParam: "item" as const,
+              laneId: "review-state",
+              label: `${item.label} · ${item.state}`,
+              state: item.state,
+              timeRange: {
+                startUs: item.startUs,
+                endUs: item.endUs,
+              },
+              runId: null,
+            },
+          ])
+          .concat({
+            id: "events:coverage",
+            itemId: "events:coverage",
+            selectionParam: "none" as const,
+            laneId: "coverage",
+            label: "Full recording",
+            state: "reviewed",
+            timeRange: {
+              startUs: 0,
+              endUs: workspaceDurationUsRef.current,
+            },
+            runId: null,
+          }),
+      });
+    },
+    [],
+  );
 
   const loadWorkspace = useCallback(
     async (signal?: AbortSignal) => {
@@ -367,6 +432,32 @@ export function RecordingPipelineWorkspace({
   const actionState = actionStateForStage(stage, urlState, action.kind);
   const displayedRevision = presentation.stage?.displayedRevisionId ?? null;
   const rail = presentation.rail;
+  const eventRailKey = `${recordingId}:${stage.key}:${activeView}:${compare ? "compare" : "task"}`;
+  eventRailKeyRef.current = eventRailKey;
+  const visibleRail =
+    stage.key === "events" && activeView === "reviewed" && !compare
+      ? eventRail?.key === eventRailKey && rail !== null
+        ? {
+            ...rail,
+            items: eventRail.items,
+            selectedItemId:
+              eventRail.items.find((item) => item.itemId === urlState.item)
+                ?.id ?? null,
+            lanes: rail.lanes.map((lane) => ({
+              ...lane,
+              itemCount: eventRail.items.filter(
+                (item) => item.laneId === lane.id,
+              ).length,
+            })),
+          }
+        : rail === null
+          ? null
+          : {
+              ...rail,
+              items: [],
+              lanes: rail.lanes.map((lane) => ({ ...lane, itemCount: 0 })),
+            }
+      : rail;
   const selectedEventRunId =
     stage.key === "events" && displayedRevision !== null
       ? (stage.runs.find((run) =>
@@ -393,6 +484,12 @@ export function RecordingPipelineWorkspace({
   function handleRailItemSelect(
     item: NonNullable<RecordingWorkspacePresentation["rail"]>["items"][number],
   ): void {
+    if (item.selectionParam === "none") {
+      if (item.timeRange !== null) {
+        replaceUrlState({ ...urlState, tUs: item.timeRange.startUs });
+      }
+      return;
+    }
     replaceUrlState({
       ...urlState,
       item: item.selectionParam === "item" ? item.itemId : null,
@@ -544,6 +641,13 @@ export function RecordingPipelineWorkspace({
                 }
                 generatedRunId={selectedEventRunId}
                 view={activeView}
+                inspectorEnabled={action.kind !== "blocked"}
+                onRailItemsChange={handleEventRailItemsChange}
+                onReviewRequested={() =>
+                  navigateTo(
+                    actionHref(recordingId, stage.key, "review", urlState),
+                  )
+                }
               />
             ) : null}
             {stage.key === "visible_cards" && !compare ? (
@@ -609,15 +713,15 @@ export function RecordingPipelineWorkspace({
         aria-label="Timeline Rail"
         data-slot="bottom"
       >
-        {rail !== null ? (
+        {visibleRail !== null ? (
           <RecordingTimelineRail
             key={`${stage.key}:${activeView}:${compare ? "compare" : "task"}`}
             recordingId={recordingId}
-            durationUs={rail.durationUs}
-            currentTimeUs={rail.currentTimeUs}
-            selectedItemId={rail.selectedItemId}
-            lanes={rail.lanes}
-            items={rail.items}
+            durationUs={visibleRail.durationUs}
+            currentTimeUs={visibleRail.currentTimeUs}
+            selectedItemId={visibleRail.selectedItemId}
+            lanes={visibleRail.lanes}
+            items={visibleRail.items}
             onTimeChange={handleRailTimeChange}
             onItemSelect={handleRailItemSelect}
           />
@@ -750,36 +854,52 @@ function RecordingWorkspaceInspector({
         data-inspector-section="action"
         aria-labelledby="pipeline-inspector-action"
       >
-        <p className={styles.statusLabel}>Primary action</p>
-        <h2 id="pipeline-inspector-action">{action.label}</h2>
-        {action.kind === "blocked" ? (
-          <p className={styles.detailBlocker}>{action.blocker}</p>
-        ) : actionOwnsExecution ? (
-          executionControls
+        {stage.key === "events" && !compare && action.kind !== "blocked" ? (
+          <div data-event-inspector-slot="action" />
         ) : (
-          <a
-            className={styles.primaryButton}
-            href={actionHref(recordingId, stage.key, action.kind, actionState)}
-            onClick={(event) => {
-              if (isModifiedClick(event)) {
-                return;
-              }
-              event.preventDefault();
-              onNavigate(
-                actionHref(recordingId, stage.key, action.kind, actionState),
-              );
-            }}
-            data-action={action.kind}
-          >
-            {action.label}
-          </a>
+          <>
+            <p className={styles.statusLabel}>Primary action</p>
+            <h2 id="pipeline-inspector-action">{action.label}</h2>
+            {action.kind === "blocked" ? (
+              <p className={styles.detailBlocker}>{action.blocker}</p>
+            ) : actionOwnsExecution ? (
+              executionControls
+            ) : (
+              <a
+                className={styles.primaryButton}
+                href={actionHref(
+                  recordingId,
+                  stage.key,
+                  action.kind,
+                  actionState,
+                )}
+                onClick={(event) => {
+                  if (isModifiedClick(event)) {
+                    return;
+                  }
+                  event.preventDefault();
+                  onNavigate(
+                    actionHref(
+                      recordingId,
+                      stage.key,
+                      action.kind,
+                      actionState,
+                    ),
+                  );
+                }}
+                data-action={action.kind}
+              >
+                {action.label}
+              </a>
+            )}
+            {presentation.inspector.activeBlocker !== null &&
+            action.kind !== "blocked" ? (
+              <p className={styles.detailBlocker} role="alert">
+                {presentation.inspector.activeBlocker}
+              </p>
+            ) : null}
+          </>
         )}
-        {presentation.inspector.activeBlocker !== null &&
-        action.kind !== "blocked" ? (
-          <p className={styles.detailBlocker} role="alert">
-            {presentation.inspector.activeBlocker}
-          </p>
-        ) : null}
       </section>
 
       <section
@@ -787,16 +907,25 @@ function RecordingWorkspaceInspector({
         data-inspector-section="save-state"
         aria-labelledby="pipeline-inspector-save-state"
       >
-        <div className={styles.pipelineInspectorSectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Save or execution state</p>
-            <h2 id="pipeline-inspector-save-state">
-              {formatIdentifier(presentation.inspector.saveState)}
-            </h2>
-          </div>
-          <StatusBadge value={presentation.inspector.saveState} />
-        </div>
-        {!actionOwnsExecution ? executionControls : null}
+        {stage.key === "events" && !compare && action.kind !== "blocked" ? (
+          <>
+            <div data-event-inspector-slot="save" />
+            {executionControls}
+          </>
+        ) : (
+          <>
+            <div className={styles.pipelineInspectorSectionHeading}>
+              <div>
+                <p className={styles.statusLabel}>Save or execution state</p>
+                <h2 id="pipeline-inspector-save-state">
+                  {formatIdentifier(presentation.inspector.saveState)}
+                </h2>
+              </div>
+              <StatusBadge value={presentation.inspector.saveState} />
+            </div>
+            {!actionOwnsExecution ? executionControls : null}
+          </>
+        )}
       </section>
 
       <section
@@ -878,6 +1007,9 @@ function RecordingWorkspaceInspector({
             </select>
           </label>
         </div>
+        {stage.key === "events" && !compare && action.kind !== "blocked" ? (
+          <div data-event-inspector-slot="selection" />
+        ) : null}
       </section>
 
       {recording !== null ? (

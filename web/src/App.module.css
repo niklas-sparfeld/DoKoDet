@@ -5482,6 +5482,66 @@ progress {
   border-top: 1px solid var(--line);
 }
 
+.cardEventSourceSurface,
+.cardEventGeneratedSurface {
+  display: grid;
+  min-width: 0;
+  gap: 0.7rem;
+}
+
+.cardEventGeneratedSurface {
+  grid-template-columns: minmax(0, 1.4fr) minmax(12rem, 0.6fr);
+  align-items: start;
+}
+
+.cardEventStandaloneInspector {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface) 45%, var(--panel));
+}
+
+.cardEventStandaloneInspector > * {
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.cardEventStandaloneInspector > *:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.cardEventInspectorState,
+.cardEventInspectorSelection {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.cardEventInspectorSelection .cardEventReviewCounts {
+  justify-content: start;
+}
+
+.cardEventCoverageInspector {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.cardEventCoverageInspector strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cardEventCoverageInspector progress {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
 .cardEventReviewHeader,
 .cardEventPipelineVideoGrid,
 .cardEventCoverage {
@@ -5553,6 +5613,10 @@ progress {
 
 @media (max-width: 800px) {
   .cardEventPipelineVideoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cardEventGeneratedSurface {
     grid-template-columns: 1fr;
   }
 }

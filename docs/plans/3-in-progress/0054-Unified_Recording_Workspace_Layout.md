@@ -27,7 +27,8 @@
   metadata, and lineage/history sections; move workspace controls, diagnostics, and history into it.
 - **M3:** Complete — add the shared Timeline Rail with transport, scrubbing, item lanes,
   synchronized URL/video selection, exact-frame previews, zoom, and accessible interaction states.
-- **M4:** Not started — migrate event generation and review to the shared workbench.
+- **M4:** Complete — migrate generated event proposals and maintained-reference review to the
+  shared video, inspector, and Timeline Rail workbench; remove the event timeline and tables.
 - **M5:** Not started — migrate visible-card generation and review to the shared workbench.
 - **M6:** Not started — migrate visual identity generation and review to the shared workbench.
 - **M7:** Not started — migrate table-observation work to the shared workbench.
@@ -298,6 +299,24 @@ Acceptance:
 - pointer, touch, keyboard, accessibility, and request-bound tests pass.
 
 ### M4 — Event workbench
+
+Status: Complete (2026-09-06).
+
+- The generated and reviewed event views now use the accepted recording video in the central task
+  surface. The selected event editor keeps integer-microsecond corrections, ordered commands,
+  retries, conflict recovery, keyboard shortcuts, and completion coverage.
+- Generated proposals, maintained-reference events, review state, and full-recording coverage now
+  use the shared Timeline Rail. Reviewed reference items hydrate into the rail after the existing
+  reference resource loads. Rail selection restores `item` and `t_us` state and seeks the same
+  source video.
+- Event primary actions, operator and reviewer fields, save or conflict state, retry actions,
+  coverage, and completion are mounted in the shared inspector. The fixed completion bar is gone.
+- Removed the event-specific timeline, screenshot table, generated-result table, and screenshot
+  capture path. Added regression coverage for the shared video, rail hydration, and duplicate-list
+  removal.
+
+Verification: `mise exec -- npm run check` in `web` passed. This includes typecheck, lint,
+formatting, generated OpenAPI parity, and 67 unit/component tests.
 
 - Put the accepted video in the central surface for generated and reviewed events.
 - Represent generated proposals, maintained-reference events, state, and full-recording coverage in

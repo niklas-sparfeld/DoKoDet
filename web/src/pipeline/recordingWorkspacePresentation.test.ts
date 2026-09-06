@@ -202,7 +202,7 @@ describe("recording workspace presentation model", () => {
         id: "run-events-1:event-1",
         itemId: "event-1",
         selectionParam: "item",
-        laneId: "events",
+        laneId: "proposals",
         label: "card_played",
         state: "succeeded",
         timeRange: { startUs: 1_000_000, endUs: 1_500_000 },

@@ -385,6 +385,115 @@ describe("recording pipeline workspace", () => {
     expect(window.location.search).toContain("t_us=2000000");
   });
 
+  it("hydrates reviewed event selection into the shared rail", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/recordings/recording-shell/pipeline/events?view=reviewed",
+    );
+    const generated = {
+      revision_id: "events-reviewed-source",
+      content_type: "events",
+      origin: "processor",
+      completion_state: "complete",
+      coverage_state: "full-recording",
+      display_label: "Generated events",
+      content_sha256: "b".repeat(64),
+      input_revision_ids: [],
+      producer: {},
+      coverage: {},
+      created_at: "2026-09-06T00:00:00Z",
+    } as PipelineWorkspaceStage["input_options"][number];
+    const body = workspace({
+      state: "draft",
+      input_options: [generated],
+      selected_generated_revision_id: generated.revision_id,
+      reference: {
+        state: "draft",
+        draft_revision: 1,
+        selected_completion: null,
+        source_revision_id: generated.revision_id,
+        coverage: null,
+        coverage_state: "none",
+        affected_count: 0,
+        updated_at: null,
+      },
+      can_run: false,
+      can_review: false,
+    });
+    const reference = {
+      recording_id: RECORDING_ID,
+      content_type: "events",
+      state: {
+        recording_id: RECORDING_ID,
+        content_type: "events",
+        draft_revision: 1,
+        draft_state: "draft",
+        source_revision_id: generated.revision_id,
+        selected_completed_revision_id: null,
+        updated_at: "2026-09-06T00:00:00Z",
+      },
+      draft: {
+        recording_id: RECORDING_ID,
+        content_type: "events",
+        revision: 1,
+        source_revision_id: generated.revision_id,
+        items: [
+          {
+            item_id: "reviewed-event-1",
+            base_item_id: "generated-event-1",
+            review_state: "pending",
+            item: {
+              event_id: "generated-event-1",
+              event_type: "card_played",
+              start_us: 1_000_000,
+              end_us: 1_500_000,
+            },
+          },
+        ],
+        coverage: null,
+        impact: [],
+        updated_at: "2026-09-06T00:00:00Z",
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify(
+              String(input).endsWith("/pipeline/references/events")
+                ? reference
+                : body,
+            ),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="events"
+        compare={false}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "CardEvent review" });
+    const item = await screen.findByRole("button", {
+      name: "Card Played, 0:01–0:02, pending",
+    });
+    fireEvent.click(item);
+
+    expect(window.location.search).toContain("item=reviewed-event-1");
+    expect(window.location.search).toContain("t_us=1000000");
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
   it("is composed by App for a recording-owned pipeline path", async () => {
     window.history.pushState(
       {},
