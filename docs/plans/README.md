@@ -47,7 +47,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| None | — | — |
+| [0053 — Agent navigation cleanup discovery](2-ready/0053-Agent_Navigation_Cleanup_Discovery.md) | None | One Sol agent will publish a concise repository navigation map, rank high-confidence cleanup candidates, and create at most six work-area epics for separate Terra specification and Luna-sized delivery. |
 
 ### In Progress
 
@@ -115,24 +115,28 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
+1. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.
+   Keep the scan broad and shallow. Create only evidence-based work-area epics. Use one Terra agent
+   to specify each area and Luna-sized milestones for delivery. Do not add a third epic layer by
+   default.
+2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts
    intact. Do not lower review or coverage requirements merely to unblock model work.
-2. **Continue 0051 after its coverage gate is met.** Freeze actual and
+3. **Continue 0051 after its coverage gate is met.** Freeze actual and
    corrupted predicted-region conditions, preserve cards with unusable identity evidence, and
    measure the simple exclusion crop policies. Use its decision to specify one response in 0052 or
    close 0052 as not required.
-3. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+4. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-4. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+5. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-5. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+6. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-6. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
@@ -175,6 +179,10 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   inventory and measurement contract proceed without new review. The local operations store has
   no `pipeline-references` artifacts, so the baseline reports the paired-review gap and stops
   before validation classification.
+- Add 0053 as an independent repository cleanup discovery pass. Optimize cleanup for lower agent
+  navigation and context cost. Use three model tiers but only two epic levels: Sol discovers work
+  areas, Terra specifies each work-area epic, and Luna implements its milestones. Do not create a
+  separate implementation epic for every Luna milestone.
 
 ## Closed-epic policy
 
