@@ -651,6 +651,76 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
         )
 
 
+def test_identity_commands_preserve_geometry_and_support_manual_labels(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    identity_revision_id = _vision_source_revision(revision_store, "visual_identities")
+    created = service.create_reference(
+        SOURCE.recording_id,
+        "visual_identities",
+        {"operator_id": "operator-01", "source_revision_id": identity_revision_id},
+    )
+    original = created.draft.items[0].item
+
+    selected = service.update_draft(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "command_id": "identity-select-1",
+            "operations": [
+                {
+                    "operation": "select_identity",
+                    "item_id": "card-01",
+                    "identity": "HEARTS_QUEEN",
+                }
+            ],
+        },
+    )
+    selected_item = selected.draft.items[0]
+    assert selected_item.review_state == "accepted"
+    assert selected_item.item["geometry"] == original["geometry"]
+    assert selected_item.item["candidates"] == [
+        {
+            "identity": "HEARTS_QUEEN",
+            "score": None,
+            "score_meaning": None,
+            "producer_id": "human-reference.v1",
+        }
+    ]
+
+    unusable = service.update_draft(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "operations": [{"operation": "set_identity_unusable", "item_id": "card-01"}],
+        },
+    )
+    assert unusable.draft.items[0].review_state == "identity_unusable"
+    assert unusable.draft.items[0].item["status"] == "unusable"
+
+    source_problem = service.update_draft(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 2,
+            "operations": [
+                {
+                    "operation": "report_identity_source_problem",
+                    "item_id": "card-01",
+                }
+            ],
+        },
+    )
+    assert source_problem.draft.items[0].review_state == "source_problem"
+    assert source_problem.draft.items[0].item["status"] == "failed"
+
+
 def test_correction_records_downstream_impact_and_coverage_survives_restart(
     tmp_path: Path,
 ) -> None:

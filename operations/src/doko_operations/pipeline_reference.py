@@ -42,6 +42,10 @@ PIPELINE_REFERENCE_OPERATIONS = frozenset(
         "accept_frame_suggestions",
         "set_frame_empty",
         "set_frame_unusable",
+        "accept_identity_suggestion",
+        "select_identity",
+        "set_identity_unusable",
+        "report_identity_source_problem",
     }
 )
 PIPELINE_REFERENCE_DECISIONS = frozenset(
@@ -440,6 +444,7 @@ class PipelineReferenceOperation:
     item_id: str | None = None
     item: dict[str, Any] | None = None
     decision: str | None = None
+    identity: str | None = None
     source_revision_id: str | None = None
 
     @classmethod
@@ -483,6 +488,23 @@ class PipelineReferenceOperation:
                 item_id=_identifier(data["item_id"], f"{context}.item_id"),
                 item=json.loads(canonical_json_bytes(item_value).decode("utf-8")),
             )
+        if operation in {
+            "accept_identity_suggestion",
+            "set_identity_unusable",
+            "report_identity_source_problem",
+        }:
+            _strict(data, {"operation", "item_id"}, context)
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+            )
+        if operation == "select_identity":
+            _strict(data, {"operation", "item_id", "identity"}, context)
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                identity=_text(data["identity"], f"{context}.identity"),
+            )
         if operation == "decide":
             _strict(data, {"operation", "item_id", "decision"}, context)
             item_id = _identifier(data["item_id"], f"{context}.item_id")
@@ -514,6 +536,8 @@ class PipelineReferenceOperation:
             value["item"] = self.item
         if self.decision is not None:
             value["decision"] = self.decision
+        if self.identity is not None:
+            value["identity"] = self.identity
         if self.source_revision_id is not None:
             value["source_revision_id"] = self.source_revision_id
         return value

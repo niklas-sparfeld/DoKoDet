@@ -17,6 +17,8 @@ import {
   recordingPipelineSelectionPath,
   pipelineEventResultPath,
   pipelineVisibleCardResultPath,
+  pipelineVisualIdentityResultPath,
+  pipelineIdentityCropPath,
   pipelineDerivedFramePath,
   pipelineReferencePath,
   pipelineReferenceDraftPath,
@@ -112,6 +114,28 @@ describe("DokoDetector API client", () => {
     );
     expect(pipelineDerivedFramePath("recording/1", 123456)).toBe(
       "/api/recordings/recording%2F1/pipeline/derived-views/exact-event/123456",
+    );
+  });
+
+  it("loads identity results and recording-owned identity crops", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.getVisualIdentityResult("recording/1", "identity/run");
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      pipelineVisualIdentityResultPath("recording/1", "identity/run"),
+    );
+    expect(
+      pipelineIdentityCropPath("recording/1", "revision/1", "card 1"),
+    ).toBe(
+      "/api/recordings/recording%2F1/pipeline/derived-views/identity-crops/revision%2F1/card%201",
     );
   });
 

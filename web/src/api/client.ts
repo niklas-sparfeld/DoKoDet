@@ -85,10 +85,15 @@ export type PipelineReferenceOperation = {
     | "set_frame_review"
     | "accept_frame_suggestions"
     | "set_frame_empty"
-    | "set_frame_unusable";
+    | "set_frame_unusable"
+    | "accept_identity_suggestion"
+    | "select_identity"
+    | "set_identity_unusable"
+    | "report_identity_source_problem";
   item_id?: string;
   item?: Record<string, unknown>;
   decision?: string;
+  identity?: string;
   source_revision_id?: string;
 };
 export type PipelineReferenceDraftUpdateRequest = {
@@ -112,6 +117,13 @@ export type PipelineReferenceCompletionRequest = {
           frame_identity: Record<string, unknown> | null;
           decision: "cards" | "empty" | "unusable";
         }>;
+      }
+    | {
+        kind: "identity_cards";
+        cards: Array<{
+          card_id: string;
+          decision: "identity" | "unusable";
+        }>;
       };
 };
 export type PipelineEventResult = {
@@ -131,6 +143,22 @@ export type PipelineEventResult = {
   }>;
 };
 export type PipelineVisibleCardResult = {
+  run_id: string;
+  recording_id: string;
+  processor_type: string;
+  status: string;
+  attempt: number;
+  request: Record<string, unknown>;
+  state: Record<string, unknown>;
+  revisions: Array<{
+    manifest: Record<string, unknown>;
+    content: {
+      schema_version?: string;
+      outcomes?: Array<Record<string, unknown>>;
+    };
+  }>;
+};
+export type PipelineVisualIdentityResult = {
   run_id: string;
   recording_id: string;
   processor_type: string;
@@ -270,6 +298,11 @@ export interface DokoDetectorClient {
     runId: string,
     init?: RequestInit,
   ): Promise<PipelineVisibleCardResult>;
+  getVisualIdentityResult(
+    recordingId: string,
+    runId: string,
+    init?: RequestInit,
+  ): Promise<PipelineVisualIdentityResult>;
   getPipelineReference(
     recordingId: string,
     contentType: PipelineSelectableContentType,
@@ -518,6 +551,12 @@ export function createDokoDetectorClient(
       requestJson<PipelineVisibleCardResult>(
         fetchImplementation,
         pipelineVisibleCardResultPath(recordingId, runId),
+        init,
+      ),
+    getVisualIdentityResult: (recordingId, runId, init) =>
+      requestJson<PipelineVisualIdentityResult>(
+        fetchImplementation,
+        pipelineVisualIdentityResultPath(recordingId, runId),
         init,
       ),
     getPipelineReference: (recordingId, contentType, init) =>
@@ -973,6 +1012,21 @@ export function pipelineVisibleCardResultPath(
   runId: string,
 ): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visible-cards/${encodeURIComponent(runId)}/result`;
+}
+
+export function pipelineVisualIdentityResultPath(
+  recordingId: string,
+  runId: string,
+): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visual-identities/${encodeURIComponent(runId)}/result`;
+}
+
+export function pipelineIdentityCropPath(
+  recordingId: string,
+  revisionId: string,
+  itemId: string,
+): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/identity-crops/${encodeURIComponent(revisionId)}/${encodeURIComponent(itemId)}`;
 }
 
 export function pipelineDerivedFramePath(

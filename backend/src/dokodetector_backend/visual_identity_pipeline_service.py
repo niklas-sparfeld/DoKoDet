@@ -16,6 +16,8 @@ from typing import Any
 from doko_operations.derived_view import (
     DerivedViewError,
     FrameResolver,
+    ResolvedCrop,
+    parse_geometry,
     resolve_exact_event,
     resolve_visible_region_crop,
 )
@@ -151,6 +153,51 @@ class VisualIdentityPipelineService:
         )
         return run, revisions
 
+    def resolve_identity_crop(
+        self, recording_id: str, revision_id: str, item_id: str
+    ) -> ResolvedCrop:
+        """Resolve one identity crop from an immutable identity revision."""
+
+        _, source = self._accepted_source(recording_id)
+        revision = self.revision_store.require(revision_id)
+        if (
+            revision.manifest.recording_id != recording_id
+            or revision.manifest.content_type != "visual_identities"
+            or revision.manifest.source != source
+            or not isinstance(revision.content, VisualIdentityData)
+        ):
+            raise VisualIdentityPipelineInputError(
+                "The selected visual identity revision does not match the accepted recording video."
+            )
+        outcome = next(
+            (candidate for candidate in revision.content.outcomes if candidate.card_id == item_id),
+            None,
+        )
+        if outcome is None:
+            raise PipelineNotFound(f"The identity item was not found: {item_id}")
+        if outcome.crop_identity is None or outcome.crop_identity.status != "usable":
+            raise DerivedViewError("The identity crop is unavailable.")
+        frame = resolve_exact_event(
+            self._video_path(recording_id),
+            source=source,
+            requested_time_us=outcome.frame_identity.requested_time_us,
+            cache=self.storage.pipeline_root / "derived-views",
+            resolver=self.frame_resolver,
+            output_encoding=outcome.frame_identity.output_encoding,
+        )
+        if frame.identity_mapping() != outcome.frame_identity.to_mapping():
+            raise DerivedViewError("the resolved identity frame changed")
+        crop = resolve_visible_region_crop(
+            frame,
+            parse_geometry(outcome.geometry.to_mapping()),
+            crop_policy=outcome.crop_identity.crop_policy,
+            output_encoding=outcome.crop_identity.output_encoding,
+            cache=self.storage.pipeline_root / "derived-views",
+        )
+        if crop.identity_mapping() != outcome.crop_identity.to_mapping():
+            raise DerivedViewError("the resolved identity crop changed")
+        return crop
+
     def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         self.get_run(recording_id, run_id)
         retried = self.run_store.retry(run_id)
@@ -158,9 +205,7 @@ class VisualIdentityPipelineService:
             self._futures[run_id] = self._executor.submit(self._execute, run_id)
         return retried
 
-    def select_generated(
-        self, recording_id: str, payload: Mapping[str, Any]
-    ) -> PipelineSelection:
+    def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> PipelineSelection:
         expected_revision = payload.get("expected_revision")
         selected = payload.get("selected_generated_revision_id")
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
@@ -186,9 +231,7 @@ class VisualIdentityPipelineService:
         except (PipelineNotFound, PipelineStateError) as error:
             raise VisualIdentityPipelineInputError(str(error)) from error
 
-    def _build_request(
-        self, recording_id: str, payload: Mapping[str, Any]
-    ) -> ProcessorRunRequest:
+    def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
         if not isinstance(payload, Mapping):
             raise VisualIdentityPipelineInputError("The processor request must be an object.")
         if self.classifier is None:
@@ -277,9 +320,7 @@ class VisualIdentityPipelineService:
         input_ids = raw.get("input_revision_ids")
         if explicit is not None:
             if not isinstance(explicit, str):
-                raise VisualIdentityPipelineInputError(
-                    "visible_card_revision_id must be a string."
-                )
+                raise VisualIdentityPipelineInputError("visible_card_revision_id must be a string.")
             if input_ids is not None and input_ids != [explicit]:
                 raise VisualIdentityPipelineInputError(
                     "visible_card_revision_id must match the single input revision ID."

@@ -518,6 +518,13 @@ class PipelineReferenceService:
             "set_frame_unusable",
         }:
             return self._apply_visible_card_operation(items, operation, current)
+        if content_type == "visual_identities" and operation.operation in {
+            "accept_identity_suggestion",
+            "select_identity",
+            "set_identity_unusable",
+            "report_identity_source_problem",
+        }:
+            return self._apply_identity_operation(items, operation, current)
         if operation.operation in {"accept", "reject", "decide"}:
             assert operation.item_id is not None
             index = self._find_item(items, operation.item_id)
@@ -645,6 +652,96 @@ class PipelineReferenceService:
             + [replace(existing, review_state=state, item=replacement)]
             + items[index + 1 :]
         )
+
+    def _apply_identity_operation(
+        self,
+        items: list[ReferenceDraftItem],
+        operation: PipelineReferenceOperation,
+        current: StoredPipelineReference,
+    ) -> list[ReferenceDraftItem]:
+        assert operation.item_id is not None
+        index = self._find_item(items, operation.item_id)
+        if index is None:
+            raise PipelineReferenceInputError(f"item was not found: {operation.item_id}")
+        existing = items[index]
+        existing_item = dict(existing.item)
+        status = existing_item.get("status")
+        if operation.operation == "accept_identity_suggestion":
+            candidates = existing_item.get("candidates")
+            if status != "classified" or not isinstance(candidates, list) or not candidates:
+                raise PipelineReferenceInputError(
+                    "the identity suggestion is unavailable for this card"
+                )
+            state = self._accepted_identity_state(existing)
+            return items[:index] + [replace(existing, review_state=state)] + items[index + 1 :]
+
+        if operation.operation == "select_identity":
+            assert operation.identity is not None
+            replacement = dict(existing_item)
+            replacement.update(
+                status="classified",
+                candidates=[
+                    {
+                        "identity": operation.identity,
+                        "score": None,
+                        "score_meaning": None,
+                        "producer_id": "human-reference.v1",
+                    }
+                ],
+                unusable_reason=None,
+                error=None,
+            )
+            self._validate_item(
+                "visual_identities",
+                replacement,
+                current.draft.source_revision_id,
+            )
+            return (
+                items[:index]
+                + [
+                    replace(
+                        existing,
+                        review_state=self._accepted_identity_state(existing),
+                        item=replacement,
+                    )
+                ]
+                + items[index + 1 :]
+            )
+
+        replacement = dict(existing_item)
+        replacement["candidates"] = []
+        if operation.operation == "set_identity_unusable":
+            replacement.update(
+                status="unusable",
+                unusable_reason="Reviewed identity unusable.",
+                error=None,
+            )
+            state = "identity_unusable"
+        else:
+            replacement.update(
+                status="failed",
+                unusable_reason=None,
+                error="Reviewed source problem.",
+            )
+            state = "source_problem"
+        self._validate_item(
+            "visual_identities",
+            replacement,
+            current.draft.source_revision_id,
+        )
+        return (
+            items[:index]
+            + [replace(existing, review_state=state, item=replacement)]
+            + items[index + 1 :]
+        )
+
+    @staticmethod
+    def _accepted_identity_state(item: ReferenceDraftItem) -> str:
+        if item.base_item_id is not None:
+            return "corrected"
+        if item.review_state == "added":
+            return "added"
+        return "accepted"
 
     def _rebase_items(
         self,

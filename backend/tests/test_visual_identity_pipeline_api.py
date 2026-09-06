@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from typing import Any
 
 from app_factory import create_test_app
@@ -67,9 +68,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
         VisibleCardCandidate(
             card_id="card-empty",
             geometry=ReviewedVisibleRegionGeometry(
-                polygons=(
-                    ((100, 100), (900, 100), (900, 900), (100, 900)),
-                )
+                polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
         ),
@@ -178,6 +177,18 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert generated_outcome["status"] == "classified"
         assert generated_outcome["crop_identity"]["status"] == "usable"
         assert generated_outcome["classifier"]["provider"] == "fixture-identity"
+        identity_revision_id = generated_result["state"]["output_revision_ids"][0]
+        shutil.rmtree(
+            app.state.visual_identity_pipeline_service.storage.pipeline_root / "derived-views",
+            ignore_errors=True,
+        )
+        crop_response = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
+            f"{identity_revision_id}/{generated_outcome['card_id']}"
+        )
+        assert crop_response.status_code == 200, crop_response.text
+        assert crop_response.headers["cache-control"].startswith("private")
+        assert crop_response.content
         assert generated_outcome["candidates"] == [
             {
                 "identity": "CLUBS_NINE",
@@ -251,9 +262,7 @@ def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 5
     body: dict[str, Any] = {}
     while time.monotonic() < deadline:
-        response = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}"
-        )
+        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}")
         body = response.json()
         if body["state"]["status"] in {"complete", "failed"}:
             return body

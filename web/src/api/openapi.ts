@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/pipeline/derived-views/identity-crops/{revision_id}/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recording Identity Crop
+         * @description Return one verified identity crop derived from a stored identity revision.
+         */
+        get: operations["get_recording_identity_crop_api_recordings__recording_id__pipeline_derived_views_identity_crops__revision_id___item_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline/events": {
         parameters: {
             query?: never;
@@ -4655,6 +4675,37 @@ export interface operations {
             path: {
                 recording_id: string;
                 requested_time_us: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recording_identity_crop_api_recordings__recording_id__pipeline_derived_views_identity_crops__revision_id___item_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                revision_id: string;
+                item_id: string;
             };
             cookie?: never;
         };

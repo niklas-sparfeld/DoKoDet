@@ -17,6 +17,7 @@ import {
 } from "../api/client";
 import { PipelineCardEventEditor } from "../cardEvents/PipelineCardEventEditor";
 import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
+import { PipelineVisualIdentityEditor } from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
 
 export type { PipelineStageKey } from "../api/client";
@@ -425,6 +426,12 @@ export function RecordingPipelineWorkspace({
           run.output_revision_ids.includes(displayedRevision),
         )?.run_id ?? null)
       : null;
+  const selectedVisualIdentityRunId =
+    stage.key === "visual_identities" && displayedRevision !== null
+      ? (stage.runs.find((run) =>
+          run.output_revision_ids.includes(displayedRevision),
+        )?.run_id ?? null)
+      : null;
 
   return (
     <main
@@ -678,6 +685,18 @@ export function RecordingPipelineWorkspace({
               activeView === "generated" ? displayedRevision : null
             }
             generatedRunId={selectedVisibleCardRunId}
+            view={activeView}
+          />
+        ) : null}
+        {stage.key === "visual_identities" && !compare ? (
+          <PipelineVisualIdentityEditor
+            recordingId={recordingId}
+            durationUs={workspace.video.duration_us}
+            generatedRevisionId={stage.selected_generated_revision_id ?? null}
+            displayedRevisionId={
+              activeView === "generated" ? displayedRevision : null
+            }
+            generatedRunId={selectedVisualIdentityRunId}
             view={activeView}
           />
         ) : null}

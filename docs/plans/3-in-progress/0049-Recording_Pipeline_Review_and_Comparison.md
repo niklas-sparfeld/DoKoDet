@@ -18,7 +18,7 @@
 - **M1:** Complete — add the recording pipeline shell, stage summaries, and selectors.
 - **M2:** Complete — switch event review to the maintained reference.
 - **M3:** Complete — switch visible-card review to the maintained reference.
-- **M4:** Not started — switch identity review to the maintained reference.
+- **M4:** Complete — switch identity review to the maintained reference.
 - **M5:** Not started — add run controls for event, visible-card, and identity processors.
 - **M6:** Not started — add observation assembly and reconstruction controls.
 - **M7:** Not started — add deterministic event comparison.
@@ -470,6 +470,31 @@ Acceptance:
 - crop retrieval after cache deletion works;
 - completion and dataset readiness display the backend's exact coverage facts; and
 - no identity route or component permits geometry edits.
+
+### M4 notes — 2026-09-06
+
+Added `PipelineVisualIdentityEditor` to the recording pipeline workspace. The generated view reads
+the selected immutable visual-identity result. The reviewed view uses one recording-owned
+maintained reference with source-frame and crop derived views, canonical suit-and-rank controls,
+manual labels for empty predictions, identity usability decisions, and source-problem links to the
+visible-card geometry stage. Identity review never edits geometry.
+
+Identity edits use fixed `accept_identity_suggestion`, `select_identity`, `set_identity_unusable`,
+and `report_identity_source_problem` commands. The ordered command queue keeps command IDs,
+retries transient failures, pauses on revision conflicts, and supports rebasing a selected result
+so changed geometry or crop digests become affected while unchanged cards retain their decisions.
+Completion sends the exact identity-card coverage facts and shows the backend coverage payload and
+dataset-readiness state.
+
+The backend now exposes typed visual-identity results and recording-owned derived identity crops.
+The crop route re-resolves the accepted video and verifies the stored frame, geometry, crop policy,
+and crop digest after cache deletion. OpenAPI and the typed client include the new result and crop
+resources.
+
+Focused identity editor, client, reference, and cold-cache API tests pass. The full backend and
+web suites, web build, API verification, Ruff, and changed-file formatting checks pass. The
+operations suite still reports two existing missing model-improvement skill files outside this
+milestone.
 
 ### M5 — Visual processor run controls
 
