@@ -53,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M1 complete: the frozen measurement and outcome-preservation contracts are reproducible. Visible-card proposals survive classified, unusable, and failed identity outcomes. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
+| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete: the frozen measurement, outcome-preservation, deterministic corruption, predicted-region, and visible-region-exclusion contracts are reproducible. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
 
@@ -174,9 +174,9 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   0050 can measure a provider candidate only after the resilient downstream identifier is fixed.
 - Keep temporal association in 0050. It remains optional evidence and does not replace the stream of
   all currently visible cards.
-- 0049 satisfies the recording-workspace dependency for 0051. M0–M1 are complete because the
-  coverage contract and outcome-preservation boundary proceed without new review. The local
-  operations store has
+- 0049 satisfies the recording-workspace dependency for 0051. M0–M2 are complete because the
+  coverage contract, outcome-preservation boundary, and local deterministic crop conditions
+  proceed without new review. The local operations store has
   no `pipeline-references` artifacts, so the baseline reports the paired-review gap and stops
   before validation classification.
 - Add 0053 as an independent repository cleanup discovery pass. Optimize cleanup for lower agent

@@ -13,15 +13,19 @@ from doko_operations.derived_view import (
     DEFAULT_DECODER_VERSION,
     DEFAULT_TRANSFORM_VERSION,
     DerivedViewCache,
+    DerivedViewError,
     DerivedViewMissingFrameError,
     DerivedViewSourceError,
     DetectorBoxGeometry,
     ExactEventRequest,
+    PredictedVisibleRegionGeometry,
     ResolvedFrame,
     ReviewedVisibleRegionGeometry,
     VisibleRegionCropRequest,
+    VisibleRegionExclusionInput,
     crop_cache_key,
     frame_cache_key,
+    generate_visible_region_corruption,
     parse_geometry,
     resolve_exact_event,
     resolve_visible_region_crop,
@@ -260,6 +264,9 @@ def test_crop_cache_key_includes_geometry_policy_versions_and_encoding(tmp_path:
         "image_sha256": "b" * 64,
     }
     geometry = DetectorBoxGeometry(100, 100, 500, 500)
+    oracle_geometry = ReviewedVisibleRegionGeometry(
+        (((100, 100), (500, 100), (500, 500), (100, 500)),)
+    )
     request = VisibleRegionCropRequest(
         frame_identity=frame_identity,
         geometry=geometry,
@@ -282,7 +289,7 @@ def test_crop_cache_key_includes_geometry_policy_versions_and_encoding(tmp_path:
         crop_cache_key(
             VisibleRegionCropRequest(
                 frame_identity=frame_identity,
-                geometry=geometry,
+                geometry=oracle_geometry,
                 width=64,
                 height=48,
                 crop_policy="oracle_visible_region",
@@ -311,3 +318,253 @@ def test_crop_cache_key_includes_geometry_policy_versions_and_encoding(tmp_path:
         ),
     }
     assert len(variants) == 5
+
+
+def _colour_frame() -> ResolvedFrame:
+    image = Image.new("RGB", (100, 100), (10, 10, 10))
+    pixels = image.load()
+    for y in range(30, 70):
+        for x in range(30, 70):
+            pixels[x, y] = (220, 20, 20)
+    for y in range(32, 68):
+        for x in range(21, 30):
+            pixels[x, y] = (20, 80, 220)
+    for y in range(32, 68):
+        for x in range(70, 79):
+            pixels[x, y] = (20, 220, 80)
+    for y in range(70, 79):
+        for x in range(38, 62):
+            pixels[x, y] = (220, 180, 20)
+    encoded = BytesIO()
+    image.save(encoded, format="PNG")
+    return ResolvedFrame(
+        requested_time_us=0,
+        frame_index=0,
+        presentation_timestamp_us=0,
+        source_video_sha256="a" * 64,
+        width=100,
+        height=100,
+        decoder_version=DEFAULT_DECODER_VERSION,
+        transform_version="fixture-frame-v1",
+        output_encoding="png",
+        image_bytes=encoded.getvalue(),
+    )
+
+
+def _predicted_region(x_min: int, y_min: int, x_max: int, y_max: int):
+    return PredictedVisibleRegionGeometry(
+        (((x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)),)
+    )
+
+
+def test_resilience_crop_conditions_preserve_geometry_and_exclude_eroded_neighbors() -> None:
+    frame = _colour_frame()
+    target_box = DetectorBoxGeometry(200, 200, 800, 800)
+    target_region = PredictedVisibleRegionGeometry(
+        (((300, 500), (500, 300), (700, 500), (500, 700)),)
+    )
+    neighbors = (
+        VisibleRegionExclusionInput("left", _predicted_region(210, 320, 300, 680), "generated"),
+        VisibleRegionExclusionInput("right", _predicted_region(700, 320, 790, 680), "generated"),
+        VisibleRegionExclusionInput("bottom", _predicted_region(380, 700, 620, 790), "generated"),
+    )
+
+    raw = resolve_visible_region_crop(frame, target_box, crop_policy="raw_rectangular")
+    predicted = resolve_visible_region_crop(
+        frame, target_region, crop_policy="predicted_visible_region"
+    )
+    excluded = resolve_visible_region_crop(
+        frame,
+        target_box,
+        crop_policy="generated_other_region_exclusion",
+        exclusion_inputs=neighbors,
+    )
+    predicted_with_exclusion = resolve_visible_region_crop(
+        frame,
+        target_region,
+        crop_policy="predicted_region_with_other_exclusion",
+        exclusion_inputs=neighbors,
+    )
+    reviewed_exclusion = resolve_visible_region_crop(
+        frame,
+        target_box,
+        crop_policy="reviewed_other_region_exclusion",
+        exclusion_inputs=tuple(
+            VisibleRegionExclusionInput(
+                item.proposal_id,
+                ReviewedVisibleRegionGeometry(item.geometry.polygons),
+                "reviewed",
+            )
+            for item in neighbors
+        ),
+    )
+
+    assert raw.geometry == target_box
+    assert excluded.geometry == target_box
+    assert predicted_with_exclusion.geometry == target_region
+    assert reviewed_exclusion.geometry == target_box
+    assert excluded.exclusion_inputs == neighbors
+    assert {item["decision"] for item in excluded.exclusion_decisions} == {"excluded"}
+    with (
+        Image.open(BytesIO(raw.image_bytes or b"")) as raw_image,
+        Image.open(BytesIO(predicted.image_bytes or b"")) as predicted_image,
+        Image.open(BytesIO(excluded.image_bytes or b"")) as excluded_image,
+    ):
+        assert raw_image.getpixel((5, 30)) == (20, 80, 220)
+        assert predicted_image.getpixel((5, 5)) == (128, 128, 128)
+        assert excluded_image.getpixel((5, 30)) == (128, 128, 128)
+        assert excluded_image.getpixel((30, 30)) == (220, 20, 20)
+
+
+def test_exclusion_deduplicates_disputes_and_records_no_eligible_inputs() -> None:
+    frame = _colour_frame()
+    target_box = DetectorBoxGeometry(200, 200, 800, 800)
+    left = _predicted_region(210, 320, 400, 680)
+    duplicate = VisibleRegionExclusionInput("left-duplicate", left, "generated")
+    first = VisibleRegionExclusionInput("left", left, "generated")
+    duplicated = resolve_visible_region_crop(
+        frame,
+        target_box,
+        crop_policy="generated_other_region_exclusion",
+        exclusion_inputs=(first, duplicate),
+    )
+    assert [item["decision"] for item in duplicated.exclusion_decisions] == [
+        "excluded",
+        "duplicate_geometry",
+    ]
+
+    overlap_left = VisibleRegionExclusionInput(
+        "overlap-left", _predicted_region(210, 320, 400, 680), "generated"
+    )
+    overlap_right = VisibleRegionExclusionInput(
+        "overlap-right", _predicted_region(300, 320, 490, 680), "generated"
+    )
+    disputed = resolve_visible_region_crop(
+        frame,
+        target_box,
+        crop_policy="generated_other_region_exclusion",
+        exclusion_inputs=(overlap_left, overlap_right),
+    )
+    assert [item["decision"] for item in disputed.exclusion_decisions] == [
+        "disputed_overlap",
+        "disputed_overlap",
+        "no_eligible_exclusion_region",
+    ]
+
+    ineligible = VisibleRegionExclusionInput(
+        "unknown-confidence",
+        left,
+        "generated",
+        eligible=False,
+        eligibility_reason="provider_confidence_unavailable; deterministic fallback",
+    )
+    no_eligible = resolve_visible_region_crop(
+        frame,
+        target_box,
+        crop_policy="generated_other_region_exclusion",
+        exclusion_inputs=(ineligible,),
+    )
+    raw = resolve_visible_region_crop(frame, target_box, crop_policy="raw_rectangular")
+    assert no_eligible.image_bytes == raw.image_bytes
+    assert no_eligible.exclusion_decisions[-1]["decision"] == "no_eligible_exclusion_region"
+
+
+def test_exclusion_crop_cache_reproduces_bytes_and_lineage(tmp_path: Path) -> None:
+    frame = _colour_frame()
+    target = DetectorBoxGeometry(200, 200, 800, 800)
+    input_region = VisibleRegionExclusionInput(
+        "left", _predicted_region(210, 320, 300, 680), "generated"
+    )
+    cache = DerivedViewCache(tmp_path / "derived-views")
+    cold = resolve_visible_region_crop(
+        frame,
+        target,
+        crop_policy="generated_other_region_exclusion",
+        exclusion_inputs=(input_region,),
+        cache=cache,
+    )
+    warm = resolve_visible_region_crop(
+        frame,
+        target,
+        crop_policy="generated_other_region_exclusion",
+        exclusion_inputs=(input_region,),
+        cache=cache,
+    )
+    assert cold.image_bytes == warm.image_bytes
+    assert cold.identity_mapping() == warm.identity_mapping()
+    assert cold.identity_mapping()["geometry"] == target.to_mapping()
+    assert cold.identity_mapping()["exclusion_inputs"] == [input_region.to_mapping()]
+
+
+def test_visible_region_corruptions_are_deterministic_and_lineage_linked() -> None:
+    source = ReviewedVisibleRegionGeometry(
+        (
+            ((200, 200), (400, 200), (400, 500), (200, 500)),
+            ((600, 600), (800, 600), (800, 800), (600, 800)),
+        )
+    )
+    donor = ReviewedVisibleRegionGeometry((((50, 50), (150, 50), (150, 150), (50, 150)),))
+    families = (
+        "erosion_missing_boundary_pixels",
+        "dilation_into_background_or_neighbor",
+        "position_shift",
+        "holes_missing_connected_components",
+        "false_disconnected_components",
+        "pixels_from_another_visible_card",
+        "complete_derived_box_fallback",
+    )
+    for family in families:
+        first = generate_visible_region_corruption(
+            source,
+            family,
+            0.10 if family != "false_disconnected_components" else 1,
+            seed=5101,
+            donor_geometry=donor,
+        )
+        second = generate_visible_region_corruption(
+            source,
+            family,
+            0.10 if family != "false_disconnected_components" else 1,
+            seed=5101,
+            donor_geometry=donor,
+        )
+        assert first.to_mapping() == second.to_mapping()
+        assert first.source_geometry == source
+        assert first.source_geometry_sha256 != first.output_geometry_sha256
+        assert first.to_mapping()["transform_version"] == "visible-region-corruption/v1"
+    fallback = generate_visible_region_corruption(
+        source, "complete_derived_box_fallback", 1, seed=5107
+    )
+    assert isinstance(fallback.output_geometry, DetectorBoxGeometry)
+    over_segmented = generate_visible_region_corruption(
+        source, "false_disconnected_components", 1, seed=5105
+    )
+    under_segmented = generate_visible_region_corruption(
+        source, "holes_missing_connected_components", 0.20, seed=5104
+    )
+    assert isinstance(over_segmented.output_geometry, PredictedVisibleRegionGeometry)
+    assert len(over_segmented.output_geometry.polygons) == 3
+    assert isinstance(under_segmented.output_geometry, PredictedVisibleRegionGeometry)
+    assert len(under_segmented.output_geometry.polygons) == 1
+
+
+def test_resilience_inputs_reject_malformed_or_mismatched_geometry() -> None:
+    detector = DetectorBoxGeometry(100, 100, 900, 900)
+    predicted = _predicted_region(200, 200, 800, 800)
+    with pytest.raises(DerivedViewError, match="oracle_visible_region needs"):
+        VisibleRegionCropRequest(
+            frame_identity={},
+            geometry=detector,
+            width=100,
+            height=100,
+            crop_policy="oracle_visible_region",
+        )
+    with pytest.raises(DerivedViewError, match="source does not match"):
+        VisibleRegionExclusionInput("wrong-source", predicted, "reviewed")
+    with pytest.raises(DerivedViewError, match="unsupported visible-region corruption"):
+        generate_visible_region_corruption(
+            ReviewedVisibleRegionGeometry((((100, 100), (900, 100), (900, 900), (100, 900)),)),
+            "not-a-frozen-family",
+            0.1,
+            seed=1,
+        )

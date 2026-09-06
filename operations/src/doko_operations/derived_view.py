@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -35,17 +36,41 @@ FFMPEG_TOOLCHAIN_VERSION = "8.1.2"
 PILLOW_TOOLCHAIN_VERSION = "12.3.0"
 DEFAULT_DECODER_VERSION = f"ffmpeg/{FFMPEG_TOOLCHAIN_VERSION}"
 DEFAULT_FRAME_TRANSFORM_VERSION = f"ffmpeg-mjpeg/{FFMPEG_TOOLCHAIN_VERSION}"
-DEFAULT_TRANSFORM_VERSION = f"pillow/{PILLOW_TOOLCHAIN_VERSION}/crop-ppm-v1"
+DEFAULT_TRANSFORM_VERSION = f"pillow/{PILLOW_TOOLCHAIN_VERSION}/crop-conditions-v2"
 
 SUPPORTED_FRAME_ENCODINGS = frozenset({"jpeg", "png"})
 SUPPORTED_CROP_ENCODINGS = frozenset({"jpeg", "png", "ppm"})
 SUPPORTED_CROP_POLICIES = frozenset(
-    {"raw_rectangular", "oracle_visible_region", "conservative_box_only"}
+    {
+        "raw_rectangular",
+        "predicted_visible_region",
+        "generated_other_region_exclusion",
+        "predicted_region_with_other_exclusion",
+        "reviewed_other_region_exclusion",
+        "oracle_visible_region",
+        "conservative_box_only",
+    }
 )
 _CACHE_KEY = re.compile(r"^[0-9a-f]{64}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
-_GEOMETRY_KINDS = frozenset({"detector-box/v1", "reviewed-visible-region/v1"})
+_GEOMETRY_KINDS = frozenset({"detector-box/v1", "visible-region/v1", "reviewed-visible-region/v1"})
+_EXCLUSION_SOURCES = frozenset({"generated", "reviewed"})
+SUPPORTED_CORRUPTION_FAMILIES = frozenset(
+    {
+        "erosion_missing_boundary_pixels",
+        "dilation_into_background_or_neighbor",
+        "position_shift",
+        "holes_missing_connected_components",
+        "false_disconnected_components",
+        "pixels_from_another_visible_card",
+        "complete_derived_box_fallback",
+    }
+)
+_EXCLUSION_EROSION_FRACTION = 0.10
+_MATERIAL_OVERLAP_FRACTION = 0.25
+_EXCLUSION_ELIGIBILITY_RULE = "recorded-provider-confidence-and-geometry-diagnostics/v1"
 _NEUTRAL_FILL_RGB = (128, 128, 128)
+_CORRUPTION_TRANSFORM_VERSION = "visible-region-corruption/v1"
 
 
 class DerivedViewError(ValueError):
@@ -421,13 +446,373 @@ class ReviewedVisibleRegionGeometry:
             raise DerivedViewError("reviewed geometry is invalid") from error
 
 
-def parse_geometry(value: Any) -> DetectorBoxGeometry | ReviewedVisibleRegionGeometry:
-    """Parse one tagged detector box or reviewed visible-region geometry."""
+@dataclass(frozen=True, slots=True)
+class PredictedVisibleRegionGeometry:
+    """One or more predicted polygons containing visible card pixels."""
+
+    polygons: tuple[tuple[tuple[int, int], ...], ...]
+    kind: str = "visible-region/v1"
+
+    def __post_init__(self) -> None:
+        if self.kind != "visible-region/v1":
+            raise DerivedViewError("predicted geometry has an unsupported kind")
+        if not isinstance(self.polygons, tuple) or not self.polygons:
+            raise DerivedViewError("predicted visible region needs one or more polygons")
+        for polygon_index, polygon in enumerate(self.polygons):
+            if not isinstance(polygon, tuple) or len(polygon) < 3:
+                raise DerivedViewError(f"predicted polygon {polygon_index} needs three points")
+            for point_index, point in enumerate(polygon):
+                if (
+                    not isinstance(point, tuple)
+                    or len(point) != 2
+                    or isinstance(point[0], bool)
+                    or isinstance(point[1], bool)
+                ):
+                    raise DerivedViewError(
+                        f"predicted polygon {polygon_index} point {point_index} is invalid"
+                    )
+                _require_coordinate(point[0], "predicted point x")
+                _require_coordinate(point[1], "predicted point y")
+            if abs(_polygon_area(polygon)) <= 0.0:
+                raise DerivedViewError(f"predicted polygon {polygon_index} must have positive area")
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "visible_region": {
+                "polygons": [
+                    [{"x": point[0], "y": point[1]} for point in polygon]
+                    for polygon in self.polygons
+                ]
+            },
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "PredictedVisibleRegionGeometry":
+        data = _require_mapping(value, "predicted geometry")
+        _strict(data, {"kind", "visible_region"}, "predicted geometry")
+        region = _require_mapping(data["visible_region"], "predicted geometry.visible_region")
+        _strict(region, {"polygons"}, "predicted geometry.visible_region")
+        polygons_value = region["polygons"]
+        if not isinstance(polygons_value, list):
+            raise DerivedViewError("predicted geometry polygons must be a list")
+        polygons: list[tuple[tuple[int, int], ...]] = []
+        for polygon_value in polygons_value:
+            if not isinstance(polygon_value, list):
+                raise DerivedViewError("predicted geometry polygon must be a list")
+            points: list[tuple[int, int]] = []
+            for point_value in polygon_value:
+                point = _require_mapping(point_value, "predicted geometry point")
+                _strict(point, {"x", "y"}, "predicted geometry point")
+                points.append((point["x"], point["y"]))
+            polygons.append(tuple(points))
+        try:
+            return cls(polygons=tuple(polygons), kind=data["kind"])
+        except (TypeError, DerivedViewError) as error:
+            raise DerivedViewError("predicted geometry is invalid") from error
+
+
+RegionGeometry = PredictedVisibleRegionGeometry | ReviewedVisibleRegionGeometry
+CropGeometry = DetectorBoxGeometry | RegionGeometry
+
+
+@dataclass(frozen=True, slots=True)
+class VisibleRegionExclusionInput:
+    """One recorded neighboring region considered for visible-region exclusion."""
+
+    proposal_id: str
+    geometry: RegionGeometry
+    source: str
+    eligible: bool = True
+    eligibility_reason: str = "eligible"
+    provider_confidence: float | None = None
+    geometry_diagnostics: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _require_text(self.proposal_id, "exclusion proposal_id")
+        if not isinstance(
+            self.geometry, (PredictedVisibleRegionGeometry, ReviewedVisibleRegionGeometry)
+        ):
+            raise DerivedViewError("exclusion geometry must be a visible region")
+        if self.source not in _EXCLUSION_SOURCES:
+            raise DerivedViewError("exclusion source must be generated or reviewed")
+        expected_kind = (
+            "visible-region/v1" if self.source == "generated" else "reviewed-visible-region/v1"
+        )
+        if self.geometry.kind != expected_kind:
+            raise DerivedViewError("exclusion source does not match geometry kind")
+        if not isinstance(self.eligible, bool):
+            raise DerivedViewError("exclusion eligible must be a boolean")
+        _require_text(self.eligibility_reason, "exclusion eligibility_reason")
+        if self.provider_confidence is not None and (
+            isinstance(self.provider_confidence, bool)
+            or not isinstance(self.provider_confidence, (int, float))
+            or not math.isfinite(float(self.provider_confidence))
+            or not 0.0 <= float(self.provider_confidence) <= 1.0
+        ):
+            raise DerivedViewError("exclusion provider_confidence must be from 0 through 1")
+        if not isinstance(self.geometry_diagnostics, tuple) or any(
+            not isinstance(item, str) or not item for item in self.geometry_diagnostics
+        ):
+            raise DerivedViewError("exclusion geometry_diagnostics must be non-empty strings")
+        if len(set(self.geometry_diagnostics)) != len(self.geometry_diagnostics):
+            raise DerivedViewError("exclusion geometry_diagnostics must be unique")
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "proposal_id": self.proposal_id,
+            "geometry": self.geometry.to_mapping(),
+            "source": self.source,
+            "eligible": self.eligible,
+            "eligibility_reason": self.eligibility_reason,
+            "provider_confidence": self.provider_confidence,
+            "geometry_diagnostics": list(self.geometry_diagnostics),
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "VisibleRegionExclusionInput":
+        data = _require_mapping(value, "exclusion input")
+        _strict(
+            data,
+            {
+                "proposal_id",
+                "geometry",
+                "source",
+                "eligible",
+                "eligibility_reason",
+                "provider_confidence",
+                "geometry_diagnostics",
+            },
+            "exclusion input",
+        )
+        diagnostics = data["geometry_diagnostics"]
+        if not isinstance(diagnostics, list):
+            raise DerivedViewError("exclusion geometry_diagnostics must be a list")
+        try:
+            return cls(
+                proposal_id=data["proposal_id"],
+                geometry=parse_geometry(data["geometry"]),
+                source=data["source"],
+                eligible=data["eligible"],
+                eligibility_reason=data["eligibility_reason"],
+                provider_confidence=data["provider_confidence"],
+                geometry_diagnostics=tuple(diagnostics),
+            )
+        except (TypeError, DerivedViewError) as error:
+            raise DerivedViewError("exclusion input is invalid") from error
+
+
+@dataclass(frozen=True, slots=True)
+class VisibleRegionCorruption:
+    """One deterministic predicted geometry derived from a reviewed region."""
+
+    family: str
+    severity: int | float
+    seed: int
+    source_geometry: ReviewedVisibleRegionGeometry
+    output_geometry: CropGeometry
+    transform_version: str = _CORRUPTION_TRANSFORM_VERSION
+
+    def __post_init__(self) -> None:
+        if self.family not in SUPPORTED_CORRUPTION_FAMILIES:
+            raise DerivedViewError("unsupported visible-region corruption family")
+        if (
+            isinstance(self.severity, bool)
+            or not isinstance(self.severity, (int, float))
+            or not math.isfinite(float(self.severity))
+            or self.severity <= 0
+        ):
+            raise DerivedViewError("corruption severity must be a positive finite number")
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int):
+            raise DerivedViewError("corruption seed must be an integer")
+        _require_text(self.transform_version, "corruption transform_version")
+        if not isinstance(self.source_geometry, ReviewedVisibleRegionGeometry):
+            raise DerivedViewError("corruption source must be reviewed geometry")
+        if not isinstance(
+            self.output_geometry,
+            (DetectorBoxGeometry, PredictedVisibleRegionGeometry, ReviewedVisibleRegionGeometry),
+        ):
+            raise DerivedViewError("corruption output geometry is invalid")
+
+    @property
+    def source_geometry_sha256(self) -> str:
+        return _geometry_digest(self.source_geometry)
+
+    @property
+    def output_geometry_sha256(self) -> str:
+        return _geometry_digest(self.output_geometry)
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "family": self.family,
+            "severity": self.severity,
+            "seed": self.seed,
+            "source_geometry": self.source_geometry.to_mapping(),
+            "output_geometry": self.output_geometry.to_mapping(),
+            "source_geometry_sha256": self.source_geometry_sha256,
+            "output_geometry_sha256": self.output_geometry_sha256,
+            "transform_version": self.transform_version,
+        }
+
+
+def generate_visible_region_corruption(
+    geometry: ReviewedVisibleRegionGeometry | Mapping[str, Any],
+    family: str,
+    severity: int | float,
+    *,
+    seed: int,
+    donor_geometry: ReviewedVisibleRegionGeometry | PredictedVisibleRegionGeometry | None = None,
+) -> VisibleRegionCorruption:
+    """Create a deterministic predicted geometry without reading an identity label."""
+
+    source = (
+        geometry
+        if isinstance(geometry, ReviewedVisibleRegionGeometry)
+        else parse_geometry(geometry)
+    )
+    if not isinstance(source, ReviewedVisibleRegionGeometry):
+        raise DerivedViewError("corruption source geometry must be reviewed geometry")
+    if family not in SUPPORTED_CORRUPTION_FAMILIES:
+        raise DerivedViewError("unsupported visible-region corruption family")
+    if (
+        isinstance(severity, bool)
+        or not isinstance(severity, (int, float))
+        or not math.isfinite(float(severity))
+        or severity <= 0
+    ):
+        raise DerivedViewError("corruption severity must be a positive finite number")
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise DerivedViewError("corruption seed must be an integer")
+
+    if family == "complete_derived_box_fallback":
+        output: CropGeometry = _derived_box_geometry(source)
+    else:
+        polygons = list(source.polygons)
+        if family == "erosion_missing_boundary_pixels":
+            polygons = _scale_polygons(polygons, max(0.05, 1.0 - float(severity)))
+        elif family == "dilation_into_background_or_neighbor":
+            polygons = _scale_polygons(polygons, 1.0 + float(severity))
+        elif family == "position_shift":
+            polygons = _shift_polygons(polygons, severity=float(severity), seed=seed)
+        elif family == "holes_missing_connected_components":
+            polygons = _remove_components(polygons, severity=float(severity), seed=seed)
+        elif family == "false_disconnected_components":
+            polygons.append(_synthetic_component(polygons, severity=float(severity), seed=seed))
+        elif family == "pixels_from_another_visible_card":
+            if donor_geometry is not None:
+                polygons.extend(donor_geometry.polygons)
+            else:
+                polygons.append(_synthetic_component(polygons, severity=float(severity), seed=seed))
+        output = PredictedVisibleRegionGeometry(polygons=tuple(polygons))
+    return VisibleRegionCorruption(
+        family=family,
+        severity=severity,
+        seed=seed,
+        source_geometry=source,
+        output_geometry=output,
+    )
+
+
+def _scale_polygons(
+    polygons: Sequence[tuple[tuple[int, int], ...]], scale: float
+) -> list[tuple[tuple[int, int], ...]]:
+    points = [point for polygon in polygons for point in polygon]
+    center_x = sum(point[0] for point in points) / len(points)
+    center_y = sum(point[1] for point in points) / len(points)
+    return [
+        tuple(
+            (
+                _clamp_coordinate(round(center_x + (point[0] - center_x) * scale)),
+                _clamp_coordinate(round(center_y + (point[1] - center_y) * scale)),
+            )
+            for point in polygon
+        )
+        for polygon in polygons
+    ]
+
+
+def _shift_polygons(
+    polygons: Sequence[tuple[tuple[int, int], ...]], *, severity: float, seed: int
+) -> list[tuple[tuple[int, int], ...]]:
+    points = [point for polygon in polygons for point in polygon]
+    width = max(point[0] for point in points) - min(point[0] for point in points)
+    height = max(point[1] for point in points) - min(point[1] for point in points)
+    generator = random.Random(seed)
+    shift_x = round(width * severity * (0.5 + generator.random())) * generator.choice((-1, 1))
+    shift_y = round(height * severity * (0.5 + generator.random())) * generator.choice((-1, 1))
+    return [
+        tuple(
+            (
+                _clamp_coordinate(point[0] + shift_x),
+                _clamp_coordinate(point[1] + shift_y),
+            )
+            for point in polygon
+        )
+        for polygon in polygons
+    ]
+
+
+def _remove_components(
+    polygons: Sequence[tuple[tuple[int, int], ...]], *, severity: float, seed: int
+) -> list[tuple[tuple[int, int], ...]]:
+    if len(polygons) <= 1:
+        return _scale_polygons(polygons, max(0.05, 1.0 - severity))
+    remove_count = min(len(polygons) - 1, max(1, round(len(polygons) * severity)))
+    generator = random.Random(seed)
+    removed = set(generator.sample(range(len(polygons)), remove_count))
+    return [polygon for index, polygon in enumerate(polygons) if index not in removed]
+
+
+def _synthetic_component(
+    polygons: Sequence[tuple[tuple[int, int], ...]], *, severity: float, seed: int
+) -> tuple[tuple[int, int], ...]:
+    points = [point for polygon in polygons for point in polygon]
+    generator = random.Random(seed)
+    size = max(
+        4,
+        round(
+            min(
+                1000,
+                max(
+                    1,
+                    min(
+                        max(point[0] for point in points) - min(point[0] for point in points),
+                        max(point[1] for point in points) - min(point[1] for point in points),
+                    ),
+                ),
+            )
+            * min(1.0, severity)
+            / 2
+        ),
+    )
+    x = generator.randrange(0, max(1, 1001 - size))
+    y = generator.randrange(0, max(1, 1001 - size))
+    return ((x, y), (x + size, y), (x + size, y + size), (x, y + size))
+
+
+def _derived_box_geometry(geometry: ReviewedVisibleRegionGeometry) -> DetectorBoxGeometry:
+    points = [point for polygon in geometry.polygons for point in polygon]
+    return DetectorBoxGeometry(
+        x_min=min(point[0] for point in points),
+        y_min=min(point[1] for point in points),
+        x_max=max(point[0] for point in points),
+        y_max=max(point[1] for point in points),
+    )
+
+
+def _clamp_coordinate(value: int) -> int:
+    return max(0, min(1000, value))
+
+
+def parse_geometry(value: Any) -> CropGeometry:
+    """Parse one tagged detector, predicted, or reviewed geometry."""
 
     data = _require_mapping(value, "geometry")
     kind = data.get("kind")
     if kind == "detector-box/v1":
         return DetectorBoxGeometry.from_mapping(data)
+    if kind == "visible-region/v1":
+        return PredictedVisibleRegionGeometry.from_mapping(data)
     if kind == "reviewed-visible-region/v1":
         return ReviewedVisibleRegionGeometry.from_mapping(data)
     raise DerivedViewError(f"geometry kind must be one of {sorted(_GEOMETRY_KINDS)}")
@@ -438,7 +823,7 @@ class VisibleRegionCropRequest:
     """Frozen input values for one identity crop derived from a resolved frame."""
 
     frame_identity: Mapping[str, Any]
-    geometry: DetectorBoxGeometry | ReviewedVisibleRegionGeometry
+    geometry: CropGeometry
     width: int
     height: int
     crop_policy: str
@@ -447,15 +832,31 @@ class VisibleRegionCropRequest:
     transform_version: str = DEFAULT_TRANSFORM_VERSION
     identity_usable: bool = True
     failure_tags: tuple[str, ...] = ()
+    exclusion_inputs: tuple[VisibleRegionExclusionInput, ...] = ()
 
     def __post_init__(self) -> None:
         _require_mapping(self.frame_identity, "crop frame_identity")
-        if not isinstance(self.geometry, (DetectorBoxGeometry, ReviewedVisibleRegionGeometry)):
+        if not isinstance(
+            self.geometry,
+            (DetectorBoxGeometry, PredictedVisibleRegionGeometry, ReviewedVisibleRegionGeometry),
+        ):
             raise DerivedViewError("crop geometry must be tagged detector or reviewed geometry")
         _require_int(self.width, "crop width", minimum=1)
         _require_int(self.height, "crop height", minimum=1)
         if self.crop_policy not in SUPPORTED_CROP_POLICIES:
             raise DerivedViewError("unsupported crop policy")
+        expected_geometry = {
+            "raw_rectangular": DetectorBoxGeometry,
+            "generated_other_region_exclusion": DetectorBoxGeometry,
+            "reviewed_other_region_exclusion": DetectorBoxGeometry,
+            "predicted_visible_region": PredictedVisibleRegionGeometry,
+            "predicted_region_with_other_exclusion": PredictedVisibleRegionGeometry,
+            "oracle_visible_region": ReviewedVisibleRegionGeometry,
+        }.get(self.crop_policy)
+        if expected_geometry is not None and not isinstance(self.geometry, expected_geometry):
+            raise DerivedViewError(
+                f"{self.crop_policy} needs {expected_geometry.__name__} geometry"
+            )
         if self.output_encoding not in SUPPORTED_CROP_ENCODINGS:
             raise DerivedViewError("unsupported crop output encoding")
         _require_text(self.decoder_version, "crop decoder_version")
@@ -468,6 +869,13 @@ class VisibleRegionCropRequest:
             raise DerivedViewError("failure_tags must be a tuple of non-empty strings")
         if len(set(self.failure_tags)) != len(self.failure_tags):
             raise DerivedViewError("failure_tags must be unique")
+        if not isinstance(self.exclusion_inputs, tuple) or any(
+            not isinstance(item, VisibleRegionExclusionInput) for item in self.exclusion_inputs
+        ):
+            raise DerivedViewError("exclusion_inputs must contain visible-region inputs")
+        proposal_ids = [item.proposal_id for item in self.exclusion_inputs]
+        if len(set(proposal_ids)) != len(proposal_ids):
+            raise DerivedViewError("exclusion_inputs must have unique proposal IDs")
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -482,6 +890,8 @@ class VisibleRegionCropRequest:
             "transform_version": self.transform_version,
             "identity_usable": self.identity_usable,
             "failure_tags": list(self.failure_tags),
+            "exclusion_inputs": [item.to_mapping() for item in self.exclusion_inputs],
+            "exclusion_policy": _exclusion_policy_mapping(),
         }
 
 
@@ -491,7 +901,7 @@ class ResolvedCrop:
 
     status: str
     frame_identity: Mapping[str, Any]
-    geometry: DetectorBoxGeometry | ReviewedVisibleRegionGeometry
+    geometry: CropGeometry
     pixel_bounds: PixelBounds | None
     crop_policy: str
     output_encoding: str
@@ -499,12 +909,17 @@ class ResolvedCrop:
     transform_version: str
     image_bytes: bytes | None
     unusable_reason: str | None = None
+    exclusion_inputs: tuple[VisibleRegionExclusionInput, ...] = ()
+    exclusion_decisions: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if self.status not in {"usable", "unusable"}:
             raise DerivedViewError("crop status must be usable or unusable")
         _require_mapping(self.frame_identity, "crop frame_identity")
-        if not isinstance(self.geometry, (DetectorBoxGeometry, ReviewedVisibleRegionGeometry)):
+        if not isinstance(
+            self.geometry,
+            (DetectorBoxGeometry, PredictedVisibleRegionGeometry, ReviewedVisibleRegionGeometry),
+        ):
             raise DerivedViewError("crop geometry is invalid")
         if self.crop_policy not in SUPPORTED_CROP_POLICIES:
             raise DerivedViewError("crop policy is invalid")
@@ -521,6 +936,14 @@ class ResolvedCrop:
                 raise DerivedViewError("usable crop cannot have an unusable reason")
         elif self.image_bytes is not None or not self.unusable_reason:
             raise DerivedViewError("unusable crop needs a reason and no bytes")
+        if not isinstance(self.exclusion_inputs, tuple) or any(
+            not isinstance(item, VisibleRegionExclusionInput) for item in self.exclusion_inputs
+        ):
+            raise DerivedViewError("exclusion_inputs must contain visible-region inputs")
+        if not isinstance(self.exclusion_decisions, tuple) or any(
+            not isinstance(item, Mapping) for item in self.exclusion_decisions
+        ):
+            raise DerivedViewError("exclusion_decisions must contain objects")
 
     @property
     def image_sha256(self) -> str | None:
@@ -544,6 +967,9 @@ class ResolvedCrop:
             "transform_version": self.transform_version,
             "image_sha256": self.image_sha256,
             "unusable_reason": self.unusable_reason,
+            "exclusion_inputs": [item.to_mapping() for item in self.exclusion_inputs],
+            "exclusion_decisions": [dict(item) for item in self.exclusion_decisions],
+            "exclusion_policy": _exclusion_policy_mapping(),
         }
 
 
@@ -933,7 +1359,7 @@ def crop_cache_key(request: VisibleRegionCropRequest) -> str:
 
 def resolve_visible_region_crop(
     frame: ResolvedFrame,
-    geometry: DetectorBoxGeometry | ReviewedVisibleRegionGeometry | Mapping[str, Any],
+    geometry: CropGeometry | Mapping[str, Any],
     *,
     crop_policy: str,
     width: int | None = None,
@@ -942,6 +1368,7 @@ def resolve_visible_region_crop(
     cache: DerivedViewCache | str | Path | None = None,
     identity_usable: bool = True,
     failure_tags: Sequence[str] = (),
+    exclusion_inputs: Sequence[VisibleRegionExclusionInput | Mapping[str, Any]] = (),
     transform_version: str = DEFAULT_TRANSFORM_VERSION,
 ) -> ResolvedCrop:
     """Derive a crop from tagged geometry without changing the stored geometry."""
@@ -950,8 +1377,17 @@ def resolve_visible_region_crop(
         raise DerivedViewError("crop needs a resolved frame")
     accepted_geometry = (
         geometry
-        if isinstance(geometry, (DetectorBoxGeometry, ReviewedVisibleRegionGeometry))
+        if isinstance(
+            geometry,
+            (DetectorBoxGeometry, PredictedVisibleRegionGeometry, ReviewedVisibleRegionGeometry),
+        )
         else parse_geometry(geometry)
+    )
+    accepted_exclusion_inputs = tuple(
+        item
+        if isinstance(item, VisibleRegionExclusionInput)
+        else VisibleRegionExclusionInput.from_mapping(item)
+        for item in exclusion_inputs
     )
     request = VisibleRegionCropRequest(
         frame_identity=frame.identity_mapping(),
@@ -964,6 +1400,7 @@ def resolve_visible_region_crop(
         transform_version=transform_version,
         identity_usable=identity_usable,
         failure_tags=tuple(failure_tags),
+        exclusion_inputs=accepted_exclusion_inputs,
     )
     if (request.width, request.height) != (frame.width, frame.height):
         raise DerivedViewError("crop dimensions must match the resolved frame")
@@ -989,6 +1426,7 @@ def resolve_visible_region_crop(
 
 
 def _crop_uncached(frame: ResolvedFrame, request: VisibleRegionCropRequest) -> ResolvedCrop:
+    exclusion_decisions, eligible_exclusions = _resolve_exclusion_decisions(request)
     if request.crop_policy == "conservative_box_only" and (
         not request.identity_usable or request.failure_tags
     ):
@@ -1003,6 +1441,8 @@ def _crop_uncached(frame: ResolvedFrame, request: VisibleRegionCropRequest) -> R
             transform_version=request.transform_version,
             image_bytes=None,
             unusable_reason="identity evidence is not usable under the conservative policy",
+            exclusion_inputs=request.exclusion_inputs,
+            exclusion_decisions=exclusion_decisions,
         )
     bounds = _geometry_pixel_bounds(
         request.geometry,
@@ -1021,6 +1461,8 @@ def _crop_uncached(frame: ResolvedFrame, request: VisibleRegionCropRequest) -> R
             transform_version=request.transform_version,
             image_bytes=None,
             unusable_reason="crop is smaller than the minimum identity size",
+            exclusion_inputs=request.exclusion_inputs,
+            exclusion_decisions=exclusion_decisions,
         )
     try:
         with Image.open(BytesIO(frame.image_bytes)) as image:
@@ -1029,26 +1471,50 @@ def _crop_uncached(frame: ResolvedFrame, request: VisibleRegionCropRequest) -> R
             crop = image.convert("RGB").crop(
                 (bounds.x_min, bounds.y_min, bounds.x_max, bounds.y_max)
             )
-            if request.crop_policy == "oracle_visible_region" and isinstance(
-                request.geometry, ReviewedVisibleRegionGeometry
-            ):
-                from PIL import ImageDraw
-
-                mask = Image.new("L", crop.size, 0)
-                draw = ImageDraw.Draw(mask)
-                for polygon in request.geometry.polygons:
-                    draw.polygon(
-                        [
-                            (
-                                point[0] * request.width / 1000 - bounds.x_min,
-                                point[1] * request.height / 1000 - bounds.y_min,
-                            )
-                            for point in polygon
-                        ],
-                        fill=255,
+            if request.crop_policy in {
+                "predicted_visible_region",
+                "predicted_region_with_other_exclusion",
+                "oracle_visible_region",
+            }:
+                if not isinstance(
+                    request.geometry,
+                    (PredictedVisibleRegionGeometry, ReviewedVisibleRegionGeometry),
+                ):
+                    raise DerivedViewError(
+                        "visible-region crop policy needs visible-region geometry"
                     )
+                target_mask = _geometry_mask(
+                    request.geometry,
+                    width=request.width,
+                    height=request.height,
+                    bounds=bounds,
+                )
                 neutral = Image.new("RGB", crop.size, _NEUTRAL_FILL_RGB)
-                crop = Image.composite(crop, neutral, mask)
+                crop = Image.composite(crop, neutral, target_mask)
+            if eligible_exclusions:
+                exclusion_mask = Image.new("L", crop.size, 0)
+                for exclusion in eligible_exclusions:
+                    region_mask = _geometry_mask(
+                        exclusion.geometry,
+                        width=request.width,
+                        height=request.height,
+                        bounds=bounds,
+                    )
+                    erosion_radius = _erosion_radius_pixels(
+                        exclusion.geometry,
+                        width=request.width,
+                        height=request.height,
+                    )
+                    applied_erosion_radius = min(erosion_radius, max(0, (min(crop.size) - 1) // 2))
+                    if applied_erosion_radius:
+                        from PIL import ImageFilter
+
+                        region_mask = region_mask.filter(
+                            ImageFilter.MinFilter(size=2 * applied_erosion_radius + 1)
+                        )
+                    exclusion_mask = _mask_union(exclusion_mask, region_mask)
+                neutral = Image.new("RGB", crop.size, _NEUTRAL_FILL_RGB)
+                crop = Image.composite(neutral, crop, exclusion_mask)
             image_bytes = _encode_crop(crop, request.output_encoding)
     except UnidentifiedImageError as error:
         raise DerivedViewError("resolved frame cannot be decoded") from error
@@ -1064,7 +1530,195 @@ def _crop_uncached(frame: ResolvedFrame, request: VisibleRegionCropRequest) -> R
         decoder_version=request.decoder_version,
         transform_version=request.transform_version,
         image_bytes=image_bytes,
+        exclusion_inputs=request.exclusion_inputs,
+        exclusion_decisions=exclusion_decisions,
     )
+
+
+def _resolve_exclusion_decisions(
+    request: VisibleRegionCropRequest,
+) -> tuple[tuple[dict[str, Any], ...], tuple[VisibleRegionExclusionInput, ...]]:
+    exclusion_policies = {
+        "generated_other_region_exclusion": "generated",
+        "predicted_region_with_other_exclusion": "generated",
+        "reviewed_other_region_exclusion": "reviewed",
+    }
+    expected_source = exclusion_policies.get(request.crop_policy)
+    decisions: list[dict[str, Any]] = []
+    candidates: list[tuple[int, VisibleRegionExclusionInput]] = []
+    target_digest = _geometry_digest(request.geometry)
+    seen_geometry: dict[str, str] = {}
+    for input_index, exclusion in enumerate(request.exclusion_inputs):
+        geometry_digest = _geometry_digest(exclusion.geometry)
+        decision: dict[str, Any] = {
+            "proposal_id": exclusion.proposal_id,
+            "source": exclusion.source,
+            "geometry_sha256": geometry_digest,
+            "eligible_input": exclusion.eligible,
+            "eligibility_reason": exclusion.eligibility_reason,
+            "provider_confidence": exclusion.provider_confidence,
+            "geometry_diagnostics": list(exclusion.geometry_diagnostics),
+            "decision": "not_used_by_policy",
+        }
+        if expected_source is None:
+            decisions.append(decision)
+            continue
+        if exclusion.source != expected_source:
+            decision.update(
+                decision="ineligible_source",
+                decision_reason=f"policy requires {expected_source} exclusion geometry",
+            )
+        elif not exclusion.eligible:
+            decision.update(
+                decision="ineligible_input", decision_reason=exclusion.eligibility_reason
+            )
+        elif geometry_digest == target_digest:
+            decision.update(
+                decision="target_geometry",
+                decision_reason="target geometry is never excluded from itself",
+            )
+        elif geometry_digest in seen_geometry:
+            decision.update(
+                decision="duplicate_geometry",
+                decision_reason=f"duplicate of {seen_geometry[geometry_digest]}",
+            )
+        else:
+            seen_geometry[geometry_digest] = exclusion.proposal_id
+            decision.update(
+                decision="eligible_pending_overlap",
+                erosion_fraction=_EXCLUSION_EROSION_FRACTION,
+            )
+            candidates.append((input_index, exclusion))
+        decisions.append(decision)
+
+    disputed: set[int] = set()
+    for left_offset, (left_index, left) in enumerate(candidates):
+        for right_index, right in candidates[left_offset + 1 :]:
+            overlap = _geometry_overlap_fraction(left.geometry, right.geometry)
+            if overlap >= _MATERIAL_OVERLAP_FRACTION:
+                disputed.update({left_index, right_index})
+                decisions[left_index].update(
+                    decision="disputed_overlap",
+                    decision_reason=(
+                        f"overlap fraction {overlap:.6f} meets or exceeds "
+                        f"{_MATERIAL_OVERLAP_FRACTION:.2f}"
+                    ),
+                    overlap_fraction=overlap,
+                )
+                decisions[right_index].update(
+                    decision="disputed_overlap",
+                    decision_reason=(
+                        f"overlap fraction {overlap:.6f} meets or exceeds "
+                        f"{_MATERIAL_OVERLAP_FRACTION:.2f}"
+                    ),
+                    overlap_fraction=overlap,
+                )
+
+    eligible: list[VisibleRegionExclusionInput] = []
+    target_bounds = _geometry_pixel_bounds(
+        request.geometry,
+        width=request.width,
+        height=request.height,
+    )
+    for candidate_index, exclusion in candidates:
+        if candidate_index in disputed:
+            continue
+        erosion_radius = _erosion_radius_pixels(
+            exclusion.geometry,
+            width=request.width,
+            height=request.height,
+        )
+        decisions[candidate_index].update(
+            decision="excluded",
+            erosion_radius_px=erosion_radius,
+            applied_erosion_radius_px=min(
+                erosion_radius, max(0, (min(target_bounds.width, target_bounds.height) - 1) // 2)
+            ),
+            erosion_rule="fixed fraction of exclusion derived-box minimum dimension",
+        )
+        eligible.append(exclusion)
+    if expected_source is not None and not eligible:
+        decisions.append(
+            {
+                "decision": "no_eligible_exclusion_region",
+                "decision_reason": "no exclusion input passed the declared eligibility rules",
+            }
+        )
+    return tuple(decisions), tuple(eligible)
+
+
+def _exclusion_policy_mapping() -> dict[str, Any]:
+    return {
+        "schema_version": "visible-region-exclusion/v1",
+        "eligibility_rule": _EXCLUSION_ELIGIBILITY_RULE,
+        "erosion_fraction_of_derived_box": _EXCLUSION_EROSION_FRACTION,
+        "material_overlap_fraction": _MATERIAL_OVERLAP_FRACTION,
+        "disputed_overlap": "leave_unresolved",
+        "deduplicate_geometry": True,
+        "recursive_exclusion": False,
+        "fill_value_rgb": list(_NEUTRAL_FILL_RGB),
+    }
+
+
+def _geometry_digest(geometry: CropGeometry) -> str:
+    return _sha256(canonical_json_bytes(geometry.to_mapping()))
+
+
+def _geometry_mask(
+    geometry: RegionGeometry,
+    *,
+    width: int,
+    height: int,
+    bounds: PixelBounds,
+):
+    from PIL import ImageDraw
+
+    mask = Image.new("L", (bounds.width, bounds.height), 0)
+    draw = ImageDraw.Draw(mask)
+    for polygon in geometry.polygons:
+        draw.polygon(
+            [
+                (
+                    point[0] * width / 1000 - bounds.x_min,
+                    point[1] * height / 1000 - bounds.y_min,
+                )
+                for point in polygon
+            ],
+            fill=255,
+        )
+    return mask
+
+
+def _mask_union(left, right):
+    from PIL import ImageChops
+
+    return ImageChops.lighter(left, right)
+
+
+def _geometry_overlap_fraction(left: RegionGeometry, right: RegionGeometry) -> float:
+    scale = 1001
+    bounds = PixelBounds(0, 0, scale, scale)
+    left_mask = _geometry_mask(left, width=scale, height=scale, bounds=bounds)
+    right_mask = _geometry_mask(right, width=scale, height=scale, bounds=bounds)
+    from PIL import ImageChops
+
+    intersection = ImageChops.multiply(left_mask, right_mask)
+    left_area = sum(bool(pixel) for pixel in left_mask.tobytes())
+    right_area = sum(bool(pixel) for pixel in right_mask.tobytes())
+    overlap_area = sum(bool(pixel) for pixel in intersection.tobytes())
+    smallest_area = min(left_area, right_area)
+    return overlap_area / smallest_area if smallest_area else 0.0
+
+
+def _erosion_radius_pixels(geometry: RegionGeometry, *, width: int, height: int) -> int:
+    points = [point for polygon in geometry.polygons for point in polygon]
+    region_width = (
+        (max(point[0] for point in points) - min(point[0] for point in points)) * width / 1000
+    )
+    region_height = (
+        (max(point[1] for point in points) - min(point[1] for point in points)) * height / 1000
+    )
+    return max(0, round(min(region_width, region_height) * _EXCLUSION_EROSION_FRACTION))
 
 
 def _encode_crop(image: Image.Image, encoding: str) -> bytes:
@@ -1079,7 +1733,7 @@ def _encode_crop(image: Image.Image, encoding: str) -> bytes:
 
 
 def _geometry_pixel_bounds(
-    geometry: DetectorBoxGeometry | ReviewedVisibleRegionGeometry,
+    geometry: CropGeometry,
     *,
     width: int,
     height: int,
@@ -1196,10 +1850,23 @@ def _crop_from_cache(entry: DerivedViewCacheEntry, cache_key: str) -> ResolvedCr
         "transform_version",
         "image_sha256",
         "unusable_reason",
+        "exclusion_inputs",
+        "exclusion_decisions",
+        "exclusion_policy",
     }
     _strict(identity, expected, "crop cache identity")
     if identity["schema_version"] != VISIBLE_REGION_CROP_SCHEMA:
         raise DerivedViewError("crop cache identity has an unsupported schema")
+    if identity["exclusion_policy"] != _exclusion_policy_mapping():
+        raise DerivedViewError("crop cache identity has an unsupported exclusion policy")
+    exclusion_inputs = identity["exclusion_inputs"]
+    if not isinstance(exclusion_inputs, list):
+        raise DerivedViewError("crop cache exclusion_inputs must be a list")
+    exclusion_decisions = identity["exclusion_decisions"]
+    if not isinstance(exclusion_decisions, list) or any(
+        not isinstance(item, Mapping) for item in exclusion_decisions
+    ):
+        raise DerivedViewError("crop cache exclusion_decisions must be a list of objects")
     result = ResolvedCrop(
         status=identity["status"],
         frame_identity=_require_mapping(identity["frame_identity"], "crop frame identity"),
@@ -1215,6 +1882,10 @@ def _crop_from_cache(entry: DerivedViewCacheEntry, cache_key: str) -> ResolvedCr
         transform_version=identity["transform_version"],
         image_bytes=None if identity["status"] == "unusable" else entry.content,
         unusable_reason=identity["unusable_reason"],
+        exclusion_inputs=tuple(
+            VisibleRegionExclusionInput.from_mapping(item) for item in exclusion_inputs
+        ),
+        exclusion_decisions=tuple(dict(item) for item in exclusion_decisions),
     )
     if (
         identity["content_type"] != result.content_type
@@ -1247,13 +1918,18 @@ __all__ = [
     "PixelBounds",
     "ResolvedCrop",
     "ResolvedFrame",
+    "PredictedVisibleRegionGeometry",
     "ReviewedVisibleRegionGeometry",
+    "SUPPORTED_CORRUPTION_FAMILIES",
     "SUPPORTED_CROP_ENCODINGS",
     "SUPPORTED_CROP_POLICIES",
     "VISIBLE_REGION_CROP_SCHEMA",
+    "VisibleRegionCorruption",
+    "VisibleRegionExclusionInput",
     "VisibleRegionCropRequest",
     "crop_cache_key",
     "frame_cache_key",
+    "generate_visible_region_corruption",
     "parse_geometry",
     "resolve_exact_event",
     "resolve_visible_region_crop",

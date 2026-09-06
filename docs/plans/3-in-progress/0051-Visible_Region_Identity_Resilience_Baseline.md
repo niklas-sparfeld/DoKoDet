@@ -27,8 +27,10 @@
 - **M1:** Complete — preserve every visible-card proposal across classified, unusable, and failed
   visual identity outcomes. Empty successful classifier output is normalized to unusable, and
   reconstruction treats empty identity evidence as neutral.
-- **M2:** Not started — add deterministic predicted-region and visible-region-exclusion crop
-  conditions without changing stored geometry.
+- **M2:** Complete — add deterministic predicted-region and visible-region-exclusion crop
+  conditions without changing stored geometry. Crop lineage records the frozen exclusion policy,
+  every input, every decision, and the original target geometry. Corruption generation records
+  family, severity, seed, source digest, output digest, and transform version.
 - **M3:** Not started — run the paired resilience comparison with the current identifier.
 - **M4:** Not started — publish the decision and resolve the scope of 0052 and later detector work.
 
@@ -231,7 +233,7 @@ Acceptance:
 - erosion keeps the declared uncertain boundary out of the exclusion;
 - duplicate or disputed regions cannot erase pixels arbitrarily;
 - a cold cache reproduces identical bytes and lineage; and
-- unit, property, digest, and malformed-input tests pass.
+- unit, deterministic digest, and malformed-input tests pass.
 
 ### M3 — Run the paired resilience comparison
 

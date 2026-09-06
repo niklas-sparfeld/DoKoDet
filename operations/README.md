@@ -27,6 +27,11 @@ The command exits with `1` when the paired-reference coverage gate is not met. I
 completed maintained visible-card and visual identity references from at least two source-lineage
 groups and the frozen validation sample minimum before validation classification is allowed.
 
+M2 provides the shared deterministic crop boundary used by the later paired run. It supports raw,
+predicted-region, oracle, and generated or reviewed neighboring-region exclusion conditions. It
+keeps source geometry immutable, records exclusion decisions, and generates seeded corruptions with
+source and output geometry digests. It does not classify crops or change the runtime default.
+
 M1 adds a resumable CardEventNet campaign runner:
 
 ```bash
