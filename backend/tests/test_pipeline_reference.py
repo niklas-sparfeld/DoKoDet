@@ -810,10 +810,23 @@ def test_reference_http_api_exposes_conflicts_and_completed_selection(tmp_path: 
             json={
                 "operator_id": "operator-01",
                 "expected_revision": 0,
+                "command_id": "command-01",
                 "operations": [{"operation": "accept", "item_id": "event-01"}],
             },
         )
         assert updated.status_code == 200
+        replayed = client.put(
+            base + "/draft",
+            json={
+                "operator_id": "operator-01",
+                "expected_revision": 0,
+                "command_id": "command-01",
+                "operations": [{"operation": "accept", "item_id": "event-01"}],
+            },
+        )
+        assert replayed.status_code == 200
+        assert replayed.json()["draft"]["revision"] == 1
+        assert replayed.json()["draft"]["items"][0]["review_state"] == "accepted"
         stale = client.put(
             base + "/draft",
             json={

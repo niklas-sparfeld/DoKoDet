@@ -15,6 +15,7 @@ import {
   type PipelineWorkspace,
   type PipelineWorkspaceStage,
 } from "../api/client";
+import { PipelineCardEventEditor } from "../cardEvents/PipelineCardEventEditor";
 import styles from "../App.module.css";
 
 export type { PipelineStageKey } from "../api/client";
@@ -409,7 +410,14 @@ export function RecordingPipelineWorkspace({
     urlState.revision ??
     (activeView === "generated"
       ? stage.selected_generated_revision_id
-      : stage.selected_completed_reference_revision_id);
+      : stage.selected_completed_reference_revision_id) ??
+    null;
+  const selectedEventRunId =
+    stage.key === "events" && displayedRevision !== null
+      ? (stage.runs.find((run) =>
+          run.output_revision_ids.includes(displayedRevision),
+        )?.run_id ?? null)
+      : null;
 
   return (
     <main
@@ -645,6 +653,15 @@ export function RecordingPipelineWorkspace({
           <summary>History and exact inputs</summary>
           <PipelineHistory stage={stage} />
         </details>
+        {stage.key === "events" && !compare ? (
+          <PipelineCardEventEditor
+            recordingId={recordingId}
+            durationUs={workspace.video.duration_us}
+            generatedRevisionId={stage.selected_generated_revision_id ?? null}
+            generatedRunId={selectedEventRunId}
+            view={activeView}
+          />
+        ) : null}
       </section>
     </main>
   );

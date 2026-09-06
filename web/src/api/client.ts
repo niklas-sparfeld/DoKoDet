@@ -40,6 +40,77 @@ export type PipelineSelectionResponse = {
   recording_id: string;
   selection: PipelineSelection;
 };
+export type PipelineReferenceItem = {
+  item_id: string;
+  base_item_id: string | null;
+  review_state: string;
+  item: Record<string, unknown>;
+};
+export type PipelineReferenceResource = {
+  recording_id: string;
+  content_type: PipelineSelectableContentType;
+  state: {
+    recording_id: string;
+    content_type: PipelineSelectableContentType;
+    draft_revision: number;
+    draft_state: "draft" | "completed";
+    source_revision_id: string | null;
+    selected_completed_revision_id: string | null;
+    updated_at: string;
+  };
+  draft: {
+    recording_id: string;
+    content_type: PipelineSelectableContentType;
+    revision: number;
+    source_revision_id: string | null;
+    items: PipelineReferenceItem[];
+    coverage: Record<string, unknown> | null;
+    impact: Array<Record<string, unknown>>;
+    updated_at: string;
+  };
+};
+export type PipelineReferenceCreateRequest = {
+  operator_id: string;
+  seed?: "selected_generated" | "selected_completed" | "empty";
+  source_revision_id?: string;
+};
+export type PipelineReferenceOperation = {
+  operation: "accept" | "reject" | "add" | "correct" | "decide" | "rebase";
+  item_id?: string;
+  item?: Record<string, unknown>;
+  decision?: string;
+  source_revision_id?: string;
+};
+export type PipelineReferenceDraftUpdateRequest = {
+  expected_revision: number;
+  operator_id: string;
+  command_id?: string;
+  operations: PipelineReferenceOperation[];
+};
+export type PipelineReferenceCompletionRequest = {
+  expected_revision: number;
+  operator_id: string;
+  coverage: {
+    kind: "full_recording";
+    intervals: Array<{ start_us: number; end_us: number }>;
+  };
+};
+export type PipelineEventResult = {
+  run_id: string;
+  recording_id: string;
+  processor_type: string;
+  status: string;
+  attempt: number;
+  request: Record<string, unknown>;
+  state: Record<string, unknown>;
+  revisions: Array<{
+    manifest: Record<string, unknown>;
+    content: {
+      schema_version?: string;
+      events?: Array<Record<string, unknown>>;
+    };
+  }>;
+};
 export type RecordingSummary = RecordingListResponse["recordings"][number];
 export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
 export type CardEventReview = JsonResponse<
@@ -154,6 +225,34 @@ export interface DokoDetectorClient {
     payload: PipelineSelectionUpdateRequest,
     init?: RequestInit,
   ): Promise<PipelineSelectionResponse>;
+  getEventResult(
+    recordingId: string,
+    runId: string,
+    init?: RequestInit,
+  ): Promise<PipelineEventResult>;
+  getPipelineReference(
+    recordingId: string,
+    contentType: PipelineSelectableContentType,
+    init?: RequestInit,
+  ): Promise<PipelineReferenceResource>;
+  createPipelineReference(
+    recordingId: string,
+    contentType: PipelineSelectableContentType,
+    payload: PipelineReferenceCreateRequest,
+    init?: RequestInit,
+  ): Promise<PipelineReferenceResource>;
+  updatePipelineReferenceDraft(
+    recordingId: string,
+    contentType: PipelineSelectableContentType,
+    payload: PipelineReferenceDraftUpdateRequest,
+    init?: RequestInit,
+  ): Promise<PipelineReferenceResource>;
+  completePipelineReference(
+    recordingId: string,
+    contentType: PipelineSelectableContentType,
+    payload: PipelineReferenceCompletionRequest,
+    init?: RequestInit,
+  ): Promise<PipelineReferenceResource>;
   getCardEventReview(
     recordingId: string,
     init?: RequestInit,
@@ -365,6 +464,51 @@ export function createDokoDetectorClient(
         {
           ...init,
           method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    getEventResult: (recordingId, runId, init) =>
+      requestJson<PipelineEventResult>(
+        fetchImplementation,
+        pipelineEventResultPath(recordingId, runId),
+        init,
+      ),
+    getPipelineReference: (recordingId, contentType, init) =>
+      requestJson<PipelineReferenceResource>(
+        fetchImplementation,
+        pipelineReferencePath(recordingId, contentType),
+        init,
+      ),
+    createPipelineReference: (recordingId, contentType, payload, init) =>
+      requestJson<PipelineReferenceResource>(
+        fetchImplementation,
+        pipelineReferencePath(recordingId, contentType),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    updatePipelineReferenceDraft: (recordingId, contentType, payload, init) =>
+      requestJson<PipelineReferenceResource>(
+        fetchImplementation,
+        pipelineReferenceDraftPath(recordingId, contentType),
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    completePipelineReference: (recordingId, contentType, payload, init) =>
+      requestJson<PipelineReferenceResource>(
+        fetchImplementation,
+        pipelineReferenceCompletionPath(recordingId, contentType),
+        {
+          ...init,
+          method: "POST",
           headers: jsonHeaders(init?.headers),
           body: JSON.stringify(payload),
         },
@@ -769,6 +913,34 @@ export function recordingPipelineSelectionPath(
           ? "visual-identities"
           : "observations";
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/${route}/selection`;
+}
+
+export function pipelineEventResultPath(
+  recordingId: string,
+  runId: string,
+): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/events/${encodeURIComponent(runId)}/result`;
+}
+
+export function pipelineReferencePath(
+  recordingId: string,
+  contentType: PipelineSelectableContentType,
+): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/references/${encodeURIComponent(contentType)}`;
+}
+
+export function pipelineReferenceDraftPath(
+  recordingId: string,
+  contentType: PipelineSelectableContentType,
+): string {
+  return `${pipelineReferencePath(recordingId, contentType)}/draft`;
+}
+
+export function pipelineReferenceCompletionPath(
+  recordingId: string,
+  contentType: PipelineSelectableContentType,
+): string {
+  return `${pipelineReferencePath(recordingId, contentType)}/complete`;
 }
 
 export function recordingCardEventReviewPath(recordingId: string): string {

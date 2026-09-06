@@ -60,6 +60,21 @@ _ITEM_FIELDS = {
 }
 
 
+def _command_digest(payload: Mapping[str, Any]) -> str:
+    """Hash command bytes without the retry-specific expected revision."""
+
+    command = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"expected_revision", "command_id"}
+    }
+    return sha256_bytes(
+        json.dumps(
+            command, ensure_ascii=True, allow_nan=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    )
+
+
 class PipelineReferenceError(RuntimeError):
     """The maintained-reference service could not complete an operation."""
 
@@ -247,6 +262,7 @@ class PipelineReferenceService:
         unknown = set(payload) - {
             "expected_revision",
             "operator_id",
+            "command_id",
             "operations",
             "operation",
             "item_id",
@@ -259,6 +275,10 @@ class PipelineReferenceService:
             )
         expected = _expected_revision(payload.get("expected_revision"))
         _identifier(payload.get("operator_id"), "operator_id")
+        command_id = payload.get("command_id")
+        if command_id is not None:
+            command_id = _identifier(command_id, "command_id")
+        command_digest = _command_digest(payload) if command_id is not None else None
         operations_value = payload.get("operations")
         requested_source_revision_id = payload.get("source_revision_id")
         if requested_source_revision_id is not None:
@@ -296,6 +316,15 @@ class PipelineReferenceService:
 
         with self.reference_store.locked(recording_id, content_type):
             current = self.reference_store.read_locked(recording_id, content_type)
+            if command_id is not None and command_digest is not None:
+                commands = self.reference_store.read_commands_locked(recording_id, content_type)
+                previous_digest = commands.get(command_id)
+                if previous_digest is not None:
+                    if previous_digest != command_digest:
+                        raise PipelineReferenceInputError(
+                            "command_id was already used with different operation bytes"
+                        )
+                    return current
             if current.state.draft_revision != expected:
                 raise PipelineReferenceConflict(
                     "the maintained reference draft changed; reload the current revision",
@@ -363,9 +392,14 @@ class PipelineReferenceService:
                 source_revision_id=draft.source_revision_id,
                 updated_at=timestamp,
             )
-            return self.reference_store.write_locked(
+            saved = self.reference_store.write_locked(
                 StoredPipelineReference(state=state, draft=draft)
             )
+            if command_id is not None and command_digest is not None:
+                commands = self.reference_store.read_commands_locked(recording_id, content_type)
+                commands[command_id] = command_digest
+                self.reference_store.write_commands_locked(recording_id, content_type, commands)
+            return saved
 
     def complete_reference(
         self,

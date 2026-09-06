@@ -15,6 +15,10 @@ import {
   recordingDetailPath,
   recordingPipelineWorkspacePath,
   recordingPipelineSelectionPath,
+  pipelineEventResultPath,
+  pipelineReferencePath,
+  pipelineReferenceDraftPath,
+  pipelineReferenceCompletionPath,
   repositoryBundleVideoPath,
   roundAnalysisFramePath,
   roundCounterfactualPath,
@@ -375,6 +379,66 @@ describe("DokoDetector API client", () => {
       expected_revision: 4,
       selected_generated_revision_id: "events-2",
     });
+  });
+
+  it("reads and updates the recording-owned event reference", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.getEventResult("recording/1", "run/1");
+    await client.getPipelineReference("recording/1", "events");
+    await client.createPipelineReference("recording/1", "events", {
+      operator_id: "operator-1",
+      seed: "selected_generated",
+      source_revision_id: "events-1",
+    });
+    await client.updatePipelineReferenceDraft("recording/1", "events", {
+      expected_revision: 2,
+      operator_id: "operator-1",
+      command_id: "command-1",
+      operations: [{ operation: "accept", item_id: "item-1" }],
+    });
+    await client.completePipelineReference("recording/1", "events", {
+      expected_revision: 3,
+      operator_id: "reviewer-1",
+      coverage: {
+        kind: "full_recording",
+        intervals: [{ start_us: 0, end_us: 5_000_000 }],
+      },
+    });
+
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      pipelineEventResultPath("recording/1", "run/1"),
+    );
+    expect(fetchImplementation.mock.calls[1]?.[0]).toBe(
+      pipelineReferencePath("recording/1", "events"),
+    );
+    expect(fetchImplementation.mock.calls[2]?.[0]).toBe(
+      pipelineReferencePath("recording/1", "events"),
+    );
+    expect(fetchImplementation.mock.calls[2]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[3]?.[0]).toBe(
+      pipelineReferenceDraftPath("recording/1", "events"),
+    );
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[3]?.[1]?.body)),
+    ).toEqual({
+      expected_revision: 2,
+      operator_id: "operator-1",
+      command_id: "command-1",
+      operations: [{ operation: "accept", item_id: "item-1" }],
+    });
+    expect(fetchImplementation.mock.calls[4]?.[0]).toBe(
+      pipelineReferenceCompletionPath("recording/1", "events"),
+    );
+    expect(fetchImplementation.mock.calls[4]?.[1]?.method).toBe("POST");
   });
 
   it("creates and reads a counterfactual through the generated API paths", async () => {

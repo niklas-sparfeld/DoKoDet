@@ -53,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0049 — Recording pipeline review and comparison](3-in-progress/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per stage, simple input selection, retained results, and comparison. M0–M1 complete; M2–M10 not started. |
+| [0049 — Recording pipeline review and comparison](3-in-progress/0049-Recording_Pipeline_Review_and_Comparison.md) | 0048 complete | Reuse the editors with one maintained reference per stage, simple input selection, retained results, and comparison. M0–M2 complete; M3–M10 not started. |
 
 ### Blocked
 

@@ -4634,6 +4634,101 @@ progress {
   min-width: 0;
 }
 
+.cardEventPipelineEditor {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.cardEventReviewHeader,
+.cardEventPipelineVideoGrid,
+.cardEventCoverage {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cardEventPipelineVideoGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(18rem, 1fr);
+}
+
+.cardEventSourceVideo {
+  display: block;
+  width: 100%;
+  max-height: 32rem;
+  border-radius: 0.5rem;
+  background: #111;
+}
+
+.cardEventTimeline {
+  position: relative;
+  height: 2rem;
+  margin-top: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--surface) 80%, var(--panel));
+}
+
+.cardEventTimeline .cardEventMarker {
+  top: 0.5rem;
+}
+
+.cardEventCoverage {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.7rem;
+  color: var(--muted-ink);
+  font-size: 0.76rem;
+}
+
+.cardEventCoverage progress {
+  flex: 1 1 8rem;
+  min-width: 8rem;
+  accent-color: var(--accent);
+}
+
+.cardEventCoverage strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cardEventPipelineEditor .cardEventReviewCounts {
+  display: flex;
+  gap: 1rem;
+}
+
+.cardEventPipelineEditor .cardEventReviewCounts div {
+  display: grid;
+  gap: 0.15rem;
+  text-align: right;
+}
+
+.cardEventPipelineEditor .cardEventReviewCounts strong {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 800px) {
+  .cardEventPipelineVideoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .cardEventReviewHeader,
+  .cardEventCoverage {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .cardEventPipelineEditor .cardEventReviewCounts div {
+    text-align: left;
+  }
+}
+
 .identityFrameHeader {
   display: flex;
   align-items: start;

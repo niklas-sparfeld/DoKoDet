@@ -16,7 +16,7 @@
 
 - **M0:** Complete — add the recording workspace contract and generated client types.
 - **M1:** Complete — add the recording pipeline shell, stage summaries, and selectors.
-- **M2:** Not started — switch event review to the maintained reference.
+- **M2:** Complete — switch event review to the maintained reference.
 - **M3:** Not started — switch visible-card review to the maintained reference.
 - **M4:** Not started — switch identity review to the maintained reference.
 - **M5:** Not started — add run controls for event, visible-card, and identity processors.
@@ -404,6 +404,21 @@ Acceptance:
 - completion stays disabled for coverage gaps, active saves, failed saves, and conflicts;
 - a new event run or selected generated result leaves the draft unchanged; and
 - the responsiveness checks retained from 0045 pass.
+
+### M2 notes — 2026-09-06
+
+Added the recording-owned CardEvent maintained-reference editor. The generated view loads one
+selected immutable event result as suggestions. The reviewed view loads or starts the one recording
+reference and supports timeline and screenshot navigation, event add/correct/accept/reject/remove,
+frame nudging, keyboard shortcuts, and full-recording coverage. Editor actions use ordered commands
+with command IDs and integer microseconds. The backend stores command digests to replay duplicate
+requests without applying an operation twice. Transient saves retry, revision conflicts identify the
+first unapplied command and can reload the winning draft, and completion stays blocked until all
+commands, event decisions, reviewer fields, and full coverage are ready.
+
+Focused API and editor tests cover command payloads, pointer and keyboard edits, retry and conflict
+recovery, generated-result isolation, coverage gating, and completion. Web tests, type checking,
+linting, production build, OpenAPI verification, backend reference tests, Ruff, and formatting pass.
 
 ### M3 — Visible-card maintained-reference editor
 

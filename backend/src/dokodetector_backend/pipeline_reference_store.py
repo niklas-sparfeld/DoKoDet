@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from collections.abc import Iterator
@@ -102,6 +103,11 @@ class PipelineReferenceStore:
     def draft_path(self, recording_id: str, content_type: str) -> Path:
         return self.reference_root(recording_id, content_type) / "draft.json"
 
+    def command_path(self, recording_id: str, content_type: str) -> Path:
+        """Return the replay ledger for optimistic draft commands."""
+
+        return self.reference_root(recording_id, content_type) / "commands.json"
+
     def get(self, recording_id: str, content_type: str) -> StoredPipelineReference | None:
         try:
             state_path = self.state_path(recording_id, content_type)
@@ -181,6 +187,34 @@ class PipelineReferenceStore:
         )
         stored = self.read_locked(reference.state.recording_id, reference.state.content_type)
         return stored
+
+    def read_commands_locked(self, recording_id: str, content_type: str) -> dict[str, str]:
+        """Read command digests while the reference lock is held."""
+
+        path = self.command_path(recording_id, content_type)
+        if not path.is_file():
+            return {}
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            raise PipelineReferenceStoreError(
+                "the pipeline reference command ledger is invalid"
+            ) from error
+        if not isinstance(value, dict) or any(
+            not isinstance(key, str) or not isinstance(digest, str) for key, digest in value.items()
+        ):
+            raise PipelineReferenceStoreError("the pipeline reference command ledger is invalid")
+        return dict(value)
+
+    def write_commands_locked(
+        self,
+        recording_id: str,
+        content_type: str,
+        commands: dict[str, str],
+    ) -> None:
+        """Durably record command digests while the reference lock is held."""
+
+        atomic_replace_json(self.command_path(recording_id, content_type), commands)
 
     def _lock_path(self, recording_id: str, content_type: str) -> Path:
         return self.reference_root(recording_id, content_type).parent / (
