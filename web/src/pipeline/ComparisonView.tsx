@@ -463,6 +463,9 @@ function ComparisonFacts({
             <dd>
               {comparison.reference.revision_id} ·{" "}
               {formatIdentifier(comparison.reference.origin)}
+              <br />
+              inputs:{" "}
+              {comparison.reference.input_revision_ids.join(", ") || "none"}
             </dd>
           </div>
         </dl>
