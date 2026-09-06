@@ -156,6 +156,19 @@ class VisibleCardPipelineService:
         )
         return run, revisions
 
+    def resolve_source_frame(self, recording_id: str, requested_time_us: int) -> ResolvedFrame:
+        """Resolve one recording-owned exact-event frame for a derived-view URL."""
+
+        _, source = self._accepted_source(recording_id)
+        return resolve_exact_event(
+            self._video_path(recording_id),
+            source=source,
+            requested_time_us=requested_time_us,
+            cache=self.storage.pipeline_root / "derived-views",
+            resolver=self.frame_resolver,
+            output_encoding="jpeg",
+        )
+
     def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         self.get_run(recording_id, run_id)
         retried = self.run_store.retry(run_id)
@@ -163,9 +176,7 @@ class VisibleCardPipelineService:
             self._futures[run_id] = self._executor.submit(self._execute, run_id)
         return retried
 
-    def select_generated(
-        self, recording_id: str, payload: Mapping[str, Any]
-    ) -> PipelineSelection:
+    def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> PipelineSelection:
         expected_revision = payload.get("expected_revision")
         selected = payload.get("selected_generated_revision_id")
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
@@ -189,9 +200,7 @@ class VisibleCardPipelineService:
         except (PipelineNotFound, PipelineStateError) as error:
             raise VisibleCardPipelineInputError(str(error)) from error
 
-    def _build_request(
-        self, recording_id: str, payload: Mapping[str, Any]
-    ) -> ProcessorRunRequest:
+    def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
         if not isinstance(payload, Mapping):
             raise VisibleCardPipelineInputError("The processor request must be an object.")
         if self.detector_provider is None:
@@ -496,9 +505,7 @@ class VisibleCardPipelineService:
         except Exception:
             LOGGER.exception("visible_card_pipeline_failure_persist_failed")
 
-    def _accepted_source(
-        self, recording_id: str
-    ) -> tuple[Any, RecordingVideoSource]:
+    def _accepted_source(self, recording_id: str) -> tuple[Any, RecordingVideoSource]:
         bundle = self.recording_store.get(recording_id)
         if bundle is None:
             raise PipelineNotFound(f"The recording was not found: {recording_id}")
@@ -545,9 +552,7 @@ class VisibleCardPipelineService:
             ) from error
         path = self.repository_storage.bundle_path(recording_id) / str(relative_path)
         try:
-            path.resolve().relative_to(
-                self.repository_storage.bundle_path(recording_id).resolve()
-            )
+            path.resolve().relative_to(self.repository_storage.bundle_path(recording_id).resolve())
         except ValueError as error:
             raise VisibleCardPipelineInputError(
                 "The accepted recording video path is invalid."

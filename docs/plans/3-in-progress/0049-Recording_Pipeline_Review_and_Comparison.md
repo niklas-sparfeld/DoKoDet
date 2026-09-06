@@ -17,7 +17,7 @@
 - **M0:** Complete — add the recording workspace contract and generated client types.
 - **M1:** Complete — add the recording pipeline shell, stage summaries, and selectors.
 - **M2:** Complete — switch event review to the maintained reference.
-- **M3:** Not started — switch visible-card review to the maintained reference.
+- **M3:** Complete — switch visible-card review to the maintained reference.
 - **M4:** Not started — switch identity review to the maintained reference.
 - **M5:** Not started — add run controls for event, visible-card, and identity processors.
 - **M6:** Not started — add observation assembly and reconstruction controls.
@@ -435,6 +435,25 @@ Acceptance:
 - a changed event frame shows missing coverage and preserves unchanged frame work;
 - cold-cache image retrieval works from the accepted video; and
 - conflict, keyboard, pointer, type, lint, and component checks pass.
+
+### M3 notes — 2026-09-06
+
+Added `PipelineVisibleCardEditor` to the recording pipeline workspace. The generated view reads the
+selected immutable visible-card result. The reviewed view uses one recording-owned maintained
+reference with resolved-frame navigation, source-video playback, derived exact-event frame URLs,
+proposal overlays, polygon editing, accept, remove, add, reviewed-empty, and unusable actions.
+
+Visible-card edits use the fixed `set_frame_review`, `accept_frame_suggestions`, `set_frame_empty`,
+and `set_frame_unusable` commands. The ordered command queue keeps command IDs, retries transient
+failures, pauses on revision conflicts, and saves one complete frame review after pointer release.
+Completion records visible-frame coverage, including explicit cards, empty, and unusable decisions.
+The backend preserves the source item and resolved frame identity and serves recording-owned derived
+frames with immutable cache headers. OpenAPI and the typed client include the new result and frame
+resources.
+
+Focused editor and API tests, the full web test suite, the production web build, backend tests, API
+verification, Ruff, and changed-file formatting checks pass. The package-wide web check still reports
+an existing formatting warning in `web/src/visibleCardReview.tsx`, which is outside this milestone.
 
 ### M4 — Visual identity maintained-reference editor
 

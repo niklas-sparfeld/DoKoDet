@@ -16,6 +16,8 @@ import {
   recordingPipelineWorkspacePath,
   recordingPipelineSelectionPath,
   pipelineEventResultPath,
+  pipelineVisibleCardResultPath,
+  pipelineDerivedFramePath,
   pipelineReferencePath,
   pipelineReferenceDraftPath,
   pipelineReferenceCompletionPath,
@@ -90,6 +92,26 @@ describe("DokoDetector API client", () => {
     expect(path).toBe("/v1/round-analyses/analysis%2F1/timeline");
     expect(new Headers(requestInit?.headers).get("Accept")).toBe(
       "application/json",
+    );
+  });
+
+  it("loads visible-card results and recording-owned derived frames", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.getVisibleCardResult("recording/1", "visible/run");
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      pipelineVisibleCardResultPath("recording/1", "visible/run"),
+    );
+    expect(pipelineDerivedFramePath("recording/1", 123456)).toBe(
+      "/api/recordings/recording%2F1/pipeline/derived-views/exact-event/123456",
     );
   });
 

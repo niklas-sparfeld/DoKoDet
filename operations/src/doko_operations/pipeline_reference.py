@@ -31,7 +31,18 @@ PIPELINE_REFERENCE_ITEM_STATES = frozenset(
     }
 )
 PIPELINE_REFERENCE_OPERATIONS = frozenset(
-    {"accept", "reject", "add", "correct", "decide", "rebase"}
+    {
+        "accept",
+        "reject",
+        "add",
+        "correct",
+        "decide",
+        "rebase",
+        "set_frame_review",
+        "accept_frame_suggestions",
+        "set_frame_empty",
+        "set_frame_unusable",
+    }
 )
 PIPELINE_REFERENCE_DECISIONS = frozenset(
     {
@@ -201,18 +212,20 @@ class ReferenceDraftItem:
             raise PipelineReferenceContractError(f"{context}.review_state is unsupported")
         base_item_id = _optional_identifier(data["base_item_id"], f"{context}.base_item_id")
         if state == "corrected" and base_item_id is None:
-            raise PipelineReferenceContractError(
-                f"{context}.corrected items need a base_item_id"
-            )
-        if state not in {
-            "accepted",
-            "corrected",
-            "rejected",
-            "empty",
-            "unusable",
-            "identity_unusable",
-            "source_problem",
-        } and base_item_id is not None:
+            raise PipelineReferenceContractError(f"{context}.corrected items need a base_item_id")
+        if (
+            state
+            not in {
+                "accepted",
+                "corrected",
+                "rejected",
+                "empty",
+                "unusable",
+                "identity_unusable",
+                "source_problem",
+            }
+            and base_item_id is not None
+        ):
             raise PipelineReferenceContractError(
                 f"{context}.non-corrected items cannot have a base_item_id"
             )
@@ -451,6 +464,25 @@ class PipelineReferenceOperation:
                 _validate_json(item_value, f"{context}.item")
                 item = json.loads(canonical_json_bytes(item_value).decode("utf-8"))
             return cls(operation=operation, item_id=item_id, item=item)
+        if operation in {
+            "accept_frame_suggestions",
+            "set_frame_empty",
+            "set_frame_unusable",
+        }:
+            _strict(data, {"operation", "item_id"}, context)
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+            )
+        if operation == "set_frame_review":
+            _strict(data, {"operation", "item_id", "item"}, context)
+            item_value = _mapping(data["item"], f"{context}.item")
+            _validate_json(item_value, f"{context}.item")
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                item=json.loads(canonical_json_bytes(item_value).decode("utf-8")),
+            )
         if operation == "decide":
             _strict(data, {"operation", "item_id", "decision"}, context)
             item_id = _identifier(data["item_id"], f"{context}.item_id")

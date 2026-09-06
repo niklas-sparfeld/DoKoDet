@@ -24,6 +24,7 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.pipeline_reference_service import (
     PipelineReferenceConflict,
     PipelineReferenceCoverageError,
+    PipelineReferenceInputError,
     PipelineReferenceService,
 )
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
@@ -541,6 +542,113 @@ def test_visible_and_identity_coverage_use_content_specific_decisions(
     assert (
         "card needs an accepted identity or a correct decision" in error.value.details[0]["message"]
     )
+
+
+def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    created = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    original = dict(created.draft.items[0].item)
+    corrected = dict(original)
+    corrected["candidates"] = [
+        {
+            **original["candidates"][0],
+            "geometry": {
+                "kind": "reviewed-visible-region/v1",
+                "visible_region": {
+                    "polygons": [
+                        [
+                            {"x": 5, "y": 5},
+                            {"x": 60, "y": 5},
+                            {"x": 60, "y": 60},
+                            {"x": 5, "y": 60},
+                        ]
+                    ]
+                },
+            },
+        }
+    ]
+
+    reviewed = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {"operation": "set_frame_review", "item_id": "event-01", "item": corrected}
+            ],
+        },
+    )
+    assert reviewed.draft.items[0].review_state == "corrected"
+    assert reviewed.draft.items[0].item["frame_identity"] == original["frame_identity"]
+    assert reviewed.draft.items[0].item["candidates"][0]["geometry"]["kind"] == (
+        "reviewed-visible-region/v1"
+    )
+
+    accepted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "operations": [{"operation": "accept_frame_suggestions", "item_id": "event-01"}],
+        },
+    )
+    assert accepted.draft.items[0].review_state == "accepted"
+
+    empty = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 2,
+            "operations": [{"operation": "set_frame_empty", "item_id": "event-01"}],
+        },
+    )
+    assert empty.draft.items[0].review_state == "empty"
+    assert empty.draft.items[0].item["status"] == "empty"
+    assert empty.draft.items[0].item["candidates"] == []
+
+    unusable = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 3,
+            "operations": [{"operation": "set_frame_unusable", "item_id": "event-01"}],
+        },
+    )
+    assert unusable.draft.items[0].review_state == "unusable"
+    assert unusable.draft.items[0].item["status"] == "failed"
+
+    changed_identity = dict(original)
+    changed_identity["frame_identity"] = {
+        **original["frame_identity"],
+        "requested_time_us": 2_000_000,
+    }
+    with pytest.raises(PipelineReferenceInputError, match="resolved frame identity"):
+        service.update_draft(
+            "recording-01",
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 4,
+                "operations": [
+                    {
+                        "operation": "set_frame_review",
+                        "item_id": "event-01",
+                        "item": changed_identity,
+                    }
+                ],
+            },
+        )
 
 
 def test_correction_records_downstream_impact_and_coverage_survives_restart(

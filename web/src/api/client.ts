@@ -75,7 +75,17 @@ export type PipelineReferenceCreateRequest = {
   source_revision_id?: string;
 };
 export type PipelineReferenceOperation = {
-  operation: "accept" | "reject" | "add" | "correct" | "decide" | "rebase";
+  operation:
+    | "accept"
+    | "reject"
+    | "add"
+    | "correct"
+    | "decide"
+    | "rebase"
+    | "set_frame_review"
+    | "accept_frame_suggestions"
+    | "set_frame_empty"
+    | "set_frame_unusable";
   item_id?: string;
   item?: Record<string, unknown>;
   decision?: string;
@@ -90,10 +100,19 @@ export type PipelineReferenceDraftUpdateRequest = {
 export type PipelineReferenceCompletionRequest = {
   expected_revision: number;
   operator_id: string;
-  coverage: {
-    kind: "full_recording";
-    intervals: Array<{ start_us: number; end_us: number }>;
-  };
+  coverage:
+    | {
+        kind: "full_recording";
+        intervals: Array<{ start_us: number; end_us: number }>;
+      }
+    | {
+        kind: "visible_frames";
+        frames: Array<{
+          item_id?: string;
+          frame_identity: Record<string, unknown> | null;
+          decision: "cards" | "empty" | "unusable";
+        }>;
+      };
 };
 export type PipelineEventResult = {
   run_id: string;
@@ -108,6 +127,22 @@ export type PipelineEventResult = {
     content: {
       schema_version?: string;
       events?: Array<Record<string, unknown>>;
+    };
+  }>;
+};
+export type PipelineVisibleCardResult = {
+  run_id: string;
+  recording_id: string;
+  processor_type: string;
+  status: string;
+  attempt: number;
+  request: Record<string, unknown>;
+  state: Record<string, unknown>;
+  revisions: Array<{
+    manifest: Record<string, unknown>;
+    content: {
+      schema_version?: string;
+      outcomes?: Array<Record<string, unknown>>;
     };
   }>;
 };
@@ -230,6 +265,11 @@ export interface DokoDetectorClient {
     runId: string,
     init?: RequestInit,
   ): Promise<PipelineEventResult>;
+  getVisibleCardResult(
+    recordingId: string,
+    runId: string,
+    init?: RequestInit,
+  ): Promise<PipelineVisibleCardResult>;
   getPipelineReference(
     recordingId: string,
     contentType: PipelineSelectableContentType,
@@ -472,6 +512,12 @@ export function createDokoDetectorClient(
       requestJson<PipelineEventResult>(
         fetchImplementation,
         pipelineEventResultPath(recordingId, runId),
+        init,
+      ),
+    getVisibleCardResult: (recordingId, runId, init) =>
+      requestJson<PipelineVisibleCardResult>(
+        fetchImplementation,
+        pipelineVisibleCardResultPath(recordingId, runId),
         init,
       ),
     getPipelineReference: (recordingId, contentType, init) =>
@@ -920,6 +966,20 @@ export function pipelineEventResultPath(
   runId: string,
 ): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/events/${encodeURIComponent(runId)}/result`;
+}
+
+export function pipelineVisibleCardResultPath(
+  recordingId: string,
+  runId: string,
+): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visible-cards/${encodeURIComponent(runId)}/result`;
+}
+
+export function pipelineDerivedFramePath(
+  recordingId: string,
+  requestedTimeUs: number,
+): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/exact-event/${encodeURIComponent(String(Math.max(0, Math.round(requestedTimeUs))))}`;
 }
 
 export function pipelineReferencePath(

@@ -24,6 +24,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/pipeline/derived-views/exact-event/{requested_time_us}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recording Exact Event Frame
+         * @description Return one verified exact-event frame resolved from the accepted recording video.
+         */
+        get: operations["get_recording_exact_event_frame_api_recordings__recording_id__pipeline_derived_views_exact_event__requested_time_us__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline/events": {
         parameters: {
             query?: never;
@@ -4616,6 +4636,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PipelineWorkspaceResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recording_exact_event_frame_api_recordings__recording_id__pipeline_derived_views_exact_event__requested_time_us__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                requested_time_us: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

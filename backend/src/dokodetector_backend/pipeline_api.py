@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 from typing import Any, Literal
 
+from doko_operations.derived_view import DerivedViewError
 from fastapi import APIRouter, Request
+from fastapi.responses import Response
 from pydantic import Field
 
 from dokodetector_backend.contract import ContractModel, Sha256
@@ -53,6 +55,9 @@ RECORDING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 WORKSPACE_BASE = "/api/recordings/{recording_id}/pipeline"
 BASE = "/api/recordings/{recording_id}/pipeline/events"
 VISIBLE_CARD_BASE = "/api/recordings/{recording_id}/pipeline/visible-cards"
+DERIVED_FRAME_BASE = (
+    "/api/recordings/{recording_id}/pipeline/derived-views/exact-event/{requested_time_us}"
+)
 VISUAL_IDENTITY_BASE = "/api/recordings/{recording_id}/pipeline/visual-identities"
 OBSERVATION_BASE = "/api/recordings/{recording_id}/pipeline/observations"
 REFERENCE_BASE = "/api/recordings/{recording_id}/pipeline/references/{content_type}"
@@ -475,6 +480,35 @@ def get_visible_card_result(recording_id: str, run_id: str, request: Request) ->
     }
 
 
+@router.get(DERIVED_FRAME_BASE, response_class=Response)
+def get_recording_exact_event_frame(
+    recording_id: str, requested_time_us: int, request: Request
+) -> Response:
+    """Return one verified exact-event frame resolved from the accepted recording video."""
+
+    _validate_recording_id(recording_id)
+    if requested_time_us < 0:
+        raise ContractError(
+            "invalid_derived_view_request",
+            "requested_time_us must be non-negative.",
+            status_code=422,
+        )
+    try:
+        frame = _visible_service(request).resolve_source_frame(recording_id, requested_time_us)
+    except PipelineNotFound as error:
+        raise ContractError("recording_not_found", str(error), status_code=404) from error
+    except (VisibleCardPipelineInputError, DerivedViewError, OSError, RuntimeError) as error:
+        raise ContractError("derived_view_unavailable", str(error), status_code=409) from error
+    return Response(
+        content=frame.image_bytes,
+        media_type=frame.content_type,
+        headers={
+            "Cache-Control": "private, max-age=31536000, immutable",
+            "ETag": f'"{frame.image_sha256}"',
+        },
+    )
+
+
 @router.post(VISUAL_IDENTITY_BASE, status_code=202)
 @router.post(VISUAL_IDENTITY_BASE + "/runs", status_code=202, include_in_schema=False)
 def start_visual_identity_run(
@@ -557,9 +591,7 @@ def get_visual_identity_run(recording_id: str, run_id: str, request: Request) ->
 @router.post(
     VISUAL_IDENTITY_BASE + "/runs/{run_id}/retry", status_code=202, include_in_schema=False
 )
-def retry_visual_identity_run(
-    recording_id: str, run_id: str, request: Request
-) -> dict[str, Any]:
+def retry_visual_identity_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Retry one failed visual identity classifier run."""
 
     try:
@@ -574,9 +606,7 @@ def retry_visual_identity_run(
 
 @router.get(VISUAL_IDENTITY_BASE + "/{run_id}/result")
 @router.get(VISUAL_IDENTITY_BASE + "/runs/{run_id}/result", include_in_schema=False)
-def get_visual_identity_result(
-    recording_id: str, run_id: str, request: Request
-) -> dict[str, Any]:
+def get_visual_identity_result(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Return a completed visual identity run and its stored revision."""
 
     try:
@@ -656,9 +686,7 @@ def update_observation_selection(
 
 @router.get(OBSERVATION_BASE + "/{run_id}")
 @router.get(OBSERVATION_BASE + "/runs/{run_id}", include_in_schema=False)
-def get_observation_assembly(
-    recording_id: str, run_id: str, request: Request
-) -> dict[str, Any]:
+def get_observation_assembly(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Return one observation assembly run and its immutable request."""
 
     try:
@@ -671,9 +699,7 @@ def get_observation_assembly(
 
 @router.post(OBSERVATION_BASE + "/{run_id}/retry", status_code=202)
 @router.post(OBSERVATION_BASE + "/runs/{run_id}/retry", status_code=202, include_in_schema=False)
-def retry_observation_assembly(
-    recording_id: str, run_id: str, request: Request
-) -> dict[str, Any]:
+def retry_observation_assembly(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Retry one failed observation assembly run."""
 
     try:
@@ -750,9 +776,7 @@ def update_reference_draft(
 
     _validate_recording_id(recording_id)
     try:
-        reference = _reference_service(request).update_draft(
-            recording_id, content_type, payload
-        )
+        reference = _reference_service(request).update_draft(recording_id, content_type, payload)
     except PipelineReferenceConflict as error:
         raise ContractError(
             "reference_conflict",

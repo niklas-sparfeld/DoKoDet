@@ -511,6 +511,13 @@ class PipelineReferenceService:
         operation: PipelineReferenceOperation,
         current: StoredPipelineReference,
     ) -> list[ReferenceDraftItem]:
+        if content_type == "visible_cards" and operation.operation in {
+            "set_frame_review",
+            "accept_frame_suggestions",
+            "set_frame_empty",
+            "set_frame_unusable",
+        }:
+            return self._apply_visible_card_operation(items, operation, current)
         if operation.operation in {"accept", "reject", "decide"}:
             assert operation.item_id is not None
             index = self._find_item(items, operation.item_id)
@@ -578,6 +585,64 @@ class PipelineReferenceService:
                     item=operation.item,
                 )
             ]
+            + items[index + 1 :]
+        )
+
+    def _apply_visible_card_operation(
+        self,
+        items: list[ReferenceDraftItem],
+        operation: PipelineReferenceOperation,
+        current: StoredPipelineReference,
+    ) -> list[ReferenceDraftItem]:
+        assert operation.item_id is not None
+        index = self._find_item(items, operation.item_id)
+        if index is None:
+            raise PipelineReferenceInputError(f"item was not found: {operation.item_id}")
+        existing = items[index]
+        if operation.operation == "set_frame_review":
+            assert operation.item is not None
+            self._validate_item(
+                "visible_cards",
+                operation.item,
+                current.draft.source_revision_id,
+            )
+            if operation.item.get("frame_identity") != existing.item.get("frame_identity"):
+                raise PipelineReferenceInputError(
+                    "set_frame_review cannot change the resolved frame identity"
+                )
+            updated = ReferenceDraftItem(
+                item_id=self._item_id("visible_cards", operation.item),
+                base_item_id=existing.item_id,
+                review_state="corrected",
+                item=dict(operation.item),
+            )
+            if updated.item_id != existing.item_id:
+                raise PipelineReferenceInputError("set_frame_review cannot change the source item")
+            return items[:index] + [updated] + items[index + 1 :]
+        if operation.operation == "accept_frame_suggestions":
+            if existing.item.get("status") == "empty":
+                state = "empty"
+            elif existing.item.get("status") == "failed":
+                state = "unusable"
+            else:
+                state = "accepted"
+            return items[:index] + [replace(existing, review_state=state)] + items[index + 1 :]
+        replacement = dict(existing.item)
+        replacement["candidates"] = []
+        if operation.operation == "set_frame_empty":
+            replacement.update(status="empty", error=None)
+            state = "empty"
+        else:
+            replacement.update(status="failed", error="Reviewed unusable frame.")
+            state = "unusable"
+        self._validate_item(
+            "visible_cards",
+            replacement,
+            current.draft.source_revision_id,
+        )
+        return (
+            items[:index]
+            + [replace(existing, review_state=state, item=replacement)]
             + items[index + 1 :]
         )
 

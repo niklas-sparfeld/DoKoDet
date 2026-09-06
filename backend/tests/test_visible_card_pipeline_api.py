@@ -190,9 +190,7 @@ def _wait(client: TestClient, run_id: str) -> dict:
     deadline = time.monotonic() + 5
     body: dict = {}
     while time.monotonic() < deadline:
-        response = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{run_id}"
-        )
+        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{run_id}")
         body = response.json()
         if body["state"]["status"] in {"complete", "failed"}:
             return body
@@ -278,9 +276,7 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-generated/result"
         ).json()
         generated_content = generated_result["revisions"][0]["content"]
-        assert generated_result["request"]["input_revision_ids"] == [
-            generated_event_revision_id
-        ]
+        assert generated_result["request"]["input_revision_ids"] == [generated_event_revision_id]
         assert [outcome["status"] for outcome in generated_content["outcomes"]] == [
             "detected",
             "empty",
@@ -318,9 +314,10 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
         selection = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/selection"
         ).json()
-        assert selection["selection"]["selected_generated_revision_id"] == reference_result[
-            "state"
-        ]["output_revision_ids"][0]
+        assert (
+            selection["selection"]["selected_generated_revision_id"]
+            == reference_result["state"]["output_revision_ids"][0]
+        )
 
     restarted = create_test_app(
         _settings(tmp_path),
@@ -335,6 +332,31 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
         assert [
             outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
         ] == ["detected", "empty", "failed", "failed"]
+
+
+def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+
+    path = f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/exact-event/400000"
+    with TestClient(app) as client:
+        first = client.get(path)
+        assert first.status_code == 200
+        assert first.headers["content-type"] == "image/jpeg"
+        assert first.headers["cache-control"] == "private, max-age=31536000, immutable"
+        assert first.headers["etag"].startswith('"')
+
+        cache_root = tmp_path / "runtime" / "pipeline" / "derived-views"
+        assert any(cache_root.rglob("*"))
+        shutil.rmtree(cache_root)
+
+        second = client.get(path)
+        assert second.status_code == 200
+        assert second.content == first.content
+        assert second.headers["etag"] == first.headers["etag"]
 
 
 def _wait_event(client: TestClient, run_id: str) -> dict:
