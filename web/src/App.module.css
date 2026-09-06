@@ -1594,8 +1594,8 @@ progress {
 }
 
 .recordingsPage {
-  width: min(100%, 96rem);
-  max-width: 96rem;
+  width: min(100%, 200rem);
+  max-width: 200rem;
   margin: 0 auto;
 }
 
@@ -2087,8 +2087,8 @@ progress {
 }
 
 .pipelinePage {
-  width: min(100%, 96rem);
-  max-width: 96rem;
+  width: min(100%, 200rem);
+  max-width: 200rem;
   margin: 0 auto;
 }
 
