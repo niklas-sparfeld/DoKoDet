@@ -53,7 +53,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0054 — Unified recording workspace layout](3-in-progress/0054-Unified_Recording_Workspace_Layout.md) | 0048 and 0049 complete | M0–M9 complete: shared presentation model, compact viewport shell, persistent metadata inspector, shared Timeline Rail, and event, visible-card, visual-identity, table-observation, round-analysis, and comparison workbenches with synchronized URL selection and conflict-safe review commands. Continue with responsive proof and cleanup. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -71,6 +70,7 @@ The shared target architecture is
 | --- | --- | --- |
 | [0048 — Pipeline data and execution](5-closed/0048-Pipeline_Data_and_Execution.md) | Complete | M0–M10 complete: recording-video pipeline execution, maintained references with coverage and downstream impact validation, immutable dataset consumer manifests with explicit source/policy/lineage inputs, and the 0049 cutover handoff. Real-data quality measurement remains in 0043 and 0050. |
 | [0049 — Recording pipeline review and comparison](5-closed/0049-Recording_Pipeline_Review_and_Comparison.md) | Complete | M0–M10 complete: one recording-owned pipeline workspace for accepted video, generated and reviewed inputs, maintained references, reconstruction, comparison, analysis, and dataset readiness. Obsolete review-batch routes and duplicate recording state are removed. Real-data quality measurement remains outside this epic. |
+| [0054 — Unified recording workspace layout](5-closed/0054-Unified_Recording_Workspace_Layout.md) | Complete | M0–M10 complete: one responsive recording workspace with a central source surface, shared inspector, and Timeline Rail. The retired comparison page/list is removed, and browser coverage verifies 1440px, 1280px, and narrow layouts. |
 | [0047 — Current recording annotations and evidence](5-closed/0047-Current_Recording_Annotations_and_Evidence.md) | Superseded | Replaced before implementation by 0048 and 0049. Proposal loss and package management are not the target design. |
 | [0041 — Local visual card identity classifier PoC](5-closed/0041-Local_Visual_Card_Identity_Classifier_PoC.md) | Complete | M0–M3 complete: local training, bundle, classifier runtime, and backend capability proved. Quality remains in 0043; new integration work belongs to 0048. |
 | [0039 — Web recording data workspace](5-closed/0039-Web_Recording_Data_Workspace.md) | Complete | M0–M4 complete: recording workspace, event review, completion, and development partitions. Further data and review work belongs to 0048/0049. |
@@ -116,30 +116,27 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0054 with M10 for responsive proof and cleanup.** Keep the completed 0048 and
-   0049 contracts. Verify the shared workspace at desktop and narrow sizes, then remove obsolete
-   presentation code.
-2. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.
+1. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.
    Keep the scan broad and shallow. Create only evidence-based work-area epics. Use one Terra agent
    to specify each area and Luna-sized milestones for delivery. Do not add a third epic layer by
    default.
-3. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
+2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts
    intact. Do not lower review or coverage requirements merely to unblock model work.
-4. **Continue 0051 after its coverage gate is met.** Freeze actual and
+3. **Continue 0051 after its coverage gate is met.** Freeze actual and
    corrupted predicted-region conditions, then measure the simple exclusion crop policies. Use its
    decision to specify one response in 0052 or close 0052 as not required.
-5. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+4. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-6. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+5. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-7. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+6. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-8. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 

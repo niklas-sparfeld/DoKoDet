@@ -831,7 +831,6 @@ export function RecordingPipelineWorkspace({
                 durationUs={workspace.video.duration_us}
                 urlState={urlState}
                 onNavigate={navigateTo}
-                layout="surface"
                 onRailItemsChange={handleComparisonRailItemsChange}
                 onTimeChange={handleRailTimeChange}
                 onComparisonChange={handleComparisonChange}

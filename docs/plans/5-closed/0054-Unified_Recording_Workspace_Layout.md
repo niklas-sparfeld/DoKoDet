@@ -5,7 +5,8 @@
 - **Summary:** Rebuild the recording pipeline UI around one large task surface, one persistent
   Timeline Rail, and one right-side metadata inspector. Remove repeated stage summaries, temporal
   lists, and tables that compete with the recording.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** 0048 and 0049 complete
 - **Readiness:** The recording-owned routes, accepted-video stream, exact-frame derived view,
   pipeline workspace response, maintained references, processor controls, comparison results, and
@@ -458,6 +459,17 @@ Acceptance:
 - comparison contract and component tests pass unchanged or with presentation-only updates.
 
 ### M10 — Responsive proof and cleanup
+
+Status: Complete (2026-09-07).
+
+- The comparison surface now has one active layout. Selectors and facts remain in the shared
+  inspector, and outcomes remain only in the Timeline Rail. The retired comparison list and its
+  page styles are removed.
+- Browser coverage verifies the workspace at 1440px, 1280px, and 390px. Component coverage keeps
+  keyboard rail navigation and comparison source selection accessible.
+
+Verification: `mise exec -- npm run check`, `mise exec -- npm run build`, and
+`mise exec -- npm run test:e2e` in `web` passed. Local Markdown links passed.
 
 - Apply the shared spacing, type, panel, badge, button, field, focus, and state treatment to every
   migrated stage.

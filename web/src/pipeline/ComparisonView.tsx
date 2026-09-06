@@ -58,7 +58,6 @@ export function ComparisonView({
   durationUs,
   urlState,
   onNavigate,
-  layout = "workspace",
   onRailItemsChange,
   onTimeChange,
   onComparisonChange,
@@ -68,7 +67,6 @@ export function ComparisonView({
   durationUs: number;
   urlState: PipelineUrlState;
   onNavigate: (path: string, replace?: boolean) => void;
-  layout?: "workspace" | "surface" | "inspector";
   onRailItemsChange?: (items: RecordingTimelineRailItem[]) => void;
   onTimeChange?: (timeUs: number) => void;
   onComparisonChange?: (comparison: PipelineComparisonResponse) => void;
@@ -146,9 +144,6 @@ export function ComparisonView({
       : null;
 
   useEffect(() => {
-    if (layout !== "workspace") {
-      return;
-    }
     if (
       contentType === null ||
       selection.left === null ||
@@ -176,7 +171,6 @@ export function ComparisonView({
     selection.right,
     stage.key,
     urlState,
-    layout,
   ]);
 
   useEffect(() => {
@@ -208,9 +202,7 @@ export function ComparisonView({
         if (!controller.signal.aborted) {
           setComparison(response);
           onComparisonChange?.(response);
-          if (layout === "surface") {
-            onRailItemsChange?.(comparisonRailItems(response));
-          }
+          onRailItemsChange?.(comparisonRailItems(response));
           setError(null);
           setErrorKey(null);
         }
@@ -230,7 +222,6 @@ export function ComparisonView({
     selection.reference,
     selection.right,
     selectionKey,
-    layout,
     onRailItemsChange,
     onComparisonChange,
   ]);
@@ -263,286 +254,47 @@ export function ComparisonView({
   }
 
   if (runs.length < 2 || referenceOptions.length === 0) {
-    if (layout === "inspector") {
-      return (
-        <p className={styles.detailEmptyState}>
-          Select two terminal runs and one completed reference before comparing.
-        </p>
-      );
-    }
     return (
-      <section
-        className={styles.comparisonWorkspace}
-        aria-labelledby="comparison-heading"
-      >
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Comparison</p>
-            <h3 id="comparison-heading">Comparison workspace</h3>
-          </div>
-        </div>
-        <p className={styles.detailEmptyState}>
-          Select two terminal runs and one completed reference before comparing.
-        </p>
-      </section>
+      <p className={styles.detailEmptyState}>
+        Select two terminal runs and one completed reference before comparing.
+      </p>
     );
   }
-
-  function selectValue(
-    field: "left" | "right" | "reference",
-    value: string,
-  ): void {
-    const nextState: PipelineUrlState = {
-      ...urlState,
-      left: field === "left" ? value : selection.left,
-      right: field === "right" ? value : selection.right,
-      reference: field === "reference" ? value : selection.reference,
-      item: null,
-      tUs: null,
-    };
-    onNavigate(comparisonPath(recordingId, stage.key, nextState));
-  }
-
-  function selectItem(item: ComparisonItem): void {
-    onNavigate(
-      comparisonPath(recordingId, stage.key, {
-        ...urlState,
-        left: selection.left,
-        right: selection.right,
-        reference: selection.reference,
-        item: item.item_id,
-        tUs: item.source_time_us,
-      }),
-    );
-  }
-
-  if (layout === "inspector") {
+  if (activeError !== null || selectionError !== null) {
     return (
-      <div className={styles.comparisonInspectorContent}>
-        <div className={styles.comparisonSelectors}>
-          <label className={styles.pipelineSelector}>
-            <span>Left terminal run</span>
-            <select
-              aria-label="Left terminal run"
-              value={selection.left ?? ""}
-              onChange={(event) => selectValue("left", event.target.value)}
-            >
-              {runs.map((run) => (
-                <option key={run.run_id} value={run.run_id}>
-                  {runLabel(run)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.pipelineSelector}>
-            <span>Right terminal run</span>
-            <select
-              aria-label="Right terminal run"
-              value={selection.right ?? ""}
-              onChange={(event) => selectValue("right", event.target.value)}
-            >
-              {runs.map((run) => (
-                <option key={run.run_id} value={run.run_id}>
-                  {runLabel(run)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.pipelineSelector}>
-            <span>Completed reference</span>
-            <select
-              aria-label="Completed reference"
-              value={selection.reference ?? ""}
-              onChange={(event) => selectValue("reference", event.target.value)}
-            >
-              {referenceOptions.map((option) => (
-                <option key={option.revision_id} value={option.revision_id}>
-                  {option.display_label} · {option.revision_id}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {activeError !== null || selectionError !== null ? (
-          <p className={styles.errorMessage} role="alert">
-            {activeError ?? selectionError}
-          </p>
-        ) : null}
-        {loading ? (
-          <p className={styles.loading} role="status">
-            Loading comparison…
-          </p>
-        ) : null}
-        {activeComparison !== null ? (
-          <ComparisonFacts comparison={activeComparison} />
-        ) : null}
-      </div>
+      <p className={styles.errorMessage} role="alert">
+        {activeError ?? selectionError}
+      </p>
     );
   }
-
+  if (loading) {
+    return (
+      <p className={styles.loading} role="status">
+        Loading comparison…
+      </p>
+    );
+  }
+  if (activeComparison === null) return null;
   return (
-    <section
-      className={styles.comparisonWorkspace}
-      aria-labelledby="comparison-heading"
-    >
-      {layout === "workspace" ? (
-        <div className={styles.comparisonWorkspaceHeading}>
-          <div>
-            <p className={styles.statusLabel}>Comparison</p>
-            <h3 id="comparison-heading">Comparison workspace</h3>
-            <p className={styles.comparisonMode}>
-              {activeComparison === null
-                ? "Preparing the newest compatible pair…"
-                : formatIdentifier(activeComparison.mode)}
-            </p>
-          </div>
-          {activeComparison !== null ? (
-            <span className={styles.status} data-state="complete">
-              {activeComparison.items.length} outcome
-              {activeComparison.items.length === 1 ? "" : "s"}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-
-      {layout === "workspace" ? (
-        <div className={styles.comparisonSelectors}>
-          <label className={styles.pipelineSelector}>
-            <span>Left terminal run</span>
-            <select
-              aria-label="Left terminal run"
-              value={selection.left ?? ""}
-              onChange={(event) => selectValue("left", event.target.value)}
-            >
-              {runs.map((run) => (
-                <option key={run.run_id} value={run.run_id}>
-                  {runLabel(run)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.pipelineSelector}>
-            <span>Right terminal run</span>
-            <select
-              aria-label="Right terminal run"
-              value={selection.right ?? ""}
-              onChange={(event) => selectValue("right", event.target.value)}
-            >
-              {runs.map((run) => (
-                <option key={run.run_id} value={run.run_id}>
-                  {runLabel(run)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.pipelineSelector}>
-            <span>Completed reference</span>
-            <select
-              aria-label="Completed reference"
-              value={selection.reference ?? ""}
-              onChange={(event) => selectValue("reference", event.target.value)}
-            >
-              {referenceOptions.map((option) => (
-                <option key={option.revision_id} value={option.revision_id}>
-                  {option.display_label} · {option.revision_id}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      ) : null}
-
-      {activeError !== null || selectionError !== null ? (
-        <p className={styles.errorMessage} role="alert">
-          {activeError ?? selectionError}
-        </p>
-      ) : loading ? (
-        <p className={styles.loading} role="status">
-          Loading comparison…
-        </p>
-      ) : activeComparison === null ? null : layout === "surface" ? (
-        <ComparisonSourcePanel
-          recordingId={recordingId}
-          comparison={activeComparison}
-          contentType={contentType}
-          item={selectedItem}
-          videoRef={videoRef}
-          durationUs={durationUs}
-          onTimeChange={onTimeChange}
-          onLoadedMetadata={() => {
-            const video = videoRef.current;
-            if (
-              video !== null &&
-              selectedTimeUs !== null &&
-              selectedTimeUs !== undefined
-            ) {
-              video.currentTime =
-                clampTime(selectedTimeUs, durationUs) / 1_000_000;
-            }
-          }}
-        />
-      ) : (
-        <>
-          <ComparisonFacts comparison={activeComparison} />
-          <div className={styles.comparisonInspectionGrid}>
-            <div className={styles.comparisonOutcomePanel}>
-              <h4>Source-ordered outcomes</h4>
-              {activeComparison.items.length === 0 ? (
-                <p className={styles.detailEmptyState}>
-                  No outcomes in the reviewed scope.
-                </p>
-              ) : (
-                <ol className={styles.comparisonOutcomeList}>
-                  {activeComparison.items.map((item) => (
-                    <li
-                      key={item.item_id}
-                      data-selected={selectedItem?.item_id === item.item_id}
-                    >
-                      <button
-                        type="button"
-                        className={styles.comparisonOutcomeButton}
-                        aria-label={`Inspect ${item.item_id}`}
-                        onClick={() => selectItem(item)}
-                      >
-                        <span>
-                          {item.source_time_us === null
-                            ? "No source time"
-                            : formatMicroseconds(item.source_time_us)}
-                        </span>
-                        <strong>{OUTCOME_TEXT[item.outcome]}</strong>
-                        <small>
-                          {formatIdentifier(item.side)} ·{" "}
-                          {formatIdentifier(item.event_type)}
-                        </small>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-            <ComparisonSourcePanel
-              recordingId={recordingId}
-              comparison={activeComparison}
-              contentType={contentType}
-              item={selectedItem}
-              videoRef={videoRef}
-              durationUs={durationUs}
-              onLoadedMetadata={() => {
-                const video = videoRef.current;
-                if (
-                  video !== null &&
-                  selectedTimeUs !== null &&
-                  selectedTimeUs !== undefined
-                ) {
-                  video.currentTime =
-                    clampTime(selectedTimeUs, durationUs) / 1_000_000;
-                }
-              }}
-            />
-          </div>
-        </>
-      )}
-    </section>
+    <ComparisonSourcePanel
+      recordingId={recordingId}
+      comparison={activeComparison}
+      contentType={contentType}
+      item={selectedItem}
+      videoRef={videoRef}
+      durationUs={durationUs}
+      onTimeChange={onTimeChange}
+      onLoadedMetadata={() => {
+        const video = videoRef.current;
+        if (
+          video !== null &&
+          selectedTimeUs !== null &&
+          selectedTimeUs !== undefined
+        ) {
+          video.currentTime = clampTime(selectedTimeUs, durationUs) / 1_000_000;
+        }
+      }}
+    />
   );
 }
 

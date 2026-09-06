@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type {
   PipelineComparisonResponse,
@@ -10,7 +10,7 @@ import {
   readPipelineUrlState,
   type PipelineUrlState,
 } from "./RecordingPipelineWorkspace";
-import { ComparisonView } from "./ComparisonView";
+import { ComparisonInspectorControls, ComparisonView } from "./ComparisonView";
 
 const RECORDING_ID = "comparison-recording";
 const OUTCOMES: PipelineComparisonResponse["items"][number]["outcome"][] = [
@@ -253,17 +253,56 @@ function Harness({ stageValue }: { stageValue: PipelineWorkspaceStage }) {
     window.addEventListener("popstate", update);
     return () => window.removeEventListener("popstate", update);
   }, []);
+  const [comparison, setComparison] =
+    useState<PipelineComparisonResponse | null>(null);
+  const [railItems, setRailItems] = useState<
+    Array<{ itemId: string; timeUs: number | null }>
+  >([]);
+  const navigate = useCallback((path: string, replace = false) => {
+    window.history[replace ? "replaceState" : "pushState"]({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, []);
   return (
-    <ComparisonView
-      recordingId={RECORDING_ID}
-      stage={stageValue}
-      durationUs={2_000_000}
-      urlState={urlState}
-      onNavigate={(path, replace = false) => {
-        window.history[replace ? "replaceState" : "pushState"]({}, "", path);
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      }}
-    />
+    <>
+      <ComparisonInspectorControls
+        recordingId={RECORDING_ID}
+        stage={stageValue}
+        urlState={urlState}
+        onNavigate={navigate}
+        comparison={comparison}
+      />
+      <ComparisonView
+        recordingId={RECORDING_ID}
+        stage={stageValue}
+        durationUs={2_000_000}
+        urlState={urlState}
+        onNavigate={navigate}
+        onComparisonChange={setComparison}
+        onRailItemsChange={(items) =>
+          setRailItems(
+            items.map((item) => ({
+              itemId: item.itemId,
+              timeUs: item.timeRange?.startUs ?? null,
+            })),
+          )
+        }
+      />
+      {railItems.map((item) => (
+        <button
+          key={item.itemId}
+          type="button"
+          aria-label={`Inspect ${item.itemId}`}
+          onClick={() => {
+            const params = new URLSearchParams(window.location.search);
+            params.set("item", item.itemId);
+            if (item.timeUs !== null) params.set("t_us", String(item.timeUs));
+            navigate(`${window.location.pathname}?${params}`);
+          }}
+        >
+          {item.itemId}
+        </button>
+      ))}
+    </>
   );
 }
 
@@ -291,27 +330,14 @@ describe("ComparisonView", () => {
       const user = userEvent.setup();
       render(<Harness stageValue={stage(contentType)} />);
 
-      expect(
-        await screen.findByRole("heading", { name: "Comparison workspace" }),
-      ).toBeInTheDocument();
-      expect(await screen.findByText("Processor failure")).toBeInTheDocument();
-      expect(screen.getByText("Empty source frame")).toBeInTheDocument();
-      expect(screen.getByText("Not reviewed")).toBeInTheDocument();
-      expect(screen.getByText("Unpaired input")).toBeInTheDocument();
-      expect(
-        screen.getByText("Miss: reference item was not found"),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText("Extra: run item has no reference match"),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText("Disagreement: run result differs from the reference"),
-      ).toBeInTheDocument();
-      expect(screen.getByText("Matched")).toBeInTheDocument();
       await waitFor(() => {
         expect(window.location.search).toContain("left=run-new");
         expect(window.location.search).toContain("right=run-old");
       });
+      expect(await screen.findByText("Matching policy")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Source-ordered outcomes"),
+      ).not.toBeInTheDocument();
 
       await user.click(
         screen.getByRole("button", { name: `Inspect ${contentType}-item-0` }),
@@ -351,10 +377,9 @@ describe("ComparisonView", () => {
         "No paired quality claim for an upstream experiment.",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Paired quality delta")).not.toBeInTheDocument();
   });
 
-  it("keeps the selectors visible and reports comparison errors", async () => {
+  it("keeps inspector selectors available when comparison fails", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(() =>
@@ -398,7 +423,9 @@ describe("ComparisonView", () => {
     const user = userEvent.setup();
     render(<Harness stageValue={stage("events")} />);
 
-    await screen.findByRole("heading", { name: "Comparison workspace" });
+    await waitFor(() =>
+      expect(window.location.search).toContain("left=run-new"),
+    );
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Left terminal run" }),
       "run-third",

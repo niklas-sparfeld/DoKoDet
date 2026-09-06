@@ -289,37 +289,42 @@ test("keeps the workspace shell within desktop bounds and preserves task order o
   page,
 }) => {
   await stubPipeline(page, "fresh");
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/recordings/${RECORDING_ID}/pipeline/events`);
-  await expect(
-    page.getByRole("region", { name: "Events task surface" }),
-  ).toBeVisible();
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1280, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`/recordings/${RECORDING_ID}/pipeline/events`);
+    await expect(
+      page.getByRole("region", { name: "Events task surface" }),
+    ).toBeVisible();
 
-  const desktopLayout = await page.evaluate(() => {
-    const rect = (slot: string) =>
-      document
-        .querySelector(`[data-slot="${slot}"]`)
-        ?.getBoundingClientRect() ?? null;
-    return {
-      documentHeight: document.documentElement.scrollHeight,
-      viewportHeight: window.innerHeight,
-      topBarHeight:
-        document.querySelector("header")?.getBoundingClientRect().height ?? 0,
-      centerWidth: rect("center")?.width ?? 0,
-      inspectorWidth: rect("inspector")?.width ?? 0,
-      railHeight: rect("bottom")?.height ?? 0,
-    };
-  });
-  expect(desktopLayout.documentHeight).toBeLessThanOrEqual(
-    desktopLayout.viewportHeight,
-  );
-  expect(desktopLayout.topBarHeight).toBeLessThanOrEqual(112);
-  expect(desktopLayout.inspectorWidth).toBeGreaterThanOrEqual(288);
-  expect(desktopLayout.inspectorWidth).toBeLessThanOrEqual(368);
-  expect(desktopLayout.centerWidth).toBeGreaterThan(
-    desktopLayout.inspectorWidth,
-  );
-  expect(desktopLayout.railHeight).toBeGreaterThanOrEqual(96);
+    const desktopLayout = await page.evaluate(() => {
+      const rect = (slot: string) =>
+        document
+          .querySelector(`[data-slot="${slot}"]`)
+          ?.getBoundingClientRect() ?? null;
+      return {
+        documentHeight: document.documentElement.scrollHeight,
+        viewportHeight: window.innerHeight,
+        topBarHeight:
+          document.querySelector("header")?.getBoundingClientRect().height ?? 0,
+        centerWidth: rect("center")?.width ?? 0,
+        inspectorWidth: rect("inspector")?.width ?? 0,
+        railHeight: rect("bottom")?.height ?? 0,
+      };
+    });
+    expect(desktopLayout.documentHeight).toBeLessThanOrEqual(
+      desktopLayout.viewportHeight,
+    );
+    expect(desktopLayout.topBarHeight).toBeLessThanOrEqual(112);
+    expect(desktopLayout.inspectorWidth).toBeGreaterThanOrEqual(288);
+    expect(desktopLayout.inspectorWidth).toBeLessThanOrEqual(368);
+    expect(desktopLayout.centerWidth).toBeGreaterThan(
+      desktopLayout.inspectorWidth,
+    );
+    expect(desktopLayout.railHeight).toBeGreaterThanOrEqual(96);
+  }
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileLayout = await page.evaluate(() => {
@@ -349,7 +354,7 @@ test("covers generated suggestions, reruns, failed jobs, upstream correction, co
   await page.goto(`/recordings/${RECORDING_ID}/pipeline/events?view=generated`);
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Review" }).first(),
+    page.getByRole("button", { name: "Review", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/Generated result/)).toBeVisible();
 
@@ -383,7 +388,7 @@ test("covers generated suggestions, reruns, failed jobs, upstream correction, co
   await expect(
     page
       .getByRole("complementary", { name: "Workspace inspector" })
-      .getByRole("link", { name: "Continue review" }),
+      .getByRole("heading", { name: "Start visible-card review" }),
   ).toBeVisible();
 
   await page.goto(`/recordings/${RECORDING_ID}/pipeline/events`);
