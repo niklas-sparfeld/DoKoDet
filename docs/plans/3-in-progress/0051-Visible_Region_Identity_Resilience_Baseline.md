@@ -5,7 +5,7 @@
 - **Summary:** Make visual identity processing safe under inaccurate predicted visible regions and
   measure whether visible-region exclusion can recover contaminated crops before any detector or
   identity-model change.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0048 and 0049 complete
 - **Readiness:** M0 can inventory coverage, freeze the reusable measurement contract, and report
   the exact review gap. Completed paired maintained visible-card and visual identity references
@@ -15,14 +15,15 @@
 - **Outcome:** Publish a reproducible risk-versus-coverage baseline for the current identifier under
   actual and controlled visible-region errors. Select a simple crop policy, one bounded follow-up
   identity response in 0052, a later visible-region provider experiment, or more review work.
-- **Next:** [0052 — Selected response to visible-region identity failures](0052-Selected_Visible_Region_Identity_Response.md)
+- **Next:** [0052 — Selected response to visible-region identity failures](../4-blocked/0052-Selected_Visible_Region_Identity_Response.md)
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status
 
-- **M0:** Not started — inventory eligible recording groups, freeze the measurement contract, and
-  report the exact paired-review coverage gap before validation classification.
+- **M0:** Complete — add the frozen resilience manifest and read-only coverage report. The current
+  inventory has four accepted recording bundles across three session groups, but no completed
+  paired maintained references and no validation classification is allowed.
 - **M1:** Not started — preserve every visible-card proposal across classified, unusable, and failed
   visual identity outcomes.
 - **M2:** Not started — add deterministic predicted-region and visible-region-exclusion crop

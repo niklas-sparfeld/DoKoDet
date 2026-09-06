@@ -37,6 +37,12 @@ from .model_improvement import (
     validate_campaign_against_registry,
 )
 from .pending_video import PendingVideoCompletionError, complete_pending_video
+from .resilience_baseline import (
+    ResilienceBaselineError,
+    build_resilience_baseline_manifest,
+    render_resilience_baseline_human,
+    write_resilience_baseline_manifest,
+)
 from .review import (
     REVIEW_TASK_ALL,
     ReviewRunError,
@@ -86,6 +92,31 @@ def build_parser() -> argparse.ArgumentParser:
             action="store_true",
             help="Alias for --format json.",
         )
+    baseline = data_commands.add_parser(
+        "resilience-baseline",
+        help="Freeze the visible-region identity resilience contract and report coverage.",
+        description="Freeze the visible-region identity resilience contract and report coverage.",
+    )
+    _add_path_options(baseline, suppress_defaults=True)
+    baseline.add_argument(
+        "--runtime-root",
+        type=Path,
+        default=None,
+        help="Pipeline runtime root (default: .runtime).",
+    )
+    baseline.add_argument(
+        "--holdout-registry",
+        type=Path,
+        default=None,
+        help="Path to the shared system holdout registry.",
+    )
+    baseline.add_argument("--classifier-provider", default="gemini")
+    baseline.add_argument("--classifier-model", default="gemini-3.6-flash")
+    baseline.add_argument(
+        "--output", type=Path, default=None, help="Optional manifest output path."
+    )
+    baseline.add_argument("--format", choices=("human", "json"), default="human")
+    baseline.add_argument("--json", action="store_true", help="Alias for --format json.")
     complete = data_commands.add_parser(
         "complete-video",
         help="Complete one pending video and publish a recording bundle.",
@@ -486,6 +517,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(_render_impact_human(result))
         return 0
+    if args.command == "data" and args.data_command == "resilience-baseline":
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            manifest = build_resilience_baseline_manifest(
+                config.repository_root,
+                runtime_root=args.runtime_root,
+                operations_root=config.derived_artifact_root,
+                intake_root=config.bundle_root,
+                holdout_registry_path=args.holdout_registry,
+                classifier_provider=args.classifier_provider,
+                classifier_model=args.classifier_model,
+            )
+            if args.output is not None:
+                output_path = args.output
+                if not output_path.is_absolute():
+                    output_path = config.repository_root / output_path
+                write_resilience_baseline_manifest(output_path, manifest)
+            if args.json or args.format == "json":
+                sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+            else:
+                sys.stdout.write(render_resilience_baseline_human(manifest))
+        except (ConfigurationError, OSError, ResilienceBaselineError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        return 0 if manifest["validation_classification_allowed"] else 1
     if args.command == "data" and args.data_command == "source":
         if args.source_command != "retire":
             parser.parse_args(["data", "source", "--help"])

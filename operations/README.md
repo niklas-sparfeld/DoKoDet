@@ -12,6 +12,21 @@ The default paths are `data/model-registry.json` and `data/model-campaigns/`. Us
 `--model-registry` and `--campaign-root` to inspect a fixture or another checkout. These commands
 do not train, export, promote, or modify campaign and registry files.
 
+## Visible-region identity resilience baseline
+
+M0 freezes the crop, corruption, classifier, budget, metric, and decision-gate contract. It scans
+accepted recording bundles and completed maintained references, then reports sample-linked coverage.
+It does not classify validation crops or modify source data:
+
+```bash
+doko data resilience-baseline --format json \
+  --output data/operations/visible-region-identity-resilience-m0.json
+```
+
+The command exits with `1` when the paired-reference coverage gate is not met. It requires paired
+completed maintained visible-card and visual identity references from at least two source-lineage
+groups and the frozen validation sample minimum before validation classification is allowed.
+
 M1 adds a resumable CardEventNet campaign runner:
 
 ```bash
