@@ -18,3 +18,6 @@
 /data/intake/evidence-packages/**/*.jpeg
 /diagnostics/
 **/node_modules/
+/.vscode
+/backend/data
+/data
