@@ -44,7 +44,10 @@ function stage(
   } as PipelineWorkspaceStage;
 }
 
-function workspace(overrides: Record<string, unknown> = {}): PipelineWorkspace {
+function workspace(
+  overrides: Record<string, unknown> = {},
+  diagnostics: PipelineWorkspace["diagnostics"] = [],
+): PipelineWorkspace {
   return {
     schema_version: "pipeline-workspace/v1",
     recording_id: RECORDING_ID,
@@ -59,7 +62,7 @@ function workspace(overrides: Record<string, unknown> = {}): PipelineWorkspace {
     stages: PIPELINE_STAGE_KEYS.map((key) =>
       stage(key, key === "events" ? overrides : {}),
     ),
-    diagnostics: [],
+    diagnostics,
   };
 }
 
@@ -189,7 +192,36 @@ describe("recording pipeline workspace", () => {
     expect(
       screen.queryByRole("region", { name: "Pipeline stage summary" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Accepted video")).not.toBeInTheDocument();
+    const inspector = screen.getByRole("complementary", {
+      name: "Workspace inspector",
+    });
+    expect(
+      [...inspector.querySelectorAll("[data-inspector-section]")].map(
+        (section) => section.getAttribute("data-inspector-section"),
+      ),
+    ).toEqual([
+      "progress",
+      "action",
+      "save-state",
+      "selection",
+      "metadata",
+      "details",
+    ]);
+    expect(
+      within(inspector).getByRole("heading", { name: "Accepted video" }),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByText("Lineage, diagnostics, and history"),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByRole("combobox", {
+        name: "Default generated revision",
+      }),
+    ).toHaveValue(generated.revision_id);
+    expect(
+      within(inspector).getByRole("button", { name: "Run processor" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Next action")).not.toBeInTheDocument();
     expect(
       screen.getByRole("navigation", { name: "Recording pipeline stages" }),
     ).toBeInTheDocument();
@@ -205,7 +237,57 @@ describe("recording pipeline workspace", () => {
       screen.getByRole("combobox", { name: "Default generated revision" }),
     ).toHaveValue(generated.revision_id);
     expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
-    expect(screen.getByText("History and exact inputs")).toBeInTheDocument();
+  });
+
+  it("keeps failed blockers and diagnostics visible in the inspector", async () => {
+    const blocker = "The accepted recording video is unavailable.";
+    const body = workspace(
+      {
+        state: "failed",
+        can_run: false,
+        run_blockers: [blocker],
+      },
+      [
+        {
+          code: "video_unavailable",
+          message: blocker,
+          revision_id: null,
+        },
+      ],
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="events"
+        compare={false}
+      />,
+    );
+
+    const inspector = await screen.findByRole("complementary", {
+      name: "Workspace inspector",
+    });
+    expect(
+      within(inspector).getByRole("heading", { name: "Blocked" }),
+    ).toBeInTheDocument();
+    expect(within(inspector).getAllByText(blocker).length).toBeGreaterThan(0);
+    expect(
+      within(inspector).getByRole("list", { name: "Pipeline diagnostics" }),
+    ).toBeVisible();
+    expect(
+      within(inspector).getByText("Video Unavailable"),
+    ).toBeInTheDocument();
   });
 
   it("is composed by App for a recording-owned pipeline path", async () => {

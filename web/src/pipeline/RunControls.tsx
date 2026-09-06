@@ -41,6 +41,7 @@ type RunControlsProps = {
   stage: PipelineWorkspaceStage;
   stages: PipelineWorkspaceStage[];
   onRefresh: () => Promise<void>;
+  compact?: boolean;
 };
 
 type RunFacts = {
@@ -56,6 +57,7 @@ export function RunControls({
   stage,
   stages,
   onRefresh,
+  compact = false,
 }: RunControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const isRunStage = RUN_STAGE_KEYS.includes(stage.key as RunStageKey);
@@ -215,18 +217,20 @@ export function RunControls({
 
   return (
     <section
-      className={styles.pipelineRunControls}
-      aria-labelledby="run-controls-heading"
+      className={`${styles.pipelineRunControls} ${compact ? styles.pipelineRunControlsCompact : ""}`}
+      aria-labelledby={compact ? undefined : "run-controls-heading"}
     >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Processor controls</p>
-          <h3 id="run-controls-heading">Run {RUN_STAGE_LABELS[runStage]}</h3>
+      {!compact ? (
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Processor controls</p>
+            <h3 id="run-controls-heading">Run {RUN_STAGE_LABELS[runStage]}</h3>
+          </div>
+          {selectedRun !== null ? (
+            <StatusBadge value={selectedRun.status} />
+          ) : null}
         </div>
-        {selectedRun !== null ? (
-          <StatusBadge value={selectedRun.status} />
-        ) : null}
-      </div>
+      ) : null}
 
       {stage.run_blockers.length > 0 ? (
         <p className={styles.detailBlocker}>{stage.run_blockers[0]}</p>

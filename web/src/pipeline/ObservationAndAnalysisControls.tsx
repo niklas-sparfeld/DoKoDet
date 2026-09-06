@@ -23,6 +23,7 @@ type ObservationRunControlsProps = {
   stage: PipelineWorkspaceStage;
   stages: PipelineWorkspaceStage[];
   onRefresh: () => Promise<void>;
+  compact?: boolean;
 };
 
 type RoundAnalysisControlsProps = {
@@ -31,6 +32,7 @@ type RoundAnalysisControlsProps = {
   selectedAnalysisId: string | null;
   onRefresh: () => Promise<void>;
   onSelectAnalysis: (analysisId: string | null) => void;
+  compact?: boolean;
 };
 
 type RunFacts = {
@@ -47,6 +49,7 @@ export function ObservationRunControls({
   stage,
   stages,
   onRefresh,
+  compact = false,
 }: ObservationRunControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const compatibleSets = useMemo(
@@ -189,18 +192,22 @@ export function ObservationRunControls({
 
   return (
     <section
-      className={styles.pipelineRunControls}
-      aria-labelledby="observation-controls-heading"
+      className={`${styles.pipelineRunControls} ${compact ? styles.pipelineRunControlsCompact : ""}`}
+      aria-labelledby={compact ? undefined : "observation-controls-heading"}
     >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Processor controls</p>
-          <h3 id="observation-controls-heading">Assemble table observations</h3>
+      {!compact ? (
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Processor controls</p>
+            <h3 id="observation-controls-heading">
+              Assemble table observations
+            </h3>
+          </div>
+          {selectedRun !== null ? (
+            <StatusBadge value={selectedRun.status} />
+          ) : null}
         </div>
-        {selectedRun !== null ? (
-          <StatusBadge value={selectedRun.status} />
-        ) : null}
-      </div>
+      ) : null}
       {stage.run_blockers.length > 0 && compatibleSets.length === 0 ? (
         <p className={styles.detailBlocker}>{stage.run_blockers[0]}</p>
       ) : (
@@ -282,6 +289,7 @@ export function RoundAnalysisControls({
   selectedAnalysisId,
   onRefresh,
   onSelectAnalysis,
+  compact = false,
 }: RoundAnalysisControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
@@ -475,18 +483,20 @@ export function RoundAnalysisControls({
 
   return (
     <section
-      className={styles.pipelineRunControls}
-      aria-labelledby="round-analysis-controls-heading"
+      className={`${styles.pipelineRunControls} ${compact ? styles.pipelineRunControlsCompact : ""}`}
+      aria-labelledby={compact ? undefined : "round-analysis-controls-heading"}
     >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Analysis controls</p>
-          <h3 id="round-analysis-controls-heading">Reconstruct one round</h3>
+      {!compact ? (
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Analysis controls</p>
+            <h3 id="round-analysis-controls-heading">Reconstruct one round</h3>
+          </div>
+          {displayedStatus !== null ? (
+            <StatusBadge value={displayedStatus} />
+          ) : null}
         </div>
-        {displayedStatus !== null ? (
-          <StatusBadge value={displayedStatus} />
-        ) : null}
-      </div>
+      ) : null}
       {stage.run_blockers.length > 0 ? (
         <p className={styles.detailBlocker}>{stage.run_blockers[0]}</p>
       ) : null}

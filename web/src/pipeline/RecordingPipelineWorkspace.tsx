@@ -27,10 +27,12 @@ import {
 import { RunControls } from "./RunControls";
 import { ComparisonView } from "./ComparisonView";
 import {
+  buildRecordingWorkspacePresentation,
   PIPELINE_STAGE_KEYS,
   STAGE_LABELS,
   isPipelineStageKey,
   primaryActionForStage,
+  type RecordingWorkspacePresentation,
   type PipelinePrimaryActionKind,
   type PipelineUrlState,
   type PipelineView,
@@ -351,18 +353,18 @@ export function RecordingPipelineWorkspace({
     );
   }
 
-  const activeView = urlState.view ?? defaultViewForStage(stage);
-  const action = primaryActionForStage(stage);
+  const presentation = buildRecordingWorkspacePresentation({
+    workspace,
+    stageKey,
+    compare,
+    urlState,
+    error,
+  });
+  const activeView = presentation.topBar.view ?? defaultViewForStage(stage);
+  const action =
+    presentation.inspector.primaryAction ?? primaryActionForStage(stage);
   const actionState = actionStateForStage(stage, urlState, action.kind);
-  const generatedOptions = stage.input_options.filter(
-    (option) => option.origin === "processor",
-  );
-  const displayedRevision =
-    urlState.revision ??
-    (activeView === "generated"
-      ? stage.selected_generated_revision_id
-      : stage.selected_completed_reference_revision_id) ??
-    null;
+  const displayedRevision = presentation.stage?.displayedRevisionId ?? null;
   const selectedEventRunId =
     stage.key === "events" && displayedRevision !== null
       ? (stage.runs.find((run) =>
@@ -491,19 +493,6 @@ export function RecordingPipelineWorkspace({
             {error}
           </p>
         ) : null}
-        {workspace.diagnostics.length > 0 ? (
-          <ul
-            className={styles.pipelineDiagnostics}
-            aria-label="Pipeline diagnostics"
-          >
-            {workspace.diagnostics.map((diagnostic) => (
-              <li key={`${diagnostic.code}:${diagnostic.revision_id ?? ""}`}>
-                <strong>{formatIdentifier(diagnostic.code)}</strong>
-                <span>{diagnostic.message}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
       </div>
 
       <div className={styles.pipelineWorkspaceGrid} data-slot="workspace">
@@ -513,107 +502,6 @@ export function RecordingPipelineWorkspace({
           data-slot="center"
         >
           <div className={styles.pipelineTaskSurfaceContent}>
-            <div className={styles.pipelineActionRow}>
-              <div>
-                <span className={styles.statusLabel}>Next action</span>
-                <strong>{action.label}</strong>
-              </div>
-              {action.kind === "blocked" ? (
-                <p className={styles.detailBlocker}>{action.blocker}</p>
-              ) : (
-                <a
-                  className={styles.primaryButton}
-                  href={actionHref(
-                    recordingId,
-                    stage.key,
-                    action.kind,
-                    actionState,
-                  )}
-                  onClick={(event) => {
-                    if (isModifiedClick(event)) {
-                      return;
-                    }
-                    event.preventDefault();
-                    navigateTo(
-                      actionHref(
-                        recordingId,
-                        stage.key,
-                        action.kind,
-                        actionState,
-                      ),
-                    );
-                  }}
-                  data-action={action.kind}
-                >
-                  {action.label}
-                </a>
-              )}
-            </div>
-            <div className={styles.pipelineSelectorGrid}>
-              {stage.key !== "round_analyses" ? (
-                <label className={styles.pipelineSelector}>
-                  <span>Default generated revision</span>
-                  <select
-                    aria-label="Default generated revision"
-                    value={stage.selected_generated_revision_id ?? ""}
-                    disabled={selectionBusy}
-                    onChange={(event) =>
-                      void selectGeneratedRevision(event.target.value || null)
-                    }
-                  >
-                    <option value="">No generated revision selected</option>
-                    {generatedOptions.map((option) => (
-                      <option
-                        key={option.revision_id}
-                        value={option.revision_id}
-                      >
-                        {option.display_label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              <label className={styles.pipelineSelector}>
-                <span>Displayed revision</span>
-                <select
-                  aria-label="Displayed revision"
-                  value={displayedRevision ?? ""}
-                  disabled={stage.input_options.length === 0}
-                  onChange={(event) => {
-                    const nextRevision = event.target.value || null;
-                    const defaultRevision =
-                      activeView === "generated"
-                        ? stage.selected_generated_revision_id
-                        : stage.selected_completed_reference_revision_id;
-                    replaceUrlState({
-                      ...urlState,
-                      revision:
-                        nextRevision === defaultRevision ? null : nextRevision,
-                    });
-                  }}
-                >
-                  <option value="">No revision selected</option>
-                  {stage.input_options.map((option) => (
-                    <option key={option.revision_id} value={option.revision_id}>
-                      {option.display_label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {urlState.item !== null || urlState.tUs !== null ? (
-              <p className={styles.pipelineUrlState}>
-                {urlState.item === null ? null : `Item ${urlState.item}`}
-                {urlState.item !== null && urlState.tUs !== null ? " · " : null}
-                {urlState.tUs === null
-                  ? null
-                  : `${formatMicroseconds(urlState.tUs)} position`}
-              </p>
-            ) : null}
-            <details className={styles.pipelineHistory}>
-              <summary>History and exact inputs</summary>
-              <PipelineHistory stage={stage} />
-            </details>
             {compare ? (
               <ComparisonView
                 recordingId={recordingId}
@@ -621,33 +509,6 @@ export function RecordingPipelineWorkspace({
                 durationUs={workspace.video.duration_us}
                 urlState={urlState}
                 onNavigate={navigateTo}
-              />
-            ) : null}
-            {!compare ? (
-              <RunControls
-                recordingId={recordingId}
-                stage={stage}
-                stages={workspace.stages}
-                onRefresh={() => loadWorkspace()}
-              />
-            ) : null}
-            {stage.key === "table_observations" && !compare ? (
-              <ObservationRunControls
-                recordingId={recordingId}
-                stage={stage}
-                stages={workspace.stages}
-                onRefresh={() => loadWorkspace()}
-              />
-            ) : null}
-            {stage.key === "round_analyses" && !compare ? (
-              <RoundAnalysisControls
-                recordingId={recordingId}
-                stage={stage}
-                selectedAnalysisId={urlState.analysis}
-                onRefresh={() => loadWorkspace()}
-                onSelectAnalysis={(analysisId) =>
-                  replaceUrlState({ ...urlState, analysis: analysisId })
-                }
               />
             ) : null}
             {stage.key === "round_analyses" && !compare ? (
@@ -698,19 +559,23 @@ export function RecordingPipelineWorkspace({
           </div>
         </section>
 
-        <aside
-          className={styles.pipelineInspectorSlot}
-          aria-label="Workspace inspector"
-          data-slot="inspector"
-        >
-          <p className={styles.statusLabel}>Workspace inspector</p>
-          <h2>Stage status</h2>
-          <StatusBadge value={stage.state} />
-          <p className={styles.pipelinePlaceholderText}>
-            Progress, actions, and recording metadata will stay here as each
-            stage moves into the shared workbench.
-          </p>
-        </aside>
+        <RecordingWorkspaceInspector
+          recordingId={recordingId}
+          workspace={workspace}
+          stage={stage}
+          compare={compare}
+          urlState={urlState}
+          activeView={activeView}
+          displayedRevision={displayedRevision}
+          action={action}
+          actionState={actionState}
+          presentation={presentation}
+          selectionBusy={selectionBusy}
+          onNavigate={navigateTo}
+          onReplaceUrlState={replaceUrlState}
+          onSelectGeneratedRevision={selectGeneratedRevision}
+          onRefresh={() => loadWorkspace()}
+        />
       </div>
 
       <section
@@ -727,6 +592,351 @@ export function RecordingPipelineWorkspace({
         </span>
       </section>
     </main>
+  );
+}
+
+type RecordingWorkspaceInspectorProps = {
+  recordingId: string;
+  workspace: PipelineWorkspace;
+  stage: PipelineWorkspaceStage;
+  compare: boolean;
+  urlState: PipelineUrlState;
+  activeView: PipelineView;
+  displayedRevision: string | null;
+  action: NonNullable<
+    RecordingWorkspacePresentation["inspector"]["primaryAction"]
+  >;
+  actionState: PipelineUrlState;
+  presentation: RecordingWorkspacePresentation;
+  selectionBusy: boolean;
+  onNavigate: (path: string) => void;
+  onReplaceUrlState: (state: PipelineUrlState) => void;
+  onSelectGeneratedRevision: (revisionId: string | null) => Promise<void>;
+  onRefresh: () => Promise<void>;
+};
+
+function RecordingWorkspaceInspector({
+  recordingId,
+  workspace,
+  stage,
+  compare,
+  urlState,
+  activeView,
+  displayedRevision,
+  action,
+  actionState,
+  presentation,
+  selectionBusy,
+  onNavigate,
+  onReplaceUrlState,
+  onSelectGeneratedRevision,
+  onRefresh,
+}: RecordingWorkspaceInspectorProps) {
+  const recording = presentation.recording;
+  const selection = presentation.inspector.selection;
+  const progress = presentation.inspector.progress;
+  const executionControls = compare ? null : (
+    <>
+      {stage.key === "table_observations" ? (
+        <ObservationRunControls
+          compact
+          recordingId={recordingId}
+          stage={stage}
+          stages={workspace.stages}
+          onRefresh={onRefresh}
+        />
+      ) : null}
+      {stage.key === "round_analyses" ? (
+        <RoundAnalysisControls
+          compact
+          recordingId={recordingId}
+          stage={stage}
+          selectedAnalysisId={urlState.analysis}
+          onRefresh={onRefresh}
+          onSelectAnalysis={(analysisId) =>
+            onReplaceUrlState({ ...urlState, analysis: analysisId })
+          }
+        />
+      ) : null}
+      {isProcessorStage(stage.key) ? (
+        <RunControls
+          compact
+          recordingId={recordingId}
+          stage={stage}
+          stages={workspace.stages}
+          onRefresh={onRefresh}
+        />
+      ) : null}
+    </>
+  );
+  const actionOwnsExecution =
+    action.kind === "run" || action.kind === "run_again";
+
+  return (
+    <aside
+      className={styles.pipelineInspectorSlot}
+      aria-label="Workspace inspector"
+      data-slot="inspector"
+    >
+      <section
+        className={styles.pipelineInspectorSection}
+        data-inspector-section="progress"
+        aria-labelledby="pipeline-inspector-progress"
+      >
+        <div className={styles.pipelineInspectorSectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Progress</p>
+            <h2 id="pipeline-inspector-progress">{progress.label}</h2>
+          </div>
+          <StatusBadge value={stage.state} />
+        </div>
+        {progress.completed !== null && progress.total !== null ? (
+          <>
+            <div className={styles.pipelineInspectorProgressHeading}>
+              <span>
+                {progress.completed} of {progress.total} complete
+              </span>
+              <strong>{progress.percent ?? 0}%</strong>
+            </div>
+            <progress
+              max={progress.total}
+              value={progress.completed}
+              aria-label={progress.label}
+            />
+          </>
+        ) : (
+          <p className={styles.pipelineInspectorEmpty}>
+            No execution progress recorded.
+          </p>
+        )}
+      </section>
+
+      <section
+        className={styles.pipelineInspectorSection}
+        data-inspector-section="action"
+        aria-labelledby="pipeline-inspector-action"
+      >
+        <p className={styles.statusLabel}>Primary action</p>
+        <h2 id="pipeline-inspector-action">{action.label}</h2>
+        {action.kind === "blocked" ? (
+          <p className={styles.detailBlocker}>{action.blocker}</p>
+        ) : actionOwnsExecution ? (
+          executionControls
+        ) : (
+          <a
+            className={styles.primaryButton}
+            href={actionHref(recordingId, stage.key, action.kind, actionState)}
+            onClick={(event) => {
+              if (isModifiedClick(event)) {
+                return;
+              }
+              event.preventDefault();
+              onNavigate(
+                actionHref(recordingId, stage.key, action.kind, actionState),
+              );
+            }}
+            data-action={action.kind}
+          >
+            {action.label}
+          </a>
+        )}
+        {presentation.inspector.activeBlocker !== null &&
+        action.kind !== "blocked" ? (
+          <p className={styles.detailBlocker} role="alert">
+            {presentation.inspector.activeBlocker}
+          </p>
+        ) : null}
+      </section>
+
+      <section
+        className={styles.pipelineInspectorSection}
+        data-inspector-section="save-state"
+        aria-labelledby="pipeline-inspector-save-state"
+      >
+        <div className={styles.pipelineInspectorSectionHeading}>
+          <div>
+            <p className={styles.statusLabel}>Save or execution state</p>
+            <h2 id="pipeline-inspector-save-state">
+              {formatIdentifier(presentation.inspector.saveState)}
+            </h2>
+          </div>
+          <StatusBadge value={presentation.inspector.saveState} />
+        </div>
+        {!actionOwnsExecution ? executionControls : null}
+      </section>
+
+      <section
+        className={styles.pipelineInspectorSection}
+        data-inspector-section="selection"
+        aria-labelledby="pipeline-inspector-selection"
+      >
+        <p className={styles.statusLabel}>Current selection</p>
+        <h2 id="pipeline-inspector-selection">
+          {formatIdentifier(activeView)}
+        </h2>
+        <div className={styles.pipelineInspectorSelectionFacts}>
+          <span>Displayed revision</span>
+          <strong>{displayedRevision ?? "None"}</strong>
+          <span>Item</span>
+          <strong>{selection?.itemId ?? "None"}</strong>
+          <span>Position</span>
+          <strong>
+            {selection?.timeUs === null || selection?.timeUs === undefined
+              ? "None"
+              : formatMicroseconds(selection.timeUs)}
+          </strong>
+          {selection?.analysisId !== null &&
+          selection?.analysisId !== undefined ? (
+            <>
+              <span>Analysis</span>
+              <strong>{selection.analysisId}</strong>
+            </>
+          ) : null}
+        </div>
+        <div className={styles.pipelineInspectorFields}>
+          {stage.key !== "round_analyses" ? (
+            <label className={styles.pipelineSelector}>
+              <span>Default generated revision</span>
+              <select
+                aria-label="Default generated revision"
+                value={stage.selected_generated_revision_id ?? ""}
+                disabled={selectionBusy}
+                onChange={(event) =>
+                  void onSelectGeneratedRevision(event.target.value || null)
+                }
+              >
+                <option value="">No generated revision selected</option>
+                {stage.input_options
+                  .filter((option) => option.origin === "processor")
+                  .map((option) => (
+                    <option key={option.revision_id} value={option.revision_id}>
+                      {option.display_label}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          ) : null}
+          <label className={styles.pipelineSelector}>
+            <span>Displayed revision</span>
+            <select
+              aria-label="Displayed revision"
+              value={displayedRevision ?? ""}
+              disabled={stage.input_options.length === 0}
+              onChange={(event) => {
+                const nextRevision = event.target.value || null;
+                const defaultRevision =
+                  activeView === "generated"
+                    ? stage.selected_generated_revision_id
+                    : stage.selected_completed_reference_revision_id;
+                onReplaceUrlState({
+                  ...urlState,
+                  revision:
+                    nextRevision === defaultRevision ? null : nextRevision,
+                });
+              }}
+            >
+              <option value="">No revision selected</option>
+              {stage.input_options.map((option) => (
+                <option key={option.revision_id} value={option.revision_id}>
+                  {option.display_label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      {recording !== null ? (
+        <section
+          className={styles.pipelineInspectorSection}
+          data-inspector-section="metadata"
+          aria-labelledby="pipeline-inspector-metadata"
+        >
+          <p className={styles.statusLabel}>Recording metadata</p>
+          <h2 id="pipeline-inspector-metadata">Accepted video</h2>
+          <dl className={styles.pipelineInspectorFacts}>
+            <div>
+              <dt>Recording</dt>
+              <dd>{recording.recordingId}</dd>
+            </div>
+            <div>
+              <dt>Duration</dt>
+              <dd>{formatDuration(recording.durationUs)}</dd>
+            </div>
+            <div>
+              <dt>Video SHA-256</dt>
+              <dd>{recording.videoSha256.slice(0, 12)}…</dd>
+            </div>
+            <div>
+              <dt>Bytes</dt>
+              <dd>{formatByteLength(recording.byteLength)}</dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
+
+      <details
+        className={styles.pipelineInspectorDetails}
+        data-inspector-section="details"
+        open={presentation.diagnostics.length > 0}
+      >
+        <summary>Lineage, diagnostics, and history</summary>
+        <div className={styles.pipelineInspectorDetailsContent}>
+          <dl className={styles.pipelineInspectorFacts}>
+            <div>
+              <dt>Stage</dt>
+              <dd>{stage.key}</dd>
+            </div>
+            <div>
+              <dt>Processor</dt>
+              <dd>{stage.processor_type}</dd>
+            </div>
+            <div>
+              <dt>Generated revision</dt>
+              <dd>{stage.selected_generated_revision_id ?? "None"}</dd>
+            </div>
+            <div>
+              <dt>Reference revision</dt>
+              <dd>
+                {stage.selected_completed_reference_revision_id ?? "None"}
+              </dd>
+            </div>
+            <div>
+              <dt>Reference source</dt>
+              <dd>{stage.reference?.source_revision_id ?? "None"}</dd>
+            </div>
+            <div>
+              <dt>Selection revision</dt>
+              <dd>{stage.selection_revision ?? "None"}</dd>
+            </div>
+          </dl>
+          {presentation.diagnostics.length > 0 ? (
+            <ul
+              className={styles.pipelineDiagnostics}
+              aria-label="Pipeline diagnostics"
+            >
+              {presentation.diagnostics.map((diagnostic) => (
+                <li key={`${diagnostic.code}:${diagnostic.revision_id ?? ""}`}>
+                  <strong>{formatIdentifier(diagnostic.code)}</strong>
+                  <span>{diagnostic.message}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <PipelineHistory stage={stage} />
+        </div>
+      </details>
+    </aside>
+  );
+}
+
+function isProcessorStage(
+  stageKey: PipelineStageKey,
+): stageKey is "events" | "visible_cards" | "visual_identities" {
+  return (
+    stageKey === "events" ||
+    stageKey === "visible_cards" ||
+    stageKey === "visual_identities"
   );
 }
 
@@ -998,6 +1208,13 @@ function formatDuration(durationUs: number): string {
   const totalSeconds = Math.floor(durationUs / 1_000_000);
   const minutes = Math.floor(totalSeconds / 60);
   return `${minutes}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+function formatByteLength(value: number): string {
+  if (value < 1_000) return `${value} B`;
+  if (value < 1_000_000) return `${(value / 1_000).toFixed(1)} kB`;
+  if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(1)} MB`;
+  return `${(value / 1_000_000_000).toFixed(1)} GB`;
 }
 
 function formatMicroseconds(value: number): string {

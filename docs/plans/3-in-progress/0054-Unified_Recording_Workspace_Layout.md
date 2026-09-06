@@ -23,7 +23,8 @@
   viewport fixtures, and geometry helpers with focused unit coverage.
 - **M1:** Complete — replace the tall page preamble with a bounded viewport shell, compact top bar,
   internal task and inspector scroll regions, and a Timeline Rail slot.
-- **M2:** Not started — add the persistent metadata inspector and move global controls into it.
+- **M2:** Complete — add the persistent inspector with stable progress, action, state, selection,
+  metadata, and lineage/history sections; move workspace controls, diagnostics, and history into it.
 - **M3:** Not started — build the shared Timeline Rail and connect video navigation.
 - **M4:** Not started — migrate event generation and review to the shared workbench.
 - **M5:** Not started — migrate visible-card generation and review to the shared workbench.

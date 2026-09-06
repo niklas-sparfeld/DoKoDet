@@ -368,9 +368,11 @@ test("covers generated suggestions, reruns, failed jobs, upstream correction, co
 
   requests.setScenario("failed");
   await page.goto(`/recordings/${RECORDING_ID}/pipeline/events`);
-  await page.getByText("Retained runs and actual inputs").click();
+  await page.getByText("Lineage, diagnostics, and history").click();
   await expect(
-    page.getByRole("button", { name: /events-failed-1/ }),
+    page
+      .getByRole("list", { name: "Processor history" })
+      .getByText("events-failed-1"),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Events Failed" })).toBeVisible();
 
@@ -380,7 +382,7 @@ test("covers generated suggestions, reruns, failed jobs, upstream correction, co
   );
   await expect(
     page
-      .getByRole("region", { name: "Visible cards" })
+      .getByRole("complementary", { name: "Workspace inspector" })
       .getByRole("link", { name: "Continue review" }),
   ).toBeVisible();
 
