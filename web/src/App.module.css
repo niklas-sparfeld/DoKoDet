@@ -1694,11 +1694,66 @@ progress {
   min-width: 0;
   flex-direction: column;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.75rem;
   padding: 0.35rem 0.4rem;
 }
 
+.recordingRowHeading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 .recordingRowContent h2 {
+  overflow-wrap: anywhere;
+}
+
+.recordingStatus {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.07em;
+}
+
+.recordingStatus[data-state="intake"] {
+  --status-surface: var(--panel-raised);
+  --status-ink: var(--muted-ink);
+}
+
+.recordingStatus[data-state="analyzing"] {
+  --status-surface: var(--warning-surface);
+  --status-ink: var(--warning);
+}
+
+.recordingStatus[data-state="failed"] {
+  --status-surface: var(--danger-surface);
+  --status-ink: var(--danger);
+}
+
+.recordingMetadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1.4rem;
+  margin: 0;
+}
+
+.recordingMetadata div {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.recordingMetadata dt {
+  color: var(--muted-ink);
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recordingMetadata dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.78rem;
   overflow-wrap: anywhere;
 }
 

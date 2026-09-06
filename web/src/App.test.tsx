@@ -132,6 +132,10 @@ describe("App", () => {
 
     const row = await screen.findByRole("link", { name: "Open round-7" });
     expect(row).toHaveAttribute("href", `/recordings/${recordingId}`);
+    expect(row).toHaveTextContent("Intake");
+    expect(row).toHaveTextContent("Received");
+    expect(row).toHaveTextContent("Session");
+    expect(row).toHaveTextContent("session-fixture");
     expect(
       screen.getByRole("img", { name: "Random screenshot from round-7" }),
     ).toBeInTheDocument();

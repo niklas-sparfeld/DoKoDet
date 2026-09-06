@@ -103,9 +103,36 @@ function RecordingRow({ recording }: { recording: RecordingSummary }) {
         roundId={recording.round_id}
       />
       <div className={styles.recordingRowContent}>
-        <h2>{recording.round_id}</h2>
+        <div className={styles.recordingRowHeading}>
+          <h2>{recording.round_id}</h2>
+          <RecordingStatus recording={recording} />
+        </div>
+        <dl className={styles.recordingMetadata}>
+          <div>
+            <dt>Received</dt>
+            <dd>{formatTimestamp(recording.received_at)}</dd>
+          </div>
+          <div>
+            <dt>Session</dt>
+            <dd title={recording.session_id}>
+              {formatSessionId(recording.session_id)}
+            </dd>
+          </div>
+        </dl>
       </div>
     </a>
+  );
+}
+
+function RecordingStatus({ recording }: { recording: RecordingSummary }) {
+  const status = getRecordingStatus(recording);
+  return (
+    <span
+      className={`${styles.status} ${styles.recordingStatus}`}
+      data-state={status.state}
+    >
+      {status.label}
+    </span>
   );
 }
 
@@ -219,6 +246,38 @@ function isActiveAnalysis(
   analysis: RecordingSummary["analyses"][number],
 ): boolean {
   return analysis.state !== "complete" && analysis.state !== "failed";
+}
+
+function getRecordingStatus(recording: RecordingSummary): {
+  label: string;
+  state: "intake" | "analyzing" | "complete" | "failed";
+} {
+  const latestAnalysis = recording.analyses.reduce<
+    RecordingSummary["analyses"][number] | null
+  >((latest, analysis) => {
+    if (latest === null) return analysis;
+    return analysis.created_at > latest.created_at ? analysis : latest;
+  }, null);
+
+  if (latestAnalysis === null) return { label: "Intake", state: "intake" };
+  if (isActiveAnalysis(latestAnalysis)) {
+    return { label: "In analysis", state: "analyzing" };
+  }
+  if (latestAnalysis.state === "failed") {
+    return { label: "Failed", state: "failed" };
+  }
+  return { label: "Complete", state: "complete" };
+}
+
+function formatTimestamp(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatSessionId(value: string): string {
+  return value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
 }
 
 export function recordingPagePath(recordingId: string): string {
