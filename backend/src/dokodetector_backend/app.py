@@ -41,6 +41,7 @@ from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
 from dokodetector_backend.pipeline_service import (
     EventPipelineService,
     EventProcessorProvider,
+    PipelineComparisonService,
     RecordingPipelineWorkspaceService,
 )
 from dokodetector_backend.pipeline_store import (
@@ -159,6 +160,10 @@ def create_app(
         revision_store=app.state.pipeline_revision_store,
         run_store=app.state.pipeline_run_store,
         selection_store=app.state.pipeline_selection_store,
+    )
+    app.state.pipeline_comparison_service = PipelineComparisonService(
+        revision_store=app.state.pipeline_revision_store,
+        run_store=app.state.pipeline_run_store,
     )
     recovered_event_count = app.state.event_pipeline_service.recover_interrupted_runs()
     log_event(

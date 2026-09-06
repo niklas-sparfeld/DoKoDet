@@ -29,6 +29,9 @@ from dokodetector_backend.pipeline_reference_store import (
 )
 from dokodetector_backend.pipeline_service import (
     EventPipelineService,
+    PipelineComparisonError,
+    PipelineComparisonInputError,
+    PipelineComparisonService,
     PipelineInputError,
     PipelineServiceError,
     RecordingPipelineWorkspaceService,
@@ -63,6 +66,7 @@ IDENTITY_CROP_BASE = (
     "/api/recordings/{recording_id}/pipeline/derived-views/identity-crops/{revision_id}/{item_id}"
 )
 OBSERVATION_BASE = "/api/recordings/{recording_id}/pipeline/observations"
+COMPARISON_BASE = "/api/recordings/{recording_id}/pipeline/comparisons"
 REFERENCE_BASE = "/api/recordings/{recording_id}/pipeline/references/{content_type}"
 REFERENCE_STAGE_BASE = "/api/recordings/{recording_id}/pipeline/{content_type}/reference"
 
@@ -234,6 +238,138 @@ class PipelineWorkspaceResponse(ContractModel):
     video: PipelineWorkspaceVideoResponse
     stages: list[PipelineWorkspaceStageResponse] = Field(min_length=5, max_length=5)
     diagnostics: list[PipelineWorkspaceDiagnosticResponse]
+
+
+class PipelineComparisonMatchingPolicyRequest(ContractModel):
+    """The event timing policy supplied by the comparison client."""
+
+    policy_id: str = Field(min_length=1, max_length=128)
+    anchor: Literal["start_us", "end_us", "midpoint_us"]
+    tolerance_us: int = Field(ge=0)
+    event_type: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class PipelineComparisonRequest(ContractModel):
+    """The strict request for one on-demand comparison."""
+
+    schema_version: Literal["pipeline-comparison-request/v1"]
+    recording_id: str = Field(min_length=1, max_length=128)
+    content_type: Literal["events"]
+    left_run_id: str = Field(min_length=1, max_length=128)
+    right_run_id: str = Field(min_length=1, max_length=128)
+    reference_revision_id: str = Field(min_length=1, max_length=128)
+    matching_policy: PipelineComparisonMatchingPolicyRequest
+
+
+class PipelineComparisonIntervalResponse(ContractModel):
+    """One normalized event coverage interval."""
+
+    start_us: int = Field(ge=0)
+    end_us: int = Field(gt=0)
+
+
+class PipelineComparisonScopeResponse(ContractModel):
+    """The reviewed and side evidence coverage used by a comparison."""
+
+    reviewed: list[PipelineComparisonIntervalResponse]
+    common_covered: list[PipelineComparisonIntervalResponse]
+    left_only: list[PipelineComparisonIntervalResponse]
+    right_only: list[PipelineComparisonIntervalResponse]
+
+
+class PipelineComparisonCountsResponse(ContractModel):
+    """Counts for one comparison side."""
+
+    reference_events: int = Field(ge=0)
+    run_events: int = Field(ge=0)
+    matches: int = Field(ge=0)
+    misses: int = Field(ge=0)
+    extras: int = Field(ge=0)
+    not_reviewed: int = Field(ge=0)
+    unpaired_input: int = Field(ge=0)
+    failures: int = Field(ge=0)
+
+
+class PipelineComparisonMetricsResponse(ContractModel):
+    """Metrics calculated from reviewed and covered events only."""
+
+    precision: float | None
+    recall: float | None
+    f1: float | None
+    mean_error_us: float | None
+    max_error_us: int | None
+
+
+class PipelineComparisonDeltaResponse(PipelineComparisonMetricsResponse):
+    """Right-minus-left metrics for a paired comparison."""
+
+
+class PipelineComparisonSideResponse(ContractModel):
+    """Exact run and output revision facts used by one comparison side."""
+
+    run_id: str
+    revision_id: str
+    status: Literal["complete", "partial"]
+    input_revision_ids: list[str]
+    content_sha256: Sha256
+    implementation: dict[str, Any]
+    model: dict[str, Any] | None
+    configuration: dict[str, Any]
+    extraction_policy: dict[str, Any]
+    failure: dict[str, Any] | None
+
+
+class PipelineComparisonReferenceResponse(ContractModel):
+    """Exact completed reference revision facts used by a comparison."""
+
+    revision_id: str
+    input_revision_ids: list[str]
+    content_sha256: Sha256
+    origin: Literal["manual", "corrected"]
+
+
+class PipelineComparisonItemResponse(ContractModel):
+    """One stable source-ordered event outcome."""
+
+    item_id: str
+    side: Literal["left", "right"]
+    outcome: Literal[
+        "match",
+        "miss",
+        "extra",
+        "disagreement",
+        "failure",
+        "not_reviewed",
+        "unpaired_input",
+    ]
+    source_time_us: int | None
+    event_type: str
+    reference_event_id: str | None
+    run_event_id: str | None
+    reference_event: dict[str, Any] | None
+    run_event: dict[str, Any] | None
+    delta_us: int | None
+    source_links: dict[str, str]
+
+
+class PipelineComparisonResponse(ContractModel):
+    """Strict ``pipeline-comparison/v1`` response."""
+
+    schema_version: Literal["pipeline-comparison/v1"]
+    comparison_id: str
+    recording_id: str
+    content_type: Literal["events"]
+    mode: Literal["paired_processor", "upstream_experiment"]
+    algorithm_version: str
+    left: PipelineComparisonSideResponse
+    right: PipelineComparisonSideResponse
+    reference: PipelineComparisonReferenceResponse
+    scope: PipelineComparisonScopeResponse
+    matching_policy: PipelineComparisonMatchingPolicyRequest
+    counts: dict[Literal["left", "right"], PipelineComparisonCountsResponse]
+    metrics: dict[Literal["left", "right"], PipelineComparisonMetricsResponse]
+    paired_delta: PipelineComparisonDeltaResponse | None
+    items: list[PipelineComparisonItemResponse]
 
 
 @router.get(WORKSPACE_BASE, response_model=PipelineWorkspaceResponse)
@@ -773,6 +909,24 @@ def get_observation_assembly_result(
     }
 
 
+@router.post(COMPARISON_BASE, response_model=PipelineComparisonResponse)
+def compare_pipeline_runs(
+    recording_id: str, payload: PipelineComparisonRequest, request: Request
+) -> PipelineComparisonResponse:
+    """Calculate one deterministic comparison without changing retained data."""
+
+    _validate_recording_id(recording_id)
+    try:
+        comparison = _comparison_service(request).compare(recording_id, payload.model_dump())
+    except PipelineNotFound as error:
+        raise ContractError("comparison_input_not_found", str(error), status_code=404) from error
+    except PipelineComparisonInputError as error:
+        raise ContractError("invalid_comparison_request", str(error), status_code=422) from error
+    except PipelineComparisonError as error:
+        raise ContractError("comparison_unavailable", str(error), status_code=409) from error
+    return PipelineComparisonResponse.model_validate(comparison.to_mapping())
+
+
 @router.get(REFERENCE_BASE)
 @router.get(REFERENCE_STAGE_BASE, include_in_schema=False)
 def get_reference(recording_id: str, content_type: str, request: Request) -> dict[str, Any]:
@@ -898,6 +1052,10 @@ def _visual_identity_service(request: Request) -> VisualIdentityPipelineService:
 
 def _observation_service(request: Request) -> ObservationPipelineService:
     return request.app.state.observation_pipeline_service
+
+
+def _comparison_service(request: Request) -> PipelineComparisonService:
+    return request.app.state.pipeline_comparison_service
 
 
 def _reference_service(request: Request) -> Any:

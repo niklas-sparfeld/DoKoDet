@@ -21,6 +21,7 @@ import {
   pipelineObservationRunPath,
   pipelineObservationRunRetryPath,
   pipelineObservationRunsPath,
+  pipelineComparisonPath,
   pipelineIdentityCropPath,
   pipelineDerivedFramePath,
   pipelineReferencePath,
@@ -31,6 +32,7 @@ import {
   roundCounterfactualPath,
   roundCounterfactualReadPath,
   type RoundAnalysisCreateRequest,
+  type PipelineComparisonRequest,
   identityReviewPreviewPath,
   visibleCardReviewItemRedetectPath,
 } from "./client";
@@ -172,6 +174,41 @@ describe("DokoDetector API client", () => {
     expect(fetchImplementation.mock.calls[2]?.[1]?.method).toBe("POST");
     expect(fetchImplementation.mock.calls[3]?.[1]?.body).toContain(
       "table_observation_revision_id",
+    );
+  });
+
+  it("runs event comparisons through the generated recording path", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+    const payload = {
+      schema_version: "pipeline-comparison-request/v1",
+      recording_id: "recording/1",
+      content_type: "events",
+      left_run_id: "run-left",
+      right_run_id: "run-right",
+      reference_revision_id: "reference-1",
+      matching_policy: {
+        policy_id: "event-timing/v1",
+        anchor: "start_us",
+        tolerance_us: 50_000,
+      },
+    } satisfies PipelineComparisonRequest;
+
+    await client.comparePipelineRuns("recording/1", payload);
+
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      pipelineComparisonPath("recording/1"),
+    );
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[0]?.[1]?.body).toContain(
+      "pipeline-comparison-request/v1",
     );
   });
 

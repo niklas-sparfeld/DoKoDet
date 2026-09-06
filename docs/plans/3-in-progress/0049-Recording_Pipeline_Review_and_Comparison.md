@@ -21,7 +21,7 @@
 - **M4:** Complete — switch identity review to the maintained reference.
 - **M5:** Complete — add run controls for event, visible-card, and identity processors.
 - **M6:** Complete — add observation assembly and reconstruction controls.
-- **M7:** Not started — add deterministic event comparison.
+- **M7:** Complete — add deterministic event comparison.
 - **M8:** Not started — add deterministic visible-card and identity comparison.
 - **M9:** Not started — add the comparison workspace and source inspection.
 - **M10:** Not started — prove the local workflow and remove obsolete review routes.
@@ -564,6 +564,17 @@ Acceptance:
 - counts and metrics exclude unreviewed intervals;
 - paired delta is absent for an upstream experiment; and
 - equal requests return equal comparison IDs and byte-equivalent domain responses.
+
+### M7 notes — 2026-09-06
+
+Added shared `pipeline-comparison-request/v1` and `pipeline-comparison/v1` contracts for event
+comparisons. The backend resolves two complete or partial retained event runs with valid outputs and
+one completed maintained reference, validates their recording video and lineage, and calculates the
+result on demand. Event matching groups qualified event types and uses the declared anchor and
+microsecond tolerance with maximum-cardinality, minimum-error, stable tie breaks. Reviewed, common,
+and side-only coverage is normalized. Metrics exclude unreviewed intervals. Paired runs expose a
+right-minus-left delta; changed upstream inputs use `upstream_experiment` with no paired delta. The
+recording-scoped API route and typed client method do not create comparison state or UI.
 
 ### M8 — Visible-card and identity comparison
 

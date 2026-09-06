@@ -68,6 +68,11 @@ export type PipelineRunResponse = {
 };
 export type RoundAnalysisCreateRequest =
   components["schemas"]["RoundAnalysisCreateRequest"];
+export type PipelineComparisonRequest =
+  components["schemas"]["PipelineComparisonRequest"];
+export type PipelineComparisonResponse = JsonResponse<
+  paths["/api/recordings/{recording_id}/pipeline/comparisons"]["post"]["responses"][200]
+>;
 export type PipelineReferenceItem = {
   item_id: string;
   base_item_id: string | null;
@@ -316,6 +321,11 @@ export interface DokoDetectorClient {
     payload: PipelineSelectionUpdateRequest,
     init?: RequestInit,
   ): Promise<PipelineSelectionResponse>;
+  comparePipelineRuns(
+    recordingId: string,
+    payload: PipelineComparisonRequest,
+    init?: RequestInit,
+  ): Promise<PipelineComparisonResponse>;
   startEventRun(
     recordingId: string,
     payload: PipelineRunStartRequest,
@@ -629,6 +639,17 @@ export function createDokoDetectorClient(
         {
           ...init,
           method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    comparePipelineRuns: (recordingId, payload, init) =>
+      requestJson<PipelineComparisonResponse>(
+        fetchImplementation,
+        pipelineComparisonPath(recordingId),
+        {
+          ...init,
+          method: "POST",
           headers: jsonHeaders(init?.headers),
           body: JSON.stringify(payload),
         },
@@ -1178,6 +1199,10 @@ export function recordingDetailPath(recordingId: string): string {
 
 export function recordingPipelineWorkspacePath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline`;
+}
+
+export function pipelineComparisonPath(recordingId: string): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/comparisons`;
 }
 
 export function recordingPipelineSelectionPath(

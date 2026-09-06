@@ -24,6 +24,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/pipeline/comparisons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare Pipeline Runs
+         * @description Calculate one deterministic comparison without changing retained data.
+         */
+        post: operations["compare_pipeline_runs_api_recordings__recording_id__pipeline_comparisons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline/derived-views/exact-event/{requested_time_us}": {
         parameters: {
             query?: never;
@@ -2920,6 +2940,265 @@ export interface components {
             upload_id: string;
         };
         /**
+         * PipelineComparisonCountsResponse
+         * @description Counts for one comparison side.
+         */
+        PipelineComparisonCountsResponse: {
+            /** Extras */
+            extras: number;
+            /** Failures */
+            failures: number;
+            /** Matches */
+            matches: number;
+            /** Misses */
+            misses: number;
+            /** Not Reviewed */
+            not_reviewed: number;
+            /** Reference Events */
+            reference_events: number;
+            /** Run Events */
+            run_events: number;
+            /** Unpaired Input */
+            unpaired_input: number;
+        };
+        /**
+         * PipelineComparisonDeltaResponse
+         * @description Right-minus-left metrics for a paired comparison.
+         */
+        PipelineComparisonDeltaResponse: {
+            /** F1 */
+            f1: number | null;
+            /** Max Error Us */
+            max_error_us: number | null;
+            /** Mean Error Us */
+            mean_error_us: number | null;
+            /** Precision */
+            precision: number | null;
+            /** Recall */
+            recall: number | null;
+        };
+        /**
+         * PipelineComparisonIntervalResponse
+         * @description One normalized event coverage interval.
+         */
+        PipelineComparisonIntervalResponse: {
+            /** End Us */
+            end_us: number;
+            /** Start Us */
+            start_us: number;
+        };
+        /**
+         * PipelineComparisonItemResponse
+         * @description One stable source-ordered event outcome.
+         */
+        PipelineComparisonItemResponse: {
+            /** Delta Us */
+            delta_us: number | null;
+            /** Event Type */
+            event_type: string;
+            /** Item Id */
+            item_id: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "match" | "miss" | "extra" | "disagreement" | "failure" | "not_reviewed" | "unpaired_input";
+            /** Reference Event */
+            reference_event: {
+                [key: string]: unknown;
+            } | null;
+            /** Reference Event Id */
+            reference_event_id: string | null;
+            /** Run Event */
+            run_event: {
+                [key: string]: unknown;
+            } | null;
+            /** Run Event Id */
+            run_event_id: string | null;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "left" | "right";
+            /** Source Links */
+            source_links: {
+                [key: string]: string;
+            };
+            /** Source Time Us */
+            source_time_us: number | null;
+        };
+        /**
+         * PipelineComparisonMatchingPolicyRequest
+         * @description The event timing policy supplied by the comparison client.
+         */
+        PipelineComparisonMatchingPolicyRequest: {
+            /**
+             * Anchor
+             * @enum {string}
+             */
+            anchor: "start_us" | "end_us" | "midpoint_us";
+            /** Event Type */
+            event_type?: string | null;
+            /** Policy Id */
+            policy_id: string;
+            /** Tolerance Us */
+            tolerance_us: number;
+        };
+        /**
+         * PipelineComparisonMetricsResponse
+         * @description Metrics calculated from reviewed and covered events only.
+         */
+        PipelineComparisonMetricsResponse: {
+            /** F1 */
+            f1: number | null;
+            /** Max Error Us */
+            max_error_us: number | null;
+            /** Mean Error Us */
+            mean_error_us: number | null;
+            /** Precision */
+            precision: number | null;
+            /** Recall */
+            recall: number | null;
+        };
+        /**
+         * PipelineComparisonReferenceResponse
+         * @description Exact completed reference revision facts used by a comparison.
+         */
+        PipelineComparisonReferenceResponse: {
+            /** Content Sha256 */
+            content_sha256: string;
+            /** Input Revision Ids */
+            input_revision_ids: string[];
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "manual" | "corrected";
+            /** Revision Id */
+            revision_id: string;
+        };
+        /**
+         * PipelineComparisonRequest
+         * @description The strict request for one on-demand comparison.
+         */
+        PipelineComparisonRequest: {
+            /**
+             * Content Type
+             * @constant
+             */
+            content_type: "events";
+            /** Left Run Id */
+            left_run_id: string;
+            matching_policy: components["schemas"]["PipelineComparisonMatchingPolicyRequest"];
+            /** Recording Id */
+            recording_id: string;
+            /** Reference Revision Id */
+            reference_revision_id: string;
+            /** Right Run Id */
+            right_run_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "pipeline-comparison-request/v1";
+        };
+        /**
+         * PipelineComparisonResponse
+         * @description Strict ``pipeline-comparison/v1`` response.
+         */
+        PipelineComparisonResponse: {
+            /** Algorithm Version */
+            algorithm_version: string;
+            /** Comparison Id */
+            comparison_id: string;
+            /**
+             * Content Type
+             * @constant
+             */
+            content_type: "events";
+            /** Counts */
+            counts: {
+                [key: string]: components["schemas"]["PipelineComparisonCountsResponse"];
+            };
+            /** Items */
+            items: components["schemas"]["PipelineComparisonItemResponse"][];
+            left: components["schemas"]["PipelineComparisonSideResponse"];
+            matching_policy: components["schemas"]["PipelineComparisonMatchingPolicyRequest"];
+            /** Metrics */
+            metrics: {
+                [key: string]: components["schemas"]["PipelineComparisonMetricsResponse"];
+            };
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "paired_processor" | "upstream_experiment";
+            paired_delta: components["schemas"]["PipelineComparisonDeltaResponse"] | null;
+            /** Recording Id */
+            recording_id: string;
+            reference: components["schemas"]["PipelineComparisonReferenceResponse"];
+            right: components["schemas"]["PipelineComparisonSideResponse"];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "pipeline-comparison/v1";
+            scope: components["schemas"]["PipelineComparisonScopeResponse"];
+        };
+        /**
+         * PipelineComparisonScopeResponse
+         * @description The reviewed and side evidence coverage used by a comparison.
+         */
+        PipelineComparisonScopeResponse: {
+            /** Common Covered */
+            common_covered: components["schemas"]["PipelineComparisonIntervalResponse"][];
+            /** Left Only */
+            left_only: components["schemas"]["PipelineComparisonIntervalResponse"][];
+            /** Reviewed */
+            reviewed: components["schemas"]["PipelineComparisonIntervalResponse"][];
+            /** Right Only */
+            right_only: components["schemas"]["PipelineComparisonIntervalResponse"][];
+        };
+        /**
+         * PipelineComparisonSideResponse
+         * @description Exact run and output revision facts used by one comparison side.
+         */
+        PipelineComparisonSideResponse: {
+            /** Configuration */
+            configuration: {
+                [key: string]: unknown;
+            };
+            /** Content Sha256 */
+            content_sha256: string;
+            /** Extraction Policy */
+            extraction_policy: {
+                [key: string]: unknown;
+            };
+            /** Failure */
+            failure: {
+                [key: string]: unknown;
+            } | null;
+            /** Implementation */
+            implementation: {
+                [key: string]: unknown;
+            };
+            /** Input Revision Ids */
+            input_revision_ids: string[];
+            /** Model */
+            model: {
+                [key: string]: unknown;
+            } | null;
+            /** Revision Id */
+            revision_id: string;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "partial";
+        };
+        /**
          * PipelineWorkspaceAnalysisResponse
          * @description The retained round-analysis lifecycle facts shown by the final stage.
          */
@@ -4667,6 +4946,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PipelineWorkspaceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_pipeline_runs_api_recordings__recording_id__pipeline_comparisons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PipelineComparisonRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineComparisonResponse"];
                 };
             };
             /** @description Validation Error */

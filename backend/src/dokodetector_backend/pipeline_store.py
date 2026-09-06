@@ -748,6 +748,7 @@ class ProcessorRunStore:
         *,
         progress: RunProgress,
         items: tuple[RunItemOutcome, ...],
+        output_revision_ids: tuple[str, ...] | list[str] = (),
         completed_at: datetime | str | None = None,
     ) -> StoredProcessorRun:
         current = self.require(run_id)
@@ -763,6 +764,7 @@ class ProcessorRunStore:
                 updated_at=timestamp,
                 progress=progress,
                 items=items,
+                output_revision_ids=tuple(output_revision_ids),
             ),
         )
 
