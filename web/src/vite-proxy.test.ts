@@ -19,9 +19,11 @@ describe("Vite development proxy", () => {
     delete process.env.VITE_API_PROXY_TARGET;
   });
 
-  it("forwards v1 requests to the configured backend target", async () => {
+  it("forwards frontend API requests to the configured backend target", async () => {
     const backend = createHttpServer((request, response) => {
-      if (request.url !== "/v1/proxy-check") {
+      if (
+        !new Set(["/v1/proxy-check", "/api/proxy-check"]).has(request.url ?? "")
+      ) {
         response.writeHead(404).end();
         return;
       }
@@ -43,12 +45,14 @@ describe("Vite development proxy", () => {
     servers.push({ backend, vite });
     const viteAddress = addressOf(vite.httpServer!);
 
-    const response = await fetch(
-      `http://127.0.0.1:${viteAddress.port}/v1/proxy-check`,
-    );
+    for (const path of ["/v1/proxy-check", "/api/proxy-check"]) {
+      const response = await fetch(
+        `http://127.0.0.1:${viteAddress.port}${path}`,
+      );
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "proxied" });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ status: "proxied" });
+    }
   });
 });
 

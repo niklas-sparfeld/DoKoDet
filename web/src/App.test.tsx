@@ -126,6 +126,22 @@ describe("App", () => {
     ).toBe(true);
   });
 
+  it("shows a loading error instead of a blank page when a recording cannot load", async () => {
+    window.history.pushState({}, "", `/recordings/${recordingId}`);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.reject(new Error("backend unavailable")),
+      ),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The backend could not be reached.",
+    );
+  });
+
   it("does not expose batch review pages from the browser router", async () => {
     window.history.pushState({}, "", "/visible-card-reviews/retired-batch");
     vi.stubGlobal(

@@ -387,10 +387,7 @@ export function RecordingPipelineWorkspace({
     setUrlState(nextState);
   }
 
-  if (stageKey === null && workspace === null) {
-    return null;
-  }
-  if (stageKey !== null && loading && workspace === null) {
+  if (loading && workspace === null) {
     return (
       <main className={`${styles.shell} ${styles.recordingsPage}`}>
         <p className={styles.loading} role="status">
@@ -399,7 +396,7 @@ export function RecordingPipelineWorkspace({
       </main>
     );
   }
-  if (stageKey !== null && (workspace === null || stage === undefined)) {
+  if (workspace === null) {
     return (
       <main className={`${styles.shell} ${styles.recordingsPage}`}>
         <p className={styles.errorMessage} role="alert">
@@ -408,8 +405,23 @@ export function RecordingPipelineWorkspace({
       </main>
     );
   }
-  if (workspace === null || stage === undefined) {
-    return null;
+  if (stageKey === null) {
+    return (
+      <main className={`${styles.shell} ${styles.recordingsPage}`}>
+        <p className={styles.loading} role="status">
+          Opening recording pipeline…
+        </p>
+      </main>
+    );
+  }
+  if (stage === undefined) {
+    return (
+      <main className={`${styles.shell} ${styles.recordingsPage}`}>
+        <p className={styles.errorMessage} role="alert">
+          {error ?? "The recording pipeline stage could not be loaded."}
+        </p>
+      </main>
+    );
   }
 
   const activeView = urlState.view ?? defaultViewForStage(stage);
