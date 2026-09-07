@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0058 — Backend pipeline service boundaries](3-in-progress/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0–M2 complete: HTTP routes, event execution, comparison, and workspace composition have focused backend modules with unchanged public contracts. M3–M4 remain. |
+| [0058 — Backend pipeline service boundaries](3-in-progress/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0–M3 complete: HTTP routes, execution, comparison, workspace composition, and maintained-reference handlers have focused backend modules with unchanged public contracts. M4 remains. |
 | [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M2 complete: evidence-package and repository-intake contract boundaries are split with unchanged behavior. M3 remains. |
 | [0056 — Superseded review and data interfaces](3-in-progress/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | M0–M1 complete: CardEventNet package-review commands and command-only helpers are removed; M2–M5 remain. |
 | [0059 — Web workspace module boundaries](3-in-progress/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0–M1 complete: route and URL-state helpers have a focused source and regression proof; M2–M7 remain. |

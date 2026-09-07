@@ -13,15 +13,16 @@
 ## Milestone status
 
 - **M0:** Complete — traced service construction, state ownership, HTTP ownership, consumers, and
-  focused checks. M3–M4 are ready for one `gpt-5.6-luna` phase each.
+  focused checks. M4 is ready for one `gpt-5.6-luna` phase.
 - **M1:** Complete — split pipeline HTTP schemas and routes by workspace, generated stage,
   derived view, comparison, and maintained reference while preserving one mounted API surface.
   Focused route inventory and generated-client verification cover the unchanged public contract.
 - **M2:** Complete — moved event execution, comparison, and recording-workspace composition into
   responsibility-named modules. The workspace now receives a public recording-source provider,
   and direct service tests cover comparison and workspace behavior.
-- **M3:** Not started — split maintained-reference commands into common lifecycle coordination and
-  content-specific edit and coverage handlers.
+- **M3:** Complete — split maintained-reference commands into a common lifecycle facade and
+  event, visible-card, and visual-identity handlers for edits, coverage, serialization, and
+  downstream impact.
 - **M4:** Not started — make pipeline store ownership and application wiring explicit, then remove
   obsolete compatibility imports and prove the final module boundaries.
 
@@ -81,6 +82,20 @@ consumer imports are removed.
 workspace service. Workspace composition no longer calls an event-service private method.
 Direct comparison and workspace calls are covered beside the API tests. The M2 focused suite has
 16 passing tests; full backend Ruff lint and formatting checks for the touched files pass.
+
+## M3 evidence
+
+`PipelineReferenceService` now coordinates request parsing, locks, draft revisions, immutable
+publication, selection pointers, and conflicts. `pipeline_reference_handlers.py` owns the common
+handler protocol plus separate event, visible-card, and visual-identity handlers. The handlers own
+content item validation, edit commands, rebase matching, coverage decisions, human serialization,
+canonical bytes, and correction impact. They only read through injected callbacks; store writes stay
+in the lifecycle facade.
+
+Shared reference errors and identifier validation live in `pipeline_reference_errors.py`. The
+direct maintained-reference suite passes 13 tests. The M3 focused service/API suite passes 29
+tests; the two pre-existing visual-identity and round-analysis fixture failures remain unchanged.
+Ruff lint and formatting checks pass for the changed reference modules.
 
 ## Target module ownership
 
