@@ -4,19 +4,21 @@
 
 - **Summary:** Use one repository-wide Sol review to find and rank cleanup work that reduces the
   context agents need to navigate, understand, and change the repository.
-- **Status:** Ready
+- **Status:** Closed
 - **Depends on:** None
 - **Readiness:** The review is read-only. It can start from the tracked repository, current active
   plans, tests, build configuration, and generated or runtime boundaries.
-- **Outcome:** Publish a concise repository navigation map and create a small set of evidence-based
-  follow-up epics for separate Terra specification. Do not implement cleanup in this epic.
+- **Outcome:** Published the [repository navigation report](../../reports/0053-Agent_Navigation_Cleanup_Discovery.md)
+  and created six ranked work-area epics for separate Terra specification. No cleanup was
+  implemented in this epic.
+- **Closure reason:** Complete
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status
 
-- **M0:** Not started — one Sol agent maps navigation costs, ranks low-risk cleanup candidates, and
-  creates the justified follow-up epics.
+- **M0:** Complete — one Sol agent mapped navigation costs, ranked six cleanup candidates, and
+  created epics 0055 through 0060 for separate Terra specification.
 
 ## 1. Problem and priority
 

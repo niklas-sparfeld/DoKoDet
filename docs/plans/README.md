@@ -36,6 +36,12 @@ The shared target architecture is
 | [0023 — Scalable game reconstruction](0-to-specify/0023-Game_Reconstruction_Development.md) | Completed 0006 foundation; search measurements must define the next scope | Specify later search improvements. Existing reconstruction remains usable through 0048. |
 | [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Explicit production scope and measured development behavior | Select later production work. Package-only operation is not a current requirement. |
 | [0026 — Reconstruction review workflow](0-to-specify/0026-Reconstruction_Review_Workflow.md) | 0006 contracts, later 0023 focused alternatives, and measured review cases | Specify full reconstruction correction beyond the existing inspection exposed by 0049. |
+| [0055 — Documentation authority and first hops](0-to-specify/0055-Documentation_Authority_and_First_Hops.md) | 0053 discovery complete | Give agents one current authority and one component-local verification path for each task. |
+| [0056 — Superseded review and data interfaces](0-to-specify/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | Prove and remove obsolete package-backed and review-batch surfaces while preserving necessary consumers and validators. |
+| [0057 — Operations module and public API boundaries](0-to-specify/0057-Operations_Module_and_Public_API_Boundaries.md) | 0053 discovery complete | Reduce operations context through explicit imports and responsibility-focused modules. |
+| [0058 — Backend pipeline service boundaries](0-to-specify/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | Separate backend pipeline service, contract, route, and store ownership without changing behavior. |
+| [0059 — Web workspace module boundaries](0-to-specify/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | Give workspace stages, inspectors, source surfaces, state, styles, and tests clear local ownership. |
+| [0060 — iOS capture module boundaries](0-to-specify/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | Separate evidence contract, validation, coordination, and app-state responsibilities across the Swift Package and Xcode app. |
 
 ### Backlog
 
@@ -47,7 +53,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0053 — Agent navigation cleanup discovery](2-ready/0053-Agent_Navigation_Cleanup_Discovery.md) | None | One Sol agent will publish a concise repository navigation map, rank high-confidence cleanup candidates, and create at most six work-area epics for separate Terra specification and Luna-sized delivery. |
+| None | — | — |
 
 ### In Progress
 
@@ -68,6 +74,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0053 — Agent navigation cleanup discovery](5-closed/0053-Agent_Navigation_Cleanup_Discovery.md) | Complete | Published a first-hop repository map and repeatable baseline. Ranked six cleanup areas as epics 0055–0060 for separate Terra specification. No cleanup was implemented. |
 | [0048 — Pipeline data and execution](5-closed/0048-Pipeline_Data_and_Execution.md) | Complete | M0–M10 complete: recording-video pipeline execution, maintained references with coverage and downstream impact validation, immutable dataset consumer manifests with explicit source/policy/lineage inputs, and the 0049 cutover handoff. Real-data quality measurement remains in 0043 and 0050. |
 | [0049 — Recording pipeline review and comparison](5-closed/0049-Recording_Pipeline_Review_and_Comparison.md) | Complete | M0–M10 complete: one recording-owned pipeline workspace for accepted video, generated and reviewed inputs, maintained references, reconstruction, comparison, analysis, and dataset readiness. Obsolete review-batch routes and duplicate recording state are removed. Real-data quality measurement remains outside this epic. |
 | [0054 — Unified recording workspace layout](5-closed/0054-Unified_Recording_Workspace_Layout.md) | Complete | M0–M10 complete: one responsive recording workspace with a central source surface, shared inspector, and Timeline Rail. The retired comparison page/list is removed, and browser coverage verifies 1440px, 1280px, and narrow layouts. |
@@ -116,10 +123,10 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Start 0053 as an independent cleanup discovery pass.** Use one Sol agent for its only milestone.
-   Keep the scan broad and shallow. Create only evidence-based work-area epics. Use one Terra agent
-   to specify each area and Luna-sized milestones for delivery. Do not add a third epic layer by
-   default.
+1. **Specify the 0053 cleanup follow-ups in ranked order.** Start with 0055 documentation authority,
+   then 0056 obsolete interfaces, 0057 operations boundaries, 0058 backend boundaries, 0059 web
+   boundaries, and 0060 iOS boundaries. Use one Terra agent for each M0. Keep only evidence-backed,
+   Luna-sized delivery milestones, and close a follow-up when detailed evidence does not justify it.
 2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts
@@ -189,6 +196,18 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   temporal navigation in lists or tables. Use one viewport shell, central task surface, right-side
   metadata inspector, and shared bottom Timeline Rail. Keep backend and persistence contracts
   unchanged.
+
+### Planning decisions — 2026-09-07
+
+- Close 0053 after its discovery-only M0. Its report records the first-hop repository map,
+  repeatable baseline, retained candidates, rejected moves, and ranking. It changes no cleanup
+  candidate.
+- Add 0055 through 0060 as independent `To Specify` work areas. Use one Terra specification pass per
+  area. Use Luna-sized delivery milestones inside each work-area epic and do not create a third epic
+  layer by default.
+- Specify documentation authority first and obsolete interfaces second. Then specify operations,
+  backend, web, and iOS module boundaries. Preserve active epic ownership and close any candidate
+  whose detailed consumer or dependency evidence does not justify delivery.
 
 ## Closed-epic policy
 
