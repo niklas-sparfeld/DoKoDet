@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from dokodetector_backend.pipeline_service import CardEventFileProvider
+from dokodetector_backend.event_pipeline_service import CardEventFileProvider
 
 
 def test_card_event_file_provider_uses_installed_cardevent_package(

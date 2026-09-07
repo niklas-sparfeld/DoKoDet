@@ -148,6 +148,10 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
     provider = FakeEventProvider()
     app = create_test_app(_settings(tmp_path), event_provider=provider)
 
+    direct_body = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID)
+    assert direct_body["schema_version"] == "pipeline-workspace/v1"
+    assert direct_body["video"]["recording_id"] == RECORDING_ID
+
     with TestClient(app) as client:
         created = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/events", json=_request("run-generated")
@@ -342,7 +346,7 @@ def test_restart_marks_running_event_run_failed(tmp_path: Path) -> None:
 
     app = create_test_app(settings, event_provider=FakeEventProvider())
     service = app.state.event_pipeline_service
-    source = service._accepted_source(RECORDING_ID)[1]  # noqa: SLF001
+    source = service.get_recording_source(RECORDING_ID)
     request = {
         **_request("run-interrupted"),
         "source": source.to_mapping(),

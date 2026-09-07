@@ -10,7 +10,7 @@ from pydantic import Field
 from dokodetector_backend.contract import ContractModel, Sha256
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.pipeline_api_contracts import validate_recording_id
-from dokodetector_backend.pipeline_service import (
+from dokodetector_backend.pipeline_comparison_service import (
     PipelineComparisonError,
     PipelineComparisonInputError,
 )

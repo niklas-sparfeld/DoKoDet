@@ -13,12 +13,13 @@
 ## Milestone status
 
 - **M0:** Complete — traced service construction, state ownership, HTTP ownership, consumers, and
-  focused checks. M2–M4 are ready for one `gpt-5.6-luna` phase each.
+  focused checks. M3–M4 are ready for one `gpt-5.6-luna` phase each.
 - **M1:** Complete — split pipeline HTTP schemas and routes by workspace, generated stage,
   derived view, comparison, and maintained reference while preserving one mounted API surface.
   Focused route inventory and generated-client verification cover the unchanged public contract.
-- **M2:** Not started — move event execution, comparison, and recording-workspace composition into
-  separate service modules with explicit dependencies.
+- **M2:** Complete — moved event execution, comparison, and recording-workspace composition into
+  responsibility-named modules. The workspace now receives a public recording-source provider,
+  and direct service tests cover comparison and workspace behavior.
 - **M3:** Not started — split maintained-reference commands into common lifecycle coordination and
   content-specific edit and coverage handlers.
 - **M4:** Not started — make pipeline store ownership and application wiring explicit, then remove
@@ -29,10 +30,10 @@
 The 0053 baseline records eight pipeline-named backend files with 7,450 lines. The current source
 confirms three high-context boundaries:
 
-- `pipeline_service.py` has 1,525 lines. It owns `EventPipelineService`,
-  `PipelineComparisonService`, and `RecordingPipelineWorkspaceService`. Event execution owns
-  lifecycle transitions. Comparison reads immutable run and revision state. Workspace composition
-  reads selected revisions, maintained-reference state, and round-analysis summaries. These are
+- At M0, `pipeline_service.py` had 1,525 lines. It owned `EventPipelineService`,
+  `PipelineComparisonService`, and `RecordingPipelineWorkspaceService`. Event execution owned
+  lifecycle transitions. Comparison read immutable run and revision state. Workspace composition
+  read selected revisions, maintained-reference state, and round-analysis summaries. These were
   separate responsibilities with no required shared mutable service state.
 - `pipeline_reference_service.py` has 1,586 lines. It owns common reference lifecycle commands as
   well as event, visible-card, and visual-identity edits, coverage, correction impact, and
@@ -44,12 +45,12 @@ confirms three high-context boundaries:
   comparison, and maintained-reference routes from one router. The existing stage services already
   owned visible card, visual identity, and observation execution.
 
-`app.py` constructs shared pipeline stores once, injects them into every service, starts and stops
-the four execution services, and mounts one pipeline router. Tests import the stores and reference
-service directly. Other backend services consume the stores directly. No other code imports the
-event, comparison, or workspace service classes except application construction. The web client
-consumes generated OpenAPI, so route paths, operation schemas, response bodies, and error semantics
-are public contracts even when their Python modules move.
+At M0, `app.py` constructed shared pipeline stores once, injected them into every service, started
+and stopped the four execution services, and mounted one pipeline router. Tests imported the stores
+and reference service directly. Other backend services consumed the stores directly. No other
+production code imported the event, comparison, or workspace service classes except application
+construction. The web client consumes generated OpenAPI, so route paths, operation schemas,
+response bodies, and error semantics are public contracts even when their Python modules move.
 
 The focused checks are `test_pipeline_api.py`, `test_pipeline_comparison_api.py`,
 `test_pipeline_reference.py`, `test_visible_card_pipeline_api.py`,
@@ -67,6 +68,19 @@ stores or services.
 The route inventory test proves the four focused module boundaries. The named pipeline API tests
 pass except for two pre-existing fixture failures in visual identity and round-analysis behavior.
 `web` API verification produces no generated-client diff.
+
+## M2 evidence
+
+`event_pipeline_service.py`, `pipeline_comparison_service.py`, and
+`pipeline_workspace_service.py` now own event execution, deterministic comparison, and
+read-only workspace composition. Shared pipeline service errors live in
+`pipeline_service_errors.py`. The old combined `pipeline_service.py` module and its direct
+consumer imports are removed.
+
+`EventPipelineService.get_recording_source` is the public source dependency injected into the
+workspace service. Workspace composition no longer calls an event-service private method.
+Direct comparison and workspace calls are covered beside the API tests. The M2 focused suite has
+16 passing tests; full backend Ruff lint and formatting checks for the touched files pass.
 
 ## Target module ownership
 

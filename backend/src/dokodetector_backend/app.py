@@ -18,6 +18,10 @@ from starlette.staticfiles import StaticFiles
 from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
+from dokodetector_backend.event_pipeline_service import (
+    EventPipelineService,
+    EventProcessorProvider,
+)
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.filesystem import atomic_replace_json
@@ -28,20 +32,16 @@ from dokodetector_backend.pending_video_api import router as pending_video_route
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
 from dokodetector_backend.pipeline_api import router as pipeline_router
+from dokodetector_backend.pipeline_comparison_service import PipelineComparisonService
 from dokodetector_backend.pipeline_reference_service import PipelineReferenceService
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
-from dokodetector_backend.pipeline_service import (
-    EventPipelineService,
-    EventProcessorProvider,
-    PipelineComparisonService,
-    RecordingPipelineWorkspaceService,
-)
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineSelectionStore,
     ProcessorRunStore,
 )
+from dokodetector_backend.pipeline_workspace_service import RecordingPipelineWorkspaceService
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
@@ -198,7 +198,7 @@ def create_app(
         runtime_root=app_settings.evidence_root,
     )
     app.state.pipeline_workspace_service = RecordingPipelineWorkspaceService(
-        event_pipeline_service=app.state.event_pipeline_service,
+        recording_source_provider=app.state.event_pipeline_service.get_recording_source,
         revision_store=app.state.pipeline_revision_store,
         run_store=app.state.pipeline_run_store,
         selection_store=app.state.pipeline_selection_store,

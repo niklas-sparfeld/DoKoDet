@@ -10,10 +10,7 @@ from pydantic import Field
 from dokodetector_backend.contract import ContractModel, Sha256
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.pipeline_api_contracts import validate_recording_id
-from dokodetector_backend.pipeline_service import (
-    PipelineInputError,
-    PipelineServiceError,
-)
+from dokodetector_backend.pipeline_service_errors import PipelineInputError, PipelineServiceError
 from dokodetector_backend.pipeline_store import PipelineNotFound
 
 router = APIRouter()

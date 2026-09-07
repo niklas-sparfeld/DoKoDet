@@ -245,6 +245,12 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
         ),
     )
 
+    direct = app.state.pipeline_comparison_service.compare(
+        RECORDING_ID, _request("left-run", "right-run", "reference-1")
+    )
+    assert direct.recording_id == RECORDING_ID
+    assert direct.content_type == "events"
+
     with TestClient(app) as client:
         first = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/comparisons",
