@@ -4,8 +4,8 @@
 
 - **Summary:** Remove the eager operations package facade. Split stable comparison and
   reconstruction responsibilities into direct contract and execution modules.
-- **Status:** In Progress
-- **Depends on:** 0053 discovery complete; complete 0056 before M2 or M3
+- **Status:** Blocked
+- **Depends on:** 0053 discovery complete; 0056 must complete before M2 or M3
 - **Outcome:** A pipeline comparison or round reconstruction change uses a direct,
   responsibility-focused import and focused tests without loading unrelated campaigns, review
   batches, or model operations.
@@ -17,9 +17,8 @@
   verification.
 - **M1:** Complete — removed the eager package facade, converted its consumers to direct module
   imports, and added import-isolation coverage.
-- **M2:** Not started — split pipeline comparison contracts from matching and comparison execution.
-- **M3:** Not started — split round reconstruction contracts from input assembly, engine execution,
-  and artifact publication.
+- **M2:** Blocked — waits for epic 0056 to remove its owned obsolete interfaces.
+- **M3:** Blocked — waits for epic 0056 to remove its owned obsolete interfaces.
 
 ## Evidence and selected scope
 
@@ -81,6 +80,11 @@ Run `uv run pytest` and `uv run ruff check .` from `operations/`. Run
   coverage passed. The full operations run reached 186 passed tests and two unrelated failures
   because the repository-local `.codex/skills/model-improvement` fixture is absent.
 - Ruff passed for the operations and backend components after import-order fixes.
+
+#### Dependency update — 2026-09-07
+
+- Epic 0056 remains `Backlog`, with its removal milestones not started. M2 and M3 cannot begin
+  until 0056 completes because they would otherwise split code that 0056 owns removing.
 
 ### M2 — Pipeline comparison contract and execution boundary
 
