@@ -15,8 +15,8 @@
 - **M0:** Complete — consumer proof and delivery boundaries specified.
 - **M1:** Complete — removed the unconsumed CardEventNet package-review commands, their aliases,
   handlers, command-only helpers, focused tests, and current command guidance.
-- **M2:** Not started — remove the unconsumed CardEventNet table-observation dataset commands and
-  their package-backed lifecycle helpers.
+- **M2:** Complete — removed the unconsumed CardEventNet table-observation dataset commands,
+  package-backed dataset assembler, and package-only lifecycle helpers.
 - **M3:** Not started — remove obsolete event and table-observation review adapters from
   operations after retaining any shared parsing or validation contract.
 - **M4:** Not started — remove obsolete visible-card and visual-identity batch stores and exports
@@ -77,10 +77,23 @@ commands. CardEventNet no longer registers `review-queue`, `review`, `apply-revi
 review UI, package evidence importer, apply and evidence-import receipt builders, exports, focused
 tests, and current command guidance are removed.
 
-The table-observation annotation schema and review parser remain for the M2 dataset assembler.
-Source intake, event annotation with optional proposals, preparation, split, train, infer, evaluate,
-diagnose, baseline, hard-negative, and Core ML export paths remain available. Reviewed data,
-fixtures, and device evidence-package acceptance remain unchanged.
+The table-observation annotation schema remains for recording-pipeline contracts. Source intake,
+event annotation with optional proposals, preparation, split, train, infer, evaluate, diagnose,
+baseline, hard-negative, and Core ML export paths remain available. Reviewed data, fixtures, and
+device evidence-package acceptance remain unchanged.
+
+## M2 result
+
+The current consumer check found no CardEventNet or untracked operator consumer for the package
+dataset lifecycle. CardEventNet no longer registers `dataset-build`, `dataset-split`,
+`dataset-validate`, `dataset-coverage`, `training-receipt`, or `retire-source`, including their
+aliases.
+
+The package table-dataset assembler, review parser, split and coverage helpers, dataset lifecycle
+receipt builders, source-retirement helpers, focused tests, and current package lifecycle guidance
+are removed. The shared `data_contract` types and table-observation annotation schema remain for
+recording-pipeline contracts and validation. Source intake and inspection remain available, with
+source-import receipts as the only CardEventNet lifecycle receipt boundary.
 
 ## Delivery milestones
 

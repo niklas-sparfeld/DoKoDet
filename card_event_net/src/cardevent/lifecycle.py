@@ -1,19 +1,16 @@
-"""Versioned lifecycle receipts and source-retirement impact tracking."""
+"""Versioned lifecycle receipts for source-video ingestion."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePath
 from typing import Any
 from uuid import uuid4
 
 from .data_contract import (
-    SOURCE_RECORD_SCHEMA_VERSION,
-    DatasetVersion,
-    SourceRecord,
     canonical_json,
     sha256_bytes,
 )
@@ -22,10 +19,6 @@ LIFECYCLE_RECEIPT_SCHEMA_VERSION = "lifecycle-receipt/v1"
 LIFECYCLE_RECEIPT_TYPES = frozenset(
     {
         "source_import",
-        "dataset_creation",
-        "split_creation",
-        "training_run",
-        "retirement",
     }
 )
 LIFECYCLE_REFERENCE_KINDS = frozenset(
@@ -46,22 +39,10 @@ LIFECYCLE_REFERENCE_KINDS = frozenset(
         "source_catalog",
     }
 )
-_IMPACT_REFERENCE_KINDS = (
-    "evidence_package",
-    "annotation_set",
-    "review",
-    "dataset_version",
-    "split_version",
-    "derived_artifact",
-    "training_run",
-    "model_bundle",
-    "ingestion_manifest",
-    "ingestion_index",
-)
 
 
 class LifecycleReceiptError(ValueError):
-    """Raised when a lifecycle receipt or retirement operation is invalid."""
+    """Raised when a lifecycle receipt is invalid."""
 
 
 def _identifier(value: Any, field_name: str) -> str:
@@ -307,109 +288,6 @@ def load_lifecycle_receipt(path: str | Path) -> LifecycleReceipt:
         raise LifecycleReceiptError(f"Invalid lifecycle receipt {receipt_path}: {exc}") from exc
 
 
-def load_lifecycle_receipts(path: str | Path) -> tuple[LifecycleReceipt, ...]:
-    """Load lifecycle receipts from one file or a directory.
-
-    Unrelated JSON artifacts are ignored. A lifecycle receipt, including a nested receipt in the
-    table-observation apply artifact, is strict and must validate.
-    """
-
-    receipt_path = Path(path)
-    paths = [receipt_path] if receipt_path.is_file() else sorted(receipt_path.glob("*.json"))
-    receipts: list[LifecycleReceipt] = []
-    for candidate in paths:
-        try:
-            payload = json.loads(candidate.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise LifecycleReceiptError(
-                f"Could not read lifecycle receipt {candidate}: {exc}"
-            ) from exc
-        if not isinstance(payload, Mapping):
-            continue
-        if payload.get("schema_version") == LIFECYCLE_RECEIPT_SCHEMA_VERSION:
-            receipts.append(LifecycleReceipt.from_mapping(payload))
-        elif isinstance(payload.get("lifecycle_receipt"), Mapping):
-            receipts.append(LifecycleReceipt.from_mapping(payload["lifecycle_receipt"]))
-    ids = [receipt.receipt_id for receipt in receipts]
-    if len(ids) != len(set(ids)):
-        raise LifecycleReceiptError("Lifecycle receipt IDs must be unique.")
-    return tuple(sorted(receipts, key=lambda receipt: receipt.receipt_id))
-
-
-def _source_reference(source: SourceRecord) -> LifecycleReference:
-    return LifecycleReference("source_asset", source.source_asset_id, source.sha256)
-
-
-def _annotation_reference(annotation: Any, *, reviewed: bool = False) -> LifecycleReference:
-    from .vision_annotation import annotation_bytes
-
-    value = annotation
-    if reviewed and hasattr(annotation, "reviewed_annotation"):
-        value = annotation.reviewed_annotation
-    return LifecycleReference(
-        "annotation_set",
-        value.annotation_set_id,
-        sha256_bytes(annotation_bytes(value)),
-    )
-
-
-def _review_reference(review: Any) -> LifecycleReference:
-    return LifecycleReference(
-        "review",
-        review.review_id,
-        sha256_bytes(canonical_json(review.to_mapping()).encode("utf-8")),
-    )
-
-
-def _review_values(reviews: Any) -> tuple[Any, ...]:
-    if reviews is None:
-        return ()
-    if isinstance(reviews, Mapping):
-        return tuple(reviews.values())
-    return tuple(reviews)
-
-
-def _dataset_from_result(dataset_or_result: Any) -> DatasetVersion:
-    dataset = getattr(dataset_or_result, "dataset_version", dataset_or_result)
-    if not isinstance(dataset, DatasetVersion):
-        raise LifecycleReceiptError("A dataset version or dataset assembly result is required.")
-    return dataset
-
-
-def _dataset_dependencies(
-    dataset: DatasetVersion,
-    *,
-    sources: Sequence[SourceRecord] = (),
-    reviewed_annotations: Sequence[Any] = (),
-    reviews: Any = None,
-) -> tuple[LifecycleReference, ...]:
-    source_by_id = {source.source_asset_id: source for source in sources}
-    annotations_by_id = {
-        annotation.annotation_set_id: annotation for annotation in reviewed_annotations
-    }
-    reviews_by_id = {review.review_id: review for review in _review_values(reviews)}
-    references: list[LifecycleReference] = []
-    for entry in dataset.entries:
-        source = source_by_id.get(entry.source_asset_id)
-        references.append(
-            _source_reference(source)
-            if source is not None
-            else LifecycleReference("source_asset", entry.source_asset_id, entry.source_sha256)
-        )
-        annotation = annotations_by_id.get(entry.annotation_set_id)
-        if annotation is not None:
-            references.append(_annotation_reference(annotation))
-        else:
-            references.append(LifecycleReference("annotation_set", entry.annotation_set_id))
-        review = reviews_by_id.get(entry.review_id)
-        references.append(
-            _review_reference(review)
-            if review is not None
-            else LifecycleReference("review", entry.review_id)
-        )
-    return _references(references, "dataset dependencies")
-
-
 def build_source_import_receipt(
     result: Any,
     *,
@@ -443,332 +321,6 @@ def build_source_import_receipt(
     )
 
 
-def build_dataset_creation_receipt(
-    dataset_or_result: Any,
-    *,
-    sources: Sequence[SourceRecord] = (),
-    reviewed_annotations: Sequence[Any] = (),
-    reviews: Any = None,
-    operator: str,
-    receipt_id: str | None = None,
-    occurred_at: str | None = None,
-) -> LifecycleReceipt:
-    """Create a receipt naming every source and reviewed label version in a dataset."""
-
-    dataset = _dataset_from_result(dataset_or_result)
-    dependencies = _dataset_dependencies(
-        dataset,
-        sources=sources,
-        reviewed_annotations=reviewed_annotations,
-        reviews=reviews,
-    )
-    dataset_ref = LifecycleReference("dataset_version", dataset.dataset_version_id, dataset.digest)
-    result = getattr(dataset_or_result, "unassigned", ())
-    excluded = getattr(dataset_or_result, "excluded", ())
-    return LifecycleReceipt(
-        receipt_id=receipt_id or f"receipt-{uuid4().hex}",
-        receipt_type="dataset_creation",
-        operator=operator,
-        occurred_at=occurred_at or _now(),
-        inputs=dependencies,
-        outputs=(dataset_ref,),
-        dependencies=dependencies,
-        metadata={
-            "dataset_version_id": dataset.dataset_version_id,
-            "dataset_version_digest": dataset.digest,
-            "entry_count": len(dataset.entries),
-            "unassigned_count": len(result),
-            "excluded_count": len(excluded),
-        },
-    )
-
-
-def build_split_creation_receipt(
-    dataset: DatasetVersion,
-    split: Any,
-    *,
-    sources: Sequence[SourceRecord] = (),
-    reviewed_annotations: Sequence[Any] = (),
-    reviews: Any = None,
-    operator: str,
-    receipt_id: str | None = None,
-    occurred_at: str | None = None,
-) -> LifecycleReceipt:
-    """Create a receipt for a split bound to one frozen dataset digest."""
-
-    try:
-        split.validate_against(dataset)
-    except (AttributeError, ValueError) as exc:
-        raise LifecycleReceiptError(f"Split does not validate against its dataset: {exc}") from exc
-    dataset_ref = LifecycleReference("dataset_version", dataset.dataset_version_id, dataset.digest)
-    split_ref = LifecycleReference("split_version", split.split_version_id, split.digest)
-    dependencies = _dataset_dependencies(
-        dataset,
-        sources=sources,
-        reviewed_annotations=reviewed_annotations,
-        reviews=reviews,
-    )
-    return LifecycleReceipt(
-        receipt_id=receipt_id or f"receipt-{uuid4().hex}",
-        receipt_type="split_creation",
-        operator=operator,
-        occurred_at=occurred_at or _now(),
-        inputs=(dataset_ref,) + dependencies,
-        outputs=(split_ref,),
-        dependencies=(dataset_ref,) + dependencies,
-        metadata={
-            "dataset_version_id": dataset.dataset_version_id,
-            "dataset_version_digest": dataset.digest,
-            "split_version_id": split.split_version_id,
-            "split_version_digest": split.digest,
-        },
-    )
-
-
-def _derived_references(
-    values: Sequence[str | Mapping[str, Any] | LifecycleReference], kind: str
-) -> tuple[LifecycleReference, ...]:
-    result: list[LifecycleReference] = []
-    for value in values:
-        if isinstance(value, LifecycleReference):
-            result.append(value)
-        elif isinstance(value, Mapping):
-            result.append(LifecycleReference.from_mapping(value))
-        else:
-            result.append(LifecycleReference(kind, _identifier(value, f"{kind}_id")))
-    return _references(result, f"{kind} references")
-
-
-def build_training_run_receipt(
-    dataset: DatasetVersion,
-    split: Any | None,
-    *,
-    training_run_id: str,
-    operator: str,
-    model_bundle_id: str | None = None,
-    derived_artifact_ids: Sequence[str | Mapping[str, Any] | LifecycleReference] = (),
-    sources: Sequence[SourceRecord] = (),
-    reviewed_annotations: Sequence[Any] = (),
-    reviews: Any = None,
-    receipt_id: str | None = None,
-    occurred_at: str | None = None,
-) -> LifecycleReceipt:
-    """Create run provenance that expands to every source and label version used."""
-
-    dataset_ref = LifecycleReference("dataset_version", dataset.dataset_version_id, dataset.digest)
-    split_refs: tuple[LifecycleReference, ...] = ()
-    if split is not None:
-        try:
-            split.validate_against(dataset)
-        except (AttributeError, ValueError) as exc:
-            raise LifecycleReceiptError(
-                f"Split does not validate against its dataset: {exc}"
-            ) from exc
-        split_refs = (LifecycleReference("split_version", split.split_version_id, split.digest),)
-    dependencies = _dataset_dependencies(
-        dataset,
-        sources=sources,
-        reviewed_annotations=reviewed_annotations,
-        reviews=reviews,
-    )
-    run_ref = LifecycleReference("training_run", _identifier(training_run_id, "training_run_id"))
-    outputs: tuple[LifecycleReference, ...] = (run_ref,)
-    if model_bundle_id is not None:
-        outputs += (
-            LifecycleReference("model_bundle", _identifier(model_bundle_id, "model_bundle_id")),
-        )
-    outputs += _derived_references(derived_artifact_ids, "derived_artifact")
-    version_dependencies = (dataset_ref,) + split_refs + dependencies
-    return LifecycleReceipt(
-        receipt_id=receipt_id or f"receipt-{uuid4().hex}",
-        receipt_type="training_run",
-        operator=operator,
-        occurred_at=occurred_at or _now(),
-        inputs=version_dependencies,
-        outputs=outputs,
-        dependencies=version_dependencies,
-        metadata={
-            "dataset_version_id": dataset.dataset_version_id,
-            "dataset_version_digest": dataset.digest,
-            "split_version_id": split.split_version_id if split is not None else None,
-            "source_count": len({entry.source_asset_id for entry in dataset.entries}),
-            "annotation_set_count": len({entry.annotation_set_id for entry in dataset.entries}),
-        },
-    )
-
-
-def _receipt_values(
-    receipts: Sequence[LifecycleReceipt] | str | Path | None,
-) -> tuple[LifecycleReceipt, ...]:
-    if receipts is None:
-        return ()
-    if isinstance(receipts, (str, Path)):
-        return load_lifecycle_receipts(receipts)
-    return tuple(receipts)
-
-
-def find_source_impact(
-    source_asset_ids: Sequence[str],
-    receipts: Sequence[LifecycleReceipt] | str | Path | None = None,
-) -> dict[str, list[str]]:
-    """Find versioned artifacts and runs affected by source withdrawal.
-
-    The search follows receipt references transitively. A training receipt is therefore found even
-    when an intermediate split receipt is the only link between the run and the source.
-    """
-
-    source_ids = {_identifier(value, "source_asset_id") for value in source_asset_ids}
-    if not source_ids:
-        raise LifecycleReceiptError("At least one source_asset_id is required.")
-    receipt_values = _receipt_values(receipts)
-    affected: set[tuple[str, str]] = {("source_asset", value) for value in source_ids}
-    matched_receipts: set[str] = set()
-    changed = True
-    while changed:
-        changed = False
-        for receipt in receipt_values:
-            refs = receipt.inputs + receipt.outputs + receipt.dependencies
-            if not any((reference.kind, reference.id) in affected for reference in refs):
-                continue
-            if receipt.receipt_id not in matched_receipts:
-                matched_receipts.add(receipt.receipt_id)
-                changed = True
-            for reference in refs:
-                token = (reference.kind, reference.id)
-                if token not in affected:
-                    affected.add(token)
-                    changed = True
-    result: dict[str, list[str]] = {f"affected_{kind}s": [] for kind in _IMPACT_REFERENCE_KINDS}
-    for kind, identifier in sorted(affected):
-        if kind in _IMPACT_REFERENCE_KINDS:
-            result[f"affected_{kind}s"].append(identifier)
-    result["affected_receipts"] = sorted(matched_receipts)
-    result["source_assets"] = sorted(source_ids)
-    return result
-
-
-def build_retirement_receipt(
-    source_assets: Sequence[SourceRecord],
-    *,
-    source_asset_ids: Sequence[str],
-    retention_state: str,
-    reason: str,
-    impact: Mapping[str, Any],
-    source_catalog_id: str,
-    source_catalog_digest: str,
-    operator: str,
-    receipt_id: str | None = None,
-    occurred_at: str | None = None,
-) -> LifecycleReceipt:
-    """Create a receipt for a new source-catalog state and its dependency impact."""
-
-    if retention_state not in {"deletion_requested", "retired"}:
-        raise LifecycleReceiptError(
-            "retention_state must be deletion_requested or retired for retirement."
-        )
-    _required_string(reason, "reason")
-    selected_ids = {_identifier(value, "source_asset_id") for value in source_asset_ids}
-    selected = [source for source in source_assets if source.source_asset_id in selected_ids]
-    if len(selected) != len(selected_ids):
-        raise LifecycleReceiptError("Retirement names an unknown source asset.")
-    source_refs = tuple(_source_reference(source) for source in selected)
-    catalog_ref = LifecycleReference(
-        "source_catalog",
-        _identifier(source_catalog_id, "source_catalog_id"),
-        _digest(source_catalog_digest, "source_catalog_digest"),
-    )
-    return LifecycleReceipt(
-        receipt_id=receipt_id or f"receipt-{uuid4().hex}",
-        receipt_type="retirement",
-        operator=operator,
-        occurred_at=occurred_at or _now(),
-        inputs=source_refs,
-        outputs=(catalog_ref,),
-        dependencies=source_refs,
-        metadata={
-            "source_asset_ids": sorted(selected_ids),
-            "retention_state": retention_state,
-            "reason": reason,
-            "impact": dict(impact),
-        },
-    )
-
-
-@dataclass(frozen=True, slots=True)
-class SourceRetirementResult:
-    source_records: tuple[SourceRecord, ...]
-    impact: Mapping[str, list[str]]
-    receipt: LifecycleReceipt
-
-
-def retire_source_records(
-    sources: Sequence[SourceRecord],
-    *,
-    source_asset_ids: Sequence[str],
-    operator: str,
-    reason: str,
-    retention_state: str = "retired",
-    receipts: Sequence[LifecycleReceipt] | str | Path | None = None,
-    receipt_id: str | None = None,
-    occurred_at: str | None = None,
-) -> SourceRetirementResult:
-    """Return a new source catalog state without touching immutable source bytes."""
-
-    source_values = tuple(sources)
-    if len({source.source_asset_id for source in source_values}) != len(source_values):
-        raise LifecycleReceiptError("source_asset_id values must be unique.")
-    selected_ids = {_identifier(value, "source_asset_id") for value in source_asset_ids}
-    source_by_id = {source.source_asset_id: source for source in source_values}
-    if not selected_ids or not selected_ids <= set(source_by_id):
-        raise LifecycleReceiptError("Retirement names an unknown or empty source asset set.")
-    updated = tuple(
-        sorted(
-            (
-                replace(source, retention_state=retention_state)
-                if source.source_asset_id in selected_ids
-                else source
-                for source in source_values
-            ),
-            key=lambda source: source.source_asset_id,
-        )
-    )
-    catalog_payload = {
-        "schema_version": SOURCE_RECORD_SCHEMA_VERSION,
-        "sources": [source.to_mapping() for source in updated],
-    }
-    catalog_digest = sha256_bytes(canonical_json(catalog_payload).encode("utf-8"))
-    impact = find_source_impact(sorted(selected_ids), receipts)
-    receipt = build_retirement_receipt(
-        source_values,
-        source_asset_ids=sorted(selected_ids),
-        retention_state=retention_state,
-        reason=reason,
-        impact=impact,
-        source_catalog_id=f"source-catalog-{catalog_digest[:16]}",
-        source_catalog_digest=catalog_digest,
-        operator=operator,
-        receipt_id=receipt_id,
-        occurred_at=occurred_at,
-    )
-    return SourceRetirementResult(updated, impact, receipt)
-
-
-def save_source_records(
-    sources: Sequence[SourceRecord], path: str | Path, *, overwrite: bool = False
-) -> Path:
-    values = tuple(sorted(sources, key=lambda source: source.source_asset_id))
-    if not values:
-        raise LifecycleReceiptError("At least one source record is required.")
-    return _json_write(
-        path,
-        {
-            "schema_version": SOURCE_RECORD_SCHEMA_VERSION,
-            "sources": [source.to_mapping() for source in values],
-        },
-        overwrite=overwrite,
-    )
-
-
 __all__ = [
     "LIFECYCLE_RECEIPT_SCHEMA_VERSION",
     "LIFECYCLE_RECEIPT_TYPES",
@@ -776,16 +328,7 @@ __all__ = [
     "LifecycleReceipt",
     "LifecycleReceiptError",
     "LifecycleReference",
-    "SourceRetirementResult",
-    "build_dataset_creation_receipt",
-    "build_retirement_receipt",
     "build_source_import_receipt",
-    "build_split_creation_receipt",
-    "build_training_run_receipt",
-    "find_source_impact",
     "load_lifecycle_receipt",
-    "load_lifecycle_receipts",
-    "retire_source_records",
     "save_lifecycle_receipt",
-    "save_source_records",
 ]

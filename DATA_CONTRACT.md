@@ -130,92 +130,34 @@ lineage trace, permission, review state, export round trip, and deterministic da
 
 ## Table-observation annotation contract
 
-M2 adds table-observation-annotation/v1 for one annotation set. An annotation set keeps the human
-event review separate from visual card evidence. It can contain several observed cards, each with
-frame boxes, visibility, quality tags, newly-visible, active-area, movement, occlusion, and optional
-card-tracklet fields. A visible card does not assert that a card was played.
+The `table-observation-annotation/v1` contract describes one annotation set. An annotation set
+keeps the human event review separate from visual card evidence. It can contain several observed
+cards, each with frame boxes, visibility, quality tags, newly-visible, active-area, movement,
+occlusion, and optional card-tracklet fields. A visible card does not assert that a card was played.
 
-The recording pipeline owns creation and review of these annotations. The superseded CardEventNet
-package import and local review commands are removed. The schema remains available to the dataset
-contract and its validation tests until the package-backed dataset lifecycle is retired.
+The recording pipeline owns creation, review, dataset assembly, and split validation for these
+annotations. The superseded CardEventNet package import, local review, and package-backed dataset
+lifecycle commands are removed. The schema remains available to the recording-pipeline contract
+and its validation tests.
 
-## M3 dataset assembly
-
-The TableEvidenceAnalyzer identity-crop dataset is assembled from reviewed table-observation
-annotations. One identity-usable frame observation becomes one manifest entry. The entry stores
-the source frame, observed-card identifier, box, visual card identity, quality tags, source digest,
-annotation set, review, transform, and leakage groups.
-
-The assembler accepts only active source assets whose explicit allowed uses match the requested
-filter. Draft annotations, missing reviews, missing source lineage, non-identifiable cards, and
-sources outside the filter stay in explicit `unassigned` or `excluded` output. A false event
-proposal can still contribute a visible-card sample. Its event decision is not a card label.
-
-Build and validate a dataset with these commands:
-
-```bash
-uv run cardevent dataset-build \
-  --annotations data/table-observations \
-  --reviews data/table-observation-reviews \
-  --sources data/sources.json \
-  --lineage data/lineage.json \
-  --dataset-version-id table-evidence-20260827 \
-  --out data/datasets/table-evidence.json
-
-uv run cardevent dataset-split \
-  --dataset data/datasets/table-evidence.json \
-  --split-version-id table-evidence-split-20260827 \
-  --out data/datasets/table-evidence-split.json
-
-uv run cardevent dataset-validate \
-  --dataset data/datasets/table-evidence.json \
-  --sources data/sources.json \
-  --lineage data/lineage.json \
-  --annotations data/table-observations \
-  --reviews data/table-observation-reviews \
-  --split data/datasets/table-evidence-split.json
-```
-
-The split uses connected session, game, table-setup, and source-lineage groups. It uses the
-canonical `validation` partition name. A group cannot cross `train`, `validation`, `test`, or
-`unassigned`. The dataset digest and split digest make later validation independent of local paths.
-
-`dataset-build` writes `coverage.json`, `coverage.md`, and `assembly.json` beside the requested
-report directory. Coverage includes event decisions, visible-card identities, visibility and
-quality tags, crop sizes, selected frames, snippets, tracklets, source metadata, and every
-unassigned or excluded item. These reports guide data collection. They do not rebalance a sealed
-evaluation set.
-
-## M4 lifecycle receipts
+## Lifecycle receipts
 
 `lifecycle-receipt/v1` records one immutable data operation. It contains semantic references for
 inputs, outputs, and dependencies. A reference has a kind, an operator-owned identifier, and an
 optional content digest. Source references use the source SHA-256. Dataset and split references use
 their version digests.
 
-The supported receipt types are:
+CardEventNet supports source-import receipts at this boundary:
 
 ```text
 source_import
-dataset_creation
-split_creation
-training_run
-retirement
 ```
 
 The normal operator flow is documented in [Data_Lifecycle.md](docs/Data_Lifecycle.md). The
-commands write receipts as follows:
+`ingest` command writes a source import receipt beside the ingestion index. Dataset, split, model
+run, and source-retention records belong to the recording pipeline and operations boundaries.
 
-- `ingest` writes a source import receipt beside the ingestion index;
-- `dataset-build` writes `dataset-creation-receipt.json` beside its reports;
-- `dataset-split` writes a receipt beside the split file;
-- `training-receipt` expands a dataset and split into all source, annotation, and review versions used;
-- `retire-source` writes a new source-record state and reports affected derived artifacts and runs.
-
-Receipts do not make source bytes mutable. They do not promote draft annotations. A retirement
-operation changes only the source-record version and identifies downstream objects that need review.
-It can use `deletion_requested` for a pending permission withdrawal or `retired` for a completed
-withdrawal.
+Receipts do not make source bytes mutable or promote draft annotations.
 
 ## Repository intake bundle
 

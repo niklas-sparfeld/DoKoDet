@@ -17,10 +17,6 @@ def test_root_help_lists_the_expected_commands() -> None:
     assert "export-coreml" in help_text
     assert "ingest" in help_text
     assert "inspect-dataset" in help_text
-    assert "dataset-build" in help_text
-    assert "dataset-validate" in help_text
-    assert "training-receipt" in help_text
-    assert "retire-source" in help_text
 
 
 @pytest.mark.parametrize(
@@ -37,6 +33,36 @@ def test_root_help_lists_the_expected_commands() -> None:
     ),
 )
 def test_superseded_review_commands_are_not_registered(command: str) -> None:
+    parser = build_parser()
+    subparsers = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+    assert command not in subparsers.choices
+
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args([command])
+
+    assert exc_info.value.code == 2
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "dataset-build",
+        "assemble-dataset",
+        "dataset-split",
+        "make-dataset-split",
+        "dataset-validate",
+        "validate-dataset",
+        "dataset-coverage",
+        "dataset-report",
+        "training-receipt",
+        "record-training-run",
+        "retire-source",
+        "retire-data",
+    ),
+)
+def test_superseded_dataset_lifecycle_commands_are_not_registered(command: str) -> None:
     parser = build_parser()
     subparsers = next(
         action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
@@ -124,84 +150,6 @@ def test_extract_evidence_command_parses_annotation_inputs() -> None:
     assert args.partition == ["train", "val"]
     assert args.video_id == ["IMG_0654", "IMG_0655"]
     assert args.target_offsets_ms == [0]
-
-
-def test_table_dataset_commands_parse_contract_paths() -> None:
-    build_args = build_parser().parse_args(
-        [
-            "dataset-build",
-            "--annotations",
-            "annotations",
-            "--reviews",
-            "reviews",
-            "--sources",
-            "sources.json",
-            "--lineage",
-            "lineage.json",
-            "--dataset-version-id",
-            "dataset-001",
-            "--out",
-            "dataset.json",
-        ]
-    )
-    split_args = build_parser().parse_args(
-        [
-            "dataset-split",
-            "--dataset",
-            "dataset.json",
-            "--split-version-id",
-            "split-001",
-            "--out",
-            "split.json",
-        ]
-    )
-    validate_args = build_parser().parse_args(
-        [
-            "dataset-validate",
-            "--dataset",
-            "dataset.json",
-            "--sources",
-            "sources.json",
-            "--lineage",
-            "lineage.json",
-        ]
-    )
-
-    assert build_args.command_name == "dataset-build"
-    assert build_args.annotations == Path("annotations")
-    assert split_args.command_name == "dataset-split"
-    assert split_args.dataset == Path("dataset.json")
-    assert validate_args.command_name == "dataset-validate"
-
-    training_args = build_parser().parse_args(
-        [
-            "training-receipt",
-            "--dataset",
-            "dataset.json",
-            "--training-run-id",
-            "run-001",
-            "--out",
-            "run-receipt.json",
-        ]
-    )
-    retire_args = build_parser().parse_args(
-        [
-            "retire-source",
-            "--sources",
-            "sources.json",
-            "--source-asset-id",
-            "source-001",
-            "--reason",
-            "permission withdrawn",
-            "--out",
-            "sources-retired.json",
-        ]
-    )
-
-    assert training_args.command_name == "training-receipt"
-    assert training_args.training_run_id == "run-001"
-    assert retire_args.command_name == "retire-source"
-    assert retire_args.source_asset_id == ["source-001"]
 
 
 def test_train_command_parses_config_and_split() -> None:

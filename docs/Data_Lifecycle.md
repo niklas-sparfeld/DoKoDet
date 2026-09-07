@@ -1,11 +1,11 @@
 # DokoDetector data lifecycle
 
-This page is the operator guide for the data foundation. It covers source intake, dataset promotion,
-split creation, model-run provenance, and source retirement.
+This page is the operator guide for source intake and the handoff to the recording pipeline.
+CardEventNet owns source-video intake and event-model work. The recording pipeline owns table
+observation review, dataset assembly, split validation, model-run provenance, and source-retention
+impact.
 
-The source bytes are immutable. Each operation reads its inputs and writes a new versioned artifact
-with a lifecycle receipt. A receipt names the source assets, annotation sets, reviews, dataset
-versions, splits, derived artifacts, and runs that it touches.
+Source bytes are immutable. Each operation reads its inputs and writes a new versioned artifact.
 
 ## Shared storage
 
@@ -46,9 +46,7 @@ If it fails, the pending upload remains available for retry.
 source bytes
     -> source import receipt
     -> recording-pipeline table-observation revisions
-    -> eligible dataset version + creation receipt
-    -> group-safe split + creation receipt
-    -> model run receipt
+    -> pipeline-owned dataset, split, and model-run artifacts
 ```
 
 ### 1. Import source material
@@ -68,115 +66,39 @@ This writes a source import receipt beside the ingestion index. The receipt cont
 source digests and the ingestion manifest and index versions. It does not move, rename, or rewrite
 the source videos.
 
-The recording pipeline owns table-observation creation and review. The legacy CardEventNet package
-import and local review commands are no longer supported.
+The recording pipeline owns table-observation creation and review. CardEventNet does not import
+those observations or assemble a package-backed dataset.
 
-### 2. Create an eligible dataset version
+### 2. Continue in the recording pipeline
 
-Build the frozen TableEvidenceAnalyzer manifest from reviewed annotations, source records, and
-lineage:
-
-```bash
-uv run cardevent dataset-build \
-  --annotations data/table-observations/reviewed \
-  --reviews data/table-observation-reviews \
-  --sources data/source-records.json \
-  --lineage data/lineage.json \
-  --dataset-version-id table-evidence-20260827 \
-  --out data/datasets/table-evidence.json \
-  --operator niklas
-```
-
-The command writes `dataset-creation-receipt.json` beside the coverage reports. The receipt names
-every source asset, reviewed annotation set, review, and dataset-version digest used to create the
-manifest. Unassigned and excluded records remain in the assembly and coverage reports.
-
-### 3. Create a group-safe split
-
-Create a split only after the dataset version is frozen:
-
-```bash
-uv run cardevent dataset-split \
-  --dataset data/datasets/table-evidence.json \
-  --split-version-id table-evidence-split-20260827 \
-  --out data/datasets/table-evidence-split.json \
-  --operator niklas
-```
-
-The split receipt binds the split to the dataset digest. The split keeps connected session, game,
-table-setup, and source-lineage groups together. The `validation` partition name is canonical.
-Unassigned entries are explicit and are not silently placed in a partition.
-
-### 4. Record model-run provenance
-
-The TableEvidenceAnalyzer training loop can create a run receipt before or after it writes model
-artifacts:
-
-```bash
-uv run cardevent training-receipt \
-  --dataset data/datasets/table-evidence.json \
-  --split data/datasets/table-evidence-split.json \
-  --training-run-id table-evidence-run-001 \
-  --model-bundle-id table-evidence-model-001 \
-  --derived-artifact-id crop-cache-001 \
-  --out data/runs/table-evidence-run-001/lifecycle-receipt.json \
-  --operator niklas
-```
-
-The receipt expands the dataset entries. It names every source asset, annotation set, review,
-dataset version, and split version used by the run. The run does not need to scan local directories
-to reconstruct its provenance.
-
-### 5. Retire or withdraw a source asset
-
-When permission is withdrawn, write a new source-record version. Select
-`deletion_requested` while a deletion decision is pending, or `retired` when the asset is no longer
-available for use:
-
-```bash
-uv run cardevent retire-source \
-  --sources data/source-records.json \
-  --source-asset-id source-001 \
-  --receipts-dir data/receipts \
-  --retention-state deletion_requested \
-  --reason "permission withdrawn" \
-  --out data/source-records-deletion-requested.json \
-  --operator niklas
-```
-
-The command does not delete or edit source bytes. It writes a new source-record collection and a
-retirement receipt. The receipt lists affected annotation sets, dataset versions, splits, derived
-artifacts, model bundles, and training runs. Review that impact before deleting disposable derived
-artifacts or invalidating runs.
+Use the recording workspace for table-observation revisions and the operations tools for the
+dataset, split, model-run, and source-retention records that depend on those revisions. The
+recording pipeline is the owner of these later lifecycle steps. See the
+[repository documentation route](../README.md#documentation-route) for the current component
+entry points.
 
 ## Receipt rules
 
-- Receipt inputs and outputs use semantic identifiers, not local paths as identity.
+- The CardEventNet intake receipt uses semantic identifiers, not local paths as identity.
 - Source references include the immutable source SHA-256.
-- Version references include the dataset or split digest.
 - Receipts are strict `lifecycle-receipt/v1` documents and include their own content digest.
-- Existing receipts are not overwritten unless a command is run with `--force`.
 - A receipt records an operation. It does not grant permission or make an annotation ground truth.
-- A source retirement changes the source-record state. It does not rewrite an annotation, dataset,
-  model, or source byte.
+- Source-retention state and impact records are owned by operations. They do not rewrite a source
+  byte or a historical derived artifact.
 
 ## Checks before promotion
 
-Run the frozen dataset validation command before a training run:
+Run the intake status and validation checks before using a recording in the pipeline:
 
 ```bash
-uv run cardevent dataset-validate \
-  --dataset data/datasets/table-evidence.json \
-  --sources data/source-records.json \
-  --lineage data/lineage.json \
-  --annotations data/table-observations/reviewed \
-  --reviews data/table-observation-reviews \
-  --split data/datasets/table-evidence-split.json
+mise exec -- uv run --project operations doko data status --repository-root .
+mise exec -- uv run --project operations doko data validate --repository-root .
 ```
 
-Do not promote a dataset when source bytes changed, source permission is invalid, a review version
-is missing, lineage is ambiguous, a duplicate source is present, or a leakage group crosses
-partitions.
+The recording pipeline validates table-observation revisions and their dataset lineage before
+model processing. Do not promote data when source bytes changed, source permission is invalid, a
+review version is missing, lineage is ambiguous, a duplicate source is present, or a leakage group
+crosses partitions.
 
 ## Adopt an old runtime package
 
