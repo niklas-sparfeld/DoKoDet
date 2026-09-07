@@ -4,7 +4,8 @@
 
 - **Summary:** Make the shortest current path from repository rules to architecture, component
   ownership, and local verification explicit.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** 0053 discovery complete
 - **Outcome:** Agents can select one current authority and one component-local verification path
   without comparing stale transition guidance.
@@ -18,8 +19,8 @@
   contradicted the closed 0048 and 0049 epics.
 - **M2:** Complete — gave the Python component guides one consistent ownership and verification
   hop.
-- **M3:** Not started — complete the client and rules first hops and prove that navigation links
-  and documented commands resolve locally.
+- **M3:** Complete — added iOS, game-engine, and web first hops and verified their documented
+  navigation and local checks.
 
 ## M0 evidence and decision
 
@@ -62,6 +63,21 @@ The four public entry points and 50 documented subcommand help surfaces resolve 
 analyzer test suite passes with 149 tests. CardEventNet, backend, and operations full-suite or
 format checks still report unrelated concurrent implementation changes in the shared worktree;
 the documentation checks and all command help checks pass.
+
+## M3 evidence
+
+The iOS guide names the app, Swift Package, test, and local pipeline client locations. It separates
+Swift Package checks from the Xcode app build. The game-engine guide names its source and tests and
+routes the ruleset and reconstruction boundary to `GAME_RECONSTRUCTION_CONTRACT.md` and the
+glossary. The web guide names its source and test paths, routes generated OpenAPI ownership to the
+backend export, and retains the frontend and viewport coverage commands.
+
+All links in the changed Markdown files resolve locally. The iOS Swift Package build and tests were
+run, and the Xcode simulator app build succeeded. The game-engine tests, Ruff checks, and format
+check passed. `mise exec -- npm run check` was attempted but stopped during TypeScript checking on
+unrelated concurrent edits in `web/src/pipeline/RecordingPipelineWorkspace.tsx`. Focused Playwright
+pipeline coverage was not run because the M3 change only adds or updates documentation and does not
+change the operator workflow.
 
 ## Delivery milestones
 

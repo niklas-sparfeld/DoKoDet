@@ -1,6 +1,28 @@
 # Round analysis frontend
 
-This package renders one immutable round analysis served by the local FastAPI backend.
+This package renders the recording-owned pipeline workspace and immutable round analysis served by
+the local FastAPI backend.
+
+## First hop
+
+From `web/`:
+
+- Owned source: `src/`.
+- Tests: `src/**/*.test.tsx` and `tests/e2e/`.
+- Upstream boundary: consume the backend HTTP API and render recording and round-analysis views for
+  the operator.
+- Generated API ownership: the backend export at
+  `backend/scripts/export_openapi.py` owns the OpenAPI document. `src/api/openapi.ts` is generated
+  from that document and must pass `npm run verify:api`.
+- Local checks:
+
+  ```bash
+  npm run check
+  npm run test:e2e
+  ```
+
+Use the [repository documentation route](../README.md#documentation-route) for architecture,
+work state, shared contracts, and component boundaries.
 
 ## Local development
 
@@ -11,7 +33,8 @@ npm ci
 npm run dev
 ```
 
-Open `/round-analyses/{analysis_id}`. The Vite server proxies `/v1` requests to
+Open `/recordings/{recording_id}/pipeline/events` for the recording workspace or
+`/round-analyses/{analysis_id}` for one analysis. The Vite server proxies `/v1` requests to
 `http://127.0.0.1:8000`. Set `VITE_API_PROXY_TARGET` when the backend uses another local port.
 
 Run the complete frontend checks with:
@@ -20,6 +43,10 @@ Run the complete frontend checks with:
 npm run check
 npm run test:e2e
 ```
+
+The Playwright pipeline coverage is in `tests/e2e/pipeline-cutover.spec.ts`. It checks the
+recording workflow at 1440px, 1280px, and 390px viewport widths, plus generated, failed, affected,
+reload, conflict, and retired-route cases.
 
 ## Explanation controls
 

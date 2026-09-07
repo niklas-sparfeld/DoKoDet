@@ -51,7 +51,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0055 — Documentation authority and first hops](3-in-progress/0055-Documentation_Authority_and_First_Hops.md) | 0053 discovery complete | M0–M2 complete: the root authority route and component map are published, completed 0048/0049 handoffs no longer act as current guidance, and the Python component first hops are normalized. M3 remains. |
 | [0058 — Backend pipeline service boundaries](3-in-progress/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0–M2 complete: HTTP routes, event execution, comparison, and workspace composition have focused backend modules with unchanged public contracts. M3–M4 remain. |
 | [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M2 complete: evidence-package and repository-intake contract boundaries are split with unchanged behavior. M3 remains. |
 | [0056 — Superseded review and data interfaces](3-in-progress/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | M0–M1 complete: CardEventNet package-review commands and command-only helpers are removed; M2–M5 remain. |
@@ -73,6 +72,7 @@ The shared target architecture is
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
 | [0053 — Agent navigation cleanup discovery](5-closed/0053-Agent_Navigation_Cleanup_Discovery.md) | Complete | Published a first-hop repository map and repeatable baseline. Ranked six cleanup areas as epics 0055–0060 for separate Terra specification. No cleanup was implemented. |
+| [0055 — Documentation authority and first hops](5-closed/0055-Documentation_Authority_and_First_Hops.md) | Complete | M0–M3 complete: the root authority route and component map are published, completed 0048/0049 handoffs no longer act as current guidance, and every executable component has an ownership and verification first hop. |
 | [0048 — Pipeline data and execution](5-closed/0048-Pipeline_Data_and_Execution.md) | Complete | M0–M10 complete: recording-video pipeline execution, maintained references with coverage and downstream impact validation, immutable dataset consumer manifests with explicit source/policy/lineage inputs, and the 0049 cutover handoff. Real-data quality measurement remains in 0043 and 0050. |
 | [0049 — Recording pipeline review and comparison](5-closed/0049-Recording_Pipeline_Review_and_Comparison.md) | Complete | M0–M10 complete: one recording-owned pipeline workspace for accepted video, generated and reviewed inputs, maintained references, reconstruction, comparison, analysis, and dataset readiness. Obsolete review-batch routes and duplicate recording state are removed. Real-data quality measurement remains outside this epic. |
 | [0054 — Unified recording workspace layout](5-closed/0054-Unified_Recording_Workspace_Layout.md) | Complete | M0–M10 complete: one responsive recording workspace with a central source surface, shared inspector, and Timeline Rail. The retired comparison page/list is removed, and browser coverage verifies 1440px, 1280px, and narrow layouts. |
