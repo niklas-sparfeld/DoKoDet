@@ -36,7 +36,6 @@ The shared target architecture is
 | [0023 — Scalable game reconstruction](0-to-specify/0023-Game_Reconstruction_Development.md) | Completed 0006 foundation; search measurements must define the next scope | Specify later search improvements. Existing reconstruction remains usable through 0048. |
 | [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Explicit production scope and measured development behavior | Select later production work. Package-only operation is not a current requirement. |
 | [0026 — Reconstruction review workflow](0-to-specify/0026-Reconstruction_Review_Workflow.md) | 0006 contracts, later 0023 focused alternatives, and measured review cases | Specify full reconstruction correction beyond the existing inspection exposed by 0049. |
-| [0057 — Operations module and public API boundaries](0-to-specify/0057-Operations_Module_and_Public_API_Boundaries.md) | 0053 discovery complete | Reduce operations context through explicit imports and responsibility-focused modules. |
 | [0059 — Web workspace module boundaries](0-to-specify/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | Give workspace stages, inspectors, source surfaces, state, styles, and tests clear local ownership. |
 | [0060 — iOS capture module boundaries](0-to-specify/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | Separate evidence contract, validation, coordination, and app-state responsibilities across the Swift Package and Xcode app. |
 
@@ -45,6 +44,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0056 — Superseded review and data interfaces](1-backlog/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | Remove proved-unused package-backed review and data orchestration while preserving necessary consumers and validators. |
+| [0057 — Operations module and public API boundaries](1-backlog/0057-Operations_Module_and_Public_API_Boundaries.md) | 0053 complete; 0056 complete before M2 or M3 | Remove the eager facade and separate stable comparison and reconstruction contracts from execution. |
 
 ### Ready
 
