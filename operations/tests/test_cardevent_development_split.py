@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from doko_operations import (
+from doko_operations.cardevent_development_split import (
     CardEventDevelopmentRecording,
     CardEventDevelopmentSplitConflict,
     CardEventDevelopmentSplitStore,
-    seal_system_holdout_group,
 )
 from doko_operations.cli import main
+from doko_operations.holdout import seal_system_holdout_group
 from doko_operations.intake import inspect_repository
 
 

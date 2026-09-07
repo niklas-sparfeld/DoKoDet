@@ -15,21 +15,6 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, Protocol
 
-from doko_operations import (
-    DataRevision,
-    EventData,
-    EventDataRevision,
-    ImplementationIdentity,
-    ImportProducer,
-    ModelIdentity,
-    PipelineSelection,
-    ProcessorProducer,
-    ProcessorRunRequest,
-    RecordingVideoSource,
-    RunFailure,
-    canonical_event_data_bytes,
-    sha256_bytes,
-)
 from doko_operations.pipeline_comparison import (
     PIPELINE_COMPARISON_ALGORITHM_VERSION,
     PipelineComparison,
@@ -45,7 +30,22 @@ from doko_operations.pipeline_comparison import (
     compare_visual_identity_data,
     normalize_event_coverage,
 )
-from doko_operations.pipeline_data import canonical_json_bytes
+from doko_operations.pipeline_data import (
+    DataRevision,
+    EventData,
+    EventDataRevision,
+    ImplementationIdentity,
+    ImportProducer,
+    ModelIdentity,
+    PipelineSelection,
+    ProcessorProducer,
+    ProcessorRunRequest,
+    RecordingVideoSource,
+    RunFailure,
+    canonical_event_data_bytes,
+    canonical_json_bytes,
+    sha256_bytes,
+)
 from table_evidence_analyzer import ObservationAssemblyError, assemble_table_observations
 from table_evidence_analyzer.pipeline_data import VisibleCardData, VisualIdentityData
 

@@ -4,7 +4,7 @@
 
 - **Summary:** Remove the eager operations package facade. Split stable comparison and
   reconstruction responsibilities into direct contract and execution modules.
-- **Status:** Backlog
+- **Status:** In Progress
 - **Depends on:** 0053 discovery complete; complete 0056 before M2 or M3
 - **Outcome:** A pipeline comparison or round reconstruction change uses a direct,
   responsibility-focused import and focused tests without loading unrelated campaigns, review
@@ -15,8 +15,8 @@
 
 - **M0:** Complete — recorded public consumers, import costs, safe seams, exclusions, and focused
   verification.
-- **M1:** Not started — remove the eager package facade and convert its consumers to direct module
-  imports.
+- **M1:** Complete — removed the eager package facade, converted its consumers to direct module
+  imports, and added import-isolation coverage.
 - **M2:** Not started — split pipeline comparison contracts from matching and comparison execution.
 - **M3:** Not started — split round reconstruction contracts from input assembly, engine execution,
   and artifact publication.
@@ -68,6 +68,19 @@ operations documentation that names the removed facade.
 
 Run `uv run pytest` and `uv run ruff check .` from `operations/`. Run
 `uv run pytest tests/test_pipeline_service.py` and `uv run ruff check .` from `backend/`.
+
+#### M1 implementation evidence — 2026-09-07
+
+- Replaced the aggregate `doko_operations.__init__` exports with a documentation-only package
+  initializer.
+- Converted `pipeline_service.py` and the two operations tests that used package-level exports to
+  direct module imports. The operations README now names the direct reconstruction module.
+- Added `tests/test_import_isolation.py`, which checks a clean `pipeline_data` import does not load
+  review, campaign, comparison, or reconstruction modules.
+- Focused operations coverage passed with 19 tests, and the backend `test_pipeline_service.py`
+  coverage passed. The full operations run reached 186 passed tests and two unrelated failures
+  because the repository-local `.codex/skills/model-improvement` fixture is absent.
+- Ruff passed for the operations and backend components after import-order fixes.
 
 ### M2 — Pipeline comparison contract and execution boundary
 

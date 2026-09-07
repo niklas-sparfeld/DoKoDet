@@ -25,7 +25,8 @@ from table_evidence_analyzer.data import (
 )
 
 import doko_operations.visual_card_identity_review_batch as identity_batch
-from doko_operations import (
+from doko_operations.visual_card_identity_dataset import build_visual_card_identity_dataset
+from doko_operations.visual_card_identity_review_batch import (
     VisualCardIdentityBatchConflict,
     VisualCardIdentityBatchError,
     VisualCardIdentityBatchRequest,
@@ -34,7 +35,6 @@ from doko_operations import (
     VisualCardIdentityClassifierIdentity,
     load_visual_card_identity_review_batch,
 )
-from doko_operations.visual_card_identity_dataset import build_visual_card_identity_dataset
 
 
 def _image() -> bytes:
