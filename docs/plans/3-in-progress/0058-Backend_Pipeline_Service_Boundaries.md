@@ -4,7 +4,7 @@
 
 - **Summary:** Separate clear backend pipeline responsibilities so one stage, reference, or
   workspace change does not require the complete pipeline service and API surface.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0053 discovery complete
 - **Outcome:** Backend pipeline code has explicit service, contract, route, and store ownership.
   A stage, reference, comparison, or workspace change has one focused service and test entry.
@@ -13,9 +13,10 @@
 ## Milestone status
 
 - **M0:** Complete — traced service construction, state ownership, HTTP ownership, consumers, and
-  focused checks. M1–M4 are ready for one `gpt-5.6-luna` phase each.
-- **M1:** Not started — split pipeline HTTP schemas and routes by workspace, generated stage,
+  focused checks. M2–M4 are ready for one `gpt-5.6-luna` phase each.
+- **M1:** Complete — split pipeline HTTP schemas and routes by workspace, generated stage,
   derived view, comparison, and maintained reference while preserving one mounted API surface.
+  Focused route inventory and generated-client verification cover the unchanged public contract.
 - **M2:** Not started — move event execution, comparison, and recording-workspace composition into
   separate service modules with explicit dependencies.
 - **M3:** Not started — split maintained-reference commands into common lifecycle coordination and
@@ -38,10 +39,10 @@ confirms three high-context boundaries:
   publication. `PipelineReferenceStore` remains the sole owner of mutable reference bytes;
   `PipelineRevisionStore` remains the owner of immutable data revisions; and
   `PipelineSelectionStore` remains the owner of selected revisions.
-- `pipeline_api.py` has 1,118 lines. It defines all pipeline HTTP response and request models and
-  mounts workspace, event, visible-card, visual-identity, observation, derived-view, comparison,
-  and maintained-reference routes from one router. The existing stage services already own visible
-  card, visual identity, and observation execution.
+- At M0, `pipeline_api.py` had 1,118 lines. It defined all pipeline HTTP response and request
+  models and mounted workspace, event, visible-card, visual-identity, observation, derived-view,
+  comparison, and maintained-reference routes from one router. The existing stage services already
+  owned visible card, visual identity, and observation execution.
 
 `app.py` constructs shared pipeline stores once, injects them into every service, starts and stops
 the four execution services, and mounts one pipeline router. Tests import the stores and reference
@@ -54,6 +55,18 @@ The focused checks are `test_pipeline_api.py`, `test_pipeline_comparison_api.py`
 `test_pipeline_reference.py`, `test_visible_card_pipeline_api.py`,
 `test_visual_identity_pipeline_api.py`, `test_observation_pipeline_api.py`, and
 `test_local_pipeline.py`. The latter also verifies the local HTTP path and restart behavior.
+
+## M1 evidence
+
+`pipeline_api.py` is now the one aggregate router. It includes focused workspace, generated-stage
+and derived-view, comparison, and maintained-reference routers in the existing order. HTTP models
+live with their route area. Shared run, reference, and recording-ID translation lives in
+`pipeline_api_contracts.py`. Routes read services from `request.app.state`; they do not construct
+stores or services.
+
+The route inventory test proves the four focused module boundaries. The named pipeline API tests
+pass except for two pre-existing fixture failures in visual identity and round-analysis behavior.
+`web` API verification produces no generated-client diff.
 
 ## Target module ownership
 

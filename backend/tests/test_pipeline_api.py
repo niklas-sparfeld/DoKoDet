@@ -12,9 +12,37 @@ from app_factory import create_test_app
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.pipeline_api import router as pipeline_router
+from dokodetector_backend.pipeline_comparison_api import router as comparison_router
+from dokodetector_backend.pipeline_reference_api import router as reference_router
+from dokodetector_backend.pipeline_stage_api import router as stage_router
+from dokodetector_backend.pipeline_workspace_api import router as workspace_router
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 RECORDING_ID = "recording-both"
+
+
+def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
+    child_routers = (workspace_router, stage_router, comparison_router, reference_router)
+    routes = [
+        route
+        for child_router in child_routers
+        for route in child_router.routes
+        if route.include_in_schema
+    ]
+
+    modules = {}
+    for route in routes:
+        modules.setdefault(route.endpoint.__module__, 0)
+        modules[route.endpoint.__module__] += 1
+
+    assert modules == {
+        "dokodetector_backend.pipeline_workspace_api": 1,
+        "dokodetector_backend.pipeline_stage_api": 31,
+        "dokodetector_backend.pipeline_comparison_api": 1,
+        "dokodetector_backend.pipeline_reference_api": 4,
+    }
+    assert len(pipeline_router.routes) == len(child_routers)
 
 
 class FakeEventProvider:
