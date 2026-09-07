@@ -22,8 +22,6 @@ LIFECYCLE_RECEIPT_SCHEMA_VERSION = "lifecycle-receipt/v1"
 LIFECYCLE_RECEIPT_TYPES = frozenset(
     {
         "source_import",
-        "evidence_import",
-        "annotation_application",
         "dataset_creation",
         "split_creation",
         "training_run",
@@ -445,115 +443,6 @@ def build_source_import_receipt(
     )
 
 
-def _manifest_file(path: str | Path) -> Path:
-    candidate = Path(path)
-    return candidate / "manifest.json" if candidate.is_dir() else candidate
-
-
-def build_evidence_import_receipt(
-    annotations: Sequence[Any],
-    *,
-    manifests: Sequence[str | Path] = (),
-    operator: str,
-    receipt_id: str | None = None,
-    occurred_at: str | None = None,
-) -> LifecycleReceipt:
-    """Create a receipt for evidence-package import into draft annotations."""
-
-    from .vision_annotation import annotation_bytes
-
-    outputs = tuple(
-        LifecycleReference(
-            "annotation_set",
-            annotation.annotation_set_id,
-            sha256_bytes(annotation_bytes(annotation)),
-        )
-        for annotation in annotations
-    )
-    package_refs: list[LifecycleReference] = []
-    for annotation in annotations:
-        package_id = annotation.source.package_id
-        if package_id is None:
-            continue
-        matching_manifest = next(
-            (
-                _manifest_file(path)
-                for path in manifests
-                if _manifest_file(path).is_file()
-                and json.loads(_manifest_file(path).read_text(encoding="utf-8")).get("package_id")
-                == package_id
-            ),
-            None,
-        )
-        package_refs.append(
-            LifecycleReference(
-                "evidence_package",
-                package_id,
-                _file_digest(matching_manifest) if matching_manifest is not None else None,
-            )
-        )
-    return LifecycleReceipt(
-        receipt_id=receipt_id or f"receipt-{uuid4().hex}",
-        receipt_type="evidence_import",
-        operator=operator,
-        occurred_at=occurred_at or _now(),
-        inputs=tuple(package_refs),
-        outputs=outputs,
-        dependencies=tuple(package_refs) + outputs,
-        metadata={"annotation_count": len(outputs), "draft_annotations": True},
-    )
-
-
-def _file_digest(path: Path | None) -> str | None:
-    if path is None:
-        return None
-    try:
-        return sha256_bytes(path.read_bytes())
-    except OSError as exc:
-        raise LifecycleReceiptError(f"Could not read receipt input {path}: {exc}") from exc
-
-
-def build_annotation_application_receipt(
-    *,
-    annotation_set_id: str,
-    review_id: str,
-    source_annotation_digest: str,
-    output_annotation_digest: str,
-    review_digest: str,
-    event_decision: str,
-    operator: str,
-    receipt_id: str | None = None,
-    occurred_at: str | None = None,
-) -> LifecycleReceipt:
-    """Create the standard receipt nested in a table-observation apply artifact."""
-
-    annotation_before = LifecycleReference(
-        "annotation_set",
-        annotation_set_id,
-        _digest(source_annotation_digest, "source_annotation_digest"),
-    )
-    annotation_after = LifecycleReference(
-        "annotation_set",
-        annotation_set_id,
-        _digest(output_annotation_digest, "output_annotation_digest"),
-    )
-    review = LifecycleReference(
-        "review",
-        _identifier(review_id, "review_id"),
-        _digest(review_digest, "review_digest"),
-    )
-    return LifecycleReceipt(
-        receipt_id=receipt_id or f"receipt-{uuid4().hex}",
-        receipt_type="annotation_application",
-        operator=operator,
-        occurred_at=occurred_at or _now(),
-        inputs=(annotation_before, review),
-        outputs=(annotation_after,),
-        dependencies=(annotation_before, review),
-        metadata={"annotation_set_id": annotation_set_id, "event_decision": event_decision},
-    )
-
-
 def build_dataset_creation_receipt(
     dataset_or_result: Any,
     *,
@@ -888,9 +777,7 @@ __all__ = [
     "LifecycleReceiptError",
     "LifecycleReference",
     "SourceRetirementResult",
-    "build_annotation_application_receipt",
     "build_dataset_creation_receipt",
-    "build_evidence_import_receipt",
     "build_retirement_receipt",
     "build_source_import_receipt",
     "build_split_creation_receipt",

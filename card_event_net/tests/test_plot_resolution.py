@@ -13,7 +13,6 @@ from cardevent.evaluate import (
     save_training_history_plot,
 )
 from cardevent.events import ProbabilitySample
-from cardevent.review_ui import TimelineRenderer
 
 
 def _png_size(path: Path) -> tuple[int, int]:
@@ -59,19 +58,3 @@ def test_saved_plots_use_double_resolution(tmp_path: Path) -> None:
     assert _png_size(operating_paths["precision_recall"]) == (1960, 1400)
     assert _png_size(operating_paths["recall_false_events"]) == (1960, 1400)
     assert _png_size(history_path) == (3080, 1960)
-
-
-def test_review_timeline_uses_double_resolution() -> None:
-    pytest.importorskip("matplotlib")
-
-    renderer = TimelineRenderer({}, video_name="sample")
-
-    try:
-        assert renderer.figure.get_dpi() == 220
-        assert renderer.render(
-            candidate_time_s=0.0,
-            current_time_s=0.0,
-            target_time_s=None,
-        ).shape[:2] == (517, 2200)
-    finally:
-        renderer.figure.clear()

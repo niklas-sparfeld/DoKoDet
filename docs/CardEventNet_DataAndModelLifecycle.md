@@ -96,58 +96,34 @@ uv run cardevent mine-hard-negatives \
 These outputs are candidates, not corrected ground truth. A person must review ambiguous model
 and annotation cases.
 
-## 5. Review and publish new labels
+## 5. Correct annotations and retrain
 
-Create a deterministic queue, review its source frames, and apply complete decisions to a new
-annotation directory.
+When evaluation finds a missed or false event, inspect the source video with the annotator. Use
+model proposals as navigation hints, then save the human decision in the annotation version.
 
 ```bash
-uv run cardevent review-queue \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/batch-2026-08-24.yaml \
-  --partition val \
-  --out data/outputs/run-.../review-val.json
-
-uv run cardevent review \
-  --queue data/outputs/run-.../review-val.json \
-  --out data/reviews/review-val-alex.json \
-  --videos-dir data/raw \
+uv run cardevent annotate data/raw/game01.mov \
   --annotations-dir data/annotations \
-  --reviewer alex
-
-uv run cardevent apply-review \
-  --queue data/reviews/review-val-alex.json \
-  --annotations-dir data/annotations \
-  --out-dir data/annotations-val-reviewed \
-  --videos-dir data/raw \
-  --dry-run
+  --proposals data/outputs/run-.../predictions.json
 ```
 
-Check the dry-run summary. Then remove `--dry-run` to write the new version. Review the training
-queue next, and apply it on top of `data/annotations-val-reviewed`. The result is
-`data/annotations-next`. The [review workflow](CardEventNet_ReviewWorkflow.md) gives the complete
-validation-first and training-second sequence. It also explains hard-negative isolation.
-
-## 6. Retrain and lock the result
-
-Build a separate cache for the new labels. Then train with the same split and the reviewed
-training hard negatives.
+Keep the source annotations unchanged when you need a separate correction version. Prepare a new
+cache, then train with the same split:
 
 ```bash
 uv run cardevent prepare \
   --videos data/raw/* \
-  --annotations-dir data/annotations-next \
+  --annotations-dir data/annotations \
   --cache-dir data/cache-next
 
 uv run cardevent train \
   --config configs/base.yaml \
   --split data/splits/batch-2026-08-24.yaml \
-  --annotations-dir data/annotations-next \
-  --cache-dir data/cache-next \
-  --hard-negative-manifest data/annotations-next/training-hard-negatives.json
+  --annotations-dir data/annotations \
+  --cache-dir data/cache-next
 ```
 
-Repeat validation, diagnostics, and review only when the result justifies another data change.
+Repeat validation, diagnostics, and annotation only when the result justifies another data change.
 After all choices are fixed, run the held-out test once:
 
 ```bash

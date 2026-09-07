@@ -28,7 +28,6 @@ from .ingestion import IngestionError, ingest_dataset, inspect_dataset
 from .lifecycle import (
     LifecycleReceiptError,
     build_dataset_creation_receipt,
-    build_evidence_import_receipt,
     build_source_import_receipt,
     build_split_creation_receipt,
     build_training_run_receipt,
@@ -38,14 +37,6 @@ from .lifecycle import (
     save_source_records,
 )
 from .manifest import ManifestError, load_dataset_manifest, make_group_split
-from .review import (
-    ReviewQueueError,
-    ReviewSession,
-    ReviewSessionError,
-    apply_review_queue,
-    review_queue_from_files,
-)
-from .review_ui import review_queue_interactively
 from .splits import SplitError, make_video_split, save_split
 from .table_dataset import (
     TableDatasetError,
@@ -69,16 +60,6 @@ from .table_dataset import (
 from .train import TrainingError, train_from_files
 from .transition_diagnostics import TransitionDiagnosticError, diagnose_saved_validation_stream
 from .video import VideoError
-from .vision_annotation import (
-    VisionAnnotationError,
-    import_evidence_packages,
-    save_vision_annotation,
-)
-from .vision_review import (
-    VisionReviewError,
-    apply_vision_review,
-)
-from .vision_viewer import VisionViewerError, review_vision_annotation
 
 _PLACEHOLDER_COMMANDS = {
     "annotate": "Annotate a source video.",
@@ -94,12 +75,6 @@ _PLACEHOLDER_COMMANDS = {
     "ingest": "Register source videos and write a dataset index.",
     "inspect-dataset": "Filter and inspect a dataset index.",
     "extract-evidence": "Extract source-resolution evidence frames.",
-    "review-queue": "Build a human review queue from model candidates.",
-    "review": "Review queue items with the source videos.",
-    "apply-review": "Apply reviewed outcomes to a new annotation version.",
-    "vision-import": "Import evidence manifests as visual event proposals.",
-    "vision-review": "Review one visual event and its evidence frames.",
-    "vision-apply-review": "Apply one visual review to a new annotation version.",
     "dataset-build": "Build a TableEvidenceAnalyzer dataset from reviewed observations.",
     "dataset-split": "Create a group-safe split for a frozen table-observation dataset.",
     "dataset-validate": "Validate a frozen table-observation dataset and its lineage.",
@@ -657,141 +632,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mine_parser.set_defaults(command_name="mine-hard-negatives")
 
-    review_queue_parser = subparsers.add_parser(
-        "review-queue",
-        help=_PLACEHOLDER_COMMANDS["review-queue"],
-        description=("Build a deterministic review queue. Generated outcomes remain unreviewed."),
-    )
-    review_queue_parser.add_argument("--checkpoint", type=Path, required=True)
-    review_queue_parser.add_argument("--split", type=Path, required=True)
-    review_queue_parser.add_argument("--partition", choices=("train", "val", "test"), required=True)
-    review_queue_parser.add_argument("--out", type=Path, required=True)
-    review_queue_parser.add_argument("--cache-dir", type=Path, default=Path("data/cache"))
-    review_queue_parser.add_argument(
-        "--annotations-dir", type=Path, default=Path("data/annotations")
-    )
-    review_queue_parser.add_argument(
-        "--device", choices=("auto", "cpu", "cuda", "mps"), default=None
-    )
-    review_queue_parser.add_argument("--threshold", type=float, default=None)
-    review_queue_parser.add_argument("--low-confidence-margin", type=float, default=0.05)
-    review_queue_parser.add_argument("--empty-count", type=int, default=2)
-    review_queue_parser.add_argument("--seed", type=int, default=42)
-    review_queue_parser.add_argument("--preview-half-window", type=float, default=1.0)
-    review_queue_parser.add_argument(
-        "--compare-checkpoint",
-        type=Path,
-        default=None,
-        help="Optional second checkpoint for model-version disagreement items.",
-    )
-    review_queue_parser.set_defaults(command_name="review-queue")
-
-    review_parser = subparsers.add_parser(
-        "review",
-        help=_PLACEHOLDER_COMMANDS["review"],
-        description=(
-            "Review queue items in source videos. Decisions are autosaved to a separate queue."
-        ),
-    )
-    review_parser.add_argument("--queue", type=Path, required=True, help="Unreviewed review queue.")
-    review_parser.add_argument("--out", type=Path, required=True, help="Reviewed queue output.")
-    review_parser.add_argument(
-        "--videos-dir", type=Path, required=True, help="Source video directory."
-    )
-    review_parser.add_argument(
-        "--annotations-dir", type=Path, required=True, help="Read-only source annotation directory."
-    )
-    review_parser.add_argument("--reviewer", required=True, help="Stable reviewer name.")
-    review_parser.add_argument("--video", default=None, help="Review one video ID or name.")
-    review_parser.add_argument("--category", default=None, help="Review one queue category.")
-    review_parser.add_argument(
-        "--include-reviewed",
-        action="store_true",
-        help="Include completed items when navigating.",
-    )
-    review_parser.add_argument("--start-item", default=None, help="Start at this item ID.")
-    review_parser.set_defaults(command_name="review")
-
-    apply_review_parser = subparsers.add_parser(
-        "apply-review",
-        help=_PLACEHOLDER_COMMANDS["apply-review"],
-        description=(
-            "Apply explicit human outcomes to a new annotation directory. "
-            "The source directory is never modified."
-        ),
-    )
-    apply_review_parser.add_argument("--queue", type=Path, required=True)
-    apply_review_parser.add_argument(
-        "--annotations-dir", type=Path, default=Path("data/annotations")
-    )
-    apply_review_parser.add_argument("--out-dir", type=Path, required=True)
-    apply_review_parser.add_argument(
-        "--reviewer", default=None, help="Reviewer name (default: the name in the reviewed queue)."
-    )
-    apply_review_parser.add_argument("--videos-dir", type=Path, default=Path("data/raw"))
-    apply_review_parser.add_argument(
-        "--allow-partial",
-        action="store_true",
-        help="Apply reviewed items while leaving unreviewed items unchanged.",
-    )
-    apply_review_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print the application summary without writing annotations.",
-    )
-    apply_review_parser.set_defaults(command_name="apply-review")
-
-    vision_import_parser = subparsers.add_parser(
-        "vision-import",
-        aliases=("import-vision", "import-vision-annotations"),
-        help=_PLACEHOLDER_COMMANDS["vision-import"],
-        description=(
-            "Import accepted evidence-package manifests as draft visual event annotations. "
-            "Source manifests are never modified."
-        ),
-    )
-    vision_import_parser.add_argument(
-        "manifests", nargs="+", type=Path, help="Evidence manifest or package directory."
-    )
-    vision_import_parser.add_argument(
-        "--out-dir", type=Path, required=True, help="New directory for table-observation files."
-    )
-    vision_import_parser.add_argument("--operator", default="operator")
-    vision_import_parser.add_argument(
-        "--receipt",
-        type=Path,
-        default=None,
-        help="Lifecycle receipt path (default: inside the output directory).",
-    )
-    vision_import_parser.set_defaults(command_name="vision-import")
-
-    vision_review_parser = subparsers.add_parser(
-        "vision-review",
-        help=_PLACEHOLDER_COMMANDS["vision-review"],
-        description="Review one visual event and all supplied evidence frames.",
-    )
-    vision_review_parser.add_argument("--annotation", type=Path, required=True)
-    vision_review_parser.add_argument("--frames-dir", type=Path, required=True)
-    vision_review_parser.add_argument("--out", type=Path, required=True)
-    vision_review_parser.add_argument("--reviewer", required=True)
-    vision_review_parser.add_argument("--review-id", default=None)
-    vision_review_parser.add_argument("--snippet", type=Path, default=None)
-    vision_review_parser.set_defaults(command_name="vision-review")
-
-    vision_apply_parser = subparsers.add_parser(
-        "vision-apply-review",
-        help=_PLACEHOLDER_COMMANDS["vision-apply-review"],
-        description=(
-            "Apply one immutable visual review to a new annotation directory. "
-            "The source annotation is never modified."
-        ),
-    )
-    vision_apply_parser.add_argument("--annotation", type=Path, required=True)
-    vision_apply_parser.add_argument("--review", type=Path, required=True)
-    vision_apply_parser.add_argument("--out-dir", type=Path, required=True)
-    vision_apply_parser.add_argument("--dry-run", action="store_true")
-    vision_apply_parser.set_defaults(command_name="vision-apply-review")
-
     dataset_build_parser = subparsers.add_parser(
         "dataset-build",
         aliases=("assemble-dataset",),
@@ -1031,12 +871,6 @@ def build_parser() -> argparse.ArgumentParser:
             "export-coreml",
             "ingest",
             "inspect-dataset",
-            "review-queue",
-            "review",
-            "apply-review",
-            "vision-import",
-            "vision-review",
-            "vision-apply-review",
             "dataset-build",
             "dataset-split",
             "dataset-validate",
@@ -1361,157 +1195,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (HardNegativeError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(f"Mined {payload['hard_negative_count']} hard negatives: {args.out}")
-        return 0
-
-    if command_name == "review-queue":
-        try:
-            payload = review_queue_from_files(
-                args.checkpoint,
-                args.split,
-                partition=args.partition,
-                out_path=args.out,
-                cache_dir=args.cache_dir,
-                annotations_dir=args.annotations_dir,
-                device_override=args.device,
-                threshold=args.threshold,
-                low_confidence_margin=args.low_confidence_margin,
-                empty_count=args.empty_count,
-                seed=args.seed,
-                preview_half_window_s=args.preview_half_window,
-                compare_checkpoint_path=args.compare_checkpoint,
-            )
-        except (ReviewQueueError, RuntimeError, OSError, ValueError) as exc:
-            parser.exit(1, f"error: {exc}\n")
-        print(f"Wrote {len(payload['items'])} review items: {args.out}")
-        return 0
-
-    if command_name == "review":
-        try:
-            session = ReviewSession.open(
-                args.queue,
-                args.out,
-                videos_dir=args.videos_dir,
-                annotations_dir=args.annotations_dir,
-                reviewer=args.reviewer,
-                video=args.video,
-                category=args.category,
-                include_reviewed=args.include_reviewed,
-                start_item=args.start_item,
-            )
-            review_queue_interactively(session)
-        except (ReviewSessionError, ReviewQueueError, RuntimeError, OSError, ValueError) as exc:
-            parser.exit(1, f"error: {exc}\n")
-        return 0
-
-    if command_name == "apply-review":
-        try:
-            summary = apply_review_queue(
-                args.queue,
-                annotations_dir=args.annotations_dir,
-                out_dir=args.out_dir,
-                reviewer=args.reviewer,
-                videos_dir=args.videos_dir,
-                allow_partial=args.allow_partial,
-                dry_run=True,
-            )
-            print(
-                f"Review summary: {summary['reviewed_count']} reviewed, "
-                f"{summary['remaining_count']} remaining, "
-                f"{summary['positives_to_add']} positives to add, "
-                f"{summary['timestamps_to_correct']} timestamps to correct, "
-                f"{summary['hard_negative_count']} hard negatives, "
-                f"{summary['ignored_count']} ignored; "
-                f"videos: {', '.join(summary['affected_videos']) or 'none'}."
-            )
-            if not args.dry_run:
-                summary = apply_review_queue(
-                    args.queue,
-                    annotations_dir=args.annotations_dir,
-                    out_dir=args.out_dir,
-                    reviewer=args.reviewer,
-                    videos_dir=args.videos_dir,
-                    allow_partial=args.allow_partial,
-                )
-        except (ReviewQueueError, AnnotationError, RuntimeError, OSError, ValueError) as exc:
-            parser.exit(1, f"error: {exc}\n")
-        if args.dry_run:
-            print("Dry run: no files written.")
-        else:
-            print(
-                f"Wrote annotation version {args.out_dir} "
-                f"({summary['annotations_added']} events added, "
-                f"{summary['timestamps_corrected']} timestamps corrected)"
-            )
-        return 0
-
-    if command_name == "vision-import":
-        try:
-            annotation_set = import_evidence_packages(
-                args.manifests,
-            )
-            if args.out_dir.exists() and (not args.out_dir.is_dir() or any(args.out_dir.iterdir())):
-                raise VisionAnnotationError(f"Output directory is not empty: {args.out_dir}")
-            args.out_dir.mkdir(parents=True, exist_ok=True)
-            for annotation in annotation_set:
-                save_vision_annotation(
-                    annotation,
-                    args.out_dir / f"{annotation.annotation_set_id}.json",
-                )
-        except (VisionAnnotationError, RuntimeError, OSError, ValueError) as exc:
-            parser.exit(1, f"error: {exc}\n")
-        try:
-            receipt = build_evidence_import_receipt(
-                annotation_set,
-                manifests=args.manifests,
-                operator=args.operator,
-            )
-            receipt_path = args.receipt or args.out_dir / "table-observation-import-receipt.json"
-            save_lifecycle_receipt(receipt, receipt_path)
-        except (LifecycleReceiptError, RuntimeError, OSError, ValueError) as exc:
-            parser.exit(1, f"error: {exc}\n")
-        print(f"Imported {len(annotation_set)} table observations: {args.out_dir}")
-        print(f"Wrote lifecycle receipt: {receipt_path}")
-        return 0
-
-    if command_name == "vision-review":
-        try:
-            review = review_vision_annotation(
-                args.annotation,
-                frames_dir=args.frames_dir,
-                review_path=args.out,
-                reviewer=args.reviewer,
-                review_id=args.review_id,
-                snippet_path=args.snippet,
-            )
-        except (
-            VisionAnnotationError,
-            VisionReviewError,
-            VisionViewerError,
-            RuntimeError,
-            OSError,
-            ValueError,
-        ) as exc:
-            parser.exit(1, f"error: {exc}\n")
-        if review is None:
-            print("Review cancelled; no artifact was written.")
-        else:
-            print(f"Wrote visual review {args.out}: {review.decision}")
-        return 0
-
-    if command_name == "vision-apply-review":
-        try:
-            receipt = apply_vision_review(
-                args.annotation,
-                args.review,
-                out_dir=args.out_dir,
-                dry_run=args.dry_run,
-            )
-        except (VisionReviewError, RuntimeError, OSError, ValueError) as exc:
-            parser.exit(1, f"error: {exc}\n")
-        if args.dry_run:
-            print(json.dumps(receipt, indent=2, sort_keys=True))
-        else:
-            print(f"Wrote reviewed visual annotation: {args.out_dir}")
         return 0
 
     if command_name == "dataset-build":

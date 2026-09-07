@@ -1,7 +1,7 @@
 # DokoDetector data lifecycle
 
-This page is the operator guide for the data foundation. It covers source intake, table-observation
-review, dataset promotion, split creation, model-run provenance, and source retirement.
+This page is the operator guide for the data foundation. It covers source intake, dataset promotion,
+split creation, model-run provenance, and source retirement.
 
 The source bytes are immutable. Each operation reads its inputs and writes a new versioned artifact
 with a lifecycle receipt. A receipt names the source assets, annotation sets, reviews, dataset
@@ -45,8 +45,7 @@ If it fails, the pending upload remains available for retry.
 ```text
 source bytes
     -> source import receipt
-    -> draft table observation
-    -> reviewed annotation + apply receipt
+    -> recording-pipeline table-observation revisions
     -> eligible dataset version + creation receipt
     -> group-safe split + creation receipt
     -> model run receipt
@@ -69,44 +68,10 @@ This writes a source import receipt beside the ingestion index. The receipt cont
 source digests and the ingestion manifest and index versions. It does not move, rename, or rewrite
 the source videos.
 
-For an accepted evidence package, create draft table observations in a new directory. Read the
-package from shared intake; do not copy its source media into a component data directory:
+The recording pipeline owns table-observation creation and review. The legacy CardEventNet package
+import and local review commands are no longer supported.
 
-```bash
-uv run cardevent vision-import fixtures/evidence/v2/example-complete \
-  --out-dir data/table-observations/draft \
-  --operator niklas
-```
-
-Use `data/intake/evidence-packages/<package-id>` in place of the fixture path for repository data.
-The import receipt records the evidence package and draft annotation-set versions. A draft is not
-eligible data.
-
-### 2. Review and apply annotations
-
-Review all available frames and the optional video snippet:
-
-```bash
-uv run cardevent vision-review \
-  --annotation data/table-observations/draft/annotation-set-001.json \
-  --frames-dir data/intake/evidence-packages/<package-id>/frames \
-  --out data/table-observation-reviews/review-001.json \
-  --reviewer niklas
-
-uv run cardevent vision-apply-review \
-  --annotation data/table-observations/draft/annotation-set-001.json \
-  --review data/table-observation-reviews/review-001.json \
-  --out-dir data/table-observations/reviewed/annotation-set-001
-```
-
-The apply command leaves the draft annotation and review input unchanged. Its
-`table-observation-apply-receipt.json` contains a standard lifecycle receipt. The receipt links
-the input annotation version, the review version, and the new reviewed annotation version.
-
-A false event proposal can still have visible-card evidence. A visible card is not a card-play
-label. Do not edit a source file to correct either decision.
-
-### 3. Create an eligible dataset version
+### 2. Create an eligible dataset version
 
 Build the frozen TableEvidenceAnalyzer manifest from reviewed annotations, source records, and
 lineage:
@@ -126,7 +91,7 @@ The command writes `dataset-creation-receipt.json` beside the coverage reports. 
 every source asset, reviewed annotation set, review, and dataset-version digest used to create the
 manifest. Unassigned and excluded records remain in the assembly and coverage reports.
 
-### 4. Create a group-safe split
+### 3. Create a group-safe split
 
 Create a split only after the dataset version is frozen:
 
@@ -142,7 +107,7 @@ The split receipt binds the split to the dataset digest. The split keeps connect
 table-setup, and source-lineage groups together. The `validation` partition name is canonical.
 Unassigned entries are explicit and are not silently placed in a partition.
 
-### 5. Record model-run provenance
+### 4. Record model-run provenance
 
 The TableEvidenceAnalyzer training loop can create a run receipt before or after it writes model
 artifacts:
@@ -162,7 +127,7 @@ The receipt expands the dataset entries. It names every source asset, annotation
 dataset version, and split version used by the run. The run does not need to scan local directories
 to reconstruct its provenance.
 
-### 6. Retire or withdraw a source asset
+### 5. Retire or withdraw a source asset
 
 When permission is withdrawn, write a new source-record version. Select
 `deletion_requested` while a deletion decision is pending, or `retired` when the asset is no longer

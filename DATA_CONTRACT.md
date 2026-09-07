@@ -128,25 +128,16 @@ remain valid through their existing loader and the explicit adapter.
 package, frame, annotation set, and crop to `source-video.bin`. Its test checks the source bytes,
 lineage trace, permission, review state, export round trip, and deterministic dataset digest.
 
-## Table-observation review
+## Table-observation annotation contract
 
 M2 adds table-observation-annotation/v1 for one annotation set. An annotation set keeps the human
 event review separate from visual card evidence. It can contain several observed cards, each with
 frame boxes, visibility, quality tags, newly-visible, active-area, movement, occlusion, and optional
 card-tracklet fields. A visible card does not assert that a card was played.
 
-Import accepted local evidence manifests as draft table observations:
-
-```bash
-uv run cardevent vision-import \
-  ../fixtures/evidence/v2/example-complete/manifest.json \
-  --out-dir data/table-observations
-```
-
-Use vision-review to inspect all frames in a local frame directory. The viewer writes a separate
-table-observation-review/v1 artifact. Use vision-apply-review to create a new annotation directory.
-The source annotation, evidence manifest, and review artifact are read only. The apply directory
-contains the reviewed annotation, a copy of the review, and a table-observation-apply-receipt.json.
+The recording pipeline owns creation and review of these annotations. The superseded CardEventNet
+package import and local review commands are removed. The schema remains available to the dataset
+contract and its validation tests until the package-backed dataset lifecycle is retired.
 
 ## M3 dataset assembly
 
@@ -206,8 +197,6 @@ The supported receipt types are:
 
 ```text
 source_import
-evidence_import
-annotation_application
 dataset_creation
 split_creation
 training_run
@@ -218,8 +207,6 @@ The normal operator flow is documented in [Data_Lifecycle.md](docs/Data_Lifecycl
 commands write receipts as follows:
 
 - `ingest` writes a source import receipt beside the ingestion index;
-- `vision-import` writes `table-observation-import-receipt.json` in its output directory;
-- `vision-apply-review` keeps the table-observation apply receipt and nests the lifecycle receipt;
 - `dataset-build` writes `dataset-creation-receipt.json` beside its reports;
 - `dataset-split` writes a receipt beside the split file;
 - `training-receipt` expands a dataset and split into all source, annotation, and review versions used;

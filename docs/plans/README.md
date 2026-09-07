@@ -41,7 +41,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0056 — Superseded review and data interfaces](1-backlog/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | Remove proved-unused package-backed review and data orchestration while preserving necessary consumers and validators. |
 
 ### Ready
 
@@ -55,6 +54,7 @@ The shared target architecture is
 | [0055 — Documentation authority and first hops](3-in-progress/0055-Documentation_Authority_and_First_Hops.md) | 0053 discovery complete | M0–M2 complete: the root authority route and component map are published, completed 0048/0049 handoffs no longer act as current guidance, and the Python component first hops are normalized. M3 remains. |
 | [0058 — Backend pipeline service boundaries](3-in-progress/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0–M1 complete: backend HTTP route ownership is split into focused modules with unchanged public contracts. M2–M4 remain. |
 | [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M1 complete: evidence-package contract, assembly, and durable-store ownership are split with unchanged behavior. M2–M3 remain. |
+| [0056 — Superseded review and data interfaces](3-in-progress/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | M0–M1 complete: CardEventNet package-review commands and command-only helpers are removed; M2–M5 remain. |
 | [0059 — Web workspace module boundaries](3-in-progress/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0–M1 complete: route and URL-state helpers have a focused source and regression proof; M2–M7 remain. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
@@ -122,9 +122,9 @@ The shared target architecture is
 ## Next steps
 
 1. **Continue epic 0055 with M3.** Complete the client and rules first hops, then verify the
-   repository documentation route. After 0055, use the ranked 0053 follow-ups: 0057 operations
-   boundaries, 0058 backend boundaries, 0059 web boundaries, and 0060 iOS boundaries. Epic 0056 is
-   specified and Backlog.
+   repository documentation route. After 0055, use the ranked 0053 follow-ups: 0056 review and
+   data interfaces, 0057 operations boundaries, 0058 backend boundaries, 0059 web boundaries, and
+   0060 iOS boundaries.
 2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts

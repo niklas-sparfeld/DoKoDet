@@ -1,13 +1,12 @@
-"""Versioned table-observation annotations and evidence-package import."""
+"""Versioned table-observation annotations."""
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path, PurePath
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 from .data_contract import canonical_json
 
@@ -488,17 +487,6 @@ def annotation_bytes(annotation: TableObservationAnnotation) -> bytes:
     return canonical_json(annotation.to_mapping()).encode("utf-8")
 
 
-def _sha256_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
-def _sha256_file(path: Path) -> str:
-    try:
-        return _sha256_bytes(path.read_bytes())
-    except OSError as exc:
-        raise VisionAnnotationError(f"Could not read {path}: {exc}") from exc
-
-
 def load_vision_annotation(path: str | Path) -> TableObservationAnnotation:
     annotation_path = Path(path)
     try:
@@ -520,88 +508,6 @@ def save_vision_annotation(
     destination.write_text(
         json.dumps(annotation.to_mapping(), indent=2, allow_nan=False) + "\n", encoding="utf-8"
     )
-
-
-def _manifest_path(path: Path) -> Path:
-    if path.is_dir():
-        if (path / "evidence-manifest.json").is_file():
-            path = path / "evidence-manifest.json"
-        else:
-            path = path / "manifest.json"
-    if not path.is_file():
-        raise VisionAnnotationError(f"Evidence manifest does not exist: {path}")
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise VisionAnnotationError(f"Could not read evidence manifest {path}: {exc}") from exc
-    if isinstance(payload, Mapping) and payload.get("schema_version") == "evidence-package-bundle/v1":
-        canonical = path.parent / "evidence-manifest.json"
-        if not canonical.is_file():
-            raise VisionAnnotationError(f"Canonical evidence manifest does not exist: {canonical}")
-        path = canonical
-    return path
-
-
-def _evidence_annotation(manifest_path: Path) -> TableObservationAnnotation:
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise VisionAnnotationError(
-            f"Could not read evidence manifest {manifest_path}: {exc}"
-        ) from exc
-    mapping = _mapping(payload, "evidence manifest")
-    if mapping.get("schema_version") != "cardevent-evidence/v2":
-        raise VisionAnnotationError("Evidence manifest must use cardevent-evidence/v2.")
-    package_id = _identifier(mapping.get("package_id"), "package_id")
-    event = _mapping(mapping.get("event"), "evidence event")
-    event_time_ms = event.get("event_time_ms")
-    if isinstance(event_time_ms, bool) or not isinstance(event_time_ms, int) or event_time_ms < 0:
-        raise VisionAnnotationError("evidence event_time_ms must be a non-negative integer.")
-    raw_frames = mapping.get("frames")
-    if not isinstance(raw_frames, list) or not raw_frames:
-        raise VisionAnnotationError("evidence frames must be a non-empty list.")
-    observations: list[FrameObservation] = []
-    for frame in raw_frames:
-        frame_mapping = _mapping(frame, "evidence frame")
-        part_name = _identifier(frame_mapping.get("part_name"), "part_name")
-        observations.append(
-            FrameObservation(
-                frame_id=part_name,
-                bbox=None,
-                usable_for_identity=False,
-                tags=(),
-            )
-        )
-    placeholder = ObservedCard(
-        observed_card_id=f"observed-card-{package_id}",
-        visual_card_identity=None,
-        visibility="card_not_visible",
-        frame_observations=tuple(observations),
-        became_newly_visible=False,
-        active_area_class="not_applicable",
-    )
-    return TableObservationAnnotation(
-        annotation_set_id=f"annotation-set-{package_id}",
-        source=VisionSource(package_id=package_id),
-        observed_cards=(placeholder,),
-        event_review="unreviewed",
-        review_state="draft",
-    )
-
-
-def import_evidence_packages(
-    manifests: Sequence[str | Path],
-) -> tuple[TableObservationAnnotation, ...]:
-    """Import accepted evidence manifests as draft table-observation annotations."""
-
-    if not manifests:
-        raise VisionAnnotationError("At least one evidence manifest is required.")
-    paths = sorted({_manifest_path(Path(path)) for path in manifests}, key=lambda path: str(path))
-    annotations = tuple(_evidence_annotation(path) for path in paths)
-    ids = [annotation.annotation_set_id for annotation in annotations]
-    if len(ids) != len(set(ids)):
-        raise VisionAnnotationError("Evidence manifests contain duplicate package IDs.")
-    return annotations
 
 
 load_table_observation_annotation = load_vision_annotation
@@ -632,7 +538,6 @@ __all__ = [
     "VisionAnnotation",
     "VisionSource",
     "annotation_bytes",
-    "import_evidence_packages",
     "load_vision_annotation",
     "load_table_observation_annotation",
     "save_vision_annotation",

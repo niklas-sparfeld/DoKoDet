@@ -4,7 +4,7 @@
 
 - **Summary:** Remove proved-unused package-backed review and data orchestration. Keep pipeline
   contracts, active model-quality tools, and device-showcase validation.
-- **Status:** Backlog
+- **Status:** In Progress
 - **Depends on:** 0053 discovery complete
 - **Outcome:** Supported component commands, reusable validators, and recording-pipeline workflows
   are distinct. Obsolete orchestration, exports, tests, and guides no longer consume agent context.
@@ -13,8 +13,8 @@
 ## Milestone status
 
 - **M0:** Complete — consumer proof and delivery boundaries specified.
-- **M1:** Not started — remove the unconsumed CardEventNet package-review commands and their
-  package-backed visual-event workflow.
+- **M1:** Complete — removed the unconsumed CardEventNet package-review commands, their aliases,
+  handlers, command-only helpers, focused tests, and current command guidance.
 - **M2:** Not started — remove the unconsumed CardEventNet table-observation dataset commands and
   their package-backed lifecycle helpers.
 - **M3:** Not started — remove obsolete event and table-observation review adapters from
@@ -68,6 +68,19 @@ map; this epic removes only guidance for removed interfaces.
 
 Before M1 starts, check untracked operator and recovery instructions. A named consumer blocks only
 its command or module; it does not block unrelated removals.
+
+## M1 result
+
+The untracked workspace check found no operator or recovery instructions that name the removed
+commands. CardEventNet no longer registers `review-queue`, `review`, `apply-review`,
+`vision-import`, `vision-review`, or `vision-apply-review`, including their aliases. Their event
+review UI, package evidence importer, apply and evidence-import receipt builders, exports, focused
+tests, and current command guidance are removed.
+
+The table-observation annotation schema and review parser remain for the M2 dataset assembler.
+Source intake, event annotation with optional proposals, preparation, split, train, infer, evaluate,
+diagnose, baseline, hard-negative, and Core ML export paths remain available. Reviewed data,
+fixtures, and device evidence-package acceptance remain unchanged.
 
 ## Delivery milestones
 

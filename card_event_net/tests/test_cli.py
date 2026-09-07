@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-import json
+import argparse
 from pathlib import Path
+
+import pytest
 
 from cardevent.cli import build_parser, main
 
@@ -19,6 +21,32 @@ def test_root_help_lists_the_expected_commands() -> None:
     assert "dataset-validate" in help_text
     assert "training-receipt" in help_text
     assert "retire-source" in help_text
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "review-queue",
+        "review",
+        "apply-review",
+        "vision-import",
+        "import-vision",
+        "import-vision-annotations",
+        "vision-review",
+        "vision-apply-review",
+    ),
+)
+def test_superseded_review_commands_are_not_registered(command: str) -> None:
+    parser = build_parser()
+    subparsers = next(
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    )
+    assert command not in subparsers.choices
+
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args([command])
+
+    assert exc_info.value.code == 2
 
 
 def test_ingest_and_inspect_commands_parse_paths() -> None:
@@ -98,47 +126,6 @@ def test_extract_evidence_command_parses_annotation_inputs() -> None:
     assert args.target_offsets_ms == [0]
 
 
-def test_vision_commands_parse_contract_paths() -> None:
-    import_args = build_parser().parse_args(
-        ["vision-import", "package/manifest.json", "--out-dir", "annotations"]
-    )
-    review_args = build_parser().parse_args(
-        [
-            "vision-review",
-            "--annotation",
-            "event.json",
-            "--frames-dir",
-            "frames",
-            "--out",
-            "review.json",
-            "--reviewer",
-            "niklas",
-            "--snippet",
-            "snippet.mp4",
-        ]
-    )
-    apply_args = build_parser().parse_args(
-        [
-            "vision-apply-review",
-            "--annotation",
-            "event.json",
-            "--review",
-            "review.json",
-            "--out-dir",
-            "applied",
-        ]
-    )
-
-    assert import_args.command_name == "vision-import"
-    assert import_args.manifests == [Path("package/manifest.json")]
-    assert import_args.out_dir == Path("annotations")
-    assert review_args.command_name == "vision-review"
-    assert review_args.frames_dir == Path("frames")
-    assert review_args.snippet == Path("snippet.mp4")
-    assert apply_args.command_name == "vision-apply-review"
-    assert apply_args.out_dir == Path("applied")
-
-
 def test_table_dataset_commands_parse_contract_paths() -> None:
     build_args = build_parser().parse_args(
         [
@@ -215,34 +202,6 @@ def test_table_dataset_commands_parse_contract_paths() -> None:
     assert training_args.training_run_id == "run-001"
     assert retire_args.command_name == "retire-source"
     assert retire_args.source_asset_id == ["source-001"]
-
-
-def test_vision_import_command_writes_table_observation_files(tmp_path: Path) -> None:
-    evidence_root = Path(__file__).parents[2] / "fixtures" / "evidence" / "v2"
-    output_dir = tmp_path / "table-observations"
-
-    exit_code = main(
-        [
-            "vision-import",
-            str(evidence_root / "example-complete"),
-            str(evidence_root / "example-incomplete"),
-            "--out-dir",
-            str(output_dir),
-        ]
-    )
-
-    assert exit_code == 0
-    annotation_files = sorted(
-        file
-        for file in output_dir.glob("*.json")
-        if "table-observation-annotation/v1" in file.read_text()
-    )
-    assert len(annotation_files) == 2
-    receipt = json.loads(
-        (output_dir / "table-observation-import-receipt.json").read_text(encoding="utf-8")
-    )
-    assert receipt["schema_version"] == "lifecycle-receipt/v1"
-    assert receipt["receipt_type"] == "evidence_import"
 
 
 def test_train_command_parses_config_and_split() -> None:

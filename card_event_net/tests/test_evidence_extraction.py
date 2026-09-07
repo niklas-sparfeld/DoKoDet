@@ -12,7 +12,6 @@ from cardevent.evidence_extraction import (
     EvidenceExtractionError,
     extract_annotation_evidence,
 )
-from cardevent.vision_annotation import import_evidence_packages
 
 
 def _write_video(path: Path, *, frame_count: int = 10, fps: float = 10.0) -> None:
@@ -137,10 +136,6 @@ def test_extract_annotation_evidence_writes_source_resolution_packages(tmp_path:
         frame_path = package_path / "frames" / f"{frame['part_name']}.jpg"
         assert cv2.imread(str(frame_path)).shape == (48, 64, 3)
         assert hashlib.sha256(frame_path.read_bytes()).hexdigest() == frame["sha256"]
-
-    imported = import_evidence_packages([package_path])
-    assert len(imported) == 1
-    assert len(imported[0].observed_cards[0].frame_observations) == 2
 
     second_output = tmp_path / "second-evidence"
     extract_annotation_evidence(

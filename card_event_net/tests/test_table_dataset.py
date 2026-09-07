@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
 
-from cardevent.data_contract import EntityRef, LineageEdge, LineageGraph, SourceRecord
+from cardevent.data_contract import EntityRef, LineageEdge, LineageGraph, SourceRecord, sha256_bytes
 from cardevent.table_dataset import (
     TableDatasetError,
     assemble_table_evidence_dataset,
@@ -20,8 +20,8 @@ from cardevent.vision_annotation import (
     ObservedCard,
     TableObservationAnnotation,
     VisionSource,
+    annotation_bytes,
 )
-from cardevent.vision_review import build_table_observation_review
 
 SOURCE_BYTES = b"table-observation-source"
 SOURCE_SHA = "e" * 64
@@ -86,6 +86,33 @@ def _annotation(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _Review:
+    review_id: str
+    annotation_set_id: str
+    source_annotation_sha256: str
+    reviewed_annotation: TableObservationAnnotation
+
+
+def _review(
+    annotation: TableObservationAnnotation,
+    *,
+    review_id: str,
+    event_decision: str,
+) -> _Review:
+    event_review = {
+        "confirm_card_play": "confirmed_card_play",
+        "reject_event": "false_event_proposal",
+    }[event_decision]
+    reviewed = replace(annotation, event_review=event_review, review_state="reviewed")
+    return _Review(
+        review_id=review_id,
+        annotation_set_id=annotation.annotation_set_id,
+        source_annotation_sha256=sha256_bytes(annotation_bytes(annotation)),
+        reviewed_annotation=reviewed,
+    )
+
+
 def _lineage(annotation: TableObservationAnnotation, source: SourceRecord) -> LineageGraph:
     package_id = annotation.source.package_id
     assert package_id is not None
@@ -125,12 +152,10 @@ def _lineage(annotation: TableObservationAnnotation, source: SourceRecord) -> Li
 def test_assembly_requires_review_and_preserves_sample_lineage() -> None:
     annotation = _annotation()
     source = _source()
-    review = build_table_observation_review(
+    review = _review(
         annotation,
-        reviewer="tester",
         event_decision="reject_event",
         review_id="review-001",
-        reviewed_at="2026-08-27T12:00:00Z",
     )
 
     result = assemble_table_evidence_dataset(
@@ -180,12 +205,10 @@ def test_group_safe_split_keeps_session_together_and_is_deterministic() -> None:
             session_id="shared-session",
             sha256=f"{index + 1:064x}",
         )
-        review = build_table_observation_review(
+        review = _review(
             annotation,
-            reviewer="tester",
             event_decision="confirm_card_play",
             review_id=f"review-{index}",
-            reviewed_at="2026-08-27T12:00:00Z",
         )
         annotations.append(annotation)
         sources.append(source)
@@ -215,12 +238,10 @@ def test_group_safe_split_keeps_session_together_and_is_deterministic() -> None:
 def test_frozen_validation_rejects_changed_source_digest() -> None:
     annotation = _annotation()
     source = _source()
-    review = build_table_observation_review(
+    review = _review(
         annotation,
-        reviewer="tester",
         event_decision="confirm_card_play",
         review_id="review-001",
-        reviewed_at="2026-08-27T12:00:00Z",
     )
     result = assemble_table_evidence_dataset(
         [annotation],
@@ -248,12 +269,10 @@ def test_frozen_validation_rejects_changed_source_digest() -> None:
 def test_coverage_report_has_human_rendering_and_explicit_sections(tmp_path: Path) -> None:
     annotation = _annotation()
     source = _source()
-    review = build_table_observation_review(
+    review = _review(
         annotation,
-        reviewer="tester",
         event_decision="confirm_card_play",
         review_id="review-001",
-        reviewed_at="2026-08-27T12:00:00Z",
     )
     result = assemble_table_evidence_dataset(
         [annotation],
