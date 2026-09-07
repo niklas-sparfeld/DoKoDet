@@ -16,7 +16,7 @@
   and the tracked documentation inventory.
 - **M1:** Complete — published the shared authority route and removed current-state claims that
   contradicted the closed 0048 and 0049 epics.
-- **M2:** Not started — give the Python component guides one consistent ownership and verification
+- **M2:** Complete — gave the Python component guides one consistent ownership and verification
   hop.
 - **M3:** Not started — complete the client and rules first hops and prove that navigation links
   and documented commands resolve locally.
@@ -49,6 +49,19 @@ implementation evidence without acting as current navigation.
 
 Changed Markdown links resolve locally. A search of non-historical documentation found no remaining
 claim that 0048 or 0049 must perform their completed cutover.
+
+## M2 evidence
+
+The CardEventNet, backend, operations, and TableEvidenceAnalyzer guides now identify their owned
+source and test directories, public command or service entry point, component boundary, and exact
+local pytest and Ruff checks. Shared architecture, work state, contracts, and repository intake
+route through the root documentation route and durable lifecycle and intake guides. The analyzer
+guide no longer duplicates the obsolete shared `doko data review` path.
+
+The four public entry points and 50 documented subcommand help surfaces resolve locally. The
+analyzer test suite passes with 149 tests. CardEventNet, backend, and operations full-suite or
+format checks still report unrelated concurrent implementation changes in the shared worktree;
+the documentation checks and all command help checks pass.
 
 ## Delivery milestones
 

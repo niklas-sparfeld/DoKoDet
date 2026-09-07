@@ -7,11 +7,29 @@ bundle and every mutable or derived resource in validated filesystem stores belo
 roots. Temporary uploads and analyzer output are disposable runtime state.
 
 The backend stores table observations produced by a `TableEvidenceAnalyzer` and adds an optional
-bounded video snippet. See
-[Table Observation and Game Reconstruction](../docs/TableObservationReconstruction.md),
-[plan 0006](../docs/plans/5-closed/0006-GameEngine_v1.md), and
-[plan 0025](../docs/plans/5-closed/0025-Video_Snippet_Evidence.md). The runtime stores the
-canonical `table-observation/v1` contract and does not import training modules.
+bounded video snippet. It stores the canonical `table-observation/v1` contract and does not import
+training modules.
+
+## First hop
+
+From `backend/`:
+
+- Owned source: `src/dokodetector_backend/`.
+- Tests: `tests/`.
+- Public service: `mise exec -- uv run dokodetector-backend`.
+- Boundary: accept and store source bundles, orchestrate local pipeline work, and serve the HTTP
+  API. Analyzer and game rules remain in their owning components.
+- Local checks:
+
+  ```bash
+  mise exec -- uv run pytest
+  mise exec -- uv run ruff check .
+  mise exec -- uv run ruff format --check .
+  ```
+
+Use the [repository documentation route](../README.md#documentation-route) for architecture, work
+state, shared contracts, and repository intake. Use the [target architecture](../docs/TableObservationReconstruction.md)
+for cross-component boundaries.
 
 ## Setup
 
@@ -43,16 +61,6 @@ npm run build
 The build writes hashed assets to `web/dist`. The backend serves that package at
 `/round-analyses/` and does not need a Node.js process after the build. For frontend development,
 run `npm run dev` in `web/`; its `/v1` requests use the local backend proxy.
-
-## Checks
-
-Run the local checks from `backend/`:
-
-```bash
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
-```
 
 ## Run the service
 
@@ -323,24 +331,9 @@ data/incoming/videos/<upload-id>/<original-filename>
 
 The repository intake is the source authority. The backend validates canonical bundles on each
 catalog read. A pending upload is not a recording or an evidence package. It stays outside intake
-until an operator supplies valid metadata and both task
-enrollments with the operations command:
-
-```bash
-cd ..
-mise exec -- uv run --project operations doko data status --repository-root .
-mise exec -- uv run --project operations doko data complete-video \
-  --repository-root . --upload-id <upload-id> --metadata completion.json
-```
-
-For a package written by an older backend, use the one-time adoption command. It validates the old
-bytes, writes the canonical package, and keeps the old runtime directory until verification:
-
-```bash
-mise exec -- uv run --project operations doko data adopt-evidence \
-  --repository-root . --runtime-root backend/.runtime \
-  --package-id <package-id> --metadata package-metadata.json
-```
+until an operator supplies valid metadata and both task enrollments. Use the [data
+lifecycle](../docs/Data_Lifecycle.md) and [repository intake
+contract](../docs/Repository_Intake_Contract.md) for completion and one-time adoption commands.
 
 Deleting `.runtime/` removes only disposable backend state. It does not remove accepted source
 bundles. There is no delete API for recordings or evidence packages. To remove local test data,

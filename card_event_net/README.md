@@ -5,8 +5,26 @@ table-state evaluation.
 
 Run the commands below from `card_event_net/`.
 
-Data contributors can start with the short
-[data and model lifecycle](../docs/CardEventNet_DataAndModelLifecycle.md).
+## First hop
+
+From `card_event_net/`:
+
+- Owned source: `src/cardevent/`.
+- Tests: `tests/`.
+- Public CLI: `mise exec -- uv run cardevent --help`.
+- Boundary: read source videos and selected evidence, then emit event proposals for the recording
+  pipeline.
+- Local checks:
+
+  ```bash
+  mise exec -- uv run pytest
+  mise exec -- uv run ruff check .
+  mise exec -- uv run ruff format --check .
+  ```
+
+Use the [repository documentation route](../README.md#documentation-route) for architecture, work
+state, shared contracts, and repository intake. Use the [CardEventNet data and model
+lifecycle](../docs/CardEventNet_DataAndModelLifecycle.md) for component-specific model work.
 
 ## Current state
 
@@ -83,9 +101,6 @@ If `uv` is not available yet, run `mise install` first so the toolchain from `mi
 
 ```bash
 uv sync
-uv run cardevent --help
-uv run pytest
-uv run ruff check .
 ```
 
 Core ML export is optional and requires macOS:
@@ -153,22 +168,14 @@ output directory. Use a new versioned directory for another run.
 
 ## Review an accepted evidence package
 
-The backend stores each accepted evidence package as one immutable source bundle under
-`../data/intake/evidence-packages/<package-id>/`. CardEventNet can use the package only when its
-`cardevent_event_detection` task enrollment has `disposition: selected`. It reads the package
-frames and optional snippet in place. It does not copy source media into `data/`.
+Use the [data lifecycle](../docs/Data_Lifecycle.md) and [repository intake
+contract](../docs/Repository_Intake_Contract.md) for shared package layout, task enrollment, and
+intake state. CardEventNet reads an accepted package only when its
+`cardevent_event_detection` enrollment is selected. It reads package frames and an optional snippet
+in place. It does not copy source media into `data/`.
 
-Check the shared intake and create durable review work from the repository root:
-
-```bash
-mise exec -- uv run --project operations doko data status --repository-root .
-mise exec -- uv run --project operations doko data review \
-  --repository-root . --task cardevent_event_detection --reviewer <name>
-```
-
-Pending uploads under `../data/incoming/videos/` are not visible to CardEventNet. Complete a
-pending upload before review. A proposal is not a reviewed event and does not create a training
-label.
+A pending upload is not visible to this task. An event proposal is not a reviewed event and does
+not create a training label.
 
 ## Review a shared training recording
 

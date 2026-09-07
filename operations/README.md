@@ -1,5 +1,25 @@
 # DokoDetector model operations
 
+## First hop
+
+From `operations/`:
+
+- Owned source: `src/doko_operations/`.
+- Tests: `tests/`.
+- Public CLI: `mise exec -- uv run doko --help`.
+- Boundary: own repository data lifecycle, model operations, and reconstruction orchestration;
+  backend and other components consume these operations.
+- Local checks:
+
+  ```bash
+  mise exec -- uv run pytest
+  mise exec -- uv run ruff check .
+  mise exec -- uv run ruff format --check .
+  ```
+
+Use the [repository documentation route](../README.md#documentation-route) for architecture, work
+state, shared contracts, and component boundaries. This guide owns the `doko` command details.
+
 M0 provides strict local contracts and read-only inspection for model-improvement campaigns.
 
 ```bash

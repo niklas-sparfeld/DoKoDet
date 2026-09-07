@@ -78,6 +78,7 @@ Use one authority for each kind of repository fact:
 | What is the target architecture? | [Table Observation and Game Reconstruction](docs/TableObservationReconstruction.md) |
 | What work is active, ready, blocked, or closed? | [Epic board](docs/plans/README.md) |
 | What are the shared wire contracts? | Root contract files ([`DATA_CONTRACT.md`](DATA_CONTRACT.md), [`SERVER_CONTRACT.md`](SERVER_CONTRACT.md), [`MODEL_CONTRACT.md`](MODEL_CONTRACT.md), [`GAME_RECONSTRUCTION_CONTRACT.md`](GAME_RECONSTRUCTION_CONTRACT.md)) and [`schemas/`](schemas/) |
+| What are the shared data lifecycle and intake rules? | [Data lifecycle](docs/Data_Lifecycle.md) and [repository intake contract](docs/Repository_Intake_Contract.md) |
 | How do I operate one component? | That component's README, then its owned source, tests, and local checks |
 
 Start component work in the component README. Use the target architecture and epic board for

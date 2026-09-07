@@ -5,30 +5,37 @@ line for TableEvidenceAnalyzer capabilities. It does not capture evidence or app
 The analyzer reads accepted evidence packages from the shared repository intake and writes only
 task-specific derived artifacts.
 
+## First hop
+
+From `table_evidence_analyzer/`:
+
+- Owned source: `src/table_evidence_analyzer/`.
+- Tests: `tests/`.
+- Public CLI: `mise exec -- uv run table-analyzer --help`.
+- Boundary: read selected evidence packages and emit table observations; game rules and
+  reconstruction remain in `game_engine/` and `operations/`.
+- Local checks:
+
+  ```bash
+  mise exec -- uv run pytest
+  mise exec -- uv run ruff check .
+  mise exec -- uv run ruff format --check .
+  ```
+
+Use the [repository documentation route](../README.md#documentation-route) for architecture, work
+state, shared contracts, and repository intake. This guide owns the `table-analyzer` command and
+its capability workflows.
+
 ## Shared evidence intake
 
-Accepted packages are immutable source bundles under:
+Accepted packages are immutable source bundles under `../data/intake/evidence-packages/<package-id>/`.
+Use the [data lifecycle](../docs/Data_Lifecycle.md) and [repository intake
+contract](../docs/Repository_Intake_Contract.md) for shared storage, task enrollment, completion,
+and review rules. TableEvidenceAnalyzer reads selected source files in place. It does not copy
+them into `table_evidence_analyzer/data/` or change source bytes.
 
-```text
-../data/intake/evidence-packages/<package-id>/
-```
-
-The package contains `evidence-manifest.json`, selected frames, an optional video snippet, source
-permission, independent task enrollments, and lineage. TableEvidenceAnalyzer can discover a
-package only when its `table_evidence_analysis` enrollment has `disposition: selected`. It reads
-the source files in place. It does not copy them into `table_evidence_analyzer/data/`.
-
-Use the repository operations command to inspect the shared source and review work:
-
-```bash
-mise exec -- uv run --project ../operations doko data status --repository-root ..
-mise exec -- uv run --project ../operations doko data review \
-  --repository-root .. --task table_evidence_analysis --reviewer <name>
-```
-
-Pending uploads under `../data/incoming/videos/` are not visible to this task. Complete them with
-the operations command before review. A review does not change source bytes or make a table
-observation ground truth.
+Pending uploads are not visible to this task until the shared intake process completes them. A
+review does not change source bytes or make a table observation ground truth.
 
 ## Setup
 
