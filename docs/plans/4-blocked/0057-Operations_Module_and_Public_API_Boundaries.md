@@ -83,8 +83,8 @@ Run `uv run pytest` and `uv run ruff check .` from `operations/`. Run
 
 #### Dependency update — 2026-09-07
 
-- Epic 0056 remains `Backlog`, with its removal milestones not started. M2 and M3 cannot begin
-  until 0056 completes because they would otherwise split code that 0056 owns removing.
+- Epic 0056 is `In Progress` with M1 complete; its M2–M5 remain. M2 and M3 cannot begin until 0056
+  completes because they would otherwise split code that 0056 owns removing.
 
 ### M2 — Pipeline comparison contract and execution boundary
 
