@@ -42,21 +42,20 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0056 — Superseded review and data interfaces](1-backlog/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | Remove proved-unused package-backed review and data orchestration while preserving necessary consumers and validators. |
-| [0057 — Operations module and public API boundaries](1-backlog/0057-Operations_Module_and_Public_API_Boundaries.md) | 0053 complete; 0056 complete before M2 or M3 | Remove the eager facade and separate stable comparison and reconstruction contracts from execution. |
-| [0060 — iOS capture module boundaries](1-backlog/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0 specifies M1–M3: evidence package boundaries, repository-intake validation, then app workflow coordination. |
 
 ### Ready
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0058 — Backend pipeline service boundaries](2-ready/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0 specifies M1–M4: routes, execution/comparison/workspace services, maintained references, then composition proof. |
-| [0059 — Web workspace module boundaries](2-ready/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0 specifies M1–M7: route state, workspace host, three stage editors, controls, then analysis presentation. Preserve the completed 0054 layout and behavior. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0055 — Documentation authority and first hops](3-in-progress/0055-Documentation_Authority_and_First_Hops.md) | 0053 discovery complete | M0–M1 complete: the root authority route and component map are published, and completed 0048/0049 handoffs no longer act as current guidance. M2–M3 remain. |
+| [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M1 complete: evidence-package contract, assembly, and durable-store ownership are split with unchanged behavior. M2–M3 remain. |
+| [0059 — Web workspace module boundaries](3-in-progress/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0–M1 complete: route and URL-state helpers have a focused source and regression proof; M2–M7 remain. |
+| [0058 — Backend pipeline service boundaries](3-in-progress/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0–M1 complete: backend HTTP route ownership is split into focused modules with unchanged public contracts. M2–M4 remain. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -64,6 +63,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0052 — Selected response to visible-region identity failures](4-blocked/0052-Selected_Visible_Region_Identity_Response.md) | 0051 selects one follow-up identity response | Implement and evaluate at most one response to the measured 0051 failure. Close as not required for any other 0051 conclusion. M0–M3 not started. |
+| [0057 — Operations module and public API boundaries](4-blocked/0057-Operations_Module_and_Public_API_Boundaries.md) | 0056 must complete before M2 or M3; 0056 is Backlog | M0–M1 complete: the eager facade is removed, consumers use direct module imports, and import isolation is covered. M2–M3 are blocked pending 0056. |
 | [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, 0049, and 0051 complete; resolve 0052 if required; plus declared real reviewed coverage | Compare at most two DINOv3 candidates with the fixed resilient identity input contract; lock at most one without changing the backend default. M0–M3 not started. |
 | [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and 0051 complete; resolve 0052 if required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against the fixed resilient identifier, then select at most one justified capability response. M0–M3 not started. |

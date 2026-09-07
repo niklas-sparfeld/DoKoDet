@@ -4,7 +4,7 @@
 
 - **Summary:** Split the iOS evidence package contract, repository-intake validation, and recording
   app-state workflows into focused source boundaries without changing behavior.
-- **Status:** Backlog
+- **Status:** In Progress
 - **Depends on:** 0053 discovery complete
 - **Outcome:** A capture, evidence, upload, or analysis-state change uses a focused source and test
   boundary that compiles in both the Swift Package and Xcode app.
@@ -14,7 +14,8 @@
 
 - **M0:** Complete — mapped package and app membership, stable seams, concurrency limits, and
   focused verification.
-- **M1:** Not started — split evidence-package contract, assembly, and durable-store ownership.
+- **M1:** Complete — split evidence-package contract, assembly, and durable-store ownership with
+  unchanged Swift Package and Xcode target membership.
 - **M2:** Not started — split repository-intake document models from their validation boundary.
 - **M3:** Not started — move recording, upload, and analysis workflow coordination out of
   `AppState` while preserving its UI facade.
