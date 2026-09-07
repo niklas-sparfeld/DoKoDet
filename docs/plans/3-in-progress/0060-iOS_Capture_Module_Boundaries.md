@@ -17,8 +17,7 @@
 - **M1:** Complete — split evidence-package contract, assembly, and durable-store ownership with
   unchanged Swift Package and Xcode target membership.
 - **M2:** Complete — split repository-intake document models from directory and contract validation with unchanged fixture behavior and target membership.
-- **M3:** Not started — move recording, upload, and analysis workflow coordination out of
-  `AppState` while preserving its UI facade.
+- **M3:** Complete — moved recording lifecycle, durable training upload, evidence upload, and round-analysis coordination into injected main-actor workflow owners while preserving the `AppState` UI facade.
 
 ## Problem and target membership
 

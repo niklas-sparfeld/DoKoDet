@@ -7,8 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A00000000000000000000040 /* AppWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000040 /* AppWorkflowTests.swift */; };
+		A00000000000000000000041 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000042 /* XCTest.framework */; };
 		A00000000000000000000001 /* CardEventProbeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000001 /* CardEventProbeApp.swift */; };
 		A00000000000000000000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002 /* AppState.swift */; };
+		A0000000000000000000003E /* RecordingWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003E /* RecordingWorkflow.swift */; };
+		A0000000000000000000003F /* EvidenceAnalysisWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003F /* EvidenceAnalysisWorkflow.swift */; };
 		A00000000000000000000003 /* CameraSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003 /* CameraSession.swift */; };
 		A00000000000000000000004 /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000004 /* CameraPreview.swift */; };
 		A00000000000000000000005 /* ModelContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* ModelContract.swift */; };
@@ -69,9 +73,14 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		B00000000000000000000040 /* AppWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppWorkflowTests.swift; sourceTree = "<group>"; };
+		B00000000000000000000041 /* CardEventProbeAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CardEventProbeAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B00000000000000000000042 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		B00000000000000000000000 /* CardEventProbe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CardEventProbe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B00000000000000000000001 /* CardEventProbeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEventProbeApp.swift; sourceTree = "<group>"; };
 		B00000000000000000000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		B0000000000000000000003E /* RecordingWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWorkflow.swift; sourceTree = "<group>"; };
+		B0000000000000000000003F /* EvidenceAnalysisWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceAnalysisWorkflow.swift; sourceTree = "<group>"; };
 		B00000000000000000000003 /* CameraSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraSession.swift; sourceTree = "<group>"; };
 		B00000000000000000000004 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
 		B00000000000000000000005 /* ModelContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContract.swift; sourceTree = "<group>"; };
@@ -131,6 +140,16 @@
 		B0000000000000000000003C /* RecordingWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWorkspaceView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXContainerItemProxy section */
+		C10000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E00000000000000000000001;
+			remoteInfo = CardEventProbe;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		C00000000000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -161,6 +180,7 @@
 			isa = PBXGroup;
 			children = (
 				D00000000000000000000002 /* CardEventProbe */,
+				D0000000000000000000000D /* CardEventProbeAppTests */,
 				D00000000000000000000003 /* Products */,
 				D00000000000000000000004 /* Frameworks */,
 				B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */,
@@ -187,6 +207,7 @@
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000000 /* CardEventProbe.app */,
+				B00000000000000000000041 /* CardEventProbeAppTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -209,6 +230,8 @@
 			children = (
 				B00000000000000000000001 /* CardEventProbeApp.swift */,
 				B00000000000000000000002 /* AppState.swift */,
+				B0000000000000000000003E /* RecordingWorkflow.swift */,
+				B0000000000000000000003F /* EvidenceAnalysisWorkflow.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -311,6 +334,14 @@
 			path = Networking;
 			sourceTree = "<group>";
 		};
+		D0000000000000000000000D /* CardEventProbeAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000040 /* AppWorkflowTests.swift */,
+			);
+			path = CardEventProbeAppTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -331,7 +362,33 @@
 			productReference = B00000000000000000000000 /* CardEventProbe.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E00000000000000000000002 /* CardEventProbeAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E00000000000000000000006 /* Build configuration list for PBXNativeTarget "CardEventProbeAppTests" */;
+			buildPhases = (
+				C00000000000000000000002 /* CardEventProbeAppTests Frameworks */,
+				C00000000000000000000003 /* CardEventProbeAppTests Sources */,
+				C00000000000000000000004 /* CardEventProbeAppTests Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A00000000000000000000042 /* CardEventProbe target dependency */,
+			);
+			name = CardEventProbeAppTests;
+			productName = CardEventProbeAppTests;
+			productReference = B00000000000000000000041 /* CardEventProbeAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXTargetDependency section */
+		A00000000000000000000042 /* CardEventProbe target dependency */ = {
+			isa = PBXTargetDependency;
+			target = E00000000000000000000001 /* CardEventProbe */;
+			targetProxy = C10000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		F00000000000000000000001 /* Project object */ = {
@@ -343,6 +400,10 @@
 					E00000000000000000000001 = {
 						CreatedOnToolsVersion = 16.0;
 						ProvisioningStyle = Automatic;
+					};
+					E00000000000000000000002 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = E00000000000000000000001;
 					};
 				};
 			};
@@ -360,6 +421,7 @@
 			projectRoot = "";
 			targets = (
 				E00000000000000000000001 /* CardEventProbe */,
+				E00000000000000000000002 /* CardEventProbeAppTests */,
 			);
 		};
 /* End PBXProject section */
@@ -375,6 +437,38 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		C00000000000000000000002 /* CardEventProbeAppTests Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000041 /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C00000000000000000000003 /* CardEventProbeAppTests Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000040 /* AppWorkflowTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C00000000000000000000004 /* CardEventProbeAppTests Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		E00000000000000000000004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -382,6 +476,8 @@
 			files = (
 				A00000000000000000000001 /* CardEventProbeApp.swift in Sources */,
 				A00000000000000000000002 /* AppState.swift in Sources */,
+				A0000000000000000000003E /* RecordingWorkflow.swift in Sources */,
+				A0000000000000000000003F /* EvidenceAnalysisWorkflow.swift in Sources */,
 				A00000000000000000000003 /* CameraSession.swift in Sources */,
 				A00000000000000000000004 /* CameraPreview.swift in Sources */,
 				A00000000000000000000005 /* ModelContract.swift in Sources */,
@@ -443,6 +539,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = QQCN7VUH3J;
+				ENABLE_TESTABILITY = YES;
 				INFOPLIST_FILE = CardEventProbe/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dokodetector.CardEventProbe;
@@ -489,6 +586,37 @@
 			};
 			name = Release;
 		};
+		F10000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dokodetector.CardEventProbeAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CardEventProbe.app/CardEventProbe";
+			};
+			name = Debug;
+		};
+		F10000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dokodetector.CardEventProbeAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CardEventProbe.app/CardEventProbe";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -506,6 +634,15 @@
 			buildConfigurations = (
 				F10000000000000000000003 /* Debug */,
 				F10000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E00000000000000000000006 /* Build configuration list for PBXNativeTarget "CardEventProbeAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000005 /* Debug */,
+				F10000000000000000000006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
