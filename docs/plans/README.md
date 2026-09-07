@@ -36,7 +36,6 @@ The shared target architecture is
 | [0023 — Scalable game reconstruction](0-to-specify/0023-Game_Reconstruction_Development.md) | Completed 0006 foundation; search measurements must define the next scope | Specify later search improvements. Existing reconstruction remains usable through 0048. |
 | [0024 — System production readiness](0-to-specify/0024-System_Production_Readiness.md) | Explicit production scope and measured development behavior | Select later production work. Package-only operation is not a current requirement. |
 | [0026 — Reconstruction review workflow](0-to-specify/0026-Reconstruction_Review_Workflow.md) | 0006 contracts, later 0023 focused alternatives, and measured review cases | Specify full reconstruction correction beyond the existing inspection exposed by 0049. |
-| [0059 — Web workspace module boundaries](0-to-specify/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | Give workspace stages, inspectors, source surfaces, state, styles, and tests clear local ownership. |
 | [0060 — iOS capture module boundaries](0-to-specify/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | Separate evidence contract, validation, coordination, and app-state responsibilities across the Swift Package and Xcode app. |
 
 ### Backlog
@@ -52,6 +51,7 @@ The shared target architecture is
 | --- | --- | --- |
 | [0055 — Documentation authority and first hops](2-ready/0055-Documentation_Authority_and_First_Hops.md) | 0053 discovery complete | M0 specifies M1–M3: a shared authority route, Python component first hops, then client and rules first hops. |
 | [0058 — Backend pipeline service boundaries](2-ready/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0 specifies M1–M4: routes, execution/comparison/workspace services, maintained references, then composition proof. |
+| [0059 — Web workspace module boundaries](2-ready/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0 specifies M1–M7: route state, workspace host, three stage editors, controls, then analysis presentation. Preserve the completed 0054 layout and behavior. |
 
 ### In Progress
 

@@ -2,40 +2,165 @@
 
 ## Plan status
 
-- **Summary:** Give recording workspace stages, inspectors, source surfaces, state helpers, styles,
-  and tests clear local ownership.
-- **Status:** To Specify
+- **Summary:** Give each recording workspace responsibility a small local source, style, and test
+  surface without changing the operator workflow.
+- **Status:** Ready
 - **Depends on:** 0053 discovery complete
-- **Outcome:** One operator UI change needs a small stage-local code and test surface while the
-  completed workspace layout stays unchanged.
+- **Outcome:** An operator UI change can start at the owning workspace surface instead of requiring
+  the recording workspace host, all three stage editors, and the shared stylesheet.
 - **Discovery evidence:** [Epic 0053 report](../../reports/0053-Agent_Navigation_Cleanup_Discovery.md)
+- **Target architecture:**
+  [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
+
+## M0 evidence and boundary decision
+
+The 0053 count remains valid. Excluding generated `web/src/api/openapi.ts`, the web source has
+26,431 lines. `web/src/App.module.css` has 5,846 lines and 920 top-level class selectors. These
+non-generated source or test files have at least 1,000 lines:
+
+| Surface | Lines | Mixed responsibilities | Existing focused proof |
+| --- | ---: | --- | --- |
+| `pipeline/RecordingPipelineWorkspace.tsx` | 1,723 | route and URL state, workspace loading, stage selection, Timeline Rail data, shell, inspector, and history | `RecordingPipelineWorkspace.test.tsx` |
+| `cardEvents/PipelineCardEventEditor.tsx` | 1,843 | maintained-reference command state, inspector portals, source video, generated result, and rail items | `PipelineCardEventEditor.test.tsx` |
+| `visibleCards/PipelineVisibleCardEditor.tsx` | 2,096 | maintained-reference command state, inspector portals, frame geometry, proposal overlay, and rail items | `PipelineVisibleCardEditor.test.tsx` |
+| `visualIdentities/PipelineVisualIdentityEditor.tsx` | 1,847 | maintained-reference command state, inspector portals, source surface, item panel, and rail items | `PipelineVisualIdentityEditor.test.tsx` |
+| `analysis/AnalysisView.tsx` | 1,715 | analysis status, synchronized timeline, source video, evidence detail, explanation, and formatting helpers | `roundAnalysisFixture.ts` consumers and workspace tests |
+| `pipeline/ObservationAndAnalysisControls.tsx` | 1,001 | observation command state, round-analysis command state, history, status, and URL construction | `ObservationAndAnalysisControls.test.tsx` |
+
+The recording workspace imports all three editors, run controls, the Timeline Rail, comparison,
+observation, and analysis workbenches. It owns recording-wide selection, loaded workspace data, URL
+state, and Timeline Rail aggregation. A stage editor owns local draft, save, retry, and
+selected-item state; it reports rail items upward but does not own recording-wide state.
+
+Recent 0054 commits confirm the seams. Stage changes repeatedly co-changed one editor with
+`RecordingPipelineWorkspace.tsx`; event and visible-card changes also changed `App.module.css` and
+their adjacent test. Responsive and comparison changes co-changed the workspace host, its tests,
+comparison, presentation helpers, and the stylesheet. This supports moving existing cohesive
+surfaces and their selectors, not adding pass-through wrappers or duplicating state.
+
+The main consumers use 98 selectors in `AnalysisView`, 51 in the visual identity editor, 43 in the
+workspace host, 41 in the visible-card editor, and 35 in the event editor. Move only selectors used
+by a moved surface. Keep genuinely shared tokens and controls in the root stylesheet until a
+consumer-specific move proves ownership. Do not rename selectors only to make their origin visible.
+
+The browser boundary proves the completed 0054 shell at 1440px, 1280px, and 390px. It checks shell
+dimensions, narrow viewport overflow, centre/inspector/Timeline Rail order, fresh, generated,
+failed, affected, reload, and conflict flows. Retain it as the layout and workflow guard while
+focused tests move with their responsibility.
 
 ## Milestone status
 
-- **M0:** Not started — one `gpt-5.6-terra` agent measures co-change and state boundaries and
-  specifies Luna-sized delivery milestones.
+- **M0:** Complete — measured ownership, co-change, style, and verification seams; replaced the
+  outline with delivery milestones.
+- **M1:** Not started — extract and test route and URL-state helpers from the recording workspace.
+- **M2:** Not started — isolate the recording workspace shell, inspector, and history surfaces.
+- **M3:** Not started — give the event stage editor local source and inspector ownership.
+- **M4:** Not started — give the visible-card stage editor local frame and inspector ownership.
+- **M5:** Not started — give the visual-identity stage editor local source and inspector ownership.
+- **M6:** Not started — separate observation and round-analysis controls into local command and
+  history surfaces.
+- **M7:** Not started — separate analysis timeline/source-detail presentation from analysis
+  formatting helpers and local styles.
 
-## Problem and candidate paths
+## Delivery milestones
 
-Excluding generated OpenAPI code, web source contains 26,431 lines and nine files over 1,000 lines.
-The recording workspace, three stage editors, analysis workbenches, and 5,846-line shared CSS module
-mix several UI responsibilities. Candidate paths include `web/src/pipeline/`, `cardEvents/`,
-`visibleCards/`, `visualIdentities/`, `analysis/`, `App.module.css`, and their tests.
+### M1 — Recording route and URL state
 
-## Exclusions and overlap
+Move route parsing, URL-state parsing, and path construction from
+`pipeline/RecordingPipelineWorkspace.tsx` into one responsibility-focused pipeline helper module.
+Keep the existing exports or update only in-package consumers. Do not change any URL shape.
 
-Preserve the completed 0054 viewport shell, central source surface, inspector, and Timeline Rail.
-Do not change operator behavior, URLs, accessibility, API contracts, or persistence. Generated
-`web/src/api/openapi.ts` is not a cleanup target. Do not add 0051 quality behavior.
+Acceptance checks:
 
-## M0 specification questions
+- Unit tests cover valid recording, stage, comparison, selection, analysis, and invalid route states.
+- `npm run check` passes.
+- The pipeline browser test opens the fresh recording at its canonical stage URL.
 
-- Which files and symbols change together for common stage work?
-- Which state is stage-local and which state must remain in the recording workspace?
-- How can styles gain ownership without duplication or selector-order changes?
-- Which existing tests can move beside the responsibility they verify?
-- Which desktop and narrow viewport checks prove behavior and layout preservation?
+### M2 — Recording workspace host surfaces
 
-M0 must replace this outline with small delivery milestones. Each delivery milestone must fit one
-`gpt-5.6-luna` phase and name focused unit, check, and browser verification. Close this epic without
-delivery when splitting would add wrappers or duplicate state without reducing navigation cost.
+Split the recording-wide host into cohesive workspace shell, inspector/history, and recording-wide
+state/Timeline Rail coordination surfaces. Keep loaded `PipelineWorkspace`, stage selection, URL
+state, and aggregated Timeline Rail items at the recording workspace boundary. Move exclusively
+used styles with their surface, preserving shared selectors and computed layout behavior.
+
+Acceptance checks:
+
+- Focused workspace tests cover loading, selection conflict recovery, stage navigation, inspector
+  history, and Timeline Rail item aggregation.
+- `npm run check` passes.
+- The pipeline browser test preserves 1440px, 1280px, and 390px shell bounds and ordering.
+
+### M3 — Event stage ownership
+
+Extract the event editor's source video, generated-result, and inspector portal surfaces with local
+state helpers and exclusively used styles. Keep maintained-reference commands, selected event, and
+rail-item callback behavior unchanged.
+
+Acceptance checks:
+
+- Focused event tests cover draft save, retry, generated selection, inspector selection, and rail items.
+- `npm run check` passes.
+- The pipeline browser test still covers generated suggestions, failed jobs, reload, and conflict recovery.
+
+### M4 — Visible-card stage ownership
+
+Extract the visible-card editor's frame, geometry/proposal overlay, and inspector portal surfaces
+with local state helpers and exclusively used styles. Keep maintained-reference commands, selected
+frame, source-frame mapping, and rail-item callback unchanged.
+
+Acceptance checks:
+
+- Focused visible-card tests cover draft save, retry, selection, geometry/proposal presentation, and rail items.
+- `npm run check` passes.
+- The pipeline browser test opens the affected visible-card review state in the workspace inspector.
+
+### M5 — Visual-identity stage ownership
+
+Extract the visual-identity editor's item panel, source surface, and inspector portal surfaces with
+local state helpers and exclusively used styles. Keep maintained-reference commands, selected
+identity, identity outcome presentation, and rail-item callback behavior unchanged.
+
+Acceptance checks:
+
+- Focused visual-identity tests cover draft save, retry, selection, outcome presentation, and rail items.
+- `npm run check` passes.
+- The pipeline browser test opens a workspace without requests to retired review routes.
+
+### M6 — Observation and round-analysis controls
+
+Split observation and round-analysis command forms, status/history presentation, and their local
+URL helper from `ObservationAndAnalysisControls.tsx`. Keep command state in its control surface.
+Do not move analysis rendering or alter processor requests.
+
+Acceptance checks:
+
+- Focused controls tests cover command validation, run state, history, and analysis-path creation.
+- `npm run check` passes.
+- The pipeline browser test preserves fresh and failed processor workflows.
+
+### M7 — Analysis presentation ownership
+
+Separate analysis timeline/source-detail presentation from pure formatting and data-reading helpers
+in `AnalysisView.tsx`; colocate exclusively used styles and tests. Keep the selected analysis
+contract, synchronized timeline, evidence detail, counterfactual controls, and source video behavior.
+
+Acceptance checks:
+
+- Focused analysis tests cover timeline selection, evidence detail, formatting helpers, and counterfactual inputs.
+- `npm run check` passes.
+- The pipeline browser test passes at 1440px, 1280px, and 390px.
+
+## Dependencies, exclusions, and execution rules
+
+0053 is complete, so this epic has no unmet dependency. Complete M1 and M2 first to stabilize the
+recording-wide boundary. M3 through M5 follow M2 and must not create a shared editor framework. M6
+and M7 can follow M2 independently but remain separate Luna phases.
+
+Preserve the completed 0054 viewport shell, central source surface, workspace inspector, and
+Timeline Rail. Do not change operator behavior, URLs, accessibility semantics, API contracts,
+persistence, generated `web/src/api/openapi.ts`, or the generated-client boundary. Do not add 0051
+identity-quality behavior. Do not redesign the recording pipeline, comparison, or analysis workflow.
+
+Do not create a component only to forward props. Each move must leave a responsibility with local
+state, markup, styles, or focused tests. If a milestone requires duplicated state or selector-order
+changes, stop it and record the evidence in this epic before selecting the next milestone.
