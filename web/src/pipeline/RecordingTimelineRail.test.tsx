@@ -34,9 +34,11 @@ const ITEMS: RecordingTimelineRailItem[] = [
 let sourceVideo: HTMLVideoElement | null = null;
 
 function renderRail({
+  currentTimeUs = 0,
   onTimeChange = vi.fn(),
   onItemSelect = vi.fn(),
 }: {
+  currentTimeUs?: number;
   onTimeChange?: (timeUs: number) => void;
   onItemSelect?: (item: RecordingTimelineRailItem) => void;
 } = {}) {
@@ -44,7 +46,7 @@ function renderRail({
     <RecordingTimelineRail
       recordingId="timeline-recording"
       durationUs={10_000_000}
-      currentTimeUs={0}
+      currentTimeUs={currentTimeUs}
       selectedItemId={null}
       lanes={LANES}
       items={ITEMS}
@@ -116,6 +118,23 @@ describe("RecordingTimelineRail", () => {
     expect(setPointerCapture).toHaveBeenCalledWith(7);
     expect(releasePointerCapture).toHaveBeenCalledWith(7);
     expect(onTimeChange).toHaveBeenCalledWith(3_500_000);
+  });
+
+  it("positions the preview at the playhead and centers it on a hovered event", () => {
+    renderRail({ currentTimeUs: 3_000_000 });
+    const preview = () =>
+      document.querySelector<HTMLElement>("[data-preview-position-us]");
+    const first = screen.getByRole("button", {
+      name: "card_played, 0:01–0:02, pending",
+    });
+
+    expect(preview()).toHaveAttribute("data-preview-position-us", "3000000");
+
+    fireEvent.pointerEnter(first);
+    expect(preview()).toHaveAttribute("data-preview-position-us", "1500000");
+
+    fireEvent.pointerLeave(first);
+    expect(preview()).toHaveAttribute("data-preview-position-us", "3000000");
   });
 
   it("keeps the preview mounted and targets the matching source video for playback", async () => {

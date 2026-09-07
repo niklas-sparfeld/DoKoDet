@@ -58,11 +58,12 @@ export function RecordingTimelineRail({
   const previewTimerRef = useRef<number | null>(null);
   const previewAbortRef = useRef<AbortController | null>(null);
   const previewSequenceRef = useRef(0);
-  const initialPreviewRequestedRef = useRef(false);
   const onTimeChangeRef = useRef(onTimeChange);
   const [playing, setPlaying] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>(() => ({
     requestedTimeUs: clampTime(currentTimeUs ?? 0, durationUs),
     url: null,
@@ -70,6 +71,15 @@ export function RecordingTimelineRail({
   }));
   const reducedMotion = usePrefersReducedMotion();
   const displayTimeUs = clampTime(currentTimeUs ?? 0, durationUs);
+  const previewItemId = hoveredItemId ?? focusedItemId;
+  const previewItem =
+    previewItemId === null
+      ? null
+      : (items.find((item) => item.id === previewItemId) ?? null);
+  const previewPositionTimeUs =
+    previewItem?.timeRange === null || previewItem === null
+      ? displayTimeUs
+      : midpoint(previewItem.timeRange.startUs, previewItem.timeRange.endUs);
 
   useEffect(() => {
     onTimeChangeRef.current = onTimeChange;
@@ -201,10 +211,9 @@ export function RecordingTimelineRail({
   );
 
   useEffect(() => {
-    if (initialPreviewRequestedRef.current) return;
-    initialPreviewRequestedRef.current = true;
+    if (playing || previewItemId !== null) return;
     requestPreview(displayTimeUs);
-  }, [displayTimeUs, requestPreview]);
+  }, [displayTimeUs, playing, previewItemId, requestPreview]);
 
   useEffect(() => {
     const video = getVideo();
@@ -274,6 +283,22 @@ export function RecordingTimelineRail({
       requestPreview(item.timeRange?.startUs ?? displayTimeUs);
     },
     [commitTime, displayTimeUs, onItemSelect, requestPreview],
+  );
+
+  const previewItemAtPointer = useCallback(
+    (item: RecordingTimelineRailItem) => {
+      setHoveredItemId(item.id);
+      requestPreview(item.timeRange?.startUs ?? displayTimeUs);
+    },
+    [displayTimeUs, requestPreview],
+  );
+
+  const previewItemAtFocus = useCallback(
+    (item: RecordingTimelineRailItem) => {
+      setFocusedItemId(item.id);
+      requestPreview(item.timeRange?.startUs ?? displayTimeUs);
+    },
+    [displayTimeUs, requestPreview],
   );
 
   const handleItemKeyDown = useCallback(
@@ -409,22 +434,40 @@ export function RecordingTimelineRail({
         </div>
       </div>
 
-      <div
-        className={styles.recordingTimelinePreview}
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        {preview.url !== null ? (
-          <img
-            src={preview.url}
-            alt={`Exact source frame preview at ${formatTimeUs(preview.requestedTimeUs)}`}
-          />
-        ) : preview.error !== null ? (
-          <span>{preview.error}</span>
-        ) : (
-          <span>Loading exact source frame…</span>
-        )}
-        <span>{formatTimeUs(preview.requestedTimeUs)}</span>
+      <div className={styles.recordingTimelinePreviewViewport}>
+        <div
+          className={styles.recordingTimelinePreview}
+          aria-live="polite"
+          aria-atomic="true"
+          data-preview-position-us={previewPositionTimeUs}
+          style={trackStyle}
+        >
+          <span aria-hidden="true" />
+          <div className={styles.recordingTimelinePreviewTrack}>
+            <div
+              className={styles.recordingTimelinePreviewFrame}
+              style={
+                {
+                  "--timeline-preview-position": `${positionPercent(previewPositionTimeUs, durationUs)}%`,
+                } as CSSProperties
+              }
+            >
+              {preview.url !== null ? (
+                <img
+                  src={preview.url}
+                  alt={`Exact source frame preview at ${formatTimeUs(preview.requestedTimeUs)}`}
+                />
+              ) : (
+                <span className={styles.recordingTimelinePreviewPlaceholder}>
+                  {preview.error ?? "Loading exact source frame…"}
+                </span>
+              )}
+              <span className={styles.recordingTimelinePreviewTime}>
+                {formatTimeUs(preview.requestedTimeUs)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className={styles.recordingTimelineLanesViewport}>
@@ -463,13 +506,11 @@ export function RecordingTimelineRail({
                       aria-pressed={item.id === selectedItemId}
                       aria-label={`${item.label}, ${formatItemTime(item, durationUs)}, ${item.state}`}
                       onClick={() => selectItem(item)}
-                      onFocus={() =>
-                        requestPreview(item.timeRange?.startUs ?? displayTimeUs)
-                      }
+                      onFocus={() => previewItemAtFocus(item)}
+                      onBlur={() => setFocusedItemId(null)}
                       onKeyDown={(event) => handleItemKeyDown(event, item)}
-                      onPointerEnter={() =>
-                        requestPreview(item.timeRange?.startUs ?? displayTimeUs)
-                      }
+                      onPointerEnter={() => previewItemAtPointer(item)}
+                      onPointerLeave={() => setHoveredItemId(null)}
                     >
                       <span>{item.label}</span>
                     </button>
@@ -510,6 +551,10 @@ function itemStyle(
     left: `${start}%`,
     width: `${Math.max(end - start, 1.5)}%`,
   };
+}
+
+function midpoint(startUs: number, endUs: number): number {
+  return startUs + (endUs - startUs) / 2;
 }
 
 function formatItemTime(
