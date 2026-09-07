@@ -51,7 +51,6 @@ export function RecordingTimelineRail({
   onItemSelect,
   videoSelector = "video[data-recording-source-video]",
 }: RecordingTimelineRailProps) {
-  const rootRef = useRef<HTMLDivElement>(null);
   const fallbackVideoRef = useRef<HTMLVideoElement>(null);
   const itemButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const previewCacheRef = useRef(new Map<number, string>());
@@ -59,12 +58,22 @@ export function RecordingTimelineRail({
   const previewTimerRef = useRef<number | null>(null);
   const previewAbortRef = useRef<AbortController | null>(null);
   const previewSequenceRef = useRef(0);
+  const initialPreviewRequestedRef = useRef(false);
+  const onTimeChangeRef = useRef(onTimeChange);
   const [playing, setPlaying] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [preview, setPreview] = useState<PreviewState>(() => ({
+    requestedTimeUs: clampTime(currentTimeUs ?? 0, durationUs),
+    url: null,
+    error: null,
+  }));
   const reducedMotion = usePrefersReducedMotion();
   const displayTimeUs = clampTime(currentTimeUs ?? 0, durationUs);
+
+  useEffect(() => {
+    onTimeChangeRef.current = onTimeChange;
+  }, [onTimeChange]);
 
   const setItemButtonRef = useCallback(
     (itemId: string, element: HTMLButtonElement | null) => {
@@ -76,11 +85,18 @@ export function RecordingTimelineRail({
 
   const getVideo = useCallback((): HTMLVideoElement | null => {
     if (typeof document === "undefined") return null;
+    const candidates = Array.from(
+      document.querySelectorAll<HTMLVideoElement>(videoSelector),
+    );
+    const matchingVideo = candidates.find(
+      (candidate) => candidate.dataset.recordingSourceVideo === recordingId,
+    );
     return (
-      document.querySelector<HTMLVideoElement>(videoSelector) ??
+      matchingVideo ??
+      (candidates.length === 1 ? candidates[0] : undefined) ??
       fallbackVideoRef.current
     );
-  }, [videoSelector]);
+  }, [recordingId, videoSelector]);
 
   const commitTime = useCallback(
     (nextTimeUs: number) => {
@@ -184,23 +200,18 @@ export function RecordingTimelineRail({
     [durationUs, recordingId, reducedMotion],
   );
 
-  const clearPreview = useCallback(() => {
-    if (previewTimerRef.current !== null) {
-      window.clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    previewAbortRef.current?.abort();
-    previewAbortRef.current = null;
-    previewSequenceRef.current += 1;
-    setPreview(null);
-  }, []);
+  useEffect(() => {
+    if (initialPreviewRequestedRef.current) return;
+    initialPreviewRequestedRef.current = true;
+    requestPreview(displayTimeUs);
+  }, [displayTimeUs, requestPreview]);
 
   useEffect(() => {
     const video = getVideo();
     if (video === null) return;
     const updateTime = () => {
       const next = clampTime(video.currentTime * 1_000_000, durationUs);
-      onTimeChange(next);
+      onTimeChangeRef.current(next);
     };
     const updatePlaying = () => setPlaying(!video.paused && !video.ended);
     const finish = () => setPlaying(false);
@@ -210,13 +221,6 @@ export function RecordingTimelineRail({
     video.addEventListener("pause", updatePlaying);
     video.addEventListener("ended", finish);
     updatePlaying();
-    if (currentTimeUs !== null) {
-      try {
-        video.currentTime = clampTime(currentTimeUs, durationUs) / 1_000_000;
-      } catch {
-        // The video will be synchronized when its metadata is loaded.
-      }
-    }
     return () => {
       video.removeEventListener("timeupdate", updateTime);
       video.removeEventListener("loadedmetadata", updateTime);
@@ -224,7 +228,19 @@ export function RecordingTimelineRail({
       video.removeEventListener("pause", updatePlaying);
       video.removeEventListener("ended", finish);
     };
-  }, [currentTimeUs, durationUs, getVideo, onTimeChange]);
+  }, [durationUs, getVideo]);
+
+  useEffect(() => {
+    const video = getVideo();
+    if (video === null || currentTimeUs === null || !video.paused) return;
+    try {
+      const nextTime = clampTime(currentTimeUs, durationUs) / 1_000_000;
+      if (Math.abs(video.currentTime - nextTime) > 0.001)
+        video.currentTime = nextTime;
+    } catch {
+      // The video will be synchronized when its metadata is loaded.
+    }
+  }, [currentTimeUs, durationUs, getVideo]);
 
   useEffect(
     () => () => {
@@ -240,8 +256,15 @@ export function RecordingTimelineRail({
   const togglePlayback = useCallback(() => {
     const video = getVideo();
     if (video === null) return;
-    if (video.paused) void video.play().catch(() => setPlaying(false));
-    else video.pause();
+    if (video.paused) {
+      if (video.ended) video.currentTime = 0;
+      void video
+        .play()
+        .then(() => setPlaying(true))
+        .catch(() => setPlaying(false));
+    } else {
+      video.pause();
+    }
   }, [getVideo]);
 
   const selectItem = useCallback(
@@ -283,16 +306,10 @@ export function RecordingTimelineRail({
 
   return (
     <div
-      ref={rootRef}
       className={styles.recordingTimelineRail}
       data-dragging={dragging}
       data-reduced-motion={reducedMotion}
       data-zoom={zoom}
-      onPointerLeave={clearPreview}
-      onBlur={(event) => {
-        if (!rootRef.current?.contains(event.relatedTarget as Node | null))
-          clearPreview();
-      }}
     >
       <div className={styles.recordingTimelineRailHeader}>
         <div>
@@ -343,67 +360,72 @@ export function RecordingTimelineRail({
 
       <div className={styles.recordingTimelineScrubberViewport}>
         <div className={styles.recordingTimelineScrubber} style={trackStyle}>
-          <div
-            className={styles.recordingTimelineTickLabels}
-            aria-hidden="true"
-          >
-            {ticks.map((tick) => (
-              <span
-                key={tick}
-                style={{ left: `${positionPercent(tick, durationUs)}%` }}
-              >
-                {formatTimeUs(tick)}
-              </span>
-            ))}
+          <span aria-hidden="true" />
+          <div className={styles.recordingTimelineScrubberTrack}>
+            <div
+              className={styles.recordingTimelineTickLabels}
+              aria-hidden="true"
+            >
+              {ticks.map((tick) => (
+                <span
+                  key={tick}
+                  style={{ left: `${positionPercent(tick, durationUs)}%` }}
+                >
+                  {formatTimeUs(tick)}
+                </span>
+              ))}
+            </div>
+            <input
+              className={styles.recordingTimelineRange}
+              type="range"
+              min={0}
+              max={Math.max(durationUs, 0)}
+              step={1_000}
+              value={displayTimeUs}
+              aria-label="Recording playhead"
+              aria-valuetext={`${formatTimeUs(displayTimeUs)} of ${formatTimeUs(durationUs)}`}
+              onChange={(event) => commitTime(Number(event.target.value))}
+              onFocus={() => requestPreview(displayTimeUs)}
+              onPointerDown={(event) => {
+                capturePointer(event);
+                setDragging(true);
+                commitTime(Number(event.currentTarget.value));
+                requestPreview(Number(event.currentTarget.value));
+              }}
+              onPointerMove={(event) => {
+                if (dragging) commitTime(Number(event.currentTarget.value));
+                requestPreview(Number(event.currentTarget.value));
+              }}
+              onPointerUp={(event) => {
+                releasePointer(event);
+                setDragging(false);
+              }}
+              onPointerCancel={(event) => {
+                releasePointer(event);
+                setDragging(false);
+              }}
+            />
           </div>
-          <input
-            className={styles.recordingTimelineRange}
-            type="range"
-            min={0}
-            max={Math.max(durationUs, 0)}
-            step={1_000}
-            value={displayTimeUs}
-            aria-label="Recording playhead"
-            aria-valuetext={`${formatTimeUs(displayTimeUs)} of ${formatTimeUs(durationUs)}`}
-            onChange={(event) => commitTime(Number(event.target.value))}
-            onFocus={() => requestPreview(displayTimeUs)}
-            onPointerDown={(event) => {
-              capturePointer(event);
-              setDragging(true);
-              commitTime(Number(event.currentTarget.value));
-              requestPreview(Number(event.currentTarget.value));
-            }}
-            onPointerMove={(event) => {
-              if (dragging) commitTime(Number(event.currentTarget.value));
-              requestPreview(Number(event.currentTarget.value));
-            }}
-            onPointerUp={(event) => {
-              releasePointer(event);
-              setDragging(false);
-            }}
-            onPointerCancel={(event) => {
-              releasePointer(event);
-              setDragging(false);
-            }}
-          />
         </div>
       </div>
 
-      {preview !== null ? (
-        <div className={styles.recordingTimelinePreview} role="status">
-          {preview.url !== null ? (
-            <img
-              src={preview.url}
-              alt={`Exact source frame preview at ${formatTimeUs(preview.requestedTimeUs)}`}
-            />
-          ) : preview.error !== null ? (
-            <span>{preview.error}</span>
-          ) : (
-            <span>Loading exact source frame…</span>
-          )}
-          <span>{formatTimeUs(preview.requestedTimeUs)}</span>
-        </div>
-      ) : null}
+      <div
+        className={styles.recordingTimelinePreview}
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {preview.url !== null ? (
+          <img
+            src={preview.url}
+            alt={`Exact source frame preview at ${formatTimeUs(preview.requestedTimeUs)}`}
+          />
+        ) : preview.error !== null ? (
+          <span>{preview.error}</span>
+        ) : (
+          <span>Loading exact source frame…</span>
+        )}
+        <span>{formatTimeUs(preview.requestedTimeUs)}</span>
+      </div>
 
       <div className={styles.recordingTimelineLanesViewport}>
         <div className={styles.recordingTimelineLanes} style={trackStyle}>

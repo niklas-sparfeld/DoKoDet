@@ -29,7 +29,7 @@ export function PipelineRoundAnalysisWorkbench({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (video === null || selectedTimeUs === null) return;
+    if (video === null || selectedTimeUs === null || !video.paused) return;
     const seek = () => {
       video.currentTime = selectedTimeUs / 1_000_000;
     };

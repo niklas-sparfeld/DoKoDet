@@ -118,6 +118,31 @@ describe("RecordingTimelineRail", () => {
     expect(onTimeChange).toHaveBeenCalledWith(3_500_000);
   });
 
+  it("keeps the preview mounted and targets the matching source video for playback", async () => {
+    const otherVideo = document.createElement("video");
+    otherVideo.dataset.recordingSourceVideo = "other-recording";
+    const play = vi.fn(() => Promise.resolve());
+    sourceVideo = document.createElement("video");
+    sourceVideo.dataset.recordingSourceVideo = "timeline-recording";
+    Object.defineProperty(sourceVideo, "paused", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(sourceVideo, "play", {
+      configurable: true,
+      value: play,
+    });
+    document.body.append(otherVideo, sourceVideo);
+
+    renderRail();
+
+    expect(screen.getByText("Loading exact source frame…")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Play recording" }));
+
+    await act(async () => await Promise.resolve());
+    expect(play).toHaveBeenCalledOnce();
+  });
+
   it("keeps the playhead synchronized with the accepted source video", () => {
     sourceVideo = document.createElement("video");
     sourceVideo.dataset.recordingSourceVideo = "timeline-recording";

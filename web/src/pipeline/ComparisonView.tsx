@@ -236,7 +236,8 @@ export function ComparisonView({
     if (
       video === null ||
       selectedTimeUs === null ||
-      selectedTimeUs === undefined
+      selectedTimeUs === undefined ||
+      !video.paused
     ) {
       return;
     }

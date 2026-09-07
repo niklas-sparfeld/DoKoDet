@@ -293,7 +293,9 @@ export function PipelineCardEventEditor({
       ) {
         setSelected(selected.localId);
       }
-      if (requestedTimeUs !== null) setCurrentTime(requestedTimeUs, false);
+      if (requestedTimeUs !== null && videoRef.current?.paused !== false) {
+        setCurrentTime(requestedTimeUs, false);
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [
@@ -884,6 +886,7 @@ export function PipelineCardEventEditor({
           durationUs={durationUs}
           selectedEvent={selectedGeneratedEvent}
           videoRef={videoRef}
+          recordingId={recordingId}
         />
       </>
     );
@@ -1412,6 +1415,7 @@ function GeneratedEventView({
   durationUs,
   selectedEvent,
   videoRef,
+  recordingId,
 }: {
   events: PipelineEvent[];
   loading: boolean;
@@ -1420,6 +1424,7 @@ function GeneratedEventView({
   durationUs: number;
   selectedEvent: PipelineEvent | undefined;
   videoRef: RefObject<HTMLVideoElement | null>;
+  recordingId: string;
 }) {
   return (
     <section
@@ -1453,6 +1458,7 @@ function GeneratedEventView({
           <video
             ref={videoRef}
             className={styles.cardEventSourceVideo}
+            data-recording-source-video={recordingId}
             src={videoUrl}
             controls
             preload="metadata"

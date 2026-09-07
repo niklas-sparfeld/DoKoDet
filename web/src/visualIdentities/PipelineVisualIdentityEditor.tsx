@@ -327,7 +327,9 @@ export function PipelineVisualIdentityEditor({
         : selectionTimeUs;
     const timer = window.setTimeout(() => {
       if (selected !== undefined) selectItem(selected, false);
-      if (requestedTimeUs !== null) setCurrentTime(requestedTimeUs, false);
+      if (requestedTimeUs !== null && videoRef.current?.paused !== false) {
+        setCurrentTime(requestedTimeUs, false);
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [
