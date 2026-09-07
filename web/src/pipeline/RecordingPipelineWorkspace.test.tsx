@@ -11,12 +11,14 @@ import {
   getPrimaryAction,
   PIPELINE_STAGE_KEYS,
   primaryActionForStage,
+} from "./RecordingPipelineWorkspace";
+import {
   readPipelineUrlState,
   readRecordingPipelineRoute,
-  RecordingPipelineWorkspace,
   recordingPipelineComparePath,
   recordingPipelinePath,
-} from "./RecordingPipelineWorkspace";
+} from "./recordingPipelineUrl";
+import { RecordingPipelineWorkspace } from "./RecordingPipelineWorkspace";
 import { App } from "../App";
 import type { PipelineWorkspace, PipelineWorkspaceStage } from "../api/client";
 

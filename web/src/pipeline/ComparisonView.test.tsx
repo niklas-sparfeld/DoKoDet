@@ -9,7 +9,7 @@ import type {
 import {
   readPipelineUrlState,
   type PipelineUrlState,
-} from "./RecordingPipelineWorkspace";
+} from "./recordingPipelineUrl";
 import { ComparisonInspectorControls, ComparisonView } from "./ComparisonView";
 
 const RECORDING_ID = "comparison-recording";

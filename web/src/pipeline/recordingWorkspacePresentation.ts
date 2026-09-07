@@ -3,14 +3,13 @@ import type {
   PipelineWorkspace,
   PipelineWorkspaceStage,
 } from "../api/client";
+import type { PipelineUrlState, PipelineView } from "./recordingPipelineUrl";
 
-export const PIPELINE_STAGE_KEYS: readonly PipelineStageKey[] = [
-  "events",
-  "visible_cards",
-  "visual_identities",
-  "table_observations",
-  "round_analyses",
-];
+export {
+  PIPELINE_STAGE_KEYS,
+  isPipelineStageKey,
+} from "./recordingPipelineUrl";
+export type { PipelineUrlState, PipelineView } from "./recordingPipelineUrl";
 
 export const STAGE_LABELS: Record<PipelineStageKey, string> = {
   events: "Events",
@@ -18,19 +17,6 @@ export const STAGE_LABELS: Record<PipelineStageKey, string> = {
   visual_identities: "Visual identities",
   table_observations: "Table observations",
   round_analyses: "Round analyses",
-};
-
-export type PipelineView = "generated" | "reviewed";
-
-export type PipelineUrlState = {
-  view: PipelineView | null;
-  revision: string | null;
-  item: string | null;
-  tUs: number | null;
-  left: string | null;
-  right: string | null;
-  reference: string | null;
-  analysis: string | null;
 };
 
 export type PipelinePrimaryActionKind =
@@ -47,10 +33,6 @@ export type PipelinePrimaryAction = {
   label: string;
   blocker: string | null;
 };
-
-export function isPipelineStageKey(value: string): value is PipelineStageKey {
-  return PIPELINE_STAGE_KEYS.includes(value as PipelineStageKey);
-}
 
 export function primaryActionForStage(
   stage: PipelineWorkspaceStage,

@@ -4,7 +4,7 @@
 
 - **Summary:** Give each recording workspace responsibility a small local source, style, and test
   surface without changing the operator workflow.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0053 discovery complete
 - **Outcome:** An operator UI change can start at the owning workspace surface instead of requiring
   the recording workspace host, all three stage editors, and the shared stylesheet.
@@ -52,7 +52,8 @@ focused tests move with their responsibility.
 
 - **M0:** Complete — measured ownership, co-change, style, and verification seams; replaced the
   outline with delivery milestones.
-- **M1:** Not started — extract and test route and URL-state helpers from the recording workspace.
+- **M1:** Complete — extracted and tested route and URL-state helpers from the recording workspace;
+  preserved existing URL shapes and canonical recording redirects.
 - **M2:** Not started — isolate the recording workspace shell, inspector, and history surfaces.
 - **M3:** Not started — give the event stage editor local source and inspector ownership.
 - **M4:** Not started — give the visible-card stage editor local frame and inspector ownership.
@@ -75,6 +76,16 @@ Acceptance checks:
 - Unit tests cover valid recording, stage, comparison, selection, analysis, and invalid route states.
 - `npm run check` passes.
 - The pipeline browser test opens the fresh recording at its canonical stage URL.
+
+#### M1 implementation evidence — 2026-09-07
+
+- Added `pipeline/recordingPipelineUrl.ts` as the focused owner of stage keys, route parsing, URL
+  state parsing, and task/comparison path construction.
+- Updated the app, comparison view, workspace, and tests to import the focused URL boundary. The
+  workspace no longer owns route parsing or query serialization.
+- Added 13 URL regression cases for valid and invalid routes, encoded selection and analysis state,
+  and task/comparison query filtering.
+- `npm run check` passed with 85 tests. The pipeline browser suite passed all four tests.
 
 ### M2 — Recording workspace host surfaces
 

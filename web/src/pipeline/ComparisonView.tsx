@@ -13,7 +13,7 @@ import {
   type PipelineWorkspaceStage,
 } from "../api/client";
 import styles from "../App.module.css";
-import type { PipelineUrlState } from "./RecordingPipelineWorkspace";
+import type { PipelineUrlState } from "./recordingPipelineUrl";
 import type { RecordingTimelineRailItem } from "./recordingWorkspacePresentation";
 
 type ComparisonContentType = PipelineComparisonRequest["content_type"];

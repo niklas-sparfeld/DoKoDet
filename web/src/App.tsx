@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { RecordingDetailView, RecordingListView } from "./recordings";
-import { readRecordingPipelineRoute } from "./pipeline/RecordingPipelineWorkspace";
+import { readRecordingPipelineRoute } from "./pipeline/recordingPipelineUrl";
 
 export function App() {
   const location = useAppLocation();
