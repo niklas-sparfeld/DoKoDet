@@ -2161,128 +2161,6 @@ progress {
   overflow: hidden;
 }
 
-.pipelineTopSlot {
-  display: grid;
-  gap: 0.55rem;
-  min-width: 0;
-}
-
-.pipelineTopBar {
-  display: grid;
-  grid-template-columns: auto minmax(8rem, 14rem) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 4.25rem;
-  max-height: 7rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--panel) 96%, transparent);
-  box-shadow: 0 0.7rem 2rem var(--shadow);
-}
-
-.pipelineBackLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--accent);
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.pipelineBackLink:hover,
-.pipelineBackLink:focus-visible {
-  color: var(--accent-bright);
-  text-decoration: underline;
-}
-
-.pipelineRecordingContext {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  column-gap: 0.55rem;
-  min-width: 0;
-}
-
-.pipelineRecordingContext .statusLabel {
-  grid-column: 1 / -1;
-}
-
-.pipelineRecordingContext strong {
-  min-width: 0;
-  color: var(--ink);
-  font-size: 0.82rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pipelineRecordingContext > span:last-child {
-  color: var(--muted-ink);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 0.72rem;
-  white-space: nowrap;
-}
-
-.pipelineTopBar nav {
-  min-width: 0;
-}
-
-.pipelineViewSwitch {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.pipelineStageNavigation {
-  display: flex;
-  gap: 0.25rem;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  overflow-x: auto;
-  list-style: none;
-  scrollbar-width: thin;
-}
-
-.pipelineStageNavigation li {
-  min-width: max-content;
-}
-
-.pipelineStageLink,
-.pipelineStageLinkActive {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 2.75rem;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid transparent;
-  border-radius: 0.45rem;
-  background: transparent;
-  color: var(--muted-ink);
-  font-size: 0.74rem;
-  font-weight: 800;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.pipelineStageLink:hover,
-.pipelineStageLink:focus-visible,
-.pipelineStageLinkActive {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
-  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
-  color: var(--accent-bright);
-  text-decoration: none;
-}
-
-.pipelineStageLink .status,
-.pipelineStageLinkActive .status {
-  flex: 0 0 auto;
-}
-
 .pipelineWorkspaceGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 23rem);
@@ -2303,99 +2181,19 @@ progress {
   box-shadow: 0 0.7rem 2rem var(--shadow);
 }
 
-.pipelineTaskSurface {
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.pipelineTaskSurfaceContent {
-  min-width: 0;
-  min-height: 0;
-  width: 100%;
-  padding: 1rem;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
-.pipelineInspectorSlot {
-  display: grid;
-  align-content: start;
-  min-height: 0;
-  padding: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
-.pipelineInspectorSection,
-.pipelineInspectorDetails {
-  min-width: 0;
-  padding: 1rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.pipelineInspectorSection {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.pipelineInspectorSection h2 {
-  margin: 0.25rem 0 0;
-  color: var(--ink);
-  font-size: 0.88rem;
-  letter-spacing: 0.03em;
-  text-transform: none;
-}
-
-.pipelineInspectorSectionHeading,
-.pipelineInspectorProgressHeading {
+.pipelineInspectorSectionHeading {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.pipelineInspectorProgressHeading {
-  align-items: baseline;
-  color: var(--muted-ink);
-  font-size: 0.76rem;
-}
-
-.pipelineInspectorProgressHeading strong {
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.pipelineInspectorSection progress {
-  margin-top: -0.1rem;
-}
-
 .pipelineInspectorEmpty,
-.pipelineInspectorSelectionFacts,
 .pipelineInspectorFacts {
   margin: 0;
   color: var(--muted-ink);
   font-size: 0.76rem;
   line-height: 1.45;
-}
-
-.pipelineInspectorSelectionFacts {
-  display: grid;
-  grid-template-columns: minmax(5rem, 0.8fr) minmax(0, 1.2fr);
-  gap: 0.35rem 0.65rem;
-}
-
-.pipelineInspectorSelectionFacts strong {
-  min-width: 0;
-  color: var(--ink);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 0.72rem;
-  overflow-wrap: anywhere;
-}
-
-.pipelineInspectorFields {
-  display: grid;
-  gap: 0.75rem;
 }
 
 .pipelineInspectorFacts {
@@ -2421,48 +2219,6 @@ progress {
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 0.72rem;
   overflow-wrap: anywhere;
-}
-
-.pipelineInspectorDetails {
-  padding-top: 0.9rem;
-  padding-bottom: 0.9rem;
-}
-
-.pipelineInspectorDetails summary {
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 800;
-}
-
-.pipelineInspectorDetailsContent {
-  display: grid;
-  gap: 0.9rem;
-  margin-top: 0.9rem;
-}
-
-.pipelineInspectorDetails .pipelineDiagnostics {
-  margin: 0;
-}
-
-.pipelineRailSlot {
-  display: block;
-  min-height: 6rem;
-  padding: 0;
-  overflow: hidden;
-  background: var(--surface-raised);
-}
-
-.pipelineRailSlot p,
-.pipelineRailHint {
-  margin: 0.3rem 0 0;
-  color: var(--muted-ink);
-  font-size: 0.76rem;
-}
-
-.pipelineRailHint {
-  margin: 0;
-  text-align: right;
 }
 
 .recordingTimelineRail {
@@ -2917,45 +2673,6 @@ progress {
 
 .pipelineUrlState {
   margin-top: 0.9rem;
-}
-
-.pipelineHistoryContent {
-  display: grid;
-  gap: 0.9rem;
-  margin-top: 0.9rem;
-}
-
-.pipelineHistoryList {
-  display: grid;
-  gap: 0.55rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.pipelineHistoryList li {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  background: var(--surface);
-  color: var(--muted-ink);
-  font-size: 0.76rem;
-  line-height: 1.45;
-}
-
-.pipelineHistoryList li > div {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.pipelineHistoryList strong {
-  color: var(--ink);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  overflow-wrap: anywhere;
 }
 
 .pipelineRunControls {
@@ -4576,11 +4293,6 @@ progress {
 }
 
 @media (max-width: 600px) {
-  .pipelineStageLink,
-  .pipelineStageLinkActive {
-    min-height: auto;
-  }
-
   .pipelineToggleGroup,
   .pipelineToggle,
   .pipelineToggleActive {
@@ -4599,15 +4311,6 @@ progress {
     overflow: visible;
   }
 
-  .pipelineTopBar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
-  .pipelineTopBar nav {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
   .pipelineWorkspaceGrid {
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 23rem);
     overflow: visible;
@@ -4615,38 +4318,8 @@ progress {
 }
 
 @media (max-width: 600px) {
-  .pipelineTopBar {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .pipelineBackLink,
-  .pipelineRecordingContext,
-  .pipelineViewSwitch,
-  .pipelineTopBar nav {
-    grid-column: 1;
-  }
-
-  .pipelineTopBar nav {
-    grid-row: auto;
-  }
-
   .pipelineWorkspaceGrid {
     grid-template-columns: 1fr;
-    overflow: visible;
-  }
-
-  .pipelineTaskSurface {
-    overflow: visible;
-  }
-
-  .pipelineTaskSurfaceContent {
-    overflow: visible;
-    padding: 0.75rem;
-  }
-
-  .pipelineInspectorSlot {
-    max-width: none;
     overflow: visible;
   }
 
@@ -4666,10 +4339,6 @@ progress {
 
   .recordingTimelineLane {
     grid-template-columns: minmax(6rem, 7rem) minmax(26rem, 1fr);
-  }
-
-  .pipelineRailHint {
-    text-align: left;
   }
 }
 

@@ -54,7 +54,8 @@ focused tests move with their responsibility.
   outline with delivery milestones.
 - **M1:** Complete — extracted and tested route and URL-state helpers from the recording workspace;
   preserved existing URL shapes and canonical recording redirects.
-- **M2:** Not started — isolate the recording workspace shell, inspector, and history surfaces.
+- **M2:** Complete — isolated the recording workspace shell, inspector/history, and recording-wide
+  Timeline Rail coordination surfaces.
 - **M3:** Not started — give the event stage editor local source and inspector ownership.
 - **M4:** Not started — give the visible-card stage editor local frame and inspector ownership.
 - **M5:** Not started — give the visual-identity stage editor local source and inspector ownership.
@@ -100,6 +101,19 @@ Acceptance checks:
   history, and Timeline Rail item aggregation.
 - `npm run check` passes.
 - The pipeline browser test preserves 1440px, 1280px, and 390px shell bounds and ordering.
+
+#### M2 implementation evidence — 2026-09-07
+
+- Added focused shell, task-surface, inspector/history, status, formatting, navigation, and
+  Timeline Rail coordination modules. The host now keeps loaded workspace data, stage selection,
+  URL state, and the composition boundary.
+- Moved workspace-only shell, inspector, history, and Timeline Rail wrapper styles into colocated
+  CSS modules. Shared editor selectors remain in `App.module.css`.
+- Added direct rail aggregation tests for event coverage, visible-card decisions and proposals,
+  and visual identity review lanes. Existing workspace tests continue to cover loading, stage
+  navigation, inspector history, selection conflict recovery, and shared rail selection.
+- `npm run check` passed with 89 tests. The pipeline browser suite passed all four viewport and
+  workflow tests.
 
 ### M3 — Event stage ownership
 

@@ -1,0 +1,20 @@
+.slot {
+  display: block;
+  min-height: 6rem;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.76rem;
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .hint {
+    text-align: left;
+  }
+}
