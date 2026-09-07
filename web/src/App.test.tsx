@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, afterEach, describe, vi } from "vitest";
 
 import { App } from "./App";
@@ -150,6 +150,58 @@ describe("App", () => {
     expect(screen.queryByText("Open pipeline")).not.toBeInTheDocument();
     expect(screen.queryByText("Start reconstruction")).not.toBeInTheDocument();
     expect(screen.queryByText("Analyses")).not.toBeInTheDocument();
+  });
+
+  it("shows the furthest reviewed pipeline stage in the recording status", async () => {
+    const recording = {
+      recording_id: recordingId,
+      source_asset_id: "source-fixture",
+      video_id: "video-fixture",
+      session_id: "session-fixture",
+      state: "accepted",
+      source_sha256: "a".repeat(64),
+      received_at: "2026-09-06T12:00:00Z",
+      round_id: "round-7",
+      evidence_package_ids: [],
+      analyses: [],
+      can_start_analysis: false,
+      analysis_blocker: "The pipeline is not ready.",
+    };
+    const reviewedEvents = workspace({
+      stages: [
+        stage("events", {
+          state: "complete",
+          reference: {
+            state: "complete",
+            draft_revision: 1,
+            selected_completion: "events-reference-1",
+            source_revision_id: "events-generated-1",
+            coverage: {},
+            coverage_state: "complete",
+            affected_count: 0,
+            updated_at: "2026-09-06T12:01:00Z",
+          },
+        }),
+        stage("visible_cards"),
+        stage("visual_identities"),
+        stage("table_observations"),
+        stage("round_analyses"),
+      ],
+    });
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      if (String(input) === "/v1/recordings") {
+        return Promise.resolve(response({ recordings: [recording] }));
+      }
+      expect(String(input)).toBe(`/api/recordings/${recordingId}/pipeline`);
+      return Promise.resolve(response(reviewedEvents));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    const row = await screen.findByRole("link", { name: "Open round-7" });
+    expect(await within(row).findByText("Events reviewed")).toBeInTheDocument();
+    expect(row).not.toHaveTextContent("Intake");
   });
 
   it("enters the recording pipeline without loading retired review routes", async () => {

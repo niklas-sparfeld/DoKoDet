@@ -1719,9 +1719,15 @@ progress {
   --status-ink: var(--muted-ink);
 }
 
-.recordingStatus[data-state="analyzing"] {
+.recordingStatus[data-state="analyzing"],
+.recordingStatus[data-state="review"] {
   --status-surface: var(--warning-surface);
   --status-ink: var(--warning);
+}
+
+.recordingStatus[data-state="reviewed"] {
+  --status-surface: var(--success-surface);
+  --status-ink: var(--success);
 }
 
 .recordingStatus[data-state="failed"] {

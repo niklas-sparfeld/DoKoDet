@@ -5,9 +5,11 @@ import {
   createDokoDetectorClient,
   repositoryBundleVideoPath,
   type RecordingSummary,
+  type PipelineWorkspace,
 } from "./api/client";
 import {
   RecordingPipelineWorkspace,
+  STAGE_LABELS,
   type PipelineStageKey,
 } from "./pipeline/RecordingPipelineWorkspace";
 import styles from "./App.module.css";
@@ -15,6 +17,9 @@ import styles from "./App.module.css";
 export function RecordingListView() {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [recordings, setRecordings] = useState<RecordingSummary[]>([]);
+  const [pipelineWorkspaces, setPipelineWorkspaces] = useState<
+    Record<string, PipelineWorkspace>
+  >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +30,29 @@ export function RecordingListView() {
         if (!signal?.aborted) {
           setRecordings(response.recordings);
           setError(null);
+
+          const workspaceResults = await Promise.all(
+            response.recordings.map(async (recording) => {
+              try {
+                const workspace = await client.getRecordingPipeline(
+                  recording.recording_id,
+                  { signal },
+                );
+                return isPipelineWorkspace(workspace)
+                  ? ([recording.recording_id, workspace] as const)
+                  : null;
+              } catch {
+                return null;
+              }
+            }),
+          );
+          if (!signal?.aborted) {
+            const nextWorkspaces: Record<string, PipelineWorkspace> = {};
+            for (const result of workspaceResults) {
+              if (result !== null) nextWorkspaces[result[0]] = result[1];
+            }
+            setPipelineWorkspaces(nextWorkspaces);
+          }
         }
       } catch (reason: unknown) {
         if (!signal?.aborted) setError(describeError(reason));
@@ -49,12 +77,15 @@ export function RecordingListView() {
 
   useEffect(() => {
     if (
-      !recordings.some((recording) => recording.analyses.some(isActiveAnalysis))
+      !recordings.some((recording) =>
+        recording.analyses.some(isActiveAnalysis),
+      ) &&
+      !Object.values(pipelineWorkspaces).some(isActivePipeline)
     )
       return;
     const timer = window.setInterval(() => void loadRecordings(), 2000);
     return () => window.clearInterval(timer);
-  }, [loadRecordings, recordings]);
+  }, [loadRecordings, pipelineWorkspaces, recordings]);
 
   return (
     <main className={`${styles.shell} ${styles.recordingsPage}`}>
@@ -83,7 +114,11 @@ export function RecordingListView() {
       ) : (
         <div className={styles.recordingList} aria-label="Recordings">
           {recordings.map((recording) => (
-            <RecordingRow key={recording.recording_id} recording={recording} />
+            <RecordingRow
+              key={recording.recording_id}
+              recording={recording}
+              pipeline={pipelineWorkspaces[recording.recording_id] ?? null}
+            />
           ))}
         </div>
       )}
@@ -91,7 +126,13 @@ export function RecordingListView() {
   );
 }
 
-function RecordingRow({ recording }: { recording: RecordingSummary }) {
+function RecordingRow({
+  recording,
+  pipeline,
+}: {
+  recording: RecordingSummary;
+  pipeline: PipelineWorkspace | null;
+}) {
   return (
     <a
       className={styles.recordingRow}
@@ -105,7 +146,7 @@ function RecordingRow({ recording }: { recording: RecordingSummary }) {
       <div className={styles.recordingRowContent}>
         <div className={styles.recordingRowHeading}>
           <h2>{recording.round_id}</h2>
-          <RecordingStatus recording={recording} />
+          <RecordingStatus recording={recording} pipeline={pipeline} />
         </div>
         <dl className={styles.recordingMetadata}>
           <div>
@@ -124,8 +165,14 @@ function RecordingRow({ recording }: { recording: RecordingSummary }) {
   );
 }
 
-function RecordingStatus({ recording }: { recording: RecordingSummary }) {
-  const status = getRecordingStatus(recording);
+function RecordingStatus({
+  recording,
+  pipeline,
+}: {
+  recording: RecordingSummary;
+  pipeline: PipelineWorkspace | null;
+}) {
+  const status = getRecordingStatus(recording, pipeline);
   return (
     <span
       className={`${styles.status} ${styles.recordingStatus}`}
@@ -248,10 +295,75 @@ function isActiveAnalysis(
   return analysis.state !== "complete" && analysis.state !== "failed";
 }
 
-function getRecordingStatus(recording: RecordingSummary): {
+function isActivePipeline(pipeline: PipelineWorkspace): boolean {
+  return pipeline.stages.some((stage) => stage.state === "active-run");
+}
+
+export type RecordingStatus = {
   label: string;
-  state: "intake" | "analyzing" | "complete" | "failed";
-} {
+  state: "intake" | "analyzing" | "review" | "reviewed" | "complete" | "failed";
+};
+
+function getRecordingStatus(
+  recording: RecordingSummary,
+  pipeline: PipelineWorkspace | null = null,
+): RecordingStatus {
+  if (pipeline !== null) {
+    const pipelineStatus = getPipelineStatus(pipeline);
+    if (pipelineStatus !== null) return pipelineStatus;
+  }
+
+  return getAnalysisStatus(recording);
+}
+
+function getPipelineStatus(
+  pipeline: PipelineWorkspace,
+): RecordingStatus | null {
+  const activeStage = [...pipeline.stages]
+    .reverse()
+    .find((stage) => stage.state === "active-run");
+  if (activeStage !== undefined) {
+    return {
+      label: `Processing ${STAGE_LABELS[activeStage.key]}`,
+      state: "analyzing",
+    };
+  }
+
+  for (const stage of [...pipeline.stages].reverse()) {
+    const label = STAGE_LABELS[stage.key];
+    if (stage.key === "round_analyses" && stage.state === "complete") {
+      return { label: "Analysis complete", state: "complete" };
+    }
+    if (stage.state === "failed") {
+      return { label: `${label} failed`, state: "failed" };
+    }
+    if (stage.reference?.state === "complete") {
+      return { label: `${label} reviewed`, state: "reviewed" };
+    }
+    if (
+      stage.state === "draft" ||
+      stage.state === "affected" ||
+      stage.state === "incomplete-coverage"
+    ) {
+      return { label: `Reviewing ${label}`, state: "review" };
+    }
+    if (stage.state === "generated-only") {
+      return {
+        label: stage.has_maintained_reference
+          ? `${label} ready for review`
+          : `${label} ready`,
+        state: "review",
+      };
+    }
+    if (stage.state === "partial") {
+      return { label: `${label} incomplete`, state: "review" };
+    }
+  }
+
+  return null;
+}
+
+function getAnalysisStatus(recording: RecordingSummary): RecordingStatus {
   const latestAnalysis = recording.analyses.reduce<
     RecordingSummary["analyses"][number] | null
   >((latest, analysis) => {
@@ -267,6 +379,12 @@ function getRecordingStatus(recording: RecordingSummary): {
     return { label: "Failed", state: "failed" };
   }
   return { label: "Complete", state: "complete" };
+}
+
+function isPipelineWorkspace(
+  value: PipelineWorkspace,
+): value is PipelineWorkspace {
+  return Array.isArray(value.stages);
 }
 
 function formatTimestamp(value: string): string {
