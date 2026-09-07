@@ -60,7 +60,8 @@
 		A00000000000000000000032 /* CameraSourceRate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000032 /* CameraSourceRate.swift */; };
 		A00000000000000000000039 /* RecordingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000039 /* RecordingProfile.swift */; };
 		A0000000000000000000003A /* RecordingWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003A /* RecordingWorkspace.swift */; };
-		A00000000000000000000036 /* RepositoryIntake.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000036 /* RepositoryIntake.swift */; };
+		A00000000000000000000036 /* RepositoryIntakeDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000036 /* RepositoryIntakeDocuments.swift */; };
+		A0000000000000000000003D /* RepositoryIntakeValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003D /* RepositoryIntakeValidator.swift */; };
 		A00000000000000000000037 /* RoundRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000037 /* RoundRecording.swift */; };
 		A00000000000000000000038 /* RoundAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000038 /* RoundAnalysis.swift */; };
 		A0000000000000000000003B /* RecordingWorkspacePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003B /* RecordingWorkspacePresentation.swift */; };
@@ -122,7 +123,8 @@
 		B00000000000000000000032 /* CameraSourceRate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraSourceRate.swift; sourceTree = "<group>"; };
 		B00000000000000000000039 /* RecordingProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingProfile.swift; sourceTree = "<group>"; };
 		B0000000000000000000003A /* RecordingWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWorkspace.swift; sourceTree = "<group>"; };
-		B00000000000000000000036 /* RepositoryIntake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryIntake.swift; sourceTree = "<group>"; };
+		B00000000000000000000036 /* RepositoryIntakeDocuments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryIntakeDocuments.swift; sourceTree = "<group>"; };
+		B0000000000000000000003D /* RepositoryIntakeValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryIntakeValidator.swift; sourceTree = "<group>"; };
 		B00000000000000000000037 /* RoundRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundRecording.swift; sourceTree = "<group>"; };
 		B00000000000000000000038 /* RoundAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundAnalysis.swift; sourceTree = "<group>"; };
 		B0000000000000000000003B /* RecordingWorkspacePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWorkspacePresentation.swift; sourceTree = "<group>"; };
@@ -228,7 +230,8 @@
 				B00000000000000000000039 /* RecordingProfile.swift */,
 				B0000000000000000000003A /* RecordingWorkspace.swift */,
 				B0000000000000000000003B /* RecordingWorkspacePresentation.swift */,
-				B00000000000000000000036 /* RepositoryIntake.swift */,
+				B00000000000000000000036 /* RepositoryIntakeDocuments.swift */,
+				B0000000000000000000003D /* RepositoryIntakeValidator.swift */,
 				B00000000000000000000037 /* RoundRecording.swift */,
 				B0000000000000000000002C /* TrainingRecording.swift */,
 				B0000000000000000000002D /* TrainingRecordingCoordinator.swift */,
@@ -424,7 +427,8 @@
 				A0000000000000000000003A /* RecordingWorkspace.swift in Sources */,
 				A0000000000000000000003B /* RecordingWorkspacePresentation.swift in Sources */,
 				A0000000000000000000003C /* RecordingWorkspaceView.swift in Sources */,
-				A00000000000000000000036 /* RepositoryIntake.swift in Sources */,
+				A00000000000000000000036 /* RepositoryIntakeDocuments.swift in Sources */,
+				A0000000000000000000003D /* RepositoryIntakeValidator.swift in Sources */,
 				A00000000000000000000037 /* RoundRecording.swift in Sources */,
 				A00000000000000000000038 /* RoundAnalysis.swift in Sources */,
 			);
