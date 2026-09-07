@@ -1,8 +1,14 @@
 # Pipeline data cutover handoff
 
-This document records the M10 handoff from package-backed data work to the recording pipeline.
-Epic 0049 owns the user-facing cutover. It can remove the old entry points after it exposes the
-maintained references through the recording workspace.
+**Status: Completed handoff.**
+
+This completed handoff record captures the M10 transition from package-backed data work to the
+recording pipeline. Epic 0049 completed the user-facing cutover, exposed maintained references
+through the recording workspace, and removed the obsolete recording entry points.
+
+Use the [target architecture](TableObservationReconstruction.md) for current shared boundaries and
+the [epic board](plans/README.md) for current work. The sections below retain implementation and
+verification evidence from the completed handoff.
 
 ## New entry points
 
@@ -28,9 +34,10 @@ Recording-based processor and review work uses the immutable pipeline stores:
 Generated revisions remain selectable for processor inputs and may be named as an explicit
 dataset robustness comparison. They are never eligible as reviewed targets.
 
-## Legacy routes and adapters for 0049 to remove
+## Legacy routes and adapters removed by 0049
 
-0049 can remove these package-backed entry points after the maintained-reference UI is ready:
+These package-backed entry points were removed or redirected by 0049 after the
+maintained-reference UI was ready:
 
 - Event review: `CardEventReviewStore`,
   `backend/src/dokodetector_backend/card_event_review_api.py`, and the
@@ -52,10 +59,10 @@ dataset robustness comparison. They are never eligible as reviewed targets.
   `operations/src/doko_operations/cardevent.py`, `materialize_visible_card_dataset` in
   `table_evidence_analyzer/src/table_evidence_analyzer/visible_card_dataset.py`, and the legacy
   projection in `operations/src/doko_operations/visual_card_identity_dataset.py`. Keep them until
-  0049 completes the UI cutover, then remove their package-backed input paths.
+  0049 completed the UI cutover and removed their package-backed input paths.
 
-The device evidence package remains a separate showcase upload until 0049 changes that product
-boundary. It is not a recording-pipeline input.
+The device evidence package remains a separate showcase upload. Epic 0049 did not make it a
+recording-pipeline input.
 
 ## Foundation proof commands
 
@@ -85,6 +92,5 @@ real recording with completed maintained event, visible-card, and identity refer
 and no frozen real-data `pipeline-dataset/v1` manifest. The current `data/` and `backend/data/`
 directories contain local runtime state only.
 
-Therefore M10 makes no real-data coverage or model-quality claim. Epic 0049 must collect and review
-real recording coverage through the maintained-reference workspace. Epic 0043 remains blocked until
-that reviewed real coverage is declared and measured.
+Therefore M10 made no real-data coverage or model-quality claim. Later reviewed real-data coverage
+belongs to epics 0043 and 0050 and remains subject to the gates on the [epic board](plans/README.md).

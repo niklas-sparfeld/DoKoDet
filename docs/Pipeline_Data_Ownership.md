@@ -1,9 +1,16 @@
 # Pipeline data ownership
 
-This is the M0 cutover inventory for epic 0048. It records where the current behavior remains and
-which later milestone replaces its storage or orchestration. It does not add a second architecture
-specification. The new pipeline source for recording work is the accepted recording video. Device
-evidence packages remain showcase artifacts until epic 0049 removes their old entry points.
+**Status: Completed handoff.**
+
+This is a completed M0 handoff record for epic 0048. It records the storage and orchestration
+boundaries used during the 0048 and 0049 implementation. It does not add a second architecture
+specification or current operator route. The recording pipeline source is the accepted recording
+video. Device evidence packages remain separate showcase artifacts; epic 0049 removed the old
+package-backed recording entry points.
+
+Use the [target architecture](TableObservationReconstruction.md) for current shared boundaries and
+the [epic board](plans/README.md) for current work. The tables below retain historical
+implementation evidence.
 
 ## Shared pipeline contracts
 
@@ -20,8 +27,8 @@ evidence packages remain showcase artifacts until epic 0049 removes their old en
 | `CardEventReviewStore` draft commands and completed review validation in `operations/src/doko_operations/cardevent_review.py` | Existing event type, timing, ordering, command, and source validation stays authoritative for the old editor | M8 adapts its edit validation to the maintained event reference; M9 owns coverage and completion |
 | `CardEventNetReviewAdapter` and event proposal projection in `operations/src/doko_operations/cardevent.py` | Existing CardEventNet inference and proposal decoding remain the provider boundary | M3 wraps the provider in `ProcessorRunRequest` and publishes `event-data/v1` |
 | `cardevent-device-predictions/v1` validation in `schemas/training-recording/device-predictions-v1.schema.json` and recording-bundle validation | Existing device-prediction metadata and timing checks remain valid for imports | M3 imports valid predictions as generated event content without making device media a pipeline source |
-| CardEvent review routes in `backend/src/dokodetector_backend/card_event_review_api.py` | Existing HTTP models translate to the old review store | 0049 switches the recording editor to maintained-reference APIs |
-| Recording source and accepted video discovery in `recording_bundle_store.py`, `recordings_api.py`, and backend intake contracts | Accepted bundle validation remains the source of recording ID, video path, digest, length, and duration | M1/M2 consume these facts; 0049 changes UI entry points only |
+| CardEvent review routes in `backend/src/dokodetector_backend/card_event_review_api.py` | Existing HTTP models translated to the old review store | 0049 switched the recording editor to maintained-reference APIs |
+| Recording source and accepted video discovery in `recording_bundle_store.py`, `recordings_api.py`, and backend intake contracts | Accepted bundle validation remained the source of recording ID, video path, digest, length, and duration | M1/M2 consumed these facts; 0049 changed UI entry points only |
 
 ## Visible-card operations
 
@@ -31,7 +38,7 @@ evidence packages remain showcase artifacts until epic 0049 removes their old en
 | `FFmpegVisibleCardFrameExtractor` and `OpenCVVisibleCardFrameExtractor` in `visible_card_review_batch.py` | Existing decoders are retained as tested provider adapters while ownership moves | M2 extracts shared frame selection and crop resolution into `operations/src/doko_operations/derived_view.py` |
 | `VisibleCardProvider`, `FakeVisibleCardProvider`, `GeminiVisibleCardProvider`, and `LocalVisibleCardProvider` in `table_evidence_analyzer/src/table_evidence_analyzer/visible_cards.py` | Existing provider interfaces and normalized detector result validation remain authoritative | M4 adapts one explicit provider into the processor run boundary |
 | `VisibleCardReviewQueue`, `VisibleCardFrameReview`, and action validation in `table_evidence_analyzer/src/table_evidence_analyzer/visible_card_review_workflow.py` | Existing visible-region meaning, reviewed empty state, unusable state, and action validation remain authoritative | M8 adapts edit validation; M9 owns explicit frame coverage and affected work |
-| `VisibleCardReviewBatchStore` in `backend` routes and `visible_card_review_api.py` | Existing batch lifecycle and HTTP translation remain available for the old workspace | 0049 removes the batch entry path after the maintained reference is exposed |
+| `VisibleCardReviewBatchStore` in `backend` routes and `visible_card_review_api.py` | Existing batch lifecycle and HTTP translation remained available for the old workspace | 0049 removed the batch entry path after the maintained reference was exposed |
 
 ## Visual identity operations
 
@@ -41,7 +48,7 @@ evidence packages remain showcase artifacts until epic 0049 removes their old en
 | `DinoV3IdentityConfig` and local identity bundle/runtime contracts in `table_evidence_analyzer/src/table_evidence_analyzer/local_identity.py` | Existing local model identity and crop transform contracts remain authoritative | M5 records implementation and model lineage in the frozen run request |
 | `VisualCardIdentityClassifier` and `VisualCardIdentityClassifierIdentity` in `operations/src/doko_operations/visual_card_identity_review_batch.py` | Existing explicit classifier identity and result validation remain authoritative for the old path | M5 reuses the provider through the new run contract |
 | `VisualCardIdentityReviewBatchStore` and its decision validation | Existing identity usability, candidate, crop, and failure validation remains authoritative | M8 adapts edit validation; M9 owns card coverage and affected work |
-| Identity review routes in `backend/src/dokodetector_backend/visual_card_identity_review_api.py` | Existing HTTP models and batch lifecycle remain available for the old workspace | 0049 removes the batch entry path after maintained references are available |
+| Identity review routes in `backend/src/dokodetector_backend/visual_card_identity_review_api.py` | Existing HTTP models and batch lifecycle remained available for the old workspace | 0049 removed the batch entry path after maintained references were available |
 | Existing identity dataset projection in `operations/src/doko_operations/visual_card_identity_dataset.py` | Existing source permission, development partition, and target checks remain authoritative | M10 consumes explicit completed identity reference revisions and frozen crop policies |
 
 ## Observation operations
@@ -54,10 +61,10 @@ evidence packages remain showcase artifacts until epic 0049 removes their old en
 | `TableObservationStore` and analyzer-facing backend adapters | Existing file validation and observation result handling remain authoritative for old observations | M6 changes uniqueness and searchable identity from package/analyzer to observation ID and run/input lineage |
 | Round analysis input assembly in `operations/src/doko_operations/round_reconstruction.py` and `backend/src/dokodetector_backend/round_analysis_service.py` | Existing reconstruction engine, state transitions, result store, timeline, and counterfactual behavior remain authoritative | M7 pins a table-observation revision and explicit round context before queueing |
 
-## Legacy entry points retained through 0049
+## Historical legacy entry points
 
-The following paths remain available while M0–M10 build the new foundation. They are not new
-pipeline inputs and must not be used as fallbacks by new processor code.
+The following paths were available while M0–M10 built the new foundation. They were not new
+pipeline inputs and were not valid fallbacks for new processor code.
 
 - Event review: `CardEventReviewStore`, `card_event_review_api.py`, and the `/v1/recordings/{recording_id}/card-event-reviews` and `/v1/recordings/{recording_id}/card-event-review` routes.
 - Visible-card review: `VisibleCardReviewBatchStore`, `visible_card_review_api.py`, `visible_card_review_workflow.py`, and the `/v1/recordings/{recording_id}/visible-card-review` and `/v1/visible-card-reviews/{batch_id}` routes.
@@ -65,5 +72,5 @@ pipeline inputs and must not be used as fallbacks by new processor code.
 - Package-backed evidence and observation review: `evidence_package.py`, `table_evidence.py`, `TableEvidenceReviewAdapter`, `TableObservationReviewAdapter`, and the package/analyzer routes registered by `backend/src/dokodetector_backend/api.py` and `app.py`.
 - Device showcase: recording-bundle evidence packaging, package generation, and package upload remain independently usable. Their frames and snippets are not visual inputs for M2–M7.
 
-Epic 0049 owns removal or redirection of these legacy entry points. Until then, changes to them must
-preserve their current contracts unless a milestone explicitly adds an adapter boundary.
+Epic 0049 removed or redirected the recording-workspace entry points above. This section remains as
+historical evidence of the boundary that the completed cutover replaced.

@@ -4,7 +4,7 @@
 
 - **Summary:** Make the shortest current path from repository rules to architecture, component
   ownership, and local verification explicit.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0053 discovery complete
 - **Outcome:** Agents can select one current authority and one component-local verification path
   without comparing stale transition guidance.
@@ -14,8 +14,8 @@
 
 - **M0:** Complete — classified the current authorities and first-hop gaps from the 0053 report
   and the tracked documentation inventory.
-- **M1:** Not started — publish the shared authority route and remove current-state claims that
-  contradict the closed 0048 and 0049 epics.
+- **M1:** Complete — published the shared authority route and removed current-state claims that
+  contradicted the closed 0048 and 0049 epics.
 - **M2:** Not started — give the Python component guides one consistent ownership and verification
   hop.
 - **M3:** Not started — complete the client and rules first hops and prove that navigation links
@@ -38,6 +38,17 @@ Reports and closed epics are historical records.
 
 No generated Markdown reference needs a new authority route. Generated API artifacts remain owned
 by the backend export and web verification commands.
+
+## M1 evidence
+
+The root README now maps every top-level executable component and routes repository rules, domain
+terms, target architecture, work state, shared contracts, and component operation to one authority.
+The target architecture records 0048 and 0049 as completed foundations and sends current work to the
+epic board. The two pipeline documents are marked as completed handoff records and retain their
+implementation evidence without acting as current navigation.
+
+Changed Markdown links resolve locally. A search of non-historical documentation found no remaining
+claim that 0048 or 0049 must perform their completed cutover.
 
 ## Delivery milestones
 

@@ -49,7 +49,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0055 — Documentation authority and first hops](2-ready/0055-Documentation_Authority_and_First_Hops.md) | 0053 discovery complete | M0 specifies M1–M3: a shared authority route, Python component first hops, then client and rules first hops. |
 | [0058 — Backend pipeline service boundaries](2-ready/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0 specifies M1–M4: routes, execution/comparison/workspace services, maintained references, then composition proof. |
 | [0059 — Web workspace module boundaries](2-ready/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0 specifies M1–M7: route state, workspace host, three stage editors, controls, then analysis presentation. Preserve the completed 0054 layout and behavior. |
 
@@ -57,6 +56,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0055 — Documentation authority and first hops](3-in-progress/0055-Documentation_Authority_and_First_Hops.md) | 0053 discovery complete | M0–M1 complete: the root authority route and component map are published, and completed 0048/0049 handoffs no longer act as current guidance. M2–M3 remain. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -121,11 +121,10 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Specify the remaining 0053 cleanup follow-ups in ranked order.** Start with 0055 documentation
-   authority, then 0057 operations boundaries, 0058 backend boundaries, 0059 web boundaries, and
-   0060 iOS boundaries. Epic 0056 is specified and Backlog. Use one Terra agent for each remaining
-   M0. Keep only evidence-backed, Luna-sized delivery milestones, and close a follow-up when
-   detailed evidence does not justify it.
+1. **Continue epic 0055 with M2.** Normalize the Python component first hops, then complete the
+   client and rules first hops in M3. After 0055, use the ranked 0053 follow-ups: 0057 operations
+   boundaries, 0058 backend boundaries, 0059 web boundaries, and 0060 iOS boundaries. Epic 0056 is
+   specified and Backlog.
 2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts

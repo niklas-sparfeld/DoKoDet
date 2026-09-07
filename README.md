@@ -67,6 +67,22 @@ contracts.
 The detailed target is in
 [Table Observation and Game Reconstruction](docs/TableObservationReconstruction.md).
 
+## Documentation route
+
+Use one authority for each kind of repository fact:
+
+| Question | Current authority |
+| --- | --- |
+| What repository rules apply? | [`AGENTS.md`](AGENTS.md) |
+| What do domain terms mean? | [Domain glossary](docs/glossary.md) |
+| What is the target architecture? | [Table Observation and Game Reconstruction](docs/TableObservationReconstruction.md) |
+| What work is active, ready, blocked, or closed? | [Epic board](docs/plans/README.md) |
+| What are the shared wire contracts? | Root contract files ([`DATA_CONTRACT.md`](DATA_CONTRACT.md), [`SERVER_CONTRACT.md`](SERVER_CONTRACT.md), [`MODEL_CONTRACT.md`](MODEL_CONTRACT.md), [`GAME_RECONSTRUCTION_CONTRACT.md`](GAME_RECONSTRUCTION_CONTRACT.md)) and [`schemas/`](schemas/) |
+| How do I operate one component? | That component's README, then its owned source, tests, and local checks |
+
+Start component work in the component README. Use the target architecture and epic board for
+cross-component decisions. Use the root contracts and `schemas/` for shared serialized boundaries.
+
 ### iOS evidence capture
 
 The iPhone captures evidence. A small local model, **CardEventNet**, reports event proposals. An
@@ -122,9 +138,13 @@ The repository contains several mostly independent projects:
 ```text
 doko_detector/
 ├── card_event_net/          # on-device event-proposal model and data tools
+├── backend/                 # local API and pipeline services
+├── operations/              # shared pipeline operations and data lifecycle
+├── table_evidence_analyzer/ # analyzer contracts and model capability foundation
+├── game_engine/             # rules and game reconstruction
 ├── ios/                     # iOS capture and evidence upload
-├── backend/                 # evidence ingestion and local orchestration
-├── table_evidence_analyzer/ # analyzer contracts and model-training foundation
+├── web/                     # recording and reconstruction frontend
+├── schemas/                 # shared JSON schemas
 ├── fixtures/                # shared contract and scenario fixtures
 ├── docs/                    # architecture, reports, and plans
 ├── mise.toml

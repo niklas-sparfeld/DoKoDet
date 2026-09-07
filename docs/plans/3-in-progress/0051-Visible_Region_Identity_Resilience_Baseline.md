@@ -110,7 +110,7 @@ anonymous observed-card evidence. Keep detailed processing errors in run diagnos
 missing identity evidence with a fabricated high-confidence identity or silently remove the card.
 
 Revise the active schema directly. Do not add a compatibility layer for obsolete review-batch or
-package routes that 0049 removes. Update the game engine so empty identity evidence is neutral and
+package routes that 0049 removed. Update the game engine so empty identity evidence is neutral and
 does not create a card-play identity by itself.
 
 ## 4. Frozen crop conditions

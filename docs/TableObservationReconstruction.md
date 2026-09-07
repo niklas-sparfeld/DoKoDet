@@ -23,8 +23,10 @@ maintained reference per visual review stage, with at most one draft. A model re
 result without changing that reference. The UI normally shows selected Generated and Reviewed
 content, with other runs and completed revisions available through secondary controls.
 
-These are target decisions. Existing package and review-batch runtime contracts are replaced by
-0048 and 0049; this document does not claim that the cutover is already implemented.
+Epic 0048 completed the shared recording-pipeline data and execution foundation. Epic 0049
+completed the recording-owned review, comparison, analysis, and dataset-readiness workspace and
+removed the obsolete review-batch routes and duplicate recording state. Their closed plans retain
+implementation evidence. Future changes follow the active [epic board](plans/README.md).
 
 ## 2. Target process
 
@@ -153,9 +155,10 @@ clear conflict if a correction violates the selected ruleset or deck manifest.
 
 ## 7. Implementation order
 
-Follow the [epic board next steps](plans/README.md#next-steps). Start 0048 for data and execution,
-then 0049 for recording review and comparison. Use their small milestones in order. The existing
-editors, local models, filesystem stores, and reconstruction engine are the starting point.
+0048 and 0049 provide the completed data, execution, recording review, and comparison foundations.
+Follow the [epic board next steps](plans/README.md#next-steps) for current work. The existing
+editors, local models, filesystem stores, and reconstruction engine remain the starting point for
+the active follow-up epics.
 
 After those foundations, use reviewed real coverage to select the bounded identity proof in 0043
 or detector/capability measurements in 0050. Productive model operations remain in 0044 after a
@@ -183,10 +186,12 @@ and tracking improve independently.
 
 ## 9. Plan ownership
 
-- [0048](plans/5-closed/0048-Pipeline_Data_and_Execution.md) owns shared data and execution contracts,
-  video-derived inputs, maintained reference storage, analysis integration, and dataset adapters.
-- [0049](plans/5-closed/0049-Recording_Pipeline_Review_and_Comparison.md) owns the recording UI,
-  reference editing, explicit run input selection, comparison, and obsolete review-route removal.
+- Closed epic [0048](plans/5-closed/0048-Pipeline_Data_and_Execution.md) delivered shared data and
+  execution contracts, video-derived inputs, maintained reference storage, analysis integration,
+  and dataset adapters.
+- Closed epic [0049](plans/5-closed/0049-Recording_Pipeline_Review_and_Comparison.md) delivered the
+  recording UI, reference editing, explicit run input selection, comparison, and obsolete
+  review-route removal.
 - [0043](plans/4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) owns bounded identity quality.
 - [0044](plans/4-blocked/0044-Productive_Local_Identity_Model_Operations.md) owns later productive
   campaigns, promotion, and rollback.
