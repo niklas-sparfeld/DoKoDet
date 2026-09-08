@@ -62,8 +62,8 @@ focused tests move with their responsibility.
 - **M5:** Complete — give the visual-identity stage editor local source and inspector ownership.
 - **M6:** Complete — separate observation and round-analysis command state, status/history
   presentation, and the local analysis URL helper.
-- **M7:** Not started — separate analysis timeline/source-detail presentation from analysis
-  formatting helpers and local styles.
+- **M7:** Complete — separate analysis timeline/source-detail presentation from analysis
+  formatting and data-reading helpers.
 
 ## Delivery milestones
 
@@ -226,6 +226,21 @@ Acceptance checks:
 - Focused analysis tests cover timeline selection, evidence detail, formatting helpers, and counterfactual inputs.
 - `npm run check` passes.
 - The pipeline browser test passes at 1440px, 1280px, and 390px.
+
+#### M7 implementation evidence — 2026-09-08
+
+- Reduced `analysis/AnalysisView.tsx` to an in-package compatibility entry point. The selected
+  analysis loader and timeline/source-detail presentation now live in
+  `AnalysisTimelinePresentation.tsx`.
+- Moved display-row construction, URL selection readers, reconstruction data snapshots, action
+  readers, and formatting helpers into `analysisFormatting.ts`. The counterfactual workbench now
+  imports this local analysis boundary directly.
+- Added focused analysis tests for synchronized row and hypothesis selection, evidence detail
+  media, counterfactual classification input, display-row data, and formatting helpers.
+- Preserved the selected analysis contract, synchronized timeline, source recording seek behavior,
+  evidence detail overlay, and counterfactual controls.
+- `npm run check` passed with 106 tests. The pipeline browser suite passed all four tests, including
+  the 1440px, 1280px, and 390px shell checks.
 
 ## Dependencies, exclusions, and execution rules
 

@@ -21,7 +21,7 @@ import {
   type TimelineCandidate,
   type TimelineCard,
   type TimelineHypothesis,
-} from "./AnalysisView";
+} from "./analysisFormatting";
 
 type GameplayPlay = { player: string; card: string };
 type CounterfactualCardIdentityOverride = NonNullable<
