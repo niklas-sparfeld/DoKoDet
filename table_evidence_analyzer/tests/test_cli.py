@@ -346,7 +346,7 @@ def test_visible_card_fake_command_writes_run_overlay_queue_and_review(tmp_path:
     )
     assert json.loads(result.read_text(encoding="utf-8"))["provider"] == {
         "name": "fake",
-        "model": "gemini-3.6-flash",
+        "model": "gemini-3.8-flash",
     }
     assert overlay.is_file()
     lineage.write_text(

@@ -124,7 +124,7 @@ Start it with the required runtime credential:
 
 ```bash
 export GEMINI_API_KEY='your-key'
-export GEMINI_MODEL='gemini-3.6-flash'
+export GEMINI_MODEL='gemini-3.8-flash'
 export GEMINI_TIMEOUT_SECONDS=120
 export GEMINI_MAX_RETRIES=2
 uv run dokodetector-backend
@@ -211,7 +211,7 @@ BONJOUR_NAME=DokoDetector
 BONJOUR_HOSTNAME=
 BONJOUR_ADDRESS=
 GEMINI_API_KEY=<required at runtime>
-GEMINI_MODEL=gemini-3.6-flash
+GEMINI_MODEL=gemini-3.8-flash
 GEMINI_TIMEOUT_SECONDS=120
 GEMINI_MAX_RETRIES=2
 VISIBLE_CARD_PROVIDER=gemini

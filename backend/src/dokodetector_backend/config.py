@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     max_recording_bytes: int = 1_100_000_000
     max_pending_video_bytes: int = 1_000_000_000
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-3.6-flash"
+    gemini_model: str = "gemini-3.8-flash"
     gemini_timeout_seconds: float = 120.0
     gemini_max_retries: int = 2
     visible_card_provider: Literal["gemini", "local"] = Field(

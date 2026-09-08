@@ -30,7 +30,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from PIL import Image, UnidentifiedImageError
 
-DEFAULT_MODEL = "gemini-3.6-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 DEFAULT_TIMEOUT_S = 120.0
 DEFAULT_MAX_RETRIES = 2
 INPUT_PRICE_PER_MILLION = 0.75
