@@ -4,10 +4,11 @@
 
 - **Summary:** Give each recording workspace responsibility a small local source, style, and test
   surface without changing the operator workflow.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0053 discovery complete
 - **Outcome:** An operator UI change can start at the owning workspace surface instead of requiring
   the recording workspace host, all three stage editors, and the shared stylesheet.
+- **Closure reason:** Complete
 - **Discovery evidence:** [Epic 0053 report](../../reports/0053-Agent_Navigation_Cleanup_Discovery.md)
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
