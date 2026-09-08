@@ -14,20 +14,20 @@ class ConfigurationError(ValueError):
 
 
 def discover_repository_root(start: str | Path | None = None) -> Path:
-    """Find the nearest repository root containing ``mise.toml``."""
+    """Find the nearest repository root containing the shared toolchain and model package."""
 
     location = Path.cwd() if start is None else Path(start)
     location = location.expanduser().resolve()
     if location.is_file():
         location = location.parent
     for candidate in (location, *location.parents):
-        if (candidate / "mise.toml").is_file():
+        if (candidate / "mise.toml").is_file() and (candidate / "card_event_net").is_dir():
             return candidate
 
     # This fallback keeps the installed local backend usable when its process starts outside the
     # checkout.  It is only accepted when the package was installed from this repository.
     package_root = Path(__file__).resolve().parents[3]
-    if (package_root / "mise.toml").is_file():
+    if (package_root / "mise.toml").is_file() and (package_root / "card_event_net").is_dir():
         return package_root
     raise ConfigurationError(
         "Could not find the repository root. Run the backend from a checkout containing "
@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     repository_intake_root: Path = Path("data/intake/recordings")
     evidence_package_intake_root: Path = Path("data/intake/evidence-packages")
     pending_video_root: Path = Path("data/incoming/videos")
+    card_event_checkpoint_path: Path | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "CARD_EVENT_CHECKPOINT_PATH",
+            "CARDEVENT_CHECKPOINT_PATH",
+            "CARDEVENTNET_CHECKPOINT_PATH",
+        ),
+    )
     max_manifest_bytes: int = 1_000_000
     max_frame_bytes: int = 10_000_000
     max_video_bytes: int = 750_000
@@ -145,6 +153,8 @@ class Settings(BaseSettings):
         self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
         self.evidence_package_intake_root = _resolve_path(self.evidence_package_intake_root, root)
         self.pending_video_root = _resolve_path(self.pending_video_root, root)
+        if self.card_event_checkpoint_path is not None:
+            self.card_event_checkpoint_path = _resolve_path(self.card_event_checkpoint_path, root)
         if self.visible_card_bundle_path is not None:
             self.visible_card_bundle_path = _resolve_path(self.visible_card_bundle_path, root)
         if self.visible_card_identity_bundle_path is not None:

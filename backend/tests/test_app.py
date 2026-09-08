@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import ClientDisconnect
 
 from dokodetector_backend.app import create_app
-from dokodetector_backend.config import ConfigurationError, Settings
+from dokodetector_backend.config import ConfigurationError, Settings, discover_repository_root
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
@@ -124,6 +124,24 @@ def test_factory_exposes_injected_settings() -> None:
     app = create_test_app(settings)
 
     assert app.state.settings is settings
+
+
+def test_settings_resolves_card_event_checkpoint_path(tmp_path: Path) -> None:
+    settings = Settings(
+        _env_file=None,
+        repository_root=tmp_path,
+        card_event_checkpoint_path=Path("card_event_net/data/outputs/best.pt"),
+    )
+
+    assert settings.card_event_checkpoint_path == (
+        tmp_path / "card_event_net" / "data" / "outputs" / "best.pt"
+    )
+
+
+def test_discover_repository_root_skips_backend_component_mise(monkeypatch) -> None:
+    monkeypatch.chdir(BACKEND_ROOT)
+
+    assert discover_repository_root() == BACKEND_ROOT.parent
 
 
 def test_factory_configures_the_gemini_analyzer(tmp_path: Path) -> None:

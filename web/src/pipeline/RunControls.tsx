@@ -564,6 +564,9 @@ function describeRunError(reason: unknown): string {
   const nested = readObject(detail?.detail);
   const backendMessage =
     readString(nested?.message) ?? readString(detail?.message);
+  if (backendMessage?.toLowerCase().includes("checkpoint")) {
+    return backendMessage;
+  }
   if (
     backendMessage?.toLowerCase().includes("video") ||
     backendMessage?.toLowerCase().includes("recording")

@@ -137,6 +137,35 @@ describe("RunControls", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("shows the checkpoint configuration error when a run cannot start", async () => {
+    const message =
+      "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH.";
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ detail: { message } }), {
+          status: 422,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={stage("events")}
+        stages={[stage("events")]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
   it("defaults to reviewed upstream input and permits an exact historical revision", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(

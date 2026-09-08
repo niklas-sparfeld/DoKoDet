@@ -203,6 +203,39 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
     assert len(provider.calls) == 1
 
 
+def test_default_card_event_provider_freezes_discovered_checkpoint(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import cardevent
+
+    _install_recording(tmp_path)
+    checkpoint = tmp_path / "card_event_net" / "data" / "outputs" / "run" / "best.pt"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"fixture-checkpoint")
+
+    def fake_infer_from_files(checkpoint_path, video_path, **kwargs):
+        del checkpoint_path, video_path, kwargs
+        return {"events": []}
+
+    monkeypatch.setattr(cardevent, "infer_from_files", fake_infer_from_files)
+    app = create_test_app(_settings(tmp_path))
+
+    with TestClient(app) as client:
+        created = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json=_request("run-default-cardevent"),
+        )
+
+        assert created.status_code == 202
+        assert created.json()["request"]["configuration"]["checkpoint_path"] == (
+            "card_event_net/data/outputs/run/best.pt"
+        )
+        assert _wait_for_status(client, "run-default-cardevent", "complete")["state"]["status"] == (
+            "complete"
+        )
+
+
 def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
     tmp_path: Path,
 ) -> None:

@@ -9,7 +9,7 @@ import re
 import tempfile
 from collections.abc import Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
@@ -76,6 +76,16 @@ class CardEventFileProvider:
 
     repository_root: Path
 
+    def resolve_checkpoint_path(self, configuration: Mapping[str, Any]) -> Path | None:
+        """Resolve the checkpoint explicitly supplied in a processor request."""
+
+        return _configured_path(
+            configuration,
+            "checkpoint_path",
+            "checkpoint",
+            repository_root=self.repository_root,
+        )
+
     def infer(
         self,
         video_path: Path,
@@ -88,14 +98,12 @@ class CardEventFileProvider:
             raise PipelineProviderError("The CardEventNet provider is not installed.") from error
 
         configuration = request.configuration
-        checkpoint = _configured_path(
-            configuration,
-            "checkpoint_path",
-            "checkpoint",
-            repository_root=self.repository_root,
-        )
+        checkpoint = self.resolve_checkpoint_path(configuration)
         if checkpoint is None:
-            raise PipelineProviderError("The CardEventNet run has no checkpoint path.")
+            raise PipelineProviderError(
+                "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH "
+                "or add a trained best.pt under card_event_net/data/outputs."
+            )
         cache_dir = (
             _configured_path(
                 configuration,
@@ -144,6 +152,36 @@ def _configured_path(
     return None
 
 
+def _discover_checkpoint(repository_root: Path) -> Path | None:
+    """Find the newest CardEventNet training checkpoint in the local output directory."""
+
+    output_root = repository_root / "card_event_net" / "data" / "outputs"
+    try:
+        candidates = [path for path in output_root.rglob("best.pt") if path.is_file()]
+    except OSError:
+        return None
+    if not candidates:
+        return None
+
+    def sort_key(path: Path) -> tuple[int, str]:
+        try:
+            modified_ns = path.stat().st_mtime_ns
+        except OSError:
+            modified_ns = -1
+        return modified_ns, path.as_posix()
+
+    return max(candidates, key=sort_key)
+
+
+def _request_path(path: Path, repository_root: Path) -> str:
+    """Use a repository-relative path when the checkpoint is inside the checkout."""
+
+    try:
+        return path.resolve().relative_to(repository_root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
 class EventPipelineService:
     """Create, execute, import, and select event processor results."""
 
@@ -172,7 +210,10 @@ class EventPipelineService:
             revision_store=self.revision_store,
             run_store=self.run_store,
         )
-        self.event_provider = event_provider or CardEventFileProvider(settings.repository_root)
+        self.event_provider = event_provider or CardEventFileProvider(
+            settings.repository_root,
+        )
+        self.card_event_checkpoint_path = getattr(settings, "card_event_checkpoint_path", None)
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="event-pipeline")
         self._futures: dict[str, Future[None]] = {}
         self._lock = RLock()
@@ -205,6 +246,7 @@ class EventPipelineService:
 
     def start_inference(self, recording_id: str, payload: Mapping[str, Any]) -> StoredProcessorRun:
         request = self._build_request(recording_id, payload)
+        request = self._freeze_provider_defaults(request)
         run, created = self.run_store.create(request)
         if not created:
             return run
@@ -331,6 +373,28 @@ class EventPipelineService:
         if request.processor_type != "event-detection":
             raise PipelineInputError("The event endpoint only accepts event-detection runs.")
         return request
+
+    def _freeze_provider_defaults(self, request: ProcessorRunRequest) -> ProcessorRunRequest:
+        """Persist defaults used by the file provider in the immutable run request."""
+
+        provider = self.event_provider
+        if not isinstance(provider, CardEventFileProvider):
+            return request
+        if any(key in request.configuration for key in ("checkpoint_path", "checkpoint")):
+            return request
+        checkpoint = (
+            provider.resolve_checkpoint_path(request.configuration)
+            or self.card_event_checkpoint_path
+            or _discover_checkpoint(self.settings.repository_root)
+        )
+        if checkpoint is None:
+            raise PipelineInputError(
+                "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH "
+                "or add a trained best.pt under card_event_net/data/outputs."
+            )
+        configuration = dict(request.configuration)
+        configuration["checkpoint_path"] = _request_path(checkpoint, self.settings.repository_root)
+        return replace(request, configuration=configuration)
 
     def _accepted_source(
         self, recording_id: str

@@ -43,3 +43,26 @@ def test_card_event_file_provider_uses_installed_cardevent_package(
     assert kwargs["batch_size"] == 4
     assert kwargs["threshold"] == 0.5
     assert kwargs["merge_window_s"] == 1.25
+
+
+def test_card_event_file_provider_uses_explicit_checkpoint_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import cardevent
+
+    calls: dict[str, object] = {}
+
+    def fake_infer_from_files(checkpoint_path, video_path, **kwargs):
+        calls.update(checkpoint_path=checkpoint_path, video_path=video_path, kwargs=kwargs)
+        return {"events": []}
+
+    monkeypatch.setattr(cardevent, "infer_from_files", fake_infer_from_files)
+    provider = CardEventFileProvider(tmp_path)
+
+    provider.infer(
+        tmp_path / "recording.mov",
+        request=SimpleNamespace(configuration={"checkpoint_path": "checkpoints/best.pt"}),
+    )
+
+    assert calls["checkpoint_path"] == tmp_path / "checkpoints" / "best.pt"
