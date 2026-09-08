@@ -46,13 +46,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0057 — Operations module and public API boundaries](2-ready/0057-Operations_Module_and_Public_API_Boundaries.md) | 0053 discovery complete; 0056 complete | M0–M1 complete. M2–M3 are ready to split comparison and reconstruction responsibilities. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M3 complete: evidence-package, repository-intake, recording, upload, and analysis boundaries are split with focused app workflow tests and unchanged UI-facing behavior. |
-| [0056 — Superseded review and data interfaces](3-in-progress/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | M0–M4 complete: CardEventNet package-review and package-dataset commands, operations review orchestration, old batch stores, and the old `doko data review` path are removed; M5 remains. |
 | [0059 — Web workspace module boundaries](3-in-progress/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0–M4 complete: route and URL-state helpers, recording shell, inspector/history, Timeline Rail coordination, event-stage ownership, and visible-card stage ownership have focused sources and regression proof; M5–M7 remain. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
@@ -61,7 +61,6 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0052 — Selected response to visible-region identity failures](4-blocked/0052-Selected_Visible_Region_Identity_Response.md) | 0051 selects one follow-up identity response | Implement and evaluate at most one response to the measured 0051 failure. Close as not required for any other 0051 conclusion. M0–M3 not started. |
-| [0057 — Operations module and public API boundaries](4-blocked/0057-Operations_Module_and_Public_API_Boundaries.md) | 0056 must complete before M2 or M3; 0056 is Backlog | M0–M1 complete: the eager facade is removed, consumers use direct module imports, and import isolation is covered. M2–M3 are blocked pending 0056. |
 | [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, 0049, and 0051 complete; resolve 0052 if required; plus declared real reviewed coverage | Compare at most two DINOv3 candidates with the fixed resilient identity input contract; lock at most one without changing the backend default. M0–M3 not started. |
 | [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and 0051 complete; resolve 0052 if required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against the fixed resilient identifier, then select at most one justified capability response. M0–M3 not started. |
@@ -71,6 +70,7 @@ The shared target architecture is
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
 | [0058 — Backend pipeline service boundaries](5-closed/0058-Backend_Pipeline_Service_Boundaries.md) | Complete | M0–M4 complete: pipeline routes, execution, comparison, workspace composition, maintained-reference handlers, shared stores, and application construction have focused ownership with unchanged public contracts. |
+| [0056 — Superseded review and data interfaces](5-closed/0056-Superseded_Review_and_Data_Interfaces.md) | Complete | M0–M5 complete: removed the obsolete CardEventNet package-review and package-dataset commands, operations review orchestration, old batch stores, and old `doko data review` path; corrected active guidance and proved the retained command surface. |
 | [0053 — Agent navigation cleanup discovery](5-closed/0053-Agent_Navigation_Cleanup_Discovery.md) | Complete | Published a first-hop repository map and repeatable baseline. Ranked six cleanup areas as epics 0055–0060 for separate Terra specification. No cleanup was implemented. |
 | [0055 — Documentation authority and first hops](5-closed/0055-Documentation_Authority_and_First_Hops.md) | Complete | M0–M3 complete: the root authority route and component map are published, completed 0048/0049 handoffs no longer act as current guidance, and every executable component has an ownership and verification first hop. |
 | [0048 — Pipeline data and execution](5-closed/0048-Pipeline_Data_and_Execution.md) | Complete | M0–M10 complete: recording-video pipeline execution, maintained references with coverage and downstream impact validation, immutable dataset consumer manifests with explicit source/policy/lineage inputs, and the 0049 cutover handoff. Real-data quality measurement remains in 0043 and 0050. |
@@ -121,10 +121,8 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue epic 0055 with M3.** Complete the client and rules first hops, then verify the
-   repository documentation route. After 0055, use the ranked 0053 follow-ups: 0056 review and
-   data interfaces, 0057 operations boundaries, 0058 backend boundaries, 0059 web boundaries, and
-   0060 iOS boundaries.
+1. **Start epic 0057 with M2.** Epic 0056 is complete, so comparison and reconstruction boundary
+   work is ready. Continue the active 0059 web and 0060 iOS module-boundary work in parallel.
 2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts

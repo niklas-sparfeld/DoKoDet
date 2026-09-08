@@ -20,6 +20,20 @@ From `operations/`:
 Use the [repository documentation route](../README.md#documentation-route) for architecture, work
 state, shared contracts, and component boundaries. This guide owns the `doko` command details.
 
+## Supported CLI
+
+The retained `doko` commands are grouped by owner:
+
+- `doko data`: `status`, `validate`, `resilience-baseline`, `resilience-comparison`,
+  `complete-video`, `adopt-evidence`, `holdout seal`, `impact`, and `source retire`.
+- `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
+- `doko reconstruct`: `round`.
+
+Run `mise exec -- uv run doko <command> --help` for a top-level command or
+`mise exec -- uv run doko data <command> --help` for a nested command. Operations owns data
+lifecycle, model operations, resilience checks, and reconstruction orchestration. Use the
+[recording workspace](../web/README.md#local-development) for recording-pipeline review.
+
 M0 provides strict local contracts and read-only inspection for model-improvement campaigns.
 
 ```bash

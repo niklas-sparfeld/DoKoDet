@@ -26,6 +26,12 @@ Use the [repository documentation route](../README.md#documentation-route) for a
 state, shared contracts, and repository intake. This guide owns the `table-analyzer` command and
 its capability workflows.
 
+The retained `table-analyzer` commands cover dataset checks, visible-card proposals and review,
+detector and identity training, evaluation, export, classification, prompt pilots, and targeted
+round comparison. These local capability tools do not own recording-pipeline review. Use the
+[recording workspace](../web/README.md#local-development) for event, visible-card, visual-identity,
+and table-observation review on accepted recordings.
+
 ## Shared evidence intake
 
 Accepted packages are immutable source bundles under `../data/intake/evidence-packages/<package-id>/`.
@@ -55,6 +61,10 @@ milestone.
 table-analyzer --help
 table-analyzer data validate --help
 table-analyzer data materialize-visible-card-dataset --help
+table-analyzer train-dinov3-identity --help
+table-analyzer export-dinov3-identity --help
+table-analyzer classify-dinov3-identity --help
+table-analyzer train-visible-card-detector --help
 table-analyzer train --help
 table-analyzer evaluate --help
 table-analyzer export --help

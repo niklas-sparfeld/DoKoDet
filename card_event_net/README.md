@@ -66,6 +66,17 @@ pipeline:
 - saved validation streams for decoder-only evaluation
 - test and lint setup
 
+## Supported CLI
+
+The retained `cardevent` commands are `annotate`, `extract-evidence`, `prepare`, `make-split`,
+`split`, `train`, `infer`, `evaluate`, `transition-diagnostics`, `diagnose`, `baseline`,
+`mine-hard-negatives`, `export-coreml`, `ingest`, and `inspect-dataset`. Run
+`mise exec -- uv run cardevent <command> --help` for one command.
+
+CardEventNet owns source-video intake, event annotation, proposal generation, model training, and
+model evaluation. It does not own recording-pipeline review or table-observation dataset assembly.
+Use the [recording workspace](../web/README.md#local-development) for pipeline review.
+
 The annotation tool stores one JSON file per source video in `data/annotations/`. New files use
 annotation V2 and contain saved events without geometry. Existing V1 files with an ROI load, and
 the next edit saves them as V2. Event types are `card_played`, `trick_cleared`, `card_moved`,
@@ -163,16 +174,13 @@ label their visual card identities.
 Use `--video-id IMG_0654 IMG_0655` to extract a subset. The command refuses to replace an existing
 output directory. Use a new versioned directory for another run.
 
-## Review an accepted evidence package
+## Evidence-package boundary
 
-Use the [data lifecycle](../docs/Data_Lifecycle.md) and [repository intake
-contract](../docs/Repository_Intake_Contract.md) for shared package layout, task enrollment, and
-intake state. CardEventNet reads an accepted package only when its
-`cardevent_event_detection` enrollment is selected. It reads package frames and an optional snippet
-in place. It does not copy source media into `data/`.
-
-A pending upload is not visible to this task. An event proposal is not a reviewed event and does
-not create a training label.
+Accepted evidence packages remain immutable repository intake and showcase artifacts. They are not
+an alternate CardEventNet review or table-observation dataset route. Use the [data lifecycle](../docs/Data_Lifecycle.md)
+and [repository intake contract](../docs/Repository_Intake_Contract.md) for package layout,
+enrollment, and intake state. A pending upload is not visible to a data task. An event proposal is
+not a reviewed event and does not create a training label.
 
 ## Review a shared training recording
 

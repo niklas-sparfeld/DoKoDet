@@ -4,8 +4,8 @@
 
 - **Summary:** Remove the eager operations package facade. Split stable comparison and
   reconstruction responsibilities into direct contract and execution modules.
-- **Status:** Blocked
-- **Depends on:** 0053 discovery complete; 0056 must complete before M2 or M3
+- **Status:** Ready
+- **Depends on:** 0053 discovery complete; 0056 complete
 - **Outcome:** A pipeline comparison or round reconstruction change uses a direct,
   responsibility-focused import and focused tests without loading unrelated campaigns, review
   batches, or model operations.
@@ -17,8 +17,8 @@
   verification.
 - **M1:** Complete — removed the eager package facade, converted its consumers to direct module
   imports, and added import-isolation coverage.
-- **M2:** Blocked — waits for epic 0056 to remove its owned obsolete interfaces.
-- **M3:** Blocked — waits for epic 0056 to remove its owned obsolete interfaces.
+- **M2:** Not started — split the pipeline comparison contract and execution boundary.
+- **M3:** Not started — split the round reconstruction contract and execution boundary.
 
 ## Evidence and selected scope
 
@@ -81,14 +81,14 @@ Run `uv run pytest` and `uv run ruff check .` from `operations/`. Run
   because the repository-local `.codex/skills/model-improvement` fixture is absent.
 - Ruff passed for the operations and backend components after import-order fixes.
 
-#### Dependency update — 2026-09-07
+#### Dependency update — 2026-09-08
 
-- Epic 0056 is `In Progress` with M1 complete; its M2–M5 remain. M2 and M3 cannot begin until 0056
-  completes because they would otherwise split code that 0056 owns removing.
+- Epic 0056 is complete through M5. Its obsolete interfaces are removed, so M2 and M3 are ready
+  to begin.
 
 ### M2 — Pipeline comparison contract and execution boundary
 
-After 0056 completes, replace `pipeline_comparison.py` with direct, non-wrapper modules for its
+With 0056 complete, replace `pipeline_comparison.py` with direct, non-wrapper modules for its
 immutable comparison contract and its matching and comparison execution. Keep schemas, canonical
 bytes, parsing, and immutable request/result records on the contract side. Keep event, visible-card,
 and visual-identity matching and comparison on the execution side. Update operations and backend
@@ -102,7 +102,7 @@ then `uv run pytest tests/test_pipeline_comparison_api.py` and `uv run ruff chec
 
 ### M3 — Round reconstruction contract and execution boundary
 
-After 0056 completes, replace `round_reconstruction.py` with direct, non-wrapper modules for
+With 0056 complete, replace `round_reconstruction.py` with direct, non-wrapper modules for
 request and result contracts, input loading and assembly, game-engine execution, and artifact
 publication. The backend imports contract errors and records directly. The command entry point
 imports the execution function directly. Keep request and result bytes, result status, published

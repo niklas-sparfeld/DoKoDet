@@ -4,10 +4,11 @@
 
 - **Summary:** Remove proved-unused package-backed review and data orchestration. Keep pipeline
   contracts, active model-quality tools, and device-showcase validation.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0053 discovery complete
 - **Outcome:** Supported component commands, reusable validators, and recording-pipeline workflows
   are distinct. Obsolete orchestration, exports, tests, and guides no longer consume agent context.
+- **Closure reason:** Complete
 - **Discovery evidence:** [Epic 0053 report](../../reports/0053-Agent_Navigation_Cleanup_Discovery.md)
 
 ## Milestone status
@@ -23,8 +24,8 @@
 - **M4:** Complete — removed obsolete visible-card and visual-identity batch stores, their
   batch-only identity dataset adapter, focused tests, and import surfaces while retaining the
   pipeline crop seam and 0051 derived-view contracts.
-- **M5:** Not started — remove obsolete command guidance and prove the reduced supported-command
-  surface.
+- **M5:** Complete — corrected active component guidance, documented retained commands, and proved
+  the reduced supported-command surface.
 
 ## Problem and candidate paths
 
@@ -119,6 +120,18 @@ the 0051 exclusion lineage, and the backend adapter strips only that derived-vie
 before reading the unchanged stored pipeline crop contract. Raw rectangular crops continue to work
 with reviewed geometry. TableEvidenceAnalyzer review, freeze, and targeted-round behavior is
 unchanged and remains covered by its focused tests.
+
+## M5 result
+
+Active component guides no longer describe the removed CardEventNet package-review route or imply
+that CardEventNet owns table-observation dataset assembly. The CardEventNet, operations, and
+TableEvidenceAnalyzer READMEs list their retained commands and link recording-pipeline review to
+the web recording workspace. Historical handoff records and closed plans remain unchanged.
+
+The retained command parsers all accept `--help`. Focused CardEventNet, operations, and
+TableEvidenceAnalyzer tests pass, as do Ruff checks for those components. A current-guide scan
+finds no removed command name or retired backend review route outside historical handoff records,
+closed plans, and reports.
 
 ## Delivery milestones
 
