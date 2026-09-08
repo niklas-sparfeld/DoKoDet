@@ -1,0 +1,175 @@
+.workbenchSurface {
+  display: grid;
+  min-width: 0;
+  gap: 0.85rem;
+}
+
+.standaloneInspector {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface) 45%, var(--panel));
+}
+
+.standaloneInspector > * {
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.standaloneInspector > *:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.inspectorState,
+.inspectorSelection {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.reviewer {
+  display: grid;
+  max-width: 22rem;
+  align-items: start;
+  gap: 0.35rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.reviewer input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.framePanel,
+.sourceCard,
+.cropCard,
+.proposalCard,
+.decisionCard {
+  min-width: 0;
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+  box-shadow: 0 0.7rem 2rem var(--shadow);
+}
+
+.frameHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.frameHeader h3 {
+  margin-top: 0.35rem;
+  letter-spacing: 0.04em;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(15rem, 0.85fr);
+  gap: 1rem;
+  min-width: 0;
+  margin-top: 1rem;
+}
+
+.canvasImage,
+.cropImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.legend {
+  margin: 0.65rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.proposalCard {
+  margin-top: 1rem;
+}
+
+.candidateList {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidateList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+
+.candidateList span {
+  color: var(--muted-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.outcomeButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+
+.choiceButton {
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.35rem;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+}
+
+.choiceButton:hover,
+.choiceButton:focus-visible,
+.choiceButton[data-selected="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+@media (max-width: 900px) {
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .frameHeader {
+    align-items: start;
+    flex-direction: column;
+  }
+}

@@ -59,7 +59,7 @@ focused tests move with their responsibility.
 - **M3:** Complete — give the event stage editor local source, generated-result, inspector, and
   presentation ownership.
 - **M4:** Complete — give the visible-card stage editor local frame and inspector ownership.
-- **M5:** Not started — give the visual-identity stage editor local source and inspector ownership.
+- **M5:** Complete — give the visual-identity stage editor local source and inspector ownership.
 - **M6:** Not started — separate observation and round-analysis controls into local command and
   history surfaces.
 - **M7:** Not started — separate analysis timeline/source-detail presentation from analysis
@@ -177,6 +177,18 @@ Acceptance checks:
 - Focused visual-identity tests cover draft save, retry, selection, outcome presentation, and rail items.
 - `npm run check` passes.
 - The pipeline browser test opens a workspace without requests to retired review routes.
+
+#### M5 implementation evidence — 2026-09-08
+
+- Added focused visual-identity types, formatting, source/crop presentation, inspector portal,
+  and CSS module boundaries. The editor keeps maintained-reference commands, selected identity
+  state, and Timeline Rail callbacks at the editor boundary.
+- Moved identity-only source, crop, proposal, decision, inspector, and reviewer styles out of
+  `App.module.css`; shared controls remain in the root stylesheet.
+- Focused tests cover generated selection, Timeline Rail items, draft save, transient retry,
+  outcome presentation, and the visible-card geometry-review link.
+- `npm run check` passed with 97 tests. The pipeline browser suite passed all four tests, including
+  retired route handling and the workspace shell workflows.
 
 ### M6 — Observation and round-analysis controls
 

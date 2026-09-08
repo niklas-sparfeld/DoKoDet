@@ -41,12 +41,21 @@ const CROP = {
   unusable_reason: null,
 };
 
-function outcome(candidates = [{ identity: "CLUBS_NINE", score: 0.8 }]) {
+function outcome(
+  candidates = [{ identity: "CLUBS_NINE", score: 0.8 }],
+  cardId = CARD_ID,
+  requestedTimeUs = FRAME.requested_time_us,
+) {
+  const frame = {
+    ...FRAME,
+    requested_time_us: requestedTimeUs,
+    presentation_timestamp_us: requestedTimeUs,
+  };
   return {
-    card_id: CARD_ID,
-    frame_identity: FRAME,
+    card_id: cardId,
+    frame_identity: frame,
     geometry: GEOMETRY,
-    crop_identity: CROP,
+    crop_identity: { ...CROP, frame_identity: frame },
     classifier: {
       provider: "fixture.identity",
       implementation: { name: "fixture", version: "v1" },
@@ -61,6 +70,7 @@ function outcome(candidates = [{ identity: "CLUBS_NINE", score: 0.8 }]) {
 
 function generatedResult(
   candidates = [{ identity: "CLUBS_NINE", score: 0.8 }],
+  outcomes = [outcome(candidates)],
 ) {
   return {
     run_id: RUN_ID,
@@ -73,7 +83,7 @@ function generatedResult(
     revisions: [
       {
         manifest: { revision_id: REVISION_ID },
-        content: { outcomes: [outcome(candidates)] },
+        content: { outcomes },
       },
     ],
   };
@@ -156,6 +166,57 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
+  it("reports generated rail items and honors explicit item selection", async () => {
+    const railItems = vi.fn();
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        jsonResponse(
+          generatedResult(undefined, [
+            outcome(),
+            outcome(
+              [{ identity: "HEARTS_QUEEN", score: 0.7 }],
+              "card-2",
+              1_000_000,
+            ),
+          ]),
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={2_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        selectionItemId="card-2"
+        view="generated"
+        onRailItemsChange={railItems}
+      />,
+    );
+
+    expect(await screen.findByText("Source item card-2")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(railItems).toHaveBeenLastCalledWith([
+        {
+          itemId: CARD_ID,
+          label: "Card 1",
+          state: "pending",
+          timeUs: 750_000,
+          cropPolicy: "raw_rectangular",
+        },
+        {
+          itemId: "card-2",
+          label: "Card 2",
+          state: "pending",
+          timeUs: 1_000_000,
+          cropPolicy: "raw_rectangular",
+        },
+      ]),
+    );
+  });
+
   it("labels an empty prediction with a fixed identity command and links source problems to visible-card review", async () => {
     const responses = [reference(), reference("accepted")];
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
@@ -208,6 +269,42 @@ describe("PipelineVisualIdentityEditor", () => {
       ),
     );
     expect(screen.queryByText("Geometry editor")).not.toBeInTheDocument();
+  });
+
+  it("retries a transient identity draft save", async () => {
+    let putAttempts = 0;
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        putAttempts += 1;
+        return Promise.resolve(
+          putAttempts === 1
+            ? jsonResponse({ message: "temporary identity failure" }, 503)
+            : jsonResponse(reference("accepted")),
+        );
+      }
+      return Promise.resolve(jsonResponse(reference()));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await user.click(screen.getByRole("button", { name: "HEARTS_QUEEN" }));
+
+    await waitFor(() => expect(putAttempts).toBe(2));
+    expect(
+      screen.getByText("Identity selected: HEARTS_QUEEN."),
+    ).toBeInTheDocument();
   });
 
   it("keeps completion blocked until the empty prediction is reviewed", async () => {

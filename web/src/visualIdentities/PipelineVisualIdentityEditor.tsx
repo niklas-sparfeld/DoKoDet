@@ -1,107 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 import {
   ApiError,
   createDokoDetectorClient,
-  pipelineDerivedFramePath,
-  pipelineIdentityCropPath,
   type PipelineReferenceItem,
   type PipelineReferenceOperation,
   type PipelineReferenceResource,
   type PipelineVisualIdentityResult,
 } from "../api/client";
 import styles from "../App.module.css";
-
-type FrameIdentity = {
-  requested_time_us: number;
-  frame_index: number;
-  presentation_timestamp_us: number;
-  width: number;
-  height: number;
-  image_sha256: string;
-  [key: string]: unknown;
-};
-
-type CropIdentity = {
-  status: "usable" | "unusable";
-  crop_policy: string;
-  output_encoding: string;
-  image_sha256: string | null;
-  unusable_reason: string | null;
-  [key: string]: unknown;
-};
-
-type IdentityCandidate = {
-  identity: string;
-  score: number | null;
-  score_meaning?: string | null;
-};
-
-type IdentityOutcome = {
-  card_id: string;
-  frame_identity: FrameIdentity;
-  geometry: Record<string, unknown>;
-  crop_identity: CropIdentity | null;
-  status: "classified" | "unusable" | "failed";
-  candidates: IdentityCandidate[];
-  unusable_reason: string | null;
-  error: string | null;
-};
-
-type IdentityReviewState =
-  | "pending"
-  | "accepted"
-  | "added"
-  | "corrected"
-  | "unusable"
-  | "identity_unusable"
-  | "source_problem"
-  | "affected";
-
-type EditableIdentity = {
-  itemId: string;
-  baseItemId: string | null;
-  reviewState: IdentityReviewState;
-  outcome: IdentityOutcome;
-};
-
-type SaveState = "saved" | "saving" | "retrying" | "error" | "conflict";
-type PendingCommand = {
-  commandId: string;
-  operation: PipelineReferenceOperation;
-  notice: string;
-  attempts: number;
-};
+import {
+  IdentityInspectorPortals,
+  useIdentityInspectorSlots,
+} from "./PipelineVisualIdentityInspector";
+import { IdentitySourceSurface } from "./PipelineVisualIdentityPresentation";
+import { describeCommand } from "./PipelineVisualIdentityFormatting";
+import type {
+  CropIdentity,
+  EditableIdentity,
+  FrameIdentity,
+  IdentityCandidate,
+  IdentityOutcome,
+  IdentityReviewState,
+  PendingCommand,
+  PipelineVisualIdentityRailItem,
+  SaveState,
+} from "./PipelineVisualIdentityTypes";
+export type { PipelineVisualIdentityRailItem } from "./PipelineVisualIdentityTypes";
 
 const CONTENT_TYPE = "visual_identities" as const;
 const RETRY_LIMIT = 3;
-const CANONICAL_IDENTITIES = [
-  "CLUBS_ACE",
-  "CLUBS_NINE",
-  "CLUBS_TEN",
-  "CLUBS_JACK",
-  "CLUBS_QUEEN",
-  "CLUBS_KING",
-  "DIAMONDS_ACE",
-  "DIAMONDS_NINE",
-  "DIAMONDS_TEN",
-  "DIAMONDS_JACK",
-  "DIAMONDS_QUEEN",
-  "DIAMONDS_KING",
-  "HEARTS_ACE",
-  "HEARTS_NINE",
-  "HEARTS_TEN",
-  "HEARTS_JACK",
-  "HEARTS_QUEEN",
-  "HEARTS_KING",
-  "SPADES_ACE",
-  "SPADES_NINE",
-  "SPADES_TEN",
-  "SPADES_JACK",
-  "SPADES_QUEEN",
-  "SPADES_KING",
-] as const;
 
 export type PipelineVisualIdentityEditorProps = {
   recordingId: string;
@@ -114,14 +42,6 @@ export type PipelineVisualIdentityEditorProps = {
   view: "generated" | "reviewed";
   onRailItemsChange?: (items: PipelineVisualIdentityRailItem[]) => void;
   inspectorEnabled?: boolean;
-};
-
-export type PipelineVisualIdentityRailItem = {
-  itemId: string;
-  label: string;
-  state: IdentityReviewState | IdentityOutcome["status"];
-  timeUs: number;
-  cropPolicy: string | null;
 };
 
 export function PipelineVisualIdentityEditor({
@@ -170,11 +90,7 @@ export function PipelineVisualIdentityEditor({
   );
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
-  const [inspectorSlots, setInspectorSlots] = useState<{
-    action: HTMLElement;
-    save: HTMLElement;
-    selection: HTMLElement;
-  } | null>(null);
+  const inspectorSlots = useIdentityInspectorSlots(inspectorEnabled, view);
 
   const setLocalItems = useCallback((next: EditableIdentity[]) => {
     itemsRef.current = next;
@@ -720,27 +636,6 @@ export function PipelineVisualIdentityEditor({
   }, [acceptSuggestion, markUnusable, reportSourceProblem, selectItem]);
 
   useEffect(() => {
-    if (!inspectorEnabled) return;
-    const timer = window.setTimeout(() => {
-      const action = document.querySelector<HTMLElement>(
-        "[data-identity-inspector-slot='action']",
-      );
-      const save = document.querySelector<HTMLElement>(
-        "[data-identity-inspector-slot='save']",
-      );
-      const selection = document.querySelector<HTMLElement>(
-        "[data-identity-inspector-slot='selection']",
-      );
-      setInspectorSlots(
-        action !== null && save !== null && selection !== null
-          ? { action, save, selection }
-          : null,
-      );
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [inspectorEnabled, view]);
-
-  useEffect(() => {
     const source = view === "reviewed" ? items : generatedItems;
     onRailItemsChange?.(
       source.map((item, index) => ({
@@ -1117,509 +1012,6 @@ export function PipelineVisualIdentityEditor({
   */
 }
 
-function IdentityItemPanel({
-  recordingId,
-  sourceRevisionId,
-  item,
-  onAccept,
-  onSelectIdentity,
-  onMarkUnusable,
-  onReportSourceProblem,
-}: {
-  recordingId: string;
-  sourceRevisionId: string | null;
-  item: EditableIdentity;
-  onAccept?: () => void;
-  onSelectIdentity?: (identity: string) => void;
-  onMarkUnusable?: () => void;
-  onReportSourceProblem?: () => void;
-}) {
-  const crop = item.outcome.crop_identity;
-  const frame = item.outcome.frame_identity;
-  const frameUrl = pipelineDerivedFramePath(
-    recordingId,
-    frame.requested_time_us,
-  );
-  const cropUrl =
-    crop?.status === "usable" && sourceRevisionId !== null
-      ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
-      : null;
-  const selectedIdentity = item.outcome.candidates[0]?.identity ?? null;
-  return (
-    <section
-      className={styles.visibleCardFramePanel}
-      aria-label="Selected visual identity"
-    >
-      <header className={styles.visibleCardFrameHeader}>
-        <div>
-          <p className={styles.statusLabel}>Source item {item.itemId}</p>
-          <h3>
-            {formatMicroseconds(frame.requested_time_us)} · resolved frame
-          </h3>
-        </div>
-        <span className={styles.status} data-state={item.reviewState}>
-          {formatIdentifier(item.reviewState)}
-        </span>
-      </header>
-      <div className={styles.identityDetailGrid}>
-        <section className={styles.identitySourceCard}>
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Source frame</p>
-              <h4>Read-only geometry</h4>
-            </div>
-          </div>
-          <img
-            className={styles.visibleCardCanvasImage}
-            src={frameUrl}
-            width={frame.width}
-            height={frame.height}
-            alt={`Resolved source frame for ${item.itemId}`}
-          />
-          <p className={styles.detailMetaLine}>
-            Frame {frame.frame_index} · {frame.width} × {frame.height}
-          </p>
-          <p className={styles.identityLegend}>
-            Geometry belongs to the maintained visible-card reference. Identity
-            review cannot edit it.
-          </p>
-          <a
-            className={styles.recordingLink}
-            href={visibleCardReviewPath(
-              recordingId,
-              item.itemId,
-              frame.requested_time_us,
-            )}
-          >
-            Open visible-card geometry review
-          </a>
-        </section>
-        <section className={styles.identityCropCard}>
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Derived view</p>
-              <h4>Identity crop</h4>
-            </div>
-            <span className={styles.countLabel}>
-              {crop?.crop_policy ?? "Unavailable"}
-            </span>
-          </div>
-          {cropUrl !== null ? (
-            <img
-              className={styles.identityCropImage}
-              src={cropUrl}
-              alt={`Derived identity crop for ${item.itemId}`}
-            />
-          ) : (
-            <p className={styles.detailEmptyState}>
-              {crop?.unusable_reason ??
-                item.outcome.error ??
-                "No usable crop is available."}
-            </p>
-          )}
-          <p className={styles.detailMetaLine}>
-            Crop digest {crop?.image_sha256 ?? "Not available"}
-          </p>
-        </section>
-      </div>
-      <section className={styles.identityProposalCard}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Classifier proposal</p>
-            <h4>Suggestion only</h4>
-          </div>
-          <span className={styles.countLabel}>
-            {item.outcome.candidates.length} candidates
-          </span>
-        </div>
-        {item.outcome.candidates.length === 0 ? (
-          <p className={styles.detailEmptyState}>
-            No identity prediction is available. Select a canonical identity
-            manually.
-          </p>
-        ) : (
-          <ol className={styles.identityCandidateList}>
-            {item.outcome.candidates.map((candidate) => (
-              <li key={candidate.identity}>
-                <strong>{candidate.identity}</strong>
-                <span>
-                  {candidate.score === null
-                    ? "manual"
-                    : formatScore(candidate.score)}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-      {onAccept !== undefined &&
-      onSelectIdentity !== undefined &&
-      onMarkUnusable !== undefined &&
-      onReportSourceProblem !== undefined ? (
-        <section className={styles.identityDecisionCard}>
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Human decision</p>
-              <h4>{formatIdentifier(item.reviewState)}</h4>
-            </div>
-          </div>
-          <div className={styles.visibleCardOutcomeButtons}>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={onAccept}
-              disabled={item.outcome.candidates.length === 0}
-            >
-              Accept identity suggestion
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={onMarkUnusable}
-              disabled={crop === null}
-            >
-              Mark identity unusable
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={onReportSourceProblem}
-            >
-              Report source problem
-            </button>
-          </div>
-          <div
-            className={styles.identityChoiceGrid}
-            aria-label="Canonical identities"
-          >
-            {CANONICAL_IDENTITIES.map((identity) => (
-              <button
-                key={identity}
-                className={styles.identityChoiceButton}
-                data-selected={selectedIdentity === identity}
-                type="button"
-                aria-pressed={selectedIdentity === identity}
-                onClick={() => onSelectIdentity(identity)}
-                disabled={crop === null}
-              >
-                {identity}
-              </button>
-            ))}
-          </div>
-          {item.outcome.error !== null ? (
-            <p className={styles.detailBlocker}>{item.outcome.error}</p>
-          ) : null}
-        </section>
-      ) : null}
-    </section>
-  );
-}
-
-type IdentityInspectorProps = {
-  slots: {
-    action: HTMLElement;
-    save: HTMLElement;
-    selection: HTMLElement;
-  } | null;
-  inspectorEnabled: boolean;
-  view: "generated" | "reviewed";
-  reference: PipelineReferenceResource | null;
-  item: EditableIdentity | null;
-  itemCount: number;
-  pendingCount: number;
-  coveragePercent: number;
-  inspectedCount: number;
-  saveState: SaveState;
-  queueLength: number;
-  firstUnappliedCommand: string | null;
-  error: string | null;
-  notice: string | null;
-  operatorId: string;
-  reviewerId: string;
-  setOperatorId: (value: string) => void;
-  setReviewerId: (value: string) => void;
-  completionBusy: boolean;
-  completionBlocker: string | null;
-  creatingReference: boolean;
-  createReference: () => Promise<void>;
-  completeReference: () => Promise<void>;
-  retryQueuedCommands: () => void;
-  reloadWinningDraft: () => Promise<void>;
-  acceptSuggestion: () => void;
-  markUnusable: () => void;
-  reportSourceProblem: () => void;
-  selectIdentity: (identity: string) => void;
-};
-
-function IdentityInspectorPortals(props: IdentityInspectorProps) {
-  if (!props.inspectorEnabled) return null;
-  const content = (
-    <>
-      <IdentityInspectorAction {...props} />
-      <IdentityInspectorSave {...props} />
-      <IdentityInspectorSelection {...props} />
-    </>
-  );
-  if (props.slots === null)
-    return <div className={styles.cardEventStandaloneInspector}>{content}</div>;
-  return (
-    <>
-      {createPortal(<IdentityInspectorAction {...props} />, props.slots.action)}
-      {createPortal(<IdentityInspectorSave {...props} />, props.slots.save)}
-      {createPortal(
-        <IdentityInspectorSelection {...props} />,
-        props.slots.selection,
-      )}
-    </>
-  );
-}
-
-function IdentityInspectorAction(props: IdentityInspectorProps) {
-  if (props.view === "generated")
-    return (
-      <>
-        <p className={styles.statusLabel}>Generated result</p>
-        <h2>Visual identity suggestions</h2>
-        <p className={styles.pipelineInspectorEmpty}>
-          Generated classifier output is immutable. Choose Review to create a
-          maintained reference.
-        </p>
-      </>
-    );
-  if (props.reference === null)
-    return (
-      <>
-        <p className={styles.statusLabel}>Maintained reference</p>
-        <h2>Start visual identity review</h2>
-        <label className={styles.cardEventReviewer}>
-          Operator ID
-          <input
-            value={props.operatorId}
-            onChange={(event) => props.setOperatorId(event.target.value)}
-            placeholder="operator-01"
-          />
-        </label>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => void props.createReference()}
-          disabled={props.creatingReference || props.operatorId.trim() === ""}
-        >
-          {props.creatingReference ? "Starting review…" : "Start review"}
-        </button>
-      </>
-    );
-  const crop = props.item?.outcome.crop_identity ?? null;
-  return (
-    <>
-      <p className={styles.statusLabel}>Maintained reference</p>
-      <h2>Visual identity review</h2>
-      <label className={styles.cardEventReviewer}>
-        Operator ID
-        <input
-          value={props.operatorId}
-          onChange={(event) => props.setOperatorId(event.target.value)}
-          placeholder="operator-01"
-        />
-      </label>
-      <p className={styles.statusLabel}>Human decision</p>
-      <h3>
-        {props.item === null
-          ? "Select a card"
-          : formatIdentifier(props.item.reviewState)}
-      </h3>
-      {props.item === null ? (
-        <p className={styles.pipelineInspectorEmpty}>
-          Select a card from the Timeline Rail.
-        </p>
-      ) : (
-        <>
-          <div className={styles.visibleCardOutcomeButtons}>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={props.acceptSuggestion}
-              disabled={props.item.outcome.candidates.length === 0}
-            >
-              Accept identity suggestion
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={props.markUnusable}
-              disabled={crop === null}
-            >
-              Mark identity unusable
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={props.reportSourceProblem}
-            >
-              Report source problem
-            </button>
-          </div>
-          <div
-            className={styles.identityChoiceGrid}
-            aria-label="Canonical identities"
-          >
-            {CANONICAL_IDENTITIES.map((identity) => (
-              <button
-                key={identity}
-                className={styles.identityChoiceButton}
-                type="button"
-                onClick={() => props.selectIdentity(identity)}
-                disabled={crop === null}
-              >
-                {identity}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </>
-  );
-}
-
-function IdentityInspectorSave(props: IdentityInspectorProps) {
-  return (
-    <>
-      <div className={styles.pipelineInspectorSectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Save state</p>
-          <h2>{formatIdentifier(props.saveState)}</h2>
-        </div>
-      </div>
-      {props.notice !== null ? (
-        <p className={styles.recordingNotice} role="status">
-          {props.notice}
-        </p>
-      ) : null}
-      {props.error !== null ? (
-        <p className={styles.detailBlocker} role="alert">
-          {props.saveState === "conflict"
-            ? `Conflict: ${props.firstUnappliedCommand ?? "unknown"}. ${props.error}`
-            : props.error}
-        </p>
-      ) : null}
-      {props.queueLength > 0 &&
-      (props.saveState === "error" || props.saveState === "retrying") ? (
-        <button
-          className={styles.secondaryButton}
-          type="button"
-          onClick={props.retryQueuedCommands}
-        >
-          Retry queued commands
-        </button>
-      ) : null}
-      {props.saveState === "conflict" ? (
-        <button
-          className={styles.secondaryButton}
-          type="button"
-          onClick={() => void props.reloadWinningDraft()}
-        >
-          Reload winning draft and retry
-        </button>
-      ) : null}
-    </>
-  );
-}
-
-function IdentityInspectorSelection(props: IdentityInspectorProps) {
-  const item = props.item;
-  return (
-    <>
-      <p className={styles.statusLabel}>Current identity</p>
-      <h2>{item?.itemId ?? "None"}</h2>
-      <dl className={styles.pipelineInspectorFacts}>
-        <div>
-          <dt>Identity outcome</dt>
-          <dd>
-            {item === null ? "None" : formatIdentifier(item.outcome.status)}
-          </dd>
-        </div>
-        <div>
-          <dt>Crop policy</dt>
-          <dd>{item?.outcome.crop_identity?.crop_policy ?? "Unavailable"}</dd>
-        </div>
-        <div>
-          <dt>Candidates</dt>
-          <dd>
-            {item?.outcome.candidates
-              .map((candidate) => candidate.identity)
-              .join(", ") || "None"}
-          </dd>
-        </div>
-        <div>
-          <dt>Review coverage</dt>
-          <dd>
-            {props.inspectedCount}/{props.itemCount} inspected (
-            {Math.round(props.coveragePercent)}%)
-          </dd>
-        </div>
-      </dl>
-      {props.view === "reviewed" && props.reference !== null ? (
-        <>
-          <label className={styles.cardEventCompletionReviewer}>
-            Reviewer ID
-            <input
-              value={props.reviewerId}
-              onChange={(event) => props.setReviewerId(event.target.value)}
-              placeholder="reviewer-01"
-            />
-          </label>
-          {props.completionBlocker !== null ? (
-            <p className={styles.detailBlocker}>{props.completionBlocker}</p>
-          ) : null}
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={() => void props.completeReference()}
-            disabled={props.completionBusy || props.completionBlocker !== null}
-          >
-            {props.completionBusy
-              ? "Completing reference…"
-              : "Complete reference"}
-          </button>
-        </>
-      ) : null}
-    </>
-  );
-}
-
-function IdentitySourceSurface({
-  item,
-  loading,
-  recordingId,
-  sourceRevisionId,
-}: {
-  item: EditableIdentity | null;
-  loading: boolean;
-  recordingId: string;
-  sourceRevisionId: string | null;
-}) {
-  return (
-    <section
-      className={styles.visibleCardWorkbenchSurface}
-      aria-label="Visual identity source and crop"
-    >
-      {loading ? (
-        <p className={styles.detailEmptyState}>Loading visual identities…</p>
-      ) : item === null ? (
-        <p className={styles.detailEmptyState}>
-          Select an identity card from the Timeline Rail.
-        </p>
-      ) : (
-        <IdentityItemPanel
-          recordingId={recordingId}
-          sourceRevisionId={sourceRevisionId}
-          item={item}
-        />
-      )}
-    </section>
-  );
-}
-
 function toEditableIdentity(
   item: PipelineReferenceItem,
 ): EditableIdentity | null {
@@ -1787,19 +1179,6 @@ function updatePipelineUrl(values: { item?: string; t_us?: number }): void {
   window.history.replaceState({}, "", `${url.pathname}${url.search}`);
 }
 
-function visibleCardReviewPath(
-  recordingId: string,
-  itemId: string,
-  timeUs: number,
-): string {
-  const params = new URLSearchParams({
-    view: "reviewed",
-    item: itemId,
-    t_us: String(Math.round(timeUs)),
-  });
-  return `/recordings/${encodeURIComponent(recordingId)}/pipeline/visible_cards?${params.toString()}`;
-}
-
 function clamp(value: number, durationUs: number): number {
   return Math.min(Math.max(0, Math.round(value)), Math.max(durationUs, 0));
 }
@@ -1819,10 +1198,6 @@ function isRetryableError(error: unknown): boolean {
   );
 }
 
-function describeCommand(command: PendingCommand): string {
-  return `${command.operation.operation}${command.operation.item_id === undefined ? "" : ` (${command.operation.item_id})`}`;
-}
-
 function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     const body =
@@ -1834,16 +1209,4 @@ function describeError(error: unknown): string {
   return error instanceof Error
     ? error.message
     : "The identity request failed.";
-}
-
-function formatIdentifier(value: string): string {
-  return value.replaceAll("_", " ").replaceAll("-", " ");
-}
-
-function formatMicroseconds(value: number): string {
-  return `${(value / 1_000_000).toFixed(3)} s`;
-}
-
-function formatScore(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
 }
