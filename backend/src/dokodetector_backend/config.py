@@ -51,6 +51,25 @@ def _resolve_frontend_dist(value: Path, root: Path) -> Path:
     return resolved
 
 
+def _contains_resource_manifests(path: Path) -> bool:
+    """Return whether an intake directory contains at least one resource manifest."""
+
+    return any(candidate.is_file() for candidate in path.glob("*/manifest.json"))
+
+
+def _resolve_intake_path(value: Path, root: Path, *, use_legacy_fallback: bool) -> Path:
+    """Resolve an intake path and retain data written by the old backend root discovery."""
+
+    resolved = _resolve_path(value, root)
+    if not use_legacy_fallback or value.is_absolute():
+        return resolved
+
+    legacy = _resolve_path(Path("backend") / value, root)
+    if not _contains_resource_manifests(resolved) and _contains_resource_manifests(legacy):
+        return legacy
+    return resolved
+
+
 class Settings(BaseSettings):
     """Settings loaded from environment variables with local defaults."""
 
@@ -150,8 +169,16 @@ class Settings(BaseSettings):
         self.evidence_root = _resolve_path(self.evidence_root, root)
         self.operations_root = _resolve_path(self.operations_root, root)
         self.frontend_dist = _resolve_frontend_dist(self.frontend_dist, root)
-        self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
-        self.evidence_package_intake_root = _resolve_path(self.evidence_package_intake_root, root)
+        self.repository_intake_root = _resolve_intake_path(
+            self.repository_intake_root,
+            root,
+            use_legacy_fallback="repository_intake_root" not in self.model_fields_set,
+        )
+        self.evidence_package_intake_root = _resolve_intake_path(
+            self.evidence_package_intake_root,
+            root,
+            use_legacy_fallback="evidence_package_intake_root" not in self.model_fields_set,
+        )
         self.pending_video_root = _resolve_path(self.pending_video_root, root)
         if self.card_event_checkpoint_path is not None:
             self.card_event_checkpoint_path = _resolve_path(self.card_event_checkpoint_path, root)

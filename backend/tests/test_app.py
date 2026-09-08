@@ -138,6 +138,41 @@ def test_settings_resolves_card_event_checkpoint_path(tmp_path: Path) -> None:
     )
 
 
+def test_settings_uses_complete_intake_data_from_legacy_backend_root(tmp_path: Path) -> None:
+    legacy_recordings = tmp_path / "backend" / "data" / "intake" / "recordings"
+    legacy_packages = tmp_path / "backend" / "data" / "intake" / "evidence-packages"
+    (legacy_recordings / "recording-1").mkdir(parents=True)
+    (legacy_packages / "package-1").mkdir(parents=True)
+    (legacy_recordings / "recording-1" / "manifest.json").write_text("{}", encoding="utf-8")
+    (legacy_packages / "package-1" / "manifest.json").write_text("{}", encoding="utf-8")
+
+    settings = Settings(_env_file=None, repository_root=tmp_path)
+
+    assert settings.repository_intake_root == legacy_recordings
+    assert settings.evidence_package_intake_root == legacy_packages
+
+
+def test_settings_keeps_explicit_intake_data_root(tmp_path: Path) -> None:
+    recordings = tmp_path / "recordings"
+    packages = tmp_path / "evidence-packages"
+    legacy_recordings = tmp_path / "backend" / "data" / "intake" / "recordings"
+    legacy_packages = tmp_path / "backend" / "data" / "intake" / "evidence-packages"
+    (legacy_recordings / "recording-1").mkdir(parents=True)
+    (legacy_packages / "package-1").mkdir(parents=True)
+    (legacy_recordings / "recording-1" / "manifest.json").write_text("{}", encoding="utf-8")
+    (legacy_packages / "package-1" / "manifest.json").write_text("{}", encoding="utf-8")
+
+    settings = Settings(
+        _env_file=None,
+        repository_root=tmp_path,
+        repository_intake_root=recordings,
+        evidence_package_intake_root=packages,
+    )
+
+    assert settings.repository_intake_root == recordings
+    assert settings.evidence_package_intake_root == packages
+
+
 def test_discover_repository_root_skips_backend_component_mise(monkeypatch) -> None:
     monkeypatch.chdir(BACKEND_ROOT)
 
