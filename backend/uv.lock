@@ -238,6 +238,7 @@ version = "0.1.0"
 source = { editable = "../operations" }
 dependencies = [
     { name = "doko-game-engine" },
+    { name = "opencv-python" },
     { name = "pillow" },
     { name = "pyyaml" },
     { name = "table-evidence-analyzer" },
@@ -246,6 +247,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "doko-game-engine", directory = "../game_engine" },
+    { name = "opencv-python", specifier = ">=4.10" },
     { name = "pillow", specifier = "==12.3.0" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "table-evidence-analyzer", editable = "../table_evidence_analyzer" },
