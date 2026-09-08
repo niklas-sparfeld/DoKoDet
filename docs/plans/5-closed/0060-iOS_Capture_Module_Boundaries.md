@@ -4,10 +4,11 @@
 
 - **Summary:** Split the iOS evidence package contract, repository-intake validation, and recording
   app-state workflows into focused source boundaries without changing behavior.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0053 discovery complete
 - **Outcome:** A capture, evidence, upload, or analysis-state change uses a focused source and test
   boundary that compiles in both the Swift Package and Xcode app.
+- **Closure reason:** Complete
 - **Discovery evidence:** [Epic 0053 report](../../reports/0053-Agent_Navigation_Cleanup_Discovery.md)
 
 ## Milestone status
