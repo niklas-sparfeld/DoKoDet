@@ -3943,8 +3943,7 @@ progress {
   box-shadow: 0 0.7rem 2rem var(--shadow);
 }
 
-.visibleCardItemList,
-.visibleCardProposalItems {
+.visibleCardItemList {
   display: grid;
   gap: 0.55rem;
   margin: 1rem 0 0;
@@ -4083,16 +4082,6 @@ progress {
   text-align: center;
 }
 
-.visibleCardCanvasViewport {
-  width: 100%;
-  max-width: 2000px;
-  margin: 1rem auto 0;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 0.55rem;
-  background: #161616;
-}
-
 .visibleCardCanvasInner {
   position: relative;
   min-width: 100%;
@@ -4104,50 +4093,6 @@ progress {
   height: auto;
 }
 
-.visibleCardOverlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.visibleCardProposalPolygon,
-.visibleCardReviewedGeometry polygon {
-  fill: rgb(213 90 180 / 24%);
-  stroke: #eaa0dc;
-  stroke-width: 4;
-  vector-effect: non-scaling-stroke;
-}
-
-.visibleCardProposalBox,
-.visibleCardReviewedGeometry rect {
-  fill: none;
-  stroke: #f5d3ef;
-  stroke-dasharray: 8 5;
-  stroke-width: 3;
-  vector-effect: non-scaling-stroke;
-}
-
-.visibleCardOverlay g[data-active="true"] .visibleCardProposalPolygon {
-  fill: rgb(255 190 73 / 34%);
-  stroke: #ffd166;
-  stroke-width: 7;
-}
-
-.visibleCardReviewedGeometry[data-active="true"] polygon {
-  fill: rgb(255 190 73 / 34%);
-  stroke: #ffd166;
-  stroke-width: 7;
-}
-
-.visibleCardOverlay g[data-active="true"] .visibleCardProposalBox,
-.visibleCardReviewedGeometry[data-active="true"] rect {
-  stroke: #fff0b3;
-  stroke-width: 5;
-}
-
-.visibleCardProposalList,
 .visibleCardDiagnostics {
   margin-top: 1rem;
   padding-top: 1rem;
@@ -4158,27 +4103,7 @@ progress {
   align-items: center;
 }
 
-.visibleCardProposalRow {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.visibleCardActionButtons {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  padding-left: 0.7rem;
-  color: var(--muted-ink);
-  font-size: 0.74rem;
-}
-
-.visibleCardActionButtons .inlineAction {
-  margin-left: 0;
-}
-
-.visibleCardReviewControls,
-.visibleCardEditor {
+.visibleCardReviewControls {
   display: grid;
   gap: 0.75rem;
   margin-top: 1rem;
@@ -4191,13 +4116,6 @@ progress {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
-}
-
-.visibleCardEditorHelp {
-  margin: 0;
-  color: var(--muted-ink);
-  font-size: 0.78rem;
-  line-height: 1.5;
 }
 
 .visibleCardEditorGrid {
@@ -4264,14 +4182,6 @@ progress {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-}
-
-.inlineFormError {
-  margin: 0;
-  color: var(--danger);
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1.5;
 }
 
 .visibleCardEditorGeometry polygon {
@@ -5193,34 +5103,6 @@ progress {
 .cardEventStandaloneInspector > *:last-child {
   padding-bottom: 0;
   border-bottom: 0;
-}
-
-.cardEventInspectorState,
-.cardEventInspectorSelection {
-  display: grid;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
-.cardEventInspectorSelection .cardEventReviewCounts {
-  justify-content: start;
-}
-
-.cardEventCoverageInspector {
-  display: grid;
-  gap: 0.45rem;
-  color: var(--muted-ink);
-  font-size: 0.72rem;
-}
-
-.cardEventCoverageInspector strong {
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.cardEventCoverageInspector progress {
-  width: 100%;
-  accent-color: var(--accent);
 }
 
 .cardEventReviewHeader,

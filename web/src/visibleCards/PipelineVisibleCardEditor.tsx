@@ -6,12 +6,10 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { createPortal } from "react-dom";
 
 import {
   ApiError,
   createDokoDetectorClient,
-  pipelineDerivedFramePath,
   repositoryBundleVideoPath,
   type PipelineReferenceItem,
   type PipelineReferenceOperation,
@@ -19,64 +17,32 @@ import {
   type PipelineVisibleCardResult,
 } from "../api/client";
 import styles from "../App.module.css";
+import {
+  describeCommand,
+  formatMicroseconds,
+  formatFrameTime,
+} from "./PipelineVisibleCardFormatting";
+import {
+  VisibleCardInspectorPortals,
+  useVisibleCardInspectorSlots,
+} from "./PipelineVisibleCardInspector";
+import { VisibleCardFramePanel } from "./PipelineVisibleCardPresentation";
+import visibleStyles from "./PipelineVisibleCardEditor.module.css";
+import type {
+  Candidate,
+  EditableFrame,
+  EditorState,
+  FrameIdentity,
+  FrameReviewState,
+  Geometry,
+  Outcome,
+  PendingCommand,
+  PipelineVisibleCardRailItem,
+  Point,
+  SaveState,
+} from "./PipelineVisibleCardTypes";
 
-type Point = { x: number; y: number };
-type FrameIdentity = {
-  requested_time_us: number;
-  frame_index: number;
-  presentation_timestamp_us: number;
-  width: number;
-  height: number;
-  image_sha256: string;
-  [key: string]: unknown;
-};
-type Geometry = {
-  kind: string;
-  box_2d?: { x_min: number; y_min: number; x_max: number; y_max: number };
-  visible_region?: { polygons: Point[][] };
-};
-type Candidate = {
-  card_id: string;
-  geometry: Geometry;
-  normalization: Record<string, unknown>;
-  model_scores?: Array<Record<string, unknown>>;
-};
-type Outcome = {
-  event_id: string;
-  frame_identity: FrameIdentity | null;
-  status: "detected" | "empty" | "failed";
-  candidates: Candidate[];
-  error: string | null;
-};
-type FrameReviewState =
-  | "pending"
-  | "accepted"
-  | "rejected"
-  | "added"
-  | "corrected"
-  | "empty"
-  | "unusable"
-  | "affected";
-type EditableFrame = {
-  itemId: string;
-  baseItemId: string | null;
-  reviewState: FrameReviewState;
-  outcome: Outcome;
-};
-type SaveState = "saved" | "saving" | "retrying" | "error" | "conflict";
-type PendingCommand = {
-  commandId: string;
-  operation: PipelineReferenceOperation;
-  notice: string;
-  attempts: number;
-};
-type EditorState = {
-  frameItemId: string;
-  cardId: string | null;
-  polygons: Point[][];
-  polygonIndex: number;
-  selectedPointIndex: number | null;
-};
+export type { PipelineVisibleCardRailItem } from "./PipelineVisibleCardTypes";
 
 const CONTENT_TYPE = "visible_cards" as const;
 const RETRY_LIMIT = 3;
@@ -94,15 +60,6 @@ export type PipelineVisibleCardEditorProps = {
   onRailItemsChange?: (items: PipelineVisibleCardRailItem[]) => void;
   onReviewRequested?: () => void;
   inspectorEnabled?: boolean;
-};
-
-export type PipelineVisibleCardRailItem = {
-  itemId: string;
-  label: string;
-  state: FrameReviewState | Outcome["status"];
-  timeUs: number | null;
-  proposalCount: number;
-  decision: "cards" | "empty" | "unusable" | null;
 };
 
 export function PipelineVisibleCardEditor({
@@ -164,11 +121,7 @@ export function PipelineVisibleCardEditor({
   const [editorError, setEditorError] = useState<string | null>(null);
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
-  const [inspectorSlots, setInspectorSlots] = useState<{
-    action: HTMLElement;
-    save: HTMLElement;
-    selection: HTMLElement;
-  } | null>(null);
+  const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
 
   const setLocalFrames = useCallback((nextFrames: EditableFrame[]) => {
     framesRef.current = nextFrames;
@@ -340,24 +293,6 @@ export function PipelineVisibleCardEditor({
     selectFrame,
     view,
   ]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const action = document.querySelector<HTMLElement>(
-        '[data-visible-card-inspector-slot="action"]',
-      );
-      const save = document.querySelector<HTMLElement>(
-        '[data-visible-card-inspector-slot="save"]',
-      );
-      const selection = document.querySelector<HTMLElement>(
-        '[data-visible-card-inspector-slot="selection"]',
-      );
-      if (action !== null && save !== null && selection !== null) {
-        setInspectorSlots({ action, save, selection });
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [inspectorEnabled, view]);
 
   useEffect(() => {
     const candidates = view === "reviewed" ? frames : generatedFrames;
@@ -989,10 +924,10 @@ export function PipelineVisibleCardEditor({
   }
 
   const sourceSurface = (
-    <div className={styles.visibleCardWorkbenchSurface}>
+    <div className={visibleStyles.workbenchSurface}>
       <video
         ref={videoRef}
-        className={styles.cardEventSourceVideo}
+        className={visibleStyles.sourceVideo}
         data-recording-source-video={recordingId}
         src={videoUrl}
         controls
@@ -1097,635 +1032,6 @@ export function PipelineVisibleCardEditor({
         ) : null}
       </section>
     </>
-  );
-}
-
-type VisibleCardInspectorProps = {
-  slots: {
-    action: HTMLElement;
-    save: HTMLElement;
-    selection: HTMLElement;
-  } | null;
-  inspectorEnabled: boolean;
-  view: "generated" | "reviewed";
-  reference: PipelineReferenceResource | null;
-  frames: EditableFrame[];
-  selectedFrame: EditableFrame | null;
-  generatedFrames: EditableFrame[];
-  generatedRevisionId: string | null;
-  generatedLoading: boolean;
-  pendingCount: number;
-  completedFrameCount: number;
-  coveragePercent: number;
-  inspectedCount: number;
-  saveState: SaveState;
-  queueLength: number;
-  firstUnappliedCommand: string | null;
-  error: string | null;
-  operatorId: string;
-  reviewerId: string;
-  setOperatorId: (value: string) => void;
-  setReviewerId: (value: string) => void;
-  creatingReference: boolean;
-  completionBusy: boolean;
-  completionBlocker: string | null;
-  acceptSuggestions: () => void;
-  markEmpty: () => void;
-  markUnusable: () => void;
-  retryQueuedCommands: () => void;
-  reloadWinningDraft: () => Promise<void>;
-  completeReference: () => Promise<void>;
-  createReference: () => Promise<void>;
-  onReviewRequested?: () => void;
-};
-
-function VisibleCardInspectorPortals(props: VisibleCardInspectorProps) {
-  if (!props.inspectorEnabled) return null;
-  if (props.slots === null) {
-    return (
-      <div className={styles.cardEventStandaloneInspector}>
-        <VisibleCardInspectorAction {...props} />
-        <VisibleCardInspectorSaveState {...props} />
-        <VisibleCardInspectorSelection {...props} />
-      </div>
-    );
-  }
-  return (
-    <>
-      {createPortal(
-        <VisibleCardInspectorAction {...props} />,
-        props.slots.action,
-      )}
-      {createPortal(
-        <VisibleCardInspectorSaveState {...props} />,
-        props.slots.save,
-      )}
-      {createPortal(
-        <VisibleCardInspectorSelection {...props} />,
-        props.slots.selection,
-      )}
-    </>
-  );
-}
-
-function VisibleCardInspectorAction({
-  view,
-  reference,
-  generatedFrames,
-  generatedRevisionId,
-  generatedLoading,
-  operatorId,
-  reviewerId,
-  setOperatorId,
-  setReviewerId,
-  creatingReference,
-  completionBusy,
-  completionBlocker,
-  completeReference,
-  createReference,
-  onReviewRequested,
-}: VisibleCardInspectorProps) {
-  if (view === "generated") {
-    return (
-      <>
-        <p className={styles.statusLabel}>Primary action</p>
-        <h2 id="pipeline-inspector-action">Review visible cards</h2>
-        <p className={styles.pipelineInspectorEmpty}>
-          {generatedLoading
-            ? "Loading generated visible cards…"
-            : generatedRevisionId === null
-              ? "No generated revision is selected."
-              : `${generatedFrames.length} resolved frame${generatedFrames.length === 1 ? "" : "s"} · immutable source result.`}
-        </p>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={onReviewRequested}
-          disabled={onReviewRequested === undefined}
-        >
-          Review
-        </button>
-      </>
-    );
-  }
-  if (reference === null) {
-    return (
-      <>
-        <p className={styles.statusLabel}>Primary action</p>
-        <h2 id="pipeline-inspector-action">Start visible-card review</h2>
-        <p className={styles.pipelineInspectorEmpty}>
-          Copy the selected generated result into the maintained reference.
-        </p>
-        <label className={styles.pipelineSelector}>
-          <span>Operator ID</span>
-          <input
-            value={operatorId}
-            onChange={(event) => setOperatorId(event.target.value)}
-            placeholder="operator-01"
-          />
-        </label>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => void createReference()}
-          disabled={creatingReference || operatorId.trim() === ""}
-        >
-          {creatingReference ? "Starting review…" : "Start review"}
-        </button>
-      </>
-    );
-  }
-  return (
-    <>
-      <p className={styles.statusLabel}>Primary action</p>
-      <h2 id="pipeline-inspector-action">
-        {reference.state.draft_state === "completed"
-          ? "Publish corrected reference"
-          : "Complete visible-card review"}
-      </h2>
-      {completionBlocker !== null ? (
-        <p className={styles.detailBlocker} role="alert">
-          {completionBlocker}
-        </p>
-      ) : null}
-      <label className={styles.pipelineSelector}>
-        <span>Operator ID</span>
-        <input
-          value={operatorId}
-          onChange={(event) => setOperatorId(event.target.value)}
-          placeholder="operator-01"
-        />
-      </label>
-      <label className={styles.pipelineSelector}>
-        <span>Reviewer ID</span>
-        <input
-          value={reviewerId}
-          onChange={(event) => setReviewerId(event.target.value)}
-          placeholder="reviewer-01"
-        />
-      </label>
-      <button
-        className={styles.primaryButton}
-        type="button"
-        onClick={() => void completeReference()}
-        disabled={completionBusy || completionBlocker !== null}
-      >
-        {completionBusy
-          ? "Completing reference…"
-          : reference.state.draft_state === "completed"
-            ? "Publish corrected reference"
-            : "Complete reference"}
-      </button>
-    </>
-  );
-}
-
-function VisibleCardInspectorSaveState({
-  view,
-  saveState,
-  queueLength,
-  firstUnappliedCommand,
-  error,
-  retryQueuedCommands,
-  reloadWinningDraft,
-}: VisibleCardInspectorProps) {
-  return (
-    <div className={styles.cardEventInspectorState}>
-      <div className={styles.pipelineInspectorSectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Save or execution state</p>
-          <h2 id="pipeline-inspector-save-state">
-            {view === "generated"
-              ? "Read-only result"
-              : formatIdentifier(saveState)}
-          </h2>
-        </div>
-        <ReviewStateBadge value={view === "generated" ? "saved" : saveState} />
-      </div>
-      {error !== null ? (
-        <div className={styles.cardEventError} role="alert">
-          <p>
-            {saveState === "conflict"
-              ? `Conflict: the first unapplied command is ${firstUnappliedCommand ?? "unknown"}. ${error}`
-              : error}
-          </p>
-          <div className={styles.cardEventErrorActions}>
-            {saveState === "conflict" ? (
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={() => void reloadWinningDraft()}
-              >
-                Reload winning draft and retry
-              </button>
-            ) : null}
-            {queueLength > 0 &&
-            (saveState === "error" || saveState === "retrying") ? (
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={retryQueuedCommands}
-              >
-                Retry queued commands
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function VisibleCardInspectorSelection({
-  view,
-  reference,
-  frames,
-  selectedFrame,
-  pendingCount,
-  completedFrameCount,
-  coveragePercent,
-  inspectedCount,
-  acceptSuggestions,
-  markEmpty,
-  markUnusable,
-}: VisibleCardInspectorProps) {
-  return (
-    <div className={styles.cardEventInspectorSelection}>
-      <p className={styles.statusLabel}>Current frame</p>
-      <div
-        className={styles.cardEventReviewCounts}
-        aria-label="Visible-card counts"
-      >
-        <ReviewCount label="Decided" value={completedFrameCount} />
-        <ReviewCount label="Pending" value={pendingCount} />
-        <ReviewCount
-          label="Proposals"
-          value={frames.reduce(
-            (count, frame) => count + frame.outcome.candidates.length,
-            0,
-          )}
-        />
-      </div>
-      <p className={styles.pipelineInspectorEmpty}>
-        {selectedFrame === null
-          ? view === "generated"
-            ? "Select a proposal from the Timeline Rail."
-            : "Select a resolved frame from the Timeline Rail."
-          : `${formatFrameTime(selectedFrame)} · ${formatFrameState(selectedFrame)}`}
-      </p>
-      {selectedFrame !== null ? (
-        <dl className={styles.pipelineInspectorFacts}>
-          <div>
-            <dt>Frame item</dt>
-            <dd>{selectedFrame.itemId}</dd>
-          </div>
-          <div>
-            <dt>Proposal count</dt>
-            <dd>{selectedFrame.outcome.candidates.length}</dd>
-          </div>
-        </dl>
-      ) : null}
-      {view === "reviewed" && reference !== null ? (
-        <>
-          <div
-            className={styles.visibleCardOutcomeButtons}
-            aria-label="Frame outcome"
-          >
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={acceptSuggestions}
-              disabled={
-                selectedFrame === null ||
-                selectedFrame.outcome.status !== "detected"
-              }
-            >
-              Accept frame suggestions
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={markEmpty}
-              disabled={selectedFrame === null}
-            >
-              Reviewed empty frame
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={markUnusable}
-              disabled={selectedFrame === null}
-            >
-              Unusable frame
-            </button>
-          </div>
-          <div className={styles.cardEventCoverageInspector}>
-            <span>Resolved-frame coverage</span>
-            <strong>
-              {Math.round(coveragePercent)}% inspected ({inspectedCount}/
-              {frames.length})
-            </strong>
-            <progress
-              max={100}
-              value={coveragePercent}
-              aria-label="Resolved-frame coverage"
-            />
-            <p>
-              Each frame needs an explicit cards, reviewed empty, or unusable
-              decision.
-            </p>
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function VisibleCardFramePanel({
-  recordingId,
-  frame,
-  editor,
-  editorError,
-  onOpenEditor,
-  onSaveEditor,
-  onCancelEditor,
-  onRemoveCard,
-  onPointerMove,
-  onPointerUp,
-  onPointPointerDown,
-  readOnly,
-}: {
-  recordingId: string;
-  frame: EditableFrame;
-  editor: EditorState | null;
-  editorError: string | null;
-  onOpenEditor?: (candidate: Candidate | null) => void;
-  onSaveEditor?: () => void;
-  onCancelEditor?: () => void;
-  onRemoveCard?: (cardId: string) => void;
-  onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
-  onPointerUp: (event: ReactPointerEvent<SVGSVGElement>) => void;
-  onPointPointerDown: (
-    event: ReactPointerEvent<SVGCircleElement>,
-    polygonIndex: number,
-    pointIndex: number,
-  ) => void;
-  readOnly: boolean;
-}) {
-  const identity = frame.outcome.frame_identity;
-  const width = identity?.width ?? 1;
-  const height = identity?.height ?? 1;
-  const sourceUrl =
-    identity === null
-      ? null
-      : pipelineDerivedFramePath(recordingId, identity.requested_time_us);
-  return (
-    <section
-      className={styles.visibleCardFramePanel}
-      aria-label="Selected visible-card frame"
-    >
-      <header className={styles.visibleCardFrameHeader}>
-        <div>
-          <p className={styles.statusLabel}>Source item {frame.itemId}</p>
-          <h3>{formatFrameTime(frame)} · resolved frame</h3>
-        </div>
-        <span className={styles.status} data-state={frame.reviewState}>
-          {formatIdentifier(frame.reviewState)}
-        </span>
-      </header>
-      {sourceUrl !== null ? (
-        <>
-          <div
-            className={styles.visibleCardCanvasViewport}
-            style={{ aspectRatio: `${width} / ${height}` }}
-          >
-            <img
-              className={styles.visibleCardCanvasImage}
-              src={sourceUrl}
-              width={width}
-              height={height}
-              alt={`Resolved source frame at ${formatFrameTime(frame)}`}
-            />
-            <svg
-              className={styles.visibleCardOverlay}
-              viewBox={`0 0 ${width} ${height}`}
-              role="img"
-              aria-label={`${frame.outcome.candidates.length} visible-card proposal${frame.outcome.candidates.length === 1 ? "" : "s"}`}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-              style={{ pointerEvents: editor === null ? "none" : "auto" }}
-            >
-              {frame.outcome.candidates.map((candidate) => (
-                <CandidateOverlay
-                  key={candidate.card_id}
-                  candidate={candidate}
-                  width={width}
-                  height={height}
-                />
-              ))}
-              {editor?.polygons.map((polygon, polygonIndex) => (
-                <g key={`editor-${polygonIndex}`}>
-                  {polygon.length >= 2 ? (
-                    <polygon
-                      points={polygon
-                        .map(
-                          (point) =>
-                            `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
-                        )
-                        .join(" ")}
-                      fill="rgba(255, 210, 79, 0.25)"
-                      stroke="#ffd24f"
-                      strokeWidth={Math.max(1, width / 250)}
-                    />
-                  ) : null}
-                  {polygon.map((point, pointIndex) => (
-                    <circle
-                      key={`${point.x}:${point.y}:${pointIndex}`}
-                      cx={(point.x * width) / 1000}
-                      cy={(point.y * height) / 1000}
-                      r={Math.max(3, width / 55)}
-                      fill="#ffd24f"
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Polygon ${polygonIndex + 1}, point ${pointIndex + 1} at ${point.x}, ${point.y}`}
-                      onPointerDown={(event) =>
-                        onPointPointerDown(event, polygonIndex, pointIndex)
-                      }
-                      onClick={(event) => event.stopPropagation()}
-                    />
-                  ))}
-                </g>
-              ))}
-            </svg>
-          </div>
-          <p className={styles.pipelineUrlState}>
-            Derived source frame {sourceUrl}
-          </p>
-        </>
-      ) : (
-        <p className={styles.detailBlocker}>
-          {frame.outcome.error ??
-            "No resolved source frame is available. Mark this frame unusable."}
-        </p>
-      )}
-      {frame.outcome.error !== null ? (
-        <p className={styles.detailBlocker}>{frame.outcome.error}</p>
-      ) : null}
-      <section
-        className={styles.visibleCardProposalList}
-        aria-label="Visible-card proposals"
-      >
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Detector output</p>
-            <h4>Proposal overlays</h4>
-          </div>
-          <span className={styles.countLabel}>
-            {frame.outcome.candidates.length}
-          </span>
-        </div>
-        {frame.outcome.candidates.length === 0 ? (
-          <p className={styles.detailEmptyState}>
-            No visible-card proposals. Use Add missed card or mark the frame
-            reviewed empty.
-          </p>
-        ) : (
-          <ol className={styles.visibleCardProposalItems}>
-            {frame.outcome.candidates.map((candidate, index) => (
-              <li key={candidate.card_id}>
-                <div className={styles.visibleCardProposalRow}>
-                  <span>
-                    <strong>Proposal {index + 1}</strong>
-                    <small>
-                      {candidate.card_id} ·{" "}
-                      {formatIdentifier(candidate.geometry.kind)}
-                    </small>
-                  </span>
-                  <div className={styles.visibleCardActionButtons}>
-                    {!readOnly ? (
-                      <>
-                        <button
-                          className={styles.inlineAction}
-                          type="button"
-                          onClick={() => onOpenEditor?.(candidate)}
-                        >
-                          Reshape proposal {index + 1}
-                        </button>
-                        <button
-                          className={styles.inlineAction}
-                          type="button"
-                          onClick={() => onRemoveCard?.(candidate.card_id)}
-                        >
-                          Remove card {index + 1}
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-      {!readOnly ? (
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => onOpenEditor?.(null)}
-          disabled={identity === null}
-        >
-          Add missed card
-        </button>
-      ) : null}
-      {!readOnly && editor !== null ? (
-        <section
-          className={styles.visibleCardEditor}
-          aria-label="Visible region editor"
-        >
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Geometry editor</p>
-              <h4>
-                {editor.cardId === null
-                  ? "Add missed card"
-                  : "Reshape visible region"}
-              </h4>
-            </div>
-          </div>
-          <p className={styles.visibleCardEditorHelp}>
-            Drag a polygon point. The complete visible region is saved once when
-            the pointer is released.
-          </p>
-          {editorError !== null ? (
-            <p className={styles.inlineFormError}>{editorError}</p>
-          ) : null}
-          <div className={styles.visibleCardActionButtons}>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={onSaveEditor}
-            >
-              Save visible region
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={onCancelEditor}
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
-      ) : null}
-    </section>
-  );
-}
-
-function CandidateOverlay({
-  candidate,
-  width,
-  height,
-}: {
-  candidate: Candidate;
-  width: number;
-  height: number;
-}) {
-  const geometry = candidate.geometry;
-  if (
-    geometry.kind === "reviewed-visible-region/v1" &&
-    geometry.visible_region !== undefined
-  ) {
-    return (
-      <g data-card-id={candidate.card_id}>
-        <polygon
-          points={geometry.visible_region.polygons
-            .flat()
-            .map(
-              (point) =>
-                `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
-            )
-            .join(" ")}
-          fill="rgba(59, 209, 154, 0.2)"
-          stroke="#3bd19a"
-          strokeWidth={Math.max(1, width / 250)}
-        />
-      </g>
-    );
-  }
-  const box = geometry.box_2d;
-  if (box === undefined) return null;
-  return (
-    <rect
-      data-card-id={candidate.card_id}
-      x={(box.x_min * width) / 1000}
-      y={(box.y_min * height) / 1000}
-      width={((box.x_max - box.x_min) * width) / 1000}
-      height={((box.y_max - box.y_min) * height) / 1000}
-      fill="rgba(255, 133, 84, 0.16)"
-      stroke="#ff8554"
-      strokeWidth={Math.max(1, width / 250)}
-    />
   );
 }
 
@@ -1999,29 +1305,6 @@ function clamp(value: number, maximum: number): number {
     Math.max(0, Math.round(maximum)),
   );
 }
-function formatFrameTime(frame: EditableFrame): string {
-  return formatMicroseconds(
-    frame.outcome.frame_identity?.requested_time_us ?? 0,
-  );
-}
-function formatFrameState(frame: EditableFrame): string {
-  return `${formatIdentifier(frame.outcome.status)} · ${formatIdentifier(frame.reviewState)}`;
-}
-function formatMicroseconds(value: number): string {
-  return `${(value / 1_000_000).toFixed(3)} s`;
-}
-function formatIdentifier(value: string): string {
-  return value
-    .replaceAll("_", " ")
-    .replaceAll("-", " ")
-    .toLowerCase()
-    .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
-}
-function describeCommand(command: PendingCommand | undefined): string {
-  return command === undefined
-    ? "none"
-    : `${formatIdentifier(command.operation.operation)} ${command.operation.item_id ?? "frame"}`;
-}
 function isRetryableError(reason: unknown): boolean {
   return !(
     reason instanceof ApiError &&
@@ -2068,31 +1351,4 @@ function updatePipelineUrl(values: {
     `${window.location.pathname}${query === "" ? "" : `?${query}`}`,
   );
   window.dispatchEvent(new PopStateEvent("popstate"));
-}
-function ReviewCount({
-  label,
-  value,
-  suffix = "",
-}: {
-  label: string;
-  value: number;
-  suffix?: string;
-}) {
-  return (
-    <div>
-      <span className={styles.statusLabel}>{label}</span>
-      <strong>
-        {value}
-        {suffix}
-      </strong>
-    </div>
-  );
-}
-
-function ReviewStateBadge({ value }: { value: string }) {
-  return (
-    <span className={styles.status} data-state={value}>
-      {formatIdentifier(value)}
-    </span>
-  );
 }

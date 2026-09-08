@@ -58,7 +58,7 @@ focused tests move with their responsibility.
   Timeline Rail coordination surfaces.
 - **M3:** Complete — give the event stage editor local source, generated-result, inspector, and
   presentation ownership.
-- **M4:** Not started — give the visible-card stage editor local frame and inspector ownership.
+- **M4:** Complete — give the visible-card stage editor local frame and inspector ownership.
 - **M5:** Not started — give the visual-identity stage editor local source and inspector ownership.
 - **M6:** Not started — separate observation and round-analysis controls into local command and
   history surfaces.
@@ -152,6 +152,19 @@ Acceptance checks:
 - Focused visible-card tests cover draft save, retry, selection, geometry/proposal presentation, and rail items.
 - `npm run check` passes.
 - The pipeline browser test opens the affected visible-card review state in the workspace inspector.
+
+#### M4 implementation evidence — 2026-09-08
+
+- Added focused visible-card types, formatting, frame/proposal presentation, inspector portal, and
+  CSS module boundaries. The editor keeps maintained-reference commands, selected frame state,
+  source-frame mapping, and Timeline Rail callbacks at the editor boundary.
+- Added explicit local styles for the visible-card workbench, frame canvas, proposal list, geometry
+  editor, inspector state, coverage, and error surfaces. Removed the extracted frame, overlay,
+  proposal, and inspector selectors from `App.module.css`; shared visual-identity selectors remain.
+- Focused tests cover draft geometry save, transient retry, explicit generated-frame selection,
+  geometry/proposal presentation, and Timeline Rail items.
+- `npm run check` passed with 95 tests. The pipeline browser suite passed all four tests, including
+  the affected visible-card workspace inspector flow.
 
 ### M5 — Visual-identity stage ownership
 
