@@ -6,7 +6,7 @@ import logging
 import re
 from uuid import UUID
 
-from doko_operations.round_reconstruction import RoundReconstructionContractError
+from doko_operations.round_reconstruction_contract import RoundReconstructionContractError
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 from pydantic import ValidationError

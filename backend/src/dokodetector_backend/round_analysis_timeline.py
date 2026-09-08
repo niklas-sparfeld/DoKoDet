@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
-from doko_operations.round_reconstruction import (
+from doko_operations.round_reconstruction_contract import (
     FocusedDecisionRecord,
     GameplayResultRecord,
     IgnoredActionRecord,

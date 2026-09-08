@@ -37,22 +37,24 @@ from doko_operations.counterfactual import (
     parse_round_counterfactual_request_bytes,
     recompute_counterfactual,
 )
-from doko_operations.round_reconstruction import (
+from doko_operations.round_reconstruction_contract import (
     ObservationSourceRecord,
     RoundReconstructionContractError,
-    RoundReconstructionPublicationError,
-    build_round_reconstruction_result,
     canonical_request_bytes,
     canonical_request_sha256,
     canonical_result_bytes,
-    load_round_reconstruction_input_bundle,
-    load_round_reconstruction_observations,
     parse_round_reconstruction_request_bytes,
     parse_round_reconstruction_result_bytes,
+    sha256_bytes,
+)
+from doko_operations.round_reconstruction_execution import (
+    RoundReconstructionPublicationError,
+    build_round_reconstruction_result,
+    load_round_reconstruction_input_bundle,
+    load_round_reconstruction_observations,
     run_round_reconstruction,
     run_round_reconstruction_values,
     serialize_engine_result,
-    sha256_bytes,
 )
 
 GAME_ENGINE_SCENARIO_ROOT = Path(__file__).parents[2] / "fixtures" / "game-engine" / "v1" / "rounds"

@@ -50,10 +50,8 @@ from .resilience_comparison import (
     run_resilience_comparison,
     write_resilience_comparison,
 )
-from .round_reconstruction import (
-    RoundReconstructionContractError,
-    run_round_reconstruction,
-)
+from .round_reconstruction_contract import RoundReconstructionContractError
+from .round_reconstruction_execution import run_round_reconstruction
 from .status import render_human, render_json
 from .system_holdout import (
     FAILURE_BOUNDARIES,

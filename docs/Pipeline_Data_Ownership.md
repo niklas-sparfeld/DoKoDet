@@ -59,7 +59,7 @@ implementation evidence.
 | `VisibleCardTableAnalyzer` and `BundleCardClassifier` in `visible_card_observation.py` | Existing observation projection and classifier composition remain reusable behavior | M6 uses them through a pure observation assembler; it does not infer gameplay state |
 | `TableObservationReviewAdapter` and package-backed assembly in `operations/src/doko_operations/table_evidence.py` | Existing review adapter and package validator remain available for the legacy package review route | M6 adds observation assembly from selected event, visible-card, and identity revisions |
 | `TableObservationStore` and analyzer-facing backend adapters | Existing file validation and observation result handling remain authoritative for old observations | M6 changes uniqueness and searchable identity from package/analyzer to observation ID and run/input lineage |
-| Round analysis input assembly in `operations/src/doko_operations/round_reconstruction.py` and `backend/src/dokodetector_backend/round_analysis_service.py` | Existing reconstruction engine, state transitions, result store, timeline, and counterfactual behavior remain authoritative | M7 pins a table-observation revision and explicit round context before queueing |
+| Round analysis input assembly in `operations/src/doko_operations/round_reconstruction_execution.py` and `backend/src/dokodetector_backend/round_analysis_service.py` | Existing reconstruction engine, state transitions, result store, timeline, and counterfactual behavior remain authoritative | M7 pins a table-observation revision and explicit round context before queueing |
 
 ## Historical legacy entry points
 

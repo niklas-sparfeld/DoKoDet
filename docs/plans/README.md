@@ -53,7 +53,6 @@ The shared target architecture is
 | --- | --- | --- |
 | [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M3 complete: evidence-package, repository-intake, recording, upload, and analysis boundaries are split with focused app workflow tests and unchanged UI-facing behavior. |
 | [0059 — Web workspace module boundaries](3-in-progress/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0–M6 complete: route and URL-state helpers, recording shell, inspector/history, Timeline Rail coordination, event-stage ownership, visible-card stage ownership, visual-identity stage ownership, and observation/round-analysis controls have focused sources and regression proof; M7 remains. |
-| [0057 — Operations module and public API boundaries](3-in-progress/0057-Operations_Module_and_Public_API_Boundaries.md) | 0053 discovery complete; 0056 complete | M0–M2 complete: the operations facade is removed, comparison contract and execution responsibilities are direct modules, and focused import and behavior checks pass; M3 remains. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -70,6 +69,7 @@ The shared target architecture is
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
 | [0058 — Backend pipeline service boundaries](5-closed/0058-Backend_Pipeline_Service_Boundaries.md) | Complete | M0–M4 complete: pipeline routes, execution, comparison, workspace composition, maintained-reference handlers, shared stores, and application construction have focused ownership with unchanged public contracts. |
+| [0057 — Operations module and public API boundaries](5-closed/0057-Operations_Module_and_Public_API_Boundaries.md) | Complete | M0–M3 complete: the eager operations facade is removed, pipeline comparison and round reconstruction have direct contract and execution modules, and focused import and behavior checks pass. |
 | [0056 — Superseded review and data interfaces](5-closed/0056-Superseded_Review_and_Data_Interfaces.md) | Complete | M0–M5 complete: removed the obsolete CardEventNet package-review and package-dataset commands, operations review orchestration, old batch stores, and old `doko data review` path; corrected active guidance and proved the retained command surface. |
 | [0053 — Agent navigation cleanup discovery](5-closed/0053-Agent_Navigation_Cleanup_Discovery.md) | Complete | Published a first-hop repository map and repeatable baseline. Ranked six cleanup areas as epics 0055–0060 for separate Terra specification. No cleanup was implemented. |
 | [0055 — Documentation authority and first hops](5-closed/0055-Documentation_Authority_and_First_Hops.md) | Complete | M0–M3 complete: the root authority route and component map are published, completed 0048/0049 handoffs no longer act as current guidance, and every executable component has an ownership and verification first hop. |
@@ -121,8 +121,7 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue epic 0057 with M3.** M2 is complete, so round reconstruction boundary work is ready.
-   Continue the active 0059 web and 0060 iOS module-boundary work in parallel.
+1. **Continue the active 0059 web and 0060 iOS module-boundary work.** Epic 0057 is complete.
 2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts

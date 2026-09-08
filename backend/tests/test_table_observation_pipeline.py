@@ -263,10 +263,10 @@ def test_persisted_analyzer_observation_runs_through_round_reconstruction_harnes
     repository_root = Path(__file__).parents[2]
     monkeypatch.syspath_prepend(str(repository_root / "operations" / "src"))
     monkeypatch.syspath_prepend(str(repository_root / "game_engine" / "src"))
-    from doko_operations.round_reconstruction import (
+    from doko_operations.round_reconstruction_contract import (
         parse_round_reconstruction_result_bytes,
-        run_round_reconstruction,
     )
+    from doko_operations.round_reconstruction_execution import run_round_reconstruction
 
     monkeypatch.chdir(repository_root / "backend")
     artifacts = run_round_reconstruction(request_path)

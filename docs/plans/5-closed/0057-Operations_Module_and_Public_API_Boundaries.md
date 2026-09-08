@@ -2,13 +2,13 @@
 
 ## Plan status
 
-- **Summary:** Remove the eager operations package facade. Split stable comparison and
+- **Summary:** Removed the eager operations package facade and split stable comparison and
   reconstruction responsibilities into direct contract and execution modules.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0053 discovery complete; 0056 complete
-- **Outcome:** A pipeline comparison or round reconstruction change uses a direct,
-  responsibility-focused import and focused tests without loading unrelated campaigns, review
-  batches, or model operations.
+- **Outcome:** Pipeline comparison and round reconstruction use direct, responsibility-focused
+  contract and execution modules with focused tests and isolated imports.
+- **Closure reason:** Complete
 - **Discovery evidence:** [Epic 0053 report](../../reports/0053-Agent_Navigation_Cleanup_Discovery.md)
 
 ## Milestone status
@@ -19,7 +19,7 @@
   imports, and added import-isolation coverage.
 - **M2:** Complete — split the pipeline comparison contract and execution boundary into direct
   modules, updated consumers, and preserved comparison behavior with focused regression coverage.
-- **M3:** Not started — split the round reconstruction contract and execution boundary.
+- **M3:** Complete — split the round reconstruction contract and execution boundary.
 
 ## Evidence and selected scope
 
@@ -34,14 +34,15 @@ operations tests. The backend consumer needs pipeline-data symbols. The test con
 symbols from the development-split, system-holdout, and visual-identity review-batch modules. All
 other backend consumers already import direct modules. The supported backend operations modules are
 `pipeline_data`, `pipeline_comparison_contract`, `pipeline_comparison_execution`, `derived_view`,
-`pipeline_reference`, `counterfactual`, and `round_reconstruction`.
+`pipeline_reference`, `counterfactual`, `round_reconstruction_contract`, and
+`round_reconstruction_execution`.
 
 The high-value safe seams are:
 
 - `pipeline_comparison.py` has separate schema and immutable contract records, parsers and
   serialization, event matching, and visible-card and visual-identity comparison execution.
-- `round_reconstruction.py` has separate request and result contracts, input loading and assembly,
-  game-engine translation, and artifact publication.
+- `round_reconstruction_contract.py` and `round_reconstruction_execution.py` separate request and
+  result contracts, input loading and assembly, game-engine translation, and artifact publication.
 
 `pipeline_data.py` is a direct, shared contract module already. Splitting it does not have a
 demonstrated context benefit. Do not split it in this epic.
@@ -132,3 +133,18 @@ and `uv run ruff check .` from `backend/`.
 Each delivery milestone fits one `gpt-5.6-luna` phase. Do not add compatibility re-exports, module
 aliases, or forwarding wrappers. Close this epic after M3 when the direct imports, focused tests,
 and import-isolation regression prove the stated outcome.
+
+#### M3 implementation evidence — 2026-09-08
+
+- Replaced the monolithic `round_reconstruction.py` with direct
+  `round_reconstruction_contract.py` and `round_reconstruction_execution.py` modules. The
+  contract module owns request and result records, validation, parsing, and canonical bytes. The
+  execution module owns observation loading and assembly, game-engine execution, result
+  translation, and artifact publication.
+- Updated backend, CLI, counterfactual, and test consumers to import the responsibility they use.
+  No compatibility facade, module alias, or forwarding wrapper remains.
+- Added reconstruction contract import-isolation coverage. Request and result bytes, result
+  status, published paths, and game-engine behavior remain unchanged.
+- Operations reconstruction and isolation tests passed with 37 tests. Backend round-analysis
+  contract and table-observation pipeline tests passed with 16 tests. Ruff checks passed in both
+  components, and the new operations modules pass the formatter check.

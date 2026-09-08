@@ -17,7 +17,7 @@ from game_engine import (
 from game_engine import canonical_json_bytes as canonical_engine_json_bytes
 from game_engine.contract import OBSERVATION_PROBABILITY_TOLERANCE
 
-from .round_reconstruction import (
+from .round_reconstruction_contract import (
     RoundReconstructionContractError,
     RoundReconstructionRunRequest,
     RoundReconstructionRunResult,
@@ -31,9 +31,9 @@ from .round_reconstruction import (
     _strict,
     _unique,
     canonical_result_bytes,
-    reconstruct_round_reconstruction_input,
     sha256_bytes,
 )
+from .round_reconstruction_execution import reconstruct_round_reconstruction_input
 
 ROUND_COUNTERFACTUAL_SCHEMA_VERSION = "round-analysis-counterfactual/v1"
 

@@ -16,7 +16,7 @@ from doko_operations.counterfactual import (
     CounterfactualProbabilityOverride,
     RoundCounterfactualRequest,
 )
-from doko_operations.round_reconstruction import (
+from doko_operations.round_reconstruction_contract import (
     RoundReconstructionContractError,
     RoundReconstructionRunResult,
     RoundSetup,
