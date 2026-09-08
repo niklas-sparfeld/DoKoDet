@@ -4,8 +4,12 @@
 
 - **Summary:** Separate clear backend pipeline responsibilities so one stage, reference, or
   workspace change does not require the complete pipeline service and API surface.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0053 discovery complete
+- **Closure reason:** Complete
+- **Closure note:** 2026-09-08. M0–M4 are complete. Pipeline routes, services, maintained-reference
+  handlers, shared stores, and application composition have focused ownership with unchanged
+  persisted and HTTP contracts.
 - **Outcome:** Backend pipeline code has explicit service, contract, route, and store ownership.
   A stage, reference, comparison, or workspace change has one focused service and test entry.
 - **Discovery evidence:** [Epic 0053 report](../../reports/0053-Agent_Navigation_Cleanup_Discovery.md)
@@ -23,8 +27,9 @@
 - **M3:** Complete — split maintained-reference commands into a common lifecycle facade and
   event, visible-card, and visual-identity handlers for edits, coverage, serialization, and
   downstream impact.
-- **M4:** Not started — make pipeline store ownership and application wiring explicit, then remove
-  obsolete compatibility imports and prove the final module boundaries.
+- **M4:** Complete — moved shared pipeline store and service construction into one explicit
+  composition helper, registered lifecycle services from that composition, removed internal
+  reference-service error re-exports, and verified backend and web contracts.
 
 ## M0 evidence and current ownership
 
@@ -96,6 +101,23 @@ Shared reference errors and identifier validation live in `pipeline_reference_er
 direct maintained-reference suite passes 13 tests. The M3 focused service/API suite passes 29
 tests; the two pre-existing visual-identity and round-analysis fixture failures remain unchanged.
 Ruff lint and formatting checks pass for the changed reference modules.
+
+## M4 evidence
+
+`pipeline_composition.py` is the application composition root for the pipeline. It creates one
+runtime storage, revision store, run store, selection store, and reference store, then constructs
+every pipeline service from those explicit dependencies. It installs the existing `app.state` keys
+without renaming them and returns the lifecycle-managed execution services. `app.py` keeps
+application-specific storage, recovery, route registration, and readiness behavior while using the
+composition helper for pipeline construction.
+
+The composition regression test proves shared store identity and the workspace recording-source
+dependency. Internal reference routes and tests import reference errors from their focused module;
+the service no longer acts as an error re-export surface. The complete backend suite has 222
+passing tests and 8 pre-existing observation/round-analysis and visual-identity fixture failures
+caused by the current `identity_status` contract mismatch. Full Ruff lint passes, and all changed
+M4 Python files pass formatting checks. OpenAPI regeneration produces no diff; web typecheck,
+lint, formatting, API verification, and 91 browser tests pass.
 
 ## Target module ownership
 

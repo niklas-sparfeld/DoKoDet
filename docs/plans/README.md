@@ -51,7 +51,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0058 — Backend pipeline service boundaries](3-in-progress/0058-Backend_Pipeline_Service_Boundaries.md) | 0053 discovery complete | M0–M3 complete: HTTP routes, execution, comparison, workspace composition, and maintained-reference handlers have focused backend modules with unchanged public contracts. M4 remains. |
 | [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M3 complete: evidence-package, repository-intake, recording, upload, and analysis boundaries are split with focused app workflow tests and unchanged UI-facing behavior. |
 | [0056 — Superseded review and data interfaces](3-in-progress/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | M0–M2 complete: CardEventNet package-review and package-dataset commands and command-only helpers are removed; M3–M5 remain. |
 | [0059 — Web workspace module boundaries](3-in-progress/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0–M2 complete: route and URL-state helpers, recording shell, inspector/history, and Timeline Rail coordination have focused sources and regression proof; M3–M7 remain. |
@@ -71,6 +70,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0058 — Backend pipeline service boundaries](5-closed/0058-Backend_Pipeline_Service_Boundaries.md) | Complete | M0–M4 complete: pipeline routes, execution, comparison, workspace composition, maintained-reference handlers, shared stores, and application construction have focused ownership with unchanged public contracts. |
 | [0053 — Agent navigation cleanup discovery](5-closed/0053-Agent_Navigation_Cleanup_Discovery.md) | Complete | Published a first-hop repository map and repeatable baseline. Ranked six cleanup areas as epics 0055–0060 for separate Terra specification. No cleanup was implemented. |
 | [0055 — Documentation authority and first hops](5-closed/0055-Documentation_Authority_and_First_Hops.md) | Complete | M0–M3 complete: the root authority route and component map are published, completed 0048/0049 handoffs no longer act as current guidance, and every executable component has an ownership and verification first hop. |
 | [0048 — Pipeline data and execution](5-closed/0048-Pipeline_Data_and_Execution.md) | Complete | M0–M10 complete: recording-video pipeline execution, maintained references with coverage and downstream impact validation, immutable dataset consumer manifests with explicit source/policy/lineage inputs, and the 0049 cutover handoff. Real-data quality measurement remains in 0043 and 0050. |

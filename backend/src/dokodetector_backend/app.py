@@ -18,30 +18,20 @@ from starlette.staticfiles import StaticFiles
 from dokodetector_backend.api import router
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
-from dokodetector_backend.event_pipeline_service import (
-    EventPipelineService,
-    EventProcessorProvider,
-)
+from dokodetector_backend.event_pipeline_service import EventProcessorProvider
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.gemini_analyzer import create_configured_analyzer
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
-from dokodetector_backend.observation_pipeline_service import ObservationPipelineService
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
 from dokodetector_backend.pipeline_api import router as pipeline_router
-from dokodetector_backend.pipeline_comparison_service import PipelineComparisonService
-from dokodetector_backend.pipeline_reference_service import PipelineReferenceService
-from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
-from dokodetector_backend.pipeline_store import (
-    PipelineRevisionStore,
-    PipelineRuntimeStorage,
-    PipelineSelectionStore,
-    ProcessorRunStore,
+from dokodetector_backend.pipeline_composition import (
+    build_pipeline_composition,
+    install_pipeline_composition,
 )
-from dokodetector_backend.pipeline_workspace_service import RecordingPipelineWorkspaceService
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
@@ -52,8 +42,6 @@ from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactSto
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.table_observation_store import TableObservationStore
-from dokodetector_backend.visible_card_pipeline_service import VisibleCardPipelineService
-from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
 
 if TYPE_CHECKING:
     from table_evidence_analyzer import TableEvidenceAnalyzer
@@ -75,14 +63,12 @@ def create_app(
     """Create the local backend application."""
 
     app_settings = settings or Settings()
+    lifecycle_services: tuple[Any, ...] = ()
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-        await application.state.event_pipeline_service.start()
-        await application.state.visible_card_pipeline_service.start()
-        await application.state.visual_identity_pipeline_service.start()
-        await application.state.observation_pipeline_service.start()
-        await application.state.round_analysis_service.start()
+        for service in lifecycle_services:
+            await service.start()
         log_event(
             LOGGER,
             logging.INFO,
@@ -93,11 +79,8 @@ def create_app(
         try:
             yield
         finally:
-            await application.state.event_pipeline_service.stop()
-            await application.state.visible_card_pipeline_service.stop()
-            await application.state.visual_identity_pipeline_service.stop()
-            await application.state.observation_pipeline_service.stop()
-            await application.state.round_analysis_service.stop()
+            for service in lifecycle_services:
+                await service.stop()
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
     app.state.settings = app_settings
@@ -116,48 +99,6 @@ def create_app(
         app_settings.repository_intake_root
     )
     app.state.recording_bundle_store = RecordingBundleStore(app.state.repository_bundle_storage)
-    pipeline_storage = PipelineRuntimeStorage(app_settings.evidence_root)
-    app.state.pipeline_revision_store = PipelineRevisionStore(pipeline_storage)
-    app.state.pipeline_run_store = ProcessorRunStore(
-        pipeline_storage,
-        revision_store=app.state.pipeline_revision_store,
-    )
-    app.state.pipeline_selection_store = PipelineSelectionStore(
-        pipeline_storage,
-        revision_store=app.state.pipeline_revision_store,
-        run_store=app.state.pipeline_run_store,
-    )
-    app.state.pipeline_reference_store = PipelineReferenceStore(
-        app_settings.operations_root / "pipeline-references"
-    )
-    app.state.pipeline_reference_service = PipelineReferenceService(
-        app_settings,
-        app.state.recording_bundle_store,
-        app.state.repository_bundle_storage,
-        reference_store=app.state.pipeline_reference_store,
-        revision_store=app.state.pipeline_revision_store,
-        selection_store=app.state.pipeline_selection_store,
-    )
-    app.state.event_pipeline_service = EventPipelineService(
-        app_settings,
-        app.state.recording_bundle_store,
-        app.state.repository_bundle_storage,
-        event_provider=event_provider,
-        revision_store=app.state.pipeline_revision_store,
-        run_store=app.state.pipeline_run_store,
-        selection_store=app.state.pipeline_selection_store,
-    )
-    app.state.pipeline_comparison_service = PipelineComparisonService(
-        revision_store=app.state.pipeline_revision_store,
-        run_store=app.state.pipeline_run_store,
-    )
-    recovered_event_count = app.state.event_pipeline_service.recover_interrupted_runs()
-    log_event(
-        LOGGER,
-        logging.DEBUG,
-        "event_pipeline_recovery_checked",
-        failed_count=recovered_event_count,
-    )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.readiness_state = "unknown"
     app.state.analyzer = analyzer or create_configured_analyzer(app_settings)
@@ -171,39 +112,23 @@ def create_app(
         if visible_card_identity_classifier is not None
         else getattr(app.state.analyzer, "classifier", None)
     )
-    app.state.visible_card_pipeline_service = VisibleCardPipelineService(
+    pipeline_composition = build_pipeline_composition(
         app_settings,
         app.state.recording_bundle_store,
         app.state.repository_bundle_storage,
-        detector_provider=app.state.visible_card_provider,
-        frame_resolver=visible_card_frame_resolver,
-        revision_store=app.state.pipeline_revision_store,
-        run_store=app.state.pipeline_run_store,
-        selection_store=app.state.pipeline_selection_store,
+        app.state.round_analysis_store,
+        visible_card_provider=app.state.visible_card_provider,
+        visible_card_frame_resolver=visible_card_frame_resolver,
+        visible_card_identity_classifier=app.state.visible_card_identity_classifier,
+        event_provider=event_provider,
     )
-    app.state.visual_identity_pipeline_service = VisualIdentityPipelineService(
-        app_settings,
-        app.state.recording_bundle_store,
-        app.state.repository_bundle_storage,
-        identity_classifier=app.state.visible_card_identity_classifier,
-        frame_resolver=visible_card_frame_resolver,
-        revision_store=app.state.pipeline_revision_store,
-        run_store=app.state.pipeline_run_store,
-        selection_store=app.state.pipeline_selection_store,
-    )
-    app.state.observation_pipeline_service = ObservationPipelineService(
-        revision_store=app.state.pipeline_revision_store,
-        run_store=app.state.pipeline_run_store,
-        selection_store=app.state.pipeline_selection_store,
-        runtime_root=app_settings.evidence_root,
-    )
-    app.state.pipeline_workspace_service = RecordingPipelineWorkspaceService(
-        recording_source_provider=app.state.event_pipeline_service.get_recording_source,
-        revision_store=app.state.pipeline_revision_store,
-        run_store=app.state.pipeline_run_store,
-        selection_store=app.state.pipeline_selection_store,
-        reference_store=app.state.pipeline_reference_store,
-        round_analysis_store=app.state.round_analysis_store,
+    install_pipeline_composition(app.state, pipeline_composition)
+    recovered_event_count = app.state.event_pipeline_service.recover_interrupted_runs()
+    log_event(
+        LOGGER,
+        logging.DEBUG,
+        "event_pipeline_recovery_checked",
+        failed_count=recovered_event_count,
     )
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
     recovered_analysis_count = app.state.round_analysis_store.fail_non_terminal()
@@ -231,6 +156,10 @@ def create_app(
         app.state.analyzer,
         pipeline_revision_store=app.state.pipeline_revision_store,
         pipeline_selection_store=app.state.pipeline_selection_store,
+    )
+    lifecycle_services = (
+        *pipeline_composition.lifecycle_services,
+        app.state.round_analysis_service,
     )
     register_error_handlers(app)
     app.include_router(router)

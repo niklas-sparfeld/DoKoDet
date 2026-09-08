@@ -21,10 +21,12 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.pipeline_reference_service import (
+from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
     PipelineReferenceCoverageError,
     PipelineReferenceInputError,
+)
+from dokodetector_backend.pipeline_reference_service import (
     PipelineReferenceService,
 )
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore

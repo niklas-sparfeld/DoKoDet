@@ -45,6 +45,33 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
     assert len(pipeline_router.routes) == len(child_routers)
 
 
+def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Path) -> None:
+    app = create_test_app(_settings(tmp_path))
+    with TestClient(app):
+        revision_store = app.state.pipeline_revision_store
+        run_store = app.state.pipeline_run_store
+        selection_store = app.state.pipeline_selection_store
+
+        services = (
+            app.state.event_pipeline_service,
+            app.state.visible_card_pipeline_service,
+            app.state.visual_identity_pipeline_service,
+            app.state.observation_pipeline_service,
+        )
+        assert all(service.revision_store is revision_store for service in services)
+        assert all(service.run_store is run_store for service in services)
+        assert all(service.selection_store is selection_store for service in services)
+        assert app.state.pipeline_reference_service.revision_store is revision_store
+        assert app.state.pipeline_reference_service.selection_store is selection_store
+        assert app.state.pipeline_workspace_service.revision_store is revision_store
+        assert app.state.pipeline_workspace_service.run_store is run_store
+        assert app.state.pipeline_workspace_service.selection_store is selection_store
+        assert (
+            app.state.pipeline_workspace_service.recording_source_provider.__self__
+            is app.state.event_pipeline_service
+        )
+
+
 class FakeEventProvider:
     def __init__(self, events: list[dict[str, object]] | None = None) -> None:
         self.events = events or [{"time_s": 0.5, "probability": 0.95}]

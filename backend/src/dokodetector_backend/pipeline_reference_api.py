@@ -8,7 +8,7 @@ from fastapi import APIRouter, Request
 
 from dokodetector_backend.errors import APIErrorDetail, ContractError
 from dokodetector_backend.pipeline_api_contracts import reference_response, validate_recording_id
-from dokodetector_backend.pipeline_reference_service import (
+from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
     PipelineReferenceCoverageError,
     PipelineReferenceError,
