@@ -7,7 +7,8 @@ from pathlib import Path
 
 UNRELATED_MODULES = (
     "doko_operations.cardevent_campaign",
-    "doko_operations.pipeline_comparison",
+    "doko_operations.pipeline_comparison_contract",
+    "doko_operations.pipeline_comparison_execution",
     "doko_operations.round_reconstruction",
     "doko_operations.table_evidence_campaign",
 )
@@ -38,6 +39,28 @@ print(json.dumps({{name: name in sys.modules for name in {UNRELATED_MODULES!r}}}
 
     loaded = json.loads(result.stdout)
     assert all(not loaded[name] for name in UNRELATED_MODULES)
+
+
+def test_pipeline_comparison_contract_does_not_load_execution_module() -> None:
+    probe = """
+import json
+import sys
+
+import doko_operations.pipeline_comparison_contract
+
+print(json.dumps({
+    "execution_loaded": "doko_operations.pipeline_comparison_execution" in sys.modules,
+}))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=Path(__file__).parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert json.loads(result.stdout) == {"execution_loaded": False}
 
 
 def test_removed_review_batch_modules_are_not_importable() -> None:

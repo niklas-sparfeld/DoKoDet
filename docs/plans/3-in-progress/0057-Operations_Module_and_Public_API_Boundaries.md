@@ -4,7 +4,7 @@
 
 - **Summary:** Remove the eager operations package facade. Split stable comparison and
   reconstruction responsibilities into direct contract and execution modules.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0053 discovery complete; 0056 complete
 - **Outcome:** A pipeline comparison or round reconstruction change uses a direct,
   responsibility-focused import and focused tests without loading unrelated campaigns, review
@@ -17,7 +17,8 @@
   verification.
 - **M1:** Complete — removed the eager package facade, converted its consumers to direct module
   imports, and added import-isolation coverage.
-- **M2:** Not started — split the pipeline comparison contract and execution boundary.
+- **M2:** Complete — split the pipeline comparison contract and execution boundary into direct
+  modules, updated consumers, and preserved comparison behavior with focused regression coverage.
 - **M3:** Not started — split the round reconstruction contract and execution boundary.
 
 ## Evidence and selected scope
@@ -31,9 +32,9 @@ unrelated review-batch and model-operation modules.
 Only three tracked consumers use the package facade: backend `pipeline_service.py` and two
 operations tests. The backend consumer needs pipeline-data symbols. The test consumers need
 symbols from the development-split, system-holdout, and visual-identity review-batch modules. All
-other backend consumers already import direct modules. The supported backend contract modules are
-`pipeline_data`, `pipeline_comparison`, `derived_view`, `pipeline_reference`, `counterfactual`,
-and `round_reconstruction`.
+other backend consumers already import direct modules. The supported backend operations modules are
+`pipeline_data`, `pipeline_comparison_contract`, `pipeline_comparison_execution`, `derived_view`,
+`pipeline_reference`, `counterfactual`, and `round_reconstruction`.
 
 The high-value safe seams are:
 
@@ -99,6 +100,21 @@ Extend focused comparison regression coverage before the move. Run
 `uv run pytest tests/test_pipeline_comparison.py` and `uv run ruff check .` from `operations/`,
 then `uv run pytest tests/test_pipeline_comparison_api.py` and `uv run ruff check .` from
 `backend/`.
+
+#### M2 implementation evidence — 2026-09-08
+
+- Replaced the monolithic `pipeline_comparison.py` with direct
+  `pipeline_comparison_contract.py` and `pipeline_comparison_execution.py` modules. The contract
+  module owns schemas, canonical bytes, parsing, immutable request and result records, and scope
+  normalization. The execution module owns event, visible-card, and visual-identity matching and
+  comparison.
+- Updated the backend comparison service and focused operations and backend tests to import the
+  responsibility they use. No compatibility facade, alias, or forwarding wrapper remains.
+- Extended import-isolation coverage to prove a clean contract import does not load the execution
+  module. Comparison JSON, matching outcomes, and API behavior remain unchanged.
+- Focused operations comparison, vision, and isolation tests passed. Focused backend comparison
+  and vision API tests passed. Ruff checks passed in both components, and touched operations files
+  pass the formatter check.
 
 ### M3 — Round reconstruction contract and execution boundary
 

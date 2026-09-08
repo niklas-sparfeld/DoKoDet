@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from doko_operations.pipeline_comparison import (
+from doko_operations.pipeline_comparison_contract import (
     EventMatchingPolicy,
     PipelineComparisonScope,
     canonical_pipeline_comparison_request_bytes,
-    compare_event_data,
-    match_event_records,
     parse_pipeline_comparison_request_bytes,
 )
+from doko_operations.pipeline_comparison_execution import compare_event_data, match_event_records
 from doko_operations.pipeline_data import EventData, EventRecord
 
 

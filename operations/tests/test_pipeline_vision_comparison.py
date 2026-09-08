@@ -14,9 +14,11 @@ from table_evidence_analyzer.pipeline_data import (
     VisualIdentityOutcome,
 )
 
-from doko_operations.pipeline_comparison import (
+from doko_operations.pipeline_comparison_contract import (
     EventMatchingPolicy,
     build_frame_comparison_scope,
+)
+from doko_operations.pipeline_comparison_execution import (
     compare_visible_card_data,
     compare_visual_identity_data,
     geometry_box,

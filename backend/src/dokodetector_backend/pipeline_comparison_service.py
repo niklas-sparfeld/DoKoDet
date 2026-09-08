@@ -6,7 +6,7 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from doko_operations.pipeline_comparison import (
+from doko_operations.pipeline_comparison_contract import (
     PIPELINE_COMPARISON_ALGORITHM_VERSION,
     PipelineComparison,
     PipelineComparisonContractError,
@@ -16,10 +16,12 @@ from doko_operations.pipeline_comparison import (
     PipelineComparisonSide,
     build_comparison_scope,
     build_frame_comparison_scope,
+    normalize_event_coverage,
+)
+from doko_operations.pipeline_comparison_execution import (
     compare_event_data,
     compare_visible_card_data,
     compare_visual_identity_data,
-    normalize_event_coverage,
 )
 from doko_operations.pipeline_data import canonical_json_bytes
 

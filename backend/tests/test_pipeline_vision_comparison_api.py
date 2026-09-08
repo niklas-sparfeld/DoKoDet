@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from app_factory import create_test_app
-from doko_operations.pipeline_comparison import canonical_pipeline_comparison_bytes
+from doko_operations.pipeline_comparison_contract import canonical_pipeline_comparison_bytes
 from doko_operations.pipeline_data import (
     DataRevision,
     ImplementationIdentity,

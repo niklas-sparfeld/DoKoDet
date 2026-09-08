@@ -46,7 +46,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0057 — Operations module and public API boundaries](2-ready/0057-Operations_Module_and_Public_API_Boundaries.md) | 0053 discovery complete; 0056 complete | M0–M1 complete. M2–M3 are ready to split comparison and reconstruction responsibilities. |
 
 ### In Progress
 
@@ -54,6 +53,7 @@ The shared target architecture is
 | --- | --- | --- |
 | [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M3 complete: evidence-package, repository-intake, recording, upload, and analysis boundaries are split with focused app workflow tests and unchanged UI-facing behavior. |
 | [0059 — Web workspace module boundaries](3-in-progress/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0–M5 complete: route and URL-state helpers, recording shell, inspector/history, Timeline Rail coordination, event-stage ownership, visible-card stage ownership, and visual-identity stage ownership have focused sources and regression proof; M6–M7 remain. |
+| [0057 — Operations module and public API boundaries](3-in-progress/0057-Operations_Module_and_Public_API_Boundaries.md) | 0053 discovery complete; 0056 complete | M0–M2 complete: the operations facade is removed, comparison contract and execution responsibilities are direct modules, and focused import and behavior checks pass; M3 remains. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
 ### Blocked
@@ -121,8 +121,8 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Start epic 0057 with M2.** Epic 0056 is complete, so comparison and reconstruction boundary
-   work is ready. Continue the active 0059 web and 0060 iOS module-boundary work in parallel.
+1. **Continue epic 0057 with M3.** M2 is complete, so round reconstruction boundary work is ready.
+   Continue the active 0059 web and 0060 iOS module-boundary work in parallel.
 2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
    source-lineage groups, create paired completed maintained visible-card and visual identity
    references. Then confirm a disjoint development and validation partition. Keep sealed holdouts
