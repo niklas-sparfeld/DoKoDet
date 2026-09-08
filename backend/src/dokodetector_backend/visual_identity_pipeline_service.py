@@ -194,7 +194,7 @@ class VisualIdentityPipelineService:
             output_encoding=outcome.crop_identity.output_encoding,
             cache=self.storage.pipeline_root / "derived-views",
         )
-        if crop.identity_mapping() != outcome.crop_identity.to_mapping():
+        if _pipeline_crop_identity_mapping(crop) != outcome.crop_identity.to_mapping():
             raise DerivedViewError("the resolved identity crop changed")
         return crop
 
@@ -438,7 +438,9 @@ class VisualIdentityPipelineService:
                 output_encoding=str(crop_policy.get("output_encoding", "ppm")),
                 cache=self.storage.pipeline_root / "derived-views",
             )
-            crop_identity = VisualIdentityCropIdentity.from_mapping(crop.identity_mapping())
+            crop_identity = VisualIdentityCropIdentity.from_mapping(
+                _pipeline_crop_identity_mapping(crop)
+            )
         except (DerivedViewError, OSError, RuntimeError, ValueError):
             return VisualIdentityOutcome(
                 card_id=card.card_id,
@@ -676,6 +678,15 @@ def _file_identity(path: Path) -> tuple[int, str]:
             length += len(chunk)
             digest.update(chunk)
     return length, digest.hexdigest()
+
+
+def _pipeline_crop_identity_mapping(crop: ResolvedCrop) -> dict[str, Any]:
+    """Adapt the derived-view crop identity to the stored pipeline contract."""
+
+    mapping = crop.identity_mapping()
+    for field in ("exclusion_inputs", "exclusion_decisions", "exclusion_policy"):
+        mapping.pop(field, None)
+    return mapping
 
 
 def _now() -> str:

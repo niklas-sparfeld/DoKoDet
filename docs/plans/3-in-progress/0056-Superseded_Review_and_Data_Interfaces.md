@@ -20,8 +20,9 @@
 - **M3:** Complete — removed obsolete event and table-observation review orchestration, adapters,
   exports, tests, and the `doko data review` command branch. Read-only status inspection of old
   review-run artifacts remains independent of the removed command.
-- **M4:** Not started — remove obsolete visible-card and visual-identity batch stores and exports
-  after retaining the pipeline and 0051 validator seams.
+- **M4:** Complete — removed obsolete visible-card and visual-identity batch stores, their
+  batch-only identity dataset adapter, focused tests, and import surfaces while retaining the
+  pipeline crop seam and 0051 derived-view contracts.
 - **M5:** Not started — remove obsolete command guidance and prove the reduced supported-command
   surface.
 
@@ -63,7 +64,7 @@ map; this epic removes only guidance for removed interfaces.
 | CardEventNet `review-queue`, `review`, and `apply-review` | CLI tests and package-era review guides | Remove with M1 if no untracked recovery runbook names the command. Keep event-model training, inference, evaluation, and export commands. |
 | CardEventNet `dataset-build`, `dataset-split`, `dataset-validate`, `dataset-coverage`, `training-receipt`, and `retire-source` | CLI tests and package-era lifecycle guides | Remove in M2. They build or maintain package-backed table-observation datasets. Do not remove source intake, model training, or export. |
 | `CardEventReviewStore`, `TableEvidenceReviewAdapter`, and `TableObservationReviewAdapter` | Operations exports and the old `doko data review` path | Removed in M3. Read-only status inspection of old review-run artifacts remains in intake; pipeline references own review lifecycle validation. |
-| `VisibleCardReviewBatchStore` and `VisualCardIdentityReviewBatchStore` | Operations exports and their focused tests | Remove in M4. The pipeline owns run, revision, and maintained-reference lifecycle. |
+| `VisibleCardReviewBatchStore` and `VisualCardIdentityReviewBatchStore` | Operations exports and their focused tests | Removed in M4. The pipeline owns run, revision, and maintained-reference lifecycle. |
 | TableEvidenceAnalyzer visible-card review workflow, freeze, and targeted-round validators | `visible_card_targeted_round.py`, CLI tests, and active 0051 work | Retain. They are not package-backed backend orchestration. Any M4 extraction must preserve their data contracts and 0051 behavior. |
 | Device evidence-package acceptance and validation | Recording-bundle showcase, fixture tests, and recovery path | Retain. It is a showcase boundary, not a recording-pipeline input. |
 
@@ -104,6 +105,20 @@ and their generic review-run module and focused tests are removed. The backend c
 ends after recording-pipeline analysis and restart reconstruction instead of invoking the retired
 review command. Intake keeps its read-only recognition of old review-run artifacts so existing
 repository status remains inspectable without retaining the command or its write path.
+
+## M4 result
+
+The operations package no longer contains the visible-card or visual-identity batch stores, their
+batch-only persistence helpers, or their focused store tests. The obsolete visual-card identity
+dataset adapter is removed with the old identity batch path. A subprocess import regression test
+proves the retired module paths are unavailable, while the active pipeline dataset boundary stays
+in `pipeline_dataset.py`.
+
+The recording pipeline keeps its current crop identity contract. The derived-view crop seam retains
+the 0051 exclusion lineage, and the backend adapter strips only that derived-view-only metadata
+before reading the unchanged stored pipeline crop contract. Raw rectangular crops continue to work
+with reviewed geometry. TableEvidenceAnalyzer review, freeze, and targeted-round behavior is
+unchanged and remains covered by its focused tests.
 
 ## Delivery milestones
 

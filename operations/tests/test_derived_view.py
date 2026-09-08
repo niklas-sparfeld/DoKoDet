@@ -218,6 +218,12 @@ def test_geometry_tags_keep_detector_boxes_separate_from_disconnected_reviewed_r
         crop_policy="oracle_visible_region",
         cache=cache,
     )
+    reviewed_raw_crop = resolve_visible_region_crop(
+        frame,
+        reviewed,
+        crop_policy="raw_rectangular",
+        cache=cache,
+    )
 
     assert detector_crop.status == "usable"
     assert detector_crop.pixel_bounds is not None
@@ -249,6 +255,8 @@ def test_geometry_tags_keep_detector_boxes_separate_from_disconnected_reviewed_r
     assert regenerated.image_bytes == detector_crop.image_bytes
     assert reviewed_crop.status == "usable"
     assert reviewed_crop.pixel_bounds == detector_crop.pixel_bounds
+    assert reviewed_raw_crop.status == "usable"
+    assert reviewed_raw_crop.pixel_bounds == detector_crop.pixel_bounds
     assert parse_geometry(detector.to_mapping()) == detector
     assert parse_geometry(reviewed.to_mapping()) == reviewed
     with Image.open(BytesIO(reviewed_crop.image_bytes or b"")) as crop:

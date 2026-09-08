@@ -846,7 +846,6 @@ class VisibleRegionCropRequest:
         if self.crop_policy not in SUPPORTED_CROP_POLICIES:
             raise DerivedViewError("unsupported crop policy")
         expected_geometry = {
-            "raw_rectangular": DetectorBoxGeometry,
             "generated_other_region_exclusion": DetectorBoxGeometry,
             "reviewed_other_region_exclusion": DetectorBoxGeometry,
             "predicted_visible_region": PredictedVisibleRegionGeometry,
