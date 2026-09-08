@@ -293,6 +293,95 @@ describe("PipelineCardEventEditor", () => {
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBeUndefined();
   });
 
+  it("renders the selected generated event in the inspector", async () => {
+    const result = {
+      run_id: "run-1",
+      recording_id: recordingId,
+      processor_type: "card-event-detector",
+      status: "completed",
+      attempt: 1,
+      request: {},
+      state: {},
+      revisions: [
+        {
+          manifest: { revision_id: "generated-1" },
+          content: {
+            schema_version: "event-data/v1",
+            events: [
+              {
+                event_id: "generated-event-1",
+                event_type: "card_played",
+                start_us: 2_000_001,
+                end_us: 2_100_001,
+              },
+              {
+                event_id: "generated-event-2",
+                event_type: "trick_cleared",
+                start_us: 3_000_001,
+                end_us: 3_100_001,
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(response(result)),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <PipelineCardEventEditor
+        recordingId={recordingId}
+        durationUs={5_000_000}
+        generatedRevisionId="generated-1"
+        generatedRunId="run-1"
+        selectionItemId="generated-event-2"
+        view="generated"
+      />,
+    );
+
+    expect(
+      await screen.findByText("Trick Cleared at 0:03.000001"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("0:03.000001")).toBeInTheDocument();
+  });
+
+  it("reports maintained event rail items and the selected event", async () => {
+    const server = referenceResponse([eventItem()]);
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(response(server)),
+    );
+    const onRailItemsChange = vi.fn();
+
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <PipelineCardEventEditor
+        recordingId={recordingId}
+        durationUs={5_000_000}
+        generatedRevisionId="generated-1"
+        generatedRunId={null}
+        view="reviewed"
+        onRailItemsChange={onRailItemsChange}
+      />,
+    );
+
+    expect(
+      await screen.findByText("Card Played at 0:01.000000"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(onRailItemsChange).toHaveBeenLastCalledWith([
+        {
+          itemId: "event-1",
+          label: "Card Played",
+          state: "pending",
+          startUs: 1_000_000,
+          endUs: 1_200_000,
+        },
+      ]),
+    );
+  });
+
   it("uses the source video and Timeline Rail selection instead of an event table", async () => {
     const server = referenceResponse([eventItem()]);
     const fetchMock = vi.fn<typeof fetch>(() =>

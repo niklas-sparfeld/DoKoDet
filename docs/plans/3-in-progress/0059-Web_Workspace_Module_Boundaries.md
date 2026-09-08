@@ -56,7 +56,8 @@ focused tests move with their responsibility.
   preserved existing URL shapes and canonical recording redirects.
 - **M2:** Complete — isolated the recording workspace shell, inspector/history, and recording-wide
   Timeline Rail coordination surfaces.
-- **M3:** Not started — give the event stage editor local source and inspector ownership.
+- **M3:** Complete — give the event stage editor local source, generated-result, inspector, and
+  presentation ownership.
 - **M4:** Not started — give the visible-card stage editor local frame and inspector ownership.
 - **M5:** Not started — give the visual-identity stage editor local source and inspector ownership.
 - **M6:** Not started — separate observation and round-analysis controls into local command and
@@ -126,6 +127,19 @@ Acceptance checks:
 - Focused event tests cover draft save, retry, generated selection, inspector selection, and rail items.
 - `npm run check` passes.
 - The pipeline browser test still covers generated suggestions, failed jobs, reload, and conflict recovery.
+
+#### M3 implementation evidence — 2026-09-08
+
+- Added focused event types, formatting, source/generated presentation, inspector portal, and CSS
+  module boundaries. The editor keeps maintained-reference commands, selected event state, and
+  Timeline Rail callbacks at the editor boundary.
+- Removed event-only review-panel, form, frame-readout, and action selectors from `App.module.css`;
+  shared selectors remain available to the other stage editors.
+- Added focused assertions for draft save and retry/conflict behavior, generated selection,
+  inspector selection, and Timeline Rail item callbacks.
+- `npm run check` passed with 93 tests. The pipeline browser suite passed all four tests, including
+  generated suggestions, failed jobs, cold reload, conflict recovery, viewport bounds, and retired
+  route handling.
 
 ### M4 — Visible-card stage ownership
 

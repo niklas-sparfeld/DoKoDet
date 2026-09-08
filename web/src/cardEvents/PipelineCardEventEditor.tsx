@@ -1,13 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type RefObject,
-} from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -19,41 +10,32 @@ import {
   type PipelineReferenceResource,
 } from "../api/client";
 import styles from "../App.module.css";
+import eventStyles from "./PipelineCardEventEditor.module.css";
+import {
+  eventTypeGuidance,
+  formatIdentifier,
+} from "./PipelineCardEventFormatting";
+import {
+  EventDetails,
+  EventSourceSurface,
+  GeneratedEventView,
+  ReviewCount,
+} from "./PipelineCardEventPresentation";
+import {
+  EventInspectorPortals,
+  useEventInspectorSlots,
+} from "./PipelineCardEventInspector";
+import {
+  PIPELINE_CARD_EVENT_TYPES,
+  type EditableEvent,
+  type EventState,
+  type PendingCommand,
+  type PipelineCardEventType,
+  type PipelineEvent,
+  type SaveState,
+} from "./PipelineCardEventTypes";
 
-export const PIPELINE_CARD_EVENT_TYPES = [
-  "card_played",
-  "trick_cleared",
-  "card_moved",
-  "card_removed",
-  "card_returned",
-  "multiple_cards_dropped",
-  "anomalous_state_change",
-] as const;
-
-type PipelineCardEventType = (typeof PIPELINE_CARD_EVENT_TYPES)[number];
-type EventState =
-  "pending" | "accepted" | "rejected" | "added" | "corrected" | "affected";
-type PipelineEvent = {
-  event_id: string;
-  event_type: PipelineCardEventType;
-  start_us: number;
-  end_us: number;
-  model_scores?: Array<Record<string, unknown>>;
-};
-type EditableEvent = {
-  localId: string;
-  itemId: string;
-  baseItemId: string | null;
-  reviewState: EventState;
-  event: PipelineEvent;
-};
-type SaveState = "saved" | "saving" | "retrying" | "error" | "conflict";
-type PendingCommand = {
-  commandId: string;
-  operation: PipelineReferenceOperation;
-  notice: string;
-  attempts: number;
-};
+export { PIPELINE_CARD_EVENT_TYPES } from "./PipelineCardEventTypes";
 
 export type PipelineCardEventRailItem = {
   itemId: string;
@@ -128,11 +110,7 @@ export function PipelineCardEventEditor({
   const [coverageComplete, setCoverageComplete] = useState(false);
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
-  const [inspectorSlots, setInspectorSlots] = useState<{
-    action: HTMLElement;
-    save: HTMLElement;
-    selection: HTMLElement;
-  } | null>(null);
+  const inspectorSlots = useEventInspectorSlots(inspectorEnabled, view);
 
   const frameRate = 30;
 
@@ -337,24 +315,6 @@ export function PipelineCardEventEditor({
       video.removeEventListener("ended", update);
     };
   }, [durationUs, reference]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const action = document.querySelector<HTMLElement>(
-        '[data-event-inspector-slot="action"]',
-      );
-      const save = document.querySelector<HTMLElement>(
-        '[data-event-inspector-slot="save"]',
-      );
-      const selection = document.querySelector<HTMLElement>(
-        '[data-event-inspector-slot="selection"]',
-      );
-      if (action !== null && save !== null && selection !== null) {
-        setInspectorSlots({ action, save, selection });
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [inspectorEnabled, view]);
 
   useEffect(() => {
     if (view !== "reviewed") {
@@ -871,13 +831,10 @@ export function PipelineCardEventEditor({
       onReviewRequested={onReviewRequested}
     />
   );
-  const fallbackInspector = null;
-
   if (view === "generated") {
     return (
       <>
         {inspector}
-        {fallbackInspector}
         <GeneratedEventView
           events={generatedEvents}
           loading={generatedLoading}
@@ -896,7 +853,6 @@ export function PipelineCardEventEditor({
     return (
       <>
         {inspector}
-        {fallbackInspector}
         <p className={styles.detailEmptyState}>
           Loading maintained event reference…
         </p>
@@ -906,7 +862,6 @@ export function PipelineCardEventEditor({
     return (
       <>
         {inspector}
-        {fallbackInspector}
         <EventSourceSurface
           videoRef={videoRef}
           videoUrl={videoUrl}
@@ -920,7 +875,7 @@ export function PipelineCardEventEditor({
           showCoverageControls={onRailItemsChange === undefined}
         />
         <section
-          className={styles.cardEventReviewPanel}
+          className={eventStyles.reviewPanel}
           aria-label="Start event review"
         >
           <p className={styles.detailLead}>
@@ -935,12 +890,11 @@ export function PipelineCardEventEditor({
   return (
     <>
       {inspector}
-      {fallbackInspector}
       <section
-        className={styles.cardEventPipelineEditor}
+        className={eventStyles.pipelineEditor}
         aria-label="CardEvent maintained reference editor"
       >
-        <div className={styles.cardEventReviewHeader}>
+        <div className={eventStyles.reviewHeader}>
           <div>
             <p className={styles.statusLabel}>Maintained reference</p>
             <h3>CardEvent review</h3>
@@ -950,17 +904,14 @@ export function PipelineCardEventEditor({
                 : `Used generated events ${reference.draft.source_revision_id}`}
             </p>
           </div>
-          <div
-            className={styles.cardEventReviewCounts}
-            aria-label="Event counts"
-          >
+          <div className={eventStyles.reviewCounts} aria-label="Event counts">
             <ReviewCount label="Accepted" value={acceptedCount} />
             <ReviewCount label="Pending" value={pendingCount} />
             <ReviewCount label="Rejected" value={rejectedCount} />
           </div>
         </div>
 
-        <div className={styles.cardEventPipelineVideoGrid}>
+        <div className={eventStyles.pipelineVideoGrid}>
           <EventSourceSurface
             videoRef={videoRef}
             videoUrl={videoUrl}
@@ -993,7 +944,7 @@ export function PipelineCardEventEditor({
           )}
         </div>
 
-        <div className={styles.cardEventGuidance}>
+        <div className={eventStyles.guidance}>
           <details>
             <summary>Keyboard shortcuts</summary>
             <p>
@@ -1020,7 +971,7 @@ export function PipelineCardEventEditor({
           </p>
         ) : null}
         {inspectorSlots === null && error !== null ? (
-          <div className={styles.cardEventError} role="alert">
+          <div className={eventStyles.error} role="alert">
             <p>
               {saveState === "conflict"
                 ? `Conflict: the first unapplied command is ${firstUnappliedCommand ?? "unknown"}. ${error}`
@@ -1030,629 +981,6 @@ export function PipelineCardEventEditor({
         ) : null}
       </section>
     </>
-  );
-}
-
-type EventInspectorSlots = {
-  action: HTMLElement;
-  save: HTMLElement;
-  selection: HTMLElement;
-};
-
-type EventInspectorProps = {
-  slots: EventInspectorSlots | null;
-  inspectorEnabled: boolean;
-  view: "generated" | "reviewed";
-  reference: PipelineReferenceResource | null;
-  generatedEvents: PipelineEvent[];
-  generatedRevisionId: string | null;
-  generatedLoading: boolean;
-  selectedEvent: EditableEvent | undefined;
-  selectedGeneratedEvent: PipelineEvent | undefined;
-  pendingCount: number;
-  acceptedCount: number;
-  rejectedCount: number;
-  saveState: SaveState;
-  queueLength: number;
-  firstUnappliedCommand: string | null;
-  error: string | null;
-  operatorId: string;
-  reviewerId: string;
-  setOperatorId: (value: string) => void;
-  setReviewerId: (value: string) => void;
-  creatingReference: boolean;
-  completionBusy: boolean;
-  completionBlocker: string | null;
-  watchedPercent: number;
-  watchedThroughUs: number;
-  coverageComplete: boolean;
-  durationUs: number;
-  addEvent: () => void;
-  markCoverage: () => void;
-  retryQueuedCommands: () => void;
-  reloadWinningDraft: () => Promise<void>;
-  completeReference: () => Promise<void>;
-  createReference: () => Promise<void>;
-  onReviewRequested?: () => void;
-};
-
-function EventInspectorPortals(props: EventInspectorProps) {
-  const content = (
-    <>
-      <EventInspectorAction {...props} />
-      <EventInspectorSaveState {...props} />
-      <EventInspectorSelection {...props} />
-    </>
-  );
-  if (!props.inspectorEnabled) {
-    return null;
-  }
-  if (props.slots === null) {
-    return <div className={styles.cardEventStandaloneInspector}>{content}</div>;
-  }
-  return (
-    <>
-      {createPortal(<EventInspectorAction {...props} />, props.slots.action)}
-      {createPortal(<EventInspectorSaveState {...props} />, props.slots.save)}
-      {createPortal(
-        <EventInspectorSelection {...props} />,
-        props.slots.selection,
-      )}
-    </>
-  );
-}
-
-function EventInspectorAction({
-  view,
-  reference,
-  generatedEvents,
-  generatedRevisionId,
-  operatorId,
-  reviewerId,
-  setOperatorId,
-  setReviewerId,
-  creatingReference,
-  completionBusy,
-  completionBlocker,
-  completeReference,
-  createReference,
-  onReviewRequested,
-}: EventInspectorProps) {
-  if (view === "generated") {
-    return (
-      <>
-        <p className={styles.statusLabel}>Primary action</p>
-        <h2 id="pipeline-inspector-action">Review generated events</h2>
-        <p className={styles.pipelineInspectorEmpty}>
-          {generatedLoadingLabel(generatedEvents.length, generatedRevisionId)}
-        </p>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={onReviewRequested}
-          disabled={onReviewRequested === undefined}
-        >
-          Review
-        </button>
-      </>
-    );
-  }
-  if (reference === null) {
-    return (
-      <>
-        <p className={styles.statusLabel}>Primary action</p>
-        <h2 id="pipeline-inspector-action">Start event review</h2>
-        <p className={styles.pipelineInspectorEmpty}>
-          Copy the selected generated result into the maintained reference.
-        </p>
-        <label className={styles.pipelineSelector}>
-          <span>Operator ID</span>
-          <input
-            value={operatorId}
-            onChange={(event) => setOperatorId(event.target.value)}
-            placeholder="operator-01"
-          />
-        </label>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => void createReference()}
-          disabled={creatingReference || operatorId.trim() === ""}
-        >
-          {creatingReference ? "Starting review…" : "Start review"}
-        </button>
-      </>
-    );
-  }
-  return (
-    <>
-      <p className={styles.statusLabel}>Primary action</p>
-      <h2 id="pipeline-inspector-action">
-        {reference.state.draft_state === "completed"
-          ? "Publish corrected reference"
-          : "Complete event review"}
-      </h2>
-      {completionBlocker !== null ? (
-        <p className={styles.detailBlocker} role="alert">
-          {completionBlocker}
-        </p>
-      ) : null}
-      <label className={styles.pipelineSelector}>
-        <span>Operator ID</span>
-        <input
-          value={operatorId}
-          onChange={(event) => setOperatorId(event.target.value)}
-          placeholder="operator-01"
-        />
-      </label>
-      <label className={styles.pipelineSelector}>
-        <span>Reviewer ID</span>
-        <input
-          value={reviewerId}
-          onChange={(event) => setReviewerId(event.target.value)}
-          placeholder="reviewer-01"
-        />
-      </label>
-      <button
-        className={styles.primaryButton}
-        type="button"
-        onClick={() => void completeReference()}
-        disabled={completionBusy || completionBlocker !== null}
-      >
-        {completionBusy
-          ? "Completing reference…"
-          : reference.state.draft_state === "completed"
-            ? "Publish corrected reference"
-            : "Complete reference"}
-      </button>
-    </>
-  );
-}
-
-function EventInspectorSaveState({
-  view,
-  saveState,
-  queueLength,
-  firstUnappliedCommand,
-  error,
-  retryQueuedCommands,
-  reloadWinningDraft,
-}: EventInspectorProps) {
-  return (
-    <div className={styles.cardEventInspectorState}>
-      <div className={styles.pipelineInspectorSectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Save or execution state</p>
-          <h2 id="pipeline-inspector-save-state">
-            {view === "generated"
-              ? "Read-only result"
-              : formatIdentifier(saveState)}
-          </h2>
-        </div>
-        <ReviewStateBadge value={view === "generated" ? "saved" : saveState} />
-      </div>
-      {error !== null ? (
-        <div className={styles.cardEventError} role="alert">
-          <p>
-            {saveState === "conflict"
-              ? `Conflict: the first unapplied command is ${firstUnappliedCommand ?? "unknown"}. ${error}`
-              : error}
-          </p>
-          <div className={styles.cardEventErrorActions}>
-            {saveState === "conflict" ? (
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={() => void reloadWinningDraft()}
-              >
-                Reload winning draft and retry
-              </button>
-            ) : null}
-            {queueLength > 0 &&
-            (saveState === "error" || saveState === "retrying") ? (
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={retryQueuedCommands}
-              >
-                Retry queued commands
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function EventInspectorSelection({
-  slots,
-  view,
-  reference,
-  selectedEvent,
-  selectedGeneratedEvent,
-  pendingCount,
-  acceptedCount,
-  rejectedCount,
-  watchedPercent,
-  watchedThroughUs,
-  coverageComplete,
-  durationUs,
-  addEvent,
-  markCoverage,
-}: EventInspectorProps) {
-  return (
-    <div className={styles.cardEventInspectorSelection}>
-      <p className={styles.statusLabel}>Event selection</p>
-      <div className={styles.cardEventReviewCounts} aria-label="Event counts">
-        <ReviewCount label="Accepted" value={acceptedCount} />
-        <ReviewCount label="Pending" value={pendingCount} />
-        <ReviewCount label="Rejected" value={rejectedCount} />
-      </div>
-      <p className={styles.pipelineInspectorEmpty}>
-        {view === "reviewed"
-          ? selectedEvent === undefined
-            ? "Select an event from the Timeline Rail."
-            : `${formatIdentifier(selectedEvent.event.event_type)} at ${formatMicroseconds(selectedEvent.event.start_us)}`
-          : selectedGeneratedEvent === undefined
-            ? "Select a proposal from the Timeline Rail."
-            : `${formatIdentifier(selectedGeneratedEvent.event_type)} at ${formatMicroseconds(selectedGeneratedEvent.start_us)}`}
-      </p>
-      {view === "reviewed" && reference !== null && slots !== null ? (
-        <>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={addEvent}
-          >
-            Add event at playhead
-          </button>
-          <div className={styles.cardEventCoverageInspector}>
-            <span>Full-recording coverage</span>
-            <strong>{Math.round(watchedPercent)}% watched</strong>
-            <progress
-              max={100}
-              value={watchedPercent}
-              aria-label="Full-recording coverage"
-            />
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              disabled={durationUs <= 0 || watchedThroughUs < durationUs}
-              onClick={markCoverage}
-            >
-              {coverageComplete
-                ? "Full recording covered"
-                : "Mark full recording covered"}
-            </button>
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function generatedLoadingLabel(
-  count: number,
-  revisionId: string | null,
-): string {
-  return revisionId === null
-    ? "No generated revision is selected."
-    : `${count} generated suggestion${count === 1 ? "" : "s"} · immutable source result.`;
-}
-
-function EventSourceSurface({
-  videoRef,
-  videoUrl,
-  recordingId,
-  watchedPercent,
-  watchedThroughUs,
-  coverageComplete,
-  durationUs,
-  onAddEvent,
-  onMarkCoverage,
-  showCoverageControls,
-}: {
-  videoRef: RefObject<HTMLVideoElement | null>;
-  videoUrl: string;
-  recordingId: string;
-  watchedPercent: number;
-  watchedThroughUs: number;
-  coverageComplete: boolean;
-  durationUs: number;
-  onAddEvent: () => void;
-  onMarkCoverage: () => void;
-  showCoverageControls: boolean;
-}) {
-  return (
-    <div className={styles.cardEventSourceSurface}>
-      <video
-        ref={videoRef}
-        className={styles.cardEventSourceVideo}
-        data-recording-source-video={recordingId}
-        src={videoUrl}
-        controls
-        preload="metadata"
-        aria-label={`CardEvent source video ${recordingId}`}
-      />
-      {showCoverageControls ? (
-        <div className={styles.cardEventCoverage}>
-          <span>Full-recording coverage</span>
-          <strong>{Math.round(watchedPercent)}% watched</strong>
-          <progress
-            max={100}
-            value={watchedPercent}
-            aria-label="Full-recording coverage"
-          />
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={onAddEvent}
-          >
-            Add event at playhead
-          </button>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            disabled={durationUs <= 0 || watchedThroughUs < durationUs}
-            onClick={onMarkCoverage}
-          >
-            {coverageComplete
-              ? "Full recording covered"
-              : "Mark full recording covered"}
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function GeneratedEventView({
-  events,
-  loading,
-  revisionId,
-  videoUrl,
-  durationUs,
-  selectedEvent,
-  videoRef,
-  recordingId,
-}: {
-  events: PipelineEvent[];
-  loading: boolean;
-  revisionId: string | null;
-  videoUrl: string;
-  durationUs: number;
-  selectedEvent: PipelineEvent | undefined;
-  videoRef: RefObject<HTMLVideoElement | null>;
-  recordingId: string;
-}) {
-  return (
-    <section
-      className={styles.cardEventReviewPanel}
-      aria-label="Generated event result"
-    >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Generated result</p>
-          <h3>Event suggestions</h3>
-        </div>
-        <span className={styles.countLabel}>
-          {events.length} event{events.length === 1 ? "" : "s"}
-        </span>
-      </div>
-      <p className={styles.detailLead}>
-        Generated events are immutable suggestions. Choose Review to copy this
-        exact result into the maintained reference.
-      </p>
-      {revisionId !== null ? (
-        <p className={styles.pipelineUrlState}>Source revision {revisionId}</p>
-      ) : null}
-      {loading ? (
-        <p className={styles.detailEmptyState}>Loading generated events…</p>
-      ) : events.length === 0 ? (
-        <p className={styles.detailEmptyState}>
-          No generated event result is selected.
-        </p>
-      ) : (
-        <div className={styles.cardEventGeneratedSurface}>
-          <video
-            ref={videoRef}
-            className={styles.cardEventSourceVideo}
-            data-recording-source-video={recordingId}
-            src={videoUrl}
-            controls
-            preload="metadata"
-            aria-label="CardEvent generated result source video"
-          />
-          {selectedEvent === undefined ? (
-            <p className={styles.detailEmptyState}>
-              Select a proposal from the Timeline Rail.
-            </p>
-          ) : (
-            <dl className={styles.pipelineInspectorFacts}>
-              <div>
-                <dt>Selected proposal</dt>
-                <dd>{formatIdentifier(selectedEvent.event_type)}</dd>
-              </div>
-              <div>
-                <dt>Time</dt>
-                <dd>
-                  <span>{formatMicroseconds(selectedEvent.start_us)}</span>–
-                  <span>{formatMicroseconds(selectedEvent.end_us)}</span>
-                </dd>
-              </div>
-              <div>
-                <dt>Source</dt>
-                <dd>{formatDuration(durationUs)} accepted video</dd>
-              </div>
-            </dl>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function EventDetails({
-  event,
-  durationUs,
-  editable,
-  onChange,
-  onAccept,
-  onReject,
-  onUndo,
-  onNudge,
-}: {
-  event: EditableEvent;
-  durationUs: number;
-  editable: boolean;
-  onChange: (changes: Partial<PipelineEvent>) => void;
-  onAccept: () => void;
-  onReject: () => void;
-  onUndo: () => void;
-  onNudge: (delta: -1 | 1) => void;
-}) {
-  const duration = Math.max(0, durationUs) / 1_000_000;
-  const updateNumber = (field: "start_us" | "end_us", value: string) => {
-    const seconds = Number(value);
-    if (Number.isFinite(seconds))
-      onChange({ [field]: Math.round(seconds * 1_000_000) });
-  };
-  return (
-    <section
-      className={styles.cardEventFormPanel}
-      aria-label="Selected event details"
-    >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Selected event</p>
-          <h3>Event details</h3>
-        </div>
-        <ReviewStateBadge value={event.reviewState} />
-      </div>
-      <div className={styles.cardEventFormGrid}>
-        <label>
-          Start time (seconds)
-          <input
-            type="number"
-            min="0"
-            max={duration}
-            step="0.000001"
-            value={event.event.start_us / 1_000_000}
-            disabled={!editable}
-            onChange={(input) => updateNumber("start_us", input.target.value)}
-            aria-label="Start time for selected event"
-          />
-        </label>
-        <label>
-          End time (seconds)
-          <input
-            type="number"
-            min="0"
-            max={duration}
-            step="0.000001"
-            value={event.event.end_us / 1_000_000}
-            disabled={!editable}
-            onChange={(input) => updateNumber("end_us", input.target.value)}
-            aria-label="End time for selected event"
-          />
-        </label>
-        <label>
-          Event type
-          <select
-            value={event.event.event_type}
-            disabled={!editable}
-            onChange={(input: ChangeEvent<HTMLSelectElement>) =>
-              onChange({
-                event_type: input.target.value as PipelineCardEventType,
-              })
-            }
-            aria-label="Event type for selected event"
-          >
-            {PIPELINE_CARD_EVENT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {formatIdentifier(type)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className={styles.cardEventFrameReadout}>
-          <span>Start frame</span>
-          <strong>{Math.round((event.event.start_us / 1_000_000) * 30)}</strong>
-        </div>
-      </div>
-      <div
-        className={styles.cardEventVideoActions}
-        aria-label="Selected event actions"
-      >
-        {event.reviewState === "pending" || event.reviewState === "affected" ? (
-          <>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={onAccept}
-            >
-              Accept suggestion
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={onReject}
-            >
-              Reject suggestion
-            </button>
-          </>
-        ) : event.reviewState === "rejected" ? (
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={onUndo}
-          >
-            Undo rejection
-          </button>
-        ) : (
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={onReject}
-          >
-            Remove event
-          </button>
-        )}
-        <button
-          className={styles.secondaryButton}
-          type="button"
-          onClick={() => onNudge(-1)}
-          disabled={!editable}
-        >
-          Nudge -1 frame
-        </button>
-        <button
-          className={styles.secondaryButton}
-          type="button"
-          onClick={() => onNudge(1)}
-          disabled={!editable}
-        >
-          Nudge +1 frame
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function ReviewCount({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <span className={styles.statusLabel}>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-function ReviewStateBadge({ value }: { value: string }) {
-  return (
-    <span className={styles.status} data-state={value}>
-      {formatIdentifier(value)}
-    </span>
   );
 }
 
@@ -1766,33 +1094,6 @@ function compareEvents(left: EditableEvent, right: EditableEvent): number {
 }
 function clampMicroseconds(value: number, durationUs: number): number {
   return Math.min(Math.max(0, Math.round(value)), Math.max(0, durationUs));
-}
-function formatMicroseconds(value: number): string {
-  const seconds = value / 1_000_000;
-  return `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(6).padStart(9, "0")}`;
-}
-function formatDuration(value: number): string {
-  const seconds = Math.floor(value / 1_000_000);
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
-function formatIdentifier(value: string): string {
-  return value
-    .replaceAll("_", " ")
-    .replaceAll("-", " ")
-    .toLowerCase()
-    .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
-}
-function eventTypeGuidance(type: PipelineCardEventType): string {
-  return {
-    card_played: "A card reaches its final position in the trick area.",
-    trick_cleared: "The cards from the completed trick leave the play area.",
-    card_moved: "An existing card changes position without being played.",
-    card_removed: "A card leaves the visible play area for another reason.",
-    card_returned: "A card returns to a hand or another known area.",
-    multiple_cards_dropped: "Several cards enter the play area together.",
-    anomalous_state_change:
-      "A visible state change does not match the other types.",
-  }[type];
 }
 function describeCommand(command: PendingCommand | undefined): string {
   return command === undefined
