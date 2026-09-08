@@ -31,15 +31,17 @@ FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v
 RECORDING_ID = "recording-both"
 
 
-def _settings(tmp_path: Path) -> Settings:
-    return Settings(
-        _env_file=None,
-        repository_root=tmp_path,
-        evidence_root=tmp_path / "runtime",
-        repository_intake_root=tmp_path / "recordings",
-        evidence_package_intake_root=tmp_path / "evidence-packages",
-        pending_video_root=tmp_path / "pending-videos",
-    )
+def _settings(tmp_path: Path, **values: object) -> Settings:
+    defaults: dict[str, object] = {
+        "_env_file": None,
+        "repository_root": tmp_path,
+        "evidence_root": tmp_path / "runtime",
+        "repository_intake_root": tmp_path / "recordings",
+        "evidence_package_intake_root": tmp_path / "evidence-packages",
+        "pending_video_root": tmp_path / "pending-videos",
+    }
+    defaults.update(values)
+    return Settings(**defaults)
 
 
 def _install_recording(tmp_path: Path) -> None:
@@ -186,6 +188,11 @@ class _Detector:
         return ProviderResult(status="ok")
 
 
+class _GeminiDetector(_Detector):
+    name = "gemini"
+    version = "gemini-visible-cards-v1"
+
+
 def _wait(client: TestClient, run_id: str) -> dict:
     deadline = time.monotonic() + 5
     body: dict = {}
@@ -291,6 +298,7 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
         assert generated_content["outcomes"][0]["candidates"][0]["geometry"]["kind"] == (
             "detector-box/v1"
         )
+        assert generated_content["outcomes"][2]["error"] == "fixture detector failed"
         assert generated_content["outcomes"][2]["frame_identity"] is not None
         assert generated_content["outcomes"][3]["frame_identity"] is None
         generated_card_id = generated_content["outcomes"][0]["candidates"][0]["card_id"]
@@ -337,6 +345,43 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
         assert [
             outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
         ] == ["detected", "empty", "failed", "failed"]
+
+
+def test_visible_card_pipeline_uses_configured_gemini_model_for_provider_placeholder(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path, gemini_model="gemini-test-model"),
+        event_provider=_EventProvider(),
+        visible_card_provider=_GeminiDetector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-for-model"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-for-model")
+        event_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-model/result"
+        ).json()
+        event_revision_id = event_result["state"]["output_revision_ids"][0]
+
+        request = app.state.visible_card_pipeline_service._build_request(
+            RECORDING_ID,
+            {
+                "run_id": "visible-for-model",
+                "event_revision_id": event_revision_id,
+                "model": {"name": "gemini", "version": "gemini-visible-cards-v1"},
+            },
+        )
+
+    assert request.model is not None
+    assert request.model.name == "gemini-test-model"
+    assert request.model.version == "gemini-visible-cards-v1"
 
 
 def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: Path) -> None:

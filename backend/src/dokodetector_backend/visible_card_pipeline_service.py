@@ -235,10 +235,14 @@ class VisibleCardPipelineService:
             "implementation",
             {"name": "visible-card-detector-adapter", "version": "v1"},
         )
-        values.setdefault(
-            "model",
-            {"name": provider_name, "version": provider_version},
-        )
+        model_placeholder = {"name": provider_name, "version": provider_version}
+        if values.get("model") is None or values.get("model") == model_placeholder:
+            values["model"] = {
+                "name": self.settings.gemini_model
+                if provider_name == "gemini"
+                else provider_name,
+                "version": provider_version,
+            }
         configuration = values.get("configuration", {})
         if not isinstance(configuration, Mapping):
             raise VisibleCardPipelineInputError("configuration must be an object.")
@@ -385,7 +389,8 @@ class VisibleCardPipelineService:
                 frame_identity=frame_identity,
                 status="failed",
                 candidates=(),
-                error="The visible-card detector returned no result for this event.",
+                error=result.error
+                or "The visible-card detector returned no result for this event.",
             )
         candidates = tuple(
             self._candidate(run, event.event_id, frame, index, proposal, result)
