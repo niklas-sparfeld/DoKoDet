@@ -17,8 +17,9 @@
   handlers, command-only helpers, focused tests, and current command guidance.
 - **M2:** Complete — removed the unconsumed CardEventNet table-observation dataset commands,
   package-backed dataset assembler, and package-only lifecycle helpers.
-- **M3:** Not started — remove obsolete event and table-observation review adapters from
-  operations after retaining any shared parsing or validation contract.
+- **M3:** Complete — removed obsolete event and table-observation review orchestration, adapters,
+  exports, tests, and the `doko data review` command branch. Read-only status inspection of old
+  review-run artifacts remains independent of the removed command.
 - **M4:** Not started — remove obsolete visible-card and visual-identity batch stores and exports
   after retaining the pipeline and 0051 validator seams.
 - **M5:** Not started — remove obsolete command guidance and prove the reduced supported-command
@@ -61,7 +62,7 @@ map; this epic removes only guidance for removed interfaces.
 | CardEventNet `vision-import`, `vision-review`, and `vision-apply-review` | CLI tests and package-era lifecycle guides | Remove in M1. They import evidence packages as pipeline inputs, which the recording pipeline replaces. |
 | CardEventNet `review-queue`, `review`, and `apply-review` | CLI tests and package-era review guides | Remove with M1 if no untracked recovery runbook names the command. Keep event-model training, inference, evaluation, and export commands. |
 | CardEventNet `dataset-build`, `dataset-split`, `dataset-validate`, `dataset-coverage`, `training-receipt`, and `retire-source` | CLI tests and package-era lifecycle guides | Remove in M2. They build or maintain package-backed table-observation datasets. Do not remove source intake, model training, or export. |
-| `CardEventReviewStore`, `TableEvidenceReviewAdapter`, and `TableObservationReviewAdapter` | Operations exports and the old `doko data review` path | Remove in M3 after preserving any standalone schema parser that a retained command needs. Pipeline references own review lifecycle validation. |
+| `CardEventReviewStore`, `TableEvidenceReviewAdapter`, and `TableObservationReviewAdapter` | Operations exports and the old `doko data review` path | Removed in M3. Read-only status inspection of old review-run artifacts remains in intake; pipeline references own review lifecycle validation. |
 | `VisibleCardReviewBatchStore` and `VisualCardIdentityReviewBatchStore` | Operations exports and their focused tests | Remove in M4. The pipeline owns run, revision, and maintained-reference lifecycle. |
 | TableEvidenceAnalyzer visible-card review workflow, freeze, and targeted-round validators | `visible_card_targeted_round.py`, CLI tests, and active 0051 work | Retain. They are not package-backed backend orchestration. Any M4 extraction must preserve their data contracts and 0051 behavior. |
 | Device evidence-package acceptance and validation | Recording-bundle showcase, fixture tests, and recovery path | Retain. It is a showcase boundary, not a recording-pipeline input. |
@@ -94,6 +95,15 @@ receipt builders, source-retirement helpers, focused tests, and current package 
 are removed. The shared `data_contract` types and table-observation annotation schema remain for
 recording-pipeline contracts and validation. Source intake and inspection remain available, with
 source-import receipts as the only CardEventNet lifecycle receipt boundary.
+
+## M3 result
+
+The operations package no longer registers `doko data review` or imports the package-backed review
+orchestration. The obsolete event adapter, `CardEventReviewStore`, table-evidence review adapters,
+and their generic review-run module and focused tests are removed. The backend clean-room test now
+ends after recording-pipeline analysis and restart reconstruction instead of invoking the retired
+review command. Intake keeps its read-only recognition of old review-run artifacts so existing
+repository status remains inspectable without retaining the command or its write path.
 
 ## Delivery milestones
 

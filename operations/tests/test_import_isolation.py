@@ -7,10 +7,8 @@ from pathlib import Path
 
 UNRELATED_MODULES = (
     "doko_operations.cardevent_campaign",
-    "doko_operations.cardevent_review",
     "doko_operations.pipeline_comparison",
     "doko_operations.round_reconstruction",
-    "doko_operations.table_evidence",
     "doko_operations.table_evidence_campaign",
     "doko_operations.visible_card_review_batch",
     "doko_operations.visual_card_identity_review_batch",

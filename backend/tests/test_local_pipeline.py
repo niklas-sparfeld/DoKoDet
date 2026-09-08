@@ -318,11 +318,11 @@ def test_pending_video_clean_room_survives_restart_and_completes(
     ).read_bytes() == video
 
 
-def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
+def test_saved_video_clean_room_reaches_restart_safe_pipeline_state(
     local_backend: LocalBackend,
     tmp_path: Path,
 ) -> None:
-    """Exercise the complete local recording, intake, review, and publication workflow."""
+    """Exercise the complete local recording, intake, analysis, and restart workflow."""
 
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
@@ -500,158 +500,6 @@ def test_saved_video_clean_room_reaches_commit_ready_independent_tasks(
     assert rebuilt_analysis.json()["result"] == analysis_status["result"]
     assert (evidence_package_root / evidence_package_id).is_dir()
 
-    intake_root = Path(local_backend.environment["REPOSITORY_INTAKE_ROOT"])
-    artifacts_root = tmp_path / "operations"
-    first = run_doko(
-        "data",
-        "review",
-        "--repository-root",
-        REPOSITORY_ROOT,
-        "--intake-root",
-        intake_root,
-        "--evidence-package-root",
-        evidence_package_root,
-        "--artifacts-root",
-        artifacts_root,
-        "--task",
-        "all",
-        "--reviewer",
-        "m11-clean-room",
-        "--format",
-        "json",
-    )
-    assert first["state"] == "in_progress"
-    assert first["next_action"] is not None
-    assert "Review" in first["next_action"]
-    first_state = _read_review_state(artifacts_root, first["run_id"])
-
-    cardevent_items = next(
-        task["items"]
-        for task in first_state["tasks"]
-        if task["task"] == "cardevent_event_detection"
-    )
-    table_items = next(
-        task["items"] for task in first_state["tasks"] if task["task"] == "table_evidence_analysis"
-    )
-    assert cardevent_items and table_items
-    source_digests = {
-        json.loads((intake_root / recording_id / "source-record.json").read_text())["sha256"]
-    }
-
-    card_decisions = tmp_path / "cardevent-decisions.json"
-    card_decisions.write_text(
-        json.dumps(
-            {item["item_id"]: {"outcome": "reviewed"} for item in cardevent_items},
-            sort_keys=True,
-        )
-    )
-    card_complete = run_doko(
-        "data",
-        "review",
-        "--repository-root",
-        REPOSITORY_ROOT,
-        "--intake-root",
-        intake_root,
-        "--evidence-package-root",
-        evidence_package_root,
-        "--artifacts-root",
-        artifacts_root,
-        "--task",
-        "all",
-        "--reviewer",
-        "m11-clean-room",
-        "--decision-file",
-        card_decisions,
-        "--approve-split",
-        "--format",
-        "json",
-    )
-    assert card_complete["state"] == "in_progress"
-    card_task = next(
-        task for task in card_complete["tasks"] if task["task"] == "cardevent_event_detection"
-    )
-    table_task = next(
-        task for task in card_complete["tasks"] if task["task"] == "table_evidence_analysis"
-    )
-    assert card_task["state"] == "complete"
-    assert card_task["published_outputs"]
-    assert table_task["state"] != "complete"
-    assert not table_task["published_outputs"]
-
-    all_decisions = tmp_path / "all-decisions.json"
-    all_decisions.write_text(
-        json.dumps(
-            {item["item_id"]: {"outcome": "reviewed"} for item in (*cardevent_items, *table_items)},
-            sort_keys=True,
-        )
-    )
-    completed = run_doko(
-        "data",
-        "review",
-        "--repository-root",
-        REPOSITORY_ROOT,
-        "--intake-root",
-        intake_root,
-        "--evidence-package-root",
-        evidence_package_root,
-        "--artifacts-root",
-        artifacts_root,
-        "--task",
-        "all",
-        "--reviewer",
-        "m11-clean-room",
-        "--decision-file",
-        all_decisions,
-        "--approve-split",
-        "--format",
-        "json",
-    )
-    assert completed["state"] == "complete"
-    assert {task["task"] for task in completed["tasks"]} == {
-        "cardevent_event_detection",
-        "table_evidence_analysis",
-    }
-    assert all(task["state"] == "complete" for task in completed["tasks"])
-    assert completed["commit_ready_files"]
-    assert all(
-        (Path(path) if Path(path).is_absolute() else REPOSITORY_ROOT / path).is_file()
-        for path in completed["commit_ready_files"]
-    )
-
-    validation = run_doko(
-        "data",
-        "validate",
-        "--repository-root",
-        REPOSITORY_ROOT,
-        "--intake-root",
-        intake_root,
-        "--evidence-package-root",
-        evidence_package_root,
-        "--artifacts-root",
-        artifacts_root,
-        "--format",
-        "json",
-    )
-    assert validation["valid"] is True
-    published_root = artifacts_root / "published"
-    assert {path.name for path in published_root.iterdir() if path.is_dir()} == {
-        "cardevent_event_detection",
-        "table_evidence_analysis",
-    }
-    assert not any(
-        path.suffix.lower() in {".mov", ".mp4", ".m4v"}
-        for path in published_root.rglob("*")
-        if path.is_file()
-    )
-    for path in published_root.rglob("*.json"):
-        payload = json.loads(path.read_text())
-        assert set(_source_digests(payload)) <= source_digests, path
-    completed_state = _read_review_state(artifacts_root, completed["run_id"])
-    report = Path(completed_state["report_path"])
-    if not report.is_absolute():
-        report = REPOSITORY_ROOT / report
-    assert report.is_file()
-
 
 def run_doko(*arguments: object) -> dict[str, Any]:
     """Run the repository-operations CLI and decode its machine-readable result."""
@@ -680,27 +528,6 @@ def run_doko(*arguments: object) -> dict[str, Any]:
         timeout=180,
     )
     return json.loads(completed.stdout)
-
-
-def _read_review_state(artifacts_root: Path, run_id: str) -> dict[str, Any]:
-    return json.loads(
-        (artifacts_root / "review-runs" / run_id / "state.json").read_text(encoding="utf-8")
-    )
-
-
-def _source_digests(value: object) -> list[str]:
-    """Collect source digests from nested published JSON values."""
-
-    if isinstance(value, dict):
-        result: list[str] = []
-        for key, nested in value.items():
-            if key == "source_sha256" and isinstance(nested, str):
-                result.append(nested)
-            result.extend(_source_digests(nested))
-        return result
-    if isinstance(value, list):
-        return [digest for nested in value for digest in _source_digests(nested)]
-    return []
 
 
 def run_ios(*arguments: object) -> dict[str, Any]:

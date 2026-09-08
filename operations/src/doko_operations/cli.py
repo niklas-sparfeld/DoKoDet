@@ -50,13 +50,6 @@ from .resilience_comparison import (
     run_resilience_comparison,
     write_resilience_comparison,
 )
-from .review import (
-    REVIEW_TASK_ALL,
-    ReviewRunError,
-    render_review_human,
-    render_review_json,
-    run_review,
-)
 from .round_reconstruction import (
     RoundReconstructionContractError,
     run_round_reconstruction,
@@ -68,7 +61,6 @@ from .system_holdout import (
     SystemHoldoutFixtureRunner,
     evaluate_system_holdout,
 )
-from .table_evidence import TABLE_EVIDENCE_TASK, TableObservationReviewAdapter
 from .table_evidence_campaign import (
     TableEvidenceFixtureCommandRunner,
     promote_table_evidence_campaign,
@@ -177,55 +169,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     adopt.add_argument("--format", choices=("human", "json"), default="human")
     adopt.add_argument("--json", action="store_true", help="Alias for --format json.")
-    review = data_commands.add_parser(
-        "review",
-        help="Create or resume one task review run.",
-        description="Create or resume one task review run.",
-    )
-    _add_path_options(review, suppress_defaults=True)
-    review.add_argument(
-        "--task",
-        choices=("cardevent_event_detection", "table_evidence_analysis", REVIEW_TASK_ALL),
-        required=True,
-    )
-    review.add_argument("--reviewer", required=True, help="Stable reviewer name.")
-    review.add_argument(
-        "--run-id", default=None, help="Resume this run instead of the deterministic default."
-    )
-    review.add_argument(
-        "--decision-file", type=Path, default=None, help="JSON map of item IDs to decision objects."
-    )
-    review.add_argument(
-        "--approve-split", action="store_true", help="Approve any staged split proposal."
-    )
-    review.add_argument(
-        "--evidence-root",
-        action="append",
-        type=Path,
-        default=[],
-        help="Read-only root containing accepted evidence packages (repeatable).",
-    )
-    review.add_argument(
-        "--reviewed-events-root",
-        action="append",
-        type=Path,
-        default=[],
-        help="Read-only root containing reviewed event documents (repeatable).",
-    )
-    review.add_argument(
-        "--operator-selection-file",
-        type=Path,
-        default=None,
-        help="JSON file containing explicit operator-selected intervals.",
-    )
-    review.add_argument(
-        "--holdout-registry",
-        type=Path,
-        default=None,
-        help="Path to the shared system holdout registry.",
-    )
-    review.add_argument("--format", choices=("human", "json"), default="human")
-    review.add_argument("--json", action="store_true", help="Alias for --format json.")
     holdout = data_commands.add_parser("holdout", help="Manage the shared system holdout registry.")
     holdout_commands = holdout.add_subparsers(dest="holdout_command", metavar="COMMAND")
     seal = holdout_commands.add_parser(
@@ -747,47 +690,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"path: {result['path']}\n"
             )
         return 0
-    if args.command == "data" and args.data_command == "review":
-        try:
-            config = RepositoryConfig.from_environment(
-                args.repository_root,
-                intake_root=args.intake_root,
-                evidence_package_root=args.evidence_package_root,
-                pending_video_root=args.pending_video_root,
-                artifacts_root=args.artifacts_root,
-            )
-            provider = _decision_provider(args.decision_file)
-            split_provider = (lambda task, state: True) if args.approve_split else None
-            adapters = None
-            if args.evidence_root or args.reviewed_events_root or args.operator_selection_file:
-                adapters = {
-                    TABLE_EVIDENCE_TASK: TableObservationReviewAdapter(
-                        evidence_roots=args.evidence_root,
-                        reviewed_event_roots=args.reviewed_events_root,
-                        operator_selection_file=args.operator_selection_file,
-                    )
-                }
-            result = run_review(
-                config.repository_root,
-                task=args.task,
-                reviewer=args.reviewer,
-                bundle_root=config.bundle_root,
-                evidence_package_root=config.evidence_package_intake_root,
-                artifacts_root=config.derived_artifact_root,
-                run_id=args.run_id,
-                decision_provider=provider,
-                split_approval_provider=split_provider,
-                adapters=adapters,
-                holdout_registry_path=args.holdout_registry,
-            )
-        except (ConfigurationError, OSError, ReviewRunError) as error:
-            print(f"error: {error}", file=sys.stderr)
-            return 2
-        if args.json or args.format == "json":
-            sys.stdout.write(render_review_json(result, repository_root=config.repository_root))
-        else:
-            sys.stdout.write(render_review_human(result, repository_root=config.repository_root))
-        return 1 if result.state == "failed" else 0
     if args.command == "model":
         if args.model_command is None:
             model_parser = next(
@@ -1041,28 +943,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         )
     return 1 if args.data_command == "validate" and not result.valid else 0
-
-
-def _decision_provider(path: Path | None):
-    if path is None:
-        return None
-    try:
-        value = __import__("json").loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError) as error:
-        raise ReviewRunError(f"Could not read decision file {path}: {error}") from error
-    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
-        raise ReviewRunError("Decision file must be a JSON object keyed by review item ID.")
-    decisions = dict(value)
-
-    def provide(item):
-        decision = decisions.get(item.item_id)
-        if decision is None:
-            return None
-        if not isinstance(decision, dict):
-            raise ReviewRunError(f"Decision for {item.item_id} must be a JSON object.")
-        return decision
-
-    return provide
 
 
 def _render_impact_human(result: dict) -> str:

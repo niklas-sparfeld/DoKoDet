@@ -52,7 +52,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0060 — iOS capture module boundaries](3-in-progress/0060-iOS_Capture_Module_Boundaries.md) | 0053 discovery complete | M0–M3 complete: evidence-package, repository-intake, recording, upload, and analysis boundaries are split with focused app workflow tests and unchanged UI-facing behavior. |
-| [0056 — Superseded review and data interfaces](3-in-progress/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | M0–M2 complete: CardEventNet package-review and package-dataset commands and command-only helpers are removed; M3–M5 remain. |
+| [0056 — Superseded review and data interfaces](3-in-progress/0056-Superseded_Review_and_Data_Interfaces.md) | 0053 discovery complete | M0–M3 complete: CardEventNet package-review and package-dataset commands, operations review orchestration, and the old `doko data review` path are removed; M4–M5 remain. |
 | [0059 — Web workspace module boundaries](3-in-progress/0059-Web_Workspace_Module_Boundaries.md) | 0053 discovery complete | M0–M2 complete: route and URL-state helpers, recording shell, inspector/history, and Timeline Rail coordination have focused sources and regression proof; M3–M7 remain. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
 
