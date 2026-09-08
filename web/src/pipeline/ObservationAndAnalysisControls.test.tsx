@@ -6,6 +6,8 @@ import {
   ObservationRunControls,
   RoundAnalysisControls,
 } from "./ObservationAndAnalysisControls";
+import { parseSearchLimits } from "./RoundAnalysisFormatting";
+import { analysisPath } from "./roundAnalysisUrl";
 
 function stage(
   key: PipelineWorkspaceStage["key"],
@@ -62,6 +64,7 @@ function runResponse(status = "complete") {
 describe("observation and analysis controls", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("submits only the backend-approved exact revision set", async () => {
@@ -217,6 +220,93 @@ describe("observation and analysis controls", () => {
     });
     expect(onSelectAnalysis).toHaveBeenCalledWith(
       "550e8400-e29b-41d4-a716-446655440033",
+    );
+  });
+
+  it("blocks round analysis when the command context is incomplete", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(new Response("Not found", { status: 404 })),
+      ),
+    );
+    const observation = stage("table_observations", {
+      input_options: [
+        {
+          revision_id: "observations-1",
+          content_type: "table_observations",
+          origin: "processor",
+          completion_state: "complete",
+          coverage_state: "assembled-events",
+          display_label: "Generated observations",
+          content_sha256: "a".repeat(64),
+          input_revision_ids: [],
+          producer: {},
+          coverage: {},
+          created_at: "2026-09-06T00:00:00Z",
+        },
+      ],
+    });
+
+    render(
+      <RoundAnalysisControls
+        recordingId="recording-controls"
+        stage={{
+          ...stage("round_analyses"),
+          input_options: observation.input_options,
+        }}
+        selectedAnalysisId={null}
+        onRefresh={async () => undefined}
+        onSelectAnalysis={() => undefined}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start reconstruction" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Enter an explicit game ID before starting round analysis.",
+    );
+  });
+
+  it("retains a failed observation run in the history with a retry action", () => {
+    const failedRun = {
+      ...runResponse("failed"),
+      failure: { message: "processor failed" },
+      implementation: { name: "observation-assembler", version: "v1" },
+      model: null,
+      configuration: {},
+      extraction_policy: { policy_id: "exact-event/v1" },
+      crop_policy: null,
+      input_revision_ids: ["events-1", "visible-1", "identity-1"],
+    };
+    render(
+      <ObservationRunControls
+        recordingId="recording-controls"
+        stage={stage("table_observations", { runs: [failedRun] })}
+        stages={[]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    expect(
+      screen.getByText("Retained assembly runs and actual inputs"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Retry same run" }),
+    ).toHaveLength(1);
+  });
+
+  it("validates search limits and creates an encoded analysis path", () => {
+    expect(parseSearchLimits("0", "256", "250000")).toEqual({
+      max_missing_plays: 0,
+      max_hypotheses: 256,
+      max_search_nodes: 250000,
+    });
+    expect(parseSearchLimits("-1", "256", "250000")).toBeNull();
+    expect(analysisPath("recording/1", "analysis?1")).toBe(
+      "/recordings/recording%2F1/pipeline/round_analyses?analysis=analysis%3F1",
     );
   });
 });

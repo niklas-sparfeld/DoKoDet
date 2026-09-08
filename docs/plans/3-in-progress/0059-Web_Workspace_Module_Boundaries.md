@@ -60,8 +60,8 @@ focused tests move with their responsibility.
   presentation ownership.
 - **M4:** Complete — give the visible-card stage editor local frame and inspector ownership.
 - **M5:** Complete — give the visual-identity stage editor local source and inspector ownership.
-- **M6:** Not started — separate observation and round-analysis controls into local command and
-  history surfaces.
+- **M6:** Complete — separate observation and round-analysis command state, status/history
+  presentation, and the local analysis URL helper.
 - **M7:** Not started — separate analysis timeline/source-detail presentation from analysis
   formatting helpers and local styles.
 
@@ -201,6 +201,19 @@ Acceptance checks:
 - Focused controls tests cover command validation, run state, history, and analysis-path creation.
 - `npm run check` passes.
 - The pipeline browser test preserves fresh and failed processor workflows.
+
+#### M6 implementation evidence — 2026-09-08
+
+- Split observation command state and run presentation into `ObservationRunControls.tsx`,
+  `ObservationRunFormatting.ts`, and `ObservationRunPresentation.tsx`.
+- Split round-analysis command state and status/history presentation into
+  `RoundAnalysisControls.tsx`, `RoundAnalysisFormatting.ts`, and
+  `RoundAnalysisPresentation.tsx`. Command state remains local to each control surface.
+- Moved analysis path construction into `roundAnalysisUrl.ts`. Processor requests and analysis
+  rendering contracts remain unchanged; the old module is now a small in-package export bridge.
+- Focused controls tests cover incomplete context validation, completed run state, failed-run
+  history and retry, search-limit validation, and encoded analysis paths.
+- `npm run check` passed with 100 tests. The pipeline browser suite passed all four tests.
 
 ### M7 — Analysis presentation ownership
 
