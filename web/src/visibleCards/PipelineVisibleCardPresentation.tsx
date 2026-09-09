@@ -3,10 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { pipelineDerivedFramePath } from "../api/client";
 import styles from "../App.module.css";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
-import {
-  formatFrameTime,
-  formatIdentifier,
-} from "./PipelineVisibleCardFormatting";
+import { formatIdentifier } from "./PipelineVisibleCardFormatting";
 import type {
   Candidate,
   EditableFrame,
@@ -56,15 +53,6 @@ export function VisibleCardFramePanel({
       className={visibleStyles.framePanel}
       aria-label="Selected visible-card frame"
     >
-      <header className={visibleStyles.frameHeader}>
-        <div>
-          <p className={styles.statusLabel}>Source item {frame.itemId}</p>
-          <h3>{formatFrameTime(frame)} · resolved frame</h3>
-        </div>
-        <span className={styles.status} data-state={frame.reviewState}>
-          {formatIdentifier(frame.reviewState)}
-        </span>
-      </header>
       {sourceUrl !== null ? (
         <>
           <div
@@ -76,7 +64,7 @@ export function VisibleCardFramePanel({
               src={sourceUrl}
               width={width}
               height={height}
-              alt={`Resolved source frame at ${formatFrameTime(frame)}`}
+              alt="Selected visible-card source frame"
             />
             <svg
               className={visibleStyles.overlay}
@@ -131,9 +119,6 @@ export function VisibleCardFramePanel({
               ))}
             </svg>
           </div>
-          <p className={styles.pipelineUrlState}>
-            Derived source frame {sourceUrl}
-          </p>
         </>
       ) : (
         <p className={styles.detailBlocker}>
@@ -148,15 +133,6 @@ export function VisibleCardFramePanel({
         className={visibleStyles.proposalList}
         aria-label="Visible-card proposals"
       >
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Detector output</p>
-            <h4>Proposal overlays</h4>
-          </div>
-          <span className={styles.countLabel}>
-            {frame.outcome.candidates.length}
-          </span>
-        </div>
         {frame.outcome.candidates.length === 0 ? (
           <p className={styles.detailEmptyState}>
             No visible-card proposals. Use Add missed card or mark the frame
@@ -215,16 +191,6 @@ export function VisibleCardFramePanel({
           className={visibleStyles.editor}
           aria-label="Visible region editor"
         >
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Geometry editor</p>
-              <h4>
-                {editor.cardId === null
-                  ? "Add missed card"
-                  : "Reshape visible region"}
-              </h4>
-            </div>
-          </div>
           <p className={visibleStyles.editorHelp}>
             Drag a polygon point. The complete visible region is saved once when
             the pointer is released.
@@ -265,7 +231,8 @@ function CandidateOverlay({
 }) {
   const geometry = candidate.geometry;
   if (
-    geometry.kind === "reviewed-visible-region/v1" &&
+    (geometry.kind === "visible-region/v1" ||
+      geometry.kind === "reviewed-visible-region/v1") &&
     geometry.visible_region !== undefined
   ) {
     return (

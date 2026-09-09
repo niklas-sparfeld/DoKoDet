@@ -18,6 +18,7 @@ VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v1"
 TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 EXACT_EVENT_FRAME_SCHEMA_VERSION = "exact-event/v1"
 DETECTOR_BOX_GEOMETRY_KIND = "detector-box/v1"
+PREDICTED_VISIBLE_REGION_GEOMETRY_KIND = "visible-region/v1"
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _QUALIFIED = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
@@ -213,6 +214,78 @@ class DetectorBoxGeometry:
 
 
 @dataclass(frozen=True, slots=True)
+class PredictedVisibleRegionGeometry:
+    """One or more detector-produced polygons containing visible card pixels."""
+
+    polygons: tuple[tuple[tuple[int, int], ...], ...]
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "geometry"
+    ) -> "PredictedVisibleRegionGeometry":
+        data = _mapping(raw, context)
+        _strict(data, {"kind", "visible_region"}, context)
+        if data["kind"] != PREDICTED_VISIBLE_REGION_GEOMETRY_KIND:
+            raise PipelineDataError(f"{context}.kind is unsupported")
+        region = _mapping(data["visible_region"], f"{context}.visible_region")
+        _strict(region, {"polygons"}, f"{context}.visible_region")
+        raw_polygons = region["polygons"]
+        if not isinstance(raw_polygons, list) or not raw_polygons:
+            raise PipelineDataError(f"{context}.visible_region.polygons must be non-empty")
+        polygons: list[tuple[tuple[int, int], ...]] = []
+        for polygon_index, raw_polygon in enumerate(raw_polygons):
+            if not isinstance(raw_polygon, list) or len(raw_polygon) < 3:
+                raise PipelineDataError(
+                    f"{context}.visible_region.polygons[{polygon_index}] needs three points"
+                )
+            points: list[tuple[int, int]] = []
+            for point_index, raw_point in enumerate(raw_polygon):
+                point = _mapping(
+                    raw_point,
+                    f"{context}.visible_region.polygons[{polygon_index}][{point_index}]",
+                )
+                _strict(
+                    point,
+                    {"x", "y"},
+                    f"{context}.visible_region.polygons[{polygon_index}][{point_index}]",
+                )
+                points.append(
+                    (
+                        _coordinate(
+                            point["x"],
+                            f"{context}.visible_region.polygons[{polygon_index}][{point_index}].x",
+                        ),
+                        _coordinate(
+                            point["y"],
+                            f"{context}.visible_region.polygons[{polygon_index}][{point_index}].y",
+                        ),
+                    )
+                )
+            area = sum(
+                points[index][0] * points[(index + 1) % len(points)][1]
+                - points[(index + 1) % len(points)][0] * points[index][1]
+                for index in range(len(points))
+            )
+            if area == 0:
+                raise PipelineDataError(
+                    f"{context}.visible_region.polygons[{polygon_index}] must have positive area"
+                )
+            polygons.append(tuple(points))
+        return cls(polygons=tuple(polygons))
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "kind": PREDICTED_VISIBLE_REGION_GEOMETRY_KIND,
+            "visible_region": {
+                "polygons": [
+                    [{"x": point[0], "y": point[1]} for point in polygon]
+                    for polygon in self.polygons
+                ]
+            },
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewedVisibleRegionGeometry:
     """One or more reviewed polygons containing visible card pixels."""
 
@@ -284,7 +357,9 @@ class ReviewedVisibleRegionGeometry:
         }
 
 
-PipelineGeometry = DetectorBoxGeometry | ReviewedVisibleRegionGeometry
+PipelineGeometry = (
+    DetectorBoxGeometry | PredictedVisibleRegionGeometry | ReviewedVisibleRegionGeometry
+)
 
 
 def parse_pipeline_geometry(raw: Mapping[str, Any], context: str = "geometry") -> PipelineGeometry:
@@ -294,6 +369,8 @@ def parse_pipeline_geometry(raw: Mapping[str, Any], context: str = "geometry") -
     kind = data.get("kind")
     if kind == DETECTOR_BOX_GEOMETRY_KIND:
         return DetectorBoxGeometry.from_mapping(data, context)
+    if kind == PREDICTED_VISIBLE_REGION_GEOMETRY_KIND:
+        return PredictedVisibleRegionGeometry.from_mapping(data, context)
     if kind == "reviewed-visible-region/v1":
         return ReviewedVisibleRegionGeometry.from_mapping(data, context)
     raise PipelineDataError(f"{context}.kind is unsupported")
@@ -1007,6 +1084,7 @@ def canonical_table_observation_data_bytes(
 __all__ = [
     "DETECTOR_BOX_GEOMETRY_KIND",
     "EXACT_EVENT_FRAME_SCHEMA_VERSION",
+    "PREDICTED_VISIBLE_REGION_GEOMETRY_KIND",
     "PipelineDataError",
     "PipelineGeometry",
     "TABLE_OBSERVATION_DATA_SCHEMA_VERSION",
@@ -1017,6 +1095,7 @@ __all__ = [
     "VisibleCardFrameIdentity",
     "VisibleCardModelScore",
     "VisibleCardOutcome",
+    "PredictedVisibleRegionGeometry",
     "ReviewedVisibleRegionGeometry",
     "VisualIdentityCandidate",
     "VisualIdentityClassifierIdentity",

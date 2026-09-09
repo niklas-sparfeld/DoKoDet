@@ -121,6 +121,7 @@ class _EventProvider:
                 {"time_s": 0.3, "probability": 0.8},
                 {"time_s": 0.4, "probability": 0.7},
                 {"time_s": 0.5, "probability": 0.6},
+                {"time_s": 0.6, "probability": 0.5, "event_type": "trick_taken"},
             ]
         }
 
@@ -295,9 +296,25 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             "failed",
             "failed",
         ]
+        assert [outcome["event_id"] for outcome in generated_content["outcomes"]] == [
+            "event-000000",
+            "event-000001",
+            "event-000002",
+            "event-000003",
+        ]
         assert generated_content["outcomes"][0]["candidates"][0]["geometry"]["kind"] == (
-            "detector-box/v1"
+            "visible-region/v1"
         )
+        assert generated_content["outcomes"][0]["candidates"][0]["geometry"]["visible_region"][
+            "polygons"
+        ] == [
+            [
+                {"x": 100, "y": 200},
+                {"x": 700, "y": 200},
+                {"x": 700, "y": 800},
+                {"x": 100, "y": 800},
+            ]
+        ]
         assert generated_content["outcomes"][2]["error"] == "fixture detector failed"
         assert generated_content["outcomes"][2]["frame_identity"] is not None
         assert generated_content["outcomes"][3]["frame_identity"] is None

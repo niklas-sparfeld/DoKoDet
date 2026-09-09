@@ -40,8 +40,17 @@ def _content() -> dict[str, object]:
                     {
                         "card_id": "run-1-event-1-card-0",
                         "geometry": {
-                            "kind": "detector-box/v1",
-                            "box_2d": {"x_min": 100, "y_min": 200, "x_max": 700, "y_max": 800},
+                            "kind": "visible-region/v1",
+                            "visible_region": {
+                                "polygons": [
+                                    [
+                                        {"x": 100, "y": 200},
+                                        {"x": 700, "y": 200},
+                                        {"x": 700, "y": 800},
+                                        {"x": 100, "y": 800},
+                                    ]
+                                ]
+                            },
                         },
                         "normalization": {
                             "width": 64,
@@ -84,7 +93,7 @@ def test_visible_card_data_round_trips_to_canonical_bytes() -> None:
     [
         lambda value: value["outcomes"][0].update(status="empty"),
         lambda value: value["outcomes"][0]["candidates"][0]["geometry"].update(
-            kind="reviewed-visible-region/v1"
+            kind="unsupported/v1"
         ),
         lambda value: value["outcomes"][2].update(error=None),
         lambda value: value["outcomes"][0].update(unexpected=True),

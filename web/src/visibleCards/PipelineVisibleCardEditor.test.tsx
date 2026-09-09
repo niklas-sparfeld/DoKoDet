@@ -26,8 +26,17 @@ const FRAME_IDENTITY = {
 const DETECTOR_CANDIDATE = {
   card_id: "run-card-1",
   geometry: {
-    kind: "detector-box/v1",
-    box_2d: { x_min: 100, y_min: 100, x_max: 800, y_max: 800 },
+    kind: "visible-region/v1",
+    visible_region: {
+      polygons: [
+        [
+          { x: 100, y: 100 },
+          { x: 800, y: 100 },
+          { x: 800, y: 800 },
+          { x: 100, y: 800 },
+        ],
+      ],
+    },
   },
   normalization: {
     width: 100,
@@ -177,14 +186,16 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Visible-card suggestions" }),
+      await screen.findByAltText("Selected visible-card source frame"),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("video")).not.toBeInTheDocument();
     expect(
-      screen.getByText(/derived-views\/exact-event\/400000/),
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Visible-card suggestions" }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Generated detector output is immutable/),
-    ).toBeInTheDocument();
+      screen.queryByText(/Generated detector output is immutable/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Source revision/)).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(
       screen.queryByLabelText("Resolved-frame timeline"),
@@ -224,7 +235,7 @@ describe("PipelineVisibleCardEditor", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: /resolved frame/ });
+    await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
     await user.click(
       screen.getByRole("button", { name: "Reshape proposal 1" }),
@@ -297,7 +308,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     expect(
-      await screen.findByAltText("Resolved source frame at 0.800 s"),
+      await screen.findByAltText("Selected visible-card source frame"),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(railItems).toHaveBeenLastCalledWith([
@@ -332,7 +343,7 @@ describe("PipelineVisibleCardEditor", () => {
         view="reviewed"
       />,
     );
-    await screen.findByRole("heading", { name: /resolved frame/ });
+    await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
     await user.click(
       screen.getByRole("button", { name: "Reviewed empty frame" }),
@@ -369,7 +380,7 @@ describe("PipelineVisibleCardEditor", () => {
         view="reviewed"
       />,
     );
-    await screen.findByRole("heading", { name: /resolved frame/ });
+    await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
     await user.click(
       screen.getByRole("button", { name: "Reviewed empty frame" }),

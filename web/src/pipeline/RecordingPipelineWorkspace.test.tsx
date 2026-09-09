@@ -522,9 +522,6 @@ describe("recording pipeline workspace", () => {
       />,
     );
 
-    expect(
-      await screen.findByRole("heading", { name: "Visible-card suggestions" }),
-    ).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(
       await screen.findByRole("img", { name: "1 visible-card proposal" }),

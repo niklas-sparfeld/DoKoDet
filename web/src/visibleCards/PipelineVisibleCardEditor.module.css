@@ -1,15 +1,7 @@
-.workbenchSurface {
+.reviewPage {
   display: grid;
   min-width: 0;
-  gap: 0.85rem;
-}
-
-.sourceVideo {
-  display: block;
-  width: 100%;
-  max-height: 14rem;
-  border-radius: 0.5rem;
-  background: #111;
+  gap: 0.75rem;
 }
 
 .standaloneInspector {
@@ -72,6 +64,10 @@
 }
 
 .framePanel {
+  display: grid;
+  grid-template-columns: minmax(13rem, 18rem) minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.75rem;
   min-width: 0;
   padding: 1.1rem;
   border: 1px solid var(--line);
@@ -80,23 +76,13 @@
   box-shadow: 0 0.7rem 2rem var(--shadow);
 }
 
-.frameHeader {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.frameHeader h3 {
-  margin-top: 0.35rem;
-  letter-spacing: 0.04em;
-}
-
 .canvasViewport {
   position: relative;
+  grid-column: 2;
+  grid-row: 1;
   width: 100%;
   max-width: 2000px;
-  margin: 1rem auto 0;
+  margin: 0 auto;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 0.55rem;
@@ -109,6 +95,10 @@
   height: auto;
 }
 
+.framePanel > :global(.detailBlocker) {
+  grid-column: 2;
+}
+
 .overlay {
   position: absolute;
   inset: 0;
@@ -118,15 +108,27 @@
 }
 
 .proposalList {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
+  grid-column: 1;
+  grid-row: 1 / 4;
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--surface) 45%, var(--panel));
+}
+
+.framePanel > :global(.primaryButton) {
+  grid-column: 1;
+  grid-row: 4;
 }
 
 .proposalItems {
   display: grid;
   gap: 0.55rem;
-  margin: 1rem 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -157,11 +159,11 @@
 }
 
 .editor {
+  grid-column: 2;
+  grid-row: 2;
   display: grid;
   gap: 0.75rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
+  margin-top: 0.75rem;
 }
 
 .editorHelp {
@@ -202,12 +204,38 @@
 }
 
 @media (max-width: 600px) {
-  .frameHeader {
-    align-items: start;
-    flex-direction: column;
-  }
-
   .reviewCount {
     text-align: left;
+  }
+}
+
+@media (max-width: 800px) {
+  .framePanel {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.75rem;
+  }
+
+  .canvasViewport,
+  .editor,
+  .framePanel > :global(.detailBlocker) {
+    grid-column: 1;
+  }
+
+  .canvasViewport {
+    grid-row: 1;
+  }
+
+  .proposalList {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .editor {
+    grid-row: 3;
+  }
+
+  .framePanel > :global(.primaryButton) {
+    grid-column: 1;
+    grid-row: 4;
   }
 }

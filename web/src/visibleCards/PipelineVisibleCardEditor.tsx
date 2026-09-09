@@ -10,7 +10,6 @@ import {
 import {
   ApiError,
   createDokoDetectorClient,
-  repositoryBundleVideoPath,
   type PipelineReferenceItem,
   type PipelineReferenceOperation,
   type PipelineReferenceResource,
@@ -19,7 +18,6 @@ import {
 import styles from "../App.module.css";
 import {
   describeCommand,
-  formatMicroseconds,
   formatFrameTime,
 } from "./PipelineVisibleCardFormatting";
 import {
@@ -49,7 +47,6 @@ const RETRY_LIMIT = 3;
 
 export type PipelineVisibleCardEditorProps = {
   recordingId: string;
-  videoUrl?: string;
   durationUs: number;
   selectionItemId?: string | null;
   selectionTimeUs?: number | null;
@@ -64,7 +61,6 @@ export type PipelineVisibleCardEditorProps = {
 
 export function PipelineVisibleCardEditor({
   recordingId,
-  videoUrl = repositoryBundleVideoPath(recordingId),
   durationUs,
   selectionItemId,
   selectionTimeUs,
@@ -77,7 +73,6 @@ export function PipelineVisibleCardEditor({
   inspectorEnabled = true,
 }: PipelineVisibleCardEditorProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const referenceRef = useRef<PipelineReferenceResource | null>(null);
   const framesRef = useRef<EditableFrame[]>([]);
   const selectedFrameIdRef = useRef<string | null>(null);
@@ -102,7 +97,6 @@ export function PipelineVisibleCardEditor({
   const [frames, setFrames] = useState<EditableFrame[]>([]);
   const [generatedFrames, setGeneratedFrames] = useState<EditableFrame[]>([]);
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
-  const [playheadUs, setPlayheadUs] = useState(0);
   const [loading, setLoading] = useState(view === "reviewed");
   const [generatedLoading, setGeneratedLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,10 +136,6 @@ export function PipelineVisibleCardEditor({
   const setCurrentTime = useCallback(
     (nextUs: number, updateUrl = true) => {
       const clamped = clamp(nextUs, durationUs);
-      setPlayheadUs(clamped);
-      if (videoRef.current !== null) {
-        videoRef.current.currentTime = clamped / 1_000_000;
-      }
       if (updateUrl) updatePipelineUrl({ t_us: clamped });
     },
     [durationUs],
@@ -279,7 +269,7 @@ export function PipelineVisibleCardEditor({
       selectionTimeUs === undefined ? urlState.tUs : selectionTimeUs;
     const timer = window.setTimeout(() => {
       if (selected !== undefined) selectFrame(selected, false);
-      if (requestedTimeUs !== null && videoRef.current?.paused !== false) {
+      if (requestedTimeUs !== null) {
         setCurrentTime(requestedTimeUs, false);
       }
     }, 0);
@@ -767,14 +757,7 @@ export function PipelineVisibleCardEditor({
       const index = current.findIndex(
         (frame) => frame.itemId === selectedFrameIdRef.current,
       );
-      if (event.key === " " && videoRef.current !== null) {
-        event.preventDefault();
-        if (videoRef.current.paused) {
-          void videoRef.current.play().catch(() => undefined);
-        } else {
-          videoRef.current.pause();
-        }
-      } else if (event.key === "ArrowLeft" && index > 0) {
+      if (event.key === "ArrowLeft" && index > 0) {
         event.preventDefault();
         selectFrame(current[index - 1]);
       } else if (
@@ -923,103 +906,45 @@ export function PipelineVisibleCardEditor({
     );
   }
 
-  const sourceSurface = (
-    <div className={visibleStyles.workbenchSurface}>
-      <video
-        ref={videoRef}
-        className={visibleStyles.sourceVideo}
-        data-recording-source-video={recordingId}
-        src={videoUrl}
-        controls
-        preload="metadata"
-        aria-label={`Visible-card source video ${recordingId}`}
-        onTimeUpdate={(event) => {
-          const value = clamp(
-            event.currentTarget.currentTime * 1_000_000,
-            durationUs,
-          );
-          setPlayheadUs(value);
-          updatePipelineUrl({ t_us: value });
-        }}
-      />
-      {activeFrame === null ? (
-        <p className={styles.detailEmptyState}>
-          {view === "generated"
-            ? generatedLoading
-              ? "Loading generated visible cards…"
-              : "Select a proposal from the Timeline Rail."
-            : reference === null
-              ? "Start review to create a maintained visible-card reference."
-              : "Select a resolved frame from the Timeline Rail."}
-        </p>
-      ) : (
-        <VisibleCardFramePanel
-          recordingId={recordingId}
-          frame={activeFrame}
-          editor={editor?.frameItemId === activeFrame.itemId ? editor : null}
-          editorError={editorError}
-          readOnly={!reviewed}
-          onOpenEditor={
-            reviewed
-              ? (candidate) => openEditor(activeFrame, candidate)
-              : undefined
-          }
-          onSaveEditor={reviewed ? saveEditor : undefined}
-          onCancelEditor={reviewed ? () => setEditor(null) : undefined}
-          onRemoveCard={
-            reviewed ? (cardId) => removeCard(activeFrame, cardId) : undefined
-          }
-          onPointerMove={handleCanvasPointerMove}
-          onPointerUp={stopCanvasPointer}
-          onPointPointerDown={startPointDrag}
-        />
-      )}
-    </div>
-  );
-
   return (
     <>
       {inspector}
       <section
-        className={styles.cardEventPipelineEditor}
+        className={visibleStyles.reviewPage}
         aria-label={`${reviewed ? "Visible-card maintained reference" : "Generated visible-card result"} workbench`}
       >
-        <div className={styles.cardEventReviewHeader}>
-          <div>
-            <p className={styles.statusLabel}>
-              {reviewed ? "Maintained reference" : "Generated result"}
-            </p>
-            <h3>
-              {reviewed ? "Visible-card review" : "Visible-card suggestions"}
-            </h3>
-            <p className={styles.detailLead}>
-              {reviewed
-                ? reference === null
-                  ? "Start a recording-owned reference from the selected generated result."
-                  : reference.draft.source_revision_id === null
-                    ? "Manual visible-card reference"
-                    : `Used visible-card suggestions ${reference.draft.source_revision_id}`
-                : "Generated detector output is immutable. Choose Review to copy this exact result into the maintained reference."}
-            </p>
-          </div>
-          <span className={styles.countLabel}>
-            {(reviewed ? frames : generatedFrames).length} frames
-          </span>
-        </div>
-        {displayedRevisionId !== null ? (
-          <p className={styles.pipelineUrlState}>
-            Source revision {displayedRevisionId} · Playhead{" "}
-            {formatMicroseconds(playheadUs)}
+        {activeFrame === null ? (
+          <p className={styles.detailEmptyState}>
+            {view === "generated"
+              ? generatedLoading
+                ? "Loading generated visible cards…"
+                : "Select a proposal from the Timeline Rail."
+              : reference === null
+                ? "Start review to create a maintained visible-card reference."
+                : "Select a resolved frame from the Timeline Rail."}
           </p>
-        ) : null}
-        {sourceSurface}
-        <details className={styles.cardEventGuidance}>
-          <summary>Keyboard shortcuts</summary>
-          <p>
-            Space play/pause · ←/→ previous/next frame · A accept suggestions ·
-            E reviewed empty · U unusable · N add missed card.
-          </p>
-        </details>
+        ) : (
+          <VisibleCardFramePanel
+            recordingId={recordingId}
+            frame={activeFrame}
+            editor={editor?.frameItemId === activeFrame.itemId ? editor : null}
+            editorError={editorError}
+            readOnly={!reviewed}
+            onOpenEditor={
+              reviewed
+                ? (candidate) => openEditor(activeFrame, candidate)
+                : undefined
+            }
+            onSaveEditor={reviewed ? saveEditor : undefined}
+            onCancelEditor={reviewed ? () => setEditor(null) : undefined}
+            onRemoveCard={
+              reviewed ? (cardId) => removeCard(activeFrame, cardId) : undefined
+            }
+            onPointerMove={handleCanvasPointerMove}
+            onPointerUp={stopCanvasPointer}
+            onPointPointerDown={startPointDrag}
+          />
+        )}
         {notice !== null ? (
           <p className={styles.recordingNotice} role="status">
             {notice}
@@ -1139,7 +1064,8 @@ function readGeometry(value: Record<string, unknown>): Geometry | null {
     return { kind: String(value.kind), box_2d: box as Geometry["box_2d"] };
   const region = isRecord(value.visible_region) ? value.visible_region : null;
   if (
-    value.kind === "reviewed-visible-region/v1" &&
+    (value.kind === "visible-region/v1" ||
+      value.kind === "reviewed-visible-region/v1") &&
     region !== null &&
     Array.isArray(region.polygons)
   )

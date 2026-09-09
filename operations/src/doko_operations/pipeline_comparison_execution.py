@@ -10,6 +10,7 @@ from typing import Any
 from table_evidence_analyzer.pipeline_data import (
     DetectorBoxGeometry,
     PipelineGeometry,
+    PredictedVisibleRegionGeometry,
     ReviewedVisibleRegionGeometry,
     VisibleCardData,
     VisibleCardOutcome,
@@ -302,7 +303,7 @@ def geometry_box(geometry: PipelineGeometry) -> tuple[int, int, int, int]:
 
     if isinstance(geometry, DetectorBoxGeometry):
         return geometry.x_min, geometry.y_min, geometry.x_max, geometry.y_max
-    if isinstance(geometry, ReviewedVisibleRegionGeometry):
+    if isinstance(geometry, (PredictedVisibleRegionGeometry, ReviewedVisibleRegionGeometry)):
         points = [point for polygon in geometry.polygons for point in polygon]
         return (
             min(point[0] for point in points),

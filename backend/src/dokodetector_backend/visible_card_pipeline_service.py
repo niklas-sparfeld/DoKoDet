@@ -34,7 +34,7 @@ from doko_operations.pipeline_data import (
     sha256_bytes,
 )
 from table_evidence_analyzer.pipeline_data import (
-    DetectorBoxGeometry,
+    PredictedVisibleRegionGeometry,
     VisibleCardCandidate,
     VisibleCardData,
     VisibleCardFrameIdentity,
@@ -314,7 +314,11 @@ class VisibleCardPipelineService:
             event_revision = self.revision_store.require(run.request.input_revision_ids[0])
             if not isinstance(event_revision.content, EventData):
                 raise VisibleCardPipelineError("The event input revision is invalid.")
-            events = event_revision.content.events
+            events = tuple(
+                event
+                for event in event_revision.content.events
+                if event.event_type == "card_played"
+            )
             self.run_store.update_progress(
                 run_id,
                 progress=RunProgress(completed=0, total=len(events)),
@@ -441,11 +445,8 @@ class VisibleCardPipelineService:
             model_scores = (VisibleCardModelScore(producer_id=model_id, score=score),)
         return VisibleCardCandidate(
             card_id=f"{_safe(run.run_id)}-{_safe(event_id)}-card-{index:04d}",
-            geometry=DetectorBoxGeometry.from_mapping(
-                {
-                    "kind": "detector-box/v1",
-                    "box_2d": proposal.box_2d.to_mapping(),
-                }
+            geometry=PredictedVisibleRegionGeometry(
+                polygons=(tuple((point.x, point.y) for point in proposal.polygon),),
             ),
             normalization={
                 "width": frame.width,
