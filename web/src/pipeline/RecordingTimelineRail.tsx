@@ -336,45 +336,6 @@ export function RecordingTimelineRail({
       data-reduced-motion={reducedMotion}
       data-zoom={zoom}
     >
-      <div className={styles.recordingTimelineRailHeader}>
-        <div>
-          <p className={styles.statusLabel}>Timeline Rail</p>
-          <h2>Recording navigation</h2>
-        </div>
-        <div className={styles.recordingTimelineTransport}>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={togglePlayback}
-            aria-label={playing ? "Pause recording" : "Play recording"}
-          >
-            {playing ? "Pause" : "Play"}
-          </button>
-          <span className={styles.recordingTimelineTime} aria-live="polite">
-            {formatTimeUs(displayTimeUs)} / {formatTimeUs(durationUs)}
-          </span>
-          <button
-            className={styles.tertiaryButton}
-            type="button"
-            onClick={() => setZoom((value) => Math.max(1, value - 1))}
-            aria-label="Zoom timeline out"
-            disabled={zoom === 1}
-          >
-            −
-          </button>
-          <span aria-label={`Timeline zoom ${zoom}x`}>{zoom}×</span>
-          <button
-            className={styles.tertiaryButton}
-            type="button"
-            onClick={() => setZoom((value) => Math.min(4, value + 1))}
-            aria-label="Zoom timeline in"
-            disabled={zoom === 4}
-          >
-            +
-          </button>
-        </div>
-      </div>
-
       <video
         ref={fallbackVideoRef}
         className={styles.visuallyHidden}
@@ -385,7 +346,42 @@ export function RecordingTimelineRail({
 
       <div className={styles.recordingTimelineScrubberViewport}>
         <div className={styles.recordingTimelineScrubber} style={trackStyle}>
-          <span aria-hidden="true" />
+          <div
+            className={styles.recordingTimelineTransport}
+            aria-label="Playback controls"
+            role="group"
+          >
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={togglePlayback}
+              aria-label={playing ? "Pause recording" : "Play recording"}
+            >
+              {playing ? "Pause" : "Play"}
+            </button>
+            <span className={styles.recordingTimelineTime} aria-live="polite">
+              {formatTimeUs(displayTimeUs)} / {formatTimeUs(durationUs)}
+            </span>
+            <button
+              className={styles.tertiaryButton}
+              type="button"
+              onClick={() => setZoom((value) => Math.max(1, value - 1))}
+              aria-label="Zoom timeline out"
+              disabled={zoom === 1}
+            >
+              −
+            </button>
+            <span aria-label={`Timeline zoom ${zoom}x`}>{zoom}×</span>
+            <button
+              className={styles.tertiaryButton}
+              type="button"
+              onClick={() => setZoom((value) => Math.min(4, value + 1))}
+              aria-label="Zoom timeline in"
+              disabled={zoom === 4}
+            >
+              +
+            </button>
+          </div>
           <div className={styles.recordingTimelineScrubberTrack}>
             <div
               className={styles.recordingTimelineTickLabels}

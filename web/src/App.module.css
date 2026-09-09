@@ -2219,23 +2219,9 @@ progress {
 
 .recordingTimelineRail {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.45rem;
   min-width: 0;
-  padding: 0.75rem 1rem 0.85rem;
-}
-
-.recordingTimelineRailHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-width: 0;
-}
-
-.recordingTimelineRailHeader h2 {
-  margin: 0.2rem 0 0;
-  color: var(--ink);
-  font-size: 0.86rem;
+  padding: 0.5rem 1rem 0.55rem;
 }
 
 .recordingTimelineTransport {
@@ -2276,7 +2262,7 @@ progress {
 }
 
 .recordingTimelineTime {
-  min-width: 7rem;
+  min-width: 6.5rem;
   color: var(--ink);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-variant-numeric: tabular-nums;
@@ -2297,7 +2283,7 @@ progress {
 
 .recordingTimelineScrubber {
   display: grid;
-  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr);
+  grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr);
   gap: 0.65rem;
   position: relative;
 }
@@ -2347,7 +2333,7 @@ progress {
 
 .recordingTimelinePreview {
   display: grid;
-  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr);
+  grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr);
   gap: 0.65rem;
   min-width: var(--timeline-track-width);
   position: relative;
@@ -2409,7 +2395,7 @@ progress {
 
 .recordingTimelineLane {
   display: grid;
-  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr);
+  grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr);
   align-items: center;
   gap: 0.65rem;
   min-width: 0;
@@ -3696,11 +3682,6 @@ progress {
     overflow: visible;
   }
 
-  .recordingTimelineRailHeader {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .recordingTimelineTransport {
     flex-wrap: wrap;
     white-space: normal;
@@ -3710,16 +3691,16 @@ progress {
     text-align: left;
   }
 
-  .recordingTimelineLane {
-    grid-template-columns: minmax(6rem, 7rem) minmax(26rem, 1fr);
-  }
-
   .recordingTimelineScrubber {
-    grid-template-columns: minmax(6rem, 7rem) minmax(26rem, 1fr);
+    grid-template-columns: minmax(12rem, 14rem) minmax(26rem, 1fr);
   }
 
   .recordingTimelinePreview {
-    grid-template-columns: minmax(6rem, 7rem) minmax(26rem, 1fr);
+    grid-template-columns: minmax(12rem, 14rem) minmax(26rem, 1fr);
+  }
+
+  .recordingTimelineLane {
+    grid-template-columns: minmax(12rem, 14rem) minmax(26rem, 1fr);
   }
 }
 

@@ -66,6 +66,21 @@ describe("RecordingTimelineRail", () => {
     sourceVideo = null;
   });
 
+  it("keeps playback controls beside the scrubber without a redundant heading", () => {
+    renderRail();
+
+    expect(screen.queryByText("Timeline Rail")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recording navigation")).not.toBeInTheDocument();
+
+    const controls = screen.getByRole("group", { name: "Playback controls" });
+    const scrubber = controls.parentElement;
+    const range = screen.getByRole("slider", { name: "Recording playhead" });
+
+    expect(scrubber).not.toBeNull();
+    expect(scrubber?.firstElementChild).toBe(controls);
+    expect(scrubber?.lastElementChild).toBe(range.parentElement);
+  });
+
   it("renders ordered accessible lanes and selects an item with its source time", () => {
     const { onTimeChange, onItemSelect } = renderRail();
 
