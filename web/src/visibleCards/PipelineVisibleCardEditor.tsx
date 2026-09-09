@@ -121,6 +121,14 @@ export function PipelineVisibleCardEditor({
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
   const proposalSlot = useVisibleCardProposalSlot();
+  const generatedSourceRevisionId = displayedRevisionId ?? generatedRevisionId;
+  const referenceNeedsSeed =
+    reference !== null &&
+    reference.draft.source_revision_id === null &&
+    reference.draft.items.length === 0 &&
+    generatedSourceRevisionId !== null;
+  const usesMaintainedFrames =
+    view === "reviewed" && reference !== null && !referenceNeedsSeed;
 
   const setLocalFrames = useCallback((nextFrames: EditableFrame[]) => {
     framesRef.current = nextFrames;
@@ -187,7 +195,7 @@ export function PipelineVisibleCardEditor({
 
   const loadGenerated = useCallback(
     async (signal?: AbortSignal) => {
-      const revisionId = displayedRevisionId ?? generatedRevisionId;
+      const revisionId = generatedSourceRevisionId;
       if (generatedRunId === null || revisionId === null) {
         setGeneratedFrames([]);
         setGeneratedLoading(false);
@@ -209,13 +217,7 @@ export function PipelineVisibleCardEditor({
         if (!signal?.aborted) setGeneratedLoading(false);
       }
     },
-    [
-      client,
-      displayedRevisionId,
-      generatedRevisionId,
-      generatedRunId,
-      recordingId,
-    ],
+    [client, generatedSourceRevisionId, generatedRunId, recordingId],
   );
 
   const loadReference = useCallback(
@@ -268,8 +270,7 @@ export function PipelineVisibleCardEditor({
   }, [loadGenerated, loadReference, view]);
 
   useEffect(() => {
-    const candidates =
-      view === "reviewed" && reference !== null ? frames : generatedFrames;
+    const candidates = usesMaintainedFrames ? frames : generatedFrames;
     const urlState = readPipelineEditorUrlState();
     const requestedItemId =
       selectionItemId === undefined ? urlState.item : selectionItemId;
@@ -294,13 +295,11 @@ export function PipelineVisibleCardEditor({
     selectionTimeUs,
     setCurrentTime,
     selectFrame,
-    view,
-    reference,
+    usesMaintainedFrames,
   ]);
 
   useEffect(() => {
-    const candidates =
-      view === "reviewed" && reference !== null ? frames : generatedFrames;
+    const candidates = usesMaintainedFrames ? frames : generatedFrames;
     onRailItemsChange?.(
       candidates.map((frame, index) => ({
         itemId: frame.itemId,
@@ -311,7 +310,7 @@ export function PipelineVisibleCardEditor({
         decision: view === "reviewed" ? frameDecision(frame) : null,
       })),
     );
-  }, [frames, generatedFrames, onRailItemsChange, reference, view]);
+  }, [frames, generatedFrames, onRailItemsChange, usesMaintainedFrames, view]);
 
   const nextCommandId = useCallback(() => {
     commandSequenceRef.current += 1;
@@ -425,6 +424,28 @@ export function PipelineVisibleCardEditor({
     },
     [nextCommandId, setLocalFrames],
   );
+
+  const startReference = useCallback(() => {
+    const current = referenceRef.current;
+    if (
+      current === null ||
+      current.draft.source_revision_id !== null ||
+      current.draft.items.length > 0 ||
+      generatedSourceRevisionId === null ||
+      operatorId.trim() === ""
+    ) {
+      return;
+    }
+    setReviewerId((currentReviewer) => currentReviewer || operatorId.trim());
+    enqueue(
+      {
+        operation: "rebase",
+        source_revision_id: generatedSourceRevisionId,
+      },
+      "Maintained visible-card reference seeded from the selected generated result.",
+      (currentFrames) => currentFrames,
+    );
+  }, [enqueue, generatedSourceRevisionId, operatorId]);
 
   const setFrameReview = useCallback(
     (frame: EditableFrame, outcome: Outcome, noticeText: string) => {
@@ -707,10 +728,11 @@ export function PipelineVisibleCardEditor({
         CONTENT_TYPE,
         {
           operator_id: operatorId.trim(),
-          seed: generatedRevisionId === null ? "empty" : "selected_generated",
-          ...(generatedRevisionId === null
+          seed:
+            generatedSourceRevisionId === null ? "empty" : "selected_generated",
+          ...(generatedSourceRevisionId === null
             ? {}
-            : { source_revision_id: generatedRevisionId }),
+            : { source_revision_id: generatedSourceRevisionId }),
         },
       );
       hydrateReference(created, false);
@@ -729,7 +751,7 @@ export function PipelineVisibleCardEditor({
     }
   }, [
     client,
-    generatedRevisionId,
+    generatedSourceRevisionId,
     hydrateReference,
     loadReference,
     operatorId,
@@ -772,7 +794,9 @@ export function PipelineVisibleCardEditor({
       ) {
         return;
       }
-      const current = view === "reviewed" ? framesRef.current : generatedFrames;
+      const current = usesMaintainedFrames
+        ? framesRef.current
+        : generatedFrames;
       const index = current.findIndex(
         (frame) => frame.itemId === selectedFrameIdRef.current,
       );
@@ -832,17 +856,17 @@ export function PipelineVisibleCardEditor({
     openEditor,
     selectFrame,
     setFrameOutcome,
+    usesMaintainedFrames,
     view,
   ]);
 
-  const displayedFrames =
-    view === "reviewed" && reference !== null ? frames : generatedFrames;
+  const displayedFrames = usesMaintainedFrames ? frames : generatedFrames;
   const activeFrame =
     displayedFrames.find((frame) => frame.itemId === selectedFrameId) ??
     displayedFrames[0] ??
     null;
   const reviewed = view === "reviewed";
-  const editable = reviewed && reference !== null;
+  const editable = reviewed && reference !== null && !referenceNeedsSeed;
   const pendingCount = frames.filter(
     (frame) =>
       frame.reviewState === "pending" || frame.reviewState === "affected",
@@ -853,7 +877,7 @@ export function PipelineVisibleCardEditor({
   const coveragePercent =
     frames.length === 0 ? 0 : (inspectedFrameKeys.size / frames.length) * 100;
   const completionBlocker =
-    !reviewed || reference === null
+    !reviewed || reference === null || referenceNeedsSeed
       ? null
       : reference.state.draft_state === "completed"
         ? "Reference is already complete; make a correction before publishing."
@@ -880,7 +904,7 @@ export function PipelineVisibleCardEditor({
       frames={displayedFrames}
       selectedFrame={activeFrame}
       generatedFrames={generatedFrames}
-      generatedRevisionId={displayedRevisionId}
+      generatedRevisionId={generatedSourceRevisionId}
       generatedLoading={generatedLoading}
       pendingCount={pendingCount}
       completedFrameCount={completedFrameCount}
@@ -895,6 +919,8 @@ export function PipelineVisibleCardEditor({
       setOperatorId={setOperatorId}
       setReviewerId={setReviewerId}
       creatingReference={creatingReference}
+      referenceNeedsSeed={referenceNeedsSeed}
+      startReference={startReference}
       completionBusy={completionBusy}
       completionBlocker={completionBlocker}
       acceptSuggestions={() =>
@@ -940,7 +966,7 @@ export function PipelineVisibleCardEditor({
               ? generatedLoading
                 ? "Loading generated visible cards…"
                 : "Select a proposal from the Timeline Rail."
-              : reference === null
+              : reference === null || referenceNeedsSeed
                 ? "Start review to create a maintained visible-card reference."
                 : "Select a resolved frame from the Timeline Rail."}
           </p>

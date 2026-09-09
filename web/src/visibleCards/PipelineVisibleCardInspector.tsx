@@ -84,6 +84,8 @@ export type VisibleCardInspectorProps = {
   setOperatorId: (value: string) => void;
   setReviewerId: (value: string) => void;
   creatingReference: boolean;
+  referenceNeedsSeed: boolean;
+  startReference: () => void;
   completionBusy: boolean;
   completionBlocker: string | null;
   acceptSuggestions: () => void;
@@ -136,6 +138,10 @@ function VisibleCardInspectorAction({
   setOperatorId,
   setReviewerId,
   creatingReference,
+  referenceNeedsSeed,
+  startReference,
+  saveState,
+  queueLength,
   completionBusy,
   completionBlocker,
   completeReference,
@@ -161,6 +167,39 @@ function VisibleCardInspectorAction({
           disabled={onReviewRequested === undefined}
         >
           Review
+        </button>
+      </>
+    );
+  }
+  if (referenceNeedsSeed) {
+    return (
+      <>
+        <p className={styles.statusLabel}>Primary action</p>
+        <h2 id="pipeline-inspector-action">Start visible-card review</h2>
+        <p className={styles.pipelineInspectorEmpty}>
+          Seed the existing empty reference from the selected generated result.
+        </p>
+        <label className={styles.pipelineSelector}>
+          <span>Operator ID</span>
+          <input
+            value={operatorId}
+            onChange={(event) => setOperatorId(event.target.value)}
+            placeholder="operator-01"
+          />
+        </label>
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={startReference}
+          disabled={
+            operatorId.trim() === "" ||
+            saveState === "saving" ||
+            queueLength > 0
+          }
+        >
+          {saveState === "saving" || queueLength > 0
+            ? "Starting review…"
+            : "Start review"}
         </button>
       </>
     );
@@ -302,6 +341,7 @@ function VisibleCardInspectorSelection({
   completedFrameCount,
   coveragePercent,
   inspectedCount,
+  referenceNeedsSeed,
   acceptSuggestions,
   markEmpty,
   markUnusable,
@@ -342,7 +382,7 @@ function VisibleCardInspectorSelection({
           </div>
         </dl>
       ) : null}
-      {view === "reviewed" && reference !== null ? (
+      {view === "reviewed" && reference !== null && !referenceNeedsSeed ? (
         <>
           <div
             className={visibleStyles.outcomeButtons}

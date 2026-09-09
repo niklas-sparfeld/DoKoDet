@@ -145,6 +145,22 @@ function reference(state: "pending" | "accepted" | "corrected" = "pending") {
   };
 }
 
+function emptyReference() {
+  const current = reference();
+  return {
+    ...current,
+    state: {
+      ...current.state,
+      source_revision_id: null,
+    },
+    draft: {
+      ...current.draft,
+      source_revision_id: null,
+      items: [],
+    },
+  };
+}
+
 function jsonResponse(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), {
     status,
@@ -239,6 +255,63 @@ describe("PipelineVisibleCardEditor", () => {
     await userEvent.click(proposal);
     expect(proposal).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Box")).toBeInTheDocument();
+  });
+
+  it("shows generated proposals when an existing maintained reference is empty", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "PUT") {
+        return Promise.resolve(jsonResponse(reference()));
+      }
+      return String(input).includes("/result")
+        ? Promise.resolve(jsonResponse(generatedResult()))
+        : Promise.resolve(jsonResponse(emptyReference()));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    expect(
+      await screen.findByAltText("Selected visible-card source frame"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Start visible-card review" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Select proposal 1" }),
+    ).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.type(screen.getByPlaceholderText("operator-01"), "operator-01");
+    await user.click(screen.getByRole("button", { name: "Start review" }));
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(requestBody.operations).toEqual([
+      { operation: "rebase", source_revision_id: REVISION_ID },
+    ]);
+    expect(
+      await screen.findByRole("button", { name: "Edit" }),
+    ).toBeInTheDocument();
   });
 
   it("sends one complete set_frame_review command when a polygon drag ends", async () => {
