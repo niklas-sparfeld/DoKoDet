@@ -135,21 +135,25 @@ describe("RecordingTimelineRail", () => {
     expect(onTimeChange).toHaveBeenCalledWith(3_500_000);
   });
 
-  it("positions the preview at the playhead and centers it on a hovered event", () => {
+  it("floats the preview above the playhead only while the rail is hovered", () => {
     renderRail({ currentTimeUs: 3_000_000 });
     const preview = () =>
       document.querySelector<HTMLElement>("[data-preview-position-us]");
+    const rail = document.querySelector<HTMLElement>("[data-zoom]");
     const first = screen.getByRole("button", {
       name: "card_played, 0:01–0:02, pending",
     });
 
+    expect(preview()).not.toBeInTheDocument();
+
+    fireEvent.pointerEnter(rail!);
     expect(preview()).toHaveAttribute("data-preview-position-us", "3000000");
 
     fireEvent.pointerEnter(first);
-    expect(preview()).toHaveAttribute("data-preview-position-us", "1500000");
-
-    fireEvent.pointerLeave(first);
     expect(preview()).toHaveAttribute("data-preview-position-us", "3000000");
+
+    fireEvent.pointerLeave(rail!);
+    expect(preview()).not.toBeInTheDocument();
   });
 
   it("keeps the preview mounted and targets the matching source video for playback", async () => {
@@ -170,6 +174,7 @@ describe("RecordingTimelineRail", () => {
 
     renderRail();
 
+    fireEvent.pointerEnter(document.querySelector("[data-zoom]")!);
     expect(screen.getByText("Loading exact source frame…")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Play recording" }));
 

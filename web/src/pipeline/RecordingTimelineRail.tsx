@@ -62,6 +62,8 @@ export function RecordingTimelineRail({
   const [playing, setPlaying] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [scrubberScrollLeft, setScrubberScrollLeft] = useState(0);
+  const [railHovered, setRailHovered] = useState(false);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>(() => ({
@@ -72,14 +74,6 @@ export function RecordingTimelineRail({
   const reducedMotion = usePrefersReducedMotion();
   const displayTimeUs = clampTime(currentTimeUs ?? 0, durationUs);
   const previewItemId = hoveredItemId ?? focusedItemId;
-  const previewItem =
-    previewItemId === null
-      ? null
-      : (items.find((item) => item.id === previewItemId) ?? null);
-  const previewPositionTimeUs =
-    previewItem?.timeRange === null || previewItem === null
-      ? displayTimeUs
-      : midpoint(previewItem.timeRange.startUs, previewItem.timeRange.endUs);
 
   useEffect(() => {
     onTimeChangeRef.current = onTimeChange;
@@ -211,9 +205,9 @@ export function RecordingTimelineRail({
   );
 
   useEffect(() => {
-    if (playing || previewItemId !== null) return;
+    if (!railHovered || playing || previewItemId !== null) return;
     requestPreview(displayTimeUs);
-  }, [displayTimeUs, playing, previewItemId, requestPreview]);
+  }, [displayTimeUs, playing, previewItemId, railHovered, requestPreview]);
 
   useEffect(() => {
     const video = getVideo();
@@ -333,8 +327,11 @@ export function RecordingTimelineRail({
     <div
       className={styles.recordingTimelineRail}
       data-dragging={dragging}
+      data-preview-visible={railHovered}
       data-reduced-motion={reducedMotion}
       data-zoom={zoom}
+      onPointerEnter={() => setRailHovered(true)}
+      onPointerLeave={() => setRailHovered(false)}
     >
       <video
         ref={fallbackVideoRef}
@@ -345,125 +342,131 @@ export function RecordingTimelineRail({
       />
 
       <div className={styles.recordingTimelineScrubberViewport}>
-        <div className={styles.recordingTimelineScrubber} style={trackStyle}>
-          <div
-            className={styles.recordingTimelineTransport}
-            aria-label="Playback controls"
-            role="group"
-          >
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={togglePlayback}
-              aria-label={playing ? "Pause recording" : "Play recording"}
-            >
-              {playing ? "Pause" : "Play"}
-            </button>
-            <span className={styles.recordingTimelineTime} aria-live="polite">
-              {formatTimeUs(displayTimeUs)} / {formatTimeUs(durationUs)}
-            </span>
-            <button
-              className={styles.tertiaryButton}
-              type="button"
-              onClick={() => setZoom((value) => Math.max(1, value - 1))}
-              aria-label="Zoom timeline out"
-              disabled={zoom === 1}
-            >
-              −
-            </button>
-            <span aria-label={`Timeline zoom ${zoom}x`}>{zoom}×</span>
-            <button
-              className={styles.tertiaryButton}
-              type="button"
-              onClick={() => setZoom((value) => Math.min(4, value + 1))}
-              aria-label="Zoom timeline in"
-              disabled={zoom === 4}
-            >
-              +
-            </button>
-          </div>
-          <div className={styles.recordingTimelineScrubberTrack}>
-            <div
-              className={styles.recordingTimelineTickLabels}
-              aria-hidden="true"
-            >
-              {ticks.map((tick) => (
-                <span
-                  key={tick}
-                  style={{ left: `${positionPercent(tick, durationUs)}%` }}
-                >
-                  {formatTimeUs(tick)}
-                </span>
-              ))}
-            </div>
-            <input
-              className={styles.recordingTimelineRange}
-              type="range"
-              min={0}
-              max={Math.max(durationUs, 0)}
-              step={1_000}
-              value={displayTimeUs}
-              aria-label="Recording playhead"
-              aria-valuetext={`${formatTimeUs(displayTimeUs)} of ${formatTimeUs(durationUs)}`}
-              onChange={(event) => commitTime(Number(event.target.value))}
-              onFocus={() => requestPreview(displayTimeUs)}
-              onPointerDown={(event) => {
-                capturePointer(event);
-                setDragging(true);
-                commitTime(Number(event.currentTarget.value));
-                requestPreview(Number(event.currentTarget.value));
-              }}
-              onPointerMove={(event) => {
-                if (dragging) commitTime(Number(event.currentTarget.value));
-                requestPreview(Number(event.currentTarget.value));
-              }}
-              onPointerUp={(event) => {
-                releasePointer(event);
-                setDragging(false);
-              }}
-              onPointerCancel={(event) => {
-                releasePointer(event);
-                setDragging(false);
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.recordingTimelinePreviewViewport}>
         <div
-          className={styles.recordingTimelinePreview}
-          aria-live="polite"
-          aria-atomic="true"
-          data-preview-position-us={previewPositionTimeUs}
-          style={trackStyle}
+          className={styles.recordingTimelineScrubberScroll}
+          onScroll={(event) =>
+            setScrubberScrollLeft(event.currentTarget.scrollLeft)
+          }
         >
-          <span aria-hidden="true" />
-          <div className={styles.recordingTimelinePreviewTrack}>
+          <div className={styles.recordingTimelineScrubber} style={trackStyle}>
             <div
-              className={styles.recordingTimelinePreviewFrame}
-              style={
-                {
-                  "--timeline-preview-position": `${positionPercent(previewPositionTimeUs, durationUs)}%`,
-                } as CSSProperties
-              }
+              className={styles.recordingTimelineTransport}
+              aria-label="Playback controls"
+              role="group"
             >
-              {preview.url !== null ? (
-                <img
-                  src={preview.url}
-                  alt={`Exact source frame preview at ${formatTimeUs(preview.requestedTimeUs)}`}
-                />
-              ) : (
-                <span className={styles.recordingTimelinePreviewPlaceholder}>
-                  {preview.error ?? "Loading exact source frame…"}
-                </span>
-              )}
-              <span className={styles.recordingTimelinePreviewTime}>
-                {formatTimeUs(preview.requestedTimeUs)}
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={togglePlayback}
+                aria-label={playing ? "Pause recording" : "Play recording"}
+              >
+                {playing ? "Pause" : "Play"}
+              </button>
+              <span className={styles.recordingTimelineTime} aria-live="polite">
+                {formatTimeUs(displayTimeUs)} / {formatTimeUs(durationUs)}
               </span>
+              <button
+                className={styles.tertiaryButton}
+                type="button"
+                onClick={() => setZoom((value) => Math.max(1, value - 1))}
+                aria-label="Zoom timeline out"
+                disabled={zoom === 1}
+              >
+                −
+              </button>
+              <span aria-label={`Timeline zoom ${zoom}x`}>{zoom}×</span>
+              <button
+                className={styles.tertiaryButton}
+                type="button"
+                onClick={() => setZoom((value) => Math.min(4, value + 1))}
+                aria-label="Zoom timeline in"
+                disabled={zoom === 4}
+              >
+                +
+              </button>
+            </div>
+            <div className={styles.recordingTimelineScrubberTrack}>
+              <div
+                className={styles.recordingTimelineTickLabels}
+                aria-hidden="true"
+              >
+                {ticks.map((tick) => (
+                  <span
+                    key={tick}
+                    style={{ left: `${positionPercent(tick, durationUs)}%` }}
+                  >
+                    {formatTimeUs(tick)}
+                  </span>
+                ))}
+              </div>
+              <input
+                className={styles.recordingTimelineRange}
+                type="range"
+                min={0}
+                max={Math.max(durationUs, 0)}
+                step={1_000}
+                value={displayTimeUs}
+                aria-label="Recording playhead"
+                aria-valuetext={`${formatTimeUs(displayTimeUs)} of ${formatTimeUs(durationUs)}`}
+                onChange={(event) => commitTime(Number(event.target.value))}
+                onFocus={() => requestPreview(displayTimeUs)}
+                onPointerDown={(event) => {
+                  capturePointer(event);
+                  setDragging(true);
+                  commitTime(Number(event.currentTarget.value));
+                  requestPreview(Number(event.currentTarget.value));
+                }}
+                onPointerMove={(event) => {
+                  if (dragging) commitTime(Number(event.currentTarget.value));
+                  requestPreview(Number(event.currentTarget.value));
+                }}
+                onPointerUp={(event) => {
+                  releasePointer(event);
+                  setDragging(false);
+                }}
+                onPointerCancel={(event) => {
+                  releasePointer(event);
+                  setDragging(false);
+                }}
+              />
             </div>
           </div>
         </div>
+        {railHovered ? (
+          <div
+            className={styles.recordingTimelinePreviewOverlay}
+            style={{ ...trackStyle, left: -scrubberScrollLeft }}
+          >
+            <span aria-hidden="true" />
+            <div className={styles.recordingTimelinePreviewOverlayTrack}>
+              <div
+                className={styles.recordingTimelinePreviewFrame}
+                aria-atomic="true"
+                aria-live="polite"
+                data-preview-position-us={displayTimeUs}
+                style={
+                  {
+                    "--timeline-preview-position": `${positionPercent(displayTimeUs, durationUs)}%`,
+                  } as CSSProperties
+                }
+              >
+                {preview.url !== null ? (
+                  <img
+                    src={preview.url}
+                    alt={`Exact source frame preview at ${formatTimeUs(preview.requestedTimeUs)}`}
+                  />
+                ) : (
+                  <span className={styles.recordingTimelinePreviewPlaceholder}>
+                    {preview.error ?? "Loading exact source frame…"}
+                  </span>
+                )}
+                <span className={styles.recordingTimelinePreviewTime}>
+                  {formatTimeUs(preview.requestedTimeUs)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className={styles.recordingTimelineLanesViewport}>
@@ -547,10 +550,6 @@ function itemStyle(
     left: `${start}%`,
     width: `${Math.max(end - start, 1.5)}%`,
   };
-}
-
-function midpoint(startUs: number, endUs: number): number {
-  return startUs + (endUs - startUs) / 2;
 }
 
 function formatItemTime(

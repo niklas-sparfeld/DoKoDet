@@ -2274,8 +2274,12 @@ progress {
   min-width: var(--timeline-track-width);
 }
 
-.recordingTimelineScrubberViewport,
-.recordingTimelinePreviewViewport,
+.recordingTimelineScrubberViewport {
+  position: relative;
+  min-width: 0;
+}
+
+.recordingTimelineScrubberScroll,
 .recordingTimelineLanesViewport {
   min-width: 0;
   overflow-x: auto;
@@ -2292,6 +2296,23 @@ progress {
   position: relative;
   min-width: 0;
   padding-top: 1.1rem;
+}
+
+.recordingTimelinePreviewOverlay {
+  display: grid;
+  grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr);
+  gap: 0.65rem;
+  min-width: var(--timeline-track-width);
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.recordingTimelinePreviewOverlayTrack {
+  position: relative;
+  min-width: 0;
+  height: 2.45rem;
 }
 
 .recordingTimelineTickLabels {
@@ -2331,32 +2352,15 @@ progress {
   cursor: grabbing;
 }
 
-.recordingTimelinePreview {
-  display: grid;
-  grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr);
-  gap: 0.65rem;
-  min-width: var(--timeline-track-width);
-  position: relative;
-  height: 3.9rem;
-  min-height: 3.9rem;
-  color: var(--muted-ink);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 0.7rem;
-}
-
-.recordingTimelinePreviewTrack {
-  position: relative;
-  min-width: 0;
-  height: 100%;
-}
-
 .recordingTimelinePreviewFrame {
   position: absolute;
-  top: 0;
+  bottom: calc(100% + 0.45rem);
   left: clamp(3.5rem, var(--timeline-preview-position), calc(100% - 3.5rem));
   width: 7rem;
   height: 3.9rem;
   transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
 }
 
 .recordingTimelinePreviewFrame img,
@@ -2500,10 +2504,6 @@ progress {
   inset: 0.45rem;
   color: var(--muted-ink);
   font-size: 0.68rem;
-}
-
-.recordingTimelineRail[data-reduced-motion="true"] .recordingTimelinePreview {
-  transition: none;
 }
 
 .pipelineDiagnostics {
@@ -3695,7 +3695,7 @@ progress {
     grid-template-columns: minmax(12rem, 14rem) minmax(26rem, 1fr);
   }
 
-  .recordingTimelinePreview {
+  .recordingTimelinePreviewOverlay {
     grid-template-columns: minmax(12rem, 14rem) minmax(26rem, 1fr);
   }
 

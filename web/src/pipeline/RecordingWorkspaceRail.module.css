@@ -2,7 +2,7 @@
   display: block;
   min-height: 6rem;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   background: var(--surface-raised);
 }
 
