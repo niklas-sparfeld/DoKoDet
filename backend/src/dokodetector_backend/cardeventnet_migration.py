@@ -45,6 +45,8 @@ DEFAULT_SPLIT = "default.yaml"
 ANNOTATION_SCHEMA = "cardevent-annotation/v2"
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+
+
 class CardEventNetMigrationError(RuntimeError):
     """The CardEventNet import could not be completed safely."""
 
@@ -74,9 +76,7 @@ class MigrationResult:
 
 
 def _json_bytes(value: Mapping[str, Any]) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
-        "utf-8"
-    )
+    return (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
 def _sha256_path(path: Path) -> str:
@@ -532,10 +532,15 @@ def migrate(
             raise CardEventNetMigrationError(f"Bundle digest changed while importing {video_id}")
 
         relative_path = (
-            settings.repository_intake_root
-            / recording_id
-            / f"videos/video-{recording_id}{video_path.suffix.lower()}"
-        ).resolve().relative_to(settings.repository_root).as_posix()
+            (
+                settings.repository_intake_root
+                / recording_id
+                / f"videos/video-{recording_id}{video_path.suffix.lower()}"
+            )
+            .resolve()
+            .relative_to(settings.repository_root)
+            .as_posix()
+        )
         event_data = EventData(events=events)
         content_bytes = canonical_event_data_bytes(event_data)
         revision = DataRevision(
@@ -586,8 +591,8 @@ def migrate(
     return tuple(results)
 
 
-def _default_backend_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+def _default_repository_root() -> Path:
+    return Path(__file__).resolve().parents[3]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -595,9 +600,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--source-root",
         type=Path,
-        default=_default_backend_root().parent / "card_event_net" / "data",
+        default=_default_repository_root() / "card_event_net" / "data",
     )
-    parser.add_argument("--backend-root", type=Path, default=_default_backend_root())
+    parser.add_argument("--backend-root", type=Path, default=_default_repository_root())
     parser.add_argument("--split", default=DEFAULT_SPLIT)
     parser.add_argument(
         "--partition",

@@ -173,6 +173,45 @@ def test_settings_keeps_explicit_intake_data_root(tmp_path: Path) -> None:
     assert settings.evidence_package_intake_root == packages
 
 
+def test_settings_uses_pipeline_data_from_legacy_backend_root(tmp_path: Path) -> None:
+    legacy_runtime = tmp_path / "backend" / ".runtime"
+    legacy_operations = tmp_path / "backend" / "data" / "operations"
+    (legacy_runtime / "pipeline" / "revisions" / "revision-1").mkdir(parents=True)
+    (legacy_operations / "pipeline-references" / "recording-1" / "events").mkdir(parents=True)
+    (legacy_runtime / "pipeline" / "revisions" / "revision-1" / "manifest.json").write_text(
+        "{}", encoding="utf-8"
+    )
+    (
+        legacy_operations / "pipeline-references" / "recording-1" / "events" / "state.json"
+    ).write_text("{}", encoding="utf-8")
+
+    settings = Settings(_env_file=None, repository_root=tmp_path)
+
+    assert settings.evidence_root == legacy_runtime
+    assert settings.operations_root == legacy_operations
+
+
+def test_settings_keeps_explicit_pipeline_data_roots(tmp_path: Path) -> None:
+    runtime = tmp_path / "runtime"
+    operations = tmp_path / "operations"
+    legacy_runtime = tmp_path / "backend" / ".runtime"
+    legacy_operations = tmp_path / "backend" / "data" / "operations"
+    (legacy_runtime / "pipeline").mkdir(parents=True)
+    (legacy_operations / "pipeline-references").mkdir(parents=True)
+    (legacy_runtime / "pipeline" / "state.json").write_text("{}", encoding="utf-8")
+    (legacy_operations / "pipeline-references" / "state.json").write_text("{}", encoding="utf-8")
+
+    settings = Settings(
+        _env_file=None,
+        repository_root=tmp_path,
+        evidence_root=runtime,
+        operations_root=operations,
+    )
+
+    assert settings.evidence_root == runtime
+    assert settings.operations_root == operations
+
+
 def test_discover_repository_root_skips_backend_component_mise(monkeypatch) -> None:
     monkeypatch.chdir(BACKEND_ROOT)
 

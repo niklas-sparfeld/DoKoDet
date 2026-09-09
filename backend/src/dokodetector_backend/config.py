@@ -70,6 +70,25 @@ def _resolve_intake_path(value: Path, root: Path, *, use_legacy_fallback: bool) 
     return resolved
 
 
+def _contains_files(path: Path) -> bool:
+    """Return whether a storage root contains persisted data."""
+
+    return any(candidate.is_file() for candidate in path.rglob("*")) if path.is_dir() else False
+
+
+def _resolve_storage_path(value: Path, root: Path, *, use_legacy_fallback: bool) -> Path:
+    """Resolve a storage root and retain data written below the old backend root."""
+
+    resolved = _resolve_path(value, root)
+    if not use_legacy_fallback or value.is_absolute():
+        return resolved
+
+    legacy = _resolve_path(Path("backend") / value, root)
+    if not _contains_files(resolved) and _contains_files(legacy):
+        return legacy
+    return resolved
+
+
 class Settings(BaseSettings):
     """Settings loaded from environment variables with local defaults."""
 
@@ -166,8 +185,16 @@ class Settings(BaseSettings):
         if not root.is_dir():
             raise ConfigurationError(f"Repository root is not a directory: {root}")
         self.repository_root = root
-        self.evidence_root = _resolve_path(self.evidence_root, root)
-        self.operations_root = _resolve_path(self.operations_root, root)
+        self.evidence_root = _resolve_storage_path(
+            self.evidence_root,
+            root,
+            use_legacy_fallback="evidence_root" not in self.model_fields_set,
+        )
+        self.operations_root = _resolve_storage_path(
+            self.operations_root,
+            root,
+            use_legacy_fallback="operations_root" not in self.model_fields_set,
+        )
         self.frontend_dist = _resolve_frontend_dist(self.frontend_dist, root)
         self.repository_intake_root = _resolve_intake_path(
             self.repository_intake_root,

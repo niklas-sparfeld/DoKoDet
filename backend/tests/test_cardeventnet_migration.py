@@ -1,6 +1,8 @@
 import json
+from pathlib import Path
 
 from dokodetector_backend.cardeventnet_migration import (
+    _default_repository_root,
     _load_events,
     read_dataset_metadata,
     read_split,
@@ -66,3 +68,7 @@ def test_load_events_accepts_legacy_annotation_envelope(tmp_path):
     assert schema == "cardevent-annotation/legacy-v1"
     assert len(events) == 1
     assert events[0].start_us == 1_250_000
+
+
+def test_migration_defaults_to_repository_storage_root():
+    assert _default_repository_root() == Path(__file__).resolve().parents[2]
