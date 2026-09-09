@@ -1,4 +1,5 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { pipelineDerivedFramePath } from "../api/client";
 import styles from "../App.module.css";
@@ -23,6 +24,7 @@ export function VisibleCardFramePanel({
   onPointerUp,
   onPointPointerDown,
   readOnly,
+  proposalSlot,
 }: {
   recordingId: string;
   frame: EditableFrame;
@@ -40,6 +42,7 @@ export function VisibleCardFramePanel({
     pointIndex: number,
   ) => void;
   readOnly: boolean;
+  proposalSlot: HTMLElement | null;
 }) {
   const identity = frame.outcome.frame_identity;
   const width = identity?.width ?? 1;
@@ -129,63 +132,17 @@ export function VisibleCardFramePanel({
       {frame.outcome.error !== null ? (
         <p className={styles.detailBlocker}>{frame.outcome.error}</p>
       ) : null}
-      <section
-        className={visibleStyles.proposalList}
-        aria-label="Visible-card proposals"
-      >
-        {frame.outcome.candidates.length === 0 ? (
-          <p className={styles.detailEmptyState}>
-            No visible-card proposals. Use Add missed card or mark the frame
-            reviewed empty.
-          </p>
-        ) : (
-          <ol className={visibleStyles.proposalItems}>
-            {frame.outcome.candidates.map((candidate, index) => (
-              <li key={candidate.card_id}>
-                <div className={visibleStyles.proposalRow}>
-                  <span>
-                    <strong>Proposal {index + 1}</strong>
-                    <small>
-                      {candidate.card_id} ·{" "}
-                      {formatIdentifier(candidate.geometry.kind)}
-                    </small>
-                  </span>
-                  <div className={visibleStyles.actionButtons}>
-                    {!readOnly ? (
-                      <>
-                        <button
-                          className={styles.inlineAction}
-                          type="button"
-                          onClick={() => onOpenEditor?.(candidate)}
-                        >
-                          Reshape proposal {index + 1}
-                        </button>
-                        <button
-                          className={styles.inlineAction}
-                          type="button"
-                          onClick={() => onRemoveCard?.(candidate.card_id)}
-                        >
-                          Remove card {index + 1}
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-      {!readOnly ? (
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => onOpenEditor?.(null)}
-          disabled={identity === null}
-        >
-          Add missed card
-        </button>
-      ) : null}
+      {renderProposalColumn(
+        <ProposalColumn
+          frame={frame}
+          sourceUrl={sourceUrl}
+          readOnly={readOnly}
+          onOpenEditor={onOpenEditor}
+          onRemoveCard={onRemoveCard}
+          canAddCard={identity !== null}
+        />,
+        proposalSlot,
+      )}
       {!readOnly && editor !== null ? (
         <section
           className={visibleStyles.editor}
@@ -218,6 +175,169 @@ export function VisibleCardFramePanel({
       ) : null}
     </section>
   );
+}
+
+function renderProposalColumn(
+  content: ReactNode,
+  proposalSlot: HTMLElement | null,
+) {
+  return proposalSlot === null ? content : createPortal(content, proposalSlot);
+}
+
+function ProposalColumn({
+  frame,
+  sourceUrl,
+  readOnly,
+  onOpenEditor,
+  onRemoveCard,
+  canAddCard,
+}: {
+  frame: EditableFrame;
+  sourceUrl: string | null;
+  readOnly: boolean;
+  onOpenEditor?: (candidate: Candidate | null) => void;
+  onRemoveCard?: (cardId: string) => void;
+  canAddCard: boolean;
+}) {
+  return (
+    <section
+      className={visibleStyles.proposalColumn}
+      aria-label="Visible-card proposals"
+    >
+      {frame.outcome.candidates.length === 0 ? (
+        <p className={styles.detailEmptyState}>
+          No proposals. Add a missed card or review this frame as empty.
+        </p>
+      ) : (
+        <ol className={visibleStyles.proposalItems}>
+          {frame.outcome.candidates.map((candidate, index) => (
+            <li key={candidate.card_id}>
+              <div className={visibleStyles.proposalRow}>
+                <CandidatePreview
+                  candidate={candidate}
+                  sourceUrl={sourceUrl}
+                  frameWidth={frame.outcome.frame_identity?.width ?? 1}
+                  frameHeight={frame.outcome.frame_identity?.height ?? 1}
+                  label={`Proposal ${index + 1} crop preview`}
+                />
+                <div className={visibleStyles.proposalDetails}>
+                  <strong>Proposal {index + 1}</strong>
+                  <span>Detector suggestion</span>
+                  <small>{formatGeometryKind(candidate.geometry.kind)}</small>
+                </div>
+                {!readOnly ? (
+                  <div className={visibleStyles.actionButtons}>
+                    <button
+                      className={styles.inlineAction}
+                      type="button"
+                      onClick={() => onOpenEditor?.(candidate)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className={styles.inlineAction}
+                      type="button"
+                      onClick={() => onRemoveCard?.(candidate.card_id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      {!readOnly ? (
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={() => onOpenEditor?.(null)}
+          disabled={!canAddCard}
+        >
+          Add missed card
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function CandidatePreview({
+  candidate,
+  sourceUrl,
+  frameWidth,
+  frameHeight,
+  label,
+}: {
+  candidate: Candidate;
+  sourceUrl: string | null;
+  frameWidth: number;
+  frameHeight: number;
+  label: string;
+}) {
+  const bounds = candidateBounds(candidate, frameWidth, frameHeight);
+  if (sourceUrl === null || bounds === null) {
+    return (
+      <div
+        className={visibleStyles.proposalPreviewPlaceholder}
+        aria-hidden="true"
+      />
+    );
+  }
+  return (
+    <svg
+      className={visibleStyles.proposalPreview}
+      viewBox={`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`}
+      role="img"
+      aria-label={label}
+      preserveAspectRatio="xMidYMid slice"
+    >
+      <image
+        href={sourceUrl}
+        x="0"
+        y="0"
+        width={frameWidth}
+        height={frameHeight}
+        preserveAspectRatio="none"
+      />
+    </svg>
+  );
+}
+
+function candidateBounds(
+  candidate: Candidate,
+  frameWidth: number,
+  frameHeight: number,
+) {
+  const geometry = candidate.geometry;
+  const points =
+    geometry.visible_region?.polygons.flat() ??
+    (geometry.box_2d === undefined
+      ? []
+      : [
+          { x: geometry.box_2d.x_min, y: geometry.box_2d.y_min },
+          { x: geometry.box_2d.x_max, y: geometry.box_2d.y_max },
+        ]);
+  if (points.length === 0) return null;
+  const xMin = Math.max(0, Math.min(...points.map((point) => point.x)));
+  const yMin = Math.max(0, Math.min(...points.map((point) => point.y)));
+  const xMax = Math.min(1000, Math.max(...points.map((point) => point.x)));
+  const yMax = Math.min(1000, Math.max(...points.map((point) => point.y)));
+  const width = Math.max(1, ((xMax - xMin) * frameWidth) / 1000);
+  const height = Math.max(1, ((yMax - yMin) * frameHeight) / 1000);
+  const x = (xMin * frameWidth) / 1000;
+  const y = (yMin * frameHeight) / 1000;
+  return { x, y, width, height };
+}
+
+function formatGeometryKind(kind: string): string {
+  if (kind === "visible-region/v1" || kind === "reviewed-visible-region/v1") {
+    return "Polygon";
+  }
+  if (kind === "detector-box/v1" || kind === "reviewed-box/v1") {
+    return "Box";
+  }
+  return formatIdentifier(kind);
 }
 
 function CandidateOverlay({

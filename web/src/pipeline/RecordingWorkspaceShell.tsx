@@ -215,12 +215,12 @@ export function RecordingWorkspaceTaskSurface({
 }: RecordingWorkspaceTaskSurfaceProps) {
   return (
     <section
-      className={`${styles.pipelineTaskSurface} ${shellStyles.taskSurface}`}
+      className={`${styles.pipelineTaskSurface} ${shellStyles.taskSurface} ${stage.key === "visible_cards" && !compare ? styles.pipelineVisibleCardTaskSurface : ""}`}
       aria-label={`${STAGE_LABELS[stage.key]} task surface`}
       data-slot="center"
     >
       <div
-        className={`${styles.pipelineTaskSurfaceContent} ${shellStyles.taskSurfaceContent}`}
+        className={`${styles.pipelineTaskSurfaceContent} ${shellStyles.taskSurfaceContent} ${stage.key === "visible_cards" && !compare ? styles.pipelineVisibleCardTaskSurfaceContent : ""}`}
       >
         {compare ? (
           <ComparisonView

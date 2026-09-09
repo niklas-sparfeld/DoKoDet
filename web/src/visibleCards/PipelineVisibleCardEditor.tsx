@@ -22,6 +22,7 @@ import {
 } from "./PipelineVisibleCardFormatting";
 import {
   VisibleCardInspectorPortals,
+  useVisibleCardProposalSlot,
   useVisibleCardInspectorSlots,
 } from "./PipelineVisibleCardInspector";
 import { VisibleCardFramePanel } from "./PipelineVisibleCardPresentation";
@@ -116,6 +117,7 @@ export function PipelineVisibleCardEditor({
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
+  const proposalSlot = useVisibleCardProposalSlot();
 
   const setLocalFrames = useCallback((nextFrames: EditableFrame[]) => {
     framesRef.current = nextFrames;
@@ -943,6 +945,7 @@ export function PipelineVisibleCardEditor({
             onPointerMove={handleCanvasPointerMove}
             onPointerUp={stopCanvasPointer}
             onPointPointerDown={startPointDrag}
+            proposalSlot={proposalSlot}
           />
         )}
         {notice !== null ? (

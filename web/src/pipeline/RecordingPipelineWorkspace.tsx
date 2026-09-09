@@ -319,6 +319,8 @@ export function RecordingPipelineWorkspace({
     );
   }
 
+  const visibleCardReview = stage.key === "visible_cards" && !compare;
+
   return (
     <main
       className={`${styles.shell} ${styles.recordingsPage} ${styles.pipelinePage} ${styles.pipelineViewport}`}
@@ -335,7 +337,19 @@ export function RecordingPipelineWorkspace({
         onNavigate={navigateTo}
       />
 
-      <div className={styles.pipelineWorkspaceGrid} data-slot="workspace">
+      <div
+        className={`${styles.pipelineWorkspaceGrid} ${visibleCardReview ? styles.pipelineVisibleCardWorkspaceGrid : ""}`}
+        data-slot="workspace"
+      >
+        {visibleCardReview ? (
+          <aside
+            className={styles.pipelineProposalSlot}
+            aria-label="Visible-card proposals"
+            data-slot="proposals"
+          >
+            <div data-visible-card-proposal-slot="proposals" />
+          </aside>
+        ) : null}
         <RecordingWorkspaceTaskSurface
           recordingId={recordingId}
           workspace={workspace}

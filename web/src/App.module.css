@@ -2167,6 +2167,13 @@ progress {
   overflow: hidden;
 }
 
+.pipelineVisibleCardWorkspaceGrid {
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(
+      18rem,
+      23rem
+    );
+}
+
 .pipelineTaskSurface,
 .pipelineInspectorSlot,
 .pipelineRailSlot {
@@ -2177,6 +2184,33 @@ progress {
     linear-gradient(135deg, rgb(255 255 255 / 1.5%), transparent 28rem),
     var(--panel);
   box-shadow: 0 0.7rem 2rem var(--shadow);
+}
+
+.pipelineProposalSlot {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.85rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 1.5%), transparent 28rem),
+    var(--panel);
+  box-shadow: 0 0.7rem 2rem var(--shadow);
+}
+
+.pipelineVisibleCardTaskSurface {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.pipelineVisibleCardTaskSurfaceContent {
+  padding: 0;
+  overflow: auto;
 }
 
 .pipelineInspectorSectionHeading {
@@ -3676,12 +3710,28 @@ progress {
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 23rem);
     overflow: visible;
   }
+
+  .pipelineVisibleCardWorkspaceGrid {
+    grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr) minmax(
+        16rem,
+        21rem
+      );
+  }
 }
 
 @media (max-width: 600px) {
   .pipelineWorkspaceGrid {
     grid-template-columns: 1fr;
     overflow: visible;
+  }
+
+  .pipelineVisibleCardWorkspaceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .recordingTimelineRailHeader {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .recordingTimelineTransport {

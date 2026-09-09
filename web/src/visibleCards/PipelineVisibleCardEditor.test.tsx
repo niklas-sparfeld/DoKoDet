@@ -237,9 +237,7 @@ describe("PipelineVisibleCardEditor", () => {
 
     await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("button", { name: "Reshape proposal 1" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Edit" }));
     const point = screen.getByRole("button", {
       name: "Polygon 1, point 1 at 100, 100",
     });
