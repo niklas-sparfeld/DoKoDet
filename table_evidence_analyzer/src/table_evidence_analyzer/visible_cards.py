@@ -836,6 +836,90 @@ def _normalise_detection_rows(value: Any, field_name: str) -> list[list[Any]]:
     return [list(row) if isinstance(row, (list, tuple)) else [] for row in rows]
 
 
+def _normalise_mask_rows(value: Any) -> list[Any]:
+    """Return one two-dimensional mask for each detector row.
+
+    RF-DETR exposes masks as an ``N x H x W`` array.  Accept a single ``H x W``
+    mask as well so small detector adapters can use the same boundary.
+    """
+
+    shape = getattr(value, "shape", None)
+    if shape is not None:
+        try:
+            dimensions = len(shape)
+        except TypeError:
+            dimensions = 0
+        if dimensions == 2:
+            return [value]
+        if dimensions == 3:
+            try:
+                return [value[index] for index in range(len(value))]
+            except (IndexError, TypeError) as error:
+                raise VisibleCardError("detector output mask must be indexable") from error
+
+    rows = _sequence(value, "mask")
+    if rows and isinstance(rows[0], (list, tuple)):
+        first_row = rows[0]
+        if not first_row or not isinstance(first_row[0], (list, tuple)):
+            return [rows]
+    return rows
+
+
+def _mask_to_polygons(mask: Any) -> Any:
+    """Convert a segmentation mask to pixel polygons using the RF-DETR runtime dependency."""
+
+    try:
+        from supervision.detection.utils.converters import mask_to_polygons
+    except ImportError as error:
+        raise VisibleCardError(
+            "segmentation output requires supervision; install the inference dependency group"
+        ) from error
+    try:
+        return mask_to_polygons(mask)
+    except Exception as error:
+        raise VisibleCardError(f"detector output mask could not be polygonized: {error}") from error
+
+
+def _normalised_polygon_from_mask(
+    mask: Any, *, width: int, height: int
+) -> tuple[NormalizedPoint, ...]:
+    polygons = _mask_to_polygons(mask)
+    polygons = _sequence(polygons, "mask polygons")
+    if len(polygons) != 1:
+        raise VisibleCardError(
+            "detector output mask must contain exactly one connected visible-card region"
+        )
+    polygon = _sequence(polygons[0], "mask polygon")
+    points: list[NormalizedPoint] = []
+    for raw_point in polygon:
+        coordinates = _sequence(raw_point, "mask polygon point")
+        if len(coordinates) != 2:
+            raise VisibleCardError("detector output mask polygon points must contain x and y")
+        try:
+            x_pixel, y_pixel = (float(value) for value in coordinates)
+        except (TypeError, ValueError) as error:
+            raise VisibleCardError(
+                "detector output mask polygon points must be numeric"
+            ) from error
+        if not all(math.isfinite(value) for value in (x_pixel, y_pixel)):
+            raise VisibleCardError("detector output mask polygon points must be finite")
+        if not 0 <= x_pixel <= width or not 0 <= y_pixel <= height:
+            raise VisibleCardError("detector output mask polygon points must fit the source image")
+        points.append(
+            NormalizedPoint(
+                x=max(0, min(1000, round(x_pixel * 1000 / width))),
+                y=max(0, min(1000, round(y_pixel * 1000 / height))),
+            )
+        )
+    if len(points) < 3:
+        raise VisibleCardError("detector output mask polygon needs at least three points")
+    try:
+        _tight_box_for_polygon(points)
+    except VisibleCardValidationError as error:
+        raise VisibleCardError("detector output mask polygon must have positive area") from error
+    return tuple(points)
+
+
 def _local_bundle_identity(bundle: Any) -> dict[str, Any]:
     manifest = bundle.manifest
     return {
@@ -968,12 +1052,18 @@ class LocalVisibleCardProvider:
             boxes = _normalise_detection_rows(_detections_field(detections, "xyxy"), "xyxy")
             confidence = _sequence(_detections_field(detections, "confidence"), "confidence")
             class_ids = _sequence(_detections_field(detections, "class_id"), "class_id")
+            raw_masks = _detections_field(detections, "mask")
+            if raw_masks is None:
+                raw_masks = _detections_field(detections, "masks")
+            mask_rows = _normalise_mask_rows(raw_masks) if raw_masks is not None else None
             if not (len(boxes) == len(confidence) == len(class_ids)):
                 raise VisibleCardError("detector output fields have different lengths")
+            if mask_rows is not None and len(mask_rows) != len(boxes):
+                raise VisibleCardError("detector output mask field has a different length")
             proposals: list[VisibleCardProposal] = []
             output_detections: list[dict[str, Any]] = []
-            for coordinates, raw_score, raw_class_id in zip(
-                boxes, confidence, class_ids, strict=True
+            for detection_index, (coordinates, raw_score, raw_class_id) in enumerate(
+                zip(boxes, confidence, class_ids, strict=True)
             ):
                 score = float(raw_score)
                 class_id = int(raw_class_id)
@@ -986,21 +1076,36 @@ class LocalVisibleCardProvider:
                 box, pixel_box = _normalised_box_from_pixels(
                     coordinates, width=request.width, height=request.height
                 )
+                if mask_rows is None:
+                    polygon = (
+                        NormalizedPoint(x=box.x_min, y=box.y_min),
+                        NormalizedPoint(x=box.x_max, y=box.y_min),
+                        NormalizedPoint(x=box.x_max, y=box.y_max),
+                        NormalizedPoint(x=box.x_min, y=box.y_max),
+                    )
+                    geometry_source = "detector_box"
+                else:
+                    polygon = _normalised_polygon_from_mask(
+                        mask_rows[detection_index], width=request.width, height=request.height
+                    )
+                    box = _tight_box_for_polygon(polygon)
+                    geometry_source = "segmentation_mask"
                 proposals.append(
                     VisibleCardProposal(
                         box_2d=box,
-                        polygon=(
-                            NormalizedPoint(x=box.x_min, y=box.y_min),
-                            NormalizedPoint(x=box.x_max, y=box.y_min),
-                            NormalizedPoint(x=box.x_max, y=box.y_max),
-                            NormalizedPoint(x=box.x_min, y=box.y_max),
-                        ),
+                        polygon=polygon,
                         side="unknown",
                         label="visible_card",
                     )
                 )
                 output_detections.append(
-                    {"class_id": class_id, "score": score, "box_xyxy": pixel_box}
+                    {
+                        "class_id": class_id,
+                        "score": score,
+                        "box_xyxy": pixel_box,
+                        "geometry_source": geometry_source,
+                        "visible_polygon": [point.to_mapping() for point in polygon],
+                    }
                 )
         except Exception as error:
             return self._unavailable(f"local visible-card inference failed: {error}", started)

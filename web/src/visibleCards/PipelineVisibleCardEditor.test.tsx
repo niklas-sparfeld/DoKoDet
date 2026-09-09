@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { PipelineVisibleCardEditor } from "./PipelineVisibleCardEditor";
+import type { Candidate } from "./PipelineVisibleCardTypes";
 
 const RECORDING_ID = "visible-pipeline-recording";
 const RUN_ID = "visible-run-1";
@@ -23,7 +24,7 @@ const FRAME_IDENTITY = {
   image_sha256: "b".repeat(64),
   policy: "exact-event/v1",
 };
-const DETECTOR_CANDIDATE = {
+const DETECTOR_CANDIDATE: Candidate = {
   card_id: "run-card-1",
   geometry: {
     kind: "detector-box/v1",
@@ -220,6 +221,53 @@ describe("PipelineVisibleCardEditor", () => {
     expect(fetchImplementation.mock.calls[0]?.[0]).toContain(
       "/pipeline/visible-cards/visible-run-1/result",
     );
+  });
+
+  it("renders each segmented visible-region polygon as its own overlay", async () => {
+    const result = generatedResult();
+    result.revisions[0].content.outcomes[0].candidates = [
+      {
+        ...DETECTOR_CANDIDATE,
+        geometry: {
+          kind: "visible-region/v1",
+          visible_region: {
+            polygons: [
+              [
+                { x: 100, y: 100 },
+                { x: 400, y: 100 },
+                { x: 400, y: 800 },
+                { x: 100, y: 800 },
+              ],
+              [
+                { x: 600, y: 200 },
+                { x: 900, y: 200 },
+                { x: 900, y: 700 },
+                { x: 600, y: 700 },
+              ],
+            ],
+          },
+        },
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(result))),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+      />,
+    );
+
+    const canvas = await screen.findByRole("img", {
+      name: "1 visible-card proposal",
+    });
+    expect(canvas.querySelectorAll("polygon")).toHaveLength(2);
   });
 
   it("keeps the generated frame and proposals visible after entering review before start", async () => {

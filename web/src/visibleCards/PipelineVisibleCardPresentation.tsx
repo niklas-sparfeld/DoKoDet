@@ -379,20 +379,22 @@ function CandidateOverlay({
   ) {
     return (
       <g data-card-id={candidate.card_id} data-selected={selected}>
-        <polygon
-          points={geometry.visible_region.polygons
-            .flat()
-            .map(
-              (point) =>
-                `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
-            )
-            .join(" ")}
-          fill="rgba(59, 209, 154, 0.2)"
-          stroke={selected ? "#ffd24f" : "#3bd19a"}
-          strokeWidth={
-            selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
-          }
-        />
+        {geometry.visible_region.polygons.map((polygon, polygonIndex) => (
+          <polygon
+            key={`${candidate.card_id}-polygon-${polygonIndex}`}
+            points={polygon
+              .map(
+                (point) =>
+                  `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
+              )
+              .join(" ")}
+            fill="rgba(59, 209, 154, 0.2)"
+            stroke={selected ? "#ffd24f" : "#3bd19a"}
+            strokeWidth={
+              selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
+            }
+          />
+        ))}
       </g>
     );
   }

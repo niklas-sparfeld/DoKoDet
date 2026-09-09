@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
+import table_evidence_analyzer.visible_cards as visible_cards
 from table_evidence_analyzer.visible_card_training import VISIBLE_CARD_BUNDLE_SCHEMA
 from table_evidence_analyzer.visible_cards import (
     LOCAL_PROVIDER_NAME,
@@ -88,8 +89,18 @@ class _Detector:
         return self.detections
 
 
-def _detections(boxes: list[list[float]], scores: list[float], class_ids: list[int]) -> object:
-    return SimpleNamespace(xyxy=boxes, confidence=scores, class_id=class_ids)
+def _detections(
+    boxes: list[list[float]],
+    scores: list[float],
+    class_ids: list[int],
+    masks: object | None = None,
+) -> object:
+    return SimpleNamespace(
+        xyxy=boxes,
+        confidence=scores,
+        class_id=class_ids,
+        mask=masks,
+    )
 
 
 @pytest.mark.parametrize(
@@ -144,6 +155,50 @@ def test_local_provider_converts_rfdetr_detections_and_records_provenance(
         assert proposal.side == "unknown"
         assert proposal.label == "visible_card"
         assert proposal.polygon[2].to_mapping() == {"x": 600, "y": 800}
+        assert result.raw_response["detections"][0]["geometry_source"] == "detector_box"
+
+
+def test_local_provider_uses_segmentation_polygon_and_derives_its_tight_box(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        visible_cards,
+        "_mask_to_polygons",
+        lambda _mask: [[[2, 4], [12, 4], [10, 16], [2, 16]]],
+    )
+    detector = _Detector(
+        _detections(
+            [[1.0, 1.0, 19.0, 19.0]],
+            [0.75],
+            [0],
+            masks=[[[False, True]]],
+        )
+    )
+    provider = LocalVisibleCardProvider(_bundle(tmp_path), detector=detector)
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    proposal = result.proposals[0]
+    assert proposal.polygon == (
+        visible_cards.NormalizedPoint(x=100, y=200),
+        visible_cards.NormalizedPoint(x=600, y=200),
+        visible_cards.NormalizedPoint(x=500, y=800),
+        visible_cards.NormalizedPoint(x=100, y=800),
+    )
+    assert proposal.box_2d.to_mapping() == {
+        "x_min": 100,
+        "y_min": 200,
+        "x_max": 600,
+        "y_max": 800,
+    }
+    assert result.raw_response["detections"][0]["geometry_source"] == "segmentation_mask"
+    assert result.raw_response["detections"][0]["visible_polygon"] == [
+        {"x": 100, "y": 200},
+        {"x": 600, "y": 200},
+        {"x": 500, "y": 800},
+        {"x": 100, "y": 800},
+    ]
 
 
 def test_local_provider_returns_unavailable_for_invalid_input_and_inference_failure(

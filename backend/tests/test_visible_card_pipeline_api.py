@@ -176,7 +176,7 @@ class _Detector:
                             "polygon": [
                                 {"x": 100, "y": 200},
                                 {"x": 700, "y": 200},
-                                {"x": 700, "y": 800},
+                                {"x": 560, "y": 800},
                                 {"x": 100, "y": 800},
                             ],
                             "side": "unknown",
@@ -311,7 +311,7 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             [
                 {"x": 100, "y": 200},
                 {"x": 700, "y": 200},
-                {"x": 700, "y": 800},
+                {"x": 560, "y": 800},
                 {"x": 100, "y": 800},
             ]
         ]
