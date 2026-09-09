@@ -116,6 +116,31 @@
   gap: 0.55rem;
 }
 
+.proposalSelect {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 3.4rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.proposalSelect:hover,
+.proposalSelect:focus-visible,
+.proposalSelect[data-selected="true"] {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 1px;
+}
+
 .proposalPreview,
 .proposalPreviewPlaceholder {
   display: block;
@@ -230,7 +255,8 @@
 }
 
 @media (max-width: 800px) {
-  .proposalRow {
+  .proposalRow,
+  .proposalSelect {
     grid-template-columns: 3rem minmax(0, 1fr);
   }
 

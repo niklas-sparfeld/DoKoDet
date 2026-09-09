@@ -15,7 +15,9 @@ export function VisibleCardFramePanel({
   recordingId,
   frame,
   editor,
+  selectedCandidateId,
   editorError,
+  onSelectCandidate,
   onOpenEditor,
   onSaveEditor,
   onCancelEditor,
@@ -29,7 +31,9 @@ export function VisibleCardFramePanel({
   recordingId: string;
   frame: EditableFrame;
   editor: EditorState | null;
+  selectedCandidateId: string | null;
   editorError: string | null;
+  onSelectCandidate?: (candidate: Candidate) => void;
   onOpenEditor?: (candidate: Candidate | null) => void;
   onSaveEditor?: () => void;
   onCancelEditor?: () => void;
@@ -85,6 +89,7 @@ export function VisibleCardFramePanel({
                   candidate={candidate}
                   width={width}
                   height={height}
+                  selected={candidate.card_id === selectedCandidateId}
                 />
               ))}
               {editor?.polygons.map((polygon, polygonIndex) => (
@@ -137,6 +142,8 @@ export function VisibleCardFramePanel({
           frame={frame}
           sourceUrl={sourceUrl}
           readOnly={readOnly}
+          selectedCandidateId={selectedCandidateId}
+          onSelectCandidate={onSelectCandidate}
           onOpenEditor={onOpenEditor}
           onRemoveCard={onRemoveCard}
           canAddCard={identity !== null}
@@ -188,6 +195,8 @@ function ProposalColumn({
   frame,
   sourceUrl,
   readOnly,
+  selectedCandidateId,
+  onSelectCandidate,
   onOpenEditor,
   onRemoveCard,
   canAddCard,
@@ -195,6 +204,8 @@ function ProposalColumn({
   frame: EditableFrame;
   sourceUrl: string | null;
   readOnly: boolean;
+  selectedCandidateId: string | null;
+  onSelectCandidate?: (candidate: Candidate) => void;
   onOpenEditor?: (candidate: Candidate | null) => void;
   onRemoveCard?: (cardId: string) => void;
   canAddCard: boolean;
@@ -213,18 +224,27 @@ function ProposalColumn({
           {frame.outcome.candidates.map((candidate, index) => (
             <li key={candidate.card_id}>
               <div className={visibleStyles.proposalRow}>
-                <CandidatePreview
-                  candidate={candidate}
-                  sourceUrl={sourceUrl}
-                  frameWidth={frame.outcome.frame_identity?.width ?? 1}
-                  frameHeight={frame.outcome.frame_identity?.height ?? 1}
-                  label={`Proposal ${index + 1} crop preview`}
-                />
-                <div className={visibleStyles.proposalDetails}>
-                  <strong>Proposal {index + 1}</strong>
-                  <span>Detector suggestion</span>
-                  <small>{formatGeometryKind(candidate.geometry.kind)}</small>
-                </div>
+                <button
+                  className={visibleStyles.proposalSelect}
+                  type="button"
+                  aria-label={`Select proposal ${index + 1}`}
+                  aria-pressed={candidate.card_id === selectedCandidateId}
+                  data-selected={candidate.card_id === selectedCandidateId}
+                  onClick={() => onSelectCandidate?.(candidate)}
+                >
+                  <CandidatePreview
+                    candidate={candidate}
+                    sourceUrl={sourceUrl}
+                    frameWidth={frame.outcome.frame_identity?.width ?? 1}
+                    frameHeight={frame.outcome.frame_identity?.height ?? 1}
+                    label={`Proposal ${index + 1} crop preview`}
+                  />
+                  <span className={visibleStyles.proposalDetails}>
+                    <strong>Proposal {index + 1}</strong>
+                    <span>Detector suggestion</span>
+                    <small>{formatGeometryKind(candidate.geometry.kind)}</small>
+                  </span>
+                </button>
                 {!readOnly ? (
                   <div className={visibleStyles.actionButtons}>
                     <button
@@ -344,10 +364,12 @@ function CandidateOverlay({
   candidate,
   width,
   height,
+  selected,
 }: {
   candidate: Candidate;
   width: number;
   height: number;
+  selected: boolean;
 }) {
   const geometry = candidate.geometry;
   if (
@@ -356,7 +378,7 @@ function CandidateOverlay({
     geometry.visible_region !== undefined
   ) {
     return (
-      <g data-card-id={candidate.card_id}>
+      <g data-card-id={candidate.card_id} data-selected={selected}>
         <polygon
           points={geometry.visible_region.polygons
             .flat()
@@ -366,8 +388,10 @@ function CandidateOverlay({
             )
             .join(" ")}
           fill="rgba(59, 209, 154, 0.2)"
-          stroke="#3bd19a"
-          strokeWidth={Math.max(1, width / 250)}
+          stroke={selected ? "#ffd24f" : "#3bd19a"}
+          strokeWidth={
+            selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
+          }
         />
       </g>
     );
@@ -375,16 +399,18 @@ function CandidateOverlay({
   const box = geometry.box_2d;
   if (box === undefined) return null;
   return (
-    <g data-card-id={candidate.card_id}>
+    <g data-card-id={candidate.card_id} data-selected={selected}>
       <rect
         x={(box.x_min * width) / 1000}
         y={(box.y_min * height) / 1000}
         width={((box.x_max - box.x_min) * width) / 1000}
         height={((box.y_max - box.y_min) * height) / 1000}
         fill="rgba(234, 160, 220, 0.12)"
-        stroke="#eaa0dc"
+        stroke={selected ? "#ffd24f" : "#eaa0dc"}
         strokeDasharray="8 5"
-        strokeWidth={Math.max(1, width / 250)}
+        strokeWidth={
+          selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
+        }
       />
     </g>
   );

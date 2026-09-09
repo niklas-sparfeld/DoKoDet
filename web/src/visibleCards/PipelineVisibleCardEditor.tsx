@@ -98,6 +98,9 @@ export function PipelineVisibleCardEditor({
   const [frames, setFrames] = useState<EditableFrame[]>([]);
   const [generatedFrames, setGeneratedFrames] = useState<EditableFrame[]>([]);
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(view === "reviewed");
   const [generatedLoading, setGeneratedLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,7 +187,8 @@ export function PipelineVisibleCardEditor({
 
   const loadGenerated = useCallback(
     async (signal?: AbortSignal) => {
-      if (generatedRunId === null || displayedRevisionId === null) {
+      const revisionId = displayedRevisionId ?? generatedRevisionId;
+      if (generatedRunId === null || revisionId === null) {
         setGeneratedFrames([]);
         setGeneratedLoading(false);
         return;
@@ -197,7 +201,7 @@ export function PipelineVisibleCardEditor({
           { signal },
         );
         if (!signal?.aborted) {
-          setGeneratedFrames(readFramesFromResult(result, displayedRevisionId));
+          setGeneratedFrames(readFramesFromResult(result, revisionId));
         }
       } catch (reason: unknown) {
         if (!signal?.aborted) setError(describeError(reason));
@@ -205,7 +209,13 @@ export function PipelineVisibleCardEditor({
         if (!signal?.aborted) setGeneratedLoading(false);
       }
     },
-    [client, displayedRevisionId, generatedRunId, recordingId],
+    [
+      client,
+      displayedRevisionId,
+      generatedRevisionId,
+      generatedRunId,
+      recordingId,
+    ],
   );
 
   const loadReference = useCallback(
@@ -258,7 +268,8 @@ export function PipelineVisibleCardEditor({
   }, [loadGenerated, loadReference, view]);
 
   useEffect(() => {
-    const candidates = view === "reviewed" ? frames : generatedFrames;
+    const candidates =
+      view === "reviewed" && reference !== null ? frames : generatedFrames;
     const urlState = readPipelineEditorUrlState();
     const requestedItemId =
       selectionItemId === undefined ? urlState.item : selectionItemId;
@@ -284,10 +295,12 @@ export function PipelineVisibleCardEditor({
     setCurrentTime,
     selectFrame,
     view,
+    reference,
   ]);
 
   useEffect(() => {
-    const candidates = view === "reviewed" ? frames : generatedFrames;
+    const candidates =
+      view === "reviewed" && reference !== null ? frames : generatedFrames;
     onRailItemsChange?.(
       candidates.map((frame, index) => ({
         itemId: frame.itemId,
@@ -298,7 +311,7 @@ export function PipelineVisibleCardEditor({
         decision: view === "reviewed" ? frameDecision(frame) : null,
       })),
     );
-  }, [frames, generatedFrames, onRailItemsChange, view]);
+  }, [frames, generatedFrames, onRailItemsChange, reference, view]);
 
   const nextCommandId = useCallback(() => {
     commandSequenceRef.current += 1;
@@ -483,6 +496,7 @@ export function PipelineVisibleCardEditor({
     (frame: EditableFrame, candidate: Candidate | null) => {
       if (frame.outcome.frame_identity === null) return;
       setEditorError(null);
+      setSelectedCandidateId(candidate?.card_id ?? null);
       setEditor({
         frameItemId: frame.itemId,
         cardId: candidate?.card_id ?? null,
@@ -560,6 +574,9 @@ export function PipelineVisibleCardEditor({
           error: null,
         },
         "Visible card removed from the frame review.",
+      );
+      setSelectedCandidateId((current) =>
+        current === cardId ? null : current,
       );
     },
     [setFrameReview],
@@ -818,12 +835,14 @@ export function PipelineVisibleCardEditor({
     view,
   ]);
 
-  const displayedFrames = view === "reviewed" ? frames : generatedFrames;
+  const displayedFrames =
+    view === "reviewed" && reference !== null ? frames : generatedFrames;
   const activeFrame =
     displayedFrames.find((frame) => frame.itemId === selectedFrameId) ??
     displayedFrames[0] ??
     null;
   const reviewed = view === "reviewed";
+  const editable = reviewed && reference !== null;
   const pendingCount = frames.filter(
     (frame) =>
       frame.reviewState === "pending" || frame.reviewState === "affected",
@@ -858,7 +877,7 @@ export function PipelineVisibleCardEditor({
       inspectorEnabled={inspectorEnabled}
       view={view}
       reference={reference}
-      frames={view === "reviewed" ? frames : generatedFrames}
+      frames={displayedFrames}
       selectedFrame={activeFrame}
       generatedFrames={generatedFrames}
       generatedRevisionId={displayedRevisionId}
@@ -930,17 +949,22 @@ export function PipelineVisibleCardEditor({
             recordingId={recordingId}
             frame={activeFrame}
             editor={editor?.frameItemId === activeFrame.itemId ? editor : null}
+            selectedCandidateId={selectedCandidateId}
             editorError={editorError}
-            readOnly={!reviewed}
+            readOnly={!editable}
+            onSelectCandidate={(candidate) => {
+              setSelectedCandidateId(candidate.card_id);
+              if (editable) openEditor(activeFrame, candidate);
+            }}
             onOpenEditor={
-              reviewed
+              editable
                 ? (candidate) => openEditor(activeFrame, candidate)
                 : undefined
             }
-            onSaveEditor={reviewed ? saveEditor : undefined}
-            onCancelEditor={reviewed ? () => setEditor(null) : undefined}
+            onSaveEditor={editable ? saveEditor : undefined}
+            onCancelEditor={editable ? () => setEditor(null) : undefined}
             onRemoveCard={
-              reviewed ? (cardId) => removeCard(activeFrame, cardId) : undefined
+              editable ? (cardId) => removeCard(activeFrame, cardId) : undefined
             }
             onPointerMove={handleCanvasPointerMove}
             onPointerUp={stopCanvasPointer}

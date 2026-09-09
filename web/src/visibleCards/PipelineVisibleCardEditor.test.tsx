@@ -26,17 +26,8 @@ const FRAME_IDENTITY = {
 const DETECTOR_CANDIDATE = {
   card_id: "run-card-1",
   geometry: {
-    kind: "visible-region/v1",
-    visible_region: {
-      polygons: [
-        [
-          { x: 100, y: 100 },
-          { x: 800, y: 100 },
-          { x: 800, y: 800 },
-          { x: 100, y: 800 },
-        ],
-      ],
-    },
+    kind: "detector-box/v1",
+    box_2d: { x_min: 100, y_min: 100, x_max: 800, y_max: 800 },
   },
   normalization: {
     width: 100,
@@ -213,6 +204,41 @@ describe("PipelineVisibleCardEditor", () => {
     expect(fetchImplementation.mock.calls[0]?.[0]).toContain(
       "/pipeline/visible-cards/visible-run-1/result",
     );
+  });
+
+  it("keeps the generated frame and proposals visible after entering review before start", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((input) =>
+      String(input).includes("/pipeline/visible-cards/") &&
+      String(input).includes("/result")
+        ? Promise.resolve(jsonResponse(generatedResult()))
+        : Promise.resolve(jsonResponse({ message: "not found" }, 404)),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        displayedRevisionId={null}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    expect(
+      await screen.findByAltText("Selected visible-card source frame"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Start visible-card review" }),
+    ).toBeInTheDocument();
+    const proposal = screen.getByRole("button", {
+      name: "Select proposal 1",
+    });
+    expect(proposal).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(proposal);
+    expect(proposal).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Box")).toBeInTheDocument();
   });
 
   it("sends one complete set_frame_review command when a polygon drag ends", async () => {
