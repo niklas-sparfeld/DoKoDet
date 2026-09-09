@@ -64,6 +64,21 @@ The build writes hashed assets to `web/dist`. The backend serves that package at
 `/round-analyses/` and does not need a Node.js process after the build. For frontend development,
 run `npm run dev` in `web/`; its `/v1` requests use the local backend proxy.
 
+## Consolidate legacy local data
+
+The repository-level `data/` and `.runtime/` directories are the only active storage roots. If an
+older checkout has data below `backend/data/` or `backend/.runtime/`, stop the backend and run:
+
+```bash
+mise exec -- uv run --project backend dokodetector-consolidate-storage \
+  --repository-root .
+mise exec -- uv run --project backend dokodetector-consolidate-storage \
+  --repository-root . --apply
+```
+
+The first command checks the plan. The second command moves non-conflicting files and removes
+duplicate files. It stops before changing anything when central data differs from legacy data.
+
 ## Run the service
 
 Start the service from `backend/`:

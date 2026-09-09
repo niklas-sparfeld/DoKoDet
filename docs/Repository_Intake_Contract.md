@@ -88,7 +88,7 @@ one-time adoption of a package from the old runtime path:
 
 ```bash
 mise exec -- uv run --project operations doko data adopt-evidence \
-  --repository-root . --runtime-root backend/.runtime \
+  --repository-root . --runtime-root .runtime \
   --package-id <package-id> --metadata package-metadata.json
 ```
 

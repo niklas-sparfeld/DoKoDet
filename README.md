@@ -211,7 +211,7 @@ data/incoming/videos/<upload-id>/             pending upload; not yet intake
 data/intake/recordings/<recording-id>/        complete recording bundle
 data/intake/evidence-packages/<package-id>/   accepted evidence package
 data/operations/                              review and lifecycle artifacts
-backend/.runtime/                             disposable index, cache, and outputs
+.runtime/                                     disposable index, cache, and outputs
 ```
 
 A pending upload is not visible to review or dataset assembly. An operator completes it with
@@ -230,10 +230,10 @@ media into a component data directory. Inspect or validate the shared intake wit
 ```bash
 mise exec -- uv run --project operations doko data validate --repository-root .
 mise exec -- uv run --project operations doko data adopt-evidence \
-  --repository-root . --runtime-root backend/.runtime \
+  --repository-root . --runtime-root .runtime \
   --package-id <package-id> --metadata package-metadata.json
 ```
 
 The adoption command is for packages from the old runtime path. It keeps the old package until the
-operator verifies the new intake bundle. Deleting `backend/.runtime` cannot delete an accepted
+operator verifies the new intake bundle. Deleting `.runtime` cannot delete an accepted
 source package.

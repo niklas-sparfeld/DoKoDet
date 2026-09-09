@@ -16,7 +16,7 @@ data/incoming/videos/<upload-id>/             pending upload
 data/intake/recordings/<recording-id>/        complete recording bundle
 data/intake/evidence-packages/<package-id>/   accepted evidence package
 data/operations/                              review and lifecycle artifacts
-backend/.runtime/                             disposable backend state
+.runtime/                                     disposable backend state
 ```
 
 A pending upload is not a recording and is not an evidence package. It is not visible to a data
@@ -107,7 +107,7 @@ package into shared intake:
 
 ```bash
 mise exec -- uv run --project operations doko data adopt-evidence \
-  --repository-root . --runtime-root backend/.runtime \
+  --repository-root . --runtime-root .runtime \
   --package-id <package-id> --metadata package-metadata.json
 ```
 

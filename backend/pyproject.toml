@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 dokodetector-backend = "dokodetector_backend.server:run"
+dokodetector-consolidate-storage = "dokodetector_backend.storage_consolidation:main"
 
 [dependency-groups]
 dev = [
