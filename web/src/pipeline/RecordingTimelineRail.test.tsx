@@ -150,7 +150,15 @@ describe("RecordingTimelineRail", () => {
     expect(preview()).toHaveAttribute("data-preview-position-us", "3000000");
 
     fireEvent.pointerEnter(first);
-    expect(preview()).toHaveAttribute("data-preview-position-us", "3000000");
+    expect(preview()).toHaveAttribute("data-preview-position-us", "1500000");
+
+    const range = screen.getByRole("slider", { name: "Recording playhead" });
+    Object.defineProperty(range, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ left: 100, width: 200 }),
+    });
+    fireEvent.pointerMove(range, { clientX: 250 });
+    expect(preview()).toHaveAttribute("data-preview-position-us", "7500000");
 
     fireEvent.pointerLeave(rail!);
     expect(preview()).not.toBeInTheDocument();

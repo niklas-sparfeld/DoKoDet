@@ -64,6 +64,7 @@ export function RecordingTimelineRail({
   const [zoom, setZoom] = useState(1);
   const [scrubberScrollLeft, setScrubberScrollLeft] = useState(0);
   const [railHovered, setRailHovered] = useState(false);
+  const [hoveredTimeUs, setHoveredTimeUs] = useState<number | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>(() => ({
@@ -74,6 +75,7 @@ export function RecordingTimelineRail({
   const reducedMotion = usePrefersReducedMotion();
   const displayTimeUs = clampTime(currentTimeUs ?? 0, durationUs);
   const previewItemId = hoveredItemId ?? focusedItemId;
+  const previewPositionTimeUs = hoveredTimeUs ?? displayTimeUs;
 
   useEffect(() => {
     onTimeChangeRef.current = onTimeChange;
@@ -205,9 +207,21 @@ export function RecordingTimelineRail({
   );
 
   useEffect(() => {
-    if (!railHovered || playing || previewItemId !== null) return;
-    requestPreview(displayTimeUs);
-  }, [displayTimeUs, playing, previewItemId, railHovered, requestPreview]);
+    if (
+      !railHovered ||
+      previewItemId !== null ||
+      (playing && hoveredTimeUs === null)
+    )
+      return;
+    requestPreview(previewPositionTimeUs);
+  }, [
+    hoveredTimeUs,
+    playing,
+    previewItemId,
+    previewPositionTimeUs,
+    railHovered,
+    requestPreview,
+  ]);
 
   useEffect(() => {
     const video = getVideo();
@@ -282,6 +296,11 @@ export function RecordingTimelineRail({
   const previewItemAtPointer = useCallback(
     (item: RecordingTimelineRailItem) => {
       setHoveredItemId(item.id);
+      setHoveredTimeUs(
+        item.timeRange === null
+          ? displayTimeUs
+          : midpoint(item.timeRange.startUs, item.timeRange.endUs),
+      );
       requestPreview(item.timeRange?.startUs ?? displayTimeUs);
     },
     [displayTimeUs, requestPreview],
@@ -290,6 +309,11 @@ export function RecordingTimelineRail({
   const previewItemAtFocus = useCallback(
     (item: RecordingTimelineRailItem) => {
       setFocusedItemId(item.id);
+      setHoveredTimeUs(
+        item.timeRange === null
+          ? displayTimeUs
+          : midpoint(item.timeRange.startUs, item.timeRange.endUs),
+      );
       requestPreview(item.timeRange?.startUs ?? displayTimeUs);
     },
     [displayTimeUs, requestPreview],
@@ -331,7 +355,10 @@ export function RecordingTimelineRail({
       data-reduced-motion={reducedMotion}
       data-zoom={zoom}
       onPointerEnter={() => setRailHovered(true)}
-      onPointerLeave={() => setRailHovered(false)}
+      onPointerLeave={() => {
+        setRailHovered(false);
+        setHoveredTimeUs(null);
+      }}
     >
       <video
         ref={fallbackVideoRef}
@@ -408,18 +435,28 @@ export function RecordingTimelineRail({
                 value={displayTimeUs}
                 aria-label="Recording playhead"
                 aria-valuetext={`${formatTimeUs(displayTimeUs)} of ${formatTimeUs(durationUs)}`}
-                onChange={(event) => commitTime(Number(event.target.value))}
+                onChange={(event) => {
+                  const nextTimeUs = Number(event.target.value);
+                  setHoveredTimeUs(nextTimeUs);
+                  commitTime(nextTimeUs);
+                }}
                 onFocus={() => requestPreview(displayTimeUs)}
+                onPointerEnter={(event) =>
+                  setHoveredTimeUs(scrubberTimeAtPointer(event, durationUs))
+                }
                 onPointerDown={(event) => {
                   capturePointer(event);
                   setDragging(true);
-                  commitTime(Number(event.currentTarget.value));
-                  requestPreview(Number(event.currentTarget.value));
+                  const nextTimeUs = scrubberTimeAtPointer(event, durationUs);
+                  setHoveredTimeUs(nextTimeUs);
+                  commitTime(nextTimeUs);
                 }}
                 onPointerMove={(event) => {
-                  if (dragging) commitTime(Number(event.currentTarget.value));
-                  requestPreview(Number(event.currentTarget.value));
+                  const nextTimeUs = scrubberTimeAtPointer(event, durationUs);
+                  setHoveredTimeUs(nextTimeUs);
+                  if (dragging) commitTime(nextTimeUs);
                 }}
+                onPointerLeave={() => setHoveredTimeUs(null)}
                 onPointerUp={(event) => {
                   releasePointer(event);
                   setDragging(false);
@@ -443,10 +480,10 @@ export function RecordingTimelineRail({
                 className={styles.recordingTimelinePreviewFrame}
                 aria-atomic="true"
                 aria-live="polite"
-                data-preview-position-us={displayTimeUs}
+                data-preview-position-us={previewPositionTimeUs}
                 style={
                   {
-                    "--timeline-preview-position": `${positionPercent(displayTimeUs, durationUs)}%`,
+                    "--timeline-preview-position": `${positionPercent(previewPositionTimeUs, durationUs)}%`,
                   } as CSSProperties
                 }
               >
@@ -509,7 +546,10 @@ export function RecordingTimelineRail({
                       onBlur={() => setFocusedItemId(null)}
                       onKeyDown={(event) => handleItemKeyDown(event, item)}
                       onPointerEnter={() => previewItemAtPointer(item)}
-                      onPointerLeave={() => setHoveredItemId(null)}
+                      onPointerLeave={() => {
+                        setHoveredItemId(null);
+                        setHoveredTimeUs(null);
+                      }}
                     >
                       <span>{item.label}</span>
                     </button>
@@ -537,6 +577,24 @@ function releasePointer(event: ReactPointerEvent<HTMLInputElement>): void {
   if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   }
+}
+
+function scrubberTimeAtPointer(
+  event: ReactPointerEvent<HTMLInputElement>,
+  durationUs: number,
+): number {
+  const range = event.currentTarget;
+  const bounds = range.getBoundingClientRect();
+  if (bounds.width <= 0) return clampTime(Number(range.value), durationUs);
+  const progress = Math.min(
+    Math.max((event.clientX - bounds.left) / bounds.width, 0),
+    1,
+  );
+  return clampTime(progress * durationUs, durationUs);
+}
+
+function midpoint(startUs: number, endUs: number): number {
+  return startUs + (endUs - startUs) / 2;
 }
 
 function itemStyle(
