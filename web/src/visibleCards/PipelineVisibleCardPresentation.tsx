@@ -117,7 +117,8 @@ export function VisibleCardFramePanel({
                         .join(" ")}
                       fill="rgba(255, 210, 79, 0.25)"
                       stroke="#ffd24f"
-                      strokeWidth={Math.max(0.5, width / 800)}
+                      strokeDasharray="4 3"
+                      strokeWidth={polygonStrokeWidth(width)}
                     />
                   ) : null}
                   {polygon.map((point, pointIndex) => (
@@ -441,9 +442,7 @@ function CandidateOverlay({
               .join(" ")}
             fill={palette.fill}
             stroke={selected ? "#ffd24f" : palette.stroke}
-            strokeWidth={
-              selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
-            }
+            strokeWidth={polygonStrokeWidth(width)}
           />
         ))}
       </g>
@@ -484,4 +483,8 @@ function overlayPalette(reviewStatus: FrameReviewStatus): {
     return { fill: "rgba(255, 125, 114, 0.16)", stroke: "#ff7d72" };
   }
   return { fill: "rgba(196, 154, 239, 0.2)", stroke: "#c49aef" };
+}
+
+function polygonStrokeWidth(width: number): number {
+  return Math.max(1.25, width / 300);
 }

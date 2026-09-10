@@ -454,6 +454,13 @@ describe("PipelineVisibleCardEditor", () => {
         name: "Polygon 1, point 1 at 140, 180",
       }),
     ).toBeInTheDocument();
+    const polygons = screen
+      .getByRole("img", { name: "1 visible-card proposal" })
+      .querySelectorAll("polygon");
+    expect(polygons).toHaveLength(2);
+    expect(polygons[0]).toHaveAttribute("stroke-width", "1.25");
+    expect(polygons[1]).toHaveAttribute("stroke-width", "1.25");
+    expect(polygons[1]).toHaveAttribute("stroke-dasharray", "4 3");
     expect(screen.getByText("Polygon")).toBeInTheDocument();
   });
 
