@@ -1109,33 +1109,38 @@ function readCandidate(value: unknown): Candidate | null {
 
 function readGeometry(value: Record<string, unknown>): Geometry | null {
   const box = isRecord(value.box_2d) ? value.box_2d : null;
-  if (
-    value.kind === "detector-box/v1" &&
+  const region = isRecord(value.visible_region) ? value.visible_region : null;
+  const boxGeometry =
     box !== null &&
     ["x_min", "y_min", "x_max", "y_max"].every((key) => isInteger(box[key]))
-  )
-    return { kind: String(value.kind), box_2d: box as Geometry["box_2d"] };
-  const region = isRecord(value.visible_region) ? value.visible_region : null;
-  if (
-    (value.kind === "visible-region/v1" ||
-      value.kind === "reviewed-visible-region/v1") &&
-    region !== null &&
-    Array.isArray(region.polygons)
-  )
+      ? (box as Geometry["box_2d"])
+      : undefined;
+  if (region !== null && Array.isArray(region.polygons)) {
+    const polygons = region.polygons
+      .filter(Array.isArray)
+      .map(
+        (polygon) =>
+          polygon
+            .filter(isRecord)
+            .filter(
+              (point) => isInteger(point.x) && isInteger(point.y),
+            ) as Point[],
+      );
+    if (
+      polygons.length > 0 &&
+      polygons.every((polygon) => polygon.length >= 3)
+    ) {
+      return {
+        kind: String(value.kind),
+        ...(boxGeometry === undefined ? {} : { box_2d: boxGeometry }),
+        visible_region: { polygons },
+      };
+    }
+  }
+  if (value.kind === "detector-box/v1" && boxGeometry !== undefined)
     return {
       kind: String(value.kind),
-      visible_region: {
-        polygons: region.polygons
-          .filter(Array.isArray)
-          .map(
-            (polygon) =>
-              polygon
-                .filter(isRecord)
-                .filter(
-                  (point) => isInteger(point.x) && isInteger(point.y),
-                ) as Point[],
-          ),
-      },
+      box_2d: boxGeometry,
     };
   return null;
 }

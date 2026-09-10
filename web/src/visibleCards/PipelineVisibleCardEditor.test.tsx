@@ -37,6 +37,21 @@ const DETECTOR_CANDIDATE: Candidate = {
   },
 };
 
+const SEGMENTED_GEOMETRY_WITH_DERIVED_BOX: Candidate["geometry"] = {
+  kind: "detector-box/v1",
+  box_2d: { x_min: 100, y_min: 100, x_max: 820, y_max: 820 },
+  visible_region: {
+    polygons: [
+      [
+        { x: 140, y: 180 },
+        { x: 760, y: 120 },
+        { x: 820, y: 760 },
+        { x: 200, y: 820 },
+      ],
+    ],
+  },
+};
+
 function generatedResult() {
   return {
     run_id: RUN_ID,
@@ -142,6 +157,26 @@ function reference(state: "pending" | "accepted" | "corrected" = "pending") {
       coverage: null,
       impact: [],
       updated_at: "2026-09-06T00:00:00Z",
+    },
+  };
+}
+
+function referenceWithSegmentedGeometry() {
+  const current = reference();
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      items: current.draft.items.map((item) => ({
+        ...item,
+        item: {
+          ...item.item,
+          candidates: item.item.candidates.map((candidate) => ({
+            ...candidate,
+            geometry: SEGMENTED_GEOMETRY_WITH_DERIVED_BOX,
+          })),
+        },
+      })),
     },
   };
 }
@@ -360,6 +395,43 @@ describe("PipelineVisibleCardEditor", () => {
     expect(
       await screen.findByRole("button", { name: "Edit" }),
     ).toBeInTheDocument();
+  });
+
+  it("edits stored polygons after starting review when derived box data is also present", async () => {
+    const segmentedReference = referenceWithSegmentedGeometry();
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "PUT") {
+        return Promise.resolve(jsonResponse(segmentedReference));
+      }
+      return String(input).includes("/result")
+        ? Promise.resolve(jsonResponse(generatedResult()))
+        : Promise.resolve(jsonResponse(emptyReference()));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Start visible-card review" });
+    const user = userEvent.setup();
+    await user.type(screen.getByPlaceholderText("operator-01"), "operator-01");
+    await user.click(screen.getByRole("button", { name: "Start review" }));
+    await screen.findByRole("button", { name: "Edit" });
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 140, 180",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Polygon")).toBeInTheDocument();
   });
 
   it("sends one complete set_frame_review command when a polygon drag ends", async () => {

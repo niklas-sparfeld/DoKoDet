@@ -242,7 +242,7 @@ function ProposalColumn({
                   <span className={visibleStyles.proposalDetails}>
                     <strong>Proposal {index + 1}</strong>
                     <span>Detector suggestion</span>
-                    <small>{formatGeometryKind(candidate.geometry.kind)}</small>
+                    <small>{formatGeometryKind(candidate.geometry)}</small>
                   </span>
                 </button>
                 {!readOnly ? (
@@ -350,10 +350,11 @@ function candidateBounds(
   return { x, y, width, height };
 }
 
-function formatGeometryKind(kind: string): string {
-  if (kind === "visible-region/v1" || kind === "reviewed-visible-region/v1") {
+function formatGeometryKind(geometry: Candidate["geometry"]): string {
+  if (geometry.visible_region !== undefined) {
     return "Polygon";
   }
+  const { kind } = geometry;
   if (kind === "detector-box/v1" || kind === "reviewed-box/v1") {
     return "Box";
   }
@@ -372,11 +373,7 @@ function CandidateOverlay({
   selected: boolean;
 }) {
   const geometry = candidate.geometry;
-  if (
-    (geometry.kind === "visible-region/v1" ||
-      geometry.kind === "reviewed-visible-region/v1") &&
-    geometry.visible_region !== undefined
-  ) {
+  if (geometry.visible_region !== undefined) {
     return (
       <g data-card-id={candidate.card_id} data-selected={selected}>
         {geometry.visible_region.polygons.map((polygon, polygonIndex) => (
