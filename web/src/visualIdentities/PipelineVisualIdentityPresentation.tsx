@@ -140,7 +140,7 @@ export function IdentityItemPanel({
                   onClick={() => onSelectIdentity(identity)}
                   disabled={crop === null}
                 >
-                  {label}
+                  <CardIdentityLabel identity={identity} label={label} />
                 </button>
               )),
             )}
@@ -306,9 +306,13 @@ export function IdentityCardList({
             >
               <span>{index + 1}</span>
               <strong>
-                {item.outcome.candidates[0] === undefined
-                  ? "Unentschieden"
-                  : formatCardIdentity(item.outcome.candidates[0].identity)}
+                {item.outcome.candidates[0] === undefined ? (
+                  "Unentschieden"
+                ) : (
+                  <CardIdentityLabel
+                    identity={item.outcome.candidates[0].identity}
+                  />
+                )}
               </strong>
               <small>{formatIdentifier(item.reviewState)}</small>
             </button>
@@ -336,5 +340,25 @@ export function IdentityCardList({
         </dl>
       </section>
     </section>
+  );
+}
+
+function CardIdentityLabel({
+  identity,
+  label = formatCardIdentity(identity),
+}: {
+  identity: string;
+  label?: string;
+}) {
+  const [symbol, ...rank] = label.split(" ");
+  const suit = identity.split("_", 1)[0]?.toLowerCase();
+  if (rank.length === 0 || suit === undefined) return label;
+  return (
+    <>
+      <span className={identityStyles.cardSymbol} data-suit={suit}>
+        {symbol}
+      </span>{" "}
+      {rank.join(" ")}
+    </>
   );
 }

@@ -294,8 +294,8 @@
   margin-top: 0.7rem;
 }
 
-.choiceButton[data-suit="hearts"],
-.choiceButton[data-suit="diamonds"] {
+.cardSymbol[data-suit="hearts"],
+.cardSymbol[data-suit="diamonds"] {
   color: #b42318;
 }
 

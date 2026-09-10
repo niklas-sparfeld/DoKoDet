@@ -321,6 +321,12 @@ describe("PipelineVisualIdentityEditor", () => {
       "data-suit",
       "diamonds",
     );
+    expect(screen.getByRole("button", { name: "♥ 10" })).toHaveTextContent(
+      "♥ 10",
+    );
+    expect(
+      screen.getByRole("button", { name: "♥ Dame" }).querySelector("span"),
+    ).toHaveAttribute("data-suit", "hearts");
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Operator ID"), "operator-01");
     await user.click(screen.getByRole("button", { name: "♥ Dame" }));

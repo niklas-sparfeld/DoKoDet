@@ -2208,6 +2208,11 @@ progress {
   height: 100%;
 }
 
+.pipelineProposalSlot > [data-identity-card-list-slot="cards"] {
+  display: block;
+  height: 100%;
+}
+
 .pipelineVisibleCardTaskSurface {
   border: 0;
   background: transparent;
