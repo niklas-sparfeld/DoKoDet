@@ -319,7 +319,13 @@ export function RecordingPipelineWorkspace({
     );
   }
 
-  const visibleCardReview = stage.key === "visible_cards" && !compare;
+  const usesReviewCardRail =
+    (stage.key === "visible_cards" || stage.key === "visual_identities") &&
+    !compare;
+  const cardRailLabel =
+    stage.key === "visual_identities"
+      ? "Visual identity cards"
+      : "Visible-card proposals";
 
   return (
     <main
@@ -338,16 +344,20 @@ export function RecordingPipelineWorkspace({
       />
 
       <div
-        className={`${styles.pipelineWorkspaceGrid} ${visibleCardReview ? styles.pipelineVisibleCardWorkspaceGrid : ""}`}
+        className={`${styles.pipelineWorkspaceGrid} ${usesReviewCardRail ? styles.pipelineVisibleCardWorkspaceGrid : ""}`}
         data-slot="workspace"
       >
-        {visibleCardReview ? (
+        {usesReviewCardRail ? (
           <aside
             className={styles.pipelineProposalSlot}
-            aria-label="Visible-card proposals"
+            aria-label={cardRailLabel}
             data-slot="proposals"
           >
-            <div data-visible-card-proposal-slot="proposals" />
+            {stage.key === "visual_identities" ? (
+              <div data-identity-card-list-slot="cards" />
+            ) : (
+              <div data-visible-card-proposal-slot="proposals" />
+            )}
           </aside>
         ) : null}
         <RecordingWorkspaceTaskSurface

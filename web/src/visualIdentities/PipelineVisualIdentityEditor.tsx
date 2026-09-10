@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   ApiError,
@@ -18,7 +19,10 @@ import {
   subscribeToProfileName,
   useProfileName,
 } from "../profile/profile";
-import { IdentitySourceSurface } from "./PipelineVisualIdentityPresentation";
+import {
+  IdentityCardList,
+  IdentitySourceSurface,
+} from "./PipelineVisualIdentityPresentation";
 import { describeCommand } from "./PipelineVisualIdentityFormatting";
 import type {
   CropIdentity,
@@ -99,6 +103,18 @@ export function PipelineVisualIdentityEditor({
   const inspectorSlots = useIdentityInspectorSlots(inspectorEnabled, view);
   const generatedSourceRevisionId = displayedRevisionId ?? generatedRevisionId;
   const usesMaintainedIdentities = view === "reviewed" && reference !== null;
+  const [cardListSlot, setCardListSlot] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setCardListSlot(
+        document.querySelector<HTMLElement>(
+          "[data-identity-card-list-slot='cards']",
+        ),
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [view]);
 
   useEffect(
     () =>
@@ -645,7 +661,7 @@ export function PipelineVisualIdentityEditor({
         event.preventDefault();
         markUnusable(item);
       } else if (
-        (event.key === "s" || event.key === "S") &&
+        (event.key === "c" || event.key === "C") &&
         item !== undefined
       ) {
         event.preventDefault();
@@ -736,10 +752,23 @@ export function PipelineVisualIdentityEditor({
     />
   );
 
+  const cardList =
+    cardListSlot === null
+      ? null
+      : createPortal(
+          <IdentityCardList
+            items={activeItems}
+            selectedItemId={selectedItemId}
+            onSelect={selectItem}
+          />,
+          cardListSlot,
+        );
+
   if (!reviewed || reference === null) {
     return (
       <>
         {inspector}
+        {cardList}
         <IdentitySourceSurface
           recordingId={recordingId}
           item={activeItem}
@@ -753,6 +782,7 @@ export function PipelineVisualIdentityEditor({
     return (
       <>
         {inspector}
+        {cardList}
         <p className={styles.detailEmptyState}>
           Loading maintained visual-identity reference…
         </p>
@@ -762,19 +792,21 @@ export function PipelineVisualIdentityEditor({
   return (
     <>
       {inspector}
+      {cardList}
       <IdentitySourceSurface
         recordingId={recordingId}
         item={activeItem}
         loading={false}
         sourceRevisionId={reference.draft.source_revision_id}
+        onAccept={() => activeItem !== null && acceptSuggestion(activeItem)}
+        onSelectIdentity={(identity) =>
+          activeItem !== null && selectIdentity(activeItem, identity)
+        }
+        onMarkUnusable={() => activeItem !== null && markUnusable(activeItem)}
+        onReportSourceProblem={() =>
+          activeItem !== null && reportSourceProblem(activeItem)
+        }
       />
-      <details className={styles.cardEventGuidance}>
-        <summary>Keyboard shortcuts</summary>
-        <p>
-          Space play/pause · ←/→ previous/next card · A accept suggestion · U
-          identity unusable · S source problem.
-        </p>
-      </details>
     </>
   );
 

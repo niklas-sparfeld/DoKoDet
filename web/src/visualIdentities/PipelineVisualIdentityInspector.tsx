@@ -5,7 +5,6 @@ import type { PipelineReferenceResource } from "../api/client";
 import styles from "../App.module.css";
 import identityStyles from "./PipelineVisualIdentityEditor.module.css";
 import {
-  CANONICAL_IDENTITIES,
   type EditableIdentity,
   type SaveState,
 } from "./PipelineVisualIdentityTypes";
@@ -136,7 +135,6 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
         </button>
       </>
     );
-  const crop = props.item?.outcome.crop_identity ?? null;
   return (
     <>
       <p className={styles.statusLabel}>Maintained reference</p>
@@ -149,61 +147,9 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
           placeholder="operator-01"
         />
       </label>
-      <p className={styles.statusLabel}>Human decision</p>
-      <h3>
-        {props.item === null
-          ? "Select a card"
-          : formatIdentifier(props.item.reviewState)}
-      </h3>
-      {props.item === null ? (
-        <p className={styles.pipelineInspectorEmpty}>
-          Select a card from the Timeline Rail.
-        </p>
-      ) : (
-        <>
-          <div className={identityStyles.outcomeButtons}>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={props.acceptSuggestion}
-              disabled={props.item.outcome.candidates.length === 0}
-            >
-              Accept identity suggestion
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={props.markUnusable}
-              disabled={crop === null}
-            >
-              Mark identity unusable
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={props.reportSourceProblem}
-            >
-              Report source problem
-            </button>
-          </div>
-          <div
-            className={identityStyles.choiceGrid}
-            aria-label="Canonical identities"
-          >
-            {CANONICAL_IDENTITIES.map((identity) => (
-              <button
-                key={identity}
-                className={identityStyles.choiceButton}
-                type="button"
-                onClick={() => props.selectIdentity(identity)}
-                disabled={crop === null}
-              >
-                {identity}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      <p className={styles.pipelineInspectorEmpty}>
+        Make decisions in the central review area. Changes save automatically.
+      </p>
     </>
   );
 }

@@ -50,22 +50,15 @@ export function IdentityItemPanel({
       <header className={identityStyles.frameHeader}>
         <div>
           <p className={styles.statusLabel}>Source item {item.itemId}</p>
-          <h3>
-            {formatMicroseconds(frame.requested_time_us)} · resolved frame
-          </h3>
+          <h3>{formatMicroseconds(frame.requested_time_us)}</h3>
         </div>
         <span className={styles.status} data-state={item.reviewState}>
           {formatIdentifier(item.reviewState)}
         </span>
       </header>
       <div className={identityStyles.detailGrid}>
-        <section className={identityStyles.sourceCard}>
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Source frame</p>
-              <h4>Read-only geometry</h4>
-            </div>
-          </div>
+        <figure className={identityStyles.imagePanel}>
+          <figcaption>Overall</figcaption>
           <img
             className={identityStyles.canvasImage}
             src={frameUrl}
@@ -73,13 +66,6 @@ export function IdentityItemPanel({
             height={frame.height}
             alt={`Resolved source frame for ${item.itemId}`}
           />
-          <p className={styles.detailMetaLine}>
-            Frame {frame.frame_index} · {frame.width} × {frame.height}
-          </p>
-          <p className={identityStyles.legend}>
-            Geometry belongs to the maintained visible-card reference. Identity
-            review cannot edit it.
-          </p>
           <a
             className={styles.recordingLink}
             href={visibleCardReviewPath(
@@ -90,17 +76,9 @@ export function IdentityItemPanel({
           >
             Open visible-card geometry review
           </a>
-        </section>
-        <section className={identityStyles.cropCard}>
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Derived view</p>
-              <h4>Identity crop</h4>
-            </div>
-            <span className={styles.countLabel}>
-              {crop?.crop_policy ?? "Unavailable"}
-            </span>
-          </div>
+        </figure>
+        <figure className={identityStyles.imagePanel}>
+          <figcaption>Crop</figcaption>
           {cropUrl !== null ? (
             <img
               className={identityStyles.cropImage}
@@ -114,26 +92,16 @@ export function IdentityItemPanel({
                 "No usable crop is available."}
             </p>
           )}
-          <p className={styles.detailMetaLine}>
-            Crop digest {crop?.image_sha256 ?? "Not available"}
-          </p>
-        </section>
+          <small>{crop?.crop_policy ?? "No crop policy"}</small>
+        </figure>
       </div>
-      <section className={identityStyles.proposalCard}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Classifier proposal</p>
-            <h4>Suggestion only</h4>
-          </div>
-          <span className={styles.countLabel}>
-            {item.outcome.candidates.length} candidates
-          </span>
-        </div>
+      <section
+        className={identityStyles.proposalLine}
+        aria-label="Identity proposal"
+      >
+        <span>Suggestion</span>
         {item.outcome.candidates.length === 0 ? (
-          <p className={styles.detailEmptyState}>
-            No identity prediction is available. Select a canonical identity
-            manually.
-          </p>
+          <strong>No prediction</strong>
         ) : (
           <ol className={identityStyles.candidateList}>
             {item.outcome.candidates.map((candidate) => (
@@ -153,13 +121,7 @@ export function IdentityItemPanel({
       onSelectIdentity !== undefined &&
       onMarkUnusable !== undefined &&
       onReportSourceProblem !== undefined ? (
-        <section className={identityStyles.decisionCard}>
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.statusLabel}>Human decision</p>
-              <h4>{formatIdentifier(item.reviewState)}</h4>
-            </div>
-          </div>
+        <section className={identityStyles.decisionPanel}>
           <div className={identityStyles.outcomeButtons}>
             <button
               className={styles.primaryButton}
@@ -167,7 +129,7 @@ export function IdentityItemPanel({
               onClick={onAccept}
               disabled={item.outcome.candidates.length === 0}
             >
-              Accept identity suggestion
+              Accept suggestion <kbd>A</kbd>
             </button>
             <button
               className={styles.secondaryButton}
@@ -175,14 +137,14 @@ export function IdentityItemPanel({
               onClick={onMarkUnusable}
               disabled={crop === null}
             >
-              Mark identity unusable
+              Unusable <kbd>U</kbd>
             </button>
             <button
               className={styles.secondaryButton}
               type="button"
               onClick={onReportSourceProblem}
             >
-              Report source problem
+              Correct source <kbd>C</kbd>
             </button>
           </div>
           <div
@@ -217,11 +179,19 @@ export function IdentitySourceSurface({
   loading,
   recordingId,
   sourceRevisionId,
+  onAccept,
+  onSelectIdentity,
+  onMarkUnusable,
+  onReportSourceProblem,
 }: {
   item: EditableIdentity | null;
   loading: boolean;
   recordingId: string;
   sourceRevisionId: string | null;
+  onAccept?: () => void;
+  onSelectIdentity?: (identity: string) => void;
+  onMarkUnusable?: () => void;
+  onReportSourceProblem?: () => void;
 }) {
   return (
     <section
@@ -239,8 +209,72 @@ export function IdentitySourceSurface({
           recordingId={recordingId}
           sourceRevisionId={sourceRevisionId}
           item={item}
+          onAccept={onAccept}
+          onSelectIdentity={onSelectIdentity}
+          onMarkUnusable={onMarkUnusable}
+          onReportSourceProblem={onReportSourceProblem}
         />
       )}
+    </section>
+  );
+}
+
+export function IdentityCardList({
+  items,
+  selectedItemId,
+  onSelect,
+}: {
+  items: EditableIdentity[];
+  selectedItemId: string | null;
+  onSelect: (item: EditableIdentity) => void;
+}) {
+  return (
+    <section className={identityStyles.cardRail} aria-label="Identity cards">
+      <header>
+        <p className={styles.statusLabel}>Cards</p>
+        <strong>{items.length}</strong>
+      </header>
+      <ol>
+        {items.map((item, index) => (
+          <li key={item.itemId}>
+            <button
+              type="button"
+              data-selected={item.itemId === selectedItemId}
+              onClick={() => onSelect(item)}
+            >
+              <span>{index + 1}</span>
+              <strong>
+                {item.outcome.candidates[0]?.identity ?? "Needs decision"}
+              </strong>
+              <small>{formatIdentifier(item.reviewState)}</small>
+            </button>
+          </li>
+        ))}
+      </ol>
+      <section
+        className={identityStyles.keyboardShortcuts}
+        aria-label="Keyboard shortcuts"
+      >
+        <p className={styles.statusLabel}>Keyboard shortcuts</p>
+        <dl>
+          <div>
+            <dt>← / →</dt>
+            <dd>Previous / next card</dd>
+          </div>
+          <div>
+            <dt>A</dt>
+            <dd>Accept suggestion</dd>
+          </div>
+          <div>
+            <dt>U</dt>
+            <dd>Mark unusable</dd>
+          </div>
+          <div>
+            <dt>C</dt>
+            <dd>Correct visible region</dd>
+          </div>
+        </dl>
+      </section>
     </section>
   );
 }
