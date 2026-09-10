@@ -189,6 +189,13 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert crop_response.status_code == 200, crop_response.text
         assert crop_response.headers["cache-control"].startswith("private")
         assert crop_response.content
+        preview_response = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
+            f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
+        )
+        assert preview_response.status_code == 200, preview_response.text
+        assert preview_response.headers["content-type"] == "image/png"
+        assert preview_response.content.startswith(b"\x89PNG\r\n\x1a\n")
         assert generated_outcome["candidates"] == [
             {
                 "identity": "CLUBS_NINE",

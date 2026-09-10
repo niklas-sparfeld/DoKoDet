@@ -70,7 +70,7 @@ describe("DokoDetector API client", () => {
     expect(
       pipelineIdentityCropPath("recording/1", "revision/1", "card 1"),
     ).toBe(
-      "/api/recordings/recording%2F1/pipeline/derived-views/identity-crops/revision%2F1/card%201",
+      "/api/recordings/recording%2F1/pipeline/derived-views/identity-crops/revision%2F1/card%201?preview=browser",
     );
   });
 

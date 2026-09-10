@@ -778,7 +778,7 @@ export function pipelineIdentityCropPath(
   revisionId: string,
   itemId: string,
 ): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/identity-crops/${encodeURIComponent(revisionId)}/${encodeURIComponent(itemId)}`;
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/identity-crops/${encodeURIComponent(revisionId)}/${encodeURIComponent(itemId)}?preview=browser`;
 }
 
 export function pipelineDerivedFramePath(

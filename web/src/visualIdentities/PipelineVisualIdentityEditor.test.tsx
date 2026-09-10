@@ -166,6 +166,40 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
+  it("shows all cards from the source frame and highlights the selected card", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          jsonResponse(
+            generatedResult(undefined, [
+              outcome(),
+              outcome(undefined, "card-2"),
+            ]),
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+      />,
+    );
+
+    const overlay = await screen.findByLabelText("Visible card geometry");
+    const polygons = overlay.querySelectorAll("polygon");
+    expect(polygons).toHaveLength(2);
+    expect(polygons[0]).toHaveAttribute("data-card-id", CARD_ID);
+    expect(polygons[0]).toHaveAttribute("data-current", "true");
+    expect(polygons[1]).toHaveAttribute("data-card-id", "card-2");
+    expect(polygons[1]).toHaveAttribute("data-current", "false");
+  });
+
   it("keeps generated identities visible while a new review has no reference", async () => {
     vi.stubGlobal(
       "fetch",

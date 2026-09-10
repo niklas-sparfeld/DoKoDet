@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from typing import Any
 
 from doko_operations.derived_view import DerivedViewError
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
+from PIL import Image
 
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.event_pipeline_service import EventPipelineService
@@ -327,7 +329,11 @@ def get_recording_exact_event_frame(
 
 @router.get(IDENTITY_CROP_BASE, response_class=Response)
 def get_recording_identity_crop(
-    recording_id: str, revision_id: str, item_id: str, request: Request
+    recording_id: str,
+    revision_id: str,
+    item_id: str,
+    request: Request,
+    preview: str | None = None,
 ) -> Response:
     """Return one verified identity crop derived from a stored identity revision."""
 
@@ -346,12 +352,22 @@ def get_recording_identity_crop(
             crop.unusable_reason or "The identity crop is unavailable.",
             status_code=409,
         )
+    content = crop.image_bytes
+    content_type = crop.content_type
+    etag = crop.image_sha256
+    if preview == "browser" and content_type == "image/x-portable-pixmap":
+        preview_buffer = BytesIO()
+        with Image.open(BytesIO(content)) as image:
+            image.save(preview_buffer, format="PNG")
+        content = preview_buffer.getvalue()
+        content_type = "image/png"
+        etag = f"{etag}-browser-preview"
     return Response(
-        content=crop.image_bytes,
-        media_type=crop.content_type,
+        content=content,
+        media_type=content_type,
         headers={
             "Cache-Control": "private, max-age=31536000, immutable",
-            "ETag": f'"{crop.image_sha256}"',
+            "ETag": f'"{etag}"',
         },
     )
 

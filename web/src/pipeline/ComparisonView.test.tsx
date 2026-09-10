@@ -350,7 +350,7 @@ describe("ComparisonView", () => {
           screen.getByRole("link", { name: "Open identity crop" }),
         ).toHaveAttribute(
           "href",
-          "/api/recordings/comparison-recording/pipeline/derived-views/identity-crops/run-new-output/run-card-0",
+          "/api/recordings/comparison-recording/pipeline/derived-views/identity-crops/run-new-output/run-card-0?preview=browser",
         );
       }
       expect(window.location.search).toContain("t_us=100000");

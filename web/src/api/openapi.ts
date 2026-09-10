@@ -2805,7 +2805,9 @@ export interface operations {
     };
     get_recording_identity_crop_api_recordings__recording_id__pipeline_derived_views_identity_crops__revision_id___item_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                preview?: string | null;
+            };
             header?: never;
             path: {
                 recording_id: string;

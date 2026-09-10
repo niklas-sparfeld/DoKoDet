@@ -751,6 +751,7 @@ export function PipelineVisualIdentityEditor({
         <IdentitySourceSurface
           recordingId={recordingId}
           item={activeItem}
+          items={activeItems}
           loading={generatedLoading}
           sourceRevisionId={generatedSourceRevisionId}
         />
@@ -775,6 +776,7 @@ export function PipelineVisualIdentityEditor({
       <IdentitySourceSurface
         recordingId={recordingId}
         item={activeItem}
+        items={activeItems}
         loading={false}
         sourceRevisionId={reference.draft.source_revision_id}
         onAccept={() => activeItem !== null && acceptSuggestion(activeItem)}

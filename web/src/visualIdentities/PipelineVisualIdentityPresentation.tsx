@@ -18,6 +18,7 @@ export function IdentityItemPanel({
   recordingId,
   sourceRevisionId,
   item,
+  items,
   onAccept,
   onSelectIdentity,
   onMarkUnusable,
@@ -25,6 +26,7 @@ export function IdentityItemPanel({
   recordingId: string;
   sourceRevisionId: string | null;
   item: EditableIdentity;
+  items: EditableIdentity[];
   onAccept?: () => void;
   onSelectIdentity?: (identity: string) => void;
   onMarkUnusable?: () => void;
@@ -47,13 +49,20 @@ export function IdentityItemPanel({
     >
       <div className={identityStyles.detailGrid}>
         <figure className={identityStyles.imagePanel}>
-          <img
-            className={identityStyles.canvasImage}
-            src={frameUrl}
-            width={frame.width}
-            height={frame.height}
-            alt={`Resolved source frame for ${item.itemId}`}
-          />
+          <div className={identityStyles.frameImageContainer}>
+            <img
+              className={identityStyles.canvasImage}
+              src={frameUrl}
+              width={frame.width}
+              height={frame.height}
+              alt={`Resolved source frame for ${item.itemId}`}
+            />
+            <IdentityGeometryOverlay
+              items={items}
+              selectedItemId={item.itemId}
+              frame={frame}
+            />
+          </div>
         </figure>
         <figure className={identityStyles.imagePanel}>
           {cropUrl !== null ? (
@@ -147,6 +156,7 @@ export function IdentityItemPanel({
 
 export function IdentitySourceSurface({
   item,
+  items,
   loading,
   recordingId,
   sourceRevisionId,
@@ -155,6 +165,7 @@ export function IdentitySourceSurface({
   onMarkUnusable,
 }: {
   item: EditableIdentity | null;
+  items: EditableIdentity[];
   loading: boolean;
   recordingId: string;
   sourceRevisionId: string | null;
@@ -178,6 +189,7 @@ export function IdentitySourceSurface({
           recordingId={recordingId}
           sourceRevisionId={sourceRevisionId}
           item={item}
+          items={items}
           onAccept={onAccept}
           onSelectIdentity={onSelectIdentity}
           onMarkUnusable={onMarkUnusable}
@@ -185,6 +197,92 @@ export function IdentitySourceSurface({
       )}
     </section>
   );
+}
+
+function IdentityGeometryOverlay({
+  items,
+  selectedItemId,
+  frame,
+}: {
+  items: EditableIdentity[];
+  selectedItemId: string;
+  frame: EditableIdentity["outcome"]["frame_identity"];
+}) {
+  const frameItems = items.filter(
+    (candidate) =>
+      candidate.outcome.frame_identity.image_sha256 === frame.image_sha256 &&
+      candidate.outcome.frame_identity.width === frame.width &&
+      candidate.outcome.frame_identity.height === frame.height,
+  );
+  return (
+    <svg
+      className={identityStyles.frameGeometryOverlay}
+      viewBox="0 0 1000 1000"
+      preserveAspectRatio="none"
+      aria-label="Visible card geometry"
+    >
+      {frameItems.flatMap((candidate) =>
+        geometryPolygons(candidate.outcome.geometry).map((polygon, index) => (
+          <polygon
+            key={`${candidate.itemId}-${index}`}
+            points={polygon.map((point) => `${point.x},${point.y}`).join(" ")}
+            data-card-id={candidate.itemId}
+            data-current={candidate.itemId === selectedItemId}
+          />
+        )),
+      )}
+    </svg>
+  );
+}
+
+type GeometryPoint = { x: number; y: number };
+
+function geometryPolygons(
+  geometry: Record<string, unknown>,
+): GeometryPoint[][] {
+  const region = geometry.visible_region;
+  if (isRecord(region) && Array.isArray(region.polygons)) {
+    return region.polygons
+      .map(readPolygon)
+      .filter((polygon): polygon is GeometryPoint[] => polygon !== null);
+  }
+  const box = geometry.box_2d;
+  if (
+    !isRecord(box) ||
+    !isFiniteNumber(box.x_min) ||
+    !isFiniteNumber(box.y_min) ||
+    !isFiniteNumber(box.x_max) ||
+    !isFiniteNumber(box.y_max)
+  )
+    return [];
+  return [
+    [
+      { x: box.x_min, y: box.y_min },
+      { x: box.x_max, y: box.y_min },
+      { x: box.x_max, y: box.y_max },
+      { x: box.x_min, y: box.y_max },
+    ],
+  ];
+}
+
+function readPolygon(value: unknown): GeometryPoint[] | null {
+  if (!Array.isArray(value)) return null;
+  const polygon = value.map((point) =>
+    isRecord(point) && isFiniteNumber(point.x) && isFiniteNumber(point.y)
+      ? { x: point.x, y: point.y }
+      : null,
+  );
+  return polygon.length >= 3 && polygon.every((point) => point !== null)
+    ? polygon
+    : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 export function IdentityCardList({
