@@ -276,6 +276,17 @@ describe("PipelineVisualIdentityEditor", () => {
     );
 
     await screen.findByRole("heading", { name: /Visual identity review/ });
+    const choices = screen.getByLabelText("Canonical identities");
+    expect(choices.querySelectorAll("button")).toHaveLength(20);
+    expect(screen.queryByRole("button", { name: /9/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "♥ Dame" })).toHaveAttribute(
+      "data-suit",
+      "hearts",
+    );
+    expect(screen.getByRole("button", { name: "♦ Dame" })).toHaveAttribute(
+      "data-suit",
+      "diamonds",
+    );
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Operator ID"), "operator-01");
     await user.click(screen.getByRole("button", { name: "♥ Dame" }));

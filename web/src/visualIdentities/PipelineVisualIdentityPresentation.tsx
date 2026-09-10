@@ -5,7 +5,7 @@ import {
 import styles from "../App.module.css";
 import identityStyles from "./PipelineVisualIdentityEditor.module.css";
 import {
-  CANONICAL_IDENTITIES,
+  IDENTITY_SUIT_ROWS,
   type EditableIdentity,
 } from "./PipelineVisualIdentityTypes";
 import {
@@ -118,19 +118,23 @@ export function IdentityItemPanel({
             className={identityStyles.choiceGrid}
             aria-label="Canonical identities"
           >
-            {CANONICAL_IDENTITIES.map((identity) => (
-              <button
-                key={identity}
-                className={identityStyles.choiceButton}
-                data-selected={selectedIdentity === identity}
-                type="button"
-                aria-pressed={selectedIdentity === identity}
-                onClick={() => onSelectIdentity(identity)}
-                disabled={crop === null}
-              >
-                {formatCardIdentity(identity)}
-              </button>
-            ))}
+            {IDENTITY_SUIT_ROWS.flatMap(({ suit, cards }) =>
+              cards.map(([identity, label]) => (
+                <button
+                  key={identity}
+                  className={identityStyles.choiceButton}
+                  data-selected={selectedIdentity === identity}
+                  data-suit={suit}
+                  type="button"
+                  aria-label={label}
+                  aria-pressed={selectedIdentity === identity}
+                  onClick={() => onSelectIdentity(identity)}
+                  disabled={crop === null}
+                >
+                  {label}
+                </button>
+              )),
+            )}
           </div>
           {item.outcome.error !== null ? (
             <p className={styles.detailBlocker}>{item.outcome.error}</p>

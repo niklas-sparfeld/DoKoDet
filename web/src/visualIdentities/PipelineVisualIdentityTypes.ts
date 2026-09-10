@@ -62,31 +62,47 @@ export type PendingCommand = {
   attempts: number;
 };
 
-export const CANONICAL_IDENTITIES = [
-  "CLUBS_ACE",
-  "CLUBS_NINE",
-  "CLUBS_TEN",
-  "CLUBS_JACK",
-  "CLUBS_QUEEN",
-  "CLUBS_KING",
-  "DIAMONDS_ACE",
-  "DIAMONDS_NINE",
-  "DIAMONDS_TEN",
-  "DIAMONDS_JACK",
-  "DIAMONDS_QUEEN",
-  "DIAMONDS_KING",
-  "HEARTS_ACE",
-  "HEARTS_NINE",
-  "HEARTS_TEN",
-  "HEARTS_JACK",
-  "HEARTS_QUEEN",
-  "HEARTS_KING",
-  "SPADES_ACE",
-  "SPADES_NINE",
-  "SPADES_TEN",
-  "SPADES_JACK",
-  "SPADES_QUEEN",
-  "SPADES_KING",
+export const IDENTITY_SUIT_ROWS = [
+  {
+    suit: "clubs",
+    cards: [
+      ["CLUBS_JACK", "♣ Bube"],
+      ["CLUBS_QUEEN", "♣ Dame"],
+      ["CLUBS_KING", "♣ König"],
+      ["CLUBS_TEN", "♣ 10"],
+      ["CLUBS_ACE", "♣ Ass"],
+    ],
+  },
+  {
+    suit: "spades",
+    cards: [
+      ["SPADES_JACK", "♠ Bube"],
+      ["SPADES_QUEEN", "♠ Dame"],
+      ["SPADES_KING", "♠ König"],
+      ["SPADES_TEN", "♠ 10"],
+      ["SPADES_ACE", "♠ Ass"],
+    ],
+  },
+  {
+    suit: "hearts",
+    cards: [
+      ["HEARTS_JACK", "♥ Bube"],
+      ["HEARTS_QUEEN", "♥ Dame"],
+      ["HEARTS_KING", "♥ König"],
+      ["HEARTS_TEN", "♥ 10"],
+      ["HEARTS_ACE", "♥ Ass"],
+    ],
+  },
+  {
+    suit: "diamonds",
+    cards: [
+      ["DIAMONDS_JACK", "♦ Bube"],
+      ["DIAMONDS_QUEEN", "♦ Dame"],
+      ["DIAMONDS_KING", "♦ König"],
+      ["DIAMONDS_TEN", "♦ 10"],
+      ["DIAMONDS_ACE", "♦ Ass"],
+    ],
+  },
 ] as const;
 
 export type PipelineVisualIdentityRailItem = {
