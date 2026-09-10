@@ -204,6 +204,29 @@ function referenceWithPolygon(polygon: { x: number; y: number }[]) {
   };
 }
 
+function referenceWithTwoFrames() {
+  const current = reference();
+  const secondItem = {
+    ...current.draft.items[0],
+    item_id: SECOND_ITEM_ID,
+    item: {
+      ...current.draft.items[0].item,
+      event_id: SECOND_ITEM_ID,
+      frame_identity: {
+        ...FRAME_IDENTITY,
+        requested_time_us: 800_000,
+        frame_index: 8,
+        presentation_timestamp_us: 800_000,
+        image_sha256: "c".repeat(64),
+      },
+    },
+  };
+  return {
+    ...current,
+    draft: { ...current.draft, items: [...current.draft.items, secondItem] },
+  };
+}
+
 function emptyReference() {
   const current = reference();
   return {
@@ -544,6 +567,74 @@ describe("PipelineVisibleCardEditor", () => {
     expect(
       screen.getByRole("button", { name: "Close editor" }),
     ).toBeInTheDocument();
+  });
+
+  it("ends edit mode when navigating to another frame", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_input, init) =>
+        Promise.resolve(
+          jsonResponse(
+            init?.method === "PUT" ? reference() : referenceWithTwoFrames(),
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByRole("button", { name: "Close editor" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Close editor" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("ends edit mode when changing the frame state", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_input, init) =>
+        Promise.resolve(
+          jsonResponse(
+            init?.method === "PUT" ? reference("accepted") : reference(),
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Accept frame" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Close editor" }),
+    ).not.toBeInTheDocument();
   });
 
   it("inserts a clicked point between the endpoints of the nearest polygon edge", async () => {

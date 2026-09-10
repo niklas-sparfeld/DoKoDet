@@ -171,8 +171,16 @@ export function PipelineVisibleCardEditor({
     [durationUs],
   );
 
+  const endEditMode = useCallback(() => {
+    dragRef.current = null;
+    setEditor(null);
+    setSelectedCandidateId(null);
+    setEditorError(null);
+  }, []);
+
   const selectFrame = useCallback(
     (frame: EditableFrame, seek = true) => {
+      if (selectedFrameIdRef.current !== frame.itemId) endEditMode();
       setSelected(frame.itemId);
       if (view === "reviewed") markInspected(frame);
       updatePipelineUrl({ item: frame.itemId });
@@ -180,7 +188,7 @@ export function PipelineVisibleCardEditor({
         setCurrentTime(frame.outcome.frame_identity.requested_time_us);
       }
     },
-    [markInspected, setCurrentTime, setSelected, view],
+    [endEditMode, markInspected, setCurrentTime, setSelected, view],
   );
 
   const hydrateReference = useCallback(
@@ -485,6 +493,7 @@ export function PipelineVisibleCardEditor({
 
   const acceptSuggestions = useCallback(
     (frame: EditableFrame) => {
+      endEditMode();
       enqueue(
         { operation: "accept_frame_suggestions", item_id: frame.itemId },
         "Frame accepted.",
@@ -496,7 +505,7 @@ export function PipelineVisibleCardEditor({
           ),
       );
     },
-    [enqueue],
+    [endEditMode, enqueue],
   );
 
   const toggleFrameAcceptance = useCallback(
@@ -505,6 +514,7 @@ export function PipelineVisibleCardEditor({
         acceptSuggestions(frame);
         return;
       }
+      endEditMode();
       enqueue(
         { operation: "set_frame_unreviewed", item_id: frame.itemId },
         "Frame returned to unreviewed.",
@@ -516,7 +526,7 @@ export function PipelineVisibleCardEditor({
           ),
       );
     },
-    [acceptSuggestions, enqueue],
+    [acceptSuggestions, endEditMode, enqueue],
   );
 
   const restoreGeneratedSuggestions = useCallback(
@@ -526,6 +536,7 @@ export function PipelineVisibleCardEditor({
       );
       if (generated === undefined) return;
       const outcome = generated.outcome;
+      endEditMode();
       enqueue(
         {
           operation: "restore_frame_suggestions",
@@ -545,14 +556,13 @@ export function PipelineVisibleCardEditor({
               : candidate,
           ),
       );
-      setEditor(null);
-      setSelectedCandidateId(null);
     },
-    [enqueue, generatedFrames],
+    [endEditMode, enqueue, generatedFrames],
   );
 
   const setFrameOutcome = useCallback(
     (frame: EditableFrame, outcome: "empty" | "unusable") => {
+      endEditMode();
       const nextOutcome: Outcome = {
         ...frame.outcome,
         status: outcome === "empty" ? "empty" : "failed",
@@ -580,7 +590,7 @@ export function PipelineVisibleCardEditor({
           ),
       );
     },
-    [enqueue],
+    [endEditMode, enqueue],
   );
 
   const openEditor = useCallback(
