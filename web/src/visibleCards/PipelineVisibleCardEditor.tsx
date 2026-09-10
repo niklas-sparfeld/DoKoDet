@@ -91,7 +91,7 @@ export function PipelineVisibleCardEditor({
   const commandSequenceRef = useRef(0);
   const inspectedFrameKeysRef = useRef(new Set<string>());
   const editorRef = useRef<EditorState | null>(null);
-  const saveEditorRef = useRef<(() => void) | null>(null);
+  const saveEditorRef = useRef<((closeEditor?: boolean) => void) | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     polygonIndex: number;
@@ -577,51 +577,54 @@ export function PipelineVisibleCardEditor({
     [],
   );
 
-  const saveEditor = useCallback(() => {
-    const currentEditor = editorRef.current;
-    const frame = framesRef.current.find(
-      (candidate) => candidate.itemId === currentEditor?.frameItemId,
-    );
-    if (currentEditor === null || frame === undefined) return;
-    const validation = validatePolygons(currentEditor.polygons);
-    if (validation !== null) {
-      setEditorError(validation);
-      return;
-    }
-    const candidates = frame.outcome.candidates.map((candidate) =>
-      candidate.card_id === currentEditor.cardId
-        ? {
-            ...candidate,
-            geometry: reviewedGeometry(currentEditor.polygons),
-          }
-        : candidate,
-    );
-    if (currentEditor.cardId === null) {
-      candidates.push({
-        card_id: nextManualCardId(frame),
-        geometry: reviewedGeometry(currentEditor.polygons),
-        normalization: {
-          width: frame.outcome.frame_identity?.width ?? 1,
-          height: frame.outcome.frame_identity?.height ?? 1,
-          policy_id: "full-frame-0-1000/v1",
+  const saveEditor = useCallback(
+    (closeEditor = true) => {
+      const currentEditor = editorRef.current;
+      const frame = framesRef.current.find(
+        (candidate) => candidate.itemId === currentEditor?.frameItemId,
+      );
+      if (currentEditor === null || frame === undefined) return;
+      const validation = validatePolygons(currentEditor.polygons);
+      if (validation !== null) {
+        setEditorError(validation);
+        return;
+      }
+      const candidates = frame.outcome.candidates.map((candidate) =>
+        candidate.card_id === currentEditor.cardId
+          ? {
+              ...candidate,
+              geometry: reviewedGeometry(currentEditor.polygons),
+            }
+          : candidate,
+      );
+      if (currentEditor.cardId === null) {
+        candidates.push({
+          card_id: nextManualCardId(frame),
+          geometry: reviewedGeometry(currentEditor.polygons),
+          normalization: {
+            width: frame.outcome.frame_identity?.width ?? 1,
+            height: frame.outcome.frame_identity?.height ?? 1,
+            policy_id: "full-frame-0-1000/v1",
+          },
+        });
+      }
+      setFrameReview(
+        frame,
+        {
+          ...frame.outcome,
+          status: "detected",
+          candidates,
+          error: null,
         },
-      });
-    }
-    setFrameReview(
-      frame,
-      {
-        ...frame.outcome,
-        status: "detected",
-        candidates,
-        error: null,
-      },
-      currentEditor.cardId === null
-        ? "Missed visible card added."
-        : "Visible-card geometry saved.",
-    );
-    setEditor(null);
-    setEditorError(null);
-  }, [setFrameReview]);
+        currentEditor.cardId === null
+          ? "Missed visible card added."
+          : "Visible-card geometry saved.",
+      );
+      if (closeEditor) setEditor(null);
+      setEditorError(null);
+    },
+    [setFrameReview],
+  );
 
   useEffect(() => {
     editorRef.current = editor;
@@ -674,7 +677,22 @@ export function PipelineVisibleCardEditor({
       const point = pointFromEvent(event);
       if (point === null) return;
       const currentEditor = editorRef.current;
-      if (currentEditor === null || currentEditor.cardId !== null) return;
+      if (currentEditor === null) return;
+      if (currentEditor.cardId !== null) {
+        setEditor((current) => {
+          if (current === null) return current;
+          const polygons = current.polygons.map((polygon) => [...polygon]);
+          const polygon = polygons[current.polygonIndex] ?? [];
+          if (polygon.length < 2) return current;
+          polygons[current.polygonIndex] = insertPointOnNearestEdge(
+            polygon,
+            point,
+          );
+          return { ...current, polygons };
+        });
+        window.setTimeout(() => void saveEditorRef.current?.(false), 0);
+        return;
+      }
       const completed =
         (currentEditor.polygons[currentEditor.polygonIndex]?.length ?? 0) +
           1 ===
@@ -697,7 +715,7 @@ export function PipelineVisibleCardEditor({
       if (drag === null || drag.pointerId !== event.pointerId) return;
       dragRef.current = null;
       if (drag.dirty) {
-        window.setTimeout(() => void saveEditorRef.current?.(), 0);
+        window.setTimeout(() => void saveEditorRef.current?.(false), 0);
       }
     },
     [],
@@ -1296,6 +1314,47 @@ function polygonArea(polygon: Point[]): number {
     const next = polygon[(index + 1) % polygon.length];
     return area + point.x * next.y - next.x * point.y;
   }, 0);
+}
+
+function insertPointOnNearestEdge(polygon: Point[], point: Point): Point[] {
+  let nearestEdgeIndex = 0;
+  let nearestDistanceSquared = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < polygon.length; index += 1) {
+    const distanceSquared = squaredDistanceToSegment(
+      point,
+      polygon[index],
+      polygon[(index + 1) % polygon.length],
+    );
+    if (distanceSquared < nearestDistanceSquared) {
+      nearestDistanceSquared = distanceSquared;
+      nearestEdgeIndex = index;
+    }
+  }
+  return [
+    ...polygon.slice(0, nearestEdgeIndex + 1),
+    point,
+    ...polygon.slice(nearestEdgeIndex + 1),
+  ];
+}
+
+function squaredDistanceToSegment(
+  point: Point,
+  start: Point,
+  end: Point,
+): number {
+  const horizontal = end.x - start.x;
+  const vertical = end.y - start.y;
+  const lengthSquared = horizontal ** 2 + vertical ** 2;
+  if (lengthSquared === 0)
+    return (point.x - start.x) ** 2 + (point.y - start.y) ** 2;
+  const position = clamp(
+    ((point.x - start.x) * horizontal + (point.y - start.y) * vertical) /
+      lengthSquared,
+    1,
+  );
+  const nearestX = start.x + position * horizontal;
+  const nearestY = start.y + position * vertical;
+  return (point.x - nearestX) ** 2 + (point.y - nearestY) ** 2;
 }
 
 function pointFromEvent(event: ReactPointerEvent<SVGSVGElement>): Point | null {

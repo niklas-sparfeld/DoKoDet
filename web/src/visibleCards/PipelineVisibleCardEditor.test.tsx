@@ -434,7 +434,7 @@ describe("PipelineVisibleCardEditor", () => {
     expect(screen.getByText("Polygon")).toBeInTheDocument();
   });
 
-  it("sends one complete set_frame_review command when a polygon drag ends", async () => {
+  it("saves a polygon drag without leaving edit mode", async () => {
     const responses = [reference(), reference("corrected")];
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
       if (init?.method === "PUT") {
@@ -503,6 +503,82 @@ describe("PipelineVisibleCardEditor", () => {
     expect(requestBody.operations[0].item.candidates[0].geometry.kind).toBe(
       "reviewed-visible-region/v1",
     );
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 150, 200",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Close editor" }),
+    ).toBeInTheDocument();
+  });
+
+  it("inserts a clicked point between the endpoints of the nearest polygon edge", async () => {
+    const responses = [reference(), reference("corrected")];
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT")
+        return Promise.resolve(jsonResponse(responses[1]));
+      return Promise.resolve(jsonResponse(responses[0]));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByAltText("Selected visible-card source frame");
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 10 });
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toHaveLength(1),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(
+      requestBody.operations[0].item.candidates[0].geometry.visible_region
+        .polygons[0],
+    ).toEqual([
+      { x: 100, y: 100 },
+      { x: 500, y: 100 },
+      { x: 800, y: 100 },
+      { x: 800, y: 800 },
+      { x: 100, y: 800 },
+    ]);
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 1, point 2 at 500, 100",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("selects the requested generated frame and reports both rail items", async () => {

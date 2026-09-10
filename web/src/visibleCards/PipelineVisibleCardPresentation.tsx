@@ -159,9 +159,10 @@ export function VisibleCardFramePanel({
           aria-label="Visible region editor"
         >
           <p className={visibleStyles.editorHelp}>
-            Drag a point to adjust a visible region. Changes are saved when the
-            pointer is released. For a missed card, click three points on the
-            frame to create its visible region.
+            Drag a point to adjust a visible region, or click an edge to add a
+            point. Changes are saved automatically and you can keep editing. For
+            a missed card, click three points on the frame to create its visible
+            region.
           </p>
           {editorError !== null ? (
             <p className={visibleStyles.inlineFormError}>{editorError}</p>
