@@ -594,16 +594,17 @@ export function PipelineVisibleCardEditor({
   );
 
   const openEditor = useCallback(
-    (frame: EditableFrame, candidate: Candidate | null) => {
+    (frame: EditableFrame, candidate: Candidate | null, polygonIndex = 0) => {
       if (frame.outcome.frame_identity === null) return;
       setEditorError(null);
       setSelectedCandidateId(candidate?.card_id ?? null);
+      const polygons =
+        candidate === null ? [[]] : geometryPolygons(candidate.geometry);
       setEditor({
         frameItemId: frame.itemId,
         cardId: candidate?.card_id ?? null,
-        polygons:
-          candidate === null ? [[]] : geometryPolygons(candidate.geometry),
-        polygonIndex: 0,
+        polygons,
+        polygonIndex: Math.min(Math.max(0, polygonIndex), polygons.length - 1),
         selectedPointIndex: null,
       });
     },
@@ -711,7 +712,9 @@ export function PipelineVisibleCardEditor({
       if (point === null) return;
       const currentEditor = editorRef.current;
       if (currentEditor === null) return;
-      if (currentEditor.cardId !== null) {
+      const activePolygon =
+        currentEditor.polygons[currentEditor.polygonIndex] ?? [];
+      if (currentEditor.cardId !== null && activePolygon.length >= 3) {
         setEditor((current) => {
           if (current === null) return current;
           const polygons = current.polygons.map((polygon) => [...polygon]);
@@ -726,18 +729,19 @@ export function PipelineVisibleCardEditor({
         window.setTimeout(() => void saveEditorRef.current?.(false), 0);
         return;
       }
-      const completed =
-        (currentEditor.polygons[currentEditor.polygonIndex]?.length ?? 0) +
-          1 ===
-        3;
+      const completed = activePolygon.length + 1 === 3;
       setEditor((current) => {
-        if (current === null || current.cardId !== null) return current;
+        if (current === null) return current;
         const polygons = current.polygons.map((polygon) => [...polygon]);
         const polygon = polygons[current.polygonIndex] ?? [];
         polygons[current.polygonIndex] = [...polygon, point];
         return { ...current, polygons };
       });
-      if (completed) window.setTimeout(() => void saveEditorRef.current?.(), 0);
+      if (completed)
+        window.setTimeout(
+          () => void saveEditorRef.current?.(currentEditor.cardId === null),
+          0,
+        );
     },
     [],
   );
@@ -936,6 +940,45 @@ export function PipelineVisibleCardEditor({
     setSaveState("saving");
     setError(null);
     void processQueueRef.current?.();
+  }, []);
+
+  const selectEditorPolygon = useCallback((polygonIndex: number) => {
+    setEditor((current) =>
+      current === null || current.polygons[polygonIndex] === undefined
+        ? current
+        : { ...current, polygonIndex, selectedPointIndex: null },
+    );
+  }, []);
+
+  const addEditorPolygon = useCallback(() => {
+    setEditor((current) => {
+      if (current === null) return current;
+      return {
+        ...current,
+        polygons: [...current.polygons, []],
+        polygonIndex: current.polygons.length,
+        selectedPointIndex: null,
+      };
+    });
+    setEditorError(null);
+  }, []);
+
+  const removeEditorPolygon = useCallback(() => {
+    setEditor((current) => {
+      if (current === null || current.polygons.length <= 1) return current;
+      const polygons = current.polygons.filter(
+        (_, index) => index !== current.polygonIndex,
+      );
+      const polygonIndex = Math.min(current.polygonIndex, polygons.length - 1);
+      const nextEditor = {
+        ...current,
+        polygons,
+        polygonIndex,
+        selectedPointIndex: null,
+      };
+      window.setTimeout(() => void saveEditorRef.current?.(false), 0);
+      return nextEditor;
+    });
   }, []);
 
   useEffect(() => {
@@ -1164,6 +1207,12 @@ export function PipelineVisibleCardEditor({
               setSelectedCandidateId(candidate.card_id);
               if (editable) openEditor(activeFrame, candidate);
             }}
+            onSelectCandidatePolygon={
+              editable
+                ? (candidate, polygonIndex) =>
+                    openEditor(activeFrame, candidate, polygonIndex)
+                : undefined
+            }
             onOpenEditor={
               editable
                 ? (candidate) => openEditor(activeFrame, candidate)
@@ -1178,6 +1227,9 @@ export function PipelineVisibleCardEditor({
             onPointerUp={stopCanvasPointer}
             onPointPointerDown={startPointDrag}
             onDeleteSelectedPoint={deleteSelectedPoint}
+            onSelectEditorPolygon={selectEditorPolygon}
+            onAddEditorPolygon={addEditorPolygon}
+            onRemoveEditorPolygon={removeEditorPolygon}
             proposalSlot={proposalSlot}
           />
         )}

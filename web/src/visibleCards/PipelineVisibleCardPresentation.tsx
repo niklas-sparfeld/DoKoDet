@@ -26,6 +26,7 @@ export function VisibleCardFramePanel({
   selectedCandidateId,
   editorError,
   onSelectCandidate,
+  onSelectCandidatePolygon,
   onOpenEditor,
   onCancelEditor,
   onRemoveCard,
@@ -34,6 +35,9 @@ export function VisibleCardFramePanel({
   onPointerUp,
   onPointPointerDown,
   onDeleteSelectedPoint,
+  onSelectEditorPolygon,
+  onAddEditorPolygon,
+  onRemoveEditorPolygon,
   readOnly,
   proposalSlot,
 }: {
@@ -43,6 +47,10 @@ export function VisibleCardFramePanel({
   selectedCandidateId: string | null;
   editorError: string | null;
   onSelectCandidate?: (candidate: Candidate) => void;
+  onSelectCandidatePolygon?: (
+    candidate: Candidate,
+    polygonIndex: number,
+  ) => void;
   onOpenEditor?: (candidate: Candidate | null) => void;
   onCancelEditor?: () => void;
   onRemoveCard?: (cardId: string) => void;
@@ -55,6 +63,9 @@ export function VisibleCardFramePanel({
     pointIndex: number,
   ) => void;
   onDeleteSelectedPoint: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
+  onSelectEditorPolygon?: (polygonIndex: number) => void;
+  onAddEditorPolygon?: () => void;
+  onRemoveEditorPolygon?: () => void;
   readOnly: boolean;
   proposalSlot: HTMLElement | null;
 }) {
@@ -93,7 +104,12 @@ export function VisibleCardFramePanel({
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
               onKeyDown={onDeleteSelectedPoint}
-              style={{ pointerEvents: editor === null ? "none" : "auto" }}
+              style={{
+                pointerEvents:
+                  editor === null && onSelectCandidatePolygon === undefined
+                    ? "none"
+                    : "auto",
+              }}
             >
               {frame.outcome.candidates.map((candidate) => (
                 <CandidateOverlay
@@ -103,6 +119,12 @@ export function VisibleCardFramePanel({
                   height={height}
                   selected={candidate.card_id === selectedCandidateId}
                   reviewStatus={frameReviewStatus(frame)}
+                  interactive={
+                    editor === null && onSelectCandidatePolygon !== undefined
+                  }
+                  onSelectPolygon={(polygonIndex) =>
+                    onSelectCandidatePolygon?.(candidate, polygonIndex)
+                  }
                 />
               ))}
               {editor?.polygons.map((polygon, polygonIndex) => (
@@ -115,8 +137,16 @@ export function VisibleCardFramePanel({
                             `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
                         )
                         .join(" ")}
-                      fill="rgba(255, 210, 79, 0.25)"
-                      stroke="#ffd24f"
+                      fill={
+                        editor.polygonIndex === polygonIndex
+                          ? "rgba(255, 210, 79, 0.25)"
+                          : "rgba(255, 210, 79, 0.12)"
+                      }
+                      stroke={
+                        editor.polygonIndex === polygonIndex
+                          ? "#ffd24f"
+                          : "#c79f34"
+                      }
                       strokeDasharray="4 3"
                       strokeWidth={polygonStrokeWidth(width)}
                     />
@@ -128,6 +158,7 @@ export function VisibleCardFramePanel({
                       cy={(point.y * height) / 1000}
                       r={Math.max(1, width / 160)}
                       fill={
+                        editor.polygonIndex === polygonIndex &&
                         editor.selectedPointIndex === pointIndex
                           ? "#ffffff"
                           : "#ffd24f"
@@ -178,10 +209,46 @@ export function VisibleCardFramePanel({
           <p className={visibleStyles.editorHelp}>
             Drag a point to adjust a visible region, or click an edge to add a
             point. Changes are saved automatically and you can keep editing.
-            Select a point and press Backspace or Delete to remove it. For a
-            missed card, click three points on the frame to create its visible
-            region.
+            Select a point and press Backspace or Delete to remove it. Select a
+            polygon below the frame before you add points. For a missed card,
+            click three points on the frame to create its visible region.
           </p>
+          <section
+            className={visibleStyles.polygonList}
+            aria-label="Visible region polygons"
+          >
+            <p className={styles.statusLabel}>Visible region polygons</p>
+            <div className={visibleStyles.polygonActions}>
+              {editor.polygons.map((polygon, polygonIndex) => (
+                <button
+                  className={styles.inlineAction}
+                  type="button"
+                  key={`polygon-${polygonIndex}`}
+                  aria-pressed={editor.polygonIndex === polygonIndex}
+                  data-selected={editor.polygonIndex === polygonIndex}
+                  onClick={() => onSelectEditorPolygon?.(polygonIndex)}
+                >
+                  Polygon {polygonIndex + 1} ({polygon.length} point
+                  {polygon.length === 1 ? "" : "s"})
+                </button>
+              ))}
+              <button
+                className={styles.inlineAction}
+                type="button"
+                onClick={onAddEditorPolygon}
+              >
+                Add polygon
+              </button>
+              <button
+                className={styles.inlineAction}
+                type="button"
+                onClick={onRemoveEditorPolygon}
+                disabled={editor.polygons.length <= 1}
+              >
+                Remove polygon
+              </button>
+            </div>
+          </section>
           {editorError !== null ? (
             <p className={visibleStyles.inlineFormError}>{editorError}</p>
           ) : null}
@@ -415,12 +482,16 @@ function CandidateOverlay({
   height,
   selected,
   reviewStatus,
+  interactive,
+  onSelectPolygon,
 }: {
   candidate: Candidate;
   width: number;
   height: number;
   selected: boolean;
   reviewStatus: FrameReviewStatus;
+  interactive: boolean;
+  onSelectPolygon: (polygonIndex: number) => void;
 }) {
   const palette = overlayPalette(reviewStatus);
   const geometry = candidate.geometry;
@@ -443,6 +514,21 @@ function CandidateOverlay({
             fill={palette.fill}
             stroke={selected ? "#ffd24f" : palette.stroke}
             strokeWidth={polygonStrokeWidth(width)}
+            role={interactive ? "button" : undefined}
+            aria-label={
+              interactive
+                ? `Edit ${candidate.card_id}, polygon ${polygonIndex + 1}`
+                : undefined
+            }
+            tabIndex={interactive ? 0 : undefined}
+            onClick={
+              interactive
+                ? (event) => {
+                    event.stopPropagation();
+                    onSelectPolygon(polygonIndex);
+                  }
+                : undefined
+            }
           />
         ))}
       </g>

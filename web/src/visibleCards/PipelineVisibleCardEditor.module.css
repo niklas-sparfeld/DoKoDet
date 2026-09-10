@@ -250,6 +250,29 @@
   line-height: 1.5;
 }
 
+.polygonList {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+}
+
+.polygonList p {
+  margin: 0;
+}
+
+.polygonActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.polygonActions button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--ink);
+}
+
 .inlineFormError {
   margin: 0;
   color: var(--danger);

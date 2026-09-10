@@ -48,6 +48,12 @@ const SEGMENTED_GEOMETRY_WITH_DERIVED_BOX: Candidate["geometry"] = {
         { x: 820, y: 760 },
         { x: 200, y: 820 },
       ],
+      [
+        { x: 100, y: 100 },
+        { x: 200, y: 100 },
+        { x: 200, y: 200 },
+        { x: 100, y: 200 },
+      ],
     ],
   },
 };
@@ -485,6 +491,106 @@ describe("PipelineVisibleCardEditor", () => {
     expect(polygons[1]).toHaveAttribute("stroke-width", "1.25");
     expect(polygons[1]).toHaveAttribute("stroke-dasharray", "4 3");
     expect(screen.getByText("Polygon")).toBeInTheDocument();
+  });
+
+  it("opens the selected card and polygon when a canvas polygon is clicked", async () => {
+    const segmentedReference = referenceWithSegmentedGeometry();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(jsonResponse(segmentedReference)),
+      ),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: "Edit run-card-1, polygon 2",
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Select proposal 1" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Polygon 2 (4 points)" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 2, point 1 at 100, 100",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("adds a second polygon and saves its completed points", async () => {
+    const responses = [reference(), reference("corrected")];
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT")
+        return Promise.resolve(jsonResponse(responses[1]));
+      return Promise.resolve(jsonResponse(responses[0]));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Add polygon" }));
+    expect(
+      screen.getByRole("button", { name: "Polygon 2 (0 points)" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.pointerDown(canvas, { clientX: 20, clientY: 20 });
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 20 });
+    fireEvent.pointerDown(canvas, { clientX: 30, clientY: 40 });
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toHaveLength(1),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(
+      requestBody.operations[0].item.candidates[0].geometry.visible_region
+        .polygons,
+    ).toHaveLength(2);
   });
 
   it("saves a polygon drag without leaving edit mode", async () => {
