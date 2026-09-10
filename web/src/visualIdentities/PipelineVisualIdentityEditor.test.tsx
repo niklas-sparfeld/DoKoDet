@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { PipelineVisualIdentityEditor } from "./PipelineVisualIdentityEditor";
 
@@ -166,7 +166,9 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
-  it("shows all cards from the source frame and highlights the selected card", async () => {
+  it("navigates between cards and updates the selected frame", async () => {
+    const popstate = vi.fn();
+    window.addEventListener("popstate", popstate);
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(() =>
@@ -174,7 +176,7 @@ describe("PipelineVisualIdentityEditor", () => {
           jsonResponse(
             generatedResult(undefined, [
               outcome(),
-              outcome(undefined, "card-2"),
+              outcome(undefined, "card-2", 1_000_000),
             ]),
           ),
         ),
@@ -198,6 +200,21 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(polygons[0]).toHaveAttribute("data-current", "true");
     expect(polygons[1]).toHaveAttribute("data-card-id", "card-2");
     expect(polygons[1]).toHaveAttribute("data-current", "false");
+
+    await waitFor(() =>
+      expect(window.location.search).toContain(`item=${CARD_ID}`),
+    );
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() =>
+      expect(window.location.search).toContain("t_us=1000000"),
+    );
+    expect(popstate).toHaveBeenCalled();
+    expect(
+      screen
+        .getByLabelText("Visible card geometry")
+        .querySelector('[data-card-id="card-2"]'),
+    ).toHaveAttribute("data-current", "true");
+    window.removeEventListener("popstate", popstate);
   });
 
   it("keeps generated identities visible while a new review has no reference", async () => {

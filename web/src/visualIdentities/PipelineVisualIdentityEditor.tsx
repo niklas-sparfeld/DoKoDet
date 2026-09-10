@@ -73,6 +73,7 @@ export function PipelineVisualIdentityEditor({
   const videoRef = useRef<HTMLVideoElement>(null);
   const referenceRef = useRef<PipelineReferenceResource | null>(null);
   const itemsRef = useRef<EditableIdentity[]>([]);
+  const navigationItemsRef = useRef<EditableIdentity[]>([]);
   const selectedItemIdRef = useRef<string | null>(null);
   const serverRevisionRef = useRef(0);
   const queueRef = useRef<PendingCommand[]>([]);
@@ -612,7 +613,7 @@ export function PipelineVisualIdentityEditor({
         ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
       )
         return;
-      const current = itemsRef.current;
+      const current = navigationItemsRef.current;
       const index = current.findIndex(
         (item) => item.itemId === selectedItemIdRef.current,
       );
@@ -649,6 +650,12 @@ export function PipelineVisualIdentityEditor({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [acceptSuggestion, markUnusable, selectItem]);
+
+  useEffect(() => {
+    navigationItemsRef.current = usesMaintainedIdentities
+      ? items
+      : generatedItems;
+  }, [generatedItems, items, usesMaintainedIdentities]);
 
   useEffect(() => {
     const source = usesMaintainedIdentities ? items : generatedItems;
@@ -1196,6 +1203,7 @@ function updatePipelineUrl(values: { item?: string; t_us?: number }): void {
   if (values.t_us !== undefined)
     url.searchParams.set("t_us", String(Math.round(values.t_us)));
   window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 function clamp(value: number, durationUs: number): number {
