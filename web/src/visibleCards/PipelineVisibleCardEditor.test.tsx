@@ -581,6 +581,64 @@ describe("PipelineVisibleCardEditor", () => {
     ).toBeInTheDocument();
   });
 
+  it.each(["Backspace", "Delete"])(
+    "removes the selected polygon point with %s",
+    async (key) => {
+      const responses = [reference(), reference("corrected")];
+      const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+        if (init?.method === "PUT")
+          return Promise.resolve(jsonResponse(responses[1]));
+        return Promise.resolve(jsonResponse(responses[0]));
+      });
+      vi.stubGlobal("fetch", fetchImplementation);
+
+      render(
+        <PipelineVisibleCardEditor
+          recordingId={RECORDING_ID}
+          durationUs={1_000_000}
+          generatedRevisionId={REVISION_ID}
+          generatedRunId={RUN_ID}
+          view="reviewed"
+        />,
+      );
+
+      await screen.findByAltText("Selected visible-card source frame");
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+      const point = screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 100, 100",
+      });
+      fireEvent.pointerDown(point, { pointerId: 3 });
+      fireEvent.keyDown(point, { key });
+
+      await waitFor(() =>
+        expect(
+          fetchImplementation.mock.calls.filter(
+            ([, init]) => init?.method === "PUT",
+          ),
+        ).toHaveLength(1),
+      );
+      const requestBody = JSON.parse(
+        String(
+          fetchImplementation.mock.calls.find(
+            ([, init]) => init?.method === "PUT",
+          )?.[1]?.body,
+        ),
+      );
+      expect(
+        requestBody.operations[0].item.candidates[0].geometry.visible_region
+          .polygons[0],
+      ).toEqual([
+        { x: 800, y: 100 },
+        { x: 800, y: 800 },
+        { x: 100, y: 800 },
+      ]);
+      expect(
+        screen.getByRole("button", { name: "Close editor" }),
+      ).toBeInTheDocument();
+    },
+  );
+
   it("selects the requested generated frame and reports both rail items", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse(generatedResultWithTwoFrames())),

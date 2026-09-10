@@ -1,4 +1,8 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { pipelineDerivedFramePath } from "../api/client";
@@ -29,6 +33,7 @@ export function VisibleCardFramePanel({
   onCanvasPointerDown,
   onPointerUp,
   onPointPointerDown,
+  onDeleteSelectedPoint,
   readOnly,
   proposalSlot,
 }: {
@@ -49,6 +54,7 @@ export function VisibleCardFramePanel({
     polygonIndex: number,
     pointIndex: number,
   ) => void;
+  onDeleteSelectedPoint: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
   readOnly: boolean;
   proposalSlot: HTMLElement | null;
 }) {
@@ -86,6 +92,7 @@ export function VisibleCardFramePanel({
               onPointerDown={onCanvasPointerDown}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
+              onKeyDown={onDeleteSelectedPoint}
               style={{ pointerEvents: editor === null ? "none" : "auto" }}
             >
               {frame.outcome.candidates.map((candidate) => (
@@ -163,8 +170,9 @@ export function VisibleCardFramePanel({
         >
           <p className={visibleStyles.editorHelp}>
             Drag a point to adjust a visible region, or click an edge to add a
-            point. Changes are saved automatically and you can keep editing. For
-            a missed card, click three points on the frame to create its visible
+            point. Changes are saved automatically and you can keep editing.
+            Select a point and press Backspace or Delete to remove it. For a
+            missed card, click three points on the frame to create its visible
             region.
           </p>
           {editorError !== null ? (

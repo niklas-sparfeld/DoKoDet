@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
@@ -751,6 +752,7 @@ export function PipelineVisibleCardEditor({
     ) => {
       event.preventDefault();
       event.stopPropagation();
+      event.currentTarget.focus();
       dragRef.current = {
         pointerId: event.pointerId,
         polygonIndex,
@@ -763,6 +765,38 @@ export function PipelineVisibleCardEditor({
           ? current
           : { ...current, polygonIndex, selectedPointIndex: pointIndex },
       );
+    },
+    [],
+  );
+
+  const deleteSelectedPoint = useCallback(
+    (event: ReactKeyboardEvent<SVGSVGElement>) => {
+      if (event.key !== "Backspace" && event.key !== "Delete") return;
+      const currentEditor = editorRef.current;
+      if (currentEditor === null || currentEditor.selectedPointIndex === null)
+        return;
+      const selectedPointIndex = currentEditor.selectedPointIndex;
+      const polygon = currentEditor.polygons[currentEditor.polygonIndex];
+      if (polygon?.[selectedPointIndex] === undefined) return;
+      event.preventDefault();
+      const polygons = currentEditor.polygons.map((currentPolygon) => [
+        ...currentPolygon,
+      ]);
+      polygons[currentEditor.polygonIndex].splice(selectedPointIndex, 1);
+      const remainingPointCount = polygons[currentEditor.polygonIndex].length;
+      const nextEditor = {
+        ...currentEditor,
+        polygons,
+        selectedPointIndex:
+          remainingPointCount === 0
+            ? null
+            : Math.min(selectedPointIndex, remainingPointCount - 1),
+      };
+      const validation = validatePolygons(nextEditor.polygons);
+      setEditor(nextEditor);
+      setEditorError(validation);
+      if (validation === null)
+        window.setTimeout(() => void saveEditorRef.current?.(false), 0);
     },
     [],
   );
@@ -1133,6 +1167,7 @@ export function PipelineVisibleCardEditor({
             onCanvasPointerDown={addVisibleRegionPoint}
             onPointerUp={stopCanvasPointer}
             onPointPointerDown={startPointDrag}
+            onDeleteSelectedPoint={deleteSelectedPoint}
             proposalSlot={proposalSlot}
           />
         )}
