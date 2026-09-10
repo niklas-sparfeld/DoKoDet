@@ -225,6 +225,77 @@ describe("RunControls", () => {
     });
   });
 
+  it("uses polygon crop policies for visual identity runs", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(runResponse("identity-run-1")), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const visible = stage("visible_cards", {
+      selected_generated_revision_id: "visible-generated",
+      selected_completed_reference_revision_id: "visible-reviewed",
+    });
+    const identities = stage("visual_identities");
+
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[visible, identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.find(([, init]) => init?.method === "POST"),
+      ).toBeDefined(),
+    );
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      request: {
+        visible_card_revision_id: "visible-reviewed",
+        crop_policy: {
+          policy_id: "oracle_visible_region",
+          output_encoding: "ppm",
+        },
+      },
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Generated" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+      ).toHaveLength(2),
+    );
+    const postCalls = fetchMock.mock.calls.filter(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCalls[1]?.[1]?.body))).toMatchObject({
+      request: {
+        visible_card_revision_id: "visible-generated",
+        crop_policy: {
+          policy_id: "predicted_visible_region",
+          output_encoding: "ppm",
+        },
+      },
+    });
+  });
+
   it("keeps retry on the same run and explains partial and failed outcomes", async () => {
     const retainedRun = {
       run_id: "failed-run",

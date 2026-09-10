@@ -35,6 +35,8 @@ from doko_operations.pipeline_data import (
 )
 from table_evidence_analyzer.pipeline_data import (
     PipelineGeometry,
+    PredictedVisibleRegionGeometry,
+    ReviewedVisibleRegionGeometry,
     VisibleCardData,
     VisualIdentityCandidate,
     VisualIdentityClassifierIdentity,
@@ -66,6 +68,39 @@ from dokodetector_backend.repository_bundle_storage import RepositoryBundleStora
 
 LOGGER = logging.getLogger(__name__)
 _SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._:-]+")
+
+
+def _default_crop_policy_for_geometry(geometry: PipelineGeometry) -> dict[str, str]:
+    """Return the polygon crop policy that matches one visible-region geometry."""
+
+    if isinstance(geometry, PredictedVisibleRegionGeometry):
+        return {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
+    if isinstance(geometry, ReviewedVisibleRegionGeometry):
+        return {"policy_id": "oracle_visible_region", "output_encoding": "ppm"}
+    raise VisualIdentityPipelineInputError(
+        "the default visual identity crop policy requires polygon visible-region geometry"
+    )
+
+
+def _default_crop_policy(content: VisibleCardData) -> dict[str, str]:
+    """Return the default crop policy for one visible-card revision."""
+
+    geometries = [
+        candidate.geometry
+        for outcome in content.outcomes
+        for candidate in outcome.candidates
+    ]
+    if not geometries:
+        return {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
+    policies = {
+        _default_crop_policy_for_geometry(geometry)["policy_id"] for geometry in geometries
+    }
+    if len(policies) != 1:
+        raise VisualIdentityPipelineInputError(
+            "the default visual identity crop policy requires one polygon geometry kind "
+            "per revision"
+        )
+    return {"policy_id": policies.pop(), "output_encoding": "ppm"}
 
 
 class VisualIdentityPipelineError(RuntimeError):
@@ -284,10 +319,8 @@ class VisualIdentityPipelineService:
         )
         values["configuration"] = configuration
         values.setdefault("extraction_policy", {"policy_id": "exact-event/v1"})
-        values.setdefault(
-            "crop_policy",
-            {"policy_id": "raw_rectangular", "output_encoding": "ppm"},
-        )
+        if values.get("crop_policy") is None:
+            values["crop_policy"] = _default_crop_policy(visible_revision.content)
         try:
             request = ProcessorRunRequest.from_mapping(values)
         except (TypeError, ValueError) as error:
@@ -431,10 +464,13 @@ class VisualIdentityPipelineService:
 
         try:
             crop_policy = run.request.crop_policy or {}
+            crop_policy_id = crop_policy.get("policy_id")
+            if crop_policy_id is None:
+                crop_policy_id = _default_crop_policy_for_geometry(geometry)["policy_id"]
             crop = resolve_visible_region_crop(
                 frame,
                 geometry.to_mapping(),
-                crop_policy=str(crop_policy.get("policy_id", "raw_rectangular")),
+                crop_policy=str(crop_policy_id),
                 output_encoding=str(crop_policy.get("output_encoding", "ppm")),
                 cache=self.storage.derived_views_root,
             )
@@ -541,6 +577,9 @@ class VisualIdentityPipelineService:
             implementation_id=_implementation_id(run.request.implementation),
             model_id=_model_id(run.request.model),
         )
+        crop_policy = run.request.crop_policy or _default_crop_policy(
+            self.revision_store.require(run.request.input_revision_ids[0]).content
+        )
         manifest = DataRevision(
             revision_id=f"visual-identities-{_safe(run.run_id)}-attempt-{run.state.attempt}",
             content_type="visual_identities",
@@ -555,9 +594,7 @@ class VisualIdentityPipelineService:
                 "kind": "requested-visible-cards",
                 "visible_card_revision_id": run.request.input_revision_ids[0],
                 "card_ids": [outcome.card_id for outcome in content.outcomes],
-                "policy_id": run.request.crop_policy["policy_id"]
-                if run.request.crop_policy is not None
-                else "raw_rectangular",
+                "policy_id": crop_policy["policy_id"],
             },
             created_at=_now(),
         )

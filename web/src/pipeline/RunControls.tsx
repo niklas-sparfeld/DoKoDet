@@ -170,7 +170,13 @@ export function RunControls({
         client,
         recordingId,
         runStage,
-        buildRunRequest(runStage, runId, selectedRevisionId, latestRun),
+        buildRunRequest(
+          runStage,
+          runId,
+          selectedRevisionId,
+          latestRun,
+          inputOrigin,
+        ),
       );
       setLiveRun(response);
       setTrackedRunId(response.run_id);
@@ -504,6 +510,7 @@ function buildRunRequest(
   runId: string,
   inputRevisionId: string | null,
   latestRun: PipelineRun | null,
+  inputOrigin: InputOrigin,
 ): PipelineRunStartRequest {
   const request = latestRun?.request ?? {};
   const implementation =
@@ -521,10 +528,15 @@ function buildRunRequest(
       ? { policy_id: "exact-event/v1" }
       : { policy_id: "exact-event/v1", output_encoding: "jpeg" });
   const cropPolicy =
-    latestRun?.crop_policy ??
-    (stage === "visual_identities"
-      ? { policy_id: "raw_rectangular", output_encoding: "ppm" }
-      : null);
+    stage === "visual_identities"
+      ? {
+          policy_id:
+            inputOrigin === "reviewed"
+              ? "oracle_visible_region"
+              : "predicted_visible_region",
+          output_encoding: "ppm",
+        }
+      : null;
   const model = latestRun?.model ?? readRecord(request.model) ?? undefined;
   return {
     request: {

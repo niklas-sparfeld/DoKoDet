@@ -12,7 +12,6 @@ from doko_operations.pipeline_data import (
 from fastapi.testclient import TestClient
 from table_evidence_analyzer import (
     CardClassificationResult,
-    DetectorBoxGeometry,
     ReviewedVisibleRegionGeometry,
     VisibleCardCandidate,
     VisibleCardData,
@@ -62,7 +61,9 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
     candidates = (
         VisibleCardCandidate(
             card_id="card-classified",
-            geometry=DetectorBoxGeometry(100, 100, 900, 900),
+            geometry=ReviewedVisibleRegionGeometry(
+                polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
+            ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
         ),
         VisibleCardCandidate(
@@ -74,12 +75,16 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
         ),
         VisibleCardCandidate(
             card_id="card-unusable",
-            geometry=DetectorBoxGeometry(0, 0, 10, 10),
+            geometry=ReviewedVisibleRegionGeometry(
+                polygons=(((0, 0), (10, 0), (10, 10), (0, 10)),)
+            ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
         ),
         VisibleCardCandidate(
             card_id="card-failed",
-            geometry=DetectorBoxGeometry(100, 100, 900, 900),
+            geometry=ReviewedVisibleRegionGeometry(
+                polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
+            ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
         ),
     )
@@ -174,8 +179,13 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         ).json()
         generated_outcome = generated_result["revisions"][0]["content"]["outcomes"][0]
         assert generated_result["request"]["input_revision_ids"] == [generated_revision_id]
+        assert generated_result["request"]["crop_policy"] == {
+            "policy_id": "predicted_visible_region",
+            "output_encoding": "ppm",
+        }
         assert generated_outcome["status"] == "classified"
         assert generated_outcome["crop_identity"]["status"] == "usable"
+        assert generated_outcome["crop_identity"]["crop_policy"] == "predicted_visible_region"
         assert generated_outcome["classifier"]["provider"] == "fixture-identity"
         identity_revision_id = generated_result["state"]["output_revision_ids"][0]
         shutil.rmtree(
@@ -229,6 +239,10 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-completed/result"
         ).json()
         assert result["request"]["input_revision_ids"] == [manual_revision_id]
+        assert result["request"]["crop_policy"] == {
+            "policy_id": "oracle_visible_region",
+            "output_encoding": "ppm",
+        }
         outcomes = result["revisions"][0]["content"]["outcomes"]
         assert [outcome["status"] for outcome in outcomes] == [
             "classified",
