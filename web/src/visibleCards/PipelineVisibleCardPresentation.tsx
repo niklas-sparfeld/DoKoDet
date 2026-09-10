@@ -9,6 +9,7 @@ import type {
   Candidate,
   EditableFrame,
   EditorState,
+  FrameReviewState,
 } from "./PipelineVisibleCardTypes";
 
 export function VisibleCardFramePanel({
@@ -91,6 +92,7 @@ export function VisibleCardFramePanel({
                   width={width}
                   height={height}
                   selected={candidate.card_id === selectedCandidateId}
+                  reviewState={frame.reviewState}
                 />
               ))}
               {editor?.polygons.map((polygon, polygonIndex) => (
@@ -393,16 +395,23 @@ function CandidateOverlay({
   width,
   height,
   selected,
+  reviewState,
 }: {
   candidate: Candidate;
   width: number;
   height: number;
   selected: boolean;
+  reviewState: FrameReviewState;
 }) {
+  const palette = overlayPalette(reviewState);
   const geometry = candidate.geometry;
   if (geometry.visible_region !== undefined) {
     return (
-      <g data-card-id={candidate.card_id} data-selected={selected}>
+      <g
+        data-card-id={candidate.card_id}
+        data-selected={selected}
+        data-review-state={reviewState}
+      >
         {geometry.visible_region.polygons.map((polygon, polygonIndex) => (
           <polygon
             key={`${candidate.card_id}-polygon-${polygonIndex}`}
@@ -412,8 +421,8 @@ function CandidateOverlay({
                   `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
               )
               .join(" ")}
-            fill="rgba(59, 209, 154, 0.2)"
-            stroke={selected ? "#ffd24f" : "#3bd19a"}
+            fill={palette.fill}
+            stroke={palette.stroke}
             strokeWidth={
               selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
             }
@@ -425,14 +434,18 @@ function CandidateOverlay({
   const box = geometry.box_2d;
   if (box === undefined) return null;
   return (
-    <g data-card-id={candidate.card_id} data-selected={selected}>
+    <g
+      data-card-id={candidate.card_id}
+      data-selected={selected}
+      data-review-state={reviewState}
+    >
       <rect
         x={(box.x_min * width) / 1000}
         y={(box.y_min * height) / 1000}
         width={((box.x_max - box.x_min) * width) / 1000}
         height={((box.y_max - box.y_min) * height) / 1000}
-        fill="rgba(234, 160, 220, 0.12)"
-        stroke={selected ? "#ffd24f" : "#eaa0dc"}
+        fill={palette.fill}
+        stroke={palette.stroke}
         strokeDasharray="8 5"
         strokeWidth={
           selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
@@ -440,4 +453,17 @@ function CandidateOverlay({
       />
     </g>
   );
+}
+
+function overlayPalette(reviewState: FrameReviewState): {
+  fill: string;
+  stroke: string;
+} {
+  if (reviewState === "accepted") {
+    return { fill: "rgba(85, 213, 137, 0.2)", stroke: "#55d589" };
+  }
+  if (reviewState === "empty" || reviewState === "unusable") {
+    return { fill: "rgba(255, 125, 114, 0.16)", stroke: "#ff7d72" };
+  }
+  return { fill: "rgba(242, 193, 95, 0.2)", stroke: "#f2c15f" };
 }
