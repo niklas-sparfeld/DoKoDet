@@ -2529,6 +2529,17 @@ progress {
   background: color-mix(in srgb, var(--warning) 18%, var(--panel));
 }
 
+.recordingTimelineItem[data-state="accepted"] {
+  border-color: color-mix(in srgb, var(--success) 70%, var(--line));
+  background: color-mix(in srgb, var(--success) 18%, var(--panel));
+}
+
+.recordingTimelineItem[data-state="pending"],
+.recordingTimelineItem[data-state="corrected"] {
+  border-color: color-mix(in srgb, var(--warning) 70%, var(--line));
+  background: color-mix(in srgb, var(--warning) 18%, var(--panel));
+}
+
 .recordingTimelineItem[data-no-time="true"] {
   position: relative;
   display: block;

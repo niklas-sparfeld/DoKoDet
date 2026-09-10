@@ -48,6 +48,34 @@
   accent-color: var(--accent);
 }
 
+.keyboardShortcuts {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--line);
+}
+
+.keyboardShortcuts dl {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+}
+
+.keyboardShortcuts dl div {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.4rem;
+}
+
+.keyboardShortcuts dt {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.keyboardShortcuts dd {
+  margin: 0;
+}
+
 .reviewCounts {
   display: flex;
   gap: 1rem;

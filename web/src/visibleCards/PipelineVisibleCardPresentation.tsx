@@ -19,10 +19,10 @@ export function VisibleCardFramePanel({
   editorError,
   onSelectCandidate,
   onOpenEditor,
-  onSaveEditor,
   onCancelEditor,
   onRemoveCard,
   onPointerMove,
+  onCanvasPointerDown,
   onPointerUp,
   onPointPointerDown,
   readOnly,
@@ -35,10 +35,10 @@ export function VisibleCardFramePanel({
   editorError: string | null;
   onSelectCandidate?: (candidate: Candidate) => void;
   onOpenEditor?: (candidate: Candidate | null) => void;
-  onSaveEditor?: () => void;
   onCancelEditor?: () => void;
   onRemoveCard?: (cardId: string) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onCanvasPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerUp: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointPointerDown: (
     event: ReactPointerEvent<SVGCircleElement>,
@@ -79,6 +79,7 @@ export function VisibleCardFramePanel({
               role="img"
               aria-label={`${frame.outcome.candidates.length} visible-card proposal${frame.outcome.candidates.length === 1 ? "" : "s"}`}
               onPointerMove={onPointerMove}
+              onPointerDown={onCanvasPointerDown}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
               style={{ pointerEvents: editor === null ? "none" : "auto" }}
@@ -156,26 +157,20 @@ export function VisibleCardFramePanel({
           aria-label="Visible region editor"
         >
           <p className={visibleStyles.editorHelp}>
-            Drag a polygon point. The complete visible region is saved once when
-            the pointer is released.
+            Drag a point to adjust a visible region. Changes are saved when the
+            pointer is released. For a missed card, click three points on the
+            frame to create its visible region.
           </p>
           {editorError !== null ? (
             <p className={visibleStyles.inlineFormError}>{editorError}</p>
           ) : null}
           <div className={visibleStyles.actionButtons}>
             <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={onSaveEditor}
-            >
-              Save visible region
-            </button>
-            <button
               className={styles.secondaryButton}
               type="button"
               onClick={onCancelEditor}
             >
-              Cancel
+              Close editor
             </button>
           </div>
         </section>

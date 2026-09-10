@@ -594,12 +594,30 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
         "reviewed-visible-region/v1"
     )
 
-    accepted = service.update_draft(
+    restored = service.update_draft(
         "recording-01",
         "visible_cards",
         {
             "operator_id": "operator-01",
             "expected_revision": 1,
+            "operations": [
+                {
+                    "operation": "restore_frame_suggestions",
+                    "item_id": "event-01",
+                    "item": original,
+                }
+            ],
+        },
+    )
+    assert restored.draft.items[0].review_state == "pending"
+    assert restored.draft.items[0].item == original
+
+    accepted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 2,
             "operations": [{"operation": "accept_frame_suggestions", "item_id": "event-01"}],
         },
     )
@@ -610,7 +628,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
         "visible_cards",
         {
             "operator_id": "operator-01",
-            "expected_revision": 2,
+            "expected_revision": 3,
             "operations": [{"operation": "set_frame_empty", "item_id": "event-01"}],
         },
     )
@@ -623,7 +641,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
         "visible_cards",
         {
             "operator_id": "operator-01",
-            "expected_revision": 3,
+            "expected_revision": 4,
             "operations": [{"operation": "set_frame_unusable", "item_id": "event-01"}],
         },
     )
@@ -641,7 +659,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
             "visible_cards",
             {
                 "operator_id": "operator-01",
-                "expected_revision": 4,
+            "expected_revision": 5,
                 "operations": [
                     {
                         "operation": "set_frame_review",

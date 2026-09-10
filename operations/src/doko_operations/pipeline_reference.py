@@ -40,6 +40,7 @@ PIPELINE_REFERENCE_OPERATIONS = frozenset(
         "rebase",
         "set_frame_review",
         "accept_frame_suggestions",
+        "restore_frame_suggestions",
         "set_frame_empty",
         "set_frame_unusable",
         "accept_identity_suggestion",
@@ -478,6 +479,15 @@ class PipelineReferenceOperation:
             return cls(
                 operation=operation,
                 item_id=_identifier(data["item_id"], f"{context}.item_id"),
+            )
+        if operation == "restore_frame_suggestions":
+            _strict(data, {"operation", "item_id", "item"}, context)
+            item_value = _mapping(data["item"], f"{context}.item")
+            _validate_json(item_value, f"{context}.item")
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                item=json.loads(canonical_json_bytes(item_value).decode("utf-8")),
             )
         if operation == "set_frame_review":
             _strict(data, {"operation", "item_id", "item"}, context)

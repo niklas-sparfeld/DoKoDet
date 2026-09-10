@@ -535,6 +535,103 @@ describe("PipelineVisibleCardEditor", () => {
     );
   });
 
+  it("cycles through the current frame proposals with the up and down arrows", async () => {
+    const result = generatedResult();
+    result.revisions[0].content.outcomes[0].candidates.push({
+      ...DETECTOR_CANDIDATE,
+      card_id: "run-card-2",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(result))),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+      />,
+    );
+
+    await screen.findByAltText("Selected visible-card source frame");
+    await waitFor(() =>
+      expect(window.location.search).toContain(`item=${ITEM_ID}`),
+    );
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Select proposal 1" }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Select proposal 2" }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+    fireEvent.keyDown(window, { key: "ArrowUp" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Select proposal 1" }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+  });
+
+  it("restores generated suggestions as a frame that still needs acceptance", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "PUT")
+        return Promise.resolve(jsonResponse(reference()));
+      return String(input).includes("/result")
+        ? Promise.resolve(jsonResponse(generatedResult()))
+        : Promise.resolve(jsonResponse(reference("corrected")));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Restore generated suggestions",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(requestBody.operations).toEqual([
+      {
+        operation: "restore_frame_suggestions",
+        item_id: ITEM_ID,
+        item: expect.objectContaining({
+          event_id: ITEM_ID,
+          candidates: [DETECTOR_CANDIDATE],
+        }),
+      },
+    ]);
+  });
+
   it("retries a transient draft save and keeps the review command intact", async () => {
     let putAttempts = 0;
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {

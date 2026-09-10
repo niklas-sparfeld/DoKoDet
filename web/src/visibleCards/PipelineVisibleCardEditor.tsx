@@ -469,7 +469,7 @@ export function PipelineVisibleCardEditor({
     (frame: EditableFrame) => {
       enqueue(
         { operation: "accept_frame_suggestions", item_id: frame.itemId },
-        "Visible-card suggestions accepted.",
+        "Frame accepted.",
         (current) =>
           current.map((candidate) =>
             candidate.itemId === frame.itemId
@@ -479,6 +479,38 @@ export function PipelineVisibleCardEditor({
       );
     },
     [enqueue],
+  );
+
+  const restoreGeneratedSuggestions = useCallback(
+    (frame: EditableFrame) => {
+      const generated = generatedFrames.find(
+        (candidate) => candidate.itemId === frame.itemId,
+      );
+      if (generated === undefined) return;
+      const outcome = generated.outcome;
+      enqueue(
+        {
+          operation: "restore_frame_suggestions",
+          item_id: frame.itemId,
+          item: outcome,
+        },
+        "Generated suggestions restored. Accept the frame when it is ready.",
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId === frame.itemId
+              ? {
+                  ...candidate,
+                  baseItemId: null,
+                  outcome,
+                  reviewState: "pending",
+                }
+              : candidate,
+          ),
+      );
+      setEditor(null);
+      setSelectedCandidateId(null);
+    },
+    [enqueue, generatedFrames],
   );
 
   const setFrameOutcome = useCallback(
@@ -618,6 +650,28 @@ export function PipelineVisibleCardEditor({
         drag.dirty = true;
         return { ...current, polygons };
       });
+    },
+    [],
+  );
+
+  const addVisibleRegionPoint = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      const point = pointFromEvent(event);
+      if (point === null) return;
+      const currentEditor = editorRef.current;
+      if (currentEditor === null || currentEditor.cardId !== null) return;
+      const completed =
+        (currentEditor.polygons[currentEditor.polygonIndex]?.length ?? 0) +
+          1 ===
+        3;
+      setEditor((current) => {
+        if (current === null || current.cardId !== null) return current;
+        const polygons = current.polygons.map((polygon) => [...polygon]);
+        const polygon = polygons[current.polygonIndex] ?? [];
+        polygons[current.polygonIndex] = [...polygon, point];
+        return { ...current, polygons };
+      });
+      if (completed) window.setTimeout(() => void saveEditorRef.current?.(), 0);
     },
     [],
   );
@@ -811,6 +865,25 @@ export function PipelineVisibleCardEditor({
         event.preventDefault();
         selectFrame(current[index + 1]);
       } else if (
+        (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+        index >= 0
+      ) {
+        const proposals = current[index].outcome.candidates;
+        if (proposals.length > 0) {
+          event.preventDefault();
+          const selectedIndex = proposals.findIndex(
+            (candidate) => candidate.card_id === selectedCandidateId,
+          );
+          const offset = event.key === "ArrowUp" ? -1 : 1;
+          const nextIndex =
+            selectedIndex < 0
+              ? offset > 0
+                ? 0
+                : proposals.length - 1
+              : (selectedIndex + offset + proposals.length) % proposals.length;
+          setSelectedCandidateId(proposals[nextIndex].card_id);
+        }
+      } else if (
         view === "reviewed" &&
         (event.key === "n" || event.key === "N")
       ) {
@@ -856,6 +929,7 @@ export function PipelineVisibleCardEditor({
     openEditor,
     selectFrame,
     setFrameOutcome,
+    selectedCandidateId,
     usesMaintainedFrames,
     view,
   ]);
@@ -926,6 +1000,16 @@ export function PipelineVisibleCardEditor({
       acceptSuggestions={() =>
         activeFrame === null ? undefined : acceptSuggestions(activeFrame)
       }
+      restoreGeneratedSuggestions={() =>
+        activeFrame === null
+          ? undefined
+          : restoreGeneratedSuggestions(activeFrame)
+      }
+      canRestoreGeneratedSuggestions={
+        activeFrame !== null &&
+        generatedFrames.some((frame) => frame.itemId === activeFrame.itemId) &&
+        activeFrame.reviewState !== "pending"
+      }
       markEmpty={() =>
         activeFrame === null ? undefined : setFrameOutcome(activeFrame, "empty")
       }
@@ -987,12 +1071,12 @@ export function PipelineVisibleCardEditor({
                 ? (candidate) => openEditor(activeFrame, candidate)
                 : undefined
             }
-            onSaveEditor={editable ? saveEditor : undefined}
             onCancelEditor={editable ? () => setEditor(null) : undefined}
             onRemoveCard={
               editable ? (cardId) => removeCard(activeFrame, cardId) : undefined
             }
             onPointerMove={handleCanvasPointerMove}
+            onCanvasPointerDown={addVisibleRegionPoint}
             onPointerUp={stopCanvasPointer}
             onPointPointerDown={startPointDrag}
             proposalSlot={proposalSlot}
@@ -1250,7 +1334,7 @@ function frameDecision(
 ): "cards" | "empty" | "unusable" | null {
   if (
     frame.outcome.status === "detected" &&
-    ["accepted", "added", "corrected"].includes(frame.reviewState) &&
+    frame.reviewState === "accepted" &&
     frame.outcome.candidates.length > 0
   )
     return "cards";

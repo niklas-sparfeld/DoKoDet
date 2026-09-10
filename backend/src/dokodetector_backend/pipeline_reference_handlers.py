@@ -541,6 +541,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if operation.operation not in {
             "set_frame_review",
             "accept_frame_suggestions",
+            "restore_frame_suggestions",
             "set_frame_empty",
             "set_frame_unusable",
         }:
@@ -550,6 +551,22 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if index is None:
             raise PipelineReferenceInputError(f"item was not found: {operation.item_id}")
         existing = items[index]
+        if operation.operation == "restore_frame_suggestions":
+            assert operation.item is not None
+            self.validate_item(operation.item, source_revision_id)
+            if operation.item.get("frame_identity") != existing.item.get("frame_identity"):
+                raise PipelineReferenceInputError(
+                    "restore_frame_suggestions cannot change the resolved frame identity"
+                )
+            if self.item_id(operation.item) != existing.item_id:
+                raise PipelineReferenceInputError(
+                    "restore_frame_suggestions cannot change the source item"
+                )
+            return (
+                items[:index]
+                + [self._replace(existing, base_item_id=None, review_state="pending", item=dict(operation.item))]
+                + items[index + 1 :]
+            )
         if operation.operation == "set_frame_review":
             assert operation.item is not None
             self.validate_item(operation.item, source_revision_id)
@@ -741,7 +758,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
     def _visible_coverage_state(item: Mapping[str, Any], state: str) -> bool:
         status = item.get("status")
         if status == "detected":
-            return state in {"accepted", "added", "corrected"}
+            return state == "accepted"
         if status == "empty":
             return state == "empty"
         if status == "failed":

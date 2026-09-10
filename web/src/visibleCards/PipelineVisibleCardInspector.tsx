@@ -89,6 +89,8 @@ export type VisibleCardInspectorProps = {
   completionBusy: boolean;
   completionBlocker: string | null;
   acceptSuggestions: () => void;
+  restoreGeneratedSuggestions: () => void;
+  canRestoreGeneratedSuggestions: boolean;
   markEmpty: () => void;
   markUnusable: () => void;
   retryQueuedCommands: () => void;
@@ -343,6 +345,8 @@ function VisibleCardInspectorSelection({
   inspectedCount,
   referenceNeedsSeed,
   acceptSuggestions,
+  restoreGeneratedSuggestions,
+  canRestoreGeneratedSuggestions,
   markEmpty,
   markUnusable,
 }: VisibleCardInspectorProps) {
@@ -397,7 +401,15 @@ function VisibleCardInspectorSelection({
                 selectedFrame.outcome.status !== "detected"
               }
             >
-              Accept frame suggestions
+              Accept frame
+            </button>
+            <button
+              className={styles.inlineAction}
+              type="button"
+              onClick={restoreGeneratedSuggestions}
+              disabled={!canRestoreGeneratedSuggestions}
+            >
+              Restore generated suggestions
             </button>
             <button
               className={styles.secondaryButton}
@@ -432,6 +444,38 @@ function VisibleCardInspectorSelection({
               decision.
             </p>
           </div>
+          <section
+            className={visibleStyles.keyboardShortcuts}
+            aria-label="Keyboard shortcuts"
+          >
+            <p className={styles.statusLabel}>Keyboard shortcuts</p>
+            <dl>
+              <div>
+                <dt>← / →</dt>
+                <dd>Previous / next frame</dd>
+              </div>
+              <div>
+                <dt>↑ / ↓</dt>
+                <dd>Previous / next proposal</dd>
+              </div>
+              <div>
+                <dt>A</dt>
+                <dd>Accept frame</dd>
+              </div>
+              <div>
+                <dt>N</dt>
+                <dd>Add missed card</dd>
+              </div>
+              <div>
+                <dt>E</dt>
+                <dd>Mark frame empty</dd>
+              </div>
+              <div>
+                <dt>U</dt>
+                <dd>Mark frame unusable</dd>
+              </div>
+            </dl>
+          </section>
         </>
       ) : null}
     </div>
