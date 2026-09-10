@@ -426,7 +426,7 @@ function CandidateOverlay({
               )
               .join(" ")}
             fill={palette.fill}
-            stroke={palette.stroke}
+            stroke={selected ? "#ffd24f" : palette.stroke}
             strokeWidth={
               selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
             }
@@ -449,7 +449,7 @@ function CandidateOverlay({
         width={((box.x_max - box.x_min) * width) / 1000}
         height={((box.y_max - box.y_min) * height) / 1000}
         fill={palette.fill}
-        stroke={palette.stroke}
+        stroke={selected ? "#ffd24f" : palette.stroke}
         strokeDasharray="8 5"
         strokeWidth={
           selected ? Math.max(2, width / 180) : Math.max(1, width / 250)
@@ -469,5 +469,5 @@ function overlayPalette(reviewStatus: FrameReviewStatus): {
   if (reviewStatus === "empty" || reviewStatus === "unusable") {
     return { fill: "rgba(255, 125, 114, 0.16)", stroke: "#ff7d72" };
   }
-  return { fill: "rgba(242, 193, 95, 0.2)", stroke: "#f2c15f" };
+  return { fill: "rgba(196, 154, 239, 0.2)", stroke: "#c49aef" };
 }
