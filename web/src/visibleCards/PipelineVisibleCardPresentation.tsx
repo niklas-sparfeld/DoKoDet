@@ -273,6 +273,38 @@ function ProposalColumn({
           Add missed card
         </button>
       ) : null}
+      <section
+        className={visibleStyles.keyboardShortcuts}
+        aria-label="Keyboard shortcuts"
+      >
+        <p className={styles.statusLabel}>Keyboard shortcuts</p>
+        <dl>
+          <div>
+            <dt>← / →</dt>
+            <dd>Previous / next frame</dd>
+          </div>
+          <div>
+            <dt>↑ / ↓</dt>
+            <dd>Previous / next proposal</dd>
+          </div>
+          <div>
+            <dt>A</dt>
+            <dd>Accept frame</dd>
+          </div>
+          <div>
+            <dt>N</dt>
+            <dd>Add missed card</dd>
+          </div>
+          <div>
+            <dt>E</dt>
+            <dd>Mark frame empty</dd>
+          </div>
+          <div>
+            <dt>U</dt>
+            <dd>Mark frame unusable</dd>
+          </div>
+        </dl>
+      </section>
     </section>
   );
 }
