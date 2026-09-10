@@ -242,10 +242,18 @@
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-.cardRail button > span {
+.cardRail button > span:not(.cardRailSymbol) {
   grid-row: 1 / span 2;
   color: var(--muted-ink);
   font-variant-numeric: tabular-nums;
+}
+
+.cardRailSymbol {
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: 2em;
+  line-height: 1;
+  text-align: center;
 }
 
 .cardRail button > strong,

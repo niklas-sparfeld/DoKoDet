@@ -297,23 +297,16 @@ export function IdentityCardList({
   return (
     <section className={identityStyles.cardRail} aria-label="Identity cards">
       <ol>
-        {items.map((item, index) => (
+        {items.map((item) => (
           <li key={item.itemId}>
             <button
               type="button"
               data-selected={item.itemId === selectedItemId}
               onClick={() => onSelect(item)}
             >
-              <span>{index + 1}</span>
-              <strong>
-                {item.outcome.candidates[0] === undefined ? (
-                  "Unentschieden"
-                ) : (
-                  <CardIdentityLabel
-                    identity={item.outcome.candidates[0].identity}
-                  />
-                )}
-              </strong>
+              <CardRailIdentity
+                identity={item.outcome.candidates[0]?.identity}
+              />
               <small>{formatIdentifier(item.reviewState)}</small>
             </button>
           </li>
@@ -340,6 +333,28 @@ export function IdentityCardList({
         </dl>
       </section>
     </section>
+  );
+}
+
+function CardRailIdentity({ identity }: { identity?: string }) {
+  if (identity === undefined)
+    return (
+      <>
+        <span className={identityStyles.cardRailSymbol}>?</span>
+        <strong>Unentschieden</strong>
+      </>
+    );
+  const [symbol, ...rank] = formatCardIdentity(identity).split(" ");
+  return (
+    <>
+      <span
+        className={`${identityStyles.cardSymbol} ${identityStyles.cardRailSymbol}`}
+        data-suit={identity.split("_", 1)[0]?.toLowerCase()}
+      >
+        {symbol}
+      </span>
+      <strong>{rank.join(" ")}</strong>
+    </>
   );
 }
 
