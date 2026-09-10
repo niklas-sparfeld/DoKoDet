@@ -35,6 +35,7 @@ import type {
 import { STAGE_LABELS } from "./recordingWorkspacePresentation";
 import { RecordingWorkspaceStatusBadge } from "./RecordingWorkspaceStatusBadge";
 import shellStyles from "./RecordingWorkspaceShell.module.css";
+import { ProfileControl } from "../profile/ProfileControl";
 
 export type RecordingWorkspaceShellProps = {
   recordingId: string;
@@ -175,6 +176,7 @@ export function RecordingWorkspaceShell({
               </div>
             </fieldset>
           ) : null}
+          <ProfileControl />
         </header>
 
         {notice !== null ? (

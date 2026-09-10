@@ -16,6 +16,11 @@ import {
   formatIdentifier,
 } from "./PipelineCardEventFormatting";
 import {
+  readProfileName,
+  subscribeToProfileName,
+  useProfileName,
+} from "../profile/profile";
+import {
   EventDetails,
   EventSourceSurface,
   GeneratedEventView,
@@ -76,6 +81,7 @@ export function PipelineCardEventEditor({
   inspectorEnabled = true,
 }: PipelineCardEventEditorProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
+  const profileName = useProfileName();
   const videoRef = useRef<HTMLVideoElement>(null);
   const referenceRef = useRef<PipelineReferenceResource | null>(null);
   const eventsRef = useRef<EditableEvent[]>([]);
@@ -105,12 +111,22 @@ export function PipelineCardEventEditor({
   const [firstUnappliedCommand, setFirstUnappliedCommand] = useState<
     string | null
   >(null);
-  const [operatorId, setOperatorId] = useState("");
-  const [reviewerId, setReviewerId] = useState("");
+  const [operatorId, setOperatorId] = useState(profileName);
+  const [reviewerId, setReviewerId] = useState(profileName);
   const [coverageComplete, setCoverageComplete] = useState(false);
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useEventInspectorSlots(inspectorEnabled, view);
+
+  useEffect(
+    () =>
+      subscribeToProfileName(() => {
+        const nextProfileName = readProfileName();
+        setOperatorId(nextProfileName);
+        setReviewerId(nextProfileName);
+      }),
+    [],
+  );
 
   const frameRate = 30;
 

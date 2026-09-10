@@ -21,6 +21,11 @@ import {
   formatFrameTime,
 } from "./PipelineVisibleCardFormatting";
 import {
+  readProfileName,
+  subscribeToProfileName,
+  useProfileName,
+} from "../profile/profile";
+import {
   VisibleCardInspectorPortals,
   useVisibleCardProposalSlot,
   useVisibleCardInspectorSlots,
@@ -74,6 +79,7 @@ export function PipelineVisibleCardEditor({
   inspectorEnabled = true,
 }: PipelineVisibleCardEditorProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
+  const profileName = useProfileName();
   const referenceRef = useRef<PipelineReferenceResource | null>(null);
   const framesRef = useRef<EditableFrame[]>([]);
   const selectedFrameIdRef = useRef<string | null>(null);
@@ -110,8 +116,8 @@ export function PipelineVisibleCardEditor({
   const [firstUnappliedCommand, setFirstUnappliedCommand] = useState<
     string | null
   >(null);
-  const [operatorId, setOperatorId] = useState("");
-  const [reviewerId, setReviewerId] = useState("");
+  const [operatorId, setOperatorId] = useState(profileName);
+  const [reviewerId, setReviewerId] = useState(profileName);
   const [inspectedFrameKeys, setInspectedFrameKeys] = useState<Set<string>>(
     new Set(),
   );
@@ -121,6 +127,15 @@ export function PipelineVisibleCardEditor({
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
   const proposalSlot = useVisibleCardProposalSlot();
+  useEffect(
+    () =>
+      subscribeToProfileName(() => {
+        const nextProfileName = readProfileName();
+        setOperatorId(nextProfileName);
+        setReviewerId(nextProfileName);
+      }),
+    [],
+  );
   const generatedSourceRevisionId = displayedRevisionId ?? generatedRevisionId;
   const referenceNeedsSeed =
     reference !== null &&

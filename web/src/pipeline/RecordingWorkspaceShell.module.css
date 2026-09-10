@@ -6,11 +6,10 @@
 
 .topBar {
   display: grid;
-  grid-template-columns: auto minmax(8rem, 14rem) minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(8rem, 14rem) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.75rem;
   min-height: 4.25rem;
-  max-height: 7rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 0.75rem;
@@ -144,7 +143,7 @@
 
 @media (max-width: 900px) {
   .topBar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
   }
 
   .topBar nav {

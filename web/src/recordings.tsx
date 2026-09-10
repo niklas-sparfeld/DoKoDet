@@ -12,6 +12,7 @@ import {
   STAGE_LABELS,
   type PipelineStageKey,
 } from "./pipeline/RecordingPipelineWorkspace";
+import { ProfileControl } from "./profile/ProfileControl";
 import styles from "./App.module.css";
 
 export function RecordingListView() {
@@ -94,6 +95,7 @@ export function RecordingListView() {
           <p className={styles.eyebrow}>DokoDetector</p>
           <h1>Recordings</h1>
         </div>
+        <ProfileControl />
       </header>
 
       {error !== null ? (

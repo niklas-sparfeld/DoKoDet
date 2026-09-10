@@ -13,6 +13,11 @@ import {
   IdentityInspectorPortals,
   useIdentityInspectorSlots,
 } from "./PipelineVisualIdentityInspector";
+import {
+  readProfileName,
+  subscribeToProfileName,
+  useProfileName,
+} from "../profile/profile";
 import { IdentitySourceSurface } from "./PipelineVisualIdentityPresentation";
 import { describeCommand } from "./PipelineVisualIdentityFormatting";
 import type {
@@ -57,6 +62,7 @@ export function PipelineVisualIdentityEditor({
   inspectorEnabled = true,
 }: PipelineVisualIdentityEditorProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
+  const profileName = useProfileName();
   const videoRef = useRef<HTMLVideoElement>(null);
   const referenceRef = useRef<PipelineReferenceResource | null>(null);
   const itemsRef = useRef<EditableIdentity[]>([]);
@@ -83,14 +89,24 @@ export function PipelineVisualIdentityEditor({
   const [firstUnappliedCommand, setFirstUnappliedCommand] = useState<
     string | null
   >(null);
-  const [operatorId, setOperatorId] = useState("");
-  const [reviewerId, setReviewerId] = useState("");
+  const [operatorId, setOperatorId] = useState(profileName);
+  const [reviewerId, setReviewerId] = useState(profileName);
   const [inspectedItemIds, setInspectedItemIds] = useState<Set<string>>(
     new Set(),
   );
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useIdentityInspectorSlots(inspectorEnabled, view);
+
+  useEffect(
+    () =>
+      subscribeToProfileName(() => {
+        const nextProfileName = readProfileName();
+        setOperatorId(nextProfileName);
+        setReviewerId(nextProfileName);
+      }),
+    [],
+  );
 
   const setLocalItems = useCallback((next: EditableIdentity[]) => {
     itemsRef.current = next;
