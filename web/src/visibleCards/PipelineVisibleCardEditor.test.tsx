@@ -181,6 +181,29 @@ function referenceWithSegmentedGeometry() {
   };
 }
 
+function referenceWithPolygon(polygon: { x: number; y: number }[]) {
+  const current = reference();
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      items: current.draft.items.map((item) => ({
+        ...item,
+        item: {
+          ...item.item,
+          candidates: item.item.candidates.map((candidate) => ({
+            ...candidate,
+            geometry: {
+              kind: "reviewed-visible-region/v1" as const,
+              visible_region: { polygons: [polygon] },
+            },
+          })),
+        },
+      })),
+    },
+  };
+}
+
 function emptyReference() {
   const current = reference();
   return {
@@ -473,6 +496,9 @@ describe("PipelineVisibleCardEditor", () => {
       toJSON: () => ({}),
     } as DOMRect);
     fireEvent.pointerDown(point, { clientX: 10, clientY: 10, pointerId: 3 });
+    expect(point).toHaveAttribute("fill", "#ffffff");
+    expect(point).toHaveAttribute("stroke", "#ffd24f");
+    expect(point).toHaveAttribute("r", "2");
     fireEvent.pointerMove(canvas, { clientX: 15, clientY: 20, pointerId: 3 });
     fireEvent.pointerUp(canvas, { pointerId: 3 });
 
@@ -514,7 +540,15 @@ describe("PipelineVisibleCardEditor", () => {
   });
 
   it("inserts a clicked point between the endpoints of the nearest polygon edge", async () => {
-    const responses = [reference(), reference("corrected")];
+    const responses = [
+      referenceWithPolygon([
+        { x: 100, y: 100 },
+        { x: 900, y: 100 },
+        { x: 900, y: 200 },
+        { x: 100, y: 800 },
+      ]),
+      reference("corrected"),
+    ];
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
       if (init?.method === "PUT")
         return Promise.resolve(jsonResponse(responses[1]));
@@ -548,7 +582,7 @@ describe("PipelineVisibleCardEditor", () => {
       toJSON: () => ({}),
     } as DOMRect);
 
-    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 10 });
+    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 15 });
 
     await waitFor(() =>
       expect(
@@ -569,14 +603,14 @@ describe("PipelineVisibleCardEditor", () => {
         .polygons[0],
     ).toEqual([
       { x: 100, y: 100 },
-      { x: 500, y: 100 },
-      { x: 800, y: 100 },
-      { x: 800, y: 800 },
+      { x: 500, y: 150 },
+      { x: 900, y: 100 },
+      { x: 900, y: 200 },
       { x: 100, y: 800 },
     ]);
     expect(
       screen.getByRole("button", {
-        name: "Polygon 1, point 2 at 500, 100",
+        name: "Polygon 1, point 2 at 500, 150",
       }),
     ).toBeInTheDocument();
   });

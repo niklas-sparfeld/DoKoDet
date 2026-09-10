@@ -117,7 +117,7 @@ export function VisibleCardFramePanel({
                         .join(" ")}
                       fill="rgba(255, 210, 79, 0.25)"
                       stroke="#ffd24f"
-                      strokeWidth={Math.max(1, width / 250)}
+                      strokeWidth={Math.max(1, width / 400)}
                     />
                   ) : null}
                   {polygon.map((point, pointIndex) => (
@@ -125,8 +125,14 @@ export function VisibleCardFramePanel({
                       key={`${point.x}:${point.y}:${pointIndex}`}
                       cx={(point.x * width) / 1000}
                       cy={(point.y * height) / 1000}
-                      r={Math.max(3, width / 55)}
-                      fill="#ffd24f"
+                      r={Math.max(2, width / 80)}
+                      fill={
+                        editor.selectedPointIndex === pointIndex
+                          ? "#ffffff"
+                          : "#ffd24f"
+                      }
+                      stroke="#ffd24f"
+                      strokeWidth={Math.max(1, width / 400)}
                       tabIndex={0}
                       role="button"
                       aria-label={`Polygon ${polygonIndex + 1}, point ${pointIndex + 1} at ${point.x}, ${point.y}`}

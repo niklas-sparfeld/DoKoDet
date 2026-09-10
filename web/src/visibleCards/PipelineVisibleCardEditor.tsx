@@ -1403,9 +1403,12 @@ function squaredDistanceToSegment(
   const lengthSquared = horizontal ** 2 + vertical ** 2;
   if (lengthSquared === 0)
     return (point.x - start.x) ** 2 + (point.y - start.y) ** 2;
-  const position = clamp(
-    ((point.x - start.x) * horizontal + (point.y - start.y) * vertical) /
-      lengthSquared,
+  const position = Math.min(
+    Math.max(
+      ((point.x - start.x) * horizontal + (point.y - start.y) * vertical) /
+        lengthSquared,
+      0,
+    ),
     1,
   );
   const nearestX = start.x + position * horizontal;
