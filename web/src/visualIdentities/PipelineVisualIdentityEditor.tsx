@@ -23,7 +23,10 @@ import {
   IdentityCardList,
   IdentitySourceSurface,
 } from "./PipelineVisualIdentityPresentation";
-import { describeCommand } from "./PipelineVisualIdentityFormatting";
+import {
+  describeCommand,
+  formatCardIdentity,
+} from "./PipelineVisualIdentityFormatting";
 import type {
   CropIdentity,
   EditableIdentity,
@@ -264,7 +267,7 @@ export function PipelineVisualIdentityEditor({
   }, [loadGenerated, loadReference, view]);
 
   useEffect(() => {
-    const candidates = view === "reviewed" ? items : generatedItems;
+    const candidates = usesMaintainedIdentities ? items : generatedItems;
     const urlState = new URLSearchParams(window.location.search);
     const itemId =
       selectionItemId === undefined ? urlState.get("item") : selectionItemId;
@@ -291,7 +294,7 @@ export function PipelineVisualIdentityEditor({
     selectionTimeUs,
     selectItem,
     setCurrentTime,
-    view,
+    usesMaintainedIdentities,
   ]);
 
   const nextCommandId = useCallback(() => {
@@ -446,7 +449,7 @@ export function PipelineVisualIdentityEditor({
       applyReviewState(
         item,
         { operation: "select_identity", item_id: item.itemId, identity },
-        `Identity selected: ${identity}.`,
+        `Identity selected: ${formatCardIdentity(identity)}.`,
         (outcome) => ({
           ...outcome,
           status: "classified",
@@ -475,25 +478,6 @@ export function PipelineVisualIdentityEditor({
           error: null,
         }),
         "identity_unusable",
-      );
-    },
-    [applyReviewState],
-  );
-
-  const reportSourceProblem = useCallback(
-    (item: EditableIdentity) => {
-      applyReviewState(
-        item,
-        { operation: "report_identity_source_problem", item_id: item.itemId },
-        "Identity source problem reported.",
-        (outcome) => ({
-          ...outcome,
-          status: "failed",
-          candidates: [],
-          unusable_reason: null,
-          error: "Reviewed source problem.",
-        }),
-        "source_problem",
       );
     },
     [applyReviewState],
@@ -660,17 +644,11 @@ export function PipelineVisualIdentityEditor({
       ) {
         event.preventDefault();
         markUnusable(item);
-      } else if (
-        (event.key === "c" || event.key === "C") &&
-        item !== undefined
-      ) {
-        event.preventDefault();
-        reportSourceProblem(item);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [acceptSuggestion, markUnusable, reportSourceProblem, selectItem]);
+  }, [acceptSuggestion, markUnusable, selectItem]);
 
   useEffect(() => {
     const source = usesMaintainedIdentities ? items : generatedItems;
@@ -743,9 +721,6 @@ export function PipelineVisualIdentityEditor({
         activeItem !== null && acceptSuggestion(activeItem)
       }
       markUnusable={() => activeItem !== null && markUnusable(activeItem)}
-      reportSourceProblem={() =>
-        activeItem !== null && reportSourceProblem(activeItem)
-      }
       selectIdentity={(identity) =>
         activeItem !== null && selectIdentity(activeItem, identity)
       }
@@ -757,7 +732,11 @@ export function PipelineVisualIdentityEditor({
       ? null
       : createPortal(
           <IdentityCardList
-            items={activeItems}
+            items={activeItems.filter(
+              (item) =>
+                item.outcome.frame_identity.frame_index ===
+                activeItem?.outcome.frame_identity.frame_index,
+            )}
             selectedItemId={selectedItemId}
             onSelect={selectItem}
           />,
@@ -803,9 +782,6 @@ export function PipelineVisualIdentityEditor({
           activeItem !== null && selectIdentity(activeItem, identity)
         }
         onMarkUnusable={() => activeItem !== null && markUnusable(activeItem)}
-        onReportSourceProblem={() =>
-          activeItem !== null && reportSourceProblem(activeItem)
-        }
       />
     </>
   );

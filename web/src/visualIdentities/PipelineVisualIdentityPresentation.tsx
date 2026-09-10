@@ -9,8 +9,8 @@ import {
   type EditableIdentity,
 } from "./PipelineVisualIdentityTypes";
 import {
+  formatCardIdentity,
   formatIdentifier,
-  formatMicroseconds,
   formatScore,
 } from "./PipelineVisualIdentityFormatting";
 
@@ -21,7 +21,6 @@ export function IdentityItemPanel({
   onAccept,
   onSelectIdentity,
   onMarkUnusable,
-  onReportSourceProblem,
 }: {
   recordingId: string;
   sourceRevisionId: string | null;
@@ -29,7 +28,6 @@ export function IdentityItemPanel({
   onAccept?: () => void;
   onSelectIdentity?: (identity: string) => void;
   onMarkUnusable?: () => void;
-  onReportSourceProblem?: () => void;
 }) {
   const crop = item.outcome.crop_identity;
   const frame = item.outcome.frame_identity;
@@ -47,18 +45,8 @@ export function IdentityItemPanel({
       className={identityStyles.framePanel}
       aria-label="Selected visual identity"
     >
-      <header className={identityStyles.frameHeader}>
-        <div>
-          <p className={styles.statusLabel}>Source item {item.itemId}</p>
-          <h3>{formatMicroseconds(frame.requested_time_us)}</h3>
-        </div>
-        <span className={styles.status} data-state={item.reviewState}>
-          {formatIdentifier(item.reviewState)}
-        </span>
-      </header>
       <div className={identityStyles.detailGrid}>
         <figure className={identityStyles.imagePanel}>
-          <figcaption>Overall</figcaption>
           <img
             className={identityStyles.canvasImage}
             src={frameUrl}
@@ -66,19 +54,8 @@ export function IdentityItemPanel({
             height={frame.height}
             alt={`Resolved source frame for ${item.itemId}`}
           />
-          <a
-            className={styles.recordingLink}
-            href={visibleCardReviewPath(
-              recordingId,
-              item.itemId,
-              frame.requested_time_us,
-            )}
-          >
-            Open visible-card geometry review
-          </a>
         </figure>
         <figure className={identityStyles.imagePanel}>
-          <figcaption>Crop</figcaption>
           {cropUrl !== null ? (
             <img
               className={identityStyles.cropImage}
@@ -92,21 +69,19 @@ export function IdentityItemPanel({
                 "No usable crop is available."}
             </p>
           )}
-          <small>{crop?.crop_policy ?? "No crop policy"}</small>
         </figure>
       </div>
       <section
         className={identityStyles.proposalLine}
         aria-label="Identity proposal"
       >
-        <span>Suggestion</span>
         {item.outcome.candidates.length === 0 ? (
           <strong>No prediction</strong>
         ) : (
           <ol className={identityStyles.candidateList}>
             {item.outcome.candidates.map((candidate) => (
               <li key={candidate.identity}>
-                <strong>{candidate.identity}</strong>
+                <strong>{formatCardIdentity(candidate.identity)}</strong>
                 <span>
                   {candidate.score === null
                     ? "manual"
@@ -119,8 +94,7 @@ export function IdentityItemPanel({
       </section>
       {onAccept !== undefined &&
       onSelectIdentity !== undefined &&
-      onMarkUnusable !== undefined &&
-      onReportSourceProblem !== undefined ? (
+      onMarkUnusable !== undefined ? (
         <section className={identityStyles.decisionPanel}>
           <div className={identityStyles.outcomeButtons}>
             <button
@@ -139,13 +113,6 @@ export function IdentityItemPanel({
             >
               Unusable <kbd>U</kbd>
             </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={onReportSourceProblem}
-            >
-              Correct source <kbd>C</kbd>
-            </button>
           </div>
           <div
             className={identityStyles.choiceGrid}
@@ -161,7 +128,7 @@ export function IdentityItemPanel({
                 onClick={() => onSelectIdentity(identity)}
                 disabled={crop === null}
               >
-                {identity}
+                {formatCardIdentity(identity)}
               </button>
             ))}
           </div>
@@ -182,7 +149,6 @@ export function IdentitySourceSurface({
   onAccept,
   onSelectIdentity,
   onMarkUnusable,
-  onReportSourceProblem,
 }: {
   item: EditableIdentity | null;
   loading: boolean;
@@ -191,7 +157,6 @@ export function IdentitySourceSurface({
   onAccept?: () => void;
   onSelectIdentity?: (identity: string) => void;
   onMarkUnusable?: () => void;
-  onReportSourceProblem?: () => void;
 }) {
   return (
     <section
@@ -212,7 +177,6 @@ export function IdentitySourceSurface({
           onAccept={onAccept}
           onSelectIdentity={onSelectIdentity}
           onMarkUnusable={onMarkUnusable}
-          onReportSourceProblem={onReportSourceProblem}
         />
       )}
     </section>
@@ -230,10 +194,6 @@ export function IdentityCardList({
 }) {
   return (
     <section className={identityStyles.cardRail} aria-label="Identity cards">
-      <header>
-        <p className={styles.statusLabel}>Cards</p>
-        <strong>{items.length}</strong>
-      </header>
       <ol>
         {items.map((item, index) => (
           <li key={item.itemId}>
@@ -244,7 +204,9 @@ export function IdentityCardList({
             >
               <span>{index + 1}</span>
               <strong>
-                {item.outcome.candidates[0]?.identity ?? "Needs decision"}
+                {item.outcome.candidates[0] === undefined
+                  ? "Unentschieden"
+                  : formatCardIdentity(item.outcome.candidates[0].identity)}
               </strong>
               <small>{formatIdentifier(item.reviewState)}</small>
             </button>
@@ -269,25 +231,8 @@ export function IdentityCardList({
             <dt>U</dt>
             <dd>Mark unusable</dd>
           </div>
-          <div>
-            <dt>C</dt>
-            <dd>Correct visible region</dd>
-          </div>
         </dl>
       </section>
     </section>
   );
-}
-
-function visibleCardReviewPath(
-  recordingId: string,
-  itemId: string,
-  timeUs: number,
-): string {
-  const params = new URLSearchParams({
-    view: "reviewed",
-    item: itemId,
-    t_us: String(Math.round(timeUs)),
-  });
-  return `/recordings/${encodeURIComponent(recordingId)}/pipeline/visible_cards?${params.toString()}`;
 }

@@ -8,7 +8,10 @@ import {
   type EditableIdentity,
   type SaveState,
 } from "./PipelineVisualIdentityTypes";
-import { formatIdentifier } from "./PipelineVisualIdentityFormatting";
+import {
+  formatCardIdentity,
+  formatIdentifier,
+} from "./PipelineVisualIdentityFormatting";
 
 export type IdentityInspectorSlots = {
   action: HTMLElement;
@@ -73,7 +76,6 @@ export type IdentityInspectorProps = {
   reloadWinningDraft: () => Promise<void>;
   acceptSuggestion: () => void;
   markUnusable: () => void;
-  reportSourceProblem: () => void;
   selectIdentity: (identity: string) => void;
 };
 
@@ -219,7 +221,7 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
           <dt>Candidates</dt>
           <dd>
             {item?.outcome.candidates
-              .map((candidate) => candidate.identity)
+              .map((candidate) => formatCardIdentity(candidate.identity))
               .join(", ") || "None"}
           </dd>
         </div>

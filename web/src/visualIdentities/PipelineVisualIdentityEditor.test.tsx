@@ -195,7 +195,9 @@ describe("PipelineVisualIdentityEditor", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: `Resolved source frame for ${CARD_ID}` }),
+      await screen.findByRole("img", {
+        name: `Resolved source frame for ${CARD_ID}`,
+      }),
     ).toBeInTheDocument();
   });
 
@@ -229,7 +231,11 @@ describe("PipelineVisualIdentityEditor", () => {
       />,
     );
 
-    expect(await screen.findByText("Source item card-2")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("img", {
+        name: "Resolved source frame for card-2",
+      }),
+    ).toBeInTheDocument();
     await waitFor(() =>
       expect(railItems).toHaveBeenLastCalledWith([
         {
@@ -250,7 +256,7 @@ describe("PipelineVisualIdentityEditor", () => {
     );
   });
 
-  it("labels an empty prediction with a fixed identity command and links source problems to visible-card review", async () => {
+  it("uses a localized identity label while saving the canonical command", async () => {
     const responses = [reference(), reference("accepted")];
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
       Promise.resolve(
@@ -272,7 +278,7 @@ describe("PipelineVisualIdentityEditor", () => {
     await screen.findByRole("heading", { name: /Visual identity review/ });
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Operator ID"), "operator-01");
-    await user.click(screen.getByRole("button", { name: "HEARTS_QUEEN" }));
+    await user.click(screen.getByRole("button", { name: "♥ Dame" }));
 
     await waitFor(() =>
       expect(
@@ -293,14 +299,6 @@ describe("PipelineVisualIdentityEditor", () => {
       item_id: CARD_ID,
       identity: "HEARTS_QUEEN",
     });
-    expect(
-      screen.getByRole("link", { name: "Open visible-card geometry review" }),
-    ).toHaveAttribute(
-      "href",
-      expect.stringContaining(
-        "/pipeline/visible_cards?view=reviewed&item=card-1&t_us=750000",
-      ),
-    );
     expect(screen.queryByText("Geometry editor")).not.toBeInTheDocument();
   });
 
@@ -332,12 +330,10 @@ describe("PipelineVisualIdentityEditor", () => {
     await screen.findByRole("heading", { name: /Visual identity review/ });
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Operator ID"), "operator-01");
-    await user.click(screen.getByRole("button", { name: "HEARTS_QUEEN" }));
+    await user.click(screen.getByRole("button", { name: "♥ Dame" }));
 
     await waitFor(() => expect(putAttempts).toBe(2));
-    expect(
-      screen.getByText("Identity selected: HEARTS_QUEEN."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Identity selected: ♥ Dame.")).toBeInTheDocument();
   });
 
   it("keeps completion blocked until the empty prediction is reviewed", async () => {
