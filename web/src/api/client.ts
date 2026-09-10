@@ -117,6 +117,7 @@ export type PipelineReferenceOperation = {
     | "rebase"
     | "set_frame_review"
     | "accept_frame_suggestions"
+    | "set_frame_unreviewed"
     | "restore_frame_suggestions"
     | "set_frame_empty"
     | "set_frame_unusable"

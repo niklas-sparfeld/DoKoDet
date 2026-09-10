@@ -4,12 +4,15 @@ import { createPortal } from "react-dom";
 import { pipelineDerivedFramePath } from "../api/client";
 import styles from "../App.module.css";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
-import { formatIdentifier } from "./PipelineVisibleCardFormatting";
+import {
+  formatIdentifier,
+  frameReviewStatus,
+} from "./PipelineVisibleCardFormatting";
 import type {
   Candidate,
   EditableFrame,
   EditorState,
-  FrameReviewState,
+  FrameReviewStatus,
 } from "./PipelineVisibleCardTypes";
 
 export function VisibleCardFramePanel({
@@ -92,7 +95,7 @@ export function VisibleCardFramePanel({
                   width={width}
                   height={height}
                   selected={candidate.card_id === selectedCandidateId}
-                  reviewState={frame.reviewState}
+                  reviewStatus={frameReviewStatus(frame)}
                 />
               ))}
               {editor?.polygons.map((polygon, polygonIndex) => (
@@ -292,7 +295,7 @@ function ProposalColumn({
           </div>
           <div>
             <dt>A</dt>
-            <dd>Accept frame</dd>
+            <dd>Toggle accepted / unreviewed</dd>
           </div>
           <div>
             <dt>N</dt>
@@ -396,22 +399,22 @@ function CandidateOverlay({
   width,
   height,
   selected,
-  reviewState,
+  reviewStatus,
 }: {
   candidate: Candidate;
   width: number;
   height: number;
   selected: boolean;
-  reviewState: FrameReviewState;
+  reviewStatus: FrameReviewStatus;
 }) {
-  const palette = overlayPalette(reviewState);
+  const palette = overlayPalette(reviewStatus);
   const geometry = candidate.geometry;
   if (geometry.visible_region !== undefined) {
     return (
       <g
         data-card-id={candidate.card_id}
         data-selected={selected}
-        data-review-state={reviewState}
+        data-review-state={reviewStatus}
       >
         {geometry.visible_region.polygons.map((polygon, polygonIndex) => (
           <polygon
@@ -438,7 +441,7 @@ function CandidateOverlay({
     <g
       data-card-id={candidate.card_id}
       data-selected={selected}
-      data-review-state={reviewState}
+      data-review-state={reviewStatus}
     >
       <rect
         x={(box.x_min * width) / 1000}
@@ -456,14 +459,14 @@ function CandidateOverlay({
   );
 }
 
-function overlayPalette(reviewState: FrameReviewState): {
+function overlayPalette(reviewStatus: FrameReviewStatus): {
   fill: string;
   stroke: string;
 } {
-  if (reviewState === "accepted") {
+  if (reviewStatus === "accepted") {
     return { fill: "rgba(85, 213, 137, 0.2)", stroke: "#55d589" };
   }
-  if (reviewState === "empty" || reviewState === "unusable") {
+  if (reviewStatus === "empty" || reviewStatus === "unusable") {
     return { fill: "rgba(255, 125, 114, 0.16)", stroke: "#ff7d72" };
   }
   return { fill: "rgba(242, 193, 95, 0.2)", stroke: "#f2c15f" };

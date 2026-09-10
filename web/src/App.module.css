@@ -2542,7 +2542,8 @@ progress {
 }
 
 .recordingTimelineItem[data-state="pending"],
-.recordingTimelineItem[data-state="corrected"] {
+.recordingTimelineItem[data-state="corrected"],
+.recordingTimelineItem[data-state="unreviewed"] {
   border-color: color-mix(in srgb, var(--warning) 70%, var(--line));
   background: color-mix(in srgb, var(--warning) 18%, var(--panel));
 }

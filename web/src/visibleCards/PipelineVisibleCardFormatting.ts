@@ -1,4 +1,8 @@
-import type { EditableFrame, PendingCommand } from "./PipelineVisibleCardTypes";
+import type {
+  EditableFrame,
+  FrameReviewStatus,
+  PendingCommand,
+} from "./PipelineVisibleCardTypes";
 
 export function formatFrameTime(frame: EditableFrame): string {
   return formatMicroseconds(
@@ -7,7 +11,14 @@ export function formatFrameTime(frame: EditableFrame): string {
 }
 
 export function formatFrameState(frame: EditableFrame): string {
-  return `${formatIdentifier(frame.outcome.status)} · ${formatIdentifier(frame.reviewState)}`;
+  return formatIdentifier(frameReviewStatus(frame));
+}
+
+export function frameReviewStatus(frame: EditableFrame): FrameReviewStatus {
+  if (frame.reviewState === "accepted") return "accepted";
+  if (frame.reviewState === "empty") return "empty";
+  if (frame.reviewState === "unusable") return "unusable";
+  return "unreviewed";
 }
 
 export function formatMicroseconds(value: number): string {

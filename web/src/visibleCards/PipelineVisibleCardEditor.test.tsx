@@ -708,6 +708,50 @@ describe("PipelineVisibleCardEditor", () => {
     ]);
   });
 
+  it("toggles an accepted frame back to unreviewed", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
+      Promise.resolve(
+        jsonResponse(
+          init?.method === "PUT" ? reference() : reference("accepted"),
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: "Mark unreviewed" }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(requestBody.operations).toEqual([
+      { operation: "set_frame_unreviewed", item_id: ITEM_ID },
+    ]);
+    expect(screen.getAllByText(/Unreviewed/)).not.toHaveLength(0);
+  });
+
   it("retries a transient draft save and keeps the review command intact", async () => {
     let putAttempts = 0;
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
@@ -793,8 +837,6 @@ describe("PipelineVisibleCardEditor", () => {
       operation: "set_frame_empty",
       item_id: ITEM_ID,
     });
-    expect(
-      screen.getByText(/Each frame needs an explicit/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Each frame must be accepted/)).toBeInTheDocument();
   });
 });

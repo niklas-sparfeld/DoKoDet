@@ -623,12 +623,24 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
     )
     assert accepted.draft.items[0].review_state == "accepted"
 
-    empty = service.update_draft(
+    unreviewed = service.update_draft(
         "recording-01",
         "visible_cards",
         {
             "operator_id": "operator-01",
             "expected_revision": 3,
+            "operations": [{"operation": "set_frame_unreviewed", "item_id": "event-01"}],
+        },
+    )
+    assert unreviewed.draft.items[0].review_state == "pending"
+    assert unreviewed.draft.items[0].item == original
+
+    empty = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 4,
             "operations": [{"operation": "set_frame_empty", "item_id": "event-01"}],
         },
     )
@@ -641,7 +653,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
         "visible_cards",
         {
             "operator_id": "operator-01",
-            "expected_revision": 4,
+            "expected_revision": 5,
             "operations": [{"operation": "set_frame_unusable", "item_id": "event-01"}],
         },
     )
@@ -659,7 +671,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
             "visible_cards",
             {
                 "operator_id": "operator-01",
-            "expected_revision": 5,
+            "expected_revision": 6,
                 "operations": [
                     {
                         "operation": "set_frame_review",

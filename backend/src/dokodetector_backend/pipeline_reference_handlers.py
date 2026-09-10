@@ -541,6 +541,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if operation.operation not in {
             "set_frame_review",
             "accept_frame_suggestions",
+            "set_frame_unreviewed",
             "restore_frame_suggestions",
             "set_frame_empty",
             "set_frame_unusable",
@@ -592,6 +593,16 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 state = "accepted"
             return (
                 items[:index] + [self._replace(existing, review_state=state)] + items[index + 1 :]
+            )
+        if operation.operation == "set_frame_unreviewed":
+            if existing.item.get("status") != "detected":
+                raise PipelineReferenceInputError(
+                    "set_frame_unreviewed requires a detected frame"
+                )
+            return (
+                items[:index]
+                + [self._replace(existing, review_state="pending")]
+                + items[index + 1 :]
             )
         replacement = dict(existing.item)
         replacement["candidates"] = []

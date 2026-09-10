@@ -18,6 +18,7 @@ import {
 import styles from "../App.module.css";
 import {
   describeCommand,
+  frameReviewStatus,
   formatFrameTime,
 } from "./PipelineVisibleCardFormatting";
 import {
@@ -319,7 +320,8 @@ export function PipelineVisibleCardEditor({
       candidates.map((frame, index) => ({
         itemId: frame.itemId,
         label: `Frame ${index + 1} · ${formatFrameTime(frame)}`,
-        state: view === "reviewed" ? frame.reviewState : frame.outcome.status,
+        state:
+          view === "reviewed" ? frameReviewStatus(frame) : frame.outcome.status,
         timeUs: frame.outcome.frame_identity?.requested_time_us ?? null,
         proposalCount: frame.outcome.candidates.length,
         decision: view === "reviewed" ? frameDecision(frame) : null,
@@ -494,6 +496,26 @@ export function PipelineVisibleCardEditor({
       );
     },
     [enqueue],
+  );
+
+  const toggleFrameAcceptance = useCallback(
+    (frame: EditableFrame) => {
+      if (frameReviewStatus(frame) !== "accepted") {
+        acceptSuggestions(frame);
+        return;
+      }
+      enqueue(
+        { operation: "set_frame_unreviewed", item_id: frame.itemId },
+        "Frame returned to unreviewed.",
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId === frame.itemId
+              ? { ...candidate, reviewState: "pending" }
+              : candidate,
+          ),
+      );
+    },
+    [acceptSuggestions, enqueue],
   );
 
   const restoreGeneratedSuggestions = useCallback(
@@ -932,7 +954,7 @@ export function PipelineVisibleCardEditor({
         const frame = current[index];
         if (frame?.outcome.status === "detected") {
           event.preventDefault();
-          acceptSuggestions(frame);
+          toggleFrameAcceptance(frame);
         }
       } else if (
         view === "reviewed" &&
@@ -957,7 +979,6 @@ export function PipelineVisibleCardEditor({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
-    acceptSuggestions,
     generatedFrames,
     openEditor,
     selectFrame,
@@ -965,6 +986,7 @@ export function PipelineVisibleCardEditor({
     selectedCandidateId,
     usesMaintainedFrames,
     view,
+    toggleFrameAcceptance,
   ]);
 
   const displayedFrames = usesMaintainedFrames ? frames : generatedFrames;
@@ -975,8 +997,7 @@ export function PipelineVisibleCardEditor({
   const reviewed = view === "reviewed";
   const editable = reviewed && reference !== null && !referenceNeedsSeed;
   const pendingCount = frames.filter(
-    (frame) =>
-      frame.reviewState === "pending" || frame.reviewState === "affected",
+    (frame) => frameReviewStatus(frame) === "unreviewed",
   ).length;
   const completedFrameCount = frames.filter(
     (frame) => frameDecision(frame) !== null,
@@ -1031,7 +1052,7 @@ export function PipelineVisibleCardEditor({
       completionBusy={completionBusy}
       completionBlocker={completionBlocker}
       acceptSuggestions={() =>
-        activeFrame === null ? undefined : acceptSuggestions(activeFrame)
+        activeFrame === null ? undefined : toggleFrameAcceptance(activeFrame)
       }
       restoreGeneratedSuggestions={() =>
         activeFrame === null

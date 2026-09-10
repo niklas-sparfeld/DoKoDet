@@ -7,6 +7,7 @@ import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
   formatFrameState,
   formatFrameTime,
+  frameReviewStatus,
   formatIdentifier,
 } from "./PipelineVisibleCardFormatting";
 import type { EditableFrame, SaveState } from "./PipelineVisibleCardTypes";
@@ -358,7 +359,7 @@ function VisibleCardInspectorSelection({
         aria-label="Visible-card counts"
       >
         <ReviewCount label="Decided" value={completedFrameCount} />
-        <ReviewCount label="Pending" value={pendingCount} />
+        <ReviewCount label="Unreviewed" value={pendingCount} />
         <ReviewCount
           label="Proposals"
           value={frames.reduce(
@@ -401,7 +402,10 @@ function VisibleCardInspectorSelection({
                 selectedFrame.outcome.status !== "detected"
               }
             >
-              Accept frame
+              {selectedFrame !== null &&
+              frameReviewStatus(selectedFrame) === "accepted"
+                ? "Mark unreviewed"
+                : "Accept frame"}
             </button>
             <button
               className={styles.inlineAction}
@@ -440,8 +444,7 @@ function VisibleCardInspectorSelection({
               aria-label="Resolved-frame coverage"
             />
             <p>
-              Each frame needs an explicit cards, reviewed empty, or unusable
-              decision.
+              Each frame must be accepted, empty, or unusable before completion.
             </p>
           </div>
         </>

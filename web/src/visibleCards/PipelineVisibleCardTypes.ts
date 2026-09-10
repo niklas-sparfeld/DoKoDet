@@ -43,6 +43,9 @@ export type FrameReviewState =
   | "unusable"
   | "affected";
 
+export type FrameReviewStatus =
+  "unreviewed" | "accepted" | "empty" | "unusable";
+
 export type EditableFrame = {
   itemId: string;
   baseItemId: string | null;
@@ -70,7 +73,7 @@ export type EditorState = {
 export type PipelineVisibleCardRailItem = {
   itemId: string;
   label: string;
-  state: FrameReviewState | Outcome["status"];
+  state: FrameReviewStatus | Outcome["status"];
   timeUs: number | null;
   proposalCount: number;
   decision: "cards" | "empty" | "unusable" | null;
