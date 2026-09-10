@@ -498,7 +498,7 @@ describe("PipelineVisibleCardEditor", () => {
     fireEvent.pointerDown(point, { clientX: 10, clientY: 10, pointerId: 3 });
     expect(point).toHaveAttribute("fill", "#ffffff");
     expect(point).toHaveAttribute("stroke", "#ffd24f");
-    expect(point).toHaveAttribute("r", "2");
+    expect(point).toHaveAttribute("r", "1");
     fireEvent.pointerMove(canvas, { clientX: 15, clientY: 20, pointerId: 3 });
     fireEvent.pointerUp(canvas, { pointerId: 3 });
 
