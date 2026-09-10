@@ -48,6 +48,15 @@ const SEGMENTED_GEOMETRY_WITH_DERIVED_BOX: Candidate["geometry"] = {
         { x: 820, y: 760 },
         { x: 200, y: 820 },
       ],
+    ],
+  },
+};
+
+const MULTI_POLYGON_GEOMETRY_WITH_DERIVED_BOX: Candidate["geometry"] = {
+  ...SEGMENTED_GEOMETRY_WITH_DERIVED_BOX,
+  visible_region: {
+    polygons: [
+      ...SEGMENTED_GEOMETRY_WITH_DERIVED_BOX.visible_region!.polygons,
       [
         { x: 100, y: 100 },
         { x: 200, y: 100 },
@@ -180,6 +189,26 @@ function referenceWithSegmentedGeometry() {
           candidates: item.item.candidates.map((candidate) => ({
             ...candidate,
             geometry: SEGMENTED_GEOMETRY_WITH_DERIVED_BOX,
+          })),
+        },
+      })),
+    },
+  };
+}
+
+function referenceWithMultiPolygonGeometry() {
+  const current = reference();
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      items: current.draft.items.map((item) => ({
+        ...item,
+        item: {
+          ...item.item,
+          candidates: item.item.candidates.map((candidate) => ({
+            ...candidate,
+            geometry: MULTI_POLYGON_GEOMETRY_WITH_DERIVED_BOX,
           })),
         },
       })),
@@ -494,7 +523,7 @@ describe("PipelineVisibleCardEditor", () => {
   });
 
   it("opens the selected card and polygon when a canvas polygon is clicked", async () => {
-    const segmentedReference = referenceWithSegmentedGeometry();
+    const segmentedReference = referenceWithMultiPolygonGeometry();
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(() =>
