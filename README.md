@@ -210,8 +210,8 @@ Shared source bytes use these repository-root paths:
 data/incoming/videos/<upload-id>/             pending upload; not yet intake
 data/intake/recordings/<recording-id>/        complete recording bundle
 data/intake/evidence-packages/<package-id>/   accepted evidence package
-data/operations/                              review and lifecycle artifacts
-.runtime/                                     disposable index, cache, and outputs
+data/operations/                              durable review, pipeline, and analysis artifacts
+.runtime/                                     disposable cache and local process state
 ```
 
 A pending upload is not visible to review or dataset assembly. An operator completes it with
@@ -235,5 +235,5 @@ mise exec -- uv run --project operations doko data adopt-evidence \
 ```
 
 The adoption command is for packages from the old runtime path. It keeps the old package until the
-operator verifies the new intake bundle. Deleting `.runtime` cannot delete an accepted
-source package.
+operator verifies the new intake bundle. Durable pipeline records are stored below
+`data/operations/`; deleting `.runtime` cannot delete accepted source packages or pipeline data.

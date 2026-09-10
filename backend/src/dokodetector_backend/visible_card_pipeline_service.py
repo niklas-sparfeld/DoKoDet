@@ -104,7 +104,7 @@ class VisibleCardPipelineService:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
-        self.storage = PipelineRuntimeStorage(settings.evidence_root)
+        self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self._executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="visible-card-pipeline"
         )
@@ -164,7 +164,7 @@ class VisibleCardPipelineService:
             self._video_path(recording_id),
             source=source,
             requested_time_us=requested_time_us,
-            cache=self.storage.pipeline_root / "derived-views",
+            cache=self.storage.derived_views_root,
             resolver=self.frame_resolver,
             output_encoding="jpeg",
         )
@@ -364,7 +364,7 @@ class VisibleCardPipelineService:
                 self._video_path(run.request.source.recording_id),
                 source=run.request.source,
                 requested_time_us=event.start_us,
-                cache=self.storage.pipeline_root / "derived-views",
+                cache=self.storage.derived_views_root,
                 resolver=self.frame_resolver,
                 output_encoding=run.request.extraction_policy.get("output_encoding", "jpeg"),
             )

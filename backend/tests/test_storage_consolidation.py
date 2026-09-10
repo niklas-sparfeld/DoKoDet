@@ -44,3 +44,27 @@ def test_consolidation_rejects_different_central_data_before_moving(tmp_path: Pa
         consolidate_storage(tmp_path, apply=True)
 
     assert (legacy_root / "new.json").exists()
+
+
+def test_consolidation_moves_durable_repository_runtime_records_to_operations(
+    tmp_path: Path,
+) -> None:
+    revision = tmp_path / ".runtime" / "pipeline" / "revisions" / "revision-1"
+    revision.mkdir(parents=True)
+    (revision / "manifest.json").write_text("manifest", encoding="utf-8")
+    observation = tmp_path / ".runtime" / "table-observations" / "observation-1"
+    observation.mkdir(parents=True)
+    (observation / "observation.json").write_text("observation", encoding="utf-8")
+    cache = tmp_path / ".runtime" / "pipeline" / "derived-views" / "cache-1"
+    cache.mkdir(parents=True)
+    (cache / "content.bin").write_bytes(b"cache")
+
+    report = consolidate_storage(tmp_path, apply=True)
+
+    assert "data/operations/pipeline/revisions/revision-1/manifest.json" in report.moved
+    assert "data/operations/table-observations/observation-1/observation.json" in report.moved
+    assert (tmp_path / "data/operations/pipeline/revisions/revision-1/manifest.json").is_file()
+    assert (
+        tmp_path / "data/operations/table-observations/observation-1/observation.json"
+    ).is_file()
+    assert (cache / "content.bin").is_file()

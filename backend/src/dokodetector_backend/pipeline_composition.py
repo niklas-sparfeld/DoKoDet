@@ -65,7 +65,7 @@ def build_pipeline_composition(
 ) -> PipelineComposition:
     """Create shared pipeline stores and services with explicit dependencies."""
 
-    runtime_storage = PipelineRuntimeStorage(settings.evidence_root)
+    runtime_storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
     revision_store = PipelineRevisionStore(runtime_storage)
     run_store = ProcessorRunStore(runtime_storage, revision_store=revision_store)
     selection_store = PipelineSelectionStore(
@@ -120,6 +120,7 @@ def build_pipeline_composition(
         run_store=run_store,
         selection_store=selection_store,
         runtime_root=settings.evidence_root,
+        operations_root=settings.operations_root,
     )
     workspace_service = RecordingPipelineWorkspaceService(
         recording_source_provider=event_service.get_recording_source,

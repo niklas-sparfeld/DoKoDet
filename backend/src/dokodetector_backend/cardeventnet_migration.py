@@ -348,7 +348,7 @@ def _pipeline_services(
     )
     storage = RepositoryBundleStorage(settings.repository_intake_root)
     recording_store = RecordingBundleStore(storage)
-    pipeline_storage = PipelineRuntimeStorage(settings.evidence_root)
+    pipeline_storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
     revision_store = PipelineRevisionStore(pipeline_storage)
     run_store = ProcessorRunStore(pipeline_storage, revision_store=revision_store)
     selection_store = PipelineSelectionStore(

@@ -28,7 +28,7 @@ class TableObservationConflict(TableObservationStoreError):
 
 
 class TableObservationStore:
-    """Read and publish immutable observations below the runtime root."""
+    """Read and publish immutable observations below the operations root."""
 
     def __init__(self, storage: EvidenceStorage) -> None:
         self.storage = storage

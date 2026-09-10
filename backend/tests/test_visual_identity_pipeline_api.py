@@ -179,7 +179,7 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert generated_outcome["classifier"]["provider"] == "fixture-identity"
         identity_revision_id = generated_result["state"]["output_revision_ids"][0]
         shutil.rmtree(
-            app.state.visual_identity_pipeline_service.storage.pipeline_root / "derived-views",
+            app.state.visual_identity_pipeline_service.storage.derived_views_root,
             ignore_errors=True,
         )
         crop_response = client.get(

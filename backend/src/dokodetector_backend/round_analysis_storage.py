@@ -58,11 +58,11 @@ _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 class RoundAnalysisArtifactStorage:
-    """Publish immutable analysis artifacts below a disposable runtime root."""
+    """Publish immutable analysis artifacts below the operations root."""
 
-    def __init__(self, runtime_root: Path) -> None:
-        self.runtime_root = Path(runtime_root)
-        self.root = self.runtime_root / "round-analyses"
+    def __init__(self, operations_root: Path) -> None:
+        self.operations_root = Path(operations_root)
+        self.root = self.operations_root / "round-analyses"
 
     def analysis_path(self, analysis_id: UUID | str) -> Path:
         """Return the final directory for one validated analysis ID."""

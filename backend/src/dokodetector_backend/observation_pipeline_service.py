@@ -65,11 +65,12 @@ class ObservationPipelineService:
         run_store: ProcessorRunStore,
         selection_store: PipelineSelectionStore,
         runtime_root: Any,
+        operations_root: Any,
     ) -> None:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
-        self.storage = PipelineRuntimeStorage(runtime_root)
+        self.storage = PipelineRuntimeStorage(runtime_root, operations_root)
         self._executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="observation-pipeline"
         )

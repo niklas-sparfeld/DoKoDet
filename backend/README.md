@@ -2,9 +2,9 @@
 
 This is the local backend for the evidence upload proof of concept.
 
-The backend accepts V2 evidence packages and V1 repository bundles. It stores every accepted source
-bundle and every mutable or derived resource in validated filesystem stores below the configured
-roots. Temporary uploads and analyzer output are disposable runtime state.
+The backend accepts V2 evidence packages and V1 repository bundles. It stores accepted source
+bundles and durable pipeline resources below `data/`. Temporary uploads, derived views, and model
+caches are disposable runtime state.
 
 The backend stores table observations produced by a `TableEvidenceAnalyzer` and adds an optional
 bounded video snippet. It stores the canonical `table-observation/v1` contract and does not import
@@ -66,8 +66,10 @@ run `npm run dev` in `web/`; its `/v1` requests use the local backend proxy.
 
 ## Consolidate legacy local data
 
-The repository-level `data/` and `.runtime/` directories are the only active storage roots. If an
-older checkout has data below `backend/data/` or `backend/.runtime/`, stop the backend and run:
+The repository-level `data/` and `.runtime/` directories are the only active storage roots.
+`data/operations/` holds durable operational records. `.runtime/` holds only caches and local
+process state. If an older checkout has data below `backend/data/`, `backend/.runtime/`, or an old
+repository runtime layout, stop the backend and run:
 
 ```bash
 mise exec -- uv run --project backend dokodetector-consolidate-storage \
@@ -203,7 +205,8 @@ after an app restart. The saved-video test also submits one linked round analysi
 terminal deterministic result, the replacement repository bundle, and its canonical member
 hashes. It does not require Docker, a phone, or cloud services.
 
-The default local runtime directory is `.runtime/`. It is ignored by Git. Settings use these
+The default local runtime directory is `.runtime/`. It is ignored by Git and contains only
+rebuildable caches and process-local state. Settings use these
 environment variables:
 
 ```text
@@ -329,7 +332,12 @@ Python process. macOS uses code signing when it makes Application Firewall decis
 Stored files use this layout:
 
 ```text
-.runtime/table-observations/<observation-id>/observation.json
+data/operations/pipeline/revisions/<revision-id>/
+data/operations/pipeline/runs/<run-id>/
+data/operations/pipeline/selections/<recording-id>/<content-type>.json
+data/operations/pipeline-references/<recording-id>/<content-type>/
+data/operations/table-observations/<observation-id>/observation.json
+data/operations/round-analyses/<analysis-id>/
 data/intake/recordings/<recording-id>/manifest.json
 data/intake/recordings/<recording-id>/source-record.json
 data/intake/recordings/<recording-id>/initial-task-enrollment.json
@@ -352,8 +360,9 @@ until an operator supplies valid metadata and both task enrollments. Use the [da
 lifecycle](../docs/Data_Lifecycle.md) and [repository intake
 contract](../docs/Repository_Intake_Contract.md) for completion and one-time adoption commands.
 
-Deleting `.runtime/` removes only disposable backend state. It does not remove accepted source
-bundles. There is no delete API for recordings or evidence packages. To remove local test data,
+Deleting `.runtime/` removes only disposable backend cache and process state. It does not remove
+accepted source bundles, pipeline records, observations, or analysis artifacts. There is no delete
+API for recordings or evidence packages. To remove local test data,
 stop the service and remove the complete test intake bundle:
 
 ```bash

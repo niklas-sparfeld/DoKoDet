@@ -199,7 +199,7 @@ class EventPipelineService:
         self.settings = settings
         self.recording_store = recording_store
         self.repository_storage = repository_storage
-        self.storage = PipelineRuntimeStorage(settings.evidence_root)
+        self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.revision_store = revision_store or PipelineRevisionStore(self.storage)
         self.run_store = run_store or ProcessorRunStore(
             self.storage,

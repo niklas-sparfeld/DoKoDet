@@ -98,7 +98,7 @@ class VisualIdentityPipelineService:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
-        self.storage = PipelineRuntimeStorage(settings.evidence_root)
+        self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.classifier = self._adapt_classifier(identity_classifier)
         self._executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="visual-identity-pipeline"
@@ -181,7 +181,7 @@ class VisualIdentityPipelineService:
             self._video_path(recording_id),
             source=source,
             requested_time_us=outcome.frame_identity.requested_time_us,
-            cache=self.storage.pipeline_root / "derived-views",
+            cache=self.storage.derived_views_root,
             resolver=self.frame_resolver,
             output_encoding=outcome.frame_identity.output_encoding,
         )
@@ -192,7 +192,7 @@ class VisualIdentityPipelineService:
             parse_geometry(outcome.geometry.to_mapping()),
             crop_policy=outcome.crop_identity.crop_policy,
             output_encoding=outcome.crop_identity.output_encoding,
-            cache=self.storage.pipeline_root / "derived-views",
+            cache=self.storage.derived_views_root,
         )
         if _pipeline_crop_identity_mapping(crop) != outcome.crop_identity.to_mapping():
             raise DerivedViewError("the resolved identity crop changed")
@@ -411,7 +411,7 @@ class VisualIdentityPipelineService:
                 self._video_path(run.request.source.recording_id),
                 source=run.request.source,
                 requested_time_us=frame_identity.requested_time_us,
-                cache=self.storage.pipeline_root / "derived-views",
+                cache=self.storage.derived_views_root,
                 resolver=self.frame_resolver,
                 output_encoding=frame_identity.output_encoding,
             )
@@ -436,7 +436,7 @@ class VisualIdentityPipelineService:
                 geometry.to_mapping(),
                 crop_policy=str(crop_policy.get("policy_id", "raw_rectangular")),
                 output_encoding=str(crop_policy.get("output_encoding", "ppm")),
-                cache=self.storage.pipeline_root / "derived-views",
+                cache=self.storage.derived_views_root,
             )
             crop_identity = VisualIdentityCropIdentity.from_mapping(
                 _pipeline_crop_identity_mapping(crop)

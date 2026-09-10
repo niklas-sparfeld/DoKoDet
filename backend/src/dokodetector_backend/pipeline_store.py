@@ -102,16 +102,30 @@ class PipelineSelectionConflict(PipelineConflict):
 
 @dataclass(frozen=True, slots=True)
 class PipelineRuntimeStorage:
-    """Canonical roots shared by the three pipeline stores."""
+    """Separate durable pipeline records from rebuildable derived views."""
 
     runtime_root: Path
+    operations_root: Path
 
-    def __init__(self, runtime_root: Path | str) -> None:
+    def __init__(self, runtime_root: Path | str, operations_root: Path | str | None = None) -> None:
         object.__setattr__(self, "runtime_root", Path(runtime_root).expanduser().resolve())
+        object.__setattr__(
+            self,
+            "operations_root",
+            (
+                Path(operations_root).expanduser().resolve()
+                if operations_root is not None
+                else Path(runtime_root).expanduser().resolve()
+            ),
+        )
 
     @property
     def pipeline_root(self) -> Path:
-        return self.runtime_root / "pipeline"
+        return self.operations_root / "pipeline"
+
+    @property
+    def derived_views_root(self) -> Path:
+        return self.runtime_root / "pipeline" / "derived-views"
 
     @property
     def revisions_root(self) -> Path:

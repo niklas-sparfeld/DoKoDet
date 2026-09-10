@@ -127,6 +127,7 @@ def backend(tmp_path) -> tuple[TestClient, TableObservationStore, EvidencePackag
     settings = Settings(
         _env_file=None,
         evidence_root=tmp_path / "runtime",
+        operations_root=tmp_path / "operations",
         evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
     )
     app = create_test_app(settings)
@@ -200,7 +201,7 @@ def test_observation_crosses_analyzer_backend_reconstruction_boundary(backend) -
     assert persisted.source.package_id == str(PACKAGE_ID)
     assert persisted.session.event_sequence == 1
     assert (
-        client.app.state.storage.root / stored.relative_path
+        client.app.state.operations_storage.root / stored.relative_path
     ).read_bytes() == stored.observation_json.encode()
 
     sys.path.insert(0, str(Path(__file__).parents[2] / "game_engine" / "src"))
@@ -228,7 +229,7 @@ def test_persisted_analyzer_observation_runs_through_round_reconstruction_harnes
     ).run_once(payload["package_id"])
     assert stored is not None
 
-    request_path = client.app.state.storage.root / "round-reconstruction-request.json"
+    request_path = client.app.state.operations_storage.root / "round-reconstruction-request.json"
     request_path.write_text(
         json.dumps(
             {
@@ -271,7 +272,7 @@ def test_persisted_analyzer_observation_runs_through_round_reconstruction_harnes
     monkeypatch.chdir(repository_root / "backend")
     artifacts = run_round_reconstruction(request_path)
 
-    persisted_path = client.app.state.storage.root / stored.relative_path
+    persisted_path = client.app.state.operations_storage.root / stored.relative_path
     assert persisted_path.read_bytes() == stored.observation_json.encode()
     assert artifacts.result.status == "incomplete"
     assert artifacts.result.sources[0].observation_path == stored.relative_path
@@ -352,7 +353,9 @@ def test_observation_conflict_keeps_original_bytes(backend) -> None:
         client.app.state.table_observation_store.get(stored.observation_id).observation_json.encode()
         == original_bytes
     )
-    assert (client.app.state.storage.root / stored.relative_path).read_bytes() == original_bytes
+    assert (
+        client.app.state.operations_storage.root / stored.relative_path
+    ).read_bytes() == original_bytes
 
 
 def test_pipeline_observations_use_id_and_lineage_identity(backend) -> None:
@@ -414,4 +417,4 @@ def test_filesystem_failure_leaves_no_observation_directory(backend, monkeypatch
         ).run_once(payload["package_id"])
 
     assert client.app.state.table_observation_store.list_for_package(PACKAGE_ID) == ()
-    assert not client.app.state.storage.table_observations_root.exists()
+    assert not client.app.state.operations_storage.table_observations_root.exists()

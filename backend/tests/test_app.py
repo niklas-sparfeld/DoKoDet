@@ -138,6 +138,16 @@ def test_settings_resolves_card_event_checkpoint_path(tmp_path: Path) -> None:
     )
 
 
+def test_settings_places_durable_backend_records_under_operations(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, repository_root=tmp_path)
+
+    assert settings.pipeline_root == tmp_path / "data" / "operations" / "pipeline"
+    assert settings.table_observations_root == (
+        tmp_path / "data" / "operations" / "table-observations"
+    )
+    assert settings.round_analyses_root == tmp_path / "data" / "operations" / "round-analyses"
+
+
 def test_discover_repository_root_skips_backend_component_mise(monkeypatch) -> None:
     monkeypatch.chdir(BACKEND_ROOT)
 
@@ -233,14 +243,15 @@ def test_factory_converts_interrupted_round_analysis_to_failed(tmp_path: Path) -
             },
         }
     )
-    runtime_root = tmp_path / "runtime"
-    round_analysis_store = RoundAnalysisStore(RoundAnalysisArtifactStorage(runtime_root))
+    operations_root = tmp_path / "operations"
+    round_analysis_store = RoundAnalysisStore(RoundAnalysisArtifactStorage(operations_root))
     round_analysis_store.create(request)
 
     app = create_test_app(
         Settings(
             _env_file=None,
-            evidence_root=runtime_root,
+            evidence_root=tmp_path / "runtime",
+            operations_root=operations_root,
             repository_intake_root=tmp_path / "recordings",
             evidence_package_intake_root=tmp_path / "evidence-packages",
         )

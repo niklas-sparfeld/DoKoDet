@@ -85,13 +85,14 @@ def create_app(
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
     app.state.settings = app_settings
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
-    app.state.round_analysis_storage = RoundAnalysisArtifactStorage(app_settings.evidence_root)
+    app.state.operations_storage = EvidenceStorage(app_settings.operations_root)
+    app.state.round_analysis_storage = RoundAnalysisArtifactStorage(app_settings.operations_root)
     app.state.round_analysis_store = RoundAnalysisStore(app.state.round_analysis_storage)
     app.state.evidence_package_storage = EvidencePackageStorage(
         app_settings.evidence_package_intake_root
     )
     app.state.evidence_package_store = EvidencePackageStore(app.state.evidence_package_storage)
-    app.state.table_observation_store = TableObservationStore(app.state.storage)
+    app.state.table_observation_store = TableObservationStore(app.state.operations_storage)
     app.state.persister = EvidencePackagePersister(
         app.state.evidence_package_store,
     )
@@ -182,7 +183,7 @@ def create_app(
 
         request_id = get_or_create_request_id(request)
         try:
-            _check_evidence_directory(app.state.storage.table_observations_root)
+            _check_evidence_directory(app.state.operations_storage.table_observations_root)
             _check_evidence_directory(app.state.round_analysis_storage.root)
             _check_evidence_directory(app.state.evidence_package_storage.root)
             _check_evidence_directory(app.state.repository_bundle_storage.root)

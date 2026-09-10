@@ -15,8 +15,8 @@ Keep shared source bytes at the repository root:
 data/incoming/videos/<upload-id>/             pending upload
 data/intake/recordings/<recording-id>/        complete recording bundle
 data/intake/evidence-packages/<package-id>/   accepted evidence package
-data/operations/                              review and lifecycle artifacts
-.runtime/                                     disposable backend state
+data/operations/                              durable review, pipeline, and analysis artifacts
+.runtime/                                     disposable backend cache and local process state
 ```
 
 A pending upload is not a recording and is not an evidence package. It is not visible to a data

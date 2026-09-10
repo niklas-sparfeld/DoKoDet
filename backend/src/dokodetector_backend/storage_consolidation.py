@@ -1,4 +1,4 @@
-"""Consolidate storage written below the legacy backend root."""
+"""Consolidate legacy and misplaced durable storage into central data roots."""
 
 from __future__ import annotations
 
@@ -15,7 +15,19 @@ LEGACY_STORAGE_PATHS = (
     (Path("backend/data/intake"), Path("data/intake")),
     (Path("backend/data/operations"), Path("data/operations")),
     (Path("backend/data/outputs"), Path("data/outputs")),
-    (Path("backend/.runtime"), Path(".runtime")),
+    # The former backend-local root contained both durable records and cache files. Move only
+    # durable resource families into the central operations root.
+    (Path("backend/.runtime/pipeline/revisions"), Path("data/operations/pipeline/revisions")),
+    (Path("backend/.runtime/pipeline/runs"), Path("data/operations/pipeline/runs")),
+    (Path("backend/.runtime/pipeline/selections"), Path("data/operations/pipeline/selections")),
+    (Path("backend/.runtime/table-observations"), Path("data/operations/table-observations")),
+    (Path("backend/.runtime/round-analyses"), Path("data/operations/round-analyses")),
+    # The repository runtime used these locations before durable records were separated.
+    (Path(".runtime/pipeline/revisions"), Path("data/operations/pipeline/revisions")),
+    (Path(".runtime/pipeline/runs"), Path("data/operations/pipeline/runs")),
+    (Path(".runtime/pipeline/selections"), Path("data/operations/pipeline/selections")),
+    (Path(".runtime/table-observations"), Path("data/operations/table-observations")),
+    (Path(".runtime/round-analyses"), Path("data/operations/round-analyses")),
 )
 _IGNORED_FILE_NAMES = {
     ".DS_Store",

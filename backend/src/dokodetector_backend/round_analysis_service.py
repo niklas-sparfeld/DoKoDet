@@ -640,9 +640,9 @@ class RoundAnalysisService:
         observations: list[StoredTableObservation | TableObservation],
     ) -> tuple[RoundReconstructionRunResult, tuple[bytes, bytes]]:
         request = selected.request
-        self.artifact_storage.runtime_root.mkdir(parents=True, exist_ok=True)
+        self.artifact_storage.operations_root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
-            prefix=f".{request.analysis_id}-", dir=self.artifact_storage.runtime_root
+            prefix=f".{request.analysis_id}-", dir=self.artifact_storage.operations_root
         ) as scratch_root:
             if request.is_pipeline_analysis:
                 observation_paths: list[str] = []

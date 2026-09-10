@@ -148,7 +148,13 @@ class Settings(BaseSettings):
             raise ConfigurationError(f"Repository root is not a directory: {root}")
         self.repository_root = root
         self.evidence_root = _resolve_path(self.evidence_root, root)
-        self.operations_root = _resolve_path(self.operations_root, root)
+        # Keep an explicitly relocated runtime beside its matching data root. This also gives
+        # local test and operator sandboxes isolated durable state without extra configuration.
+        self.operations_root = (
+            self.evidence_root.parent / "data" / "operations"
+            if self.operations_root == Path("data/operations")
+            else _resolve_path(self.operations_root, root)
+        )
         self.frontend_dist = _resolve_frontend_dist(self.frontend_dist, root)
         self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
         self.evidence_package_intake_root = _resolve_path(self.evidence_package_intake_root, root)
@@ -162,6 +168,24 @@ class Settings(BaseSettings):
                 self.visible_card_identity_bundle_path, root
             )
         return self
+
+    @property
+    def pipeline_root(self) -> Path:
+        """Return the durable root for pipeline records."""
+
+        return self.operations_root / "pipeline"
+
+    @property
+    def table_observations_root(self) -> Path:
+        """Return the durable root for analyzer observations."""
+
+        return self.operations_root / "table-observations"
+
+    @property
+    def round_analyses_root(self) -> Path:
+        """Return the durable root for round-analysis artifacts."""
+
+        return self.operations_root / "round-analyses"
 
 
 __all__ = ["ConfigurationError", "Settings", "discover_repository_root"]
