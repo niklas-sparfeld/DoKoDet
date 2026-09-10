@@ -10,8 +10,8 @@ import {
 } from "./PipelineVisualIdentityTypes";
 import {
   formatCardIdentity,
-  formatIdentifier,
-  formatScore,
+  formatIdentityReviewStatus,
+  identityReviewStatus,
 } from "./PipelineVisualIdentityFormatting";
 
 export function IdentityItemPanel({
@@ -19,17 +19,13 @@ export function IdentityItemPanel({
   sourceRevisionId,
   item,
   items,
-  onAccept,
   onSelectIdentity,
-  onMarkUnusable,
 }: {
   recordingId: string;
   sourceRevisionId: string | null;
   item: EditableIdentity;
   items: EditableIdentity[];
-  onAccept?: () => void;
   onSelectIdentity?: (identity: string) => void;
-  onMarkUnusable?: () => void;
 }) {
   const crop = item.outcome.crop_identity;
   const frame = item.outcome.frame_identity;
@@ -80,49 +76,8 @@ export function IdentityItemPanel({
           )}
         </figure>
       </div>
-      <section
-        className={identityStyles.proposalLine}
-        aria-label="Identity proposal"
-      >
-        {item.outcome.candidates.length === 0 ? (
-          <strong>No prediction</strong>
-        ) : (
-          <ol className={identityStyles.candidateList}>
-            {item.outcome.candidates.map((candidate) => (
-              <li key={candidate.identity}>
-                <strong>{formatCardIdentity(candidate.identity)}</strong>
-                <span>
-                  {candidate.score === null
-                    ? "manual"
-                    : formatScore(candidate.score)}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-      {onAccept !== undefined &&
-      onSelectIdentity !== undefined &&
-      onMarkUnusable !== undefined ? (
+      {onSelectIdentity !== undefined ? (
         <section className={identityStyles.decisionPanel}>
-          <div className={identityStyles.outcomeButtons}>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={onAccept}
-              disabled={item.outcome.candidates.length === 0}
-            >
-              Accept suggestion <kbd>A</kbd>
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={onMarkUnusable}
-              disabled={crop === null}
-            >
-              Unusable <kbd>U</kbd>
-            </button>
-          </div>
           <div
             className={identityStyles.choiceGrid}
             aria-label="Canonical identities"
@@ -160,18 +115,14 @@ export function IdentitySourceSurface({
   loading,
   recordingId,
   sourceRevisionId,
-  onAccept,
   onSelectIdentity,
-  onMarkUnusable,
 }: {
   item: EditableIdentity | null;
   items: EditableIdentity[];
   loading: boolean;
   recordingId: string;
   sourceRevisionId: string | null;
-  onAccept?: () => void;
   onSelectIdentity?: (identity: string) => void;
-  onMarkUnusable?: () => void;
 }) {
   return (
     <section
@@ -190,9 +141,7 @@ export function IdentitySourceSurface({
           sourceRevisionId={sourceRevisionId}
           item={item}
           items={items}
-          onAccept={onAccept}
           onSelectIdentity={onSelectIdentity}
-          onMarkUnusable={onMarkUnusable}
         />
       )}
     </section>
@@ -307,7 +256,9 @@ export function IdentityCardList({
               <CardRailIdentity
                 identity={item.outcome.candidates[0]?.identity}
               />
-              <small>{formatIdentifier(item.reviewState)}</small>
+              <small>
+                {formatIdentityReviewStatus(identityReviewStatus(item))}
+              </small>
             </button>
           </li>
         ))}
@@ -324,11 +275,11 @@ export function IdentityCardList({
           </div>
           <div>
             <dt>A</dt>
-            <dd>Accept suggestion</dd>
+            <dd>Toggle accepted</dd>
           </div>
           <div>
             <dt>U</dt>
-            <dd>Mark unusable</dd>
+            <dd>Toggle unusable</dd>
           </div>
         </dl>
       </section>

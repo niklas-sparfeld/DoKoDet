@@ -46,6 +46,8 @@ export type IdentityReviewState =
   | "source_problem"
   | "affected";
 
+export type IdentityReviewStatus = "unreviewed" | "accepted" | "unusable";
+
 export type EditableIdentity = {
   itemId: string;
   baseItemId: string | null;
@@ -108,7 +110,7 @@ export const IDENTITY_SUIT_ROWS = [
 export type PipelineVisualIdentityRailItem = {
   itemId: string;
   label: string;
-  state: IdentityReviewState | IdentityOutcome["status"];
+  state: IdentityReviewStatus | IdentityOutcome["status"];
   timeUs: number;
   cropPolicy: string | null;
 };

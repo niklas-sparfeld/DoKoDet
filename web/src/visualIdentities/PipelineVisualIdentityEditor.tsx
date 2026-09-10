@@ -26,6 +26,7 @@ import {
 import {
   describeCommand,
   formatCardIdentity,
+  identityReviewStatus,
 } from "./PipelineVisualIdentityFormatting";
 import type {
   CropIdentity,
@@ -484,6 +485,41 @@ export function PipelineVisualIdentityEditor({
     [applyReviewState],
   );
 
+  const setUnreviewed = useCallback(
+    (item: EditableIdentity) => {
+      applyReviewState(
+        item,
+        { operation: "set_identity_unreviewed", item_id: item.itemId },
+        "Identity returned to unreviewed.",
+        (outcome) => outcome,
+        "pending",
+      );
+    },
+    [applyReviewState],
+  );
+
+  const toggleAcceptance = useCallback(
+    (item: EditableIdentity) => {
+      if (identityReviewStatus(item) === "accepted") {
+        setUnreviewed(item);
+      } else {
+        acceptSuggestion(item);
+      }
+    },
+    [acceptSuggestion, setUnreviewed],
+  );
+
+  const toggleUnusable = useCallback(
+    (item: EditableIdentity) => {
+      if (identityReviewStatus(item) === "unusable") {
+        setUnreviewed(item);
+      } else {
+        markUnusable(item);
+      }
+    },
+    [markUnusable, setUnreviewed],
+  );
+
   const completeReference = useCallback(async () => {
     const current = referenceRef.current;
     const currentItems = itemsRef.current;
@@ -638,18 +674,18 @@ export function PipelineVisualIdentityEditor({
         item !== undefined
       ) {
         event.preventDefault();
-        acceptSuggestion(item);
+        toggleAcceptance(item);
       } else if (
         (event.key === "u" || event.key === "U") &&
         item !== undefined
       ) {
         event.preventDefault();
-        markUnusable(item);
+        toggleUnusable(item);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [acceptSuggestion, markUnusable, selectItem]);
+  }, [selectItem, toggleAcceptance, toggleUnusable]);
 
   useEffect(() => {
     navigationItemsRef.current = usesMaintainedIdentities
@@ -663,7 +699,7 @@ export function PipelineVisualIdentityEditor({
       source.map((item, index) => ({
         itemId: item.itemId,
         label: `Card ${index + 1}`,
-        state: item.reviewState,
+        state: identityReviewStatus(item),
         timeUs: item.outcome.frame_identity.requested_time_us,
         cropPolicy: item.outcome.crop_identity?.crop_policy ?? null,
       })),
@@ -677,7 +713,7 @@ export function PipelineVisualIdentityEditor({
     null;
   const reviewed = view === "reviewed";
   const pendingCount = items.filter(
-    (item) => item.reviewState === "pending" || item.reviewState === "affected",
+    (item) => identityReviewStatus(item) === "unreviewed",
   ).length;
   const coveragePercent =
     items.length === 0 ? 0 : (inspectedItemIds.size / items.length) * 100;
@@ -725,9 +761,9 @@ export function PipelineVisualIdentityEditor({
       retryQueuedCommands={retryQueuedCommands}
       reloadWinningDraft={reloadWinningDraft}
       acceptSuggestion={() =>
-        activeItem !== null && acceptSuggestion(activeItem)
+        activeItem !== null && toggleAcceptance(activeItem)
       }
-      markUnusable={() => activeItem !== null && markUnusable(activeItem)}
+      markUnusable={() => activeItem !== null && toggleUnusable(activeItem)}
       selectIdentity={(identity) =>
         activeItem !== null && selectIdentity(activeItem, identity)
       }
@@ -786,11 +822,9 @@ export function PipelineVisualIdentityEditor({
         items={activeItems}
         loading={false}
         sourceRevisionId={reference.draft.source_revision_id}
-        onAccept={() => activeItem !== null && acceptSuggestion(activeItem)}
         onSelectIdentity={(identity) =>
           activeItem !== null && selectIdentity(activeItem, identity)
         }
-        onMarkUnusable={() => activeItem !== null && markUnusable(activeItem)}
       />
     </>
   );

@@ -122,6 +122,7 @@ export type PipelineReferenceOperation = {
     | "set_frame_empty"
     | "set_frame_unusable"
     | "accept_identity_suggestion"
+    | "set_identity_unreviewed"
     | "select_identity"
     | "set_identity_unusable"
     | "report_identity_source_problem";

@@ -822,6 +822,7 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
     ) -> list[ReferenceDraftItem] | None:
         if operation.operation not in {
             "accept_identity_suggestion",
+            "set_identity_unreviewed",
             "select_identity",
             "set_identity_unusable",
             "report_identity_source_problem",
@@ -846,6 +847,16 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
             return (
                 items[:index]
                 + [self._replace(existing, review_state=self._accepted_identity_state(existing))]
+                + items[index + 1 :]
+            )
+        if operation.operation == "set_identity_unreviewed":
+            if existing_item.get("status") not in {"classified", "unusable", "failed"}:
+                raise PipelineReferenceInputError(
+                    "set_identity_unreviewed requires a classified or unusable identity"
+                )
+            return (
+                items[:index]
+                + [self._replace(existing, base_item_id=None, review_state="pending")]
                 + items[index + 1 :]
             )
         if operation.operation == "select_identity":

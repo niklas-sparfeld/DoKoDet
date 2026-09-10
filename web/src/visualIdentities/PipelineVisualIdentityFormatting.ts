@@ -1,4 +1,8 @@
-import type { PendingCommand } from "./PipelineVisualIdentityTypes";
+import type {
+  EditableIdentity,
+  IdentityReviewStatus,
+  PendingCommand,
+} from "./PipelineVisualIdentityTypes";
 
 export function formatIdentifier(value: string): string {
   return value.replaceAll("_", " ").replaceAll("-", " ");
@@ -33,6 +37,28 @@ const CARD_IDENTITIES: Record<string, string> = {
 
 export function formatCardIdentity(value: string): string {
   return CARD_IDENTITIES[value] ?? formatIdentifier(value);
+}
+
+export function identityReviewStatus(
+  item: Pick<EditableIdentity, "reviewState">,
+): IdentityReviewStatus {
+  if (["accepted", "added", "corrected"].includes(item.reviewState)) {
+    return "accepted";
+  }
+  if (
+    ["identity_unusable", "unusable", "source_problem"].includes(
+      item.reviewState,
+    )
+  ) {
+    return "unusable";
+  }
+  return "unreviewed";
+}
+
+export function formatIdentityReviewStatus(
+  value: IdentityReviewStatus,
+): string {
+  return value[0].toUpperCase() + value.slice(1);
 }
 
 export function formatMicroseconds(value: number): string {

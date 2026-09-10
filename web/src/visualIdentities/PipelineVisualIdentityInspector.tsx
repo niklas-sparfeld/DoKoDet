@@ -10,7 +10,9 @@ import {
 } from "./PipelineVisualIdentityTypes";
 import {
   formatCardIdentity,
+  formatIdentityReviewStatus,
   formatIdentifier,
+  identityReviewStatus,
 } from "./PipelineVisualIdentityFormatting";
 
 export type IdentityInspectorSlots = {
@@ -150,7 +152,8 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
         />
       </label>
       <p className={styles.pipelineInspectorEmpty}>
-        Make decisions in the central review area. Changes save automatically.
+        Choose the canonical identity in the central area. Use the review
+        controls below. Changes save automatically.
       </p>
     </>
   );
@@ -202,10 +205,19 @@ function IdentityInspectorSave(props: IdentityInspectorProps) {
 
 function IdentityInspectorSelection(props: IdentityInspectorProps) {
   const item = props.item;
+  const reviewStatus = item === null ? null : identityReviewStatus(item);
   return (
     <div className={identityStyles.inspectorSelection}>
       <p className={styles.statusLabel}>Current identity</p>
       <h2>{item?.itemId ?? "None"}</h2>
+      {reviewStatus !== null ? (
+        <div className={identityStyles.reviewStatus}>
+          <span className={styles.statusLabel}>Review state</span>
+          <span className={styles.status} data-state={reviewStatus}>
+            {formatIdentityReviewStatus(reviewStatus)}
+          </span>
+        </div>
+      ) : null}
       <dl className={styles.pipelineInspectorFacts}>
         <div>
           <dt>Identity outcome</dt>
@@ -235,6 +247,35 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
       </dl>
       {props.view === "reviewed" && props.reference !== null ? (
         <>
+          <div
+            className={identityStyles.outcomeButtons}
+            aria-label="Identity review state"
+          >
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={props.acceptSuggestion}
+              disabled={
+                item === null ||
+                (reviewStatus !== "accepted" &&
+                  item.outcome.candidates.length === 0)
+              }
+            >
+              {reviewStatus === "accepted"
+                ? "Mark unreviewed"
+                : "Accept suggestion"}{" "}
+              <kbd>A</kbd>
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={props.markUnusable}
+              disabled={item === null || item.outcome.crop_identity === null}
+            >
+              {reviewStatus === "unusable" ? "Mark unreviewed" : "Unusable"}{" "}
+              <kbd>U</kbd>
+            </button>
+          </div>
           <label className={identityStyles.reviewer}>
             Reviewer ID
             <input

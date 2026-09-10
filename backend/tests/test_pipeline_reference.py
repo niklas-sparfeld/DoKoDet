@@ -736,12 +736,27 @@ def test_identity_commands_preserve_geometry_and_support_manual_labels(
     assert unusable.draft.items[0].review_state == "identity_unusable"
     assert unusable.draft.items[0].item["status"] == "unusable"
 
-    source_problem = service.update_draft(
+    unreviewed = service.update_draft(
         SOURCE.recording_id,
         "visual_identities",
         {
             "operator_id": "operator-01",
             "expected_revision": 2,
+            "operations": [
+                {"operation": "set_identity_unreviewed", "item_id": "card-01"}
+            ],
+        },
+    )
+    assert unreviewed.draft.items[0].review_state == "pending"
+    assert unreviewed.draft.items[0].base_item_id is None
+    assert unreviewed.draft.items[0].item["status"] == "unusable"
+
+    source_problem = service.update_draft(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 3,
             "operations": [
                 {
                     "operation": "report_identity_source_problem",

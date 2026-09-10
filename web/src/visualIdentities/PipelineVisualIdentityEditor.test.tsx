@@ -89,7 +89,18 @@ function generatedResult(
   };
 }
 
-function reference(reviewState: "pending" | "accepted" = "pending") {
+function reference(
+  reviewState: "pending" | "accepted" | "identity_unusable" = "pending",
+) {
+  const itemOutcome =
+    reviewState === "identity_unusable"
+      ? {
+          ...outcome(),
+          status: "unusable" as const,
+          candidates: [],
+          unusable_reason: "Reviewed identity unusable.",
+        }
+      : outcome();
   return {
     recording_id: RECORDING_ID,
     content_type: "visual_identities",
@@ -112,7 +123,7 @@ function reference(reviewState: "pending" | "accepted" = "pending") {
           item_id: CARD_ID,
           base_item_id: null,
           review_state: reviewState,
-          item: outcome(),
+          item: itemOutcome,
         },
       ],
       coverage: null,
@@ -292,14 +303,14 @@ describe("PipelineVisualIdentityEditor", () => {
         {
           itemId: CARD_ID,
           label: "Card 1",
-          state: "pending",
+          state: "unreviewed",
           timeUs: 750_000,
           cropPolicy: "raw_rectangular",
         },
         {
           itemId: "card-2",
           label: "Card 2",
-          state: "pending",
+          state: "unreviewed",
           timeUs: 1_000_000,
           cropPolicy: "raw_rectangular",
         },
@@ -368,6 +379,77 @@ describe("PipelineVisualIdentityEditor", () => {
       identity: "HEARTS_QUEEN",
     });
     expect(screen.queryByText("Geometry editor")).not.toBeInTheDocument();
+    expect(screen.queryByText("80.0%")).not.toBeInTheDocument();
+  });
+
+  it("keeps review actions in the inspector and toggles all review states", async () => {
+    const responses = [
+      reference("accepted"),
+      reference(),
+      reference("identity_unusable"),
+      reference(),
+    ];
+    let putIndex = 0;
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
+      Promise.resolve(
+        jsonResponse(
+          init?.method === "PUT" ? responses[putIndex++] : reference(),
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+
+    expect(screen.getByText("Unreviewed")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Accept suggestion/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .queryByRole("button", { name: /Accept suggestion/ })
+        ?.closest("section[aria-label='Selected visual identity']"),
+    ).toBeNull();
+
+    fireEvent.keyDown(window, { key: "a" });
+    await waitFor(() => expect(putIndex).toBe(1));
+    expect(screen.getByText("Accepted")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "a" });
+    await waitFor(() => expect(putIndex).toBe(2));
+    expect(screen.getByText("Unreviewed")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "u" });
+    await waitFor(() => expect(putIndex).toBe(3));
+    expect(screen.getByText("Unusable")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "u" });
+    await waitFor(() => expect(putIndex).toBe(4));
+    expect(screen.getByText("Unreviewed")).toBeInTheDocument();
+
+    const operations = fetchImplementation.mock.calls
+      .filter(([, init]) => init?.method === "PUT")
+      .map(
+        ([, init]) => JSON.parse(String(init?.body)).operations[0].operation,
+      );
+    expect(operations).toEqual([
+      "accept_identity_suggestion",
+      "set_identity_unreviewed",
+      "set_identity_unusable",
+      "set_identity_unreviewed",
+    ]);
   });
 
   it("retries a transient identity draft save", async () => {
