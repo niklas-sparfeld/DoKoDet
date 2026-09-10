@@ -2203,6 +2203,11 @@ progress {
   box-shadow: 0 0.7rem 2rem var(--shadow);
 }
 
+.pipelineProposalSlot > [data-visible-card-proposal-slot="proposals"] {
+  display: block;
+  height: 100%;
+}
+
 .pipelineVisibleCardTaskSurface {
   border: 0;
   background: transparent;

@@ -49,6 +49,8 @@
 }
 
 .keyboardShortcuts {
+  grid-row: 3;
+  align-self: end;
   display: grid;
   gap: 0.35rem;
   padding-top: 0.45rem;
@@ -124,7 +126,9 @@
 
 .proposalColumn {
   display: grid;
+  grid-template-rows: auto auto 1fr;
   align-content: start;
+  min-height: 100%;
   gap: 0.75rem;
   min-width: 0;
 }
