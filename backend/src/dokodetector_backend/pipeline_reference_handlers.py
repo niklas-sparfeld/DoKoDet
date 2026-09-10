@@ -565,7 +565,14 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 )
             return (
                 items[:index]
-                + [self._replace(existing, base_item_id=None, review_state="pending", item=dict(operation.item))]
+                + [
+                    self._replace(
+                        existing,
+                        base_item_id=None,
+                        review_state="pending",
+                        item=dict(operation.item),
+                    )
+                ]
                 + items[index + 1 :]
             )
         if operation.operation == "set_frame_review":
@@ -596,12 +603,10 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             )
         if operation.operation == "set_frame_unreviewed":
             if existing.item.get("status") != "detected":
-                raise PipelineReferenceInputError(
-                    "set_frame_unreviewed requires a detected frame"
-                )
+                raise PipelineReferenceInputError("set_frame_unreviewed requires a detected frame")
             return (
                 items[:index]
-                + [self._replace(existing, review_state="pending")]
+                + [self._replace(existing, base_item_id=None, review_state="pending")]
                 + items[index + 1 :]
             )
         replacement = dict(existing.item)

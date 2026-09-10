@@ -633,6 +633,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
         },
     )
     assert unreviewed.draft.items[0].review_state == "pending"
+    assert unreviewed.draft.items[0].base_item_id is None
     assert unreviewed.draft.items[0].item == original
 
     empty = service.update_draft(
@@ -671,7 +672,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
             "visible_cards",
             {
                 "operator_id": "operator-01",
-            "expected_revision": 6,
+                "expected_revision": 6,
                 "operations": [
                     {
                         "operation": "set_frame_review",
