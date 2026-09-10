@@ -290,7 +290,7 @@ export function RecordingWorkspaceTaskSurface({
             selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
             generatedRevisionId={stage.selected_generated_revision_id ?? null}
             displayedRevisionId={
-              activeView === "generated" ? displayedRevision : null
+              displayedRevision ?? stage.selected_generated_revision_id ?? null
             }
             generatedRunId={selectedVisualIdentityRunId}
             view={activeView}

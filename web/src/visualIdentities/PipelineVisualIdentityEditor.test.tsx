@@ -166,6 +166,39 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps generated identities visible while a new review has no reference", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input) =>
+        Promise.resolve(
+          String(input).endsWith("/pipeline/references/visual_identities")
+            ? jsonResponse({ message: "not found" }, 404)
+            : jsonResponse(generatedResult()),
+        ),
+      ),
+    );
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        displayedRevisionId={null}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Start visual identity review",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: `Resolved source frame for ${CARD_ID}` }),
+    ).toBeInTheDocument();
+  });
+
   it("reports generated rail items and honors explicit item selection", async () => {
     const railItems = vi.fn();
     const fetchImplementation = vi.fn<typeof fetch>(() =>

@@ -97,6 +97,8 @@ export function PipelineVisualIdentityEditor({
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useIdentityInspectorSlots(inspectorEnabled, view);
+  const generatedSourceRevisionId = displayedRevisionId ?? generatedRevisionId;
+  const usesMaintainedIdentities = view === "reviewed" && reference !== null;
 
   useEffect(
     () =>
@@ -171,7 +173,7 @@ export function PipelineVisualIdentityEditor({
 
   const loadGenerated = useCallback(
     async (signal?: AbortSignal) => {
-      if (generatedRunId === null || displayedRevisionId === null) {
+      if (generatedRunId === null || generatedSourceRevisionId === null) {
         setGeneratedItems([]);
         setGeneratedLoading(false);
         return;
@@ -184,7 +186,9 @@ export function PipelineVisualIdentityEditor({
           { signal },
         );
         if (!signal?.aborted) {
-          setGeneratedItems(readItemsFromResult(result, displayedRevisionId));
+          setGeneratedItems(
+            readItemsFromResult(result, generatedSourceRevisionId),
+          );
         }
       } catch (reason: unknown) {
         if (!signal?.aborted) setError(describeError(reason));
@@ -192,7 +196,7 @@ export function PipelineVisualIdentityEditor({
         if (!signal?.aborted) setGeneratedLoading(false);
       }
     },
-    [client, displayedRevisionId, generatedRunId, recordingId],
+    [client, generatedRunId, generatedSourceRevisionId, recordingId],
   );
 
   const loadReference = useCallback(
@@ -545,10 +549,11 @@ export function PipelineVisualIdentityEditor({
         CONTENT_TYPE,
         {
           operator_id: operatorId.trim(),
-          seed: generatedRevisionId === null ? "empty" : "selected_generated",
-          ...(generatedRevisionId === null
+          seed:
+            generatedSourceRevisionId === null ? "empty" : "selected_generated",
+          ...(generatedSourceRevisionId === null
             ? {}
-            : { source_revision_id: generatedRevisionId }),
+            : { source_revision_id: generatedSourceRevisionId }),
         },
       );
       hydrateReference(created, false);
@@ -565,7 +570,7 @@ export function PipelineVisualIdentityEditor({
     }
   }, [
     client,
-    generatedRevisionId,
+    generatedSourceRevisionId,
     hydrateReference,
     loadReference,
     operatorId,
@@ -652,7 +657,7 @@ export function PipelineVisualIdentityEditor({
   }, [acceptSuggestion, markUnusable, reportSourceProblem, selectItem]);
 
   useEffect(() => {
-    const source = view === "reviewed" ? items : generatedItems;
+    const source = usesMaintainedIdentities ? items : generatedItems;
     onRailItemsChange?.(
       source.map((item, index) => ({
         itemId: item.itemId,
@@ -662,9 +667,9 @@ export function PipelineVisualIdentityEditor({
         cropPolicy: item.outcome.crop_identity?.crop_policy ?? null,
       })),
     );
-  }, [generatedItems, items, onRailItemsChange, view]);
+  }, [generatedItems, items, onRailItemsChange, usesMaintainedIdentities]);
 
-  const activeItems = view === "reviewed" ? items : generatedItems;
+  const activeItems = usesMaintainedIdentities ? items : generatedItems;
   const activeItem =
     activeItems.find((item) => item.itemId === selectedItemId) ??
     activeItems[0] ??
@@ -731,7 +736,7 @@ export function PipelineVisualIdentityEditor({
     />
   );
 
-  if (!reviewed) {
+  if (!reviewed || reference === null) {
     return (
       <>
         {inspector}
@@ -739,7 +744,7 @@ export function PipelineVisualIdentityEditor({
           recordingId={recordingId}
           item={activeItem}
           loading={generatedLoading}
-          sourceRevisionId={displayedRevisionId}
+          sourceRevisionId={generatedSourceRevisionId}
         />
       </>
     );
@@ -754,18 +759,6 @@ export function PipelineVisualIdentityEditor({
       </>
     );
   }
-  if (reference === null) {
-    return (
-      <>
-        {inspector}
-        <p className={styles.detailEmptyState}>
-          Start review in the workspace inspector to create a maintained
-          visual-identity reference.
-        </p>
-      </>
-    );
-  }
-
   return (
     <>
       {inspector}
