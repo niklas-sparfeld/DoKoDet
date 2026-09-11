@@ -127,9 +127,9 @@ The shared target architecture is
 1. **Continue 0063 with M1 for the new CardEventNet model.** Use the M0 audit to migrate all
    remaining legacy CardEventNet artifacts into shared intake and operations. Keep missing and
    incomplete human review explicit before split changes.
-2. **Finish 0062 before another classifier comparison.** Complete face-down visual-identity review,
-   training-data support, and the observation handoff. Do not add temporal association or change
-   reconstruction behavior.
+2. **Use the completed 0062 contracts in the next classifier comparison.** Keep
+   `FACE_DOWN` outside legal card identities, preserve the observation handoff, and do not add
+   temporal association or change reconstruction behavior.
 3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
 4. **Reconcile 0051 M0 with the current data architecture and the completed 0062 contracts.** Read
@@ -242,8 +242,9 @@ context. Check dependencies again before changing a Blocked epic to Ready.
 - Add 0062 because 0061 left the retired event taxonomy in active annotations and UI and represented
   face-down as generic unusable identity evidence. Canonicalize current event data and make
   `FACE_DOWN` a visual class outside the 24 legal card identities.
-- Complete 0062 before 0051 freezes another classifier comparison. Keep semantic event prediction,
-  new processors, temporal association, model training, and reconstruction behavior out of scope.
+- Use the completed 0062 contracts before 0051 freezes another classifier comparison. Keep semantic
+  event prediction, new processors, temporal association, model training, and reconstruction
+  behavior out of scope.
 
 ## Closed-epic policy
 
