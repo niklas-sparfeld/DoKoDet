@@ -88,7 +88,7 @@ class PipelineConflict(PipelineStoreError):
     """A resource ID or optimistic pointer is already used by different content."""
 
 
-class PipelineNotFound(PipelineStoreError):
+class PipelineNotFound(PipelineStoreError, ValueError):
     """The requested pipeline resource does not exist."""
 
 
@@ -1010,7 +1010,7 @@ class ProcessorRunStore:
         for revision_id in state.output_revision_ids:
             revision = self.revision_store.get(revision_id)
             if revision is None:
-                raise PipelineStoreError(f"run output revision is not published: {revision_id}")
+                raise PipelineStateError(f"run output revision is not published: {revision_id}")
             manifest = revision.manifest
             producer = manifest.producer
             if not isinstance(producer, (ProcessorProducer, ImportProducer)):

@@ -13,6 +13,7 @@ from doko_operations.pipeline_data import (
     RunItemOutcome,
     RunProgress,
     canonical_json_bytes,
+    canonical_processor_run_state_bytes,
     sha256_bytes,
 )
 
@@ -171,6 +172,10 @@ def test_revision_store_requires_published_lineage_and_reports_invalid_entries(
     with pytest.raises(PipelineNotFound):
         store.publish(child)
 
+    dangling = store.revision_path("revision-child")
+    dangling.mkdir(parents=True)
+    (dangling / "manifest.json").write_bytes(canonical_json_bytes(child.manifest.to_mapping()))
+    (dangling / "content.json").write_bytes(canonical_json_bytes(child.content.to_mapping()))
     invalid = store.root / "invalid"
     invalid.mkdir(parents=True)
     (invalid / "manifest.json").write_text("{}", encoding="utf-8")
@@ -284,6 +289,35 @@ def test_run_store_requires_published_output_and_rejects_illegal_transition(tmp_
     complete = run_store.complete("run-01", ["revision-output"])
     assert complete.state.status == "complete"
     assert complete.state.output_revision_ids == ("revision-output",)
+
+
+def test_run_catalog_skips_run_with_unpublished_output_revision(tmp_path: Path) -> None:
+    revision_store = PipelineRevisionStore(tmp_path / "runtime")
+    revision_store.publish(
+        revision(
+            revision_id="revision-input",
+            producer=processor_producer("import-01"),
+        )
+    )
+    run_store = ProcessorRunStore(tmp_path / "runtime", revision_store=revision_store)
+    run_store.create(request())
+    running = run_store.start("run-01")
+
+    corrupted_state = replace(
+        running.state,
+        status="complete",
+        completed_at=running.state.updated_at,
+        output_revision_ids=("revision-invalid",),
+    )
+    run_store.state_path("run-01").write_bytes(canonical_processor_run_state_bytes(corrupted_state))
+
+    assert run_store.list() == ()
+    assert (
+        run_store.fail_non_terminal(
+            failure=RunFailure(code="backend_restarted", message="backend restarted")
+        )
+        == 0
+    )
 
 
 def test_selection_store_validates_roles_and_optimistic_updates(tmp_path: Path) -> None:
