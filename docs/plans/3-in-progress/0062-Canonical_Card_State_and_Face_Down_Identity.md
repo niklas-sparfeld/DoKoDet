@@ -25,7 +25,9 @@
 - **M1:** Complete — active contracts and UI now use the singleton `card_state_changed` event type.
 - **M2:** Complete — visual classification now distinguishes identities, `FACE_DOWN`, `UNKNOWN`,
   and processor failures, and persists `face_down` outcomes.
-- **M3:** Not started — make visual-identity review and training data use the face-down class.
+- **M3:** Complete — visual-identity review, coverage, immutable reference repair, dataset targets,
+  and local classifier contracts now distinguish `FACE_DOWN` from unusable evidence and source
+  problems.
 - **M4:** Not started — publish the face-down result through observation assembly and freeze the
   reconstruction handoff.
 
@@ -266,6 +268,31 @@ Acceptance:
 - current reviewed face-down items freeze as `FACE_DOWN` training targets;
 - identity datasets never encode `FACE_DOWN` as a legal Doppelkopf card; and
 - review, dataset, local-class-map, backend, and web tests pass.
+
+#### M3 implementation evidence — 2026-09-11
+
+Visual-identity review now exposes separate `Face down`, `Identity unusable`, and `Source problem`
+actions, keyboard shortcuts, outcome labels, and Timeline Rail states. Coverage maps these states
+to `face_down`, `unusable`, and `source_problem` decisions, so a face-down item completes review
+without a suit-and-rank candidate.
+
+When the selected completed visible-card reference marks a card `side=face_down`, a completed
+identity reference with a generic unusable result receives a new corrected current revision. The
+old revision remains readable and the current selection moves to the replacement. The operation is
+idempotent.
+
+Visual-identity dataset manifests now carry a strict 25-class target contract. `FACE_DOWN` is a
+dataset target and class-map entry, but remains outside `CARD_IDENTITIES` and legal card candidates.
+The local DINOv3 target, head, and bundle validators reject the obsolete 24-class contract. This
+milestone does not train or promote a replacement bundle.
+
+Focused checks passed:
+
+- backend visual-identity API, pipeline, reference, and migration tests;
+- operations pipeline-data, dataset, and comparison tests;
+- TableEvidenceAnalyzer visual-identity, pipeline-data, identity, local-identity, DINOv3 training,
+  and bundle tests; and
+- web typecheck, lint, formatting, generated-client verification, and 144 tests.
 
 ### M4 — Publish the pre-reconstruction boundary
 

@@ -800,6 +800,127 @@ def test_identity_commands_preserve_geometry_and_support_manual_labels(
     assert source_problem.draft.items[0].review_state == "source_problem"
     assert source_problem.draft.items[0].item["status"] == "failed"
 
+    face_down = service.update_draft(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 4,
+            "operations": [{"operation": "set_identity_face_down", "item_id": "card-01"}],
+        },
+    )
+    assert face_down.draft.items[0].review_state == "face_down"
+    assert face_down.draft.items[0].item["status"] == "face_down"
+    assert face_down.draft.items[0].item["geometry"] == original["geometry"]
+    assert face_down.draft.items[0].item["candidates"] == []
+
+    completed = service.complete_reference(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 5,
+            "coverage": {
+                "kind": "visual_identities",
+                "cards": [{"card_id": "card-01", "decision": "face_down"}],
+            },
+        },
+    )
+    completed_id = completed.state.selected_completed_revision_id
+    assert completed_id is not None
+    assert revision_store.require(completed_id).content.outcomes[0].status == "face_down"
+
+
+def test_completed_identity_reference_repairs_visible_face_down_as_new_revision(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    visible_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    visible = service.create_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": visible_revision_id},
+    )
+    service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "accept", "item_id": "event-01"}],
+        },
+    )
+    service.complete_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": visible.draft.items[0].item["frame_identity"],
+                        "decision": "cards",
+                    }
+                ],
+            },
+        },
+    )
+
+    identity_revision_id = _vision_source_revision(revision_store, "visual_identities")
+    identity = service.create_reference(
+        SOURCE.recording_id,
+        "visual_identities",
+        {"operator_id": "operator-01", "source_revision_id": identity_revision_id},
+    )
+    service.update_draft(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "set_identity_unusable", "item_id": "card-01"}],
+        },
+    )
+    completed = service.complete_reference(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "coverage": {
+                "kind": "visual_identities",
+                "cards": [{"card_id": identity.draft.items[0].item_id, "decision": "unusable"}],
+            },
+        },
+    )
+    old_revision_id = completed.state.selected_completed_revision_id
+    assert old_revision_id is not None
+
+    repaired = service.get_reference(SOURCE.recording_id, "visual_identities")
+    new_revision_id = repaired.state.selected_completed_revision_id
+    assert new_revision_id is not None
+    assert new_revision_id != old_revision_id
+    assert repaired.draft.items[0].review_state == "face_down"
+    assert repaired.draft.items[0].item["status"] == "face_down"
+    assert repaired.draft.coverage is not None
+    assert repaired.draft.coverage["cards"] == [
+        {"card_id": "card-01", "decision": "face_down"}
+    ]
+    assert revision_store.require(old_revision_id).content.outcomes[0].status == "unusable"
+    assert revision_store.require(new_revision_id).content.outcomes[0].status == "face_down"
+    assert (
+        service.selection_store.get(SOURCE.recording_id, "visual_identities")
+        .selected_completed_reference_revision_id
+        == new_revision_id
+    )
+    assert (
+        service.get_reference(SOURCE.recording_id, "visual_identities")
+        .state.selected_completed_revision_id
+        == new_revision_id
+    )
+
 
 def test_identity_status_batch_skips_full_draft_revalidation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

@@ -11,6 +11,7 @@ from typing import Any
 from .card_classification import CardClassificationResult
 from .dinov3_bundle import DinoV3IdentityBundle, load_dinov3_identity_bundle
 from .local_identity import (
+    FACE_DOWN_TARGET,
     LocalIdentityContractError,
     identity_from_target_index,
     transform_identity_crop,
@@ -178,7 +179,7 @@ class DinoV3IdentityClassifier:
         }
 
     def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
-        """Return all 24 normalized candidates in deterministic probability order."""
+        """Return identity candidates or FACE_DOWN in deterministic probability order."""
 
         started = time.monotonic()
         try:
@@ -189,12 +190,12 @@ class DinoV3IdentityClassifier:
             tensor = transformed.to_torch().unsqueeze(0).to(self.device)
             with self._torch.no_grad():
                 logits = self._head(_pooler_output(self._encoder(pixel_values=tensor)))
-            if getattr(logits, "shape", None) != (1, 24):
-                raise DinoV3InferenceError("DINOv3 identity head output must have shape [1, 24]")
+            if getattr(logits, "shape", None) != (1, 25):
+                raise DinoV3InferenceError("DINOv3 visual head output must have shape [1, 25]")
             if not bool(self._torch.isfinite(logits).all().item()):
                 raise DinoV3InferenceError("DINOv3 inference produced non-finite logits")
             probabilities = self._torch.softmax(logits, dim=1)[0].detach().cpu().tolist()
-            if len(probabilities) != 24 or not all(
+            if len(probabilities) != 25 or not all(
                 isinstance(value, (int, float)) and math.isfinite(value) and value > 0
                 for value in probabilities
             ):
@@ -203,18 +204,26 @@ class DinoV3IdentityClassifier:
             if not math.isfinite(total) or total <= 0:
                 raise DinoV3InferenceError("DINOv3 inference probabilities are not normalizable")
             probabilities = [float(value) / total for value in probabilities]
-            ranked = sorted(range(24), key=lambda index: (-probabilities[index], index))
-            candidates = tuple(
-                {
-                    "card": identity_from_target_index(index),
-                    "probability": probabilities[index],
-                }
-                for index in ranked
-            )
+            ranked = sorted(range(25), key=lambda index: (-probabilities[index], index))
+            top_identity = identity_from_target_index(ranked[0])
+            if top_identity == FACE_DOWN_TARGET:
+                classification = "face_down"
+                candidates = ()
+            else:
+                classification = "identity"
+                candidates = tuple(
+                    {
+                        "card": identity_from_target_index(index),
+                        "probability": probabilities[index],
+                    }
+                    for index in ranked
+                    if identity_from_target_index(index) != FACE_DOWN_TARGET
+                )
             from .table_observation import IdentityCandidate
 
             return CardClassificationResult(
                 status="ok",
+                classification=classification,
                 candidates=tuple(IdentityCandidate(**candidate) for candidate in candidates),
                 latency_ms=_elapsed_ms(started),
                 raw_response={

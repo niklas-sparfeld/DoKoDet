@@ -120,6 +120,7 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     assert bundle.manifest["calibration"] == "uncalibrated"
     assert bundle.manifest["capabilities"] == ["identity_candidates"]
     assert bundle.manifest["head"]["schema_version"] == DINOV3_HEAD_SCHEMA
+    assert bundle.manifest["head"]["class_count"] == 25
     assert {
         "config.json",
         "model.safetensors",
@@ -149,6 +150,15 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     )
     assert first.raw_response["device"] == "cpu"
     assert first.raw_response["bundle_digest"] == bundle.manifest["bundle_digest"]
+
+    with torch.no_grad():
+        classifier._head.weight.zero_()
+        classifier._head.bias.zero_()
+        classifier._head.bias[24] = 10.0
+    face_down = classifier.classify_ppm(fixture.frame_paths[0].read_bytes())
+    assert face_down.status == "ok"
+    assert face_down.classification == "face_down"
+    assert face_down.candidates == ()
 
 
 def test_corrupt_weight_is_rejected_before_encoder_construction(tmp_path: Path) -> None:

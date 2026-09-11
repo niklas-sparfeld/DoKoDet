@@ -45,11 +45,9 @@ export function identityReviewStatus(
   if (["accepted", "added", "corrected"].includes(item.reviewState)) {
     return "accepted";
   }
-  if (
-    ["identity_unusable", "unusable", "source_problem"].includes(
-      item.reviewState,
-    )
-  ) {
+  if (item.reviewState === "face_down") return "face_down";
+  if (item.reviewState === "source_problem") return "source_problem";
+  if (["identity_unusable", "unusable"].includes(item.reviewState)) {
     return "unusable";
   }
   return "unreviewed";
@@ -58,7 +56,19 @@ export function identityReviewStatus(
 export function formatIdentityReviewStatus(
   value: IdentityReviewStatus,
 ): string {
+  if (value === "face_down") return "Face down";
+  if (value === "unusable") return "Identity unusable";
+  if (value === "source_problem") return "Source problem";
   return value[0].toUpperCase() + value.slice(1);
+}
+
+export function formatIdentityOutcomeStatus(
+  value: EditableIdentity["outcome"]["status"],
+): string {
+  if (value === "face_down") return "Face down";
+  if (value === "unusable") return "Identity unusable";
+  if (value === "failed") return "Source problem";
+  return "Classified";
 }
 
 export function formatMicroseconds(value: number): string {

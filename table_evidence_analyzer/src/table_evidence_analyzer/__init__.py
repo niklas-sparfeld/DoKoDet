@@ -4,7 +4,6 @@ from table_evidence_analyzer.analyzer import AnalyzerEvidence, AnalyzerFrame, Ta
 from table_evidence_analyzer.card_classification import (
     CARD_CLASSIFICATION_CACHE_SCHEMA,
     CARD_CLASSIFICATION_SCHEMA,
-    ClassificationKind,
     FACE_DOWN_CARD,
     UNKNOWN_CARD,
     CachedCardClassifier,
@@ -12,6 +11,7 @@ from table_evidence_analyzer.card_classification import (
     CardClassificationRequest,
     CardClassificationResult,
     CardIdentityClassifier,
+    ClassificationKind,
     GeminiCardClassifier,
 )
 from table_evidence_analyzer.cards import (
@@ -72,6 +72,8 @@ from table_evidence_analyzer.local_identity import (
     DINOV3_TRANSFORM_VERSION,
     DINOV3_WEIGHTS_FILENAME,
     DINOV3_WEIGHTS_SCHEMA,
+    FACE_DOWN_TARGET,
+    VISUAL_IDENTITY_TARGETS,
     DinoV3IdentityConfig,
     DinoV3LicenseRecord,
     LocalIdentityContractError,
@@ -464,6 +466,8 @@ __all__ = [
     "DINOV3_TRANSFORM_VERSION",
     "DINOV3_WEIGHTS_FILENAME",
     "DINOV3_WEIGHTS_SCHEMA",
+    "FACE_DOWN_TARGET",
+    "VISUAL_IDENTITY_TARGETS",
     "DinoV3IdentityConfig",
     "DinoV3LicenseRecord",
     "LocalIdentityContractError",

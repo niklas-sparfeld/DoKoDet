@@ -149,7 +149,8 @@ def build_parser() -> argparse.ArgumentParser:
         aliases=("train-local-identity",),
         help="Train the local DINOv3 visual card identity smoke classifier.",
         description=(
-            "Train a frozen, locally materialized DINOv3 encoder with one linear 24-class head. "
+            "Train a frozen, locally materialized DINOv3 encoder with one linear "
+            "25-class visual head. "
             "The command does not download gated weights."
         ),
     )

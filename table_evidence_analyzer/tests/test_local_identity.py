@@ -11,6 +11,8 @@ from table_evidence_analyzer.local_identity import (
     DINOV3_LICENSE_ID,
     DINOV3_MODEL_ID,
     DINOV3_PROCESSOR_CONFIG,
+    FACE_DOWN_TARGET,
+    VISUAL_IDENTITY_TARGETS,
     DinoV3IdentityConfig,
     LocalIdentityContractError,
     MaterializedDinoV3Weights,
@@ -53,11 +55,12 @@ def _write_materialized_weights(root: Path) -> tuple[Path, str, str, str]:
     )
 
 
-def test_target_map_is_the_canonical_24_identity_order() -> None:
+def test_target_map_is_the_canonical_25_class_visual_identity_order() -> None:
     target_map = canonical_identity_target_map()
 
-    assert list(target_map) == [str(index) for index in range(24)]
-    assert list(target_map.values()) == list(CARD_IDENTITIES)
+    assert list(target_map) == [str(index) for index in range(25)]
+    assert list(target_map.values()) == [*CARD_IDENTITIES, FACE_DOWN_TARGET]
+    assert list(target_map.values()) == list(VISUAL_IDENTITY_TARGETS)
     assert validate_identity_target_map(target_map) == target_map
 
 
@@ -67,6 +70,13 @@ def test_target_map_rejects_unknown_or_reordered_identity() -> None:
 
     with pytest.raises(LocalIdentityContractError, match="target map"):
         validate_identity_target_map(target_map)
+
+
+def test_target_map_rejects_the_obsolete_24_class_contract() -> None:
+    old_target_map = {str(index): identity for index, identity in enumerate(CARD_IDENTITIES)}
+
+    with pytest.raises(LocalIdentityContractError, match="obsolete"):
+        validate_identity_target_map(old_target_map)
 
 
 def test_transform_is_repeatable_and_letterboxes_the_ppm_crop() -> None:
@@ -145,7 +155,7 @@ def test_config_identity_contains_pretrained_revision_digest_processor_and_depen
     assert mapping["model"]["config_sha256"] == config_digest
     assert mapping["model"]["processor_sha256"] == processor_digest
     assert mapping["processor"] == DINOV3_PROCESSOR_CONFIG
-    assert mapping["target"]["class_count"] == 24
+    assert mapping["target"]["class_count"] == 25
     assert mapping["license"]["license_id"] == DINOV3_LICENSE_ID
     assert mapping["quality_state"] == "unusable_smoke_artifact"
     assert config.identity_digest

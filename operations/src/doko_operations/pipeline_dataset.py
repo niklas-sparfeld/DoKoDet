@@ -16,6 +16,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from table_evidence_analyzer.local_identity import (
+    FACE_DOWN_TARGET,
+    VISUAL_IDENTITY_TARGETS,
+)
+
 from .pipeline_data import (
     DataRevision,
     EventData,
@@ -36,6 +41,7 @@ PIPELINE_DATASET_REFERENCE_ORIGINS = frozenset({"manual", "corrected"})
 PIPELINE_DATASET_REFERENCE_COVERAGE_SCHEMA = "pipeline-reference-coverage/v1"
 PIPELINE_DATASET_TARGET_STATE = "reviewed_reference"
 PIPELINE_DATASET_ROBUSTNESS_ROLE = "robustness_comparison"
+PIPELINE_VISUAL_IDENTITY_TARGET_SCHEMA = "visual-identity-target/v1"
 _SAFE_IDENTIFIER = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._:-")
 _QUALIFIED_IDENTIFIER = _SAFE_IDENTIFIER | {"/"}
 _DIGEST_LENGTH = 64
@@ -119,6 +125,16 @@ def _copy_json(value: Any, field: str) -> dict[str, Any]:
     if not isinstance(copied, dict):  # pragma: no cover - guarded by _mapping
         raise PipelineDatasetError(f"{field} must be an object")
     return copied
+
+
+def _visual_identity_target_contract() -> dict[str, Any]:
+    return {
+        "schema_version": PIPELINE_VISUAL_IDENTITY_TARGET_SCHEMA,
+        "class_count": len(VISUAL_IDENTITY_TARGETS),
+        "class_map": {
+            str(index): identity for index, identity in enumerate(VISUAL_IDENTITY_TARGETS)
+        },
+    }
 
 
 def _policy_map(value: Any) -> dict[str, Any]:
@@ -520,13 +536,27 @@ def _targets(
                 )
             continue
         crop = outcome.get("crop_identity")
-        if outcome.get("status") != "classified":
+        status = outcome.get("status")
+        if status not in {"classified", "face_down"}:
             continue
         if not isinstance(crop, Mapping):
             raise PipelineDatasetError("visual identity target has no crop identity")
         crop_policy = _policy(policies, "crop", "crop_policy")
         if crop.get("crop_policy") != crop_policy.get("policy_id"):
             raise PipelineDatasetError("crop policy does not match the frozen dataset policy")
+        if status == "face_down":
+            targets.append(
+                {
+                    "target_id": outcome["card_id"],
+                    "card_id": outcome["card_id"],
+                    "frame_identity": dict(frame),
+                    "crop_identity": dict(crop),
+                    "identity": FACE_DOWN_TARGET,
+                    "target_class": FACE_DOWN_TARGET,
+                    "target_state": PIPELINE_DATASET_TARGET_STATE,
+                }
+            )
+            continue
         candidates = outcome.get("candidates")
         if not isinstance(candidates, list) or not candidates:
             raise PipelineDatasetError("visual identity target has no selected identity")
@@ -540,6 +570,7 @@ def _targets(
                 "frame_identity": dict(frame),
                 "crop_identity": dict(crop),
                 "identity": selected["identity"],
+                "target_class": selected["identity"],
                 "target_state": PIPELINE_DATASET_TARGET_STATE,
             }
         )
@@ -646,6 +677,9 @@ def _stable_manifest(
     if robustness is not None:
         lineages["robustness"] = _revision_lineage(robustness)
     source_groups = [source_group.to_mapping()]
+    target_contract = (
+        _visual_identity_target_contract() if request.task == "visual_identities" else None
+    )
     return {
         "schema_version": PIPELINE_DATASET_SCHEMA_VERSION,
         "task": request.task,
@@ -671,6 +705,7 @@ def _stable_manifest(
         "partition": request.partition,
         "protected_groups": [list(pair) for pair in request.protected_groups],
         "policies": request.policies,
+        "target_contract": target_contract,
         "coverage": coverage,
         "targets": targets,
         "lineage": lineages,
@@ -773,6 +808,13 @@ def load_pipeline_dataset_manifest(path: str | Path) -> dict[str, Any]:
         raise PipelineDatasetError("dataset manifest digest does not match its contents")
     if value.get("state") != "frozen":
         raise PipelineDatasetError("dataset manifest is not frozen")
+    if value.get("task") == "visual_identities":
+        if value.get("target_contract") != _visual_identity_target_contract():
+            raise PipelineDatasetError(
+                "visual identity dataset target contract is missing or obsolete"
+            )
+    elif value.get("target_contract") is not None:
+        raise PipelineDatasetError("non-identity dataset must not declare a target contract")
     return value
 
 
@@ -833,6 +875,7 @@ __all__ = [
     "PIPELINE_DATASET_ROBUSTNESS_ROLE",
     "PIPELINE_DATASET_SCHEMA_VERSION",
     "PIPELINE_DATASET_TARGET_STATE",
+    "PIPELINE_VISUAL_IDENTITY_TARGET_SCHEMA",
     "PipelineDatasetConsumer",
     "PipelineDatasetError",
     "PipelineDatasetRequest",

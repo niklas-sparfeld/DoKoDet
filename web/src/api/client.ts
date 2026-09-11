@@ -123,6 +123,7 @@ export type PipelineReferenceOperation = {
     | "set_frame_unusable"
     | "accept_identity_suggestion"
     | "set_identity_unreviewed"
+    | "set_identity_face_down"
     | "select_identity"
     | "set_identity_unusable"
     | "report_identity_source_problem";
@@ -158,7 +159,7 @@ export type PipelineReferenceCompletionRequest = {
         kind: "visual_identities";
         cards: Array<{
           card_id: string;
-          decision: "identity" | "unusable";
+          decision: "identity" | "face_down" | "unusable" | "source_problem";
         }>;
       };
 };

@@ -23,6 +23,7 @@ from doko_operations.pipeline_reference import (
     PipelineReferenceState,
     ReferenceDraftItem,
 )
+from table_evidence_analyzer.pipeline_data import VisibleCardData
 
 from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
@@ -134,6 +135,8 @@ class PipelineReferenceService:
             raise PipelineReferenceNotFound(
                 f"The maintained reference was not found: {recording_id}/{content_type}"
             )
+        if content_type == "visual_identities":
+            reference = self._repair_face_down_reference(recording_id, reference)
         self._validate_reference_revision(reference)
         return reference
 
@@ -570,6 +573,140 @@ class PipelineReferenceService:
             or selection.selected_generated_revision_id
         )
         return None if revision_id is None else self.revision_store.get(revision_id)
+
+    def _repair_face_down_reference(
+        self, recording_id: str, reference: StoredPipelineReference
+    ) -> StoredPipelineReference:
+        """Publish a current face-down correction without rewriting completed history."""
+
+        if reference.state.draft_state != "completed":
+            return reference
+        visible = self._selected_revision(recording_id, "visible_cards")
+        if visible is None or not isinstance(visible.content, VisibleCardData):
+            return reference
+        face_down_ids = {
+            candidate.card_id
+            for outcome in visible.content.outcomes
+            if outcome.status == "detected"
+            for candidate in outcome.candidates
+            if candidate.side == "face_down"
+        }
+        if not face_down_ids:
+            return reference
+
+        replacement_revision_id: str | None = None
+        repaired: StoredPipelineReference | None = None
+        handler = self._handler("visual_identities")
+        with self.reference_store.locked(recording_id, "visual_identities"):
+            current = self.reference_store.read_locked(recording_id, "visual_identities")
+            if current.state.draft_state != "completed":
+                return current
+            old_revision_id = current.state.selected_completed_revision_id
+            if old_revision_id is None:
+                return current
+            repaired_items = list(current.draft.items)
+            changed = False
+            for index, item in enumerate(repaired_items):
+                if item.item_id not in face_down_ids or item.item.get("status") != "unusable":
+                    continue
+                replacement = dict(item.item)
+                replacement.update(
+                    status="face_down",
+                    candidates=[],
+                    unusable_reason=None,
+                    error=None,
+                )
+                handler.validate_item(replacement, current.draft.source_revision_id)
+                repaired_items[index] = replace(
+                    item,
+                    review_state="face_down",
+                    item=replacement,
+                )
+                changed = True
+            if not changed:
+                return current
+
+            active_items = [item for item in repaired_items if item.review_state != "rejected"]
+            content = handler.human_content(active_items)
+            content_bytes = handler.canonical_content_bytes(content)
+            content_sha256 = sha256_bytes(content_bytes)
+            replacement_revision_id = self._revision_id(
+                recording_id,
+                "visual_identities",
+                content_sha256,
+                old_revision_id,
+            )
+            old_revision = self.revision_store.require(old_revision_id)
+            coverage = dict(current.draft.coverage or {})
+            raw_cards = coverage.get("cards")
+            if isinstance(raw_cards, list):
+                updated_cards: list[dict[str, Any]] = []
+                for raw_card in raw_cards:
+                    if not isinstance(raw_card, Mapping):
+                        continue
+                    card = dict(raw_card)
+                    if card.get("card_id") in face_down_ids:
+                        card["decision"] = "face_down"
+                    updated_cards.append(card)
+                coverage["cards"] = updated_cards
+            coverage = {**coverage, "impact": list(current.draft.impact)}
+            manifest = DataRevision(
+                revision_id=replacement_revision_id,
+                content_type="visual_identities",
+                content_schema=handler.content_schema,
+                recording_id=recording_id,
+                source=old_revision.manifest.source,
+                content_sha256=content_sha256,
+                input_revision_ids=(old_revision_id,),
+                origin="corrected",
+                producer=HumanProducer(
+                    review_id=f"reference-{recording_id}-visual_identities",
+                    operator_id="face-down-migration",
+                    base_revision_id=old_revision_id,
+                ),
+                coverage=coverage,
+                created_at=_now(),
+            )
+            self.revision_store.publish(manifest, content_bytes)
+            timestamp = _now()
+            repaired = self.reference_store.write_locked(
+                StoredPipelineReference(
+                    state=replace(
+                        current.state,
+                        source_revision_id=replacement_revision_id,
+                        selected_completed_revision_id=replacement_revision_id,
+                        updated_at=timestamp,
+                    ),
+                    draft=replace(
+                        current.draft,
+                        source_revision_id=replacement_revision_id,
+                        items=tuple(repaired_items),
+                        coverage=coverage,
+                        updated_at=timestamp,
+                    ),
+                )
+            )
+
+        assert repaired is not None and replacement_revision_id is not None
+        for _ in range(5):
+            selection = self.selection_store.get(recording_id, "visual_identities")
+            if (
+                selection is None
+                or selection.selected_completed_reference_revision_id != old_revision_id
+            ):
+                break
+            try:
+                self.selection_store.update_pointers(
+                    recording_id,
+                    "visual_identities",
+                    expected_revision=selection.revision,
+                    selected_generated_revision_id=selection.selected_generated_revision_id,
+                    selected_completed_reference_revision_id=replacement_revision_id,
+                )
+                break
+            except PipelineSelectionConflict:
+                continue
+        return repaired
 
     def _require_source_revision(
         self, recording_id: str, content_type: str, revision_id: str

@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
+from table_evidence_analyzer.local_identity import FACE_DOWN_TARGET
 from table_evidence_analyzer.pipeline_data import (
     VisibleCardData,
     VisualIdentityData,
@@ -467,6 +468,36 @@ def test_visible_and_identity_consumers_require_exact_reviewed_lineage(tmp_path:
     )
     identity = materialize_pipeline_dataset(catalog, identity_request, tmp_path / "identity")
     assert identity["manifest"]["targets"][0]["identity"] == "CLUBS_NINE"
+    assert identity["manifest"]["target_contract"]["class_count"] == 25
+    assert identity["manifest"]["target_contract"]["class_map"]["24"] == FACE_DOWN_TARGET
+
+    face_down_mapping = identity_reference.content.to_mapping()
+    face_down_mapping["outcomes"][0].update(
+        status="face_down",
+        candidates=[],
+        unusable_reason=None,
+        error=None,
+    )
+    face_down_reference = _vision_revision(
+        "identity-reference-face-down",
+        "visual_identities",
+        VisualIdentityData.from_mapping(face_down_mapping),
+        coverage={
+            **identity_reference.manifest.coverage,
+            "cards": [{"card_id": "card-01", "decision": "face_down"}],
+        },
+    )
+    face_down_request = replace(
+        identity_request,
+        reference_revision_id="identity-reference-face-down",
+    )
+    face_down = materialize_pipeline_dataset(
+        RevisionCatalog(event_reference, visible_reference, face_down_reference),
+        face_down_request,
+        tmp_path / "face-down",
+    )
+    assert face_down["manifest"]["targets"][0]["identity"] == FACE_DOWN_TARGET
+    assert face_down["manifest"]["targets"][0]["target_class"] == FACE_DOWN_TARGET
 
     generated_event = _revision(
         "event-generated", origin="processor", coverage={"kind": "processed"}

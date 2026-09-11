@@ -92,10 +92,20 @@ function generatedResult(
 }
 
 function reference(
-  reviewState: "pending" | "accepted" | "identity_unusable" = "pending",
+  reviewState:
+    | "pending"
+    | "accepted"
+    | "face_down"
+    | "identity_unusable"
+    | "source_problem" = "pending",
   additionalItems: Array<{
     cardId: string;
-    reviewState?: "pending" | "accepted" | "identity_unusable";
+    reviewState?:
+      | "pending"
+      | "accepted"
+      | "face_down"
+      | "identity_unusable"
+      | "source_problem";
     requestedTimeUs?: number;
   }> = [],
   revision = reviewState === "pending" ? 0 : 1,
@@ -112,7 +122,20 @@ function reference(
             candidates: [],
             unusable_reason: "Reviewed identity unusable.",
           }
-        : outcome(undefined, spec.cardId, spec.requestedTimeUs);
+        : itemReviewState === "face_down"
+          ? {
+              ...outcome([], spec.cardId, spec.requestedTimeUs),
+              status: "face_down" as const,
+              candidates: [],
+            }
+          : itemReviewState === "source_problem"
+            ? {
+                ...outcome([], spec.cardId, spec.requestedTimeUs),
+                status: "failed" as const,
+                candidates: [],
+                error: "Reviewed source problem.",
+              }
+            : outcome(undefined, spec.cardId, spec.requestedTimeUs);
     return {
       item_id: spec.cardId,
       base_item_id: null,
@@ -705,6 +728,10 @@ describe("PipelineVisualIdentityEditor", () => {
       reference(),
       reference("identity_unusable"),
       reference(),
+      reference("face_down"),
+      reference(),
+      reference("source_problem"),
+      reference(),
     ];
     let putIndex = 0;
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
@@ -750,10 +777,26 @@ describe("PipelineVisualIdentityEditor", () => {
 
     fireEvent.keyDown(window, { key: "u" });
     await waitFor(() => expect(putIndex).toBe(3));
-    expect(screen.getByText("Unusable")).toBeInTheDocument();
+    expect(screen.getAllByText("Identity unusable").length).toBeGreaterThan(0);
 
     fireEvent.keyDown(window, { key: "u" });
     await waitFor(() => expect(putIndex).toBe(4));
+    expect(screen.getByText("Unreviewed")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "f" });
+    await waitFor(() => expect(putIndex).toBe(5));
+    expect(screen.getAllByText("Face down").length).toBeGreaterThan(0);
+
+    fireEvent.keyDown(window, { key: "f" });
+    await waitFor(() => expect(putIndex).toBe(6));
+    expect(screen.getByText("Unreviewed")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "s" });
+    await waitFor(() => expect(putIndex).toBe(7));
+    expect(screen.getAllByText("Source problem").length).toBeGreaterThan(0);
+
+    fireEvent.keyDown(window, { key: "s" });
+    await waitFor(() => expect(putIndex).toBe(8));
     expect(screen.getByText("Unreviewed")).toBeInTheDocument();
 
     const operations = fetchImplementation.mock.calls
@@ -765,6 +808,10 @@ describe("PipelineVisualIdentityEditor", () => {
       "accept_identity_suggestion",
       "set_identity_unreviewed",
       "set_identity_unusable",
+      "set_identity_unreviewed",
+      "set_identity_face_down",
+      "set_identity_unreviewed",
+      "report_identity_source_problem",
       "set_identity_unreviewed",
     ]);
   });

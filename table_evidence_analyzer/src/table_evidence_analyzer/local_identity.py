@@ -36,12 +36,15 @@ DINOV3_PROCESSOR_FILENAME = "preprocessor_config.json"
 
 DINOV3_CONFIG_SCHEMA = "dinov3-identity-config/v1"
 DINOV3_PROCESSOR_SCHEMA = "dinov3-identity-processor/v1"
-DINOV3_TARGET_MAP_SCHEMA = "dinov3-identity-target-map/v1"
+DINOV3_TARGET_MAP_SCHEMA = "dinov3-identity-target-map/v2"
 DINOV3_WEIGHTS_SCHEMA = "dinov3-pretrained-materialization/v1"
 DINOV3_TRANSFORM_VERSION = "dinov3-identity-letterbox-224-v1"
 DINOV3_AUGMENTATION_SCHEMA = "dinov3-identity-augmentation/v1"
 DINOV3_RUN_SCHEMA = "dinov3-identity-training-run/v1"
-DINOV3_BUNDLE_SCHEMA = "dinov3-identity-bundle/v1"
+DINOV3_BUNDLE_SCHEMA = "dinov3-identity-bundle/v2"
+
+FACE_DOWN_TARGET = "FACE_DOWN"
+VISUAL_IDENTITY_TARGETS: tuple[str, ...] = (*CARD_IDENTITIES, FACE_DOWN_TARGET)
 
 # These versions are pinned in the optional package groups and are repeated in every resolved
 # identity configuration.  This keeps a run tied to the code that interprets its weights.
@@ -136,20 +139,26 @@ def _read_json_object(path: Path, field: str) -> None:
 
 
 def canonical_identity_target_map() -> dict[str, str]:
-    """Return the strict zero-based map for all 24 canonical visual card identities."""
+    """Return the strict zero-based map for 24 card identities and FACE_DOWN."""
 
-    return {str(index): identity for index, identity in enumerate(CARD_IDENTITIES)}
+    return {str(index): identity for index, identity in enumerate(VISUAL_IDENTITY_TARGETS)}
 
 
 def validate_identity_target_map(value: Mapping[str, Any]) -> dict[str, str]:
-    """Validate and copy the frozen 24-class output map."""
+    """Validate and copy the frozen 25-class output map."""
 
     if not isinstance(value, Mapping):
         raise LocalIdentityContractError("identity target map must be a mapping")
+    legacy = {str(index): identity for index, identity in enumerate(CARD_IDENTITIES)}
+    if dict(value) == legacy:
+        raise LocalIdentityContractError(
+            "24-class DINOv3 identity target map is obsolete; use the FACE_DOWN target contract"
+        )
     expected = canonical_identity_target_map()
     if dict(value) != expected:
         raise LocalIdentityContractError(
-            "identity target map must contain the ordered 24 canonical card identities"
+            "identity target map must contain the ordered 24 canonical card identities "
+            "and FACE_DOWN"
         )
     return expected
 
@@ -158,7 +167,7 @@ def identity_target_index(identity: str) -> int:
     """Return the frozen model index for one canonical visual card identity."""
 
     try:
-        return CARD_IDENTITIES.index(identity)
+        return VISUAL_IDENTITY_TARGETS.index(identity)
     except ValueError as error:
         raise LocalIdentityContractError(f"unknown visual card identity: {identity}") from error
 
@@ -169,10 +178,10 @@ def identity_from_target_index(index: int) -> str:
     if (
         isinstance(index, bool)
         or not isinstance(index, int)
-        or not 0 <= index < len(CARD_IDENTITIES)
+        or not 0 <= index < len(VISUAL_IDENTITY_TARGETS)
     ):
-        raise LocalIdentityContractError("identity target index must be between 0 and 23")
-    return CARD_IDENTITIES[index]
+        raise LocalIdentityContractError("identity target index must be between 0 and 24")
+    return VISUAL_IDENTITY_TARGETS[index]
 
 
 @dataclass(frozen=True, slots=True)
@@ -484,12 +493,20 @@ class DinoV3IdentityConfig:
             "class_map",
         }:
             raise LocalIdentityContractError("DINOv3 target declaration is incomplete")
+        if target.get("schema_version") == "dinov3-identity-target-map/v1" and target.get(
+            "class_count"
+        ) == len(CARD_IDENTITIES):
+            raise LocalIdentityContractError(
+                "24-class DINOv3 identity target map is obsolete; use the FACE_DOWN target contract"
+            )
         if (
             target["schema_version"] != DINOV3_TARGET_MAP_SCHEMA
             or target["card_set_id"] != CARD_SET_ID
-            or target["class_count"] != len(CARD_IDENTITIES)
+            or target["class_count"] != len(VISUAL_IDENTITY_TARGETS)
         ):
-            raise LocalIdentityContractError("DINOv3 target declaration is not the shared card set")
+            raise LocalIdentityContractError(
+                "DINOv3 target declaration is not the 25-class visual identity set"
+            )
         target_map = validate_identity_target_map(target["class_map"])
 
         model = value["model"]
@@ -567,7 +584,7 @@ class DinoV3IdentityConfig:
             "target": {
                 "schema_version": DINOV3_TARGET_MAP_SCHEMA,
                 "card_set_id": CARD_SET_ID,
-                "class_count": len(CARD_IDENTITIES),
+                "class_count": len(VISUAL_IDENTITY_TARGETS),
                 "class_map": dict(self.target_map),
             },
             "license": self.license_record.to_mapping(),
@@ -734,6 +751,8 @@ __all__ = [
     "DINOV3_TRANSFORM_VERSION",
     "DINOV3_WEIGHTS_FILENAME",
     "DINOV3_WEIGHTS_SCHEMA",
+    "FACE_DOWN_TARGET",
+    "VISUAL_IDENTITY_TARGETS",
     "DinoV3IdentityConfig",
     "DinoV3LicenseRecord",
     "LocalIdentityContractError",

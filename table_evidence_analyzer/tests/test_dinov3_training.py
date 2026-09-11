@@ -97,8 +97,8 @@ def test_task_freezes_encoder_and_exposes_only_linear_head() -> None:
     task = DinoV3FrozenLinearTask(encoder)
 
     assert all(not parameter.requires_grad for parameter in encoder.parameters())
-    assert task.head.weight.shape == (24, 4)
-    assert sum(parameter.numel() for parameter in task.trainable_parameters()) == 24 * 4 + 24
+    assert task.head.weight.shape == (25, 4)
+    assert sum(parameter.numel() for parameter in task.trainable_parameters()) == 25 * 4 + 25
 
 
 def test_generated_cpu_training_overfits_and_writes_loadable_checkpoint(tmp_path: Path) -> None:
@@ -117,7 +117,7 @@ def test_generated_cpu_training_overfits_and_writes_loadable_checkpoint(tmp_path
     assert run["metrics"]["train_top_1_accuracy"] == 1.0
     assert checkpoint["schema_version"] == DINOV3_CHECKPOINT_SCHEMA
     assert checkpoint["progress"]["step"] == run["progress"]["step"]
-    assert checkpoint["model_state"]["head.weight"].shape == (24, 4)
+    assert checkpoint["model_state"]["head.weight"].shape == (25, 4)
     assert (output / "predictions-train.json").exists()
 
 

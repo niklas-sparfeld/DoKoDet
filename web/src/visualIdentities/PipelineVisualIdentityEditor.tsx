@@ -506,6 +506,44 @@ export function PipelineVisualIdentityEditor({
     [applyReviewState],
   );
 
+  const markFaceDown = useCallback(
+    (item: EditableIdentity) => {
+      applyReviewState(
+        item,
+        { operation: "set_identity_face_down", item_id: item.itemId },
+        "Identity marked face down.",
+        (outcome) => ({
+          ...outcome,
+          status: "face_down",
+          candidates: [],
+          unusable_reason: null,
+          error: null,
+        }),
+        "face_down",
+      );
+    },
+    [applyReviewState],
+  );
+
+  const reportSourceProblem = useCallback(
+    (item: EditableIdentity) => {
+      applyReviewState(
+        item,
+        { operation: "report_identity_source_problem", item_id: item.itemId },
+        "Source problem reported.",
+        (outcome) => ({
+          ...outcome,
+          status: "failed",
+          candidates: [],
+          unusable_reason: null,
+          error: "Reviewed source problem.",
+        }),
+        "source_problem",
+      );
+    },
+    [applyReviewState],
+  );
+
   const setUnreviewed = useCallback(
     (item: EditableIdentity) => {
       applyReviewState(
@@ -539,6 +577,28 @@ export function PipelineVisualIdentityEditor({
       }
     },
     [markUnusable, setUnreviewed],
+  );
+
+  const toggleFaceDown = useCallback(
+    (item: EditableIdentity) => {
+      if (identityReviewStatus(item) === "face_down") {
+        setUnreviewed(item);
+      } else {
+        markFaceDown(item);
+      }
+    },
+    [markFaceDown, setUnreviewed],
+  );
+
+  const toggleSourceProblem = useCallback(
+    (item: EditableIdentity) => {
+      if (identityReviewStatus(item) === "source_problem") {
+        setUnreviewed(item);
+      } else {
+        reportSourceProblem(item);
+      }
+    },
+    [reportSourceProblem, setUnreviewed],
   );
 
   const completeReference = useCallback(async () => {
@@ -575,7 +635,13 @@ export function PipelineVisualIdentityEditor({
             cards: currentItems.map((item) => ({
               card_id: item.itemId,
               decision:
-                item.outcome.status === "classified" ? "identity" : "unusable",
+                item.outcome.status === "classified"
+                  ? "identity"
+                  : item.outcome.status === "face_down"
+                    ? "face_down"
+                    : item.outcome.status === "failed"
+                      ? "source_problem"
+                      : "unusable",
             })),
           },
         },
@@ -758,11 +824,29 @@ export function PipelineVisualIdentityEditor({
       ) {
         event.preventDefault();
         toggleUnusable(item);
+      } else if (
+        (event.key === "f" || event.key === "F") &&
+        item !== undefined
+      ) {
+        event.preventDefault();
+        toggleFaceDown(item);
+      } else if (
+        (event.key === "s" || event.key === "S") &&
+        item !== undefined
+      ) {
+        event.preventDefault();
+        toggleSourceProblem(item);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectItem, toggleAcceptance, toggleUnusable]);
+  }, [
+    selectItem,
+    toggleAcceptance,
+    toggleFaceDown,
+    toggleSourceProblem,
+    toggleUnusable,
+  ]);
 
   useEffect(() => {
     navigationItemsRef.current = usesMaintainedIdentities
@@ -874,6 +958,10 @@ export function PipelineVisualIdentityEditor({
         activeItem !== null && toggleAcceptance(activeItem)
       }
       markUnusable={() => activeItem !== null && toggleUnusable(activeItem)}
+      markFaceDown={() => activeItem !== null && toggleFaceDown(activeItem)}
+      reportSourceProblem={() =>
+        activeItem !== null && toggleSourceProblem(activeItem)
+      }
       selectIdentity={(identity) =>
         activeItem !== null && selectIdentity(activeItem, identity)
       }
@@ -1335,6 +1423,7 @@ function isReviewState(value: string): value is IdentityReviewState {
     "accepted",
     "added",
     "corrected",
+    "face_down",
     "unusable",
     "identity_unusable",
     "source_problem",

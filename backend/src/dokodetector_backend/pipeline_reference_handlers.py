@@ -332,6 +332,8 @@ class ReferenceContentHandler:
             return "positive frame needs an accept, add, or correct decision"
         if content_type == "visual_identities":
             status = item.item.get("status")
+            if status == "face_down":
+                return "face-down card needs an explicit face_down decision"
             if status == "unusable":
                 return "unusable card needs an explicit unusable or identity_unusable decision"
             if status == "failed":
@@ -823,6 +825,7 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
         if operation.operation not in {
             "accept_identity_suggestion",
             "set_identity_unreviewed",
+            "set_identity_face_down",
             "select_identity",
             "set_identity_unusable",
             "report_identity_source_problem",
@@ -850,13 +853,33 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
                 + items[index + 1 :]
             )
         if operation.operation == "set_identity_unreviewed":
-            if existing_item.get("status") not in {"classified", "unusable", "failed"}:
+            if existing_item.get("status") not in {
+                "classified",
+                "face_down",
+                "unusable",
+                "failed",
+            }:
                 raise PipelineReferenceInputError(
-                    "set_identity_unreviewed requires a classified or unusable identity"
+                    "set_identity_unreviewed requires a classified, face-down, unusable, "
+                    "or failed identity"
                 )
             return (
                 items[:index]
                 + [self._replace(existing, base_item_id=None, review_state="pending")]
+                + items[index + 1 :]
+            )
+        if operation.operation == "set_identity_face_down":
+            replacement = dict(existing_item)
+            replacement.update(
+                status="face_down",
+                candidates=[],
+                unusable_reason=None,
+                error=None,
+            )
+            self.validate_item(replacement, source_revision_id)
+            return (
+                items[:index]
+                + [self._replace(existing, review_state="face_down", item=replacement)]
                 + items[index + 1 :]
             )
         if operation.operation == "select_identity":
@@ -933,9 +956,10 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
                 )
             card_id = identifier(raw_card["card_id"], f"coverage.cards[{index}].card_id")
             decision = raw_card["decision"]
-            if decision not in {"identity", "unusable"}:
+            if decision not in {"identity", "face_down", "unusable", "source_problem"}:
                 raise PipelineReferenceInputError(
-                    f"coverage.cards[{index}].decision must be identity or unusable"
+                    f"coverage.cards[{index}].decision must be identity, face_down, "
+                    "unusable, or source_problem"
                 )
             cards.append({"card_id": card_id, "decision": decision})
         if len({card["card_id"] for card in cards}) != len(cards):
@@ -955,9 +979,12 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
             entry = by_id.get(item.item_id)
             if entry is None:
                 continue
-            expected_decision = (
-                "identity" if item.item.get("status") == "classified" else "unusable"
-            )
+            expected_decision = {
+                "classified": "identity",
+                "face_down": "face_down",
+                "unusable": "unusable",
+                "failed": "source_problem",
+            }.get(item.item.get("status"))
             if expected_decision != entry["decision"] or not self._identity_coverage_state(
                 item.item, item.review_state
             ):
@@ -968,7 +995,7 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
                     }
                 )
         for card_id in sorted(expected_ids - {item.item_id for item in items}):
-            if by_id[card_id]["decision"] != "unusable":
+            if by_id[card_id]["decision"] not in {"unusable", "source_problem"}:
                 details.append(
                     {
                         "field": f"coverage.cards.{card_id}",
@@ -1011,6 +1038,8 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
                 and isinstance(candidates, list)
                 and bool(candidates)
             )
+        if status == "face_down":
+            return state in {"face_down", "accepted", "added", "corrected"}
         if status == "unusable":
             return state in {"unusable", "identity_unusable"}
         if status == "failed":

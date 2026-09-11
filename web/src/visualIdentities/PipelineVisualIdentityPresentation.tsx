@@ -12,6 +12,7 @@ import {
 } from "./PipelineVisualIdentityTypes";
 import {
   formatCardIdentity,
+  formatIdentityOutcomeStatus,
   formatIdentityReviewStatus,
   identityReviewStatus,
 } from "./PipelineVisualIdentityFormatting";
@@ -335,9 +336,7 @@ export function IdentityCardList({
               data-selected={item.itemId === selectedItemId}
               onClick={() => onSelect(item)}
             >
-              <CardRailIdentity
-                identity={item.outcome.candidates[0]?.identity}
-              />
+              <CardRailIdentity item={item} />
               <small>
                 {formatIdentityReviewStatus(identityReviewStatus(item))}
               </small>
@@ -369,7 +368,18 @@ export function IdentityCardList({
   );
 }
 
-function CardRailIdentity({ identity }: { identity?: string }) {
+function CardRailIdentity({ item }: { item: EditableIdentity }) {
+  if (item.outcome.status !== "classified") {
+    const label = formatIdentityOutcomeStatus(item.outcome.status);
+    const symbol = item.outcome.status === "face_down" ? "▧" : "!";
+    return (
+      <>
+        <span className={identityStyles.cardRailSymbol}>{symbol}</span>
+        <strong>{label}</strong>
+      </>
+    );
+  }
+  const identity = item.outcome.candidates[0]?.identity;
   if (identity === undefined)
     return (
       <>

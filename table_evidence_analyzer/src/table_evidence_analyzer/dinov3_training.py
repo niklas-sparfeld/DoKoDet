@@ -108,12 +108,12 @@ def _pooler_output(outputs: Any) -> Any:
 
 
 class DinoV3FrozenLinearTask:
-    """A frozen DINOv3 encoder with one trainable linear 24-class identity head."""
+    """A frozen DINOv3 encoder with one trainable linear 25-class visual head."""
 
-    def __init__(self, encoder: Any, *, class_count: int = 24) -> None:
+    def __init__(self, encoder: Any, *, class_count: int = 25) -> None:
         torch, nn = _torch_modules()
-        if class_count != 24:
-            raise DinoV3TrainingError("the DINOv3 identity head must have 24 classes")
+        if class_count != 25:
+            raise DinoV3TrainingError("the DINOv3 visual head must have 25 classes")
         hidden_size = getattr(getattr(encoder, "config", None), "hidden_size", None)
         if isinstance(hidden_size, bool) or not isinstance(hidden_size, int) or hidden_size <= 0:
             raise DinoV3TrainingError("DINOv3 encoder config must declare hidden_size")
@@ -438,7 +438,7 @@ def _semantic_config(
         "crop_cache_digest": inputs["crop_cache_digest"],
         "transform_version": inputs["transform_version"],
         "augmentation": DINOV3_AUGMENTATION_CONFIG,
-        "class_count": 24,
+        "class_count": 25,
         "seed": config.seed,
         "epochs": config.epochs,
         "batch_size": config.batch_size,
@@ -614,7 +614,7 @@ def train_dinov3_identity(
                 "model": {
                     "adapter": DINOV3_TASK_ADAPTER,
                     "encoder": identity.to_mapping()["model"],
-                    "head": {"type": "linear", "class_count": 24},
+        "head": {"type": "linear", "class_count": 25},
                 },
                 "device": config.device,
                 "precision": config.precision,

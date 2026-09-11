@@ -150,8 +150,11 @@ def _head_from_checkpoint(
     if shape is None or bias_shape is None or len(shape) != 2 or len(bias_shape) != 1:
         raise DinoV3BundleError("DINOv3 checkpoint identity head has invalid tensor shapes")
     class_count, hidden_size = (int(shape[0]), int(shape[1]))
-    if class_count != 24 or tuple(bias_shape) != (class_count,) or hidden_size <= 0:
-        raise DinoV3BundleError("DINOv3 checkpoint identity head is not a 24-class linear head")
+    if class_count != 25 or tuple(bias_shape) != (class_count,) or hidden_size <= 0:
+        raise DinoV3BundleError(
+            "DINOv3 checkpoint uses the obsolete 24-class head; the FACE_DOWN "
+            "target contract has 25 classes"
+        )
     return (
         {
             "schema_version": DINOV3_HEAD_SCHEMA,
@@ -255,7 +258,7 @@ def export_dinov3_identity_bundle(
             "file": head_file,
             "sha256": files[head_file],
             "hidden_size": hidden_size,
-            "class_count": 24,
+            "class_count": 25,
         },
         "run_id": _text(run.get("run_id"), "run_id"),
         "source_checkpoint_sha256": checkpoint_digest,
@@ -285,6 +288,10 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
     }
     if set(manifest) != required:
         raise DinoV3BundleError("DINOv3 bundle manifest has unexpected fields")
+    if manifest["schema_version"] == "dinov3-identity-bundle/v1":
+        raise DinoV3BundleError(
+            "24-class DINOv3 identity bundle is obsolete; use a FACE_DOWN-capable 25-class bundle"
+        )
     if manifest["schema_version"] != DINOV3_BUNDLE_SCHEMA:
         raise DinoV3BundleError("unsupported DINOv3 identity bundle schema")
     if manifest["component"] != "table-evidence-analyzer":
@@ -357,12 +364,14 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
     if (
         head["schema_version"] != DINOV3_HEAD_SCHEMA
         or head["adapter"] != "dinov3-frozen-linear-v1"
-        or head["class_count"] != 24
+        or head["class_count"] != 25
         or isinstance(head["hidden_size"], bool)
         or not isinstance(head["hidden_size"], int)
         or head["hidden_size"] <= 0
     ):
-        raise DinoV3BundleError("DINOv3 identity head manifest is invalid")
+        raise DinoV3BundleError(
+            "DINOv3 identity head manifest is invalid or uses the obsolete 24-class target"
+        )
     head_digest = _sha256(head["sha256"], "head digest")
     if files.get(head_file) != head_digest:
         raise DinoV3BundleError("DINOv3 identity head digest is inconsistent")

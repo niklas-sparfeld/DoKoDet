@@ -25,6 +25,7 @@ PIPELINE_REFERENCE_ITEM_STATES = frozenset(
         "corrected",
         "empty",
         "unusable",
+        "face_down",
         "identity_unusable",
         "source_problem",
         "affected",
@@ -46,6 +47,7 @@ PIPELINE_REFERENCE_OPERATIONS = frozenset(
         "set_frame_unusable",
         "accept_identity_suggestion",
         "set_identity_unreviewed",
+        "set_identity_face_down",
         "select_identity",
         "set_identity_unusable",
         "report_identity_source_problem",
@@ -57,6 +59,7 @@ PIPELINE_REFERENCE_DECISIONS = frozenset(
         "rejected",
         "empty",
         "unusable",
+        "face_down",
         "identity_unusable",
         "source_problem",
     }
@@ -504,6 +507,7 @@ class PipelineReferenceOperation:
         if operation in {
             "accept_identity_suggestion",
             "set_identity_unreviewed",
+            "set_identity_face_down",
             "set_identity_unusable",
             "report_identity_source_problem",
         }:

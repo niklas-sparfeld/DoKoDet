@@ -41,12 +41,14 @@ export type IdentityReviewState =
   | "accepted"
   | "added"
   | "corrected"
+  | "face_down"
   | "unusable"
   | "identity_unusable"
   | "source_problem"
   | "affected";
 
-export type IdentityReviewStatus = "unreviewed" | "accepted" | "unusable";
+export type IdentityReviewStatus =
+  "unreviewed" | "accepted" | "face_down" | "unusable" | "source_problem";
 
 export type EditableIdentity = {
   itemId: string;

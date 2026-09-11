@@ -11,6 +11,7 @@ import {
 import {
   formatCardIdentity,
   formatIdentityReviewStatus,
+  formatIdentityOutcomeStatus,
   formatIdentifier,
   identityReviewStatus,
 } from "./PipelineVisualIdentityFormatting";
@@ -81,6 +82,8 @@ export type IdentityInspectorProps = {
   reloadWinningDraft: () => Promise<void>;
   acceptSuggestion: () => void;
   markUnusable: () => void;
+  markFaceDown: () => void;
+  reportSourceProblem: () => void;
   selectIdentity: (identity: string) => void;
 };
 
@@ -251,7 +254,9 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
         <div>
           <dt>Identity outcome</dt>
           <dd>
-            {item === null ? "None" : formatIdentifier(item.outcome.status)}
+            {item === null
+              ? "None"
+              : formatIdentityOutcomeStatus(item.outcome.status)}
           </dd>
         </div>
         <div>
@@ -301,8 +306,30 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
               onClick={props.markUnusable}
               disabled={item === null || item.outcome.crop_identity === null}
             >
-              {reviewStatus === "unusable" ? "Mark unreviewed" : "Unusable"}{" "}
+              {reviewStatus === "unusable"
+                ? "Mark unreviewed"
+                : "Identity unusable"}{" "}
               <kbd>U</kbd>
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={props.markFaceDown}
+              disabled={item === null || item.outcome.crop_identity === null}
+            >
+              {reviewStatus === "face_down" ? "Mark unreviewed" : "Face down"}{" "}
+              <kbd>F</kbd>
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={props.reportSourceProblem}
+              disabled={item === null}
+            >
+              {reviewStatus === "source_problem"
+                ? "Mark unreviewed"
+                : "Source problem"}{" "}
+              <kbd>S</kbd>
             </button>
           </div>
           <label className={identityStyles.reviewer}>
