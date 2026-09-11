@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0063 — Current CardEventNet training campaign](2-ready/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | Move all remaining legacy CardEventNet data into shared storage, expose and complete human event-review gaps, freeze leakage-safe train/validation/test data, and create a new traceable CardEventNet model through the current campaign workflow. M0–M6 not started. |
 
 ### In Progress
 
@@ -123,34 +124,38 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Implement 0062 before another classifier comparison.** Canonicalize current event data, remove
-   the retired event taxonomy from active contracts and UI, and add `FACE_DOWN` as a positive visual
-   classification outside the legal card identities. Do not add temporal association or change
+1. **Start 0063 M0 for the new CardEventNet model.** Audit all legacy CardEventNet artifacts against
+   shared intake and maintained event references. Report missing and incomplete human review before
+   migration or split changes.
+2. **Finish 0062 before another classifier comparison.** Complete face-down visual-identity review,
+   training-data support, and the observation handoff. Do not add temporal association or change
    reconstruction behavior.
-2. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic 0057 is complete.
-3. **Reconcile 0051 M0 with the current data architecture and the completed 0062 contracts.** Read durable revisions from
+3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
+   0057 is complete.
+4. **Reconcile 0051 M0 with the current data architecture and the completed 0062 contracts.** Read
+   durable revisions from
    `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
    defaults, use explicit development and validation groups, and preflight the complete experiment
    matrix against its budget.
-4. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
+5. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
    `IMG_0091` as one visually similar development comparison group. Generate and complete
    visible-card and visual identity references for the imported, different `IMG_0661` validation
    recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group gate. Keep
    sealed holdouts intact.
-5. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
+6. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
    and classifier executor, run development before validation, and measure the frozen simple
    exclusion policies. Use the decision to specify one response in 0052 or close 0052 as not
    required.
-6. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+7. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-7. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+8. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-8. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+9. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-9. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+10. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
