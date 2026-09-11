@@ -172,16 +172,50 @@ function IdentityGeometryOverlay({
     >
       {frameItems.flatMap((candidate) =>
         geometryPolygons(candidate.outcome.geometry).map((polygon, index) => (
-          <polygon
+          <IdentityPolygon
             key={`${candidate.itemId}-${index}`}
-            points={polygon.map((point) => `${point.x},${point.y}`).join(" ")}
-            data-card-id={candidate.itemId}
-            data-current={candidate.itemId === selectedItemId}
+            candidate={candidate}
+            polygon={polygon}
+            selected={candidate.itemId === selectedItemId}
           />
         )),
       )}
     </svg>
   );
+}
+
+function IdentityPolygon({
+  candidate,
+  polygon,
+  selected,
+}: {
+  candidate: EditableIdentity;
+  polygon: GeometryPoint[];
+  selected: boolean;
+}) {
+  const palette = identityOverlayPalette(identityReviewStatus(candidate));
+  return (
+    <polygon
+      points={polygon.map((point) => `${point.x},${point.y}`).join(" ")}
+      data-card-id={candidate.itemId}
+      data-current={selected}
+      data-review-state={identityReviewStatus(candidate)}
+      fill={palette.fill}
+      stroke={selected ? "#ffd24f" : palette.stroke}
+    />
+  );
+}
+
+function identityOverlayPalette(
+  reviewStatus: ReturnType<typeof identityReviewStatus>,
+): { fill: string; stroke: string } {
+  if (reviewStatus === "accepted") {
+    return { fill: "rgba(85, 213, 137, 0.2)", stroke: "#55d589" };
+  }
+  if (reviewStatus === "unusable") {
+    return { fill: "rgba(255, 125, 114, 0.16)", stroke: "#ff7d72" };
+  }
+  return { fill: "rgba(196, 154, 239, 0.2)", stroke: "#c49aef" };
 }
 
 type GeometryPoint = { x: number; y: number };

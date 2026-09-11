@@ -244,6 +244,59 @@ describe("PipelineVisualIdentityEditor", () => {
     window.removeEventListener("popstate", popstate);
   });
 
+  it("colors identity polygons by review state", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          jsonResponse(
+            reference("pending", [
+              { cardId: "accepted-card", reviewState: "accepted" },
+              {
+                cardId: "unusable-card",
+                reviewState: "identity_unusable",
+              },
+            ]),
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={null}
+        view="reviewed"
+      />,
+    );
+
+    const overlay = await screen.findByLabelText("Visible card geometry");
+    expect(overlay.querySelector('[data-card-id="card-1"]')).toMatchObject({
+      attributes: expect.objectContaining({
+        fill: expect.objectContaining({ value: "rgba(196, 154, 239, 0.2)" }),
+        stroke: expect.objectContaining({ value: "#ffd24f" }),
+      }),
+    });
+    expect(
+      overlay.querySelector('[data-card-id="accepted-card"]'),
+    ).toMatchObject({
+      attributes: expect.objectContaining({
+        fill: expect.objectContaining({ value: "rgba(85, 213, 137, 0.2)" }),
+        stroke: expect.objectContaining({ value: "#55d589" }),
+      }),
+    });
+    expect(
+      overlay.querySelector('[data-card-id="unusable-card"]'),
+    ).toMatchObject({
+      attributes: expect.objectContaining({
+        fill: expect.objectContaining({ value: "rgba(255, 125, 114, 0.16)" }),
+        stroke: expect.objectContaining({ value: "#ff7d72" }),
+      }),
+    });
+  });
+
   it("keeps generated identities visible while a new review has no reference", async () => {
     vi.stubGlobal(
       "fetch",
