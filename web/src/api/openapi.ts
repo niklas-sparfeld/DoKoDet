@@ -1183,7 +1183,7 @@ export interface components {
              * @default classified
              * @enum {string}
              */
-            identity_status: "classified" | "unusable" | "failed";
+            identity_status: "classified" | "face_down" | "unusable" | "failed";
             /** Newly Visible Score */
             newly_visible_score?: number | null;
             /** Observed Card Id */

@@ -92,7 +92,7 @@ def _write_source_and_results(root: Path, *, malformed: bool = False) -> tuple[P
             {
                 "package_id": package_id,
                 "relative_path": package_id,
-                "event_type": "card_played",
+                "event_type": "card_state_changed",
                 "evidence_complete": True,
                 "session_id": f"session-{group}",
                 "source_lineage_group": group,
@@ -128,7 +128,7 @@ def _write_source_and_results(root: Path, *, malformed: bool = False) -> tuple[P
             {
                 "package_id": bad_id,
                 "relative_path": bad_id,
-                "event_type": "card_played",
+                "event_type": "card_state_changed",
                 "evidence_complete": True,
                 "source_lineage_group": "group-a",
             }
@@ -138,7 +138,7 @@ def _write_source_and_results(root: Path, *, malformed: bool = False) -> tuple[P
         json.dumps(
             {
                 "schema_version": "annotation-evidence-extraction/v1",
-                "event_types": ["card_played"],
+                "event_types": ["card_state_changed"],
                 "packages": packages,
             }
         ),

@@ -4,7 +4,8 @@
 
 - **Summary:** Remove the retired event taxonomy from active data and UI, and make `FACE_DOWN` a
   first-class visual classification without adding it to the Doppelkopf card identities.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** 0061 complete
 - **Readiness:** The remaining legacy data, UI controls, classifier vocabulary, and review paths are
   identified. The change uses the existing event and visual-identity processors.
@@ -28,7 +29,7 @@
 - **M3:** Complete — visual-identity review, coverage, immutable reference repair, dataset targets,
   and local classifier contracts now distinguish `FACE_DOWN` from unusable evidence and source
   problems.
-- **M4:** Not started — publish the face-down result through observation assembly and freeze the
+- **M4:** Complete — publish the face-down result through observation assembly and freeze the
   reconstruction handoff.
 
 ## 1. Problem
@@ -311,6 +312,31 @@ Acceptance:
 - the game-engine parser accepts the result and existing reconstruction results do not change;
 - no retired event type appears in active processor or UI fixtures; and
 - analyzer, backend, web, game-engine contract, and integration tests pass.
+
+#### M4 implementation evidence — 2026-09-11
+
+Observation assembly now maps a `face_down` visual identity outcome to a retained observed card
+with `side=face_down`, `identity_status=face_down`, and no identity candidates. It preserves the
+full visual-identity outcome in assembly diagnostics and records the selected identity revision
+beside the three source input revisions. The direct visible-card adapter applies the same boundary
+for classifier `FACE_DOWN` results and retains the detector side in diagnostics.
+
+The table-observation and mirrored game-engine contracts accept the new status. The
+`face-down-boundary.json` fixture carries one canonical `card_state_changed` event, one retained
+face-down card, the exact visual-identity result, and its source lineage through the parser. Active
+dataset fixtures and generated OpenAPI types no longer use retired event values or the old
+face-down `unusable` status.
+
+Focused and package checks passed:
+
+- TableEvidenceAnalyzer: 152 passed, 2 skipped; changed-file Ruff and format checks;
+- backend: 76 passed and Ruff lint;
+- game engine: 76 passed and Ruff lint plus format checks; and
+- web: typecheck, lint, formatting, generated-client verification, and 144 tests.
+
+The full-package Ruff format checks still report pre-existing formatting drift in unrelated files;
+the changed analyzer files pass both Ruff checks. Reconstruction code and result fixtures are
+unchanged.
 
 ## 5. Verification
 

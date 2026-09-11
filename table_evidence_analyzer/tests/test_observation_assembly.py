@@ -62,13 +62,13 @@ def _inputs() -> tuple[object, VisibleCardData, VisualIdentityData]:
         events=(
             SimpleNamespace(
                 event_id="event-01",
-                event_type="card_played",
+                event_type="card_state_changed",
                 start_us=1_000_000,
                 end_us=1_100_000,
             ),
             SimpleNamespace(
                 event_id="event-02",
-                event_type="card_played",
+                event_type="card_state_changed",
                 start_us=2_000_000,
                 end_us=2_100_000,
             ),
@@ -156,7 +156,7 @@ def test_assembler_preserves_order_lineage_and_detected_empty_evidence() -> None
     assert parsed == result
 
 
-def test_assembler_retains_classified_unusable_and_failed_proposals() -> None:
+def test_assembler_retains_classified_face_down_and_failed_proposals() -> None:
     events, visible, identities = _inputs()
     visible = VisibleCardData(
         outcomes=(
@@ -216,24 +216,24 @@ def test_assembler_retains_classified_unusable_and_failed_proposals() -> None:
     cards = result.observations[0].cards
     assert [card.observed_card_id for card in cards] == ["card-01", "card-02", "card-03"]
     assert [card.side for card in cards] == ["face_up", "face_down", "unknown"]
-    assert [card.identity_status for card in cards] == ["classified", "unusable", "failed"]
+    assert [card.identity_status for card in cards] == ["classified", "face_down", "failed"]
     assert cards[1].identity_candidates == []
     assert cards[2].identity_candidates == []
     assert result.observations[0].status == "observed"
     assert result.observations[0].diagnostics["assembly"]["retained_card_count"] == 3
-    assert result.observations[0].diagnostics["assembly"]["identity_details"]["card-02"] == {
-        "side": "face_down",
-        "status": "unusable",
-        "unusable_reason": "UNKNOWN",
-    }
-    assert result.observations[0].diagnostics["assembly"]["identity_details"]["card-03"] == {
-        "side": "unknown",
-        "status": "failed",
-        "error": "timeout",
-    }
+    card_02_detail = result.observations[0].diagnostics["assembly"]["identity_details"]["card-02"]
+    assert card_02_detail["side"] == "face_down"
+    assert card_02_detail["status"] == "face_down"
+    assert card_02_detail["unusable_reason"] == "UNKNOWN"
+    assert card_02_detail["visual_identity_outcome"]["status"] == "unusable"
+    card_03_detail = result.observations[0].diagnostics["assembly"]["identity_details"]["card-03"]
+    assert card_03_detail["side"] == "unknown"
+    assert card_03_detail["status"] == "failed"
+    assert card_03_detail["error"] == "timeout"
+    assert card_03_detail["visual_identity_outcome"]["status"] == "failed"
 
 
-def test_face_down_side_forces_unusable_identity_at_assembly_boundary() -> None:
+def test_face_down_side_forces_face_down_identity_at_assembly_boundary() -> None:
     events, visible, identities = _inputs()
     visible = VisibleCardData(
         outcomes=(
@@ -257,8 +257,64 @@ def test_face_down_side_forces_unusable_identity_at_assembly_boundary() -> None:
 
     card = result.observations[0].cards[0]
     assert card.side == "face_down"
-    assert card.identity_status == "unusable"
+    assert card.identity_status == "face_down"
     assert card.identity_candidates == []
+
+
+def test_face_down_identity_fixture_crosses_observation_and_lineage_boundary() -> None:
+    events, visible, identities = _inputs()
+    events = SimpleNamespace(events=(events.events[0],))
+    visible = VisibleCardData(
+        outcomes=(
+            replace(
+                visible.outcomes[0],
+                candidates=(replace(visible.outcomes[0].candidates[0], side="unknown"),),
+            ),
+        )
+    )
+    identities = VisualIdentityData(
+        outcomes=(
+            replace(
+                identities.outcomes[0],
+                status="face_down",
+                candidates=(),
+                unusable_reason=None,
+            ),
+        )
+    )
+
+    result = assemble_table_observations(
+        events,
+        visible,
+        identities,
+        recording_id="recording-face-down-fixture",
+        video_sha256=DIGEST,
+        assembly_run_id="assembly-face-down-fixture",
+        event_revision_id="events-canonical-fixture",
+        visible_card_revision_id="visible-fixture",
+        visual_identity_revision_id="identity-face-down-fixture",
+    )
+
+    observation = result.observations[0]
+    card = observation.cards[0]
+    assert observation.diagnostics["assembly"]["event_type"] == "card_state_changed"
+    assert card.side == "face_down"
+    assert card.identity_status == "face_down"
+    assert card.identity_candidates == []
+    assert observation.source.input_revision_ids == [
+        "events-canonical-fixture",
+        "visible-fixture",
+        "identity-face-down-fixture",
+    ]
+    assert (
+        observation.diagnostics["assembly"]["identity_details"]["card-01"][
+            "visual_identity_outcome"
+        ]
+        == identities.outcomes[0].to_mapping()
+    )
+    assert (
+        parse_table_observation_data_bytes(canonical_table_observation_data_bytes(result)) == result
+    )
 
 
 @pytest.mark.parametrize(

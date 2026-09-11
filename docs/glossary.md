@@ -236,8 +236,9 @@ An identity-unusable crop can still be a valid visible-card detection target.
 
 The result of applying one visual identity processor to one visible-card proposal. A classified
 outcome contains identity candidates. An unusable outcome means that the supplied visual evidence
-cannot support an identity. A failed outcome means that processing did not complete. An unusable or
-failed visual identity outcome does not remove the visible-card proposal.
+cannot support an identity. A face-down outcome means that the card back is positively classified
+and contains no identity candidates. A failed outcome means that processing did not complete. A
+face-down, unusable, or failed visual identity outcome does not remove the visible-card proposal.
 
 ### Crop policy
 

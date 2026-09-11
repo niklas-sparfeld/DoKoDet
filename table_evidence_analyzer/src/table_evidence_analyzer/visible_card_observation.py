@@ -382,6 +382,9 @@ def adapt_visible_card_result(
                 identity_inference_latency_ms += classification.latency_ms
                 if classification.status == "unavailable":
                     reason = classification.error or "identity classifier was unavailable"
+                elif classification.classification == "face_down":
+                    identity_status = "face_down"
+                    reason = None
                 elif not classification.candidates:
                     identity_status = "unusable"
                     reason = "identity classifier could not identify the crop"
@@ -391,7 +394,12 @@ def adapt_visible_card_result(
             cards.append(
                 ObservedCard(
                     observed_card_id=card_id,
-                    side=proposal.side,
+                    side=(
+                        "face_down"
+                        if classification is not None
+                        and classification.classification == "face_down"
+                        else proposal.side
+                    ),
                     identity_status=identity_status,
                     identity_candidates=list(candidates),
                 )
@@ -400,12 +408,18 @@ def adapt_visible_card_result(
                 detail = {
                     "proposal_index": proposal_index,
                     "observed_card_id": card_id,
-                    "side": proposal.side,
+                    "side": (
+                        "face_down"
+                        if classification.classification == "face_down"
+                        else proposal.side
+                    ),
+                    "source_side": proposal.side,
                     "crop_bounds": bounds.to_mapping(),
                     "crop_sha256": _sha256(crop_bytes),
                     "identity_status": identity_status,
                     "classifier": {
                         "status": classification.status,
+                        "classification": classification.classification,
                         "input_tokens": classification.usage.input_tokens,
                         "output_tokens": classification.usage.output_tokens,
                         "total_tokens": classification.usage.total_tokens,

@@ -10,7 +10,8 @@ Run the commands below from `game_engine/`:
 - Tests: `tests/`.
 - Upstream boundary: consume ordered `table-observation/v1` values with the declared round setup.
 - Observed-card input: retain `side` (`face_up`, `face_down`, or `unknown`) and identity status;
-  reconstruction does not use side to make a gameplay decision yet.
+  `face_down` cards have no identity candidates. Reconstruction does not use side or face-down
+  status to make a gameplay decision yet.
 - Downstream boundary: emit retained reconstruction hypotheses and replay results for backend,
   operations, and web consumers.
 - Local checks:

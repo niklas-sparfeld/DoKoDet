@@ -488,9 +488,9 @@ def _package_candidate(
         if package.get("schema_version") != "cardevent-evidence/v2":
             raise VisibleCardDatasetError("unsupported evidence package schema")
         package_id = _identifier(row.get("package_id"), "package_id")
-        event_type = _first_text(row.get("event_type"), default="card_played")
-        if event_type != "card_played":
-            raise VisibleCardDatasetError("event is not card_played")
+        event_type = _first_text(row.get("event_type"), default="card_state_changed")
+        if event_type != "card_state_changed":
+            raise VisibleCardDatasetError("event is not card_state_changed")
         if _is_system_holdout(row, package, holdout_groups):
             raise VisibleCardDatasetError("system_holdout")
         package_event = package.get("event")
@@ -554,8 +554,8 @@ def _package_candidate(
         event_id = _first_text(
             row.get("event_id"),
             row.get("annotation_event_id"),
-            f"{package_id}:card_played",
-            default=f"{package_id}:card_played",
+            f"{package_id}:card_state_changed",
+            default=f"{package_id}:card_state_changed",
         )
         result_key = (package_id, frame_part_name)
         results = result_index.get(result_key, [])

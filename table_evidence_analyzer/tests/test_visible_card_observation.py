@@ -220,7 +220,7 @@ def test_mixed_identity_outcomes_keep_every_visible_card_proposal() -> None:
                     candidates=(IdentityCandidate(card="CLUBS_NINE", probability=1.0),),
                 )
             if self.calls == 2:
-                return CardClassificationResult(status="ok", candidates=())
+                return CardClassificationResult(status="ok", classification="face_down")
             return CardClassificationResult(status="unavailable", error="fixture timeout")
 
     proposals = [_proposal(), _proposal(100, 100, 900, 900), _proposal(200, 200, 800, 800)]
@@ -238,10 +238,12 @@ def test_mixed_identity_outcomes_keep_every_visible_card_proposal() -> None:
 
     assert [card.identity_status for card in observation.cards] == [
         "classified",
-        "unusable",
+        "face_down",
         "failed",
     ]
-    assert [card.side for card in observation.cards] == ["face_up", "face_up", "face_up"]
+    assert [card.side for card in observation.cards] == ["face_up", "face_down", "face_up"]
+    assert observation.diagnostics["dropped_proposals"][0]["source_side"] == "face_up"
+    assert observation.diagnostics["dropped_proposals"][0]["side"] == "face_down"
     assert len(observation.cards) == 3
 
 

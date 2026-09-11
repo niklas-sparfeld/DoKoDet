@@ -44,7 +44,7 @@ Capability = Literal[
     "card_tracklets",
 ]
 CalibrationState = Literal["fixture", "uncalibrated", "calibrated"]
-IdentityStatus = Literal["classified", "unusable", "failed"]
+IdentityStatus = Literal["classified", "face_down", "unusable", "failed"]
 CardSide = Literal["face_up", "face_down", "unknown"]
 ObservationStatus = Literal["observed", "insufficient_evidence"]
 Identifier = Annotated[

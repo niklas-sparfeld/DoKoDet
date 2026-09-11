@@ -43,8 +43,24 @@ def test_mixed_card_sides_cross_the_analyzer_contract() -> None:
     assert [card.side for card in observation.cards] == ["face_up", "face_down", "unknown"]
     assert [card.identity_status for card in observation.cards] == [
         "classified",
-        "unusable",
+        "face_down",
         "failed",
+    ]
+    assert json.loads(canonical_json_bytes(observation)) == payload
+
+
+def test_face_down_assembly_fixture_crosses_the_analyzer_contract() -> None:
+    raw, payload = load_fixture("observations/face-down-boundary.json")
+
+    observation = parse_observation_bytes(raw)
+
+    assert observation.cards[0].side == "face_down"
+    assert observation.cards[0].identity_status == "face_down"
+    assert observation.cards[0].identity_candidates == []
+    assert observation.source.input_revision_ids == [
+        "events-canonical-fixture",
+        "visible-fixture",
+        "identity-face-down-fixture",
     ]
     assert json.loads(canonical_json_bytes(observation)) == payload
 

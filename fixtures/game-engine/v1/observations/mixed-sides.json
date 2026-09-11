@@ -29,7 +29,7 @@
     {
       "observed_card_id": "observation-mixed-sides-card-02",
       "side": "face_down",
-      "identity_status": "unusable",
+      "identity_status": "face_down",
       "identity_candidates": []
     },
     {

@@ -50,10 +50,12 @@ constraints. It does not consume pixels or make one recording equivalent to one 
 A reviewed visual identity is not a human assertion that a player played that card.
 
 Observation assembly copies the selected visible-card `side` into every `ObservedCard`. The value is
-`face_up`, `face_down`, or `unknown`. A known face-down card remains an anonymous observed card with
-`identity_status=unusable` and no identity candidates. The table-observation publisher and the
-mirrored game-engine parser retain this field exactly. Reconstruction does not use card side yet;
-that decision belongs to a later reconstruction epic.
+`face_up`, `face_down`, or `unknown`. A face-down visual identity outcome is published as an
+anonymous observed card with `side=face_down`, `identity_status=face_down`, and no identity
+candidates. The exact upstream outcome and the selected input revision remain in assembly
+diagnostics and source lineage. The table-observation publisher and the mirrored game-engine parser
+retain this field exactly. Reconstruction does not use card side or face-down status yet; that
+decision belongs to a later reconstruction epic.
 
 ## 3. Data, review, and reproducibility
 

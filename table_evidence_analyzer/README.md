@@ -15,8 +15,10 @@ From `table_evidence_analyzer/`:
 - Boundary: read selected evidence packages and emit table observations; game rules and
   reconstruction remain in `game_engine/` and `operations/`.
 - Observation boundary: each observed card carries the detector side (`face_up`, `face_down`, or
-  `unknown`) and its identity status. Observation assembly copies this value from the selected
-  visible-card result without making a gameplay decision.
+  `unknown`) and its identity status. A face-down visual identity outcome emits
+  `side=face_down`, `identity_status=face_down`, and no identity candidates. Assembly retains the
+  exact visual-identity result in diagnostics and keeps its input revision lineage without making a
+  gameplay decision.
 - Local checks:
 
   ```bash
