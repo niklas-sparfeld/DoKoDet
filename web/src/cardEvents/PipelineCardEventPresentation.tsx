@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 
-import type { EditableEvent, PipelineEvent } from "./PipelineCardEventTypes";
+import type { EventState, PipelineEvent } from "./PipelineCardEventTypes";
 import { CardEventFrameSurface } from "./CardEventFrameSurface";
 import {
   formatDuration,
@@ -155,135 +155,147 @@ export function GeneratedEventView({
   );
 }
 
-export function EventDetails({
-  event,
-  durationUs,
-  editable,
-  onChange,
-  onAccept,
-  onReject,
-  onUndo,
+export function CardEventReviewControls({
+  hasPrevious,
+  hasNext,
+  selectedState,
+  onPrevious,
+  onNext,
+  onSeek,
   onNudge,
+  onAccept,
+  onDismiss,
+  onAddEvent,
 }: {
-  event: EditableEvent;
-  durationUs: number;
-  editable: boolean;
-  onChange: (changes: Partial<PipelineEvent>) => void;
-  onAccept: () => void;
-  onReject: () => void;
-  onUndo: () => void;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  selectedState: EventState | null;
+  onPrevious: () => void;
+  onNext: () => void;
+  onSeek: (deltaUs: number) => void;
   onNudge: (delta: -1 | 1) => void;
+  onAccept: () => void;
+  onDismiss: () => void;
+  onAddEvent: () => void;
 }) {
-  const duration = Math.max(0, durationUs) / 1_000_000;
-  const updateNumber = (field: "start_us" | "end_us", value: string) => {
-    const seconds = Number(value);
-    if (Number.isFinite(seconds))
-      onChange({ [field]: Math.round(seconds * 1_000_000) });
-  };
+  const canDecide = selectedState === "pending" || selectedState === "affected";
+  const canNudge = selectedState !== null;
+  const dismissLabel =
+    selectedState === "rejected" ? "Undo dismiss" : "Dismiss";
   return (
-    <section
-      className={eventStyles.formPanel}
-      aria-label="Selected event details"
+    <aside
+      className={eventStyles.controlSidebar}
+      aria-label="CardEvent review controls"
     >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.statusLabel}>Selected event</p>
-          <h3>Event details</h3>
-        </div>
-        <ReviewStateBadge value={event.reviewState} />
+      <p className={styles.statusLabel}>Review controls</p>
+      <div className={eventStyles.controlGroup}>
+        <ControlButton
+          label="Previous"
+          shortcut="Alt+Left"
+          ariaShortcut="Alt+ArrowLeft"
+          disabled={!hasPrevious}
+          disabledReason="There is no previous event."
+          onClick={onPrevious}
+        />
+        <ControlButton
+          label="Next"
+          shortcut="Alt+Right"
+          ariaShortcut="Alt+ArrowRight"
+          disabled={!hasNext}
+          disabledReason="There is no next event."
+          onClick={onNext}
+        />
       </div>
-      <div className={eventStyles.formGrid}>
-        <label>
-          Start time (seconds)
-          <input
-            type="number"
-            min="0"
-            max={duration}
-            step="0.000001"
-            value={event.event.start_us / 1_000_000}
-            disabled={!editable}
-            onChange={(input) => updateNumber("start_us", input.target.value)}
-            aria-label="Start time for selected event"
-          />
-        </label>
-        <label>
-          End time (seconds)
-          <input
-            type="number"
-            min="0"
-            max={duration}
-            step="0.000001"
-            value={event.event.end_us / 1_000_000}
-            disabled={!editable}
-            onChange={(input) => updateNumber("end_us", input.target.value)}
-            aria-label="End time for selected event"
-          />
-        </label>
-        <div className={eventStyles.frameReadout}>
-          <span>Event</span>
-          <strong>Card-state change</strong>
-        </div>
-        <div className={eventStyles.frameReadout}>
-          <span>Start frame</span>
-          <strong>{Math.round((event.event.start_us / 1_000_000) * 30)}</strong>
-        </div>
-      </div>
-      <div
-        className={eventStyles.videoActions}
-        aria-label="Selected event actions"
-      >
-        {event.reviewState === "pending" || event.reviewState === "affected" ? (
-          <>
-            <button
-              className={`${styles.primaryButton} ${eventStyles.videoActionButton}`}
-              type="button"
-              onClick={onAccept}
-            >
-              Accept suggestion
-            </button>
-            <button
-              className={`${styles.secondaryButton} ${eventStyles.videoActionButton}`}
-              type="button"
-              onClick={onReject}
-            >
-              Reject suggestion
-            </button>
-          </>
-        ) : event.reviewState === "rejected" ? (
-          <button
-            className={`${styles.secondaryButton} ${eventStyles.videoActionButton}`}
-            type="button"
-            onClick={onUndo}
-          >
-            Undo rejection
-          </button>
-        ) : (
-          <button
-            className={`${styles.secondaryButton} ${eventStyles.videoActionButton}`}
-            type="button"
-            onClick={onReject}
-          >
-            Remove event
-          </button>
-        )}
-        <button
-          className={`${styles.secondaryButton} ${eventStyles.videoActionButton}`}
-          type="button"
+      <div className={eventStyles.controlGroup}>
+        <ControlButton
+          label="Seek earlier"
+          shortcut="Left"
+          ariaShortcut="ArrowLeft"
+          onClick={() => onSeek(-250_000)}
+        />
+        <ControlButton
+          label="Seek later"
+          shortcut="Right"
+          ariaShortcut="ArrowRight"
+          onClick={() => onSeek(250_000)}
+        />
+        <ControlButton
+          label="Nudge earlier"
+          shortcut=","
+          ariaShortcut=","
+          disabled={!canNudge}
+          disabledReason="Select an event before nudging its time."
           onClick={() => onNudge(-1)}
-          disabled={!editable}
-        >
-          Nudge -1 frame
-        </button>
-        <button
-          className={`${styles.secondaryButton} ${eventStyles.videoActionButton}`}
-          type="button"
+        />
+        <ControlButton
+          label="Nudge later"
+          shortcut="."
+          ariaShortcut="."
+          disabled={!canNudge}
+          disabledReason="Select an event before nudging its time."
           onClick={() => onNudge(1)}
-          disabled={!editable}
-        >
-          Nudge +1 frame
-        </button>
+        />
       </div>
-    </section>
+      <div className={eventStyles.controlGroup}>
+        <ControlButton
+          label="Accept"
+          shortcut="A"
+          ariaShortcut="A"
+          variant="primary"
+          disabled={!canDecide}
+          disabledReason="Accept is available for pending events."
+          onClick={onAccept}
+        />
+        <ControlButton
+          label={dismissLabel}
+          shortcut="D"
+          ariaShortcut="D"
+          disabled={selectedState === null}
+          disabledReason="Select an event before dismissing it."
+          onClick={onDismiss}
+        />
+        <ControlButton
+          label="Add event"
+          shortcut="N"
+          ariaShortcut="N"
+          variant="primary"
+          onClick={onAddEvent}
+        />
+      </div>
+    </aside>
+  );
+}
+
+function ControlButton({
+  label,
+  shortcut,
+  ariaShortcut,
+  variant = "secondary",
+  disabled = false,
+  disabledReason,
+  onClick,
+}: {
+  label: string;
+  shortcut: string;
+  ariaShortcut: string;
+  variant?: "primary" | "secondary";
+  disabled?: boolean;
+  disabledReason?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`${variant === "primary" ? styles.primaryButton : styles.secondaryButton} ${eventStyles.controlButton}`}
+      type="button"
+      aria-label={`${label} ${shortcut}`}
+      aria-keyshortcuts={ariaShortcut}
+      disabled={disabled}
+      title={disabled ? disabledReason : undefined}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <kbd className={eventStyles.shortcutPill}>{shortcut}</kbd>
+    </button>
   );
 }
 

@@ -858,7 +858,9 @@ describe("recording pipeline workspace", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "CardEvent review" });
+    await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
     const item = await screen.findByRole("button", {
       name: "Card-state change, 0:01–0:02, pending",
     });

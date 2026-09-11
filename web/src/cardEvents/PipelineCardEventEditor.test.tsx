@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -94,7 +100,7 @@ describe("PipelineCardEventEditor", () => {
     window.history.replaceState({}, "", "/");
   });
 
-  it("adds, corrects, accepts, rejects, and nudges events with integer microseconds", async () => {
+  it("adds, accepts, dismisses, and nudges events with integer microseconds", async () => {
     let server = referenceResponse([eventItem()]);
     const savedBodies: Array<Record<string, unknown>> = [];
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
@@ -137,44 +143,40 @@ describe("PipelineCardEventEditor", () => {
     });
 
     const rendered = renderReviewed(fetchMock);
-    await screen.findByRole("heading", { name: "CardEvent review" });
+    const controls = await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
 
-    fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
+    fireEvent.click(within(controls).getByRole("button", { name: "Accept A" }));
     await waitFor(() => expect(savedBodies).toHaveLength(1));
     expect(savedBodies[0]?.operations).toEqual([
       { operation: "accept", item_id: "event-1" },
     ]);
 
-    const startInput = screen.getByRole("spinbutton", {
-      name: "Start time for selected event",
-    });
-    fireEvent.change(startInput, { target: { value: "1.1" } });
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Nudge later ." }),
+    );
     await waitFor(() => expect(savedBodies).toHaveLength(2));
     expect(savedBodies[1]?.operations).toEqual([
       {
         operation: "correct",
         item_id: "event-1",
-        item: expect.objectContaining({ start_us: 1_100_000 }),
-      },
-    ]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Nudge +1 frame" }));
-    await waitFor(() => expect(savedBodies).toHaveLength(3));
-    expect(savedBodies[2]?.operations).toEqual([
-      {
-        operation: "correct",
-        item_id: "event-1",
         item: expect.objectContaining({
-          start_us: 1_133_333,
+          start_us: 1_033_333,
           end_us: 1_233_333,
         }),
       },
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove event" }));
-    await waitFor(() => expect(savedBodies).toHaveLength(4));
-    expect(savedBodies[3]?.operations).toEqual([
-      { operation: "reject", item_id: "event-1" },
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Dismiss D" }),
+    );
+    await waitFor(() => expect(savedBodies).toHaveLength(3));
+    expect(savedBodies[2]?.operations).toEqual([
+      {
+        operation: "reject",
+        item_id: "event-1",
+      },
     ]);
 
     rendered.rerender(
@@ -195,9 +197,9 @@ describe("PipelineCardEventEditor", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Add event at playhead" }),
     );
-    await waitFor(() => expect(savedBodies).toHaveLength(5));
+    await waitFor(() => expect(savedBodies).toHaveLength(4));
     const addOperation = (
-      savedBodies[4]?.operations as Array<Record<string, unknown>> | undefined
+      savedBodies[3]?.operations as Array<Record<string, unknown>> | undefined
     )?.[0];
     if (addOperation === undefined)
       throw new Error("add operation was not saved");
@@ -208,7 +210,7 @@ describe("PipelineCardEventEditor", () => {
     expect(
       Number.isInteger((addOperation.item as Record<string, unknown>).start_us),
     ).toBe(true);
-    expect(putCalls(fetchMock)).toHaveLength(5);
+    expect(putCalls(fetchMock)).toHaveLength(4);
   });
 
   it("retries a transient save with the same command and resumes after a revision conflict", async () => {
@@ -230,8 +232,10 @@ describe("PipelineCardEventEditor", () => {
     });
 
     renderReviewed(fetchMock, 5_000_000, 1_000_000);
-    await screen.findByRole("heading", { name: "CardEvent review" });
-    fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
+    const controls = await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
+    fireEvent.click(within(controls).getByRole("button", { name: "Accept A" }));
 
     await screen.findByRole("button", {
       name: "Reload winning draft and retry",
@@ -398,7 +402,6 @@ describe("PipelineCardEventEditor", () => {
     );
 
     renderReviewed(fetchMock, 5_000_000, 1_000_000);
-    await screen.findByRole("heading", { name: "CardEvent review" });
 
     expect(
       await screen.findByRole("img", {
@@ -411,6 +414,89 @@ describe("PipelineCardEventEditor", () => {
     expect(
       screen.queryByText("Select an event from the timeline or table."),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders reviewed actions in a compact control rail", async () => {
+    const server = referenceResponse([
+      eventItem(),
+      eventItem({
+        item_id: "event-2",
+        base_item_id: "event-2",
+        item: {
+          event_id: "event-2",
+          event_type: "card_state_changed",
+          start_us: 3_000_000,
+          end_us: 3_200_000,
+          model_scores: [],
+        },
+      }),
+    ]);
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(response(server)),
+    );
+
+    renderReviewed(fetchMock, 5_000_000, 1_000_000);
+    await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("region", { name: "CardEvent exact source frame" }),
+      ).toHaveAttribute("data-requested-time-us", "1000000"),
+    );
+
+    const controls = screen.getByRole("complementary", {
+      name: "CardEvent review controls",
+    });
+    for (const shortcut of [
+      ["Previous", "Alt+Left"],
+      ["Next", "Alt+Right"],
+      ["Seek earlier", "Left"],
+      ["Seek later", "Right"],
+      ["Nudge earlier", ","],
+      ["Nudge later", "."],
+      ["Accept", "A"],
+      ["Dismiss", "D"],
+      ["Add event", "N"],
+    ]) {
+      expect(
+        within(controls).getByRole("button", {
+          name: `${shortcut[0]} ${shortcut[1]}`,
+        }),
+      ).toBeInTheDocument();
+    }
+    expect(
+      within(controls).getByRole("button", { name: "Previous Alt+Left" }),
+    ).toBeDisabled();
+    expect(
+      within(controls).getByRole("button", { name: "Nudge earlier ," }),
+    ).not.toBeDisabled();
+    expect(
+      screen.queryByRole("region", { name: "Selected event details" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Keyboard shortcuts")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Review whether a persistent card-related table-state change is visible and set its time to the first clear frame.",
+      ),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Next Alt+Right" }),
+    );
+    expect(window.location.search).toContain("item=event-2");
+    expect(window.location.search).toContain("t_us=3000000");
+
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Seek earlier Left" }),
+    );
+    expect(window.location.search).toContain("t_us=2750000");
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(window.location.search).toContain("t_us=3000000");
+    fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true });
+    expect(window.location.search).toContain("item=event-1");
+    expect(window.location.search).toContain("t_us=1000000");
   });
 
   it("requires complete coverage before publishing and sends full-recording microseconds", async () => {
@@ -443,7 +529,9 @@ describe("PipelineCardEventEditor", () => {
     });
 
     const rendered = renderReviewed(fetchMock, 3_000_000);
-    await screen.findByRole("heading", { name: "CardEvent review" });
+    await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
     const completeButton = screen.getByRole("button", {
       name: "Complete reference",
     });

@@ -1,9 +1,74 @@
 .pipelineEditor {
   display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.reviewWorkbench {
+  display: grid;
+  grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
+  align-items: start;
   gap: 1rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
+  min-width: 0;
+}
+
+.controlSidebar {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.15rem 0.25rem 0.15rem 0;
+}
+
+.controlSidebar > .statusLabel {
+  margin: 0 0 0.15rem;
+}
+
+.controlGroup {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.controlGroup + .controlGroup {
+  padding-top: 0.35rem;
   border-top: 1px solid var(--line);
+}
+
+.controlButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.controlButton > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.shortcutPill {
+  display: inline-flex;
+  min-width: 1.25rem;
+  min-height: 1.15rem;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0.12rem 0.3rem;
+  border: 1px solid currentColor;
+  border-radius: 0.3rem;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.controlButton:disabled .shortcutPill {
+  border-color: var(--line);
+  color: var(--muted-ink);
 }
 
 .sourceSurface,
@@ -96,18 +161,11 @@
   accent-color: var(--accent);
 }
 
-.reviewHeader,
-.pipelineVideoGrid,
 .coverage {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.pipelineVideoGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(18rem, 1fr);
 }
 
 .sourceVideo {
@@ -152,8 +210,7 @@
   font-size: 1.1rem;
 }
 
-.reviewPanel,
-.formPanel {
+.reviewPanel {
   display: grid;
   gap: 0.8rem;
   margin-top: 1.1rem;
@@ -161,111 +218,6 @@
   border: 1px solid var(--line);
   border-radius: 0.65rem;
   background: color-mix(in srgb, var(--surface) 45%, var(--panel));
-}
-
-.formPanel {
-  align-self: start;
-  margin-top: 0;
-}
-
-.formPanel h3 {
-  margin: 0.3rem 0 0;
-  color: var(--ink);
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.formGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.9rem;
-}
-
-.formGrid label {
-  display: grid;
-  gap: 0.35rem;
-  color: var(--muted-ink);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.formGrid input,
-.formGrid select {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 2.35rem;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid var(--line);
-  border-radius: 0.35rem;
-  background: var(--panel);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.78rem;
-}
-
-.frameReadout {
-  display: grid;
-  align-content: end;
-  gap: 0.35rem;
-  padding-bottom: 0.25rem;
-  color: var(--muted-ink);
-  font-size: 0.72rem;
-}
-
-.frameReadout strong {
-  color: var(--ink);
-  font-size: 0.9rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.videoActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.videoActionButton {
-  min-height: 2rem;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.68rem;
-}
-
-.guidance {
-  display: grid;
-  gap: 0.7rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
-}
-
-.guidance details {
-  color: var(--muted-ink);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
-.guidance summary {
-  color: var(--accent);
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.guidance p {
-  max-width: 52rem;
-  margin: 0.65rem 0 0;
-}
-
-.guidance ul {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0.65rem 0 0;
-  padding-left: 1.1rem;
-}
-
-.guidance strong {
-  color: var(--ink);
 }
 
 .error {
@@ -291,24 +243,43 @@
 }
 
 @media (max-width: 800px) {
-  .pipelineVideoGrid,
+  .reviewWorkbench {
+    grid-template-columns: 1fr;
+  }
+
+  .controlSidebar {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 0;
+  }
+
+  .controlSidebar > .statusLabel,
+  .controlGroup {
+    grid-column: 1 / -1;
+  }
+
+  .controlGroup {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reviewWorkbench > .sourceSurface {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
   .generatedSurface {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 600px) {
-  .reviewHeader,
   .coverage {
     align-items: start;
     flex-direction: column;
   }
 
-  .reviewCount {
-    text-align: left;
-  }
-
-  .formGrid {
+  .controlSidebar {
     grid-template-columns: 1fr;
   }
 }

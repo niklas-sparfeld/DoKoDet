@@ -18,7 +18,7 @@
 
 - **M0:** Complete — the reviewed editor uses the recording-owned exact source-frame surface with
   selection, playhead, retained-frame, unavailable, and request-failure states.
-- **M1:** Not started — move frequent CardEvent controls to the left sidebar and remove repeated
+- **M1:** Complete — move frequent CardEvent controls to the left sidebar and remove repeated
   central UI.
 - **M2:** Not started — prove the simplified editor at desktop and narrow sizes with keyboard and
   accessibility coverage.
@@ -146,6 +146,22 @@ Acceptance:
 - Verification passed: `mise exec -- npm run typecheck`, `mise exec -- npm run lint`,
   `mise exec -- npm run format`, `mise exec -- npm test`, `mise exec -- npm run verify:api`, and
   `mise exec -- npm run build` from `web`.
+
+#### M1 implementation evidence — 2026-09-11
+
+- Added a compact reviewed-mode control sidebar for previous/next event navigation, 250 ms seek,
+  one-frame nudge, accept, dismiss, and add-event actions. Each button has a visible shortcut
+  pill and an accessible action-plus-shortcut name.
+- Reused the existing selection, seek, nudge, decision, add, optimistic-update, and ordered-save
+  handlers. Previous and next retain their Alt+Left and Alt+Right marker navigation; plain Left
+  and Right seek the playhead by 250 ms.
+- Removed the central selected-event form, count header, keyboard-help disclosure, and review
+  instruction. The existing workspace inspector still owns counts, selection, progress, save
+  state, completion, and metadata.
+- Added responsive ordering so the exact frame precedes the controls at narrow widths. Disabled
+  controls keep an accessible reason, and disabled shortcut pills do not look actionable.
+- Verification passed: `mise exec -- npm run lint`, `mise exec -- npm run format`,
+  `mise exec -- npm test`, and `mise exec -- npm run build` from `web`.
 
 ### M1 — Create the compact control sidebar
 

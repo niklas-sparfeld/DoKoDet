@@ -18,10 +18,9 @@ import {
   useProfileName,
 } from "../profile/profile";
 import {
-  EventDetails,
+  CardEventReviewControls,
   EventSourceSurface,
   GeneratedEventView,
-  ReviewCount,
 } from "./PipelineCardEventPresentation";
 import {
   EventInspectorPortals,
@@ -527,6 +526,26 @@ export function PipelineCardEventEditor({
   );
 
   const selectedEvent = events.find((event) => event.localId === selectedId);
+  const seekBy = useCallback(
+    (deltaUs: number) => setCurrentTime(playheadUsRef.current + deltaUs),
+    [setCurrentTime],
+  );
+  const selectAdjacent = useCallback(
+    (direction: -1 | 1) => {
+      const sorted = eventsRef.current;
+      const currentUs = playheadUsRef.current;
+      const next =
+        direction < 0
+          ? [...sorted]
+              .reverse()
+              .find((candidate) => candidate.event.start_us < currentUs - 1_000)
+          : sorted.find(
+              (candidate) => candidate.event.start_us > currentUs + 1_000,
+            );
+      if (next !== undefined) selectEvent(next);
+    },
+    [selectEvent],
+  );
   const nudgeSelected = useCallback(
     (delta: -1 | 1) => {
       if (selectedEvent === undefined) return;
@@ -561,6 +580,12 @@ export function PipelineCardEventEditor({
     if (selectedEvent?.reviewState === "rejected")
       decideEvent(selectedEvent, "accept");
   }, [decideEvent, selectedEvent]);
+
+  const dismissSelected = useCallback(() => {
+    if (selectedEvent === undefined) return;
+    if (selectedEvent.reviewState === "rejected") undoRemoval();
+    else removeSelected();
+  }, [removeSelected, selectedEvent, undoRemoval]);
 
   const reloadWinningDraft = useCallback(async () => {
     try {
@@ -706,19 +731,13 @@ export function PipelineCardEventEditor({
         (event.key === "ArrowLeft" || event.key === "ArrowRight")
       ) {
         event.preventDefault();
-        const sorted = eventsRef.current;
-        const currentUs = playheadUsRef.current;
-        const next =
-          event.key === "ArrowLeft"
-            ? [...sorted]
-                .reverse()
-                .find(
-                  (candidate) => candidate.event.start_us < currentUs - 1_000,
-                )
-            : sorted.find(
-                (candidate) => candidate.event.start_us > currentUs + 1_000,
-              );
-        if (next !== undefined) selectEvent(next);
+        selectAdjacent(event.key === "ArrowLeft" ? -1 : 1);
+      } else if (
+        !event.altKey &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        seekBy(event.key === "ArrowLeft" ? -250_000 : 250_000);
       } else if (event.key === "n" || event.key === "N") {
         event.preventDefault();
         addEvent();
@@ -730,12 +749,14 @@ export function PipelineCardEventEditor({
         nudgeSelected(event.key === "," ? -1 : 1);
       } else if (event.key === "a" || event.key === "A") {
         event.preventDefault();
-        if (selectedEvent?.reviewState === "pending")
+        if (
+          selectedEvent?.reviewState === "pending" ||
+          selectedEvent?.reviewState === "affected"
+        )
           decideEvent(selectedEvent, "accept");
       } else if (event.key === "d" || event.key === "D") {
         event.preventDefault();
-        if (selectedEvent?.reviewState === "pending")
-          decideEvent(selectedEvent, "reject");
+        dismissSelected();
       }
     };
     window.addEventListener("keydown", handler);
@@ -743,10 +764,12 @@ export function PipelineCardEventEditor({
   }, [
     addEvent,
     decideEvent,
+    dismissSelected,
     nudgeSelected,
     removeSelected,
     selectedEvent,
-    selectEvent,
+    selectAdjacent,
+    seekBy,
     view,
   ]);
 
@@ -762,6 +785,12 @@ export function PipelineCardEventEditor({
   ).length;
   const watchedPercent =
     durationUs > 0 ? Math.min(100, (watchedThroughUs / durationUs) * 100) : 0;
+  const hasPreviousEvent = events.some(
+    (event) => event.event.start_us < playheadUs - 1_000,
+  );
+  const hasNextEvent = events.some(
+    (event) => event.event.start_us > playheadUs + 1_000,
+  );
   const completionBlocker =
     reference === null
       ? null
@@ -886,24 +915,22 @@ export function PipelineCardEventEditor({
         className={eventStyles.pipelineEditor}
         aria-label="CardEvent maintained reference editor"
       >
-        <div className={eventStyles.reviewHeader}>
-          <div>
-            <p className={styles.statusLabel}>Maintained reference</p>
-            <h3>CardEvent review</h3>
-            <p className={styles.detailLead}>
-              {reference.draft.source_revision_id === null
-                ? "Manual event reference"
-                : `Used generated events ${reference.draft.source_revision_id}`}
-            </p>
-          </div>
-          <div className={eventStyles.reviewCounts} aria-label="Event counts">
-            <ReviewCount label="Accepted" value={acceptedCount} />
-            <ReviewCount label="Pending" value={pendingCount} />
-            <ReviewCount label="Rejected" value={rejectedCount} />
-          </div>
-        </div>
-
-        <div className={eventStyles.pipelineVideoGrid}>
+        <div className={eventStyles.reviewWorkbench}>
+          <CardEventReviewControls
+            hasPrevious={hasPreviousEvent}
+            hasNext={hasNextEvent}
+            selectedState={selectedEvent?.reviewState ?? null}
+            onPrevious={() => selectAdjacent(-1)}
+            onNext={() => selectAdjacent(1)}
+            onSeek={seekBy}
+            onNudge={nudgeSelected}
+            onAccept={() => {
+              if (selectedEvent !== undefined)
+                decideEvent(selectedEvent, "accept");
+            }}
+            onDismiss={dismissSelected}
+            onAddEvent={addEvent}
+          />
           <EventSourceSurface
             recordingId={recordingId}
             requestedTimeUs={playheadUs}
@@ -915,38 +942,6 @@ export function PipelineCardEventEditor({
             onMarkCoverage={() => setCoverageComplete(true)}
             showCoverageControls={onRailItemsChange === undefined}
           />
-          {selectedEvent === undefined ? (
-            <p className={styles.detailEmptyState}>
-              Select an event from the Timeline Rail.
-            </p>
-          ) : (
-            <EventDetails
-              event={selectedEvent}
-              durationUs={durationUs}
-              editable
-              onChange={(changes) =>
-                updateEvent(selectedEvent, changes, "Event corrected.")
-              }
-              onAccept={() => decideEvent(selectedEvent, "accept")}
-              onReject={() => decideEvent(selectedEvent, "reject")}
-              onUndo={undoRemoval}
-              onNudge={nudgeSelected}
-            />
-          )}
-        </div>
-
-        <div className={eventStyles.guidance}>
-          <details>
-            <summary>Keyboard shortcuts</summary>
-            <p>
-              Space play/pause · Alt + ←/→ previous/next event · A accept · D
-              reject · N add · comma/period nudge one frame · Delete remove.
-            </p>
-          </details>
-          <p className={styles.detailLead}>
-            Review whether a persistent card-related table-state change is
-            visible and set its time to the first clear frame.
-          </p>
         </div>
 
         {notice !== null ? (
