@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0062 — Canonical card-state data and face-down identity](2-ready/0062-Canonical_Card_State_and_Face_Down_Identity.md) | 0061 complete | Replace current legacy event annotations and revisions with generic card-state changes, remove the event taxonomy from the UI, and add `FACE_DOWN` as a visual classification without changing reconstruction behavior. M0–M4 not started. |
 
 ### In Progress
 
@@ -122,12 +123,12 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Use the completed 0061 contracts before another classifier comparison.** CardEventNet now
-   emits generic card-state changes. Visible-card detection processes every event, preserves card
-   side, and observation assembly publishes face-up, face-down, and unknown evidence. Do not add
-   temporal association or change reconstruction behavior.
+1. **Implement 0062 before another classifier comparison.** Canonicalize current event data, remove
+   the retired event taxonomy from active contracts and UI, and add `FACE_DOWN` as a positive visual
+   classification outside the legal card identities. Do not add temporal association or change
+   reconstruction behavior.
 2. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic 0057 is complete.
-3. **Reconcile 0051 M0 with the current data architecture and the completed 0061 contracts.** Read durable revisions from
+3. **Reconcile 0051 M0 with the current data architecture and the completed 0062 contracts.** Read durable revisions from
    `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
    defaults, use explicit development and validation groups, and preflight the complete experiment
    matrix against its budget.
@@ -233,6 +234,11 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   processors, and temporal association stay out of scope.
 - 0051 must use the completed 0061 side and identity semantics when it freezes another classifier
   comparison.
+- Add 0062 because 0061 left the retired event taxonomy in active annotations and UI and represented
+  face-down as generic unusable identity evidence. Canonicalize current event data and make
+  `FACE_DOWN` a visual class outside the 24 legal card identities.
+- Complete 0062 before 0051 freezes another classifier comparison. Keep semantic event prediction,
+  new processors, temporal association, model training, and reconstruction behavior out of scope.
 
 ## Closed-epic policy
 

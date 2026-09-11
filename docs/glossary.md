@@ -203,6 +203,14 @@ The shared visible design of cards. Several physical decks can have the same dec
 The visible suit-and-rank identity of a card, such as `HEARTS_QUEEN`. Two physical cards can have
 the same visual card identity.
 
+### Visual classification
+
+The positive visual class reported for one visible card crop. A visual classification is either a
+visual card identity or `FACE_DOWN`. `FACE_DOWN` means that the card back is positively visible. It
+is not a visual card identity, a deck entry, or a legal card assignment.
+
+`UNKNOWN` is an abstention because the crop does not support a positive visual class.
+
 ### Visible region
 
 The pixels of one visible card that can be reviewed in a source frame. A visible region does not
