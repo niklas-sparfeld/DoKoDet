@@ -10,7 +10,9 @@ from pathlib import Path
 from dokodetector_backend.filesystem import enumerate_resource_directories
 from dokodetector_backend.intake_contract import (
     IntakeContractError,
+    RepositoryBundle,
     parse_repository_bundle,
+    sha256_bytes,
     validate_repository_bundle,
 )
 from dokodetector_backend.logging_config import log_event
@@ -74,6 +76,23 @@ class RecordingBundleStore:
                 self._log_invalid(bundle_path, error)
             return None
 
+    def get_metadata(self, recording_id: str) -> StoredRecordingBundle | None:
+        """Return bundle metadata without re-reading the source video bytes."""
+
+        try:
+            raw_bundle_path = self.storage.root / recording_id
+            if raw_bundle_path.is_symlink():
+                return None
+            bundle_path = self.storage.bundle_path(recording_id)
+        except ValueError:
+            return None
+        try:
+            return self._read_path(bundle_path, verify_file_digests=False)
+        except (OSError, TypeError, UnicodeError, ValueError) as error:
+            if bundle_path.exists():
+                self._log_invalid(bundle_path, error)
+            return None
+
     def list(self) -> tuple[StoredRecordingBundle, ...]:
         """Return valid bundles in newest-received, stable order."""
 
@@ -88,6 +107,29 @@ class RecordingBundleStore:
         for path in enumeration.paths:
             try:
                 bundles.append(self._read_path(path))
+            except (OSError, TypeError, UnicodeError, ValueError) as error:
+                self._log_invalid(path, error)
+        return tuple(
+            sorted(
+                bundles,
+                key=lambda bundle: (-bundle.received_at.timestamp(), bundle.recording_id),
+            )
+        )
+
+    def list_metadata(self) -> tuple[StoredRecordingBundle, ...]:
+        """Return bundle metadata without re-reading source video bytes."""
+
+        enumeration = enumerate_resource_directories(
+            self.storage.root,
+            validate=lambda path: self._read_path(path, verify_file_digests=False),
+        )
+        for diagnostic in enumeration.diagnostics:
+            self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
+
+        bundles: list[StoredRecordingBundle] = []
+        for path in enumeration.paths:
+            try:
+                bundles.append(self._read_path(path, verify_file_digests=False))
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)
         return tuple(
@@ -127,12 +169,21 @@ class RecordingBundleStore:
             )
         return stored, True
 
-    def _read_path(self, bundle_path: Path) -> StoredRecordingBundle:
+    def _read_path(
+        self,
+        bundle_path: Path,
+        *,
+        verify_file_digests: bool = True,
+    ) -> StoredRecordingBundle:
         """Validate one complete canonical bundle and project its searchable metadata."""
 
         if bundle_path.name.startswith(".") or not bundle_path.is_dir():
             raise IntakeContractError("recording bundle directory is unavailable")
-        files = self.storage.file_digests(bundle_path.name)
+        files = (
+            self.storage.file_digests(bundle_path.name)
+            if verify_file_digests
+            else self.storage.file_metadata(bundle_path.name)
+        )
         manifest_bytes = (bundle_path / "manifest.json").read_bytes()
         source_bytes = (bundle_path / "source-record.json").read_bytes()
         enrollment_bytes = (bundle_path / "initial-task-enrollment.json").read_bytes()
@@ -149,6 +200,15 @@ class RecordingBundleStore:
         )
         if bundle.recording_id != bundle_path.name:
             raise IntakeContractError("bundle recording ID differs from its directory name")
+        if not verify_file_digests:
+            files = _declared_file_digests(
+                files,
+                bundle,
+                manifest_bytes=manifest_bytes,
+                source_bytes=source_bytes,
+                enrollment_bytes=enrollment_bytes,
+                proposal_bytes=proposal_bytes,
+            )
         _assert_bundle_files(bundle, files)
         received_at = min(
             datetime.fromisoformat(item.created_at_utc.replace("Z", "+00:00"))
@@ -179,6 +239,39 @@ class RecordingBundleStore:
             recording_id=path.name,
             reason=str(error),
         )
+
+
+def _declared_file_digests(
+    files: dict[str, StoredRepositoryFile],
+    bundle: RepositoryBundle,
+    *,
+    manifest_bytes: bytes,
+    source_bytes: bytes,
+    enrollment_bytes: bytes,
+    proposal_bytes: dict[str, bytes],
+) -> dict[str, StoredRepositoryFile]:
+    """Combine cheap file metadata with digests for the small canonical members."""
+
+    digests = {
+        "manifest.json": sha256_bytes(manifest_bytes),
+        bundle.files.source_record.relative_path: sha256_bytes(source_bytes),
+        bundle.files.task_enrollment.relative_path: sha256_bytes(enrollment_bytes),
+        **{
+            descriptor.relative_path: sha256_bytes(
+                proposal_bytes[descriptor.proposal_generator_run_id]
+            )
+            for descriptor in bundle.files.proposal_generator_runs
+        },
+        bundle.files.video.relative_path: bundle.files.video.sha256,
+    }
+    return {
+        relative_path: StoredRepositoryFile(
+            relative_path=stored.relative_path,
+            byte_length=stored.byte_length,
+            sha256=digests.get(relative_path, ""),
+        )
+        for relative_path, stored in files.items()
+    }
 
 
 def _assert_bundle_files(bundle: object, files: dict[str, StoredRepositoryFile]) -> None:

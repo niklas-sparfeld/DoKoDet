@@ -545,6 +545,8 @@ def validate_evidence_package_bundle(
     task_enrollment: bytes,
     lineage: bytes,
     members: Mapping[str, bytes],
+    *,
+    verify_member_digests: bool = True,
 ) -> tuple[
     EvidencePackageBundle,
     EvidencePackageRecord,
@@ -572,10 +574,15 @@ def validate_evidence_package_bundle(
         raise IntakeContractError("original evidence manifest is invalid") from error
     if str(original.package_id) != bundle.package_id:
         raise IntakeContractError("original evidence manifest package_id differs from bundle")
-    _verify_evidence_member(bundle.files.evidence_manifest, evidence_manifest, "evidence manifest")
-    _verify_evidence_member(bundle.files.package_record, package_record, "package record")
-    _verify_evidence_member(bundle.files.task_enrollment, task_enrollment, "task enrollment")
-    _verify_evidence_member(bundle.files.lineage, lineage, "lineage")
+    if verify_member_digests:
+        _verify_evidence_member(
+            bundle.files.evidence_manifest, evidence_manifest, "evidence manifest"
+        )
+        _verify_evidence_member(bundle.files.package_record, package_record, "package record")
+        _verify_evidence_member(
+            bundle.files.task_enrollment, task_enrollment, "task enrollment"
+        )
+        _verify_evidence_member(bundle.files.lineage, lineage, "lineage")
 
     expected_frame_paths = {f"frames/{frame.part_name}.jpg" for frame in original.frames}
     declared_frame_paths = {member.relative_path for member in bundle.files.frames}
@@ -584,7 +591,8 @@ def validate_evidence_package_bundle(
     for member in bundle.files.frames:
         if member.relative_path not in members:
             raise IntakeContractError(f"missing evidence package member: {member.relative_path}")
-        _verify_evidence_member(member, members[member.relative_path], member.relative_path)
+        if verify_member_digests:
+            _verify_evidence_member(member, members[member.relative_path], member.relative_path)
 
     snippet = original.video_snippet
     expected_snippet_path = (
@@ -601,7 +609,8 @@ def validate_evidence_package_bundle(
         path = bundle.files.video_snippet.relative_path
         if path not in members:
             raise IntakeContractError(f"missing evidence package member: {path}")
-        _verify_evidence_member(bundle.files.video_snippet, members[path], path)
+        if verify_member_digests:
+            _verify_evidence_member(bundle.files.video_snippet, members[path], path)
     declared_paths = {
         bundle.files.evidence_manifest.relative_path,
         bundle.files.package_record.relative_path,

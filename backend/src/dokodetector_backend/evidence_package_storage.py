@@ -60,6 +60,36 @@ class EvidencePackageStorage:
             files[relative_path] = _hash_file(path, relative_path)
         return files
 
+    def file_metadata(self, package_id: UUID | str | Path) -> dict[str, StoredRepositoryFile]:
+        """Read regular-file metadata without opening file contents."""
+
+        package_path = (
+            package_id
+            if isinstance(package_id, Path)
+            else self.package_path(package_id)
+        )
+        root = self.root.expanduser().resolve()
+        try:
+            package_path = package_path.expanduser().resolve()
+            package_path.relative_to(root)
+        except ValueError as error:
+            raise OSError("evidence package path escapes its configured root") from error
+        if not package_path.is_dir():
+            raise FileNotFoundError(package_path)
+        files: dict[str, StoredRepositoryFile] = {}
+        for path in sorted(package_path.rglob("*")):
+            if path.is_symlink():
+                raise OSError(f"evidence package member is a symlink: {path}")
+            if not path.is_file() or path.name == ".DS_Store":
+                continue
+            relative_path = path.relative_to(package_path).as_posix()
+            files[relative_path] = StoredRepositoryFile(
+                relative_path=relative_path,
+                byte_length=path.stat().st_size,
+                sha256="",
+            )
+        return files
+
     def remove_package(self, package_id: UUID | str) -> None:
         """Remove one package during explicit persistence compensation."""
 

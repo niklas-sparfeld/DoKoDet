@@ -180,6 +180,36 @@ def test_revision_store_requires_published_lineage_and_reports_invalid_entries(
     assert "pipeline_revision_catalog_skipped" in caplog.text
 
 
+def test_pipeline_catalogs_filter_by_recording(tmp_path: Path) -> None:
+    store = PipelineRevisionStore(tmp_path / "runtime")
+    first = revision(revision_id="revision-first", producer=processor_producer("import-first"))
+    other_source = dict(SOURCE)
+    other_source["recording_id"] = "recording-02"
+    other = EventDataRevision.from_mapping(
+        {
+            "manifest": manifest(
+                revision_id="revision-other",
+                producer=processor_producer("import-other"),
+                source=other_source,
+            ),
+            "content": event_content(with_score=True),
+        }
+    )
+    first_stored, _ = store.publish(first)
+    store.publish(other)
+
+    run_store = ProcessorRunStore(tmp_path / "runtime", revision_store=store)
+    first_request = request("run-first")
+    other_request = ProcessorRunRequest.from_mapping(
+        {**first_request.to_mapping(), "run_id": "run-other", "source": other_source}
+    )
+    run_store.create(first_request)
+    run_store.create(other_request)
+
+    assert store.list_for_recording("recording-01") == (first_stored,)
+    assert [run.run_id for run in run_store.list_for_recording("recording-01")] == ["run-first"]
+
+
 def test_run_store_publishes_request_and_state_together_and_supports_retry(tmp_path: Path) -> None:
     revision_store = PipelineRevisionStore(tmp_path / "runtime")
     input_revision = revision(

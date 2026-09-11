@@ -97,14 +97,8 @@ class RecordingPipelineWorkspaceService:
         """Read one complete workspace snapshot without changing pipeline state."""
 
         source = self.recording_source_provider(recording_id)
-        revisions = tuple(
-            revision
-            for revision in self.revision_store.list()
-            if revision.manifest.recording_id == recording_id
-        )
-        runs = tuple(
-            run for run in self.run_store.list() if run.request.source.recording_id == recording_id
-        )
+        revisions = self.revision_store.list_for_recording(recording_id)
+        runs = self.run_store.list_for_recording(recording_id)
         diagnostics: list[dict[str, Any]] = []
         selections = {
             content_type: self._selection(recording_id, content_type, diagnostics)

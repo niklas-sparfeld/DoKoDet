@@ -57,6 +57,26 @@ class RepositoryBundleStorage:
             files[relative_path] = _hash_file(path, relative_path)
         return files
 
+    def file_metadata(self, recording_id: str) -> dict[str, StoredRepositoryFile]:
+        """Read regular-file metadata without opening file contents."""
+
+        bundle_path = self.bundle_path(recording_id)
+        if not bundle_path.is_dir():
+            raise FileNotFoundError(bundle_path)
+        files: dict[str, StoredRepositoryFile] = {}
+        for path in sorted(bundle_path.rglob("*")):
+            if path.is_symlink():
+                raise OSError(f"repository bundle contains a symlink: {path}")
+            if not path.is_file() or path.name == ".DS_Store":
+                continue
+            relative_path = path.relative_to(bundle_path).as_posix()
+            files[relative_path] = StoredRepositoryFile(
+                relative_path=relative_path,
+                byte_length=path.stat().st_size,
+                sha256="",
+            )
+        return files
+
     def remove_bundle(self, recording_id: str) -> None:
         """Remove a canonical bundle during explicit recovery."""
 

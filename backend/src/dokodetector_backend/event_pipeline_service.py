@@ -216,12 +216,51 @@ class EventPipelineService:
         self.card_event_checkpoint_path = getattr(settings, "card_event_checkpoint_path", None)
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="event-pipeline")
         self._futures: dict[str, Future[None]] = {}
+        self._workspace_sources: dict[
+            str, tuple[tuple[int, int, str], RecordingVideoSource]
+        ] = {}
         self._lock = RLock()
 
     def get_recording_source(self, recording_id: str) -> RecordingVideoSource:
-        """Return the accepted source identity used by pipeline stages."""
+        """Return the accepted source identity for a read-only workspace snapshot."""
 
-        _, source = self._accepted_source(recording_id)
+        bundle = self.recording_store.get_metadata(recording_id)
+        if bundle is None:
+            raise PipelineNotFound(f"The recording was not found: {recording_id}")
+        video_path = self.repository_storage.bundle_path(recording_id) / self._video_relative_path(
+            recording_id
+        )
+        try:
+            video_stat = video_path.stat()
+        except OSError as error:
+            raise PipelineInputError("The accepted recording video is unavailable.") from error
+        cache_key = (video_stat.st_mtime_ns, video_stat.st_size, bundle.source_sha256)
+        with self._lock:
+            cached = self._workspace_sources.get(recording_id)
+            if cached is not None and cached[0] == cache_key:
+                return cached[1]
+
+        try:
+            probe = probe_video_path_metadata(video_path)
+        except VideoProbeError as error:
+            raise PipelineInputError("The accepted recording video could not be probed.") from error
+        try:
+            relative_path = (
+                video_path.resolve().relative_to(self.settings.repository_root).as_posix()
+            )
+        except ValueError as error:
+            raise PipelineInputError(
+                "The accepted recording video is outside the repository root."
+            ) from error
+        source = RecordingVideoSource(
+            recording_id=recording_id,
+            relative_path=relative_path,
+            video_sha256=bundle.source_sha256,
+            byte_length=video_stat.st_size,
+            duration_us=probe.duration_ms * 1000,
+        )
+        with self._lock:
+            self._workspace_sources[recording_id] = (cache_key, source)
         return source
 
     async def start(self) -> None:

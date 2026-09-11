@@ -270,6 +270,25 @@ class PipelineRevisionStore:
                 self._log_invalid(path, error)
         return tuple(sorted(revisions, key=lambda item: item.manifest.revision_id))
 
+    def list_for_recording(self, recording_id: str) -> tuple[StoredPipelineRevision, ...]:
+        """Return validated revisions for one recording without parsing other recordings."""
+
+        _safe_id(recording_id, "recording_id")
+        enumeration = enumerate_resource_directories(self.root)
+        for diagnostic in enumeration.diagnostics:
+            self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
+
+        revisions: list[StoredPipelineRevision] = []
+        for path in enumeration.paths:
+            try:
+                manifest = parse_data_revision_bytes((path / "manifest.json").read_bytes())
+                if manifest.recording_id != recording_id:
+                    continue
+                revisions.append(self._read_path(path))
+            except (OSError, TypeError, UnicodeError, ValueError) as error:
+                self._log_invalid(path, error)
+        return tuple(sorted(revisions, key=lambda item: item.manifest.revision_id))
+
     def publish(
         self,
         revision: EventDataRevision | DataRevision,
@@ -597,6 +616,25 @@ class ProcessorRunStore:
         runs: list[StoredProcessorRun] = []
         for path in enumeration.paths:
             try:
+                runs.append(self._read_path(path))
+            except (OSError, TypeError, UnicodeError, ValueError) as error:
+                self._log_invalid(path, error)
+        return tuple(sorted(runs, key=lambda item: item.run_id))
+
+    def list_for_recording(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
+        """Return validated runs for one recording without parsing other recordings."""
+
+        _safe_id(recording_id, "recording_id")
+        enumeration = enumerate_resource_directories(self.root)
+        for diagnostic in enumeration.diagnostics:
+            self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
+
+        runs: list[StoredProcessorRun] = []
+        for path in enumeration.paths:
+            try:
+                request = parse_processor_run_request_bytes((path / "request.json").read_bytes())
+                if request.source.recording_id != recording_id:
+                    continue
                 runs.append(self._read_path(path))
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)

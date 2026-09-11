@@ -20,6 +20,7 @@ from dokodetector_backend.intake_contract import (
     IntakeContractError,
     parse_evidence_package_bundle,
     parse_task_enrollment,
+    sha256_bytes,
     validate_evidence_package_bundle,
 )
 from dokodetector_backend.logging_config import log_event
@@ -66,6 +67,27 @@ class EvidencePackageStore:
                 self._log_invalid(package_path, error)
             return None
 
+    def get_metadata(self, package_id: UUID | str) -> StoredPackage | None:
+        """Return package metadata without re-reading media members."""
+
+        try:
+            raw_package_path = self.storage.root / str(UUID(str(package_id)))
+            if raw_package_path.is_symlink():
+                return None
+            package_path = self.storage.package_path(package_id)
+        except (TypeError, ValueError):
+            return None
+        try:
+            return self._read_path(
+                package_path,
+                require_canonical_name=True,
+                verify_member_digests=False,
+            )
+        except (OSError, TypeError, UnicodeError, ValueError) as error:
+            if package_path.exists():
+                self._log_invalid(package_path, error)
+            return None
+
     def get_package(self, package_id: UUID | str) -> StoredPackage | None:
         """Return one package using the legacy resource verb."""
 
@@ -85,6 +107,43 @@ class EvidencePackageStore:
         for path in enumeration.paths:
             try:
                 packages.append(self._read_path(path, require_canonical_name=True))
+            except (OSError, TypeError, UnicodeError, ValueError) as error:
+                self._log_invalid(path, error)
+        return tuple(
+            sorted(
+                packages,
+                key=lambda package: (
+                    package.received_at,
+                    package.event_sequence,
+                    str(package.package_id),
+                ),
+            )
+        )
+
+    def list_metadata(self) -> tuple[StoredPackage, ...]:
+        """Return package metadata without re-reading media members."""
+
+        enumeration = enumerate_resource_directories(
+            self.storage.root,
+            validate=lambda path: self._read_path(
+                path,
+                require_canonical_name=True,
+                verify_member_digests=False,
+            ),
+        )
+        for diagnostic in enumeration.diagnostics:
+            self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
+
+        packages: list[StoredPackage] = []
+        for path in enumeration.paths:
+            try:
+                packages.append(
+                    self._read_path(
+                        path,
+                        require_canonical_name=True,
+                        verify_member_digests=False,
+                    )
+                )
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)
         return tuple(
@@ -201,6 +260,7 @@ class EvidencePackageStore:
         *,
         expected_package_id: UUID | None = None,
         require_canonical_name: bool,
+        verify_member_digests: bool = True,
     ) -> StoredPackage:
         """Validate one complete package directory and project its metadata."""
 
@@ -208,7 +268,11 @@ class EvidencePackageStore:
             require_canonical_name and package_path.name.startswith(".")
         ) or not package_path.is_dir():
             raise IntakeContractError("evidence package directory is unavailable")
-        files = self.storage.file_digests(package_path)
+        files = (
+            self.storage.file_digests(package_path)
+            if verify_member_digests
+            else self.storage.file_metadata(package_path)
+        )
         manifest_bytes = (package_path / "manifest.json").read_bytes()
         evidence_manifest_bytes = (package_path / "evidence-manifest.json").read_bytes()
         package_record_bytes = (package_path / "package-record.json").read_bytes()
@@ -220,8 +284,16 @@ class EvidencePackageStore:
         if require_canonical_name and bundle.package_id != package_path.name:
             raise IntakeContractError("evidence package ID differs from its directory name")
 
+        fixed_member_bytes = {
+            "evidence-manifest.json": evidence_manifest_bytes,
+            "package-record.json": package_record_bytes,
+            "initial-task-enrollment.json": task_enrollment_bytes,
+            "lineage.json": lineage_bytes,
+        }
         member_files = {
-            path: (package_path / path).read_bytes()
+            path: fixed_member_bytes.get(path, b"")
+            if not verify_member_digests
+            else (package_path / path).read_bytes()
             for path in files
             if path != "manifest.json"
         }
@@ -232,9 +304,15 @@ class EvidencePackageStore:
             task_enrollment_bytes,
             lineage_bytes,
             member_files,
+            verify_member_digests=verify_member_digests,
         )
         evidence_manifest = parse_manifest_bytes(evidence_manifest_bytes)
-        _assert_package_files(bundle, evidence_manifest, files)
+        _assert_package_files(
+            bundle,
+            evidence_manifest,
+            files,
+            verify_digests=verify_member_digests,
+        )
         enrollments = parse_task_enrollment(task_enrollment_bytes)
         received_at = min(
             datetime.fromisoformat(item.created_at_utc.replace("Z", "+00:00"))
@@ -250,7 +328,19 @@ class EvidencePackageStore:
         return StoredPackage.from_manifest(
             evidence_manifest,
             evidence_manifest_bytes,
-            package_fingerprint=calculate_bundle_fingerprint(files),
+            package_fingerprint=calculate_bundle_fingerprint(
+                files
+                if verify_member_digests
+                else _declared_file_digests(
+                    files,
+                    bundle,
+                    manifest_bytes=manifest_bytes,
+                    evidence_manifest_bytes=evidence_manifest_bytes,
+                    package_record_bytes=package_record_bytes,
+                    task_enrollment_bytes=task_enrollment_bytes,
+                    lineage_bytes=lineage_bytes,
+                )
+            ),
             frames=frames,
             received_at=received_at,
         )
@@ -270,6 +360,8 @@ def _assert_package_files(
     bundle: EvidencePackageBundle,
     evidence_manifest: EvidenceManifest,
     files: dict[str, StoredRepositoryFile],
+    *,
+    verify_digests: bool = True,
 ) -> None:
     """Require declared package members and their digests."""
 
@@ -305,13 +397,44 @@ def _assert_package_files(
         descriptors[bundle.files.video_snippet.relative_path] = bundle.files.video_snippet
     for relative_path, descriptor in descriptors.items():
         stored = files.get(relative_path)
-        if stored is None or (
-            stored.byte_length != descriptor.byte_length
-            or stored.sha256 != descriptor.sha256
+        if stored is None or stored.byte_length != descriptor.byte_length or (
+            verify_digests and stored.sha256 != descriptor.sha256
         ):
             raise IntakeContractError(
                 f"canonical file does not match its manifest: {relative_path}"
             )
+
+
+def _declared_file_digests(
+    files: dict[str, StoredRepositoryFile],
+    bundle: EvidencePackageBundle,
+    *,
+    manifest_bytes: bytes,
+    evidence_manifest_bytes: bytes,
+    package_record_bytes: bytes,
+    task_enrollment_bytes: bytes,
+    lineage_bytes: bytes,
+) -> dict[str, StoredRepositoryFile]:
+    """Combine cheap file metadata with the immutable manifest digests."""
+
+    digests = {
+        "manifest.json": sha256_bytes(manifest_bytes),
+        bundle.files.evidence_manifest.relative_path: sha256_bytes(evidence_manifest_bytes),
+        bundle.files.package_record.relative_path: sha256_bytes(package_record_bytes),
+        bundle.files.task_enrollment.relative_path: sha256_bytes(task_enrollment_bytes),
+        bundle.files.lineage.relative_path: sha256_bytes(lineage_bytes),
+        **{member.relative_path: member.sha256 for member in bundle.files.frames},
+    }
+    if bundle.files.video_snippet is not None:
+        digests[bundle.files.video_snippet.relative_path] = bundle.files.video_snippet.sha256
+    return {
+        relative_path: StoredRepositoryFile(
+            relative_path=stored.relative_path,
+            byte_length=stored.byte_length,
+            sha256=digests.get(relative_path, ""),
+        )
+        for relative_path, stored in files.items()
+    }
 
 
 __all__ = [

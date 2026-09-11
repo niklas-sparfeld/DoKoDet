@@ -31,35 +31,39 @@ export function RecordingListView() {
         if (!signal?.aborted) {
           setRecordings(response.recordings);
           setError(null);
-
-          const workspaceResults = await Promise.all(
-            response.recordings.map(async (recording) => {
-              try {
-                const workspace = await client.getRecordingPipeline(
-                  recording.recording_id,
-                  { signal },
-                );
-                return isPipelineWorkspace(workspace)
-                  ? ([recording.recording_id, workspace] as const)
-                  : null;
-              } catch {
-                return null;
-              }
-            }),
-          );
-          if (!signal?.aborted) {
-            const nextWorkspaces: Record<string, PipelineWorkspace> = {};
-            for (const result of workspaceResults) {
-              if (result !== null) nextWorkspaces[result[0]] = result[1];
-            }
-            setPipelineWorkspaces(nextWorkspaces);
-          }
         }
       } catch (reason: unknown) {
         if (!signal?.aborted) setError(describeError(reason));
       } finally {
         if (!signal?.aborted) setLoading(false);
       }
+    },
+    [client],
+  );
+
+  const loadPipelineStatuses = useCallback(
+    async (recordingsToLoad: RecordingSummary[], signal?: AbortSignal) => {
+      const workspaceResults = await Promise.all(
+        recordingsToLoad.map(async (recording) => {
+          try {
+            const workspace = await client.getRecordingPipeline(
+              recording.recording_id,
+              { signal },
+            );
+            return isPipelineWorkspace(workspace)
+              ? ([recording.recording_id, workspace] as const)
+              : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (signal?.aborted) return;
+      const nextWorkspaces: Record<string, PipelineWorkspace> = {};
+      for (const result of workspaceResults) {
+        if (result !== null) nextWorkspaces[result[0]] = result[1];
+      }
+      setPipelineWorkspaces(nextWorkspaces);
     },
     [client],
   );
@@ -75,6 +79,19 @@ export function RecordingListView() {
       controller.abort();
     };
   }, [loadRecordings]);
+
+  useEffect(() => {
+    if (recordings.length === 0) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(
+      () => void loadPipelineStatuses(recordings, controller.signal),
+      200,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [loadPipelineStatuses, recordings]);
 
   useEffect(() => {
     if (

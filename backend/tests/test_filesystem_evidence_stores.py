@@ -51,6 +51,26 @@ def test_package_store_reads_complete_bundles_without_rebuild(tmp_path: Path) ->
     assert store.list() == (first,)
 
 
+def test_metadata_reads_do_not_open_media_members(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "evidence-packages"
+    shutil.copytree(REPOSITORY_FIXTURE, root / str(PACKAGE_ID))
+    store = EvidencePackageStore(EvidencePackageStorage(root))
+    original_open = Path.open
+
+    def reject_media_open(path: Path, *args, **kwargs):
+        if path.suffix in {".jpg", ".mp4"}:
+            raise AssertionError("metadata reads must not open media members")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", reject_media_open)
+
+    stored = store.get_metadata(PACKAGE_ID)
+    listed = store.list_metadata()
+
+    assert stored is not None
+    assert listed == (stored,)
+
+
 def test_package_store_accepts_harmless_extra_files(tmp_path: Path) -> None:
     root = tmp_path / "evidence-packages"
     package_root = root / str(PACKAGE_ID)

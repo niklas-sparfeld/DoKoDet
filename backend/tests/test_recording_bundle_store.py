@@ -33,6 +33,26 @@ def test_store_reads_canonical_bundle_without_rebuild(tmp_path: Path) -> None:
     assert stored.received_at.isoformat() == "2026-08-28T08:00:00+00:00"
 
 
+def test_metadata_reads_do_not_open_source_video(tmp_path: Path, monkeypatch) -> None:
+    intake_root = tmp_path / "intake"
+    _copy_fixture("both", intake_root)
+    store = RecordingBundleStore(RepositoryBundleStorage(intake_root))
+    original_open = Path.open
+
+    def reject_video_open(path: Path, *args, **kwargs):
+        if path.suffix == ".mov":
+            raise AssertionError("metadata reads must not open source video")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", reject_video_open)
+
+    stored = store.get_metadata("recording-both")
+    listed = store.list_metadata()
+
+    assert stored is not None
+    assert listed == (stored,)
+
+
 def test_invalid_canonical_member_is_excluded_and_reported(tmp_path: Path, caplog) -> None:
     intake_root = tmp_path / "intake"
     _copy_fixture("both", intake_root)

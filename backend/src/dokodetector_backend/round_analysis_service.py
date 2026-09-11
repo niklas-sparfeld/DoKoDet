@@ -256,7 +256,7 @@ class RoundAnalysisService:
         """Return canonical recordings with linked packages and prior analyses."""
 
         packages_by_recording: dict[str, list[StoredPackage]] = {}
-        for package in self.package_store.list():
+        for package in self.package_store.list_metadata():
             if package.state != "stored":
                 continue
             try:
@@ -268,7 +268,7 @@ class RoundAnalysisService:
             packages_by_recording.setdefault(lineage.parent_recording_id, []).append(package)
 
         entries: list[RecordingCatalogEntry] = []
-        for recording in self.recording_bundle_store.list():
+        for recording in self.recording_bundle_store.list_metadata():
             packages = tuple(
                 package
                 for package in packages_by_recording.get(recording.recording_id, ())
