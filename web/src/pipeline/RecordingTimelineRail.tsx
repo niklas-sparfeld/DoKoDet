@@ -364,7 +364,7 @@ export function RecordingTimelineRail({
         ref={fallbackVideoRef}
         className={styles.visuallyHidden}
         src={repositoryBundleVideoPath(recordingId)}
-        preload="metadata"
+        preload="none"
         aria-hidden="true"
       />
 

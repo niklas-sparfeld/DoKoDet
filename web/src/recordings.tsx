@@ -192,11 +192,36 @@ function RecordingThumbnail({
   recordingId: string;
   roundId: string;
 }) {
+  const thumbnailRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [loadRequested, setLoadRequested] = useState(false);
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    const thumbnail = thumbnailRef.current;
+    if (thumbnail === null) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      const timer = window.setTimeout(() => setLoadRequested(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setLoadRequested(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(thumbnail);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!loadRequested) return;
     const video = videoRef.current;
     if (video === null) return;
 
@@ -248,10 +273,11 @@ function RecordingThumbnail({
       video.removeEventListener("seeked", captureScreenshot);
       video.removeEventListener("error", handleError);
     };
-  }, [recordingId]);
+  }, [loadRequested, recordingId]);
 
   return (
     <div
+      ref={thumbnailRef}
       className={`${styles.recordingThumbnail} ${failed ? styles.recordingThumbnailFallback : ""}`}
       role="img"
       aria-label={`Random screenshot from ${roundId}`}
@@ -261,8 +287,10 @@ function RecordingThumbnail({
       ) : (
         <video
           ref={videoRef}
-          src={repositoryBundleVideoPath(recordingId)}
-          preload="metadata"
+          {...(loadRequested
+            ? { src: repositoryBundleVideoPath(recordingId) }
+            : {})}
+          preload={loadRequested ? "metadata" : "none"}
           muted
           playsInline
           aria-hidden="true"

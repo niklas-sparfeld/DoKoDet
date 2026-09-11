@@ -927,7 +927,7 @@ export function PipelineVisualIdentityEditor({
             data-recording-source-video={recordingId}
             src={videoUrl}
             controls
-            preload="metadata"
+            preload="none"
             aria-label={`Visual identity source video ${recordingId}`}
             onTimeUpdate={(event) => {
               const value = clamp(

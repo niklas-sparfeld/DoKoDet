@@ -939,7 +939,7 @@ function SeekableVideo({
       className={className}
       src={src}
       controls
-      preload="metadata"
+      preload="none"
       aria-label={ariaLabel}
       onLoadedMetadata={(event) => {
         if (seekSeconds !== undefined) {

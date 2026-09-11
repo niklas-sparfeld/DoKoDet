@@ -644,7 +644,7 @@ function ComparisonSourcePanel({
         data-recording-source-video={recordingId}
         src={repositoryBundleVideoPath(recordingId)}
         controls
-        preload="metadata"
+        preload="none"
         aria-label={`Comparison source video ${recordingId}`}
         onLoadedMetadata={onLoadedMetadata}
         onTimeUpdate={(event) =>

@@ -45,7 +45,7 @@ export function EventSourceSurface({
         data-recording-source-video={recordingId}
         src={videoUrl}
         controls
-        preload="metadata"
+        preload="none"
         aria-label={`CardEvent source video ${recordingId}`}
       />
       {showCoverageControls ? (
@@ -134,7 +134,7 @@ export function GeneratedEventView({
             data-recording-source-video={recordingId}
             src={videoUrl}
             controls
-            preload="metadata"
+            preload="none"
             aria-label="CardEvent generated result source video"
           />
           {selectedEvent === undefined ? (

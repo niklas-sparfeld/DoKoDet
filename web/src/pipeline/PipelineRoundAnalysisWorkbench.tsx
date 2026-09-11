@@ -68,7 +68,7 @@ export function PipelineRoundAnalysisWorkbench({
             data-recording-source-video={recordingId}
             src={repositoryBundleVideoPath(recordingId)}
             controls
-            preload="metadata"
+            preload="none"
             aria-label={`Round-analysis source video ${recordingId}`}
             onTimeUpdate={(event) =>
               onTimeChange(

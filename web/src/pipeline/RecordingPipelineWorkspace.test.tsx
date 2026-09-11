@@ -222,6 +222,11 @@ describe("recording pipeline workspace", () => {
       within(inspector).getByRole("heading", { name: "Accepted video" }),
     ).toBeInTheDocument();
     expect(
+      screen
+        .getByRole("region", { name: "Timeline Rail" })
+        .querySelector("video"),
+    ).toHaveAttribute("preload", "none");
+    expect(
       within(inspector).getByText("Lineage, diagnostics, and history"),
     ).toBeInTheDocument();
     expect(

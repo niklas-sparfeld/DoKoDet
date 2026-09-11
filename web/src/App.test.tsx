@@ -139,10 +139,14 @@ describe("App", () => {
     expect(
       screen.getByRole("img", { name: "Random screenshot from round-7" }),
     ).toBeInTheDocument();
-    expect(row.querySelector("video")).toHaveAttribute(
-      "src",
-      `/v1/repository-bundles/${recordingId}/video`,
+    expect(row.querySelector("video")).not.toHaveAttribute("src");
+    await waitFor(() =>
+      expect(row.querySelector("video")).toHaveAttribute(
+        "src",
+        `/v1/repository-bundles/${recordingId}/video`,
+      ),
     );
+    expect(row.querySelector("video")).toHaveAttribute("preload", "metadata");
     expect(row.querySelectorAll("button")).toHaveLength(0);
     expect(
       screen.queryByRole("button", { name: "Refresh" }),

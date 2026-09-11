@@ -24,7 +24,7 @@ export function PipelineObservationWorkbench({
         data-recording-source-video={recordingId}
         src={repositoryBundleVideoPath(recordingId)}
         controls
-        preload="metadata"
+        preload="none"
         aria-label={`Table-observation source video ${recordingId}`}
       />
       {observation === null ? (
