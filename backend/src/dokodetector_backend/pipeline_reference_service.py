@@ -52,6 +52,20 @@ from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.video_probe import VideoProbeError, probe_video_path_metadata
 
+_CONTENT_MUTATING_OPERATIONS = frozenset(
+    {
+        "add",
+        "correct",
+        "select_identity",
+        "set_frame_review",
+        "restore_frame_suggestions",
+        "set_frame_empty",
+        "set_frame_unusable",
+        "set_identity_unusable",
+        "report_identity_source_problem",
+    }
+)
+
 
 def _command_digest(payload: Mapping[str, Any]) -> str:
     """Hash command bytes without the retry-specific expected revision."""
@@ -97,6 +111,9 @@ class PipelineReferenceService:
         self.reference_store = reference_store
         self.revision_store = revision_store
         self.selection_store = selection_store
+        # Pipeline revisions are immutable. Cache their source metadata because validating a
+        # multi-item reference must not reparse the complete source revision for every item.
+        self._source_revision_sources: dict[str, RecordingVideoSource] = {}
         self._handlers = build_reference_handlers(
             source_for=lambda recording_id, source_revision_id: self._source_for(
                 recording_id, source_revision_id
@@ -286,6 +303,7 @@ class PipelineReferenceService:
         with self.reference_store.locked(recording_id, content_type):
             handler = self._handler(content_type)
             current = self.reference_store.read_locked(recording_id, content_type)
+            commands: dict[str, str] | None = None
             if command_id is not None and command_digest is not None:
                 commands = self.reference_store.read_commands_locked(recording_id, content_type)
                 previous_digest = commands.get(command_id)
@@ -303,6 +321,8 @@ class PipelineReferenceService:
             items = list(current.draft.items)
             impacts = list(current.draft.impact)
             working_current = current
+            changed_item_ids: set[str] = set()
+            requires_full_validation = False
             for operation in operations:
                 if operation.operation == "rebase":
                     assert operation.source_revision_id is not None
@@ -319,6 +339,7 @@ class PipelineReferenceService:
                             source_revision_id=operation.source_revision_id,
                         ),
                     )
+                    requires_full_validation = True
                     continue
                 previous_item = None
                 if operation.operation == "correct":
@@ -342,11 +363,30 @@ class PipelineReferenceService:
                             corrected_item,
                         )
                     )
-            handler.validate_draft_items(
-                recording_id,
-                working_current.draft.source_revision_id,
-                items,
-            )
+                if operation.operation in _CONTENT_MUTATING_OPERATIONS:
+                    changed_item_id = (
+                        handler.item_id(operation.item)
+                        if operation.item is not None
+                        else operation.item_id
+                    )
+                    if changed_item_id is not None:
+                        changed_item_ids.add(changed_item_id)
+            if requires_full_validation:
+                handler.validate_draft_items(
+                    recording_id,
+                    working_current.draft.source_revision_id,
+                    items,
+                )
+            else:
+                for item_id in changed_item_ids:
+                    index = handler.find_item(items, item_id)
+                    if index is None:
+                        raise PipelineReferenceInputError(f"item was not found: {item_id}")
+                    handler.validate_item(
+                        items[index].item,
+                        working_current.draft.source_revision_id,
+                        recording_id,
+                    )
             timestamp = _now()
             draft = replace(
                 current.draft,
@@ -368,7 +408,7 @@ class PipelineReferenceService:
                 StoredPipelineReference(state=state, draft=draft)
             )
             if command_id is not None and command_digest is not None:
-                commands = self.reference_store.read_commands_locked(recording_id, content_type)
+                assert commands is not None
                 commands[command_id] = command_digest
                 self.reference_store.write_commands_locked(recording_id, content_type, commands)
             return saved
@@ -545,12 +585,20 @@ class PipelineReferenceService:
             or not isinstance(manifest.source, RecordingVideoSource)
         ):
             raise PipelineReferenceInputError("source revision does not match this reference")
+        self._source_revision_sources[revision_id] = manifest.source
         return revision
 
     def _source_for(
         self, recording_id: str, source_revision_id: str | None
     ) -> RecordingVideoSource:
         if source_revision_id is not None:
+            cached_source = self._source_revision_sources.get(source_revision_id)
+            if cached_source is not None:
+                if cached_source.recording_id != recording_id:
+                    raise PipelineReferenceInputError(
+                        "source revision does not match this recording"
+                    )
+                return cached_source
             try:
                 revision = self.revision_store.require(source_revision_id)
             except PipelineNotFound as error:
@@ -559,7 +607,9 @@ class PipelineReferenceService:
                 revision.manifest.source, RecordingVideoSource
             ):
                 raise PipelineReferenceInputError("source revision does not match this recording")
-            return revision.manifest.source
+            source = revision.manifest.source
+            self._source_revision_sources[source_revision_id] = source
+            return source
         bundle = self.recording_store.get(recording_id)
         if bundle is None:
             raise PipelineNotFound(f"The recording was not found: {recording_id}")

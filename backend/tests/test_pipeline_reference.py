@@ -770,6 +770,40 @@ def test_identity_commands_preserve_geometry_and_support_manual_labels(
     assert source_problem.draft.items[0].item["status"] == "failed"
 
 
+def test_identity_status_batch_skips_full_draft_revalidation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service, revision_store = _service(tmp_path)
+    identity_revision_id = _vision_source_revision(revision_store, "visual_identities")
+    service.create_reference(
+        SOURCE.recording_id,
+        "visual_identities",
+        {"operator_id": "operator-01", "source_revision_id": identity_revision_id},
+    )
+    handler = service._handler("visual_identities")
+
+    def fail_full_validation(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("status-only identity operations must not revalidate the full draft")
+
+    monkeypatch.setattr(handler, "validate_draft_items", fail_full_validation)
+    updated = service.update_draft(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {"operation": "accept_identity_suggestion", "item_id": "card-01"},
+                {"operation": "set_identity_unreviewed", "item_id": "card-01"},
+                {"operation": "accept_identity_suggestion", "item_id": "card-01"},
+            ],
+        },
+    )
+
+    assert updated.draft.revision == 1
+    assert updated.draft.items[0].review_state == "accepted"
+
+
 def test_correction_records_downstream_impact_and_coverage_survives_restart(
     tmp_path: Path,
 ) -> None:

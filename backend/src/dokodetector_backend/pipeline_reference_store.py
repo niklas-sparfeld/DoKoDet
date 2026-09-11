@@ -185,8 +185,10 @@ class PipelineReferenceStore:
             state_bytes,
             validate=lambda raw: _assert_bytes(raw, state_bytes, "pipeline reference state"),
         )
-        stored = self.read_locked(reference.state.recording_id, reference.state.content_type)
-        return stored
+        # Both documents were written from the validated reference and each atomic write checks
+        # the exact bytes that it published. Re-reading and parsing the complete draft here adds a
+        # second O(n) pass for every review command, which is costly for large identity drafts.
+        return reference
 
     def read_commands_locked(self, recording_id: str, content_type: str) -> dict[str, str]:
         """Read command digests while the reference lock is held."""

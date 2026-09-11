@@ -332,7 +332,8 @@ export function PipelineVisualIdentityEditor({
       }
       return;
     }
-    const command = queueRef.current[0];
+    const commands = queueRef.current.slice();
+    const command = commands[0];
     const current = referenceRef.current;
     if (current === null) return;
     processingRef.current = true;
@@ -344,10 +345,10 @@ export function PipelineVisualIdentityEditor({
           expected_revision: serverRevisionRef.current,
           operator_id: operatorId.trim(),
           command_id: command.commandId,
-          operations: [command.operation],
+          operations: commands.map((queued) => queued.operation),
         },
       );
-      queueRef.current.shift();
+      queueRef.current.splice(0, commands.length);
       hydrateReference(nextReference, true, queueRef.current);
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(
@@ -355,7 +356,7 @@ export function PipelineVisualIdentityEditor({
           ? null
           : describeCommand(queueRef.current[0]),
       );
-      setNotice(command.notice);
+      setNotice(commands[commands.length - 1].notice);
       setError(null);
       command.attempts = 0;
     } catch (reason: unknown) {

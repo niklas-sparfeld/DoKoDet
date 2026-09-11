@@ -152,6 +152,11 @@ function jsonResponse(value: unknown, status = 200) {
   });
 }
 
+type PutBody = {
+  expected_revision?: number;
+  operations?: Array<{ operation?: string }>;
+};
+
 describe("PipelineVisualIdentityEditor", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -885,6 +890,78 @@ describe("PipelineVisualIdentityEditor", () => {
       CARD_ID,
       "card-2",
     ]);
+  });
+
+  it("batches decisions queued while a save is in flight", async () => {
+    let resolveFirst!: (value: Response) => void;
+    const firstSave = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const putBodies: PutBody[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method !== "PUT")
+        return Promise.resolve(
+          jsonResponse(
+            reference("pending", [
+              { cardId: "card-2", reviewState: "pending" },
+            ]),
+          ),
+        );
+      const body = JSON.parse(String(init.body)) as PutBody;
+      putBodies.push(body);
+      if (putBodies.length === 1) return firstSave;
+      return Promise.resolve(
+        jsonResponse(
+          reference(
+            "accepted",
+            [{ cardId: "card-2", reviewState: "pending" }],
+            2,
+          ),
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    fireEvent.keyDown(window, { key: "a" });
+    await waitFor(() => expect(putBodies).toHaveLength(1));
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() => expect(screen.getByText("card-2")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "a" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Mark unreviewed/ }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.keyDown(window, { key: "a" });
+
+    resolveFirst(
+      jsonResponse(
+        reference(
+          "accepted",
+          [{ cardId: "card-2", reviewState: "pending" }],
+          1,
+        ),
+      ),
+    );
+    await waitFor(() => expect(putBodies).toHaveLength(2));
+
+    expect(putBodies[1]?.expected_revision).toBe(1);
+    expect(
+      putBodies[1]?.operations?.map((operation) => operation.operation),
+    ).toEqual(["accept_identity_suggestion", "set_identity_unreviewed"]);
   });
 
   it("keeps completion blocked until the empty prediction is reviewed", async () => {
