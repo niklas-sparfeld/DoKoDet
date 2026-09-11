@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import threading
 from typing import Any
 
 from app_factory import create_test_app
@@ -284,6 +285,114 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert [
             outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
         ] == ["classified", "unusable", "unusable", "failed"]
+
+
+def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> None:
+    _install_recording(tmp_path)
+    active = 0
+    maximum = 0
+    lock = threading.Lock()
+    started_two = threading.Event()
+    release = threading.Event()
+
+    class BlockingIdentityProvider:
+        name = "blocking-identity"
+        version = "blocking-identity/v1"
+        model = "blocking-model/v1"
+
+        def classify(self, request: VisualIdentityRequest) -> CardClassificationResult:
+            nonlocal active, maximum
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+                if active == 2:
+                    started_two.set()
+            try:
+                assert release.wait(2)
+                if request.card_id.endswith("failed"):
+                    return CardClassificationResult(status="unavailable", error="fixture failure")
+                if request.card_id.endswith("empty"):
+                    return CardClassificationResult(status="ok", candidates=())
+                return CardClassificationResult(
+                    status="ok",
+                    candidates=(IdentityCandidate(card="CLUBS_NINE", probability=1.0),),
+                )
+            finally:
+                with lock:
+                    active -= 1
+
+    app = create_test_app(
+        _settings(tmp_path, gemini_max_concurrent_requests=2),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=BlockingIdentityProvider(),
+    )
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-for-identity-blocking"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-for-identity-blocking")
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-identity-blocking/result"
+        ).json()["state"]["output_revision_ids"][0]
+        visible_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "visible-for-identity-blocking",
+                "event_revision_id": event_revision_id,
+            },
+        )
+        assert visible_response.status_code == 202
+        assert _wait(client, "visible-for-identity-blocking")["state"]["status"] == "complete"
+        visible_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-for-identity-blocking/result"
+        ).json()
+        visible_revision_id = visible_result["state"]["output_revision_ids"][0]
+        source = app.state.pipeline_revision_store.require(visible_revision_id).manifest.source
+        manual_revision_id = _manual_visible_revision(
+            app,
+            source,
+            visible_result["revisions"][0]["content"]["outcomes"][0]["frame_identity"],
+        )
+        identity_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-blocking",
+                "input_revision_ids": [manual_revision_id],
+            },
+        )
+        assert identity_response.status_code == 202
+        assert started_two.wait(2)
+        assert maximum == 2
+        release.set()
+        assert _wait_identity(client, "identity-blocking")["state"]["status"] == "complete"
+        result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-blocking/result"
+        ).json()
+
+    outcomes = result["revisions"][0]["content"]["outcomes"]
+    assert [outcome["card_id"] for outcome in outcomes] == [
+        "card-classified",
+        "card-empty",
+        "card-unusable",
+        "card-failed",
+    ]
+    assert [outcome["status"] for outcome in outcomes] == [
+        "classified",
+        "unusable",
+        "unusable",
+        "failed",
+    ]
+    assert [item["item_id"] for item in result["state"]["items"]] == [
+        "card-classified",
+        "card-empty",
+        "card-unusable",
+        "card-failed",
+    ]
+    assert result["state"]["progress"] == {"completed": 4, "total": 4}
 
 
 def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:

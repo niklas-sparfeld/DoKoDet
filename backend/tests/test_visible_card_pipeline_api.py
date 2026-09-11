@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -192,6 +193,95 @@ class _Detector:
 class _GeminiDetector(_Detector):
     name = "gemini"
     version = "gemini-visible-cards-v1"
+
+
+def _run_blocking_visible_detection(tmp_path: Path, cap: int) -> tuple[int, list[str]]:
+    _install_recording(tmp_path)
+    active = 0
+    maximum = 0
+    calls = 0
+    lock = threading.Lock()
+    started_one = threading.Event()
+    started_two = threading.Event()
+    release = threading.Event()
+
+    class BlockingDetector:
+        name = "blocking-detector"
+        version = "blocking-detector/v1"
+
+        def propose(self, request: object) -> ProviderResult:
+            nonlocal active, maximum, calls
+            del request
+            with lock:
+                active += 1
+                calls += 1
+                maximum = max(maximum, active)
+                started_one.set()
+                if active == 2:
+                    started_two.set()
+            try:
+                assert release.wait(2)
+                return ProviderResult(status="ok")
+            finally:
+                with lock:
+                    active -= 1
+
+    app = create_test_app(
+        _settings(tmp_path, gemini_max_concurrent_requests=cap),
+        event_provider=_EventProvider(),
+        visible_card_provider=BlockingDetector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-blocking"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-blocking")
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-blocking/result"
+        ).json()["state"]["output_revision_ids"][0]
+        visible_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={"run_id": "visible-blocking", "event_revision_id": event_revision_id},
+        )
+        assert visible_response.status_code == 202
+        assert started_one.wait(2)
+        if cap == 1:
+            time.sleep(0.05)
+            assert calls == 1
+            assert not started_two.is_set()
+        else:
+            assert started_two.wait(2)
+            assert maximum == 2
+        release.set()
+        assert _wait(client, "visible-blocking")["state"]["status"] == "complete"
+        result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-blocking/result"
+        ).json()
+        event_ids = [
+            outcome["event_id"] for outcome in result["revisions"][0]["content"]["outcomes"]
+        ]
+    return maximum, event_ids
+
+
+def test_visible_card_events_are_bounded_and_ordered(tmp_path: Path) -> None:
+    maximum, event_ids = _run_blocking_visible_detection(tmp_path, 2)
+
+    assert maximum == 2
+    assert event_ids == [
+        "event-000000",
+        "event-000001",
+        "event-000002",
+        "event-000003",
+    ]
+
+
+def test_visible_card_cap_one_remains_serial(tmp_path: Path) -> None:
+    maximum, _ = _run_blocking_visible_detection(tmp_path, 1)
+
+    assert maximum == 1
 
 
 def _wait(client: TestClient, run_id: str) -> dict:

@@ -35,6 +35,10 @@ from table_evidence_analyzer.dinov3_inference import (
     DinoV3IdentityClassifier,
     DinoV3InferenceError,
 )
+from table_evidence_analyzer.gemini_concurrency import (
+    GeminiRequestLimiter,
+    get_shared_gemini_request_limiter,
+)
 from table_evidence_analyzer.identity import (
     IDENTITY_EVALUATION_SCHEMA,
     IDENTITY_FEATURE_SCHEMA,
@@ -429,6 +433,8 @@ __all__ = [
     "IdentityEvaluationConfig",
     "IdentityEvaluationError",
     "GeminiCardClassifier",
+    "GeminiRequestLimiter",
+    "get_shared_gemini_request_limiter",
     "evaluate_identity_crops",
     "DINOV3_ARCHITECTURE",
     "DINOV3_AUGMENTATION_CONFIG",

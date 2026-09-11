@@ -11,6 +11,7 @@ import hashlib
 import math
 import tempfile
 from collections.abc import Mapping
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -75,6 +76,16 @@ class PixelBounds:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class _IdentityCropResult:
+    """One completed identity crop operation, retained in proposal order."""
+
+    crop_bytes: bytes | None
+    bounds: PixelBounds | None
+    classification: CardClassificationResult | None
+    error: str | None
+
+
 def polygon_pixel_bounds(proposal: VisibleCardProposal, *, width: int, height: int) -> PixelBounds:
     """Convert a normalized polygon's visible extent into an exclusive pixel rectangle."""
 
@@ -122,6 +133,28 @@ def polygon_to_ppm(
     except OSError as error:
         raise ObservationAdapterError(f"source image cannot be decoded: {error}") from error
     return f"P6\n{bounds.width} {bounds.height}\n255\n".encode() + pixels, bounds
+
+
+def _classify_identity_crop(
+    request: VisibleCardRequest,
+    identity_classifier: CardIdentityClassifier,
+    proposal: VisibleCardProposal,
+) -> _IdentityCropResult:
+    """Create and classify one crop without mutating the observation result."""
+
+    try:
+        crop_bytes, bounds = polygon_to_ppm(
+            request.image_bytes,
+            proposal,
+            width=request.width,
+            height=request.height,
+        )
+        classification = identity_classifier.classify_ppm(crop_bytes)
+        if not isinstance(classification, CardClassificationResult):
+            raise ObservationAdapterError("identity classifier returned an invalid result")
+        return _IdentityCropResult(crop_bytes, bounds, classification, None)
+    except Exception as error:
+        return _IdentityCropResult(None, None, None, str(error))
 
 
 def _read_frame(frame: AnalyzerFrame) -> bytes:
@@ -293,6 +326,7 @@ def adapt_visible_card_result(
     observation_id: str | None = None,
     analyzer_name: str = DEFAULT_ANALYZER_NAME,
     analyzer_version: str = DEFAULT_ANALYZER_VERSION,
+    max_concurrent_requests: int = 1,
 ) -> TableObservation:
     """Convert one visible-card provider result into a validated table observation."""
 
@@ -301,6 +335,8 @@ def adapt_visible_card_result(
     if not session_id or not analyzer_name or not analyzer_version:
         raise ObservationAdapterError("session and analyzer identifiers must be non-empty")
     identity_classifier = _identity_classifier(classifier)
+    if isinstance(max_concurrent_requests, bool) or max_concurrent_requests < 1:
+        raise ObservationAdapterError("max_concurrent_requests must be a positive integer")
     calibration = _classifier_calibration(identity_classifier)
     observation_id = observation_id or _observation_id(request)
     cards: list[ObservedCard] = []
@@ -309,22 +345,40 @@ def adapt_visible_card_result(
     identity_inference_latency_ms = 0.0
 
     if result.status == "ok":
+        crop_results: list[_IdentityCropResult | None] = [None] * len(result.proposals)
+        if max_concurrent_requests == 1:
+            for proposal_index, proposal in enumerate(result.proposals):
+                crop_results[proposal_index] = _classify_identity_crop(
+                    request, identity_classifier, proposal
+                )
+        else:
+            with ThreadPoolExecutor(
+                max_workers=max_concurrent_requests,
+                thread_name_prefix="visible-card-identity",
+            ) as executor:
+                futures: dict[Future[_IdentityCropResult], int] = {
+                    executor.submit(
+                        _classify_identity_crop,
+                        request,
+                        identity_classifier,
+                        proposal,
+                    ): proposal_index
+                    for proposal_index, proposal in enumerate(result.proposals)
+                }
+                for future in as_completed(futures):
+                    crop_results[futures[future]] = future.result()
+
         for proposal_index, proposal in enumerate(result.proposals):
             card_id = f"{observation_id}-card-{proposal_index + 1:02d}"
             identity_status = "failed"
             candidates = ()
-            reason: str | None = None
-            crop_bytes: bytes | None = None
-            bounds: PixelBounds | None = None
-            classification: CardClassificationResult | None = None
-            try:
-                crop_bytes, bounds = polygon_to_ppm(
-                    request.image_bytes,
-                    proposal,
-                    width=request.width,
-                    height=request.height,
-                )
-                classification = identity_classifier.classify_ppm(crop_bytes)
+            crop_result = crop_results[proposal_index]
+            assert crop_result is not None
+            crop_bytes = crop_result.crop_bytes
+            bounds = crop_result.bounds
+            classification = crop_result.classification
+            reason = crop_result.error
+            if classification is not None:
                 identity_inference_latency_ms += classification.latency_ms
                 if classification.status == "unavailable":
                     reason = classification.error or "identity classifier was unavailable"
@@ -334,8 +388,6 @@ def adapt_visible_card_result(
                 else:
                     identity_status = "classified"
                     candidates = classification.candidates
-            except (ObservationAdapterError, ValueError) as error:
-                reason = str(error)
             cards.append(
                 ObservedCard(
                     observed_card_id=card_id,
@@ -422,16 +474,20 @@ class VisibleCardTableAnalyzer:
         model: str = DEFAULT_MODEL,
         session_id: str | None = None,
         event_sequence: int = 1,
+        max_concurrent_requests: int = 1,
     ) -> None:
         if not model:
             raise ObservationAdapterError("model must be non-empty")
         if event_sequence < 1:
             raise ObservationAdapterError("event_sequence must be positive")
+        if isinstance(max_concurrent_requests, bool) or max_concurrent_requests < 1:
+            raise ObservationAdapterError("max_concurrent_requests must be a positive integer")
         self.provider = provider
         self.classifier = _identity_classifier(classifier)
         self.model = model
         self.session_id = session_id
         self.event_sequence = event_sequence
+        self.max_concurrent_requests = max_concurrent_requests
 
     def analyze(self, evidence: AnalyzerEvidence) -> TableObservation:
         """Analyze the frame nearest the event and return one validated observation."""
@@ -463,6 +519,7 @@ class VisibleCardTableAnalyzer:
             actual_offset_ms=frame.actual_offset_ms,
             analyzer_name=self.name,
             analyzer_version=self.version,
+            max_concurrent_requests=self.max_concurrent_requests,
         )
 
     def _insufficient_without_provider(

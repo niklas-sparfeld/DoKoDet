@@ -126,6 +126,21 @@ def test_factory_exposes_injected_settings() -> None:
     assert app.state.settings is settings
 
 
+def test_settings_validate_gemini_request_cap() -> None:
+    settings = Settings(_env_file=None, gemini_max_concurrent_requests=1)
+    assert settings.gemini_max_concurrent_requests == 1
+    with pytest.raises(ValueError, match="gemini_max_concurrent_requests"):
+        Settings(_env_file=None, gemini_max_concurrent_requests=0)
+
+
+def test_settings_loads_gemini_request_cap_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("GEMINI_MAX_CONCURRENT_REQUESTS", "3")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.gemini_max_concurrent_requests == 3
+
+
 def test_settings_resolves_card_event_checkpoint_path(tmp_path: Path) -> None:
     settings = Settings(
         _env_file=None,

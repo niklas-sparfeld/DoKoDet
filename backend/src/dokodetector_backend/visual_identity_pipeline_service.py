@@ -6,8 +6,9 @@ import hashlib
 import json
 import logging
 import re
+import time
 from collections.abc import Mapping
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
@@ -54,6 +55,7 @@ from table_evidence_analyzer.visual_identity import (
 )
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
@@ -142,6 +144,10 @@ class VisualIdentityPipelineService:
         self.run_store = run_store
         self.selection_store = selection_store
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
+        self.max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
+        if isinstance(self.max_concurrent_requests, bool) or self.max_concurrent_requests < 1:
+            raise ValueError("gemini_max_concurrent_requests must be a positive integer")
+        self._derived_view_lock = DERIVED_VIEW_CACHE_LOCK
         self.classifier = self._adapt_classifier(identity_classifier)
         self._executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="visual-identity-pipeline"
@@ -220,23 +226,25 @@ class VisualIdentityPipelineService:
             raise PipelineNotFound(f"The identity item was not found: {item_id}")
         if outcome.crop_identity is None or outcome.crop_identity.status != "usable":
             raise DerivedViewError("The identity crop is unavailable.")
-        frame = resolve_exact_event(
-            self._video_path(recording_id),
-            source=source,
-            requested_time_us=outcome.frame_identity.requested_time_us,
-            cache=self.storage.derived_views_root,
-            resolver=self.frame_resolver,
-            output_encoding=outcome.frame_identity.output_encoding,
-        )
+        with self._derived_view_lock:
+            frame = resolve_exact_event(
+                self._video_path(recording_id),
+                source=source,
+                requested_time_us=outcome.frame_identity.requested_time_us,
+                cache=self.storage.derived_views_root,
+                resolver=self.frame_resolver,
+                output_encoding=outcome.frame_identity.output_encoding,
+            )
         if frame.identity_mapping() != outcome.frame_identity.to_mapping():
             raise DerivedViewError("the resolved identity frame changed")
-        crop = resolve_visible_region_crop(
-            frame,
-            parse_geometry(outcome.geometry.to_mapping()),
-            crop_policy=outcome.crop_identity.crop_policy,
-            output_encoding=outcome.crop_identity.output_encoding,
-            cache=self.storage.derived_views_root,
-        )
+        with self._derived_view_lock:
+            crop = resolve_visible_region_crop(
+                frame,
+                parse_geometry(outcome.geometry.to_mapping()),
+                crop_policy=outcome.crop_identity.crop_policy,
+                output_encoding=outcome.crop_identity.output_encoding,
+                cache=self.storage.derived_views_root,
+            )
         if _pipeline_crop_identity_mapping(crop) != outcome.crop_identity.to_mapping():
             raise DerivedViewError("the resolved identity crop changed")
         return crop
@@ -404,23 +412,56 @@ class VisualIdentityPipelineService:
                 run_id,
                 progress=RunProgress(completed=0, total=len(candidates)),
             )
-            outcomes: list[VisualIdentityOutcome] = []
-            items: list[RunItemOutcome] = []
-            for outcome, candidate in candidates:
-                result = self._process_card(run, outcome, candidate)
-                outcomes.append(result)
-                items.append(
-                    RunItemOutcome(
+            outcomes_by_index: list[VisualIdentityOutcome | None] = [None] * len(candidates)
+            items_by_index: list[RunItemOutcome | None] = [None] * len(candidates)
+            completed = 0
+            with ThreadPoolExecutor(
+                max_workers=self.max_concurrent_requests,
+                thread_name_prefix="visual-identity-card",
+            ) as executor:
+                futures: dict[Future[VisualIdentityOutcome], int] = {
+                    executor.submit(self._process_card_timed, run, outcome, candidate): index
+                    for index, (outcome, candidate) in enumerate(candidates)
+                }
+                for future in as_completed(futures):
+                    index = futures[future]
+                    outcome, candidate = candidates[index]
+                    try:
+                        result = future.result()
+                    except Exception:
+                        LOGGER.exception(
+                            "visual_identity_card_failed",
+                            extra={"run_id": run.run_id, "card_id": candidate.card_id},
+                        )
+                        result = VisualIdentityOutcome(
+                            card_id=candidate.card_id,
+                            frame_identity=outcome.frame_identity,
+                            geometry=candidate.geometry,
+                            crop_identity=None,
+                            classifier=self._classifier_identity(run.request),
+                            status="failed",
+                            candidates=(),
+                            error="The visual identity classifier failed for this card.",
+                        )
+                    outcomes_by_index[index] = result
+                    items_by_index[index] = RunItemOutcome(
                         item_id=candidate.card_id,
                         status="succeeded",
                         result=result.to_mapping(),
                         failure=None,
                     )
-                )
-                self.run_store.update_progress(
-                    run_id,
-                    progress=RunProgress(completed=len(items), total=len(candidates)),
-                    items=tuple(items),
+                    completed += 1
+                    self.run_store.update_progress(
+                        run_id,
+                        progress=RunProgress(completed=completed, total=len(candidates)),
+                        items=tuple(item for item in items_by_index if item is not None),
+                    )
+
+            outcomes = [outcome for outcome in outcomes_by_index if outcome is not None]
+            items = tuple(item for item in items_by_index if item is not None)
+            if len(outcomes) != len(candidates) or len(items) != len(candidates):
+                raise VisualIdentityPipelineError(
+                    "The visual identity classifier did not process all cards."
                 )
             content = VisualIdentityData(outcomes=tuple(outcomes))
             revision = self._publish_revision(run, content)
@@ -428,7 +469,7 @@ class VisualIdentityPipelineService:
                 run_id,
                 [revision.manifest.revision_id],
                 progress=RunProgress(completed=len(items), total=len(candidates)),
-                items=tuple(items),
+                items=items,
             )
             self._advance_generated_selection(
                 run.request.source.recording_id, revision.manifest.revision_id
@@ -448,14 +489,15 @@ class VisualIdentityPipelineService:
         classifier_identity = self._classifier_identity(run.request)
         frame = None
         try:
-            frame = resolve_exact_event(
-                self._video_path(run.request.source.recording_id),
-                source=run.request.source,
-                requested_time_us=frame_identity.requested_time_us,
-                cache=self.storage.derived_views_root,
-                resolver=self.frame_resolver,
-                output_encoding=frame_identity.output_encoding,
-            )
+            with self._derived_view_lock:
+                frame = resolve_exact_event(
+                    self._video_path(run.request.source.recording_id),
+                    source=run.request.source,
+                    requested_time_us=frame_identity.requested_time_us,
+                    cache=self.storage.derived_views_root,
+                    resolver=self.frame_resolver,
+                    output_encoding=frame_identity.output_encoding,
+                )
             if frame.identity_mapping() != frame_identity.to_mapping():
                 raise DerivedViewError("the resolved frame identity changed")
         except (DerivedViewError, OSError, RuntimeError):
@@ -476,13 +518,14 @@ class VisualIdentityPipelineService:
             if crop_policy_id is None:
                 crop_policy_id = _default_crop_policy_for_geometry(geometry)["policy_id"]
             crop_policy_id = _crop_policy_for_geometry(str(crop_policy_id), geometry)
-            crop = resolve_visible_region_crop(
-                frame,
-                geometry.to_mapping(),
-                crop_policy=str(crop_policy_id),
-                output_encoding=str(crop_policy.get("output_encoding", "ppm")),
-                cache=self.storage.derived_views_root,
-            )
+            with self._derived_view_lock:
+                crop = resolve_visible_region_crop(
+                    frame,
+                    geometry.to_mapping(),
+                    crop_policy=str(crop_policy_id),
+                    output_encoding=str(crop_policy.get("output_encoding", "ppm")),
+                    cache=self.storage.derived_views_root,
+                )
             crop_identity = VisualIdentityCropIdentity.from_mapping(
                 _pipeline_crop_identity_mapping(crop)
             )
@@ -509,7 +552,8 @@ class VisualIdentityPipelineService:
                 unusable_reason=crop.unusable_reason,
             )
         try:
-            resolve_crop_jpeg_preview(crop, cache=self.storage.derived_views_root)
+            with self._derived_view_lock:
+                resolve_crop_jpeg_preview(crop, cache=self.storage.derived_views_root)
         except (DerivedViewError, OSError, RuntimeError):
             LOGGER.warning(
                 "visual_identity_browser_preview_cache_warm_failed",
@@ -570,6 +614,28 @@ class VisualIdentityPipelineService:
             status="classified",
             candidates=candidates,
         )
+
+    def _process_card_timed(
+        self, run: StoredProcessorRun, visible_outcome: Any, card: Any
+    ) -> VisualIdentityOutcome:
+        started = time.monotonic()
+        try:
+            return self._process_card(run, visible_outcome, card)
+        finally:
+            LOGGER.info(
+                "visual_identity_card_timing",
+                extra={
+                    "event_name": "visual_identity_card_timing",
+                    "run_id": run.run_id,
+                    "card_id": card.card_id,
+                    "item_wall_time_ms": round(
+                        max(0.0, time.monotonic() - started) * 1000.0, 3
+                    ),
+                    "timing_scope": (
+                        "wall-clock item timing; inference and network transfer are not separated"
+                    ),
+                },
+            )
 
     def _classifier_identity(
         self, request: ProcessorRunRequest

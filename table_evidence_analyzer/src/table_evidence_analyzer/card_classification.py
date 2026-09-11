@@ -11,7 +11,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import os
+import random
 import tempfile
 import time
 import urllib.error
@@ -25,6 +27,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from PIL import Image, UnidentifiedImageError
 
 from .cards import CARD_IDENTITIES
+from .gemini_concurrency import GeminiRequestLimiter, get_shared_gemini_request_limiter
 from .table_observation import IdentityCandidate
 from .visible_cards import (
     DEFAULT_MAX_RETRIES,
@@ -36,6 +39,8 @@ from .visible_cards import (
     ProviderUsage,
     VisibleCardError,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 CARD_CLASSIFICATION_SCHEMA = "gemini-card-classification/v1"
 CARD_CLASSIFICATION_CACHE_SCHEMA = "gemini-card-classification-cache/v1"
@@ -61,6 +66,10 @@ RESPONSE_SCHEMA: dict[str, Any] = {
 
 class CardClassificationError(VisibleCardError):
     """Raised when a transformed-card classification request is invalid."""
+
+
+class _RetryableGeminiResponse(Exception):
+    """Internal marker for a retryable HTTP response."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +179,7 @@ class GeminiCardClassifier:
         max_retries: int = DEFAULT_MAX_RETRIES,
         urlopen: Callable[..., Any] | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        request_limiter: GeminiRequestLimiter | None = None,
     ) -> None:
         if not api_key:
             raise MissingCredentialError("GEMINI_API_KEY is not set.")
@@ -185,6 +195,7 @@ class GeminiCardClassifier:
         self.max_retries = max_retries
         self._urlopen = urllib.request.urlopen if urlopen is None else urlopen
         self._sleep = sleep
+        self._request_limiter = request_limiter or get_shared_gemini_request_limiter()
 
     @classmethod
     def from_environment(cls, **kwargs: Any) -> "GeminiCardClassifier":
@@ -197,6 +208,7 @@ class GeminiCardClassifier:
         return self.classify(CardClassificationRequest(crop_bytes=crop_bytes, model=self.model))
 
     def classify(self, request: CardClassificationRequest) -> CardClassificationResult:
+        started = time.monotonic()
         png_bytes = _ppm_to_png(request.crop_bytes)
         payload = {
             "contents": [
@@ -219,22 +231,43 @@ class GeminiCardClassifier:
                 "thinkingConfig": {"thinkingLevel": request.thinking_level},
             },
         }
+        payload_bytes = json.dumps(payload).encode("utf-8")
         http_request = urllib.request.Request(
             (
                 f"https://generativelanguage.googleapis.com/{request.api_version}/models/"
                 f"{request.model}:generateContent"
             ),
-            data=json.dumps(payload).encode("utf-8"),
+            data=payload_bytes,
             headers={"Content-Type": "application/json", "x-goog-api-key": self.api_key},
             method="POST",
         )
-        started = time.monotonic()
         last_error = "Gemini returned a malformed classification response."
         last_raw_response: dict[str, Any] | None = None
+        limiter_wait_ms = 0.0
+        http_round_trip_ms = 0.0
         for attempt in range(self.max_retries + 1):
             try:
-                with self._urlopen(http_request, timeout=self.timeout_s) as response:
-                    raw_response = json.loads(response.read().decode("utf-8"))
+                http_error: tuple[int, str] | None = None
+                with self._request_limiter.request_slot() as wait_ms:
+                    limiter_wait_ms += wait_ms
+                    http_started = time.monotonic()
+                    try:
+                        with self._urlopen(http_request, timeout=self.timeout_s) as response:
+                            response_bytes = response.read()
+                    except urllib.error.HTTPError as error:
+                        http_error = (
+                            error.code,
+                            error.read().decode("utf-8", errors="replace")[:1000],
+                        )
+                    finally:
+                        http_round_trip_ms += _elapsed_ms(http_started)
+                if http_error is not None:
+                    code, body = http_error
+                    last_error = f"Gemini HTTP {code}: {body}"
+                    if code not in {429, 500, 502, 503, 504}:
+                        break
+                    raise _RetryableGeminiResponse()
+                raw_response = json.loads(response_bytes.decode("utf-8"))
                 if not isinstance(raw_response, dict):
                     raise CardClassificationError("response must be an object")
                 last_raw_response = raw_response
@@ -251,7 +284,7 @@ class GeminiCardClassifier:
                     if card == UNKNOWN_CARD
                     else (IdentityCandidate(card=card, probability=1.0),)
                 )
-                return CardClassificationResult(
+                result = CardClassificationResult(
                     status="ok",
                     candidates=candidates,
                     usage=usage,
@@ -260,11 +293,17 @@ class GeminiCardClassifier:
                     estimated_cost_usd=_estimate_cost(usage),
                     raw_response=raw_response,
                 )
-            except urllib.error.HTTPError as error:
-                body = error.read().decode("utf-8", errors="replace")
-                last_error = f"Gemini HTTP {error.code}: {body[:1000]}"
-                if error.code not in {429, 500, 502, 503, 504}:
-                    break
+                _log_gemini_timing(
+                    request_payload_bytes=len(payload_bytes),
+                    limiter_wait_ms=limiter_wait_ms,
+                    http_round_trip_ms=http_round_trip_ms,
+                    retries=attempt,
+                    item_wall_time_ms=result.latency_ms,
+                    status=result.status,
+                )
+                return result
+            except _RetryableGeminiResponse:
+                pass
             except (
                 CardClassificationError,
                 IndexError,
@@ -276,14 +315,23 @@ class GeminiCardClassifier:
             except (TimeoutError, urllib.error.URLError, OSError) as error:
                 last_error = f"Gemini classification request failed: {error}"
             if attempt < self.max_retries:
-                self._sleep(2**attempt)
-        return CardClassificationResult(
+                self._sleep((2**attempt) * random.uniform(0.8, 1.2))
+        result = CardClassificationResult(
             status="unavailable",
             latency_ms=_elapsed_ms(started),
             retry_count=attempt,
             error=last_error,
             raw_response=last_raw_response,
         )
+        _log_gemini_timing(
+            request_payload_bytes=len(payload_bytes),
+            limiter_wait_ms=limiter_wait_ms,
+            http_round_trip_ms=http_round_trip_ms,
+            retries=attempt,
+            item_wall_time_ms=result.latency_ms,
+            status=result.status,
+        )
+        return result
 
 
 class CachedCardClassifier:
@@ -369,6 +417,33 @@ class CachedCardClassifier:
 
 def _elapsed_ms(started: float) -> float:
     return round(max(0.0, time.monotonic() - started) * 1000.0, 3)
+
+
+def _log_gemini_timing(
+    *,
+    request_payload_bytes: int,
+    limiter_wait_ms: float,
+    http_round_trip_ms: float,
+    retries: int,
+    item_wall_time_ms: float,
+    status: str,
+) -> None:
+    LOGGER.info(
+        "gemini_request_timing",
+        extra={
+            "event_name": "gemini_request_timing",
+            "item_type": "card-identity",
+            "request_payload_bytes": request_payload_bytes,
+            "limiter_wait_ms": limiter_wait_ms,
+            "http_round_trip_ms": http_round_trip_ms,
+            "retries": retries,
+            "item_wall_time_ms": item_wall_time_ms,
+            "status": status,
+            "timing_scope": (
+                "wall-clock request timing; inference and network transfer are not separated"
+            ),
+        },
+    )
 
 
 def _estimate_cost(usage: ProviderUsage) -> float:

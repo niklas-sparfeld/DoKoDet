@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import tempfile
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
@@ -137,7 +138,7 @@ class StoredRoundCounterfactual:
 
 
 class RoundAnalysisService:
-    """Own the process-local queue and execute analyses one at a time."""
+    """Own the process-local queue and execute evidence packages with a bounded fan-out."""
 
     def __init__(
         self,
@@ -150,6 +151,7 @@ class RoundAnalysisService:
         analyzer: TableEvidenceAnalyzer,
         pipeline_revision_store: PipelineRevisionStore | None = None,
         pipeline_selection_store: PipelineSelectionStore | None = None,
+        max_concurrent_requests: int = 4,
     ) -> None:
         self.store = store
         self.package_store = package_store
@@ -161,6 +163,9 @@ class RoundAnalysisService:
         self.repository_bundle_storage = repository_bundle_storage
         self.pipeline_revision_store = pipeline_revision_store
         self.pipeline_selection_store = pipeline_selection_store
+        if isinstance(max_concurrent_requests, bool) or max_concurrent_requests < 1:
+            raise ValueError("max_concurrent_requests must be a positive integer")
+        self.max_concurrent_requests = max_concurrent_requests
         self.analyzer_runner = AnalyzerRunner(
             package_store,
             analyzer,
@@ -520,37 +525,80 @@ class RoundAnalysisService:
             if selected.request.is_pipeline_analysis:
                 assert selected.pipeline_revision is not None
                 observations.extend(self._read_prepared_pipeline_observations(request.analysis_id))
-            for index, package in enumerate(selected.packages, start=1):
-                log_event(
-                    LOGGER,
-                    logging.DEBUG,
-                    "round_analysis_package_started",
-                    **_analysis_context(analysis, request_id),
-                    package_id=str(package.package_id),
-                    package_index=index,
-                    total_packages=len(selected.packages),
-                )
-                observation = self.analyzer_runner.run_once(package.package_id)
-                if observation is None:
-                    raise RuntimeError("The selected evidence package could not be analyzed.")
-                observations.append(observation)
-                log_event(
-                    LOGGER,
-                    logging.DEBUG,
-                    "round_analysis_package_completed",
-                    **_analysis_context(analysis, request_id),
-                    package_id=str(package.package_id),
-                    package_index=index,
-                    total_packages=len(selected.packages),
-                    analyzer=observation.analyzer_name,
-                    analyzer_version=observation.analyzer_version,
-                    analysis_status=observation.status,
-                )
-                analysis = self.store.update_progress(
-                    analysis_id,
-                    state="analyzing_evidence",
-                    completed=index,
-                )
+            observations_by_index: list[StoredTableObservation | TableObservation | None] = [
+                None
+            ] * len(selected.packages)
+            package_failures: list[tuple[int, Exception]] = []
+            with ThreadPoolExecutor(
+                max_workers=self.max_concurrent_requests,
+                thread_name_prefix="round-analysis-package",
+            ) as executor:
+                futures: dict[Future[StoredTableObservation | None], int] = {}
+                for index, package in enumerate(selected.packages):
+                    package_index = index + 1
+                    log_event(
+                        LOGGER,
+                        logging.DEBUG,
+                        "round_analysis_package_started",
+                        **_analysis_context(analysis, request_id),
+                        package_id=str(package.package_id),
+                        package_index=package_index,
+                        total_packages=len(selected.packages),
+                    )
+                    futures[executor.submit(self.analyzer_runner.run_once, package.package_id)] = (
+                        index
+                    )
+                for future in as_completed(futures):
+                    index = futures[future]
+                    package = selected.packages[index]
+                    try:
+                        observation = future.result()
+                    except Exception as error:
+                        package_failures.append((index, error))
+                        LOGGER.exception(
+                            "round_analysis_package_failed",
+                            extra={
+                                "analysis_id": str(analysis_id),
+                                "package_id": str(package.package_id),
+                                "package_index": index + 1,
+                                "total_packages": len(selected.packages),
+                            },
+                        )
+                        continue
+                    if observation is None:
+                        package_failures.append(
+                            (
+                                index,
+                                RuntimeError(
+                                    "The selected evidence package could not be analyzed."
+                                ),
+                            )
+                        )
+                        continue
+                    observations_by_index[index] = observation
+                    log_event(
+                        LOGGER,
+                        logging.DEBUG,
+                        "round_analysis_package_completed",
+                        **_analysis_context(analysis, request_id),
+                        package_id=str(package.package_id),
+                        package_index=index + 1,
+                        total_packages=len(selected.packages),
+                        analyzer=observation.analyzer_name,
+                        analyzer_version=observation.analyzer_version,
+                        analysis_status=observation.status,
+                    )
+                    analysis = self.store.update_progress(
+                        analysis_id,
+                        state="analyzing_evidence",
+                        completed=sum(item is not None for item in observations_by_index),
+                    )
+
+            if package_failures:
+                raise package_failures[0][1]
+            observations.extend(
+                observation for observation in observations_by_index if observation is not None
+            )
 
             updated = self.store.update_progress(
                 analysis_id,

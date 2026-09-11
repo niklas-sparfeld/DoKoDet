@@ -11,6 +11,7 @@ from table_evidence_analyzer import (
     LocalVisibleCardProvider,
     TableEvidenceAnalyzer,
     VisibleCardTableAnalyzer,
+    get_shared_gemini_request_limiter,
 )
 
 from dokodetector_backend.config import ConfigurationError, Settings
@@ -20,6 +21,9 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
     """Create the analyzer with independent detector and identity selections."""
 
     cache_root = settings.evidence_root / "gemini-cache"
+    request_limiter = get_shared_gemini_request_limiter(
+        settings.gemini_max_concurrent_requests
+    )
     if settings.visible_card_provider == "gemini":
         if not settings.gemini_api_key:
             raise ConfigurationError(
@@ -29,6 +33,7 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
             api_key=settings.gemini_api_key,
             timeout_s=settings.gemini_timeout_seconds,
             max_retries=settings.gemini_max_retries,
+            request_limiter=request_limiter,
         )
     else:
         if settings.visible_card_bundle_path is None:
@@ -61,6 +66,7 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
                 model=settings.gemini_model,
                 timeout_s=settings.gemini_timeout_seconds,
                 max_retries=settings.gemini_max_retries,
+                request_limiter=request_limiter,
             ),
             cache_root / "card-classification",
         )
@@ -88,6 +94,7 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
         provider,
         classifier,
         model=settings.gemini_model,
+        max_concurrent_requests=settings.gemini_max_concurrent_requests,
     )
 
 

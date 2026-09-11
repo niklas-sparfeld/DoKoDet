@@ -13,9 +13,11 @@ import hashlib
 import html
 import importlib.metadata
 import json
+import logging
 import math
 import mimetypes
 import os
+import random
 import re
 import tempfile
 import time
@@ -29,6 +31,8 @@ from pathlib import Path
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from PIL import Image, UnidentifiedImageError
+
+from .gemini_concurrency import GeminiRequestLimiter, get_shared_gemini_request_limiter
 
 DEFAULT_MODEL = "gemini-3.8-flash"
 DEFAULT_TIMEOUT_S = 120.0
@@ -55,6 +59,11 @@ _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SIDES = frozenset({"face_up", "face_down", "unknown"})
 _TIGHT_BOX_ERROR = "box_2d must be the tight bounds of its visible polygon."
+LOGGER = logging.getLogger(__name__)
+
+
+class _RetryableGeminiResponse(Exception):
+    """Internal marker for a retryable HTTP response."""
 
 PROMPT = """Find every visible physical playing card in this image.
 
@@ -634,6 +643,7 @@ class GeminiVisibleCardProvider:
         max_retries: int = DEFAULT_MAX_RETRIES,
         urlopen: Callable[..., Any] | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        request_limiter: GeminiRequestLimiter | None = None,
     ) -> None:
         if not api_key:
             raise MissingCredentialError("GEMINI_API_KEY is not set.")
@@ -647,6 +657,7 @@ class GeminiVisibleCardProvider:
         self.max_retries = max_retries
         self._urlopen = urllib.request.urlopen if urlopen is None else urlopen
         self._sleep = sleep
+        self._request_limiter = request_limiter or get_shared_gemini_request_limiter()
 
     @classmethod
     def from_environment(cls, **kwargs: Any) -> "GeminiVisibleCardProvider":
@@ -656,6 +667,7 @@ class GeminiVisibleCardProvider:
         return cls(api_key=api_key, **kwargs)
 
     def propose(self, request: VisibleCardRequest) -> ProviderResult:
+        started = time.monotonic()
         if request.provider != self.name:
             raise VisibleCardError(
                 f"request provider {request.provider!r} does not match {self.name!r}."
@@ -685,20 +697,41 @@ class GeminiVisibleCardProvider:
             f"https://generativelanguage.googleapis.com/{request.api_version}/models/"
             f"{request.model}:generateContent"
         )
+        payload_bytes = json.dumps(payload).encode("utf-8")
         http_request = urllib.request.Request(
             request_url,
-            data=json.dumps(payload).encode("utf-8"),
+            data=payload_bytes,
             headers={"Content-Type": "application/json", "x-goog-api-key": self.api_key},
             method="POST",
         )
 
-        started = time.monotonic()
         last_error = "Gemini returned a malformed response."
         last_raw_response: dict[str, Any] | None = None
+        limiter_wait_ms = 0.0
+        http_round_trip_ms = 0.0
         for attempt in range(self.max_retries + 1):
             try:
-                with self._urlopen(http_request, timeout=self.timeout_s) as response:
-                    raw_response = json.loads(response.read().decode("utf-8"))
+                http_error: tuple[int, str] | None = None
+                with self._request_limiter.request_slot() as wait_ms:
+                    limiter_wait_ms += wait_ms
+                    http_started = time.monotonic()
+                    try:
+                        with self._urlopen(http_request, timeout=self.timeout_s) as response:
+                            response_bytes = response.read()
+                    except urllib.error.HTTPError as error:
+                        http_error = (
+                            error.code,
+                            error.read().decode("utf-8", errors="replace")[:1000],
+                        )
+                    finally:
+                        http_round_trip_ms += _elapsed_ms(http_started)
+                if http_error is not None:
+                    code, body = http_error
+                    last_error = f"Gemini HTTP {code}: {body}"
+                    if code not in {429, 500, 502, 503, 504}:
+                        break
+                    raise _RetryableGeminiResponse()
+                raw_response = json.loads(response_bytes.decode("utf-8"))
                 if not isinstance(raw_response, dict):
                     raise VisibleCardValidationError("Gemini response must be an object.")
                 last_raw_response = raw_response
@@ -715,7 +748,7 @@ class GeminiVisibleCardProvider:
                     repair_tight_boxes=request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION,
                 )
                 usage = ProviderUsage.from_usage_metadata(raw_response.get("usageMetadata"))
-                return ProviderResult(
+                result = ProviderResult(
                     status="ok",
                     proposals=prediction.cards,
                     raw_response=raw_response,
@@ -724,11 +757,18 @@ class GeminiVisibleCardProvider:
                     retry_count=attempt,
                     estimated_cost_usd=_estimate_cost(usage),
                 )
-            except urllib.error.HTTPError as error:
-                body = error.read().decode("utf-8", errors="replace")
-                last_error = f"Gemini HTTP {error.code}: {body[:1000]}"
-                if error.code not in {429, 500, 502, 503, 504}:
-                    break
+                _log_gemini_timing(
+                    "visible-card",
+                    request_payload_bytes=len(payload_bytes),
+                    limiter_wait_ms=limiter_wait_ms,
+                    http_round_trip_ms=http_round_trip_ms,
+                    retries=attempt,
+                    item_wall_time_ms=result.latency_ms,
+                    status=result.status,
+                )
+                return result
+            except _RetryableGeminiResponse:
+                pass
             except (
                 IndexError,
                 KeyError,
@@ -743,15 +783,25 @@ class GeminiVisibleCardProvider:
             except (TimeoutError, urllib.error.URLError, OSError) as error:
                 last_error = f"Gemini request failed: {error}"
             if attempt < self.max_retries:
-                self._sleep(2**attempt)
+                self._sleep((2**attempt) * random.uniform(0.8, 1.2))
 
-        return ProviderResult(
+        result = ProviderResult(
             status="unavailable",
             raw_response=last_raw_response,
             latency_ms=_elapsed_ms(started),
             retry_count=attempt,
             error=last_error,
         )
+        _log_gemini_timing(
+            "visible-card",
+            request_payload_bytes=len(payload_bytes),
+            limiter_wait_ms=limiter_wait_ms,
+            http_round_trip_ms=http_round_trip_ms,
+            retries=attempt,
+            item_wall_time_ms=result.latency_ms,
+            status=result.status,
+        )
+        return result
 
 
 def _import_torch() -> Any:
@@ -1128,6 +1178,34 @@ class LocalVisibleCardProvider:
 
 def _elapsed_ms(started: float) -> float:
     return round(max(0.0, time.monotonic() - started) * 1000.0, 3)
+
+
+def _log_gemini_timing(
+    item_type: str,
+    *,
+    request_payload_bytes: int,
+    limiter_wait_ms: float,
+    http_round_trip_ms: float,
+    retries: int,
+    item_wall_time_ms: float,
+    status: str,
+) -> None:
+    LOGGER.info(
+        "gemini_request_timing",
+        extra={
+            "event_name": "gemini_request_timing",
+            "item_type": item_type,
+            "request_payload_bytes": request_payload_bytes,
+            "limiter_wait_ms": limiter_wait_ms,
+            "http_round_trip_ms": http_round_trip_ms,
+            "retries": retries,
+            "item_wall_time_ms": item_wall_time_ms,
+            "status": status,
+            "timing_scope": (
+                "wall-clock request timing; inference and network transfer are not separated"
+            ),
+        },
+    )
 
 
 def _estimate_cost(usage: ProviderUsage) -> float:

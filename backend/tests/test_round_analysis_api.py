@@ -3,13 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import threading
 import time
 from pathlib import Path
 
 import pytest
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
-from table_evidence_analyzer import TableObservation, parse_observation_bytes
+from table_evidence_analyzer import AnalyzerEvidence, TableObservation, parse_observation_bytes
 from test_api import load_upload_fixture, multipart_parts
 
 from dokodetector_backend.config import Settings
@@ -47,13 +48,19 @@ def _analysis_payload(
     }
 
 
-def _backend(tmp_path: Path, *, synchronous: bool = True) -> tuple[TestClient, object]:
+def _backend(
+    tmp_path: Path,
+    *,
+    synchronous: bool = True,
+    max_concurrent_requests: int = 4,
+) -> tuple[TestClient, object]:
     app = create_test_app(
         Settings(
             _env_file=None,
             evidence_root=tmp_path / "runtime",
             evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
             repository_intake_root=tmp_path / "intake" / "recordings",
+            gemini_max_concurrent_requests=max_concurrent_requests,
         ),
         run_round_analysis_synchronously=synchronous,
     )
@@ -540,6 +547,73 @@ def test_lifespan_worker_processes_queued_analysis(backend_tmp_path: Path) -> No
         assert status.json()["state"] == "complete"
 
 
+def test_round_analysis_packages_are_bounded_and_persisted_in_input_order(
+    backend_tmp_path: Path,
+) -> None:
+    client, app = _backend(
+        backend_tmp_path,
+        synchronous=False,
+        max_concurrent_requests=2,
+    )
+    package_ids = [
+        _upload_linked_package(client, event_sequence=1),
+        _upload_linked_package(
+            client,
+            package_id="550e8400-e29b-41d4-a716-446655440098",
+            event_sequence=2,
+        ),
+    ]
+    original_analyze = app.state.analyzer.analyze
+    active = 0
+    maximum = 0
+    lock = threading.Lock()
+    started_two = threading.Event()
+    release = threading.Event()
+
+    class BlockingAnalyzer:
+        name = app.state.analyzer.name
+        version = app.state.analyzer.version
+
+        def analyze(self, evidence: object) -> TableObservation:
+            nonlocal active, maximum
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+                if active == 2:
+                    started_two.set()
+            try:
+                assert release.wait(2)
+                return original_analyze(evidence)
+            finally:
+                with lock:
+                    active -= 1
+
+    app.state.round_analysis_service.analyzer_runner.analyzer = BlockingAnalyzer()
+    with client:
+        created = client.post(
+            "/v1/round-analyses",
+            json=_analysis_payload(package_ids=package_ids),
+        )
+        assert created.status_code == 202
+        assert started_two.wait(2)
+        assert maximum == 2
+        release.set()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            status = client.get(f"/v1/round-analyses/{ANALYSIS_ID}")
+            if status.json()["state"] == "complete":
+                break
+            time.sleep(0.01)
+        assert status.json()["state"] == "complete"
+
+    stored_input = json.loads(
+        (
+            app.state.round_analysis_storage.analysis_path(ANALYSIS_ID) / "input.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert [item["source"]["package_id"] for item in stored_input["observations"]] == package_ids
+
+
 def _install_two_observation_analyzer(app, package_ids: list[str]) -> None:
     observation_fixture = (
         Path(__file__).parents[2]
@@ -549,23 +623,20 @@ def _install_two_observation_analyzer(app, package_ids: list[str]) -> None:
         / "observations"
         / "minimal.json"
     )
-    calls = 0
-
     class TwoObservationAnalyzer:
         name = "deterministic-local"
         version = "v1"
 
         def analyze(self, evidence: object) -> TableObservation:
-            nonlocal calls
-            package_id = package_ids[calls]
-            calls += 1
+            assert isinstance(evidence, AnalyzerEvidence)
+            package_id = str(evidence.package_id)
             source = parse_observation_bytes(observation_fixture.read_bytes())
             payload = source.model_dump(mode="python", exclude_none=True)
             payload["observation_id"] = f"{package_id}-observation"
             payload["source"] = {"package_id": package_id}
             payload["session"] = {
                 "session_id": SESSION_ID,
-                "event_sequence": calls,
+                "event_sequence": package_ids.index(package_id) + 1,
             }
             payload["analyzer"] = {"name": self.name, "version": self.version}
             return TableObservation.model_validate(payload)

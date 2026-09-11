@@ -157,6 +157,7 @@ def create_app(
         app.state.analyzer,
         pipeline_revision_store=app.state.pipeline_revision_store,
         pipeline_selection_store=app.state.pipeline_selection_store,
+        max_concurrent_requests=app_settings.gemini_max_concurrent_requests,
     )
     lifecycle_services = (
         *pipeline_composition.lifecycle_services,

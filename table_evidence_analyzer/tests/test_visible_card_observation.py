@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 from uuid import UUID
@@ -239,6 +241,78 @@ def test_mixed_identity_outcomes_keep_every_visible_card_proposal() -> None:
         "failed",
     ]
     assert len(observation.cards) == 3
+
+
+def test_identity_crops_from_one_detection_run_in_parallel_and_keep_order() -> None:
+    image = _jpeg()
+    request = VisibleCardRequest(
+        package_id=str(PACKAGE_ID),
+        frame_part_name="frame_00",
+        target_offset_ms=0,
+        image_bytes=image,
+        width=20,
+        height=20,
+        provider="fake",
+    )
+    proposals = tuple(
+        normalize_prediction({"cards": [_proposal(0, 0, 1000 - index * 100, 1000)]}).cards[0]
+        for index in range(3)
+    )
+    active = 0
+    maximum = 0
+    lock = threading.Lock()
+    started_three = threading.Event()
+    release = threading.Event()
+
+    class BlockingClassifier:
+        name = "blocking"
+        version = "blocking-v1"
+        calibration = "uncalibrated"
+
+        def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
+            nonlocal active, maximum
+            del crop_bytes
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+                if active == 3:
+                    started_three.set()
+            try:
+                assert release.wait(2)
+                return CardClassificationResult(
+                    status="ok",
+                    candidates=(IdentityCandidate(card="CLUBS_NINE", probability=1.0),),
+                )
+            finally:
+                with lock:
+                    active -= 1
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            adapt_visible_card_result,
+            request,
+            ProviderResult(status="ok", proposals=proposals),
+            BlockingClassifier(),
+            observed_at_ms=1,
+            session_id="session-blocking",
+            event_sequence=1,
+            max_concurrent_requests=3,
+        )
+        assert started_three.wait(2)
+        assert maximum == 3
+        release.set()
+        observation = future.result()
+
+    assert [card.observed_card_id for card in observation.cards] == [
+        f"observation-{PACKAGE_ID}-frame_00-card-01",
+        f"observation-{PACKAGE_ID}-frame_00-card-02",
+        f"observation-{PACKAGE_ID}-frame_00-card-03",
+    ]
+    assert [card.identity_status for card in observation.cards] == [
+        "classified",
+        "classified",
+        "classified",
+    ]
 
 
 def test_observation_write_is_canonical_and_parseable(tmp_path: Path) -> None:

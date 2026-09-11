@@ -6,8 +6,9 @@ import hashlib
 import json
 import logging
 import re
+import time
 from collections.abc import Mapping
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
@@ -45,6 +46,7 @@ from table_evidence_analyzer.pipeline_data import (
 from table_evidence_analyzer.visible_cards import ProviderResult, VisibleCardRequest
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
@@ -105,6 +107,10 @@ class VisibleCardPipelineService:
         self.run_store = run_store
         self.selection_store = selection_store
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
+        self.max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
+        if isinstance(self.max_concurrent_requests, bool) or self.max_concurrent_requests < 1:
+            raise ValueError("gemini_max_concurrent_requests must be a positive integer")
+        self._derived_view_lock = DERIVED_VIEW_CACHE_LOCK
         self._executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="visible-card-pipeline"
         )
@@ -160,14 +166,15 @@ class VisibleCardPipelineService:
         """Resolve one recording-owned exact-event frame for a derived-view URL."""
 
         _, source = self._accepted_source(recording_id)
-        return resolve_exact_event(
-            self._video_path(recording_id),
-            source=source,
-            requested_time_us=requested_time_us,
-            cache=self.storage.derived_views_root,
-            resolver=self.frame_resolver,
-            output_encoding="jpeg",
-        )
+        with self._derived_view_lock:
+            return resolve_exact_event(
+                self._video_path(recording_id),
+                source=source,
+                requested_time_us=requested_time_us,
+                cache=self.storage.derived_views_root,
+                resolver=self.frame_resolver,
+                output_encoding="jpeg",
+            )
 
     def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         self.get_run(recording_id, run_id)
@@ -323,23 +330,53 @@ class VisibleCardPipelineService:
                 run_id,
                 progress=RunProgress(completed=0, total=len(events)),
             )
-            outcomes: list[VisibleCardOutcome] = []
-            items: list[RunItemOutcome] = []
-            for event in events:
-                outcome = self._process_event(run, event)
-                outcomes.append(outcome)
-                items.append(
-                    RunItemOutcome(
+            outcomes_by_index: list[VisibleCardOutcome | None] = [None] * len(events)
+            items_by_index: list[RunItemOutcome | None] = [None] * len(events)
+            completed = 0
+            with ThreadPoolExecutor(
+                max_workers=self.max_concurrent_requests,
+                thread_name_prefix="visible-card-event",
+            ) as executor:
+                futures: dict[Future[VisibleCardOutcome], int] = {
+                    executor.submit(self._process_event_timed, run, event): index
+                    for index, event in enumerate(events)
+                }
+                for future in as_completed(futures):
+                    index = futures[future]
+                    event = events[index]
+                    try:
+                        outcome = future.result()
+                    except Exception:
+                        LOGGER.exception(
+                            "visible_card_event_failed",
+                            extra={"run_id": run.run_id, "event_id": event.event_id},
+                        )
+                        outcome = VisibleCardOutcome(
+                            event_id=event.event_id,
+                            frame_identity=None,
+                            status="failed",
+                            candidates=(),
+                            error="The visible-card detector failed for this event.",
+                        )
+                    outcomes_by_index[index] = outcome
+                    items_by_index[index] = RunItemOutcome(
                         item_id=event.event_id,
                         status="succeeded",
                         result=outcome.to_mapping(),
                         failure=None,
                     )
-                )
-                self.run_store.update_progress(
-                    run_id,
-                    progress=RunProgress(completed=len(items), total=len(events)),
-                    items=tuple(items),
+                    completed += 1
+                    self.run_store.update_progress(
+                        run_id,
+                        progress=RunProgress(completed=completed, total=len(events)),
+                        items=tuple(item for item in items_by_index if item is not None),
+                    )
+
+            outcomes = [outcome for outcome in outcomes_by_index if outcome is not None]
+            items = tuple(item for item in items_by_index if item is not None)
+            if len(outcomes) != len(events) or len(items) != len(events):
+                raise VisibleCardPipelineError(
+                    "The visible-card detector did not process all events."
                 )
             content = VisibleCardData(outcomes=tuple(outcomes))
             revision = self._publish_revision(run, content)
@@ -347,7 +384,7 @@ class VisibleCardPipelineService:
                 run_id,
                 [revision.manifest.revision_id],
                 progress=RunProgress(completed=len(items), total=len(events)),
-                items=tuple(items),
+                items=items,
             )
             self._advance_generated_selection(
                 run.request.source.recording_id, revision.manifest.revision_id
@@ -360,14 +397,15 @@ class VisibleCardPipelineService:
 
     def _process_event(self, run: StoredProcessorRun, event: Any) -> VisibleCardOutcome:
         try:
-            frame = resolve_exact_event(
-                self._video_path(run.request.source.recording_id),
-                source=run.request.source,
-                requested_time_us=event.start_us,
-                cache=self.storage.derived_views_root,
-                resolver=self.frame_resolver,
-                output_encoding=run.request.extraction_policy.get("output_encoding", "jpeg"),
-            )
+            with self._derived_view_lock:
+                frame = resolve_exact_event(
+                    self._video_path(run.request.source.recording_id),
+                    source=run.request.source,
+                    requested_time_us=event.start_us,
+                    cache=self.storage.derived_views_root,
+                    resolver=self.frame_resolver,
+                    output_encoding=run.request.extraction_policy.get("output_encoding", "jpeg"),
+                )
         except (DerivedViewError, OSError, RuntimeError):
             return VisibleCardOutcome(
                 event_id=event.event_id,
@@ -407,6 +445,26 @@ class VisibleCardPipelineService:
             candidates=candidates,
             error=None,
         )
+
+    def _process_event_timed(self, run: StoredProcessorRun, event: Any) -> VisibleCardOutcome:
+        started = time.monotonic()
+        try:
+            return self._process_event(run, event)
+        finally:
+            LOGGER.info(
+                "visible_card_event_timing",
+                extra={
+                    "event_name": "visible_card_event_timing",
+                    "run_id": run.run_id,
+                    "event_id": event.event_id,
+                    "item_wall_time_ms": round(
+                        max(0.0, time.monotonic() - started) * 1000.0, 3
+                    ),
+                    "timing_scope": (
+                        "wall-clock item timing; inference and network transfer are not separated"
+                    ),
+                },
+            )
 
     def _propose(
         self, run: StoredProcessorRun, event_id: str, frame: ResolvedFrame
