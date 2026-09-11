@@ -135,7 +135,8 @@ def _probe_video(
     if len(video_streams) != 1:
         raise UnsupportedVideoError("The video must contain exactly one video stream.")
     stream = video_streams[0]
-    if str(stream.get("codec_name", "")).lower() != "h264":
+    video_codec = str(stream.get("codec_name", "")).lower()
+    if video_codec not in {"h264", "hevc"}:
         raise UnsupportedVideoError("The video codec is not supported.")
 
     width = _positive_int(stream.get("width"), "video width")
@@ -153,7 +154,7 @@ def _probe_video(
         raise VideoProbeError("The probe did not return a declared video frame count.")
     return VideoProbe(
         container="mp4",
-        video_codec="h264",
+        video_codec=video_codec,
         width=width,
         height=height,
         nominal_frame_rate=frame_rate,
