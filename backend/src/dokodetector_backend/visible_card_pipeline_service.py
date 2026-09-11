@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import RLock
+from threading import BoundedSemaphore, RLock
 from typing import Any, Protocol
 
 from doko_operations.derived_view import (
@@ -110,9 +110,11 @@ class VisibleCardPipelineService:
         self.max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
         if isinstance(self.max_concurrent_requests, bool) or self.max_concurrent_requests < 1:
             raise ValueError("gemini_max_concurrent_requests must be a positive integer")
+        self._request_slots = BoundedSemaphore(self.max_concurrent_requests)
         self._derived_view_lock = DERIVED_VIEW_CACHE_LOCK
         self._executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="visible-card-pipeline"
+            max_workers=self.max_concurrent_requests,
+            thread_name_prefix="visible-card-pipeline",
         )
         self._futures: dict[str, Future[None]] = {}
         self._lock = RLock()
@@ -439,7 +441,8 @@ class VisibleCardPipelineService:
                 error="The exact event frame is unavailable.",
             )
         try:
-            result = self._propose(run, event.event_id, frame)
+            with self._request_slots:
+                result = self._propose(run, event.event_id, frame)
         except Exception:
             return VisibleCardOutcome(
                 event_id=event.event_id,

@@ -581,6 +581,84 @@ def test_visible_card_pipeline_retry_resumes_retained_items(tmp_path: Path) -> N
     assert len(status["state"]["items"]) == 5
 
 
+def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    active = 0
+    maximum = 0
+    lock = threading.Lock()
+    started_two = threading.Event()
+    release = threading.Event()
+
+    class BlockingDetector:
+        name = "blocking-detector"
+        version = "blocking-detector/v1"
+
+        def propose(self, request: object) -> ProviderResult:
+            nonlocal active, maximum
+            del request
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+                if active == 2:
+                    started_two.set()
+            try:
+                assert release.wait(2)
+                return ProviderResult(status="ok")
+            finally:
+                with lock:
+                    active -= 1
+
+    app = create_test_app(
+        _settings(tmp_path, gemini_max_concurrent_requests=2),
+        event_provider=_EventProvider(),
+        visible_card_provider=BlockingDetector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-for-visible-queue"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-for-visible-queue")
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-visible-queue/result"
+        ).json()["state"]["output_revision_ids"][0]
+
+        first_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={"run_id": "visible-queue-first", "event_revision_id": event_revision_id},
+        )
+        assert first_response.status_code == 202
+        assert started_two.wait(2)
+
+        second_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={"run_id": "visible-queue-second", "event_revision_id": event_revision_id},
+        )
+        assert second_response.status_code == 202
+
+        deadline = time.monotonic() + 2
+        second_status: dict = {}
+        while time.monotonic() < deadline:
+            second_status = client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-queue-second"
+            ).json()
+            if second_status["state"]["progress"]["total"] == 5:
+                break
+            time.sleep(0.01)
+        assert second_status["state"]["progress"] == {"completed": 0, "total": 5}
+
+        release.set()
+        assert _wait(client, "visible-queue-first")["state"]["status"] == "complete"
+        assert _wait(client, "visible-queue-second")["state"]["status"] == "complete"
+
+    assert maximum == 2
+
+
 def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: Path) -> None:
     _install_recording(tmp_path)
     app = create_test_app(
