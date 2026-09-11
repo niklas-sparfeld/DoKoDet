@@ -5,6 +5,36 @@
   gap: 1rem;
 }
 
+.reviewWorkbench {
+  display: grid;
+  grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.controlSidebar {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.15rem 0.25rem 0.15rem 0;
+}
+
+.controlSidebar > .statusLabel {
+  margin: 0 0 0.15rem;
+}
+
+.controlGroup {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.controlGroup + .controlGroup {
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--line);
+}
+
 .standaloneInspector {
   display: grid;
   gap: 0.8rem;
@@ -174,12 +204,6 @@
   line-height: 1.45;
 }
 
-.outcomeButtons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
 .decisionPanel {
   display: grid;
   gap: 0.7rem;
@@ -251,33 +275,6 @@
   color: var(--muted-ink);
 }
 
-.keyboardShortcuts {
-  display: grid;
-  gap: 0.35rem;
-  padding-top: 0.65rem;
-  border-top: 1px solid var(--line);
-  color: var(--muted-ink);
-  font-size: 0.7rem;
-}
-
-.keyboardShortcuts dl {
-  display: grid;
-  gap: 0.2rem;
-  margin: 0;
-}
-.keyboardShortcuts dl div {
-  display: grid;
-  grid-template-columns: 3.5rem 1fr;
-  gap: 0.35rem;
-}
-.keyboardShortcuts dt {
-  color: var(--ink);
-  font-weight: 700;
-}
-.keyboardShortcuts dd {
-  margin: 0;
-}
-
 .choiceGrid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -319,6 +316,31 @@
 }
 
 @media (max-width: 900px) {
+  .reviewWorkbench {
+    grid-template-columns: 1fr;
+  }
+
+  .controlSidebar {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0;
+  }
+
+  .controlSidebar > .statusLabel,
+  .controlGroup {
+    grid-column: 1 / -1;
+  }
+
+  .controlGroup {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reviewWorkbench > .framePanel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
   .detailGrid {
     grid-template-columns: 1fr;
   }

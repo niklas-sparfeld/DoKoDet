@@ -1,5 +1,11 @@
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 import { PipelineVisualIdentityEditor } from "./PipelineVisualIdentityEditor";
 
@@ -758,12 +764,20 @@ describe("PipelineVisualIdentityEditor", () => {
     await user.type(screen.getByLabelText("Operator ID"), "operator-01");
 
     expect(screen.getByText("Unreviewed")).toBeInTheDocument();
+    const controls = screen.getByRole("complementary", {
+      name: "Visual identity review controls",
+    });
     expect(
-      screen.getByRole("button", { name: /Accept suggestion/ }),
+      within(controls).getByRole("button", { name: "Accept A" }),
+    ).toBeInTheDocument();
+    expect(
+      within(controls).getByRole("button", {
+        name: "Identity unusable U",
+      }),
     ).toBeInTheDocument();
     expect(
       screen
-        .queryByRole("button", { name: /Accept suggestion/ })
+        .queryByRole("button", { name: "Accept A" })
         ?.closest("section[aria-label='Selected visual identity']"),
     ).toBeNull();
 

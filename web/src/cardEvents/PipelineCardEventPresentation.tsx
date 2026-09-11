@@ -8,6 +8,7 @@ import {
   formatMicroseconds,
 } from "./PipelineCardEventFormatting";
 import styles from "../App.module.css";
+import { ShortcutButton } from "../pipeline/ShortcutButton";
 import eventStyles from "./PipelineCardEventEditor.module.css";
 
 export function EventSourceSurface({
@@ -189,7 +190,7 @@ export function CardEventReviewControls({
     >
       <p className={styles.statusLabel}>Review controls</p>
       <div className={eventStyles.controlGroup}>
-        <ControlButton
+        <ShortcutButton
           label="Previous"
           shortcut="Alt+Left"
           ariaShortcut="Alt+ArrowLeft"
@@ -197,7 +198,7 @@ export function CardEventReviewControls({
           disabledReason="There is no previous event."
           onClick={onPrevious}
         />
-        <ControlButton
+        <ShortcutButton
           label="Next"
           shortcut="Alt+Right"
           ariaShortcut="Alt+ArrowRight"
@@ -207,19 +208,19 @@ export function CardEventReviewControls({
         />
       </div>
       <div className={eventStyles.controlGroup}>
-        <ControlButton
+        <ShortcutButton
           label="Seek earlier"
           shortcut="Left"
           ariaShortcut="ArrowLeft"
           onClick={() => onSeek(-250_000)}
         />
-        <ControlButton
+        <ShortcutButton
           label="Seek later"
           shortcut="Right"
           ariaShortcut="ArrowRight"
           onClick={() => onSeek(250_000)}
         />
-        <ControlButton
+        <ShortcutButton
           label="Nudge earlier"
           shortcut=","
           ariaShortcut=","
@@ -227,7 +228,7 @@ export function CardEventReviewControls({
           disabledReason="Select an event before nudging its time."
           onClick={() => onNudge(-1)}
         />
-        <ControlButton
+        <ShortcutButton
           label="Nudge later"
           shortcut="."
           ariaShortcut="."
@@ -237,7 +238,7 @@ export function CardEventReviewControls({
         />
       </div>
       <div className={eventStyles.controlGroup}>
-        <ControlButton
+        <ShortcutButton
           label="Accept"
           shortcut="A"
           ariaShortcut="A"
@@ -246,7 +247,7 @@ export function CardEventReviewControls({
           disabledReason="Accept is available for pending events."
           onClick={onAccept}
         />
-        <ControlButton
+        <ShortcutButton
           label={dismissLabel}
           shortcut="D"
           ariaShortcut="D"
@@ -254,7 +255,7 @@ export function CardEventReviewControls({
           disabledReason="Select an event before dismissing it."
           onClick={onDismiss}
         />
-        <ControlButton
+        <ShortcutButton
           label="Add event"
           shortcut="N"
           ariaShortcut="N"
@@ -263,39 +264,6 @@ export function CardEventReviewControls({
         />
       </div>
     </aside>
-  );
-}
-
-function ControlButton({
-  label,
-  shortcut,
-  ariaShortcut,
-  variant = "secondary",
-  disabled = false,
-  disabledReason,
-  onClick,
-}: {
-  label: string;
-  shortcut: string;
-  ariaShortcut: string;
-  variant?: "primary" | "secondary";
-  disabled?: boolean;
-  disabledReason?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={`${variant === "primary" ? styles.primaryButton : styles.secondaryButton} ${eventStyles.controlButton}`}
-      type="button"
-      aria-label={`${label} ${shortcut}`}
-      aria-keyshortcuts={ariaShortcut}
-      disabled={disabled}
-      title={disabled ? disabledReason : undefined}
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      <kbd className={eventStyles.shortcutPill}>{shortcut}</kbd>
-    </button>
   );
 }
 

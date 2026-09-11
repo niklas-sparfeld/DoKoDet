@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
 } from "../api/client";
 import styles from "../App.module.css";
+import { ShortcutButton } from "../pipeline/ShortcutButton";
 import identityStyles from "./PipelineVisualIdentityEditor.module.css";
 import {
   IDENTITY_SUIT_ROWS,
@@ -32,6 +33,111 @@ export function visualIdentityReviewPrewarmUrls(
       ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
       : null;
   return cropUrl === null ? [frameUrl] : [frameUrl, cropUrl];
+}
+
+export function IdentityReviewControls({
+  editable,
+  hasPrevious,
+  hasNext,
+  item,
+  onPrevious,
+  onNext,
+  onAccept,
+  onMarkUnusable,
+  onMarkFaceDown,
+  onReportSourceProblem,
+}: {
+  editable: boolean;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  item: EditableIdentity | null;
+  onPrevious: () => void;
+  onNext: () => void;
+  onAccept: () => void;
+  onMarkUnusable: () => void;
+  onMarkFaceDown: () => void;
+  onReportSourceProblem: () => void;
+}) {
+  const reviewStatus = item === null ? null : identityReviewStatus(item);
+  const canAccept =
+    editable &&
+    item !== null &&
+    (reviewStatus === "accepted" || item.outcome.candidates.length > 0);
+  const canMark =
+    editable && item !== null && item.outcome.crop_identity !== null;
+  return (
+    <aside
+      className={identityStyles.controlSidebar}
+      aria-label="Visual identity review controls"
+    >
+      <p className={styles.statusLabel}>Review controls</p>
+      <div className={identityStyles.controlGroup}>
+        <ShortcutButton
+          label="Previous card"
+          shortcut="Left"
+          ariaShortcut="ArrowLeft"
+          disabled={!hasPrevious}
+          disabledReason="There is no previous card."
+          onClick={onPrevious}
+        />
+        <ShortcutButton
+          label="Next card"
+          shortcut="Right"
+          ariaShortcut="ArrowRight"
+          disabled={!hasNext}
+          disabledReason="There is no next card."
+          onClick={onNext}
+        />
+      </div>
+      {editable ? (
+        <div className={identityStyles.controlGroup}>
+          <ShortcutButton
+            label={reviewStatus === "accepted" ? "Mark unreviewed" : "Accept"}
+            shortcut="A"
+            ariaShortcut="A"
+            variant="primary"
+            disabled={!canAccept}
+            disabledReason="Accept is available when an identity candidate exists."
+            onClick={onAccept}
+          />
+          <ShortcutButton
+            label={
+              reviewStatus === "unusable"
+                ? "Mark unreviewed"
+                : "Identity unusable"
+            }
+            shortcut="U"
+            ariaShortcut="U"
+            disabled={!canMark}
+            disabledReason="A usable crop is required to mark an identity unusable."
+            onClick={onMarkUnusable}
+          />
+          <ShortcutButton
+            label={
+              reviewStatus === "face_down" ? "Mark unreviewed" : "Face down"
+            }
+            shortcut="F"
+            ariaShortcut="F"
+            disabled={!canMark}
+            disabledReason="A usable crop is required to mark a card face down."
+            onClick={onMarkFaceDown}
+          />
+          <ShortcutButton
+            label={
+              reviewStatus === "source_problem"
+                ? "Mark unreviewed"
+                : "Source problem"
+            }
+            shortcut="S"
+            ariaShortcut="S"
+            disabled={item === null}
+            disabledReason="Select a card before reporting a source problem."
+            onClick={onReportSourceProblem}
+          />
+        </div>
+      ) : null}
+    </aside>
+  );
 }
 
 export function IdentityItemPanel({
@@ -165,6 +271,7 @@ export function IdentitySourceSurface({
   recordingId,
   sourceRevisionId,
   onSelectIdentity,
+  controls,
 }: {
   item: EditableIdentity | null;
   items: EditableIdentity[];
@@ -172,27 +279,35 @@ export function IdentitySourceSurface({
   recordingId: string;
   sourceRevisionId: string | null;
   onSelectIdentity?: (identity: string) => void;
+  controls?: ReactNode;
 }) {
   return (
     <section
       className={identityStyles.workbenchSurface}
       aria-label="Visual identity source and crop"
     >
-      {loading ? (
-        <p className={styles.detailEmptyState}>Loading visual identities…</p>
-      ) : item === null ? (
-        <p className={styles.detailEmptyState}>
-          Select an identity card from the Timeline Rail.
-        </p>
-      ) : (
-        <IdentityItemPanel
-          recordingId={recordingId}
-          sourceRevisionId={sourceRevisionId}
-          item={item}
-          items={items}
-          onSelectIdentity={onSelectIdentity}
-        />
-      )}
+      <div
+        className={
+          controls === undefined ? undefined : identityStyles.reviewWorkbench
+        }
+      >
+        {controls}
+        {loading ? (
+          <p className={styles.detailEmptyState}>Loading visual identities…</p>
+        ) : item === null ? (
+          <p className={styles.detailEmptyState}>
+            Select an identity card from the Timeline Rail.
+          </p>
+        ) : (
+          <IdentityItemPanel
+            recordingId={recordingId}
+            sourceRevisionId={sourceRevisionId}
+            item={item}
+            items={items}
+            onSelectIdentity={onSelectIdentity}
+          />
+        )}
+      </div>
     </section>
   );
 }
@@ -344,26 +459,6 @@ export function IdentityCardList({
           </li>
         ))}
       </ol>
-      <section
-        className={identityStyles.keyboardShortcuts}
-        aria-label="Keyboard shortcuts"
-      >
-        <p className={styles.statusLabel}>Keyboard shortcuts</p>
-        <dl>
-          <div>
-            <dt>← / →</dt>
-            <dd>Previous / next card</dd>
-          </div>
-          <div>
-            <dt>A</dt>
-            <dd>Toggle accepted</dd>
-          </div>
-          <div>
-            <dt>U</dt>
-            <dd>Toggle unusable</dd>
-          </div>
-        </dl>
-      </section>
     </section>
   );
 }

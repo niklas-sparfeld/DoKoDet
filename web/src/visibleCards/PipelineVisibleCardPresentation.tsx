@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 
 import { pipelineDerivedFramePath } from "../api/client";
 import styles from "../App.module.css";
+import { ShortcutButton } from "../pipeline/ShortcutButton";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
   formatIdentifier,
@@ -27,6 +28,131 @@ export function visibleCardReviewPrewarmUrls(
   return identity === null
     ? []
     : [pipelineDerivedFramePath(recordingId, identity.requested_time_us)];
+}
+
+export function VisibleCardReviewControls({
+  editable,
+  hasPrevious,
+  hasNext,
+  hasProposals,
+  selectedFrame,
+  onPrevious,
+  onNext,
+  onPreviousProposal,
+  onNextProposal,
+  onAccept,
+  onAddCard,
+  onMarkEmpty,
+  onMarkUnusable,
+}: {
+  editable: boolean;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  hasProposals: boolean;
+  selectedFrame: EditableFrame | null;
+  onPrevious: () => void;
+  onNext: () => void;
+  onPreviousProposal: () => void;
+  onNextProposal: () => void;
+  onAccept: () => void;
+  onAddCard: () => void;
+  onMarkEmpty: () => void;
+  onMarkUnusable: () => void;
+}) {
+  const reviewStatus =
+    selectedFrame === null ? null : frameReviewStatus(selectedFrame);
+  const canAccept =
+    editable &&
+    selectedFrame !== null &&
+    selectedFrame.outcome.status === "detected";
+  const canAddCard =
+    editable &&
+    selectedFrame !== null &&
+    selectedFrame.outcome.frame_identity !== null;
+  return (
+    <aside
+      className={visibleStyles.controlSidebar}
+      aria-label="Visible-card review controls"
+    >
+      <p className={styles.statusLabel}>Review controls</p>
+      <div className={visibleStyles.controlGroup}>
+        <ShortcutButton
+          label="Previous frame"
+          shortcut="Left"
+          ariaShortcut="ArrowLeft"
+          disabled={!hasPrevious}
+          disabledReason="There is no previous frame."
+          onClick={onPrevious}
+        />
+        <ShortcutButton
+          label="Next frame"
+          shortcut="Right"
+          ariaShortcut="ArrowRight"
+          disabled={!hasNext}
+          disabledReason="There is no next frame."
+          onClick={onNext}
+        />
+      </div>
+      <div className={visibleStyles.controlGroup}>
+        <ShortcutButton
+          label="Previous proposal"
+          shortcut="Up"
+          ariaShortcut="ArrowUp"
+          disabled={!hasProposals}
+          disabledReason="This frame has no proposals."
+          onClick={onPreviousProposal}
+        />
+        <ShortcutButton
+          label="Next proposal"
+          shortcut="Down"
+          ariaShortcut="ArrowDown"
+          disabled={!hasProposals}
+          disabledReason="This frame has no proposals."
+          onClick={onNextProposal}
+        />
+      </div>
+      {editable ? (
+        <div className={visibleStyles.controlGroup}>
+          <ShortcutButton
+            label={
+              reviewStatus === "accepted" ? "Mark unreviewed" : "Accept frame"
+            }
+            shortcut="A"
+            ariaShortcut="A"
+            variant="primary"
+            disabled={!canAccept}
+            disabledReason="Accept is available for detected frames."
+            onClick={onAccept}
+          />
+          <ShortcutButton
+            label="Add missed card"
+            shortcut="N"
+            ariaShortcut="N"
+            variant="primary"
+            disabled={!canAddCard}
+            disabledReason="A resolved source frame is required to add a card."
+            onClick={onAddCard}
+          />
+          <ShortcutButton
+            label="Reviewed empty frame"
+            shortcut="E"
+            ariaShortcut="E"
+            disabled={selectedFrame === null}
+            disabledReason="Select a frame before marking it empty."
+            onClick={onMarkEmpty}
+          />
+          <ShortcutButton
+            label="Unusable frame"
+            shortcut="U"
+            ariaShortcut="U"
+            disabled={selectedFrame === null}
+            disabledReason="Select a frame before marking it unusable."
+            onClick={onMarkUnusable}
+          />
+        </div>
+      ) : null}
+    </aside>
+  );
 }
 
 export function VisibleCardFramePanel({
@@ -204,7 +330,6 @@ export function VisibleCardFramePanel({
           onSelectCandidate={onSelectCandidate}
           onOpenEditor={onOpenEditor}
           onRemoveCard={onRemoveCard}
-          canAddCard={identity !== null}
         />,
         proposalSlot,
       )}
@@ -260,13 +385,12 @@ export function VisibleCardFramePanel({
             <p className={visibleStyles.inlineFormError}>{editorError}</p>
           ) : null}
           <div className={visibleStyles.actionButtons}>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={onCancelEditor}
-            >
-              Close editor
-            </button>
+            <ShortcutButton
+              label="Close editor"
+              shortcut="Esc"
+              ariaShortcut="Escape"
+              onClick={onCancelEditor ?? (() => undefined)}
+            />
           </div>
         </section>
       ) : null}
@@ -289,7 +413,6 @@ function ProposalColumn({
   onSelectCandidate,
   onOpenEditor,
   onRemoveCard,
-  canAddCard,
 }: {
   frame: EditableFrame;
   sourceUrl: string | null;
@@ -298,7 +421,6 @@ function ProposalColumn({
   onSelectCandidate?: (candidate: Candidate) => void;
   onOpenEditor?: (candidate: Candidate | null) => void;
   onRemoveCard?: (cardId: string) => void;
-  canAddCard: boolean;
 }) {
   return (
     <section
@@ -359,48 +481,6 @@ function ProposalColumn({
           ))}
         </ol>
       )}
-      {!readOnly ? (
-        <button
-          className={styles.primaryButton}
-          type="button"
-          onClick={() => onOpenEditor?.(null)}
-          disabled={!canAddCard}
-        >
-          Add missed card
-        </button>
-      ) : null}
-      <section
-        className={visibleStyles.keyboardShortcuts}
-        aria-label="Keyboard shortcuts"
-      >
-        <p className={styles.statusLabel}>Keyboard shortcuts</p>
-        <dl>
-          <div>
-            <dt>← / →</dt>
-            <dd>Previous / next frame</dd>
-          </div>
-          <div>
-            <dt>↑ / ↓</dt>
-            <dd>Previous / next proposal</dd>
-          </div>
-          <div>
-            <dt>A</dt>
-            <dd>Toggle accepted / unreviewed</dd>
-          </div>
-          <div>
-            <dt>N</dt>
-            <dd>Add missed card</dd>
-          </div>
-          <div>
-            <dt>E</dt>
-            <dd>Mark frame empty</dd>
-          </div>
-          <div>
-            <dt>U</dt>
-            <dd>Mark frame unusable</dd>
-          </div>
-        </dl>
-      </section>
     </section>
   );
 }

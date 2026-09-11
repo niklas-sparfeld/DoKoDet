@@ -4,6 +4,36 @@
   gap: 0.6rem;
 }
 
+.reviewWorkbench {
+  display: grid;
+  grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.controlSidebar {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.15rem 0.25rem 0.15rem 0;
+}
+
+.controlSidebar > .statusLabel {
+  margin: 0 0 0.15rem;
+}
+
+.controlGroup {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.controlGroup + .controlGroup {
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--line);
+}
+
 .standaloneInspector {
   display: grid;
   gap: 0.8rem;
@@ -46,36 +76,6 @@
 .coverageInspector progress {
   width: 100%;
   accent-color: var(--accent);
-}
-
-.keyboardShortcuts {
-  grid-row: 3;
-  align-self: end;
-  display: grid;
-  gap: 0.35rem;
-  padding-top: 0.45rem;
-  border-top: 1px solid var(--line);
-}
-
-.keyboardShortcuts dl {
-  display: grid;
-  gap: 0.2rem;
-  margin: 0;
-}
-
-.keyboardShortcuts dl div {
-  display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  gap: 0.4rem;
-}
-
-.keyboardShortcuts dt {
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.keyboardShortcuts dd {
-  margin: 0;
 }
 
 .reviewCounts {
@@ -310,6 +310,31 @@
 }
 
 @media (max-width: 800px) {
+  .reviewWorkbench {
+    grid-template-columns: 1fr;
+  }
+
+  .controlSidebar {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0;
+  }
+
+  .controlSidebar > .statusLabel,
+  .controlGroup {
+    grid-column: 1 / -1;
+  }
+
+  .controlGroup {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reviewWorkbench > .framePanel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
   .proposalRow,
   .proposalSelect {
     grid-template-columns: 3rem minmax(0, 1fr);

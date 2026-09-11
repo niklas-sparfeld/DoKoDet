@@ -1,5 +1,11 @@
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 import { PipelineVisibleCardEditor } from "./PipelineVisibleCardEditor";
 import type { Candidate } from "./PipelineVisibleCardTypes";
@@ -794,6 +800,18 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     await screen.findByAltText("Selected visible-card source frame");
+    const controls = screen.getByRole("complementary", {
+      name: "Visible-card review controls",
+    });
+    expect(
+      within(controls).getByRole("button", { name: "Previous frame Left" }),
+    ).toBeInTheDocument();
+    expect(
+      within(controls).getByRole("button", { name: "Accept frame A" }),
+    ).toBeInTheDocument();
+    expect(
+      within(controls).getByRole("button", { name: "Add missed card N" }),
+    ).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Edit" }));
     const point = screen.getByRole("button", {
@@ -851,7 +869,7 @@ describe("PipelineVisibleCardEditor", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Close editor" }),
+      screen.getByRole("button", { name: "Close editor Esc" }),
     ).toBeInTheDocument();
   });
 
@@ -880,14 +898,14 @@ describe("PipelineVisibleCardEditor", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     expect(
-      screen.getByRole("button", { name: "Close editor" }),
+      screen.getByRole("button", { name: "Close editor Esc" }),
     ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "ArrowRight" });
 
     await waitFor(() =>
       expect(
-        screen.queryByRole("button", { name: "Close editor" }),
+        screen.queryByRole("button", { name: "Close editor Esc" }),
       ).not.toBeInTheDocument(),
     );
   });
@@ -916,10 +934,39 @@ describe("PipelineVisibleCardEditor", () => {
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "Accept frame" }));
+    await user.click(screen.getByRole("button", { name: "Accept frame A" }));
 
     expect(
-      screen.queryByRole("button", { name: "Close editor" }),
+      screen.queryByRole("button", { name: "Close editor Esc" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("closes polygon editing with Escape", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(reference()))),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByRole("button", { name: "Close editor Esc" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("button", { name: "Close editor Esc" }),
     ).not.toBeInTheDocument();
   });
 
@@ -1052,7 +1099,7 @@ describe("PipelineVisibleCardEditor", () => {
         { x: 100, y: 800 },
       ]);
       expect(
-        screen.getByRole("button", { name: "Close editor" }),
+        screen.getByRole("button", { name: "Close editor Esc" }),
       ).toBeInTheDocument();
     },
   );
@@ -1206,7 +1253,7 @@ describe("PipelineVisibleCardEditor", () => {
 
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole("button", { name: "Mark unreviewed" }),
+      await screen.findByRole("button", { name: "Mark unreviewed A" }),
     );
     await waitFor(() =>
       expect(
@@ -1256,7 +1303,7 @@ describe("PipelineVisibleCardEditor", () => {
     await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
     await user.click(
-      screen.getByRole("button", { name: "Reviewed empty frame" }),
+      screen.getByRole("button", { name: "Reviewed empty frame E" }),
     );
 
     await waitFor(
@@ -1293,7 +1340,7 @@ describe("PipelineVisibleCardEditor", () => {
     await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
     await user.click(
-      screen.getByRole("button", { name: "Reviewed empty frame" }),
+      screen.getByRole("button", { name: "Reviewed empty frame E" }),
     );
     await waitFor(() =>
       expect(

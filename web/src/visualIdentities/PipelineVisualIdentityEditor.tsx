@@ -21,6 +21,7 @@ import {
 } from "../profile/profile";
 import {
   IdentityCardList,
+  IdentityReviewControls,
   IdentitySourceSurface,
   visualIdentityReviewPrewarmUrls,
 } from "./PipelineVisualIdentityPresentation";
@@ -797,6 +798,7 @@ export function PipelineVisualIdentityEditor({
         (item) => item.itemId === selectedItemIdRef.current,
       );
       const item = current[index >= 0 ? index : 0];
+      const canEdit = view === "reviewed" && usesMaintainedIdentities;
       if (event.key === " " && videoRef.current !== null) {
         event.preventDefault();
         if (videoRef.current.paused)
@@ -813,24 +815,28 @@ export function PipelineVisualIdentityEditor({
         event.preventDefault();
         selectItem(current[index + 1]);
       } else if (
+        canEdit &&
         (event.key === "a" || event.key === "A") &&
         item !== undefined
       ) {
         event.preventDefault();
         toggleAcceptance(item);
       } else if (
+        canEdit &&
         (event.key === "u" || event.key === "U") &&
         item !== undefined
       ) {
         event.preventDefault();
         toggleUnusable(item);
       } else if (
+        canEdit &&
         (event.key === "f" || event.key === "F") &&
         item !== undefined
       ) {
         event.preventDefault();
         toggleFaceDown(item);
       } else if (
+        canEdit &&
         (event.key === "s" || event.key === "S") &&
         item !== undefined
       ) {
@@ -842,10 +848,12 @@ export function PipelineVisualIdentityEditor({
     return () => window.removeEventListener("keydown", handler);
   }, [
     selectItem,
+    usesMaintainedIdentities,
     toggleAcceptance,
     toggleFaceDown,
     toggleSourceProblem,
     toggleUnusable,
+    view,
   ]);
 
   useEffect(() => {
@@ -924,6 +932,37 @@ export function PipelineVisualIdentityEditor({
               : reviewerId.trim() === ""
                 ? "Enter the reviewer ID before completing the reference."
                 : null;
+  const identityControls =
+    activeItems.length > 0 && (view === "generated" || reference !== null) ? (
+      <IdentityReviewControls
+        editable={reviewed && reference !== null}
+        hasPrevious={activeItemIndex > 0}
+        hasNext={
+          activeItemIndex >= 0 && activeItemIndex < activeItems.length - 1
+        }
+        item={activeItem}
+        onPrevious={() => {
+          const previous = activeItems[activeItemIndex - 1];
+          if (previous !== undefined) selectItem(previous);
+        }}
+        onNext={() => {
+          const next = activeItems[activeItemIndex + 1];
+          if (next !== undefined) selectItem(next);
+        }}
+        onAccept={() => {
+          if (activeItem !== null) toggleAcceptance(activeItem);
+        }}
+        onMarkUnusable={() => {
+          if (activeItem !== null) toggleUnusable(activeItem);
+        }}
+        onMarkFaceDown={() => {
+          if (activeItem !== null) toggleFaceDown(activeItem);
+        }}
+        onReportSourceProblem={() => {
+          if (activeItem !== null) toggleSourceProblem(activeItem);
+        }}
+      />
+    ) : undefined;
   const inspector = (
     <IdentityInspectorPortals
       slots={inspectorSlots}
@@ -954,17 +993,6 @@ export function PipelineVisualIdentityEditor({
       completeReference={completeReference}
       retryQueuedCommands={retryQueuedCommands}
       reloadWinningDraft={reloadWinningDraft}
-      acceptSuggestion={() =>
-        activeItem !== null && toggleAcceptance(activeItem)
-      }
-      markUnusable={() => activeItem !== null && toggleUnusable(activeItem)}
-      markFaceDown={() => activeItem !== null && toggleFaceDown(activeItem)}
-      reportSourceProblem={() =>
-        activeItem !== null && toggleSourceProblem(activeItem)
-      }
-      selectIdentity={(identity) =>
-        activeItem !== null && selectIdentity(activeItem, identity)
-      }
     />
   );
 
@@ -995,6 +1023,7 @@ export function PipelineVisualIdentityEditor({
           items={activeItems}
           loading={generatedLoading}
           sourceRevisionId={generatedSourceRevisionId}
+          controls={identityControls}
         />
       </>
     );
@@ -1020,6 +1049,7 @@ export function PipelineVisualIdentityEditor({
         items={activeItems}
         loading={false}
         sourceRevisionId={reference.draft.source_revision_id}
+        controls={identityControls}
         onSelectIdentity={(identity) =>
           activeItem !== null && selectIdentity(activeItem, identity)
         }

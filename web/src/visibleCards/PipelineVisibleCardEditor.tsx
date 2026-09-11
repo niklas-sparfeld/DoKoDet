@@ -35,6 +35,7 @@ import {
 import {
   visibleCardReviewPrewarmUrls,
   VisibleCardFramePanel,
+  VisibleCardReviewControls,
 } from "./PipelineVisibleCardPresentation";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
@@ -995,9 +996,18 @@ export function PipelineVisibleCardEditor({
       ) {
         return;
       }
+      if (event.key === "Escape" && editorRef.current !== null) {
+        event.preventDefault();
+        endEditMode();
+        return;
+      }
       const current = usesMaintainedFrames
         ? framesRef.current
         : generatedFrames;
+      const canEdit =
+        view === "reviewed" &&
+        referenceRef.current !== null &&
+        !referenceNeedsSeed;
       const index = current.findIndex(
         (frame) => frame.itemId === selectedFrameIdRef.current,
       );
@@ -1030,37 +1040,25 @@ export function PipelineVisibleCardEditor({
               : (selectedIndex + offset + proposals.length) % proposals.length;
           setSelectedCandidateId(proposals[nextIndex].card_id);
         }
-      } else if (
-        view === "reviewed" &&
-        (event.key === "n" || event.key === "N")
-      ) {
+      } else if (canEdit && (event.key === "n" || event.key === "N")) {
         const frame = current[index >= 0 ? index : 0];
         if (frame !== undefined) {
           event.preventDefault();
           openEditor(frame, null);
         }
-      } else if (
-        view === "reviewed" &&
-        (event.key === "a" || event.key === "A")
-      ) {
+      } else if (canEdit && (event.key === "a" || event.key === "A")) {
         const frame = current[index];
         if (frame?.outcome.status === "detected") {
           event.preventDefault();
           toggleFrameAcceptance(frame);
         }
-      } else if (
-        view === "reviewed" &&
-        (event.key === "e" || event.key === "E")
-      ) {
+      } else if (canEdit && (event.key === "e" || event.key === "E")) {
         const frame = current[index];
         if (frame !== undefined) {
           event.preventDefault();
           setFrameOutcome(frame, "empty");
         }
-      } else if (
-        view === "reviewed" &&
-        (event.key === "u" || event.key === "U")
-      ) {
+      } else if (canEdit && (event.key === "u" || event.key === "U")) {
         const frame = current[index];
         if (frame !== undefined) {
           event.preventDefault();
@@ -1072,7 +1070,9 @@ export function PipelineVisibleCardEditor({
     return () => window.removeEventListener("keydown", handler);
   }, [
     generatedFrames,
+    endEditMode,
     openEditor,
+    referenceNeedsSeed,
     selectFrame,
     setFrameOutcome,
     selectedCandidateId,
@@ -1099,6 +1099,23 @@ export function PipelineVisibleCardEditor({
       : activeFrame === null
         ? -1
         : displayedFrames.indexOf(activeFrame);
+  const selectAdjacentProposal = useCallback(
+    (direction: -1 | 1) => {
+      const proposals = activeFrame?.outcome.candidates ?? [];
+      if (proposals.length === 0) return;
+      const selectedIndex = proposals.findIndex(
+        (candidate) => candidate.card_id === selectedCandidateId,
+      );
+      const nextIndex =
+        selectedIndex < 0
+          ? direction > 0
+            ? 0
+            : proposals.length - 1
+          : (selectedIndex + direction + proposals.length) % proposals.length;
+      setSelectedCandidateId(proposals[nextIndex].card_id);
+    },
+    [activeFrame, selectedCandidateId],
+  );
   const prewarmFrameUrls = useCallback(
     (frame: EditableFrame) => visibleCardReviewPrewarmUrls(recordingId, frame),
     [recordingId],
@@ -1166,9 +1183,6 @@ export function PipelineVisibleCardEditor({
       startReference={startReference}
       completionBusy={completionBusy}
       completionBlocker={completionBlocker}
-      acceptSuggestions={() =>
-        activeFrame === null ? undefined : toggleFrameAcceptance(activeFrame)
-      }
       restoreGeneratedSuggestions={() =>
         activeFrame === null
           ? undefined
@@ -1178,14 +1192,6 @@ export function PipelineVisibleCardEditor({
         activeFrame !== null &&
         generatedFrames.some((frame) => frame.itemId === activeFrame.itemId) &&
         activeFrame.reviewState !== "pending"
-      }
-      markEmpty={() =>
-        activeFrame === null ? undefined : setFrameOutcome(activeFrame, "empty")
-      }
-      markUnusable={() =>
-        activeFrame === null
-          ? undefined
-          : setFrameOutcome(activeFrame, "unusable")
       }
       retryQueuedCommands={retryQueuedCommands}
       reloadWinningDraft={reloadWinningDraft}
@@ -1224,42 +1230,74 @@ export function PipelineVisibleCardEditor({
                 : "Select a resolved frame from the Timeline Rail."}
           </p>
         ) : (
-          <VisibleCardFramePanel
-            recordingId={recordingId}
-            frame={activeFrame}
-            editor={editor?.frameItemId === activeFrame.itemId ? editor : null}
-            selectedCandidateId={selectedCandidateId}
-            editorError={editorError}
-            readOnly={!editable}
-            onSelectCandidate={(candidate) => {
-              setSelectedCandidateId(candidate.card_id);
-              if (editable) openEditor(activeFrame, candidate);
-            }}
-            onSelectCandidatePolygon={
-              editable
-                ? (candidate, polygonIndex) =>
-                    openEditor(activeFrame, candidate, polygonIndex)
-                : undefined
-            }
-            onOpenEditor={
-              editable
-                ? (candidate) => openEditor(activeFrame, candidate)
-                : undefined
-            }
-            onCancelEditor={editable ? () => setEditor(null) : undefined}
-            onRemoveCard={
-              editable ? (cardId) => removeCard(activeFrame, cardId) : undefined
-            }
-            onPointerMove={handleCanvasPointerMove}
-            onCanvasPointerDown={addVisibleRegionPoint}
-            onPointerUp={stopCanvasPointer}
-            onPointPointerDown={startPointDrag}
-            onDeleteSelectedPoint={deleteSelectedPoint}
-            onSelectEditorPolygon={selectEditorPolygon}
-            onAddEditorPolygon={addEditorPolygon}
-            onRemoveEditorPolygon={removeEditorPolygon}
-            proposalSlot={proposalSlot}
-          />
+          <div className={visibleStyles.reviewWorkbench}>
+            {view === "generated" || editable ? (
+              <VisibleCardReviewControls
+                editable={editable}
+                hasPrevious={activeFrameIndex > 0}
+                hasNext={
+                  activeFrameIndex >= 0 &&
+                  activeFrameIndex < displayedFrames.length - 1
+                }
+                hasProposals={activeFrame.outcome.candidates.length > 0}
+                selectedFrame={activeFrame}
+                onPrevious={() => {
+                  const previous = displayedFrames[activeFrameIndex - 1];
+                  if (previous !== undefined) selectFrame(previous);
+                }}
+                onNext={() => {
+                  const next = displayedFrames[activeFrameIndex + 1];
+                  if (next !== undefined) selectFrame(next);
+                }}
+                onPreviousProposal={() => selectAdjacentProposal(-1)}
+                onNextProposal={() => selectAdjacentProposal(1)}
+                onAccept={() => toggleFrameAcceptance(activeFrame)}
+                onAddCard={() => openEditor(activeFrame, null)}
+                onMarkEmpty={() => setFrameOutcome(activeFrame, "empty")}
+                onMarkUnusable={() => setFrameOutcome(activeFrame, "unusable")}
+              />
+            ) : null}
+            <VisibleCardFramePanel
+              recordingId={recordingId}
+              frame={activeFrame}
+              editor={
+                editor?.frameItemId === activeFrame.itemId ? editor : null
+              }
+              selectedCandidateId={selectedCandidateId}
+              editorError={editorError}
+              readOnly={!editable}
+              onSelectCandidate={(candidate) => {
+                setSelectedCandidateId(candidate.card_id);
+                if (editable) openEditor(activeFrame, candidate);
+              }}
+              onSelectCandidatePolygon={
+                editable
+                  ? (candidate, polygonIndex) =>
+                      openEditor(activeFrame, candidate, polygonIndex)
+                  : undefined
+              }
+              onOpenEditor={
+                editable
+                  ? (candidate) => openEditor(activeFrame, candidate)
+                  : undefined
+              }
+              onCancelEditor={editable ? () => setEditor(null) : undefined}
+              onRemoveCard={
+                editable
+                  ? (cardId) => removeCard(activeFrame, cardId)
+                  : undefined
+              }
+              onPointerMove={handleCanvasPointerMove}
+              onCanvasPointerDown={addVisibleRegionPoint}
+              onPointerUp={stopCanvasPointer}
+              onPointPointerDown={startPointDrag}
+              onDeleteSelectedPoint={deleteSelectedPoint}
+              onSelectEditorPolygon={selectEditorPolygon}
+              onAddEditorPolygon={addEditorPolygon}
+              onRemoveEditorPolygon={removeEditorPolygon}
+              proposalSlot={proposalSlot}
+            />
+          </div>
         )}
         {notice !== null ? (
           <p className={styles.recordingNotice} role="status">

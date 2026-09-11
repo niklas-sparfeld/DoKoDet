@@ -7,7 +7,6 @@ import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
   formatFrameState,
   formatFrameTime,
-  frameReviewStatus,
   formatIdentifier,
 } from "./PipelineVisibleCardFormatting";
 import type { EditableFrame, SaveState } from "./PipelineVisibleCardTypes";
@@ -89,11 +88,8 @@ export type VisibleCardInspectorProps = {
   startReference: () => void;
   completionBusy: boolean;
   completionBlocker: string | null;
-  acceptSuggestions: () => void;
   restoreGeneratedSuggestions: () => void;
   canRestoreGeneratedSuggestions: boolean;
-  markEmpty: () => void;
-  markUnusable: () => void;
   retryQueuedCommands: () => void;
   reloadWinningDraft: () => Promise<void>;
   completeReference: () => Promise<void>;
@@ -345,11 +341,8 @@ function VisibleCardInspectorSelection({
   coveragePercent,
   inspectedCount,
   referenceNeedsSeed,
-  acceptSuggestions,
   restoreGeneratedSuggestions,
   canRestoreGeneratedSuggestions,
-  markEmpty,
-  markUnusable,
 }: VisibleCardInspectorProps) {
   return (
     <div className={visibleStyles.inspectorSelection}>
@@ -394,42 +387,12 @@ function VisibleCardInspectorSelection({
             aria-label="Frame outcome"
           >
             <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={acceptSuggestions}
-              disabled={
-                selectedFrame === null ||
-                selectedFrame.outcome.status !== "detected"
-              }
-            >
-              {selectedFrame !== null &&
-              frameReviewStatus(selectedFrame) === "accepted"
-                ? "Mark unreviewed"
-                : "Accept frame"}
-            </button>
-            <button
               className={styles.inlineAction}
               type="button"
               onClick={restoreGeneratedSuggestions}
               disabled={!canRestoreGeneratedSuggestions}
             >
               Restore generated suggestions
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={markEmpty}
-              disabled={selectedFrame === null}
-            >
-              Reviewed empty frame
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={markUnusable}
-              disabled={selectedFrame === null}
-            >
-              Unusable frame
             </button>
           </div>
           <div className={visibleStyles.coverageInspector}>

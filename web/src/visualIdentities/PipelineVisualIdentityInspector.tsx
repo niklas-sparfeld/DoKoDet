@@ -80,11 +80,6 @@ export type IdentityInspectorProps = {
   completeReference: () => Promise<void>;
   retryQueuedCommands: () => void;
   reloadWinningDraft: () => Promise<void>;
-  acceptSuggestion: () => void;
-  markUnusable: () => void;
-  markFaceDown: () => void;
-  reportSourceProblem: () => void;
-  selectIdentity: (identity: string) => void;
 };
 
 export function IdentityInspectorPortals(props: IdentityInspectorProps) {
@@ -281,57 +276,6 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
       </dl>
       {props.view === "reviewed" && props.reference !== null ? (
         <>
-          <div
-            className={identityStyles.outcomeButtons}
-            aria-label="Identity review state"
-          >
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={props.acceptSuggestion}
-              disabled={
-                item === null ||
-                (reviewStatus !== "accepted" &&
-                  item.outcome.candidates.length === 0)
-              }
-            >
-              {reviewStatus === "accepted"
-                ? "Mark unreviewed"
-                : "Accept suggestion"}{" "}
-              <kbd>A</kbd>
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={props.markUnusable}
-              disabled={item === null || item.outcome.crop_identity === null}
-            >
-              {reviewStatus === "unusable"
-                ? "Mark unreviewed"
-                : "Identity unusable"}{" "}
-              <kbd>U</kbd>
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={props.markFaceDown}
-              disabled={item === null || item.outcome.crop_identity === null}
-            >
-              {reviewStatus === "face_down" ? "Mark unreviewed" : "Face down"}{" "}
-              <kbd>F</kbd>
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={props.reportSourceProblem}
-              disabled={item === null}
-            >
-              {reviewStatus === "source_problem"
-                ? "Mark unreviewed"
-                : "Source problem"}{" "}
-              <kbd>S</kbd>
-            </button>
-          </div>
           <label className={identityStyles.reviewer}>
             Reviewer ID
             <input

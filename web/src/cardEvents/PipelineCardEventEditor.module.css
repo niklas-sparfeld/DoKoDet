@@ -34,43 +34,6 @@
   border-top: 1px solid var(--line);
 }
 
-.controlButton {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  width: 100%;
-  min-width: 0;
-  text-align: left;
-}
-
-.controlButton > span:first-child {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.shortcutPill {
-  display: inline-flex;
-  min-width: 1.25rem;
-  min-height: 1.15rem;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  padding: 0.12rem 0.3rem;
-  border: 1px solid currentColor;
-  border-radius: 0.3rem;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 0.64rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.controlButton:disabled .shortcutPill {
-  border-color: var(--line);
-  color: var(--muted-ink);
-}
-
 .sourceSurface,
 .generatedSurface {
   display: grid;
