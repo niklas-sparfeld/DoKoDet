@@ -368,7 +368,7 @@ describe("PipelineVisibleCardEditor", () => {
     ).toHaveLength(1);
   });
 
-  it("prewarms the selected and neighboring frame blocks in order", async () => {
+  it("prewarms the next neighboring frames in order", async () => {
     const fetchImplementation = vi.fn<typeof fetch>((input) =>
       String(input).includes("/pipeline/visible-cards/") &&
       String(input).includes("/result")
@@ -399,7 +399,7 @@ describe("PipelineVisibleCardEditor", () => {
         fetchImplementation.mock.calls.filter(([input]) =>
           String(input).includes("/derived-views/exact-event/"),
         ),
-      ).toHaveLength(10),
+      ).toHaveLength(4),
     );
     expect(
       fetchImplementation.mock.calls
@@ -407,18 +407,7 @@ describe("PipelineVisibleCardEditor", () => {
           String(input).includes("/derived-views/exact-event/"),
         )
         .map(([input]) => String(input).split("/").at(-1)),
-    ).toEqual([
-      "500000",
-      "600000",
-      "700000",
-      "800000",
-      "100000",
-      "200000",
-      "300000",
-      "400000",
-      "900000",
-      "1000000",
-    ]);
+    ).toEqual(["700000", "800000", "900000", "1000000"]);
   });
 
   it("does not let failed frame prewarming affect selection or review errors", async () => {
@@ -455,17 +444,14 @@ describe("PipelineVisibleCardEditor", () => {
     expect(screen.queryByText("derived frame failed")).not.toBeInTheDocument();
   });
 
-  it("aborts stale frame prewarming on selection and unmount", async () => {
-    const signals: AbortSignal[] = [];
-    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+  it("keeps active frame prewarming deduplicated across selection changes", async () => {
+    const resolvers = new Map<string, () => void>();
+    const fetchImplementation = vi.fn<typeof fetch>((input) => {
       if (String(input).includes("/result"))
         return Promise.resolve(jsonResponse(generatedResultWithTwoFrames()));
-      const signal = init?.signal;
-      if (signal !== undefined && signal !== null) signals.push(signal);
-      return new Promise<Response>((_resolve, reject) => {
-        signal?.addEventListener("abort", () =>
-          reject(new DOMException("Aborted", "AbortError")),
-        );
+      const url = String(input);
+      return new Promise<Response>((resolve) => {
+        resolvers.set(url, () => resolve(new Response("warm")));
       });
     });
     vi.stubGlobal("fetch", fetchImplementation);
@@ -484,14 +470,24 @@ describe("PipelineVisibleCardEditor", () => {
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${ITEM_ID}`),
     );
-    await waitFor(() => expect(signals.length).toBe(2));
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(([input]) =>
+          String(input).includes("/derived-views/exact-event/"),
+        ),
+      ).toHaveLength(1),
+    );
     fireEvent.keyDown(window, { key: "ArrowRight" });
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${SECOND_ITEM_ID}`),
     );
-    await waitFor(() => expect(signals[0]?.aborted).toBe(true));
+    expect(
+      fetchImplementation.mock.calls.filter(([input]) =>
+        String(input).includes("exact-event/800000"),
+      ),
+    ).toHaveLength(1);
+    for (const resolve of resolvers.values()) resolve();
     unmount();
-    expect(signals.every((signal) => signal.aborted)).toBe(true);
   });
 
   it("renders each segmented visible-region polygon as its own overlay", async () => {

@@ -1380,22 +1380,49 @@ def crop_cache_key(request: VisibleRegionCropRequest) -> str:
     return _sha256(canonical_json_bytes(request.to_mapping()))
 
 
-def crop_jpeg_preview_cache_key(crop: ResolvedCrop) -> str:
-    """Return the cache key for the browser JPEG representation of one crop."""
+def crop_jpeg_preview_cache_key_for_source_digest(source_crop_sha256: str) -> str:
+    """Return the browser JPEG cache key for one canonical crop digest."""
 
-    if crop.status != "usable" or crop.image_sha256 is None:
-        raise DerivedViewError("a usable crop is required for a JPEG preview")
+    _require_digest(source_crop_sha256, "source_crop_sha256")
     return _sha256(
         canonical_json_bytes(
             {
                 "schema_version": CROP_JPEG_PREVIEW_SCHEMA,
-                "source_crop_sha256": crop.image_sha256,
+                "source_crop_sha256": source_crop_sha256,
                 "output_encoding": "jpeg",
                 "quality": CROP_JPEG_PREVIEW_QUALITY,
                 "transform_version": CROP_JPEG_PREVIEW_TRANSFORM_VERSION,
             }
         )
     )
+
+
+def crop_jpeg_preview_cache_key(crop: ResolvedCrop) -> str:
+    """Return the cache key for the browser JPEG representation of one crop."""
+
+    if crop.status != "usable" or crop.image_sha256 is None:
+        raise DerivedViewError("a usable crop is required for a JPEG preview")
+    return crop_jpeg_preview_cache_key_for_source_digest(crop.image_sha256)
+
+
+def resolve_crop_jpeg_preview_from_cache(
+    source_crop_sha256: str,
+    *,
+    cache: DerivedViewCache | str | Path | None = None,
+) -> ResolvedCropJpegPreview | None:
+    """Return a verified cached browser JPEG for a canonical crop digest, if present."""
+
+    key = crop_jpeg_preview_cache_key_for_source_digest(source_crop_sha256)
+    cache_store = _cache_store(cache)
+    if cache_store is None:
+        return None
+    cached = cache_store.read(key)
+    if cached is None:
+        return None
+    try:
+        return _crop_jpeg_preview_from_cache(cached, key, source_crop_sha256)
+    except DerivedViewError:
+        return None
 
 
 def resolve_crop_jpeg_preview(
@@ -1408,14 +1435,10 @@ def resolve_crop_jpeg_preview(
     if crop.status != "usable" or crop.image_bytes is None or crop.image_sha256 is None:
         raise DerivedViewError("a usable crop is required for a JPEG preview")
     key = crop_jpeg_preview_cache_key(crop)
+    cached = resolve_crop_jpeg_preview_from_cache(crop.image_sha256, cache=cache)
+    if cached is not None:
+        return cached
     cache_store = _cache_store(cache)
-    if cache_store is not None:
-        cached = cache_store.read(key)
-        if cached is not None:
-            try:
-                return _crop_jpeg_preview_from_cache(cached, key, crop.image_sha256)
-            except DerivedViewError:
-                pass
     try:
         with Image.open(BytesIO(crop.image_bytes)) as image:
             image_bytes = _encode_crop(image.convert("RGB"), "jpeg")
@@ -2061,10 +2084,12 @@ __all__ = [
     "VisibleRegionCropRequest",
     "crop_cache_key",
     "crop_jpeg_preview_cache_key",
+    "crop_jpeg_preview_cache_key_for_source_digest",
     "frame_cache_key",
     "generate_visible_region_corruption",
     "parse_geometry",
     "resolve_exact_event",
     "resolve_crop_jpeg_preview",
+    "resolve_crop_jpeg_preview_from_cache",
     "resolve_visible_region_crop",
 ]

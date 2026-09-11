@@ -6,37 +6,31 @@ import {
 } from "./pipelineReviewPrewarm";
 
 describe("deriveReviewPrewarmBlocks", () => {
-  it("selects the first block and the next block at the beginning", () => {
-    expect(deriveReviewPrewarmBlocks(12, 0)).toEqual([
-      [0, 1, 2, 3],
-      [4, 5, 6, 7],
+  it("starts with the next item instead of the selected block", () => {
+    expect(deriveReviewPrewarmBlocks(12, 5)).toEqual([
+      [6, 7, 8, 9],
+      [10, 11, 4, 3],
+      [2, 1, 0],
     ]);
   });
 
-  it("prioritizes the selected block, then previous and next in the middle", () => {
-    expect(deriveReviewPrewarmBlocks(16, 6)).toEqual([
-      [4, 5, 6, 7],
-      [0, 1, 2, 3],
-      [8, 9, 10, 11],
-    ]);
-  });
-
-  it("clamps the selected block and previous block at the end", () => {
+  it("uses previous items when there are no later neighbors", () => {
     expect(deriveReviewPrewarmBlocks(10, 9)).toEqual([
-      [8, 9],
-      [4, 5, 6, 7],
+      [8, 7, 6, 5],
+      [4, 3, 2, 1],
+      [0],
     ]);
   });
 
   it("clamps lists shorter than one block", () => {
-    expect(deriveReviewPrewarmBlocks(3, 2)).toEqual([[0, 1, 2]]);
+    expect(deriveReviewPrewarmBlocks(3, 2)).toEqual([[1, 0]]);
   });
 });
 
 describe("usePipelineReviewPrewarm", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("warms blocks in order with at most four concurrent requests", async () => {
+  it("skips selected URLs and warms next neighbors with bounded concurrency", async () => {
     const activeRequests: string[] = [];
     let maximumConcurrentRequests = 0;
     const resolvers = new Map<string, () => void>();
@@ -61,53 +55,57 @@ describe("usePipelineReviewPrewarm", () => {
       usePipelineReviewPrewarm(items, 5, (item) => [`/frame/${item}`]),
     );
 
+    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(2));
+    expect(
+      fetchImplementation.mock.calls.map(([input]) => String(input)),
+    ).toEqual(["/frame/6", "/frame/7"]);
+    expect(maximumConcurrentRequests).toBe(2);
+
+    for (const resolve of resolvers.values()) resolve();
     await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(4));
     expect(
       fetchImplementation.mock.calls.map(([input]) => String(input)),
-    ).toEqual(["/frame/4", "/frame/5", "/frame/6", "/frame/7"]);
-    expect(maximumConcurrentRequests).toBe(4);
-
+    ).toEqual(["/frame/6", "/frame/7", "/frame/8", "/frame/9"]);
     for (const resolve of resolvers.values()) resolve();
-    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(8));
-    expect(
-      fetchImplementation.mock.calls.map(([input]) => String(input)),
-    ).toEqual([
-      "/frame/4",
-      "/frame/5",
-      "/frame/6",
-      "/frame/7",
-      "/frame/0",
-      "/frame/1",
-      "/frame/2",
-      "/frame/3",
-    ]);
   });
 
-  it("aborts stale work and does not surface warm failures", async () => {
-    const signals: AbortSignal[] = [];
-    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
-      const signal = init?.signal;
-      if (signal !== undefined && signal !== null) signals.push(signal);
-      return Promise.reject(new Error("warm failed"));
+  it("keeps active URLs deduplicated across rapid selection changes", async () => {
+    const resolvers = new Map<string, () => void>();
+    const fetchImplementation = vi.fn<typeof fetch>((input) => {
+      const url = String(input);
+      return new Promise<Response>((resolve) => {
+        resolvers.set(url, () => resolve(new Response("warm")));
+      });
     });
     vi.stubGlobal("fetch", fetchImplementation);
+    const items = Array.from({ length: 8 }, (_, index) => index);
+    const getUrls = (item: number) => [`/frame/${item}`];
 
-    const { rerender, unmount } = renderHook(
+    const { rerender } = renderHook(
       ({ selectedIndex }) =>
-        usePipelineReviewPrewarm(
-          ["a", "b", "c", "d", "e"],
-          selectedIndex,
-          (item) => [`/frame/${item}`],
-        ),
+        usePipelineReviewPrewarm(items, selectedIndex, getUrls),
       { initialProps: { selectedIndex: 0 } },
     );
 
-    await waitFor(() => expect(fetchImplementation).toHaveBeenCalled());
-    rerender({ selectedIndex: 4 });
-    await waitFor(() => expect(signals[0]).toBeDefined());
-    expect(signals[0]?.aborted).toBe(true);
-    unmount();
-    expect(signals.at(-1)?.aborted).toBe(true);
+    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(2));
+    expect(
+      fetchImplementation.mock.calls.map(([input]) => String(input)),
+    ).toEqual(["/frame/1", "/frame/2"]);
+
+    rerender({ selectedIndex: 1 });
+    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(2));
+    expect(
+      fetchImplementation.mock.calls.filter(
+        ([input]) => String(input) === "/frame/2",
+      ),
+    ).toHaveLength(1);
+
+    for (const resolve of resolvers.values()) resolve();
+    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(4));
+    expect(
+      fetchImplementation.mock.calls.map(([input]) => String(input)),
+    ).toEqual(["/frame/1", "/frame/2", "/frame/3", "/frame/4"]);
+    for (const resolve of resolvers.values()) resolve();
   });
 
   it("does not request URLs that were already warmed in the mounted session", async () => {
@@ -124,8 +122,13 @@ describe("usePipelineReviewPrewarm", () => {
       { initialProps: { selectedIndex: 0 } },
     );
 
-    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(8));
+    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(4));
     rerender({ selectedIndex: 1 });
-    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(8));
+    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(5));
+    expect(
+      fetchImplementation.mock.calls.filter(
+        ([input]) => String(input) === "/frame/1",
+      ),
+    ).toHaveLength(1);
   });
 });

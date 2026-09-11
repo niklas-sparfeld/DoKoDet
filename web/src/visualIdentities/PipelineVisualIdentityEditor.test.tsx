@@ -204,7 +204,7 @@ describe("PipelineVisualIdentityEditor", () => {
     ).toHaveLength(1);
   });
 
-  it("prewarms exact frames and eligible browser-preview crops in block order", async () => {
+  it("prewarms only the next eligible identity items", async () => {
     const fetchImplementation = vi.fn<typeof fetch>((input) =>
       String(input).includes("/pipeline/visual-identities/") &&
       String(input).includes("/result")
@@ -241,7 +241,7 @@ describe("PipelineVisualIdentityEditor", () => {
         fetchImplementation.mock.calls.filter(([input]) =>
           String(input).includes("/derived-views/"),
         ),
-      ).toHaveLength(4),
+      ).toHaveLength(2),
     );
     expect(
       fetchImplementation.mock.calls
@@ -250,8 +250,6 @@ describe("PipelineVisualIdentityEditor", () => {
     ).toEqual([
       expect.stringContaining("exact-event/750000"),
       expect.stringContaining("identity-crops/identity-revision-1/card-1"),
-      expect.stringContaining("exact-event/1000000"),
-      expect.stringContaining("identity-crops/identity-revision-1/card-2"),
     ]);
   });
 
@@ -298,16 +296,15 @@ describe("PipelineVisualIdentityEditor", () => {
         fetchImplementation.mock.calls.filter(([input]) =>
           String(input).includes("/derived-views/"),
         ),
-      ).toHaveLength(4),
+      ).toHaveLength(3),
     );
     const derivedUrls = fetchImplementation.mock.calls
       .filter(([input]) => String(input).includes("/derived-views/"))
       .map(([input]) => String(input));
     expect(derivedUrls).toEqual([
+      expect.stringContaining("exact-event/1250000"),
       expect.stringContaining("exact-event/750000"),
       expect.stringContaining("identity-crops/identity-revision-1/card-1"),
-      expect.stringContaining("exact-event/1000000"),
-      expect.stringContaining("exact-event/1250000"),
     ]);
     expect(derivedUrls.some((url) => url.includes("missing-crop"))).toBe(false);
     expect(derivedUrls.some((url) => url.includes("unusable-crop"))).toBe(
@@ -334,13 +331,6 @@ describe("PipelineVisualIdentityEditor", () => {
     await screen.findByRole("img", {
       name: "Resolved source frame for card-1",
     });
-    await waitFor(() =>
-      expect(
-        fetchImplementation.mock.calls.filter(([input]) =>
-          String(input).includes("/derived-views/"),
-        ),
-      ).toHaveLength(1),
-    );
     expect(
       fetchImplementation.mock.calls.some(([input]) =>
         String(input).includes("identity-crops"),

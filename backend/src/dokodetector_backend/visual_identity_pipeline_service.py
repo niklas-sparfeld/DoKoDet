@@ -18,8 +18,10 @@ from doko_operations.derived_view import (
     DerivedViewError,
     FrameResolver,
     ResolvedCrop,
+    ResolvedCropJpegPreview,
     parse_geometry,
     resolve_crop_jpeg_preview,
+    resolve_crop_jpeg_preview_from_cache,
     resolve_exact_event,
     resolve_visible_region_crop,
 )
@@ -202,28 +204,38 @@ class VisualIdentityPipelineService:
         )
         return run, revisions
 
+    def get_identity_crop_identity(
+        self, recording_id: str, revision_id: str, item_id: str
+    ) -> VisualIdentityCropIdentity:
+        """Validate one stored identity crop without resolving its source image."""
+
+        bundle = self.recording_store.get_metadata(recording_id)
+        if bundle is None:
+            raise PipelineNotFound(f"The recording was not found: {recording_id}")
+        revision = self._require_identity_revision(recording_id, revision_id)
+        source = revision.manifest.source
+        if (
+            source.recording_id != recording_id
+            or source.video_sha256 != bundle.source_sha256
+            or source.byte_length != bundle.video_byte_length
+        ):
+            raise VisualIdentityPipelineInputError(
+                "The selected visual identity revision does not match the accepted recording video."
+            )
+        outcome = self._require_identity_outcome(revision, item_id)
+        crop = outcome.crop_identity
+        if crop is None or crop.status != "usable" or crop.image_sha256 is None:
+            raise DerivedViewError("The identity crop is unavailable.")
+        return crop
+
     def resolve_identity_crop(
         self, recording_id: str, revision_id: str, item_id: str
     ) -> ResolvedCrop:
         """Resolve one identity crop from an immutable identity revision."""
 
         _, source = self._accepted_source(recording_id)
-        revision = self.revision_store.require(revision_id)
-        if (
-            revision.manifest.recording_id != recording_id
-            or revision.manifest.content_type != "visual_identities"
-            or revision.manifest.source != source
-            or not isinstance(revision.content, VisualIdentityData)
-        ):
-            raise VisualIdentityPipelineInputError(
-                "The selected visual identity revision does not match the accepted recording video."
-            )
-        outcome = next(
-            (candidate for candidate in revision.content.outcomes if candidate.card_id == item_id),
-            None,
-        )
-        if outcome is None:
-            raise PipelineNotFound(f"The identity item was not found: {item_id}")
+        revision = self._require_identity_revision(recording_id, revision_id, source=source)
+        outcome = self._require_identity_outcome(revision, item_id)
         if outcome.crop_identity is None or outcome.crop_identity.status != "usable":
             raise DerivedViewError("The identity crop is unavailable.")
         with self._derived_view_lock:
@@ -248,6 +260,30 @@ class VisualIdentityPipelineService:
         if _pipeline_crop_identity_mapping(crop) != outcome.crop_identity.to_mapping():
             raise DerivedViewError("the resolved identity crop changed")
         return crop
+
+    def resolve_identity_crop_browser_preview(
+        self,
+        recording_id: str,
+        revision_id: str,
+        item_id: str,
+        source_crop_sha256: str,
+    ) -> ResolvedCropJpegPreview:
+        """Resolve and cache one browser preview after a digest-only cache miss."""
+
+        with self._derived_view_lock:
+            cached = resolve_crop_jpeg_preview_from_cache(
+                source_crop_sha256,
+                cache=self.storage.derived_views_root,
+            )
+            if cached is not None:
+                return cached
+            crop = self.resolve_identity_crop(recording_id, revision_id, item_id)
+            if crop.image_sha256 != source_crop_sha256:
+                raise DerivedViewError("the resolved identity crop changed")
+            return resolve_crop_jpeg_preview(
+                crop,
+                cache=self.storage.derived_views_root,
+            )
 
     def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         self.get_run(recording_id, run_id)
@@ -748,6 +784,38 @@ class VisualIdentityPipelineService:
                 self.run_store.fail(run_id, RunFailure(code=code, message=message))
         except Exception:
             LOGGER.exception("visual_identity_pipeline_failure_persist_failed")
+
+    def _require_identity_revision(
+        self,
+        recording_id: str,
+        revision_id: str,
+        *,
+        source: RecordingVideoSource | None = None,
+    ) -> StoredPipelineRevision:
+        revision = self.revision_store.require(revision_id)
+        if (
+            revision.manifest.recording_id != recording_id
+            or revision.manifest.content_type != "visual_identities"
+            or (source is not None and revision.manifest.source != source)
+            or not isinstance(revision.content, VisualIdentityData)
+        ):
+            raise VisualIdentityPipelineInputError(
+                "The selected visual identity revision does not match the accepted recording video."
+            )
+        return revision
+
+    @staticmethod
+    def _require_identity_outcome(
+        revision: StoredPipelineRevision, item_id: str
+    ) -> VisualIdentityOutcome:
+        assert isinstance(revision.content, VisualIdentityData)
+        outcome = next(
+            (candidate for candidate in revision.content.outcomes if candidate.card_id == item_id),
+            None,
+        )
+        if outcome is None:
+            raise PipelineNotFound(f"The identity item was not found: {item_id}")
+        return outcome
 
     def _accepted_source(self, recording_id: str) -> tuple[Any, RecordingVideoSource]:
         bundle = self.recording_store.get(recording_id)

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 
 const PREWARM_BLOCK_SIZE = 4;
-const PREWARM_BATCH_SIZE = 4;
+const PREWARM_MAX_CONCURRENT_REQUESTS = 2;
+const PREWARM_MAX_PENDING_URLS = 4;
 const MAX_WARMED_URLS = 256;
 
 export function deriveReviewPrewarmBlocks(
@@ -17,23 +18,21 @@ export function deriveReviewPrewarmBlocks(
     return [];
   }
 
-  const blockStart =
-    Math.floor(selectedIndex / PREWARM_BLOCK_SIZE) * PREWARM_BLOCK_SIZE;
-  return [
-    blockStart,
-    blockStart - PREWARM_BLOCK_SIZE,
-    blockStart + PREWARM_BLOCK_SIZE,
-  ]
-    .filter(
-      (start, index, starts) =>
-        start >= 0 && start < itemCount && starts.indexOf(start) === index,
-    )
-    .map((start) =>
-      Array.from(
-        { length: Math.min(PREWARM_BLOCK_SIZE, itemCount - start) },
-        (_, offset) => start + offset,
-      ),
-    );
+  const indexes = [
+    ...Array.from(
+      { length: itemCount - selectedIndex - 1 },
+      (_, offset) => selectedIndex + offset + 1,
+    ),
+    ...Array.from(
+      { length: selectedIndex },
+      (_, offset) => selectedIndex - offset - 1,
+    ),
+  ];
+  const blocks: number[][] = [];
+  for (let offset = 0; offset < indexes.length; offset += PREWARM_BLOCK_SIZE) {
+    blocks.push(indexes.slice(offset, offset + PREWARM_BLOCK_SIZE));
+  }
+  return blocks;
 }
 
 type PrewarmUrlFactory<Item> = (
@@ -43,83 +42,115 @@ type PrewarmUrlFactory<Item> = (
 
 type PendingWarm = symbol;
 
+type PrewarmQueue = {
+  warmedUrls: Set<string>;
+  pendingUrls: Map<string, PendingWarm>;
+  queuedUrls: string[];
+  queuedUrlSet: Set<string>;
+  activeRequests: number;
+};
+
 export function usePipelineReviewPrewarm<Item>(
   items: readonly Item[],
   selectedIndex: number,
   getUrls: PrewarmUrlFactory<Item>,
   resetKey?: unknown,
 ): void {
-  const warmedUrlsRef = useRef(new Set<string>());
-  const pendingUrlsRef = useRef(new Map<string, PendingWarm>());
+  const queueRef = useRef<PrewarmQueue>({
+    warmedUrls: new Set<string>(),
+    pendingUrls: new Map<string, PendingWarm>(),
+    queuedUrls: [],
+    queuedUrlSet: new Set<string>(),
+    activeRequests: 0,
+  });
 
   useEffect(() => {
-    const controller = new AbortController();
-    const pendingUrls = pendingUrlsRef.current;
+    const queue = queueRef.current;
     const blocks = deriveReviewPrewarmBlocks(items.length, selectedIndex);
+    const urls = Array.from(
+      new Set(
+        blocks
+          .flatMap((block) =>
+            block.flatMap((index) => getUrls(items[index]!, index)),
+          )
+          .filter((url): url is string => url !== null && url !== undefined),
+      ),
+    ).slice(0, PREWARM_MAX_PENDING_URLS);
 
-    void prewarmReviewBlocks(
-      items,
-      blocks,
-      getUrls,
-      controller.signal,
-      warmedUrlsRef.current,
-      pendingUrls,
-    );
+    enqueuePrewarmUrls(urls, queue);
 
     return () => {
-      controller.abort();
-      pendingUrls.clear();
+      // Active requests are left alone because the server may still be processing them.
+      dropQueuedPrewarmUrls(queue);
     };
   }, [getUrls, items, resetKey, selectedIndex]);
 }
 
-async function prewarmReviewBlocks<Item>(
-  items: readonly Item[],
-  blocks: readonly number[][],
-  getUrls: PrewarmUrlFactory<Item>,
-  signal: AbortSignal,
-  warmedUrls: Set<string>,
-  pendingUrls: Map<string, PendingWarm>,
-): Promise<void> {
-  for (const block of blocks) {
-    if (signal.aborted) return;
-    const urls = Array.from(
-      new Set(
-        block
-          .flatMap((index) => getUrls(items[index]!, index))
-          .filter((url): url is string => url !== null && url !== undefined),
-      ),
-    );
-    for (let offset = 0; offset < urls.length; offset += PREWARM_BATCH_SIZE) {
-      if (signal.aborted) return;
-      await Promise.all(
-        urls
-          .slice(offset, offset + PREWARM_BATCH_SIZE)
-          .map((url) => prewarmUrl(url, signal, warmedUrls, pendingUrls)),
-      );
+function enqueuePrewarmUrls(
+  urls: readonly string[],
+  queue: PrewarmQueue,
+): void {
+  for (const url of urls) {
+    if (
+      queue.warmedUrls.has(url) ||
+      queue.pendingUrls.has(url) ||
+      queue.queuedUrlSet.has(url)
+    ) {
+      continue;
     }
+    if (
+      queue.pendingUrls.size + queue.queuedUrls.length >=
+      PREWARM_MAX_PENDING_URLS
+    ) {
+      break;
+    }
+    queue.queuedUrls.push(url);
+    queue.queuedUrlSet.add(url);
+  }
+  pumpPrewarmQueue(queue);
+}
+
+function dropQueuedPrewarmUrls(queue: PrewarmQueue): void {
+  queue.queuedUrls.length = 0;
+  queue.queuedUrlSet.clear();
+}
+
+function pumpPrewarmQueue(queue: PrewarmQueue): void {
+  while (
+    queue.activeRequests < PREWARM_MAX_CONCURRENT_REQUESTS &&
+    queue.queuedUrls.length > 0
+  ) {
+    const url = queue.queuedUrls.shift();
+    if (url === undefined) return;
+    queue.queuedUrlSet.delete(url);
+    if (queue.warmedUrls.has(url) || queue.pendingUrls.has(url)) continue;
+
+    const pendingToken = Symbol(url);
+    queue.pendingUrls.set(url, pendingToken);
+    queue.activeRequests += 1;
+    void prewarmUrl(url, queue, pendingToken).finally(() => {
+      if (queue.pendingUrls.get(url) === pendingToken) {
+        queue.pendingUrls.delete(url);
+      }
+      queue.activeRequests -= 1;
+      pumpPrewarmQueue(queue);
+    });
   }
 }
 
 async function prewarmUrl(
   url: string,
-  signal: AbortSignal,
-  warmedUrls: Set<string>,
-  pendingUrls: Map<string, PendingWarm>,
+  queue: PrewarmQueue,
+  pendingToken: PendingWarm,
 ): Promise<void> {
-  if (warmedUrls.has(url)) return;
-  if (pendingUrls.has(url)) return;
-
-  const pendingToken = Symbol(url);
-  pendingUrls.set(url, pendingToken);
   try {
-    const response = await fetch(url, { signal });
+    const response = await fetch(url);
     await response.arrayBuffer();
-    if (response.ok && !signal.aborted) rememberWarmedUrl(url, warmedUrls);
+    if (response.ok && queue.pendingUrls.get(url) === pendingToken) {
+      rememberWarmedUrl(url, queue.warmedUrls);
+    }
   } catch {
     // Review prewarming is best effort. The foreground image request owns review UX.
-  } finally {
-    if (pendingUrls.get(url) === pendingToken) pendingUrls.delete(url);
   }
 }
 

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import shutil
 import threading
 from typing import Any
 
 from app_factory import create_test_app
+from doko_operations.derived_view import crop_jpeg_preview_cache_key_for_source_digest
 from doko_operations.pipeline_data import (
     DataRevision,
     HumanProducer,
@@ -134,7 +136,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
 
 
 def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_restarts(
-    tmp_path: Any,
+    tmp_path: Any, monkeypatch: Any
 ) -> None:
     _install_recording(tmp_path)
     provider = _IdentityProvider()
@@ -195,10 +197,43 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert generated_outcome["crop_identity"]["crop_policy"] == "predicted_visible_region"
         assert generated_outcome["classifier"]["provider"] == "fixture-identity"
         identity_revision_id = generated_result["state"]["output_revision_ids"][0]
-        shutil.rmtree(
-            app.state.visual_identity_pipeline_service.storage.derived_views_root,
-            ignore_errors=True,
+
+        service = app.state.visual_identity_pipeline_service
+        preview_path = (
+            service.storage.derived_views_root
+            / crop_jpeg_preview_cache_key_for_source_digest(
+                generated_outcome["crop_identity"]["image_sha256"]
+            )
         )
+        assert preview_path.is_dir()
+        warm_preview = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
+            f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
+        )
+        assert warm_preview.status_code == 200, warm_preview.text
+        assert warm_preview.headers["content-type"] == "image/jpeg"
+        for entry in service.storage.derived_views_root.iterdir():
+            manifest_path = entry / "manifest.json"
+            if (
+                entry.is_dir()
+                and manifest_path.is_file()
+                and json.loads(manifest_path.read_text(encoding="utf-8")).get("view_kind")
+                != "visible-region-crop-jpeg-preview/v1"
+            ):
+                shutil.rmtree(entry)
+
+        def fail_if_canonical_resolution(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("warm browser preview must not resolve the canonical crop")
+
+        with monkeypatch.context() as cached_patch:
+            cached_patch.setattr(service, "resolve_identity_crop", fail_if_canonical_resolution)
+            cached_only_preview = client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
+                f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
+            )
+        assert cached_only_preview.status_code == 200, cached_only_preview.text
+        assert cached_only_preview.headers["content-type"] == "image/jpeg"
+
         crop_response = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
             f"{identity_revision_id}/{generated_outcome['card_id']}"
@@ -213,6 +248,25 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert preview_response.status_code == 200, preview_response.text
         assert preview_response.headers["content-type"] == "image/jpeg"
         assert preview_response.content.startswith(b"\xff\xd8\xff")
+
+        preview_path.joinpath("content.bin").write_bytes(b"corrupt preview")
+        resolve_calls = 0
+        original_resolve_identity_crop = service.resolve_identity_crop
+
+        def count_canonical_resolution(*args: object, **kwargs: object) -> object:
+            nonlocal resolve_calls
+            resolve_calls += 1
+            return original_resolve_identity_crop(*args, **kwargs)
+
+        monkeypatch.setattr(service, "resolve_identity_crop", count_canonical_resolution)
+        regenerated_preview = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
+            f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
+        )
+        assert regenerated_preview.status_code == 200, regenerated_preview.text
+        assert regenerated_preview.headers["content-type"] == "image/jpeg"
+        assert regenerated_preview.content.startswith(b"\xff\xd8\xff")
+        assert resolve_calls == 1
         assert generated_outcome["candidates"] == [
             {
                 "identity": "CLUBS_NINE",

@@ -25,10 +25,12 @@ from doko_operations.derived_view import (
     VisibleRegionExclusionInput,
     crop_cache_key,
     crop_jpeg_preview_cache_key,
+    crop_jpeg_preview_cache_key_for_source_digest,
     frame_cache_key,
     generate_visible_region_corruption,
     parse_geometry,
     resolve_crop_jpeg_preview,
+    resolve_crop_jpeg_preview_from_cache,
     resolve_exact_event,
     resolve_visible_region_crop,
 )
@@ -389,6 +391,43 @@ def test_crop_jpeg_preview_uses_a_verified_warm_cache(
 
     assert warm.image_bytes == cold.image_bytes
     assert warm.image_sha256 == cold.image_sha256
+
+
+def test_crop_jpeg_preview_digest_lookup_validates_source_and_content(
+    tmp_path: Path,
+) -> None:
+    crop = resolve_visible_region_crop(
+        _colour_frame(),
+        DetectorBoxGeometry(200, 200, 800, 800),
+        crop_policy="raw_rectangular",
+    )
+    assert crop.image_sha256 is not None
+    cache = DerivedViewCache(tmp_path / "derived-views")
+    preview = resolve_crop_jpeg_preview(crop, cache=cache)
+
+    hit = resolve_crop_jpeg_preview_from_cache(crop.image_sha256, cache=cache)
+    assert hit is not None
+    assert hit.image_bytes == preview.image_bytes
+
+    missing = resolve_crop_jpeg_preview_from_cache("d" * 64, cache=cache)
+    assert missing is None
+
+    key = crop_jpeg_preview_cache_key_for_source_digest(crop.image_sha256)
+    cached = cache.read(key)
+    assert cached is not None
+    identity = dict(cached.manifest["identity"])
+    identity["source_crop_sha256"] = "e" * 64
+    manifest = {
+        key: value
+        for key, value in cached.manifest.items()
+        if key not in {"content_sha256", "byte_length"}
+    }
+    cache.write(
+        key,
+        {**manifest, "identity": identity},
+        cached.content,
+    )
+    assert resolve_crop_jpeg_preview_from_cache(crop.image_sha256, cache=cache) is None
 
 
 def _predicted_region(x_min: int, y_min: int, x_max: int, y_max: int):
