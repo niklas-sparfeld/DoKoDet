@@ -293,7 +293,7 @@ export function RecordingWorkspaceInspector({
                         key={option.revision_id}
                         value={option.revision_id}
                       >
-                        {option.display_label}
+                        {option.display_label} · {option.revision_id}
                       </option>
                     ))}
                 </select>
@@ -321,7 +321,7 @@ export function RecordingWorkspaceInspector({
                 <option value="">No revision selected</option>
                 {stage.input_options.map((option) => (
                   <option key={option.revision_id} value={option.revision_id}>
-                    {option.display_label}
+                    {option.display_label} · {option.revision_id}
                   </option>
                 ))}
               </select>

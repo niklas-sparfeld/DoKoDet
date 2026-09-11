@@ -289,6 +289,9 @@ export function RecordingWorkspaceTaskSurface({
             selectionItemId={presentation.surface.selectedItemId}
             selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
             generatedRevisionId={stage.selected_generated_revision_id ?? null}
+            generatedRevisionIds={stage.input_options
+              .filter((option) => option.origin === "processor")
+              .map((option) => option.revision_id)}
             displayedRevisionId={
               displayedRevision ?? stage.selected_generated_revision_id ?? null
             }

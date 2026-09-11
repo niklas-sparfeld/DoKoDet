@@ -97,6 +97,7 @@ function reference(
     requestedTimeUs?: number;
   }> = [],
   revision = reviewState === "pending" ? 0 : 1,
+  sourceRevisionId = REVISION_ID,
 ) {
   const itemSpecs = [{ cardId: CARD_ID, reviewState }, ...additionalItems];
   const items = itemSpecs.map((spec) => {
@@ -125,7 +126,7 @@ function reference(
       content_type: "visual_identities",
       draft_revision: revision,
       draft_state: "draft",
-      source_revision_id: REVISION_ID,
+      source_revision_id: sourceRevisionId,
       selected_completed_revision_id: null,
       updated_at: "2026-09-06T00:00:00Z",
     },
@@ -133,7 +134,7 @@ function reference(
       recording_id: RECORDING_ID,
       content_type: "visual_identities",
       revision,
-      source_revision_id: REVISION_ID,
+      source_revision_id: sourceRevisionId,
       items,
       coverage: null,
       impact: [],
@@ -330,6 +331,57 @@ describe("PipelineVisualIdentityEditor", () => {
         name: `Resolved source frame for ${CARD_ID}`,
       }),
     ).toBeInTheDocument();
+  });
+
+  it("switches an existing review to the selected generated result", async () => {
+    const nextRevisionId = "identity-revision-2";
+    const rebased = reference("pending", [], 1, nextRevisionId);
+    let putBody: Record<string, unknown> | null = null;
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        putBody = JSON.parse(String(init.body));
+        return Promise.resolve(jsonResponse(rebased));
+      }
+      return Promise.resolve(jsonResponse(reference("pending", [], 1)));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={nextRevisionId}
+        generatedRunId={null}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await user.click(
+      screen.getByRole("button", { name: "Switch review to selected result" }),
+    );
+
+    await waitFor(() => expect(putBody).not.toBeNull());
+    expect(putBody).toMatchObject({
+      expected_revision: 1,
+      operator_id: "operator-01",
+      operations: [{ operation: "rebase", source_revision_id: nextRevisionId }],
+    });
+    expect(
+      await screen.findByRole("img", {
+        name: `Derived identity crop for ${CARD_ID}`,
+      }),
+    ).toHaveAttribute("src", expect.stringContaining(nextRevisionId));
+    expect(
+      screen.getByText(/switched to the selected generated result/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Switch review to selected result",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("reports generated rail items and honors explicit item selection", async () => {

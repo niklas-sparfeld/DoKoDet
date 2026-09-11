@@ -50,6 +50,7 @@ export type PipelineVisualIdentityEditorProps = {
   selectionItemId?: string | null;
   selectionTimeUs?: number | null;
   generatedRevisionId: string | null;
+  generatedRevisionIds?: readonly string[];
   displayedRevisionId?: string | null;
   generatedRunId: string | null;
   view: "generated" | "reviewed";
@@ -63,6 +64,7 @@ export function PipelineVisualIdentityEditor({
   selectionItemId,
   selectionTimeUs,
   generatedRevisionId,
+  generatedRevisionIds,
   displayedRevisionId = generatedRevisionId,
   generatedRunId,
   view,
@@ -104,9 +106,16 @@ export function PipelineVisualIdentityEditor({
     new Set(),
   );
   const [creatingReference, setCreatingReference] = useState(false);
+  const [rebasingReference, setRebasingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useIdentityInspectorSlots(inspectorEnabled, view);
   const generatedSourceRevisionId = displayedRevisionId ?? generatedRevisionId;
+  const selectedGeneratedSourceRevisionId =
+    generatedSourceRevisionId !== null &&
+    (generatedRevisionIds === undefined ||
+      generatedRevisionIds.includes(generatedSourceRevisionId))
+      ? generatedSourceRevisionId
+      : null;
   const usesMaintainedIdentities = view === "reviewed" && reference !== null;
   const [cardListSlot, setCardListSlot] = useState<HTMLElement | null>(null);
 
@@ -623,6 +632,62 @@ export function PipelineVisualIdentityEditor({
     recordingId,
   ]);
 
+  const rebaseReference = useCallback(async () => {
+    const current = referenceRef.current;
+    const sourceRevisionId = selectedGeneratedSourceRevisionId;
+    if (
+      current === null ||
+      sourceRevisionId === null ||
+      current.draft.source_revision_id === sourceRevisionId ||
+      operatorId.trim() === "" ||
+      queueRef.current.length > 0 ||
+      processingRef.current ||
+      saveState !== "saved"
+    ) {
+      return;
+    }
+    setRebasingReference(true);
+    setSaveState("saving");
+    setError(null);
+    setNotice(null);
+    try {
+      const rebased = await client.updatePipelineReferenceDraft(
+        recordingId,
+        CONTENT_TYPE,
+        {
+          expected_revision: serverRevisionRef.current,
+          operator_id: operatorId.trim(),
+          command_id: nextCommandId(),
+          operations: [
+            { operation: "rebase", source_revision_id: sourceRevisionId },
+          ],
+        },
+      );
+      hydrateReference(rebased, false);
+      setSaveState("saved");
+      setNotice(
+        "Review switched to the selected generated result. Inspect the crops before completing the review.",
+      );
+    } catch (reason: unknown) {
+      setSaveState(
+        reason instanceof ApiError && reason.status === 409
+          ? "conflict"
+          : "error",
+      );
+      setError(describeError(reason));
+    } finally {
+      setRebasingReference(false);
+    }
+  }, [
+    client,
+    hydrateReference,
+    nextCommandId,
+    operatorId,
+    recordingId,
+    saveState,
+    selectedGeneratedSourceRevisionId,
+  ]);
+
   const reloadWinningDraft = useCallback(async () => {
     try {
       const winning = await client.getPipelineReference(
@@ -765,7 +830,10 @@ export function PipelineVisualIdentityEditor({
       completionBusy={completionBusy}
       completionBlocker={completionBlocker}
       creatingReference={creatingReference}
+      selectedGeneratedRevisionId={selectedGeneratedSourceRevisionId}
+      rebasingReference={rebasingReference}
       createReference={createReference}
+      rebaseReference={rebaseReference}
       completeReference={completeReference}
       retryQueuedCommands={retryQueuedCommands}
       reloadWinningDraft={reloadWinningDraft}

@@ -72,7 +72,10 @@ export type IdentityInspectorProps = {
   completionBusy: boolean;
   completionBlocker: string | null;
   creatingReference: boolean;
+  selectedGeneratedRevisionId: string | null;
+  rebasingReference: boolean;
   createReference: () => Promise<void>;
+  rebaseReference: () => Promise<void>;
   completeReference: () => Promise<void>;
   retryQueuedCommands: () => void;
   reloadWinningDraft: () => Promise<void>;
@@ -155,6 +158,32 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
         Choose the canonical identity in the central area. Use the review
         controls below. Changes save automatically.
       </p>
+      {props.selectedGeneratedRevisionId !== null &&
+      props.reference.draft.source_revision_id !==
+        props.selectedGeneratedRevisionId ? (
+        <>
+          <p className={styles.pipelineInspectorEmpty}>
+            A different generated result is selected. Switch this review to its
+            crops. Matching decisions stay in place, but inspect the selected
+            result before completing the review.
+          </p>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() => void props.rebaseReference()}
+            disabled={
+              props.rebasingReference ||
+              props.queueLength > 0 ||
+              props.saveState !== "saved" ||
+              props.operatorId.trim() === ""
+            }
+          >
+            {props.rebasingReference
+              ? "Switching review…"
+              : "Switch review to selected result"}
+          </button>
+        </>
+      ) : null}
     </>
   );
 }
