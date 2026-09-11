@@ -96,7 +96,7 @@ export function PipelineCardEventEditor({
   const [generatedEvents, setGeneratedEvents] = useState<PipelineEvent[]>([]);
   const [events, setEvents] = useState<EditableEvent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [, setPlayheadUs] = useState(0);
+  const [playheadUs, setPlayheadUs] = useState(0);
   const [watchedThroughUs, setWatchedThroughUs] = useState(0);
   const [loading, setLoading] = useState(view === "reviewed");
   const [generatedLoading, setGeneratedLoading] = useState(false);
@@ -142,11 +142,19 @@ export function PipelineCardEventEditor({
       const clamped = clampMicroseconds(nextUs, durationUs);
       playheadUsRef.current = clamped;
       setPlayheadUs(clamped);
-      if (videoRef.current !== null)
+      if (view === "reviewed") {
+        watchedThroughUsRef.current = Math.max(
+          watchedThroughUsRef.current,
+          clamped,
+        );
+        setWatchedThroughUs(watchedThroughUsRef.current);
+        if (clamped >= durationUs && durationUs > 0) setCoverageComplete(true);
+      }
+      if (view === "generated" && videoRef.current !== null)
         videoRef.current.currentTime = clamped / 1_000_000;
       if (updateUrl) updatePipelineUrl({ t_us: clamped });
     },
-    [durationUs],
+    [durationUs, view],
   );
 
   const selectEvent = useCallback(
@@ -277,14 +285,15 @@ export function PipelineCardEventEditor({
     const requestedTimeUs =
       selectionTimeUs === undefined ? urlState.tUs : selectionTimeUs;
     const timer = window.setTimeout(() => {
-      if (
-        selected !== undefined &&
-        selected.localId !== selectedIdRef.current
-      ) {
+      const selectionChanged =
+        selected !== undefined && selected.localId !== selectedIdRef.current;
+      if (selectionChanged) {
         setSelected(selected.localId);
       }
-      if (requestedTimeUs !== null && videoRef.current?.paused !== false) {
+      if (requestedTimeUs !== null) {
         setCurrentTime(requestedTimeUs, false);
+      } else if (selectionChanged && view === "reviewed") {
+        setCurrentTime(selected.event.start_us, false);
       }
     }, 0);
     return () => window.clearTimeout(timer);
@@ -297,36 +306,6 @@ export function PipelineCardEventEditor({
     setSelected,
     view,
   ]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video === null) return;
-    const update = () => {
-      const currentUs = clampMicroseconds(
-        Number.isFinite(video.currentTime)
-          ? Math.round(video.currentTime * 1_000_000)
-          : 0,
-        durationUs,
-      );
-      playheadUsRef.current = currentUs;
-      setPlayheadUs(currentUs);
-      watchedThroughUsRef.current = Math.max(
-        watchedThroughUsRef.current,
-        currentUs,
-      );
-      setWatchedThroughUs(watchedThroughUsRef.current);
-      if (currentUs >= durationUs && durationUs > 0) setCoverageComplete(true);
-    };
-    video.addEventListener("timeupdate", update);
-    video.addEventListener("loadedmetadata", update);
-    video.addEventListener("ended", update);
-    update();
-    return () => {
-      video.removeEventListener("timeupdate", update);
-      video.removeEventListener("loadedmetadata", update);
-      video.removeEventListener("ended", update);
-    };
-  }, [durationUs, reference]);
 
   useEffect(() => {
     if (view !== "reviewed") {
@@ -716,6 +695,7 @@ export function PipelineCardEventEditor({
       )
         return;
       if (event.key === " ") {
+        if (view !== "generated") return;
         event.preventDefault();
         if (videoRef.current === null) return;
         if (videoRef.current.paused)
@@ -767,6 +747,7 @@ export function PipelineCardEventEditor({
     removeSelected,
     selectedEvent,
     selectEvent,
+    view,
   ]);
 
   const pendingCount = events.filter(
@@ -875,9 +856,8 @@ export function PipelineCardEventEditor({
       <>
         {inspector}
         <EventSourceSurface
-          videoRef={videoRef}
-          videoUrl={videoUrl}
           recordingId={recordingId}
+          requestedTimeUs={playheadUs}
           durationUs={durationUs}
           watchedPercent={watchedPercent}
           watchedThroughUs={watchedThroughUs}
@@ -925,9 +905,8 @@ export function PipelineCardEventEditor({
 
         <div className={eventStyles.pipelineVideoGrid}>
           <EventSourceSurface
-            videoRef={videoRef}
-            videoUrl={videoUrl}
             recordingId={recordingId}
+            requestedTimeUs={playheadUs}
             durationUs={durationUs}
             watchedPercent={watchedPercent}
             watchedThroughUs={watchedThroughUs}

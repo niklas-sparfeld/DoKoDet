@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 
 import type { EditableEvent, PipelineEvent } from "./PipelineCardEventTypes";
+import { CardEventFrameSurface } from "./CardEventFrameSurface";
 import {
   formatDuration,
   formatIdentifier,
@@ -10,9 +11,8 @@ import styles from "../App.module.css";
 import eventStyles from "./PipelineCardEventEditor.module.css";
 
 export function EventSourceSurface({
-  videoRef,
-  videoUrl,
   recordingId,
+  requestedTimeUs,
   watchedPercent,
   watchedThroughUs,
   coverageComplete,
@@ -21,9 +21,8 @@ export function EventSourceSurface({
   onMarkCoverage,
   showCoverageControls,
 }: {
-  videoRef: RefObject<HTMLVideoElement | null>;
-  videoUrl: string;
   recordingId: string;
+  requestedTimeUs: number;
   watchedPercent: number;
   watchedThroughUs: number;
   coverageComplete: boolean;
@@ -34,14 +33,9 @@ export function EventSourceSurface({
 }) {
   return (
     <div className={eventStyles.sourceSurface}>
-      <video
-        ref={videoRef}
-        className={eventStyles.sourceVideo}
-        data-recording-source-video={recordingId}
-        src={videoUrl}
-        controls
-        preload="none"
-        aria-label={`CardEvent source video ${recordingId}`}
+      <CardEventFrameSurface
+        recordingId={recordingId}
+        requestedTimeUs={requestedTimeUs}
       />
       {showCoverageControls ? (
         <div className={eventStyles.coverage}>

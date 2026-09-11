@@ -68,12 +68,14 @@ function response(value: unknown, status = 200): Response {
 function renderReviewed(
   fetchImplementation: typeof fetch,
   durationUs = 5_000_000,
+  selectionTimeUs?: number | null,
 ) {
   vi.stubGlobal("fetch", fetchImplementation);
   return render(
     <PipelineCardEventEditor
       recordingId={recordingId}
       durationUs={durationUs}
+      selectionTimeUs={selectionTimeUs}
       generatedRevisionId="generated-1"
       generatedRunId={null}
       view="reviewed"
@@ -89,6 +91,7 @@ describe("PipelineCardEventEditor", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    window.history.replaceState({}, "", "/");
   });
 
   it("adds, corrects, accepts, rejects, and nudges events with integer microseconds", async () => {
@@ -133,7 +136,7 @@ describe("PipelineCardEventEditor", () => {
       return response(server);
     });
 
-    renderReviewed(fetchMock);
+    const rendered = renderReviewed(fetchMock);
     await screen.findByRole("heading", { name: "CardEvent review" });
 
     fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
@@ -174,15 +177,21 @@ describe("PipelineCardEventEditor", () => {
       { operation: "reject", item_id: "event-1" },
     ]);
 
-    const video = screen.getByLabelText(
-      `CardEvent source video ${recordingId}`,
+    rendered.rerender(
+      <PipelineCardEventEditor
+        recordingId={recordingId}
+        durationUs={5_000_000}
+        selectionTimeUs={2_500_000}
+        generatedRevisionId="generated-1"
+        generatedRunId={null}
+        view="reviewed"
+      />,
     );
-    Object.defineProperty(video, "currentTime", {
-      configurable: true,
-      value: 2.5,
-      writable: true,
-    });
-    fireEvent.timeUpdate(video);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("region", { name: "CardEvent exact source frame" }),
+      ).toHaveAttribute("data-requested-time-us", "2500000"),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Add event at playhead" }),
     );
@@ -220,7 +229,7 @@ describe("PipelineCardEventEditor", () => {
       return response(server);
     });
 
-    renderReviewed(fetchMock);
+    renderReviewed(fetchMock, 5_000_000, 1_000_000);
     await screen.findByRole("heading", { name: "CardEvent review" });
     fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
 
@@ -382,18 +391,21 @@ describe("PipelineCardEventEditor", () => {
     );
   });
 
-  it("uses the source video and Timeline Rail selection instead of an event table", async () => {
+  it("uses the exact source frame and Timeline Rail selection instead of an event table", async () => {
     const server = referenceResponse([eventItem()]);
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(response(server)),
     );
 
-    renderReviewed(fetchMock);
+    renderReviewed(fetchMock, 5_000_000, 1_000_000);
     await screen.findByRole("heading", { name: "CardEvent review" });
 
     expect(
-      screen.getByLabelText(`CardEvent source video ${recordingId}`),
+      await screen.findByRole("img", {
+        name: "Exact CardEvent source frame at 0:01.000000",
+      }),
     ).toBeInTheDocument();
+    expect(document.querySelector("video")).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Event timeline")).not.toBeInTheDocument();
     expect(
@@ -430,7 +442,7 @@ describe("PipelineCardEventEditor", () => {
       return response(draft);
     });
 
-    renderReviewed(fetchMock, 3_000_000);
+    const rendered = renderReviewed(fetchMock, 3_000_000);
     await screen.findByRole("heading", { name: "CardEvent review" });
     const completeButton = screen.getByRole("button", {
       name: "Complete reference",
@@ -448,15 +460,16 @@ describe("PipelineCardEventEditor", () => {
     fireEvent.change(screen.getByPlaceholderText("reviewer-01"), {
       target: { value: "reviewer-1" },
     });
-    const video = screen.getByLabelText(
-      `CardEvent source video ${recordingId}`,
+    rendered.rerender(
+      <PipelineCardEventEditor
+        recordingId={recordingId}
+        durationUs={3_000_000}
+        selectionTimeUs={3_000_000}
+        generatedRevisionId="generated-1"
+        generatedRunId={null}
+        view="reviewed"
+      />,
     );
-    Object.defineProperty(video, "currentTime", {
-      configurable: true,
-      value: 3,
-      writable: true,
-    });
-    fireEvent.timeUpdate(video);
     await waitFor(() => expect(completeButton).not.toBeDisabled());
 
     fireEvent.click(completeButton);
