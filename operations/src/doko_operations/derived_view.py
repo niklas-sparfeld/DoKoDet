@@ -29,6 +29,7 @@ from .pipeline_data import RecordingVideoSource, canonical_json_bytes
 
 EXACT_EVENT_SCHEMA = "exact-event/v1"
 VISIBLE_REGION_CROP_SCHEMA = "visible-region-crop/v1"
+CROP_JPEG_PREVIEW_SCHEMA = "visible-region-crop-jpeg-preview/v1"
 DERIVED_VIEW_CACHE_SCHEMA = "derived-view-cache/v1"
 
 # These values are pinned by the repository root mise.toml and operations/uv.lock.
@@ -37,6 +38,10 @@ PILLOW_TOOLCHAIN_VERSION = "12.3.0"
 DEFAULT_DECODER_VERSION = f"ffmpeg/{FFMPEG_TOOLCHAIN_VERSION}"
 DEFAULT_FRAME_TRANSFORM_VERSION = f"ffmpeg-mjpeg/{FFMPEG_TOOLCHAIN_VERSION}"
 DEFAULT_TRANSFORM_VERSION = f"pillow/{PILLOW_TOOLCHAIN_VERSION}/crop-conditions-v2"
+CROP_JPEG_PREVIEW_TRANSFORM_VERSION = (
+    f"pillow/{PILLOW_TOOLCHAIN_VERSION}/crop-browser-jpeg-v1"
+)
+CROP_JPEG_PREVIEW_QUALITY = 90
 
 SUPPORTED_FRAME_ENCODINGS = frozenset({"jpeg", "png"})
 SUPPORTED_CROP_ENCODINGS = frozenset({"jpeg", "png", "ppm"})
@@ -973,6 +978,25 @@ class ResolvedCrop:
 
 
 @dataclass(frozen=True, slots=True)
+class ResolvedCropJpegPreview:
+    """A browser-friendly JPEG representation of a canonical crop."""
+
+    image_bytes: bytes
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.image_bytes, bytes) or not self.image_bytes:
+            raise DerivedViewError("crop JPEG preview bytes must be non-empty")
+
+    @property
+    def image_sha256(self) -> str:
+        return _sha256(self.image_bytes)
+
+    @property
+    def content_type(self) -> str:
+        return "image/jpeg"
+
+
+@dataclass(frozen=True, slots=True)
 class DerivedViewCacheEntry:
     """Verified bytes and manifest read from a derived-view cache directory."""
 
@@ -1354,6 +1378,70 @@ def crop_cache_key(request: VisibleRegionCropRequest) -> str:
     """Return the cache key for a visible-region crop request."""
 
     return _sha256(canonical_json_bytes(request.to_mapping()))
+
+
+def crop_jpeg_preview_cache_key(crop: ResolvedCrop) -> str:
+    """Return the cache key for the browser JPEG representation of one crop."""
+
+    if crop.status != "usable" or crop.image_sha256 is None:
+        raise DerivedViewError("a usable crop is required for a JPEG preview")
+    return _sha256(
+        canonical_json_bytes(
+            {
+                "schema_version": CROP_JPEG_PREVIEW_SCHEMA,
+                "source_crop_sha256": crop.image_sha256,
+                "output_encoding": "jpeg",
+                "quality": CROP_JPEG_PREVIEW_QUALITY,
+                "transform_version": CROP_JPEG_PREVIEW_TRANSFORM_VERSION,
+            }
+        )
+    )
+
+
+def resolve_crop_jpeg_preview(
+    crop: ResolvedCrop,
+    *,
+    cache: DerivedViewCache | str | Path | None = None,
+) -> ResolvedCropJpegPreview:
+    """Return a cached browser JPEG without changing the canonical crop bytes."""
+
+    if crop.status != "usable" or crop.image_bytes is None or crop.image_sha256 is None:
+        raise DerivedViewError("a usable crop is required for a JPEG preview")
+    key = crop_jpeg_preview_cache_key(crop)
+    cache_store = _cache_store(cache)
+    if cache_store is not None:
+        cached = cache_store.read(key)
+        if cached is not None:
+            try:
+                return _crop_jpeg_preview_from_cache(cached, key, crop.image_sha256)
+            except DerivedViewError:
+                pass
+    try:
+        with Image.open(BytesIO(crop.image_bytes)) as image:
+            image_bytes = _encode_crop(image.convert("RGB"), "jpeg")
+    except (UnidentifiedImageError, OSError) as error:
+        raise DerivedViewError("canonical crop cannot be decoded for browser preview") from error
+    result = ResolvedCropJpegPreview(image_bytes=image_bytes)
+    if cache_store is not None:
+        cache_store.write(
+            key,
+            {
+                "schema_version": DERIVED_VIEW_CACHE_SCHEMA,
+                "cache_key": key,
+                "view_kind": CROP_JPEG_PREVIEW_SCHEMA,
+                "identity": {
+                    "schema_version": CROP_JPEG_PREVIEW_SCHEMA,
+                    "source_crop_sha256": crop.image_sha256,
+                    "output_encoding": "jpeg",
+                    "quality": CROP_JPEG_PREVIEW_QUALITY,
+                    "transform_version": CROP_JPEG_PREVIEW_TRANSFORM_VERSION,
+                    "content_type": result.content_type,
+                    "image_sha256": result.image_sha256,
+                },
+            },
+            result.image_bytes,
+        )
+    return result
 
 
 def resolve_visible_region_crop(
@@ -1894,11 +1982,56 @@ def _crop_from_cache(entry: DerivedViewCacheEntry, cache_key: str) -> ResolvedCr
     return result
 
 
+def _crop_jpeg_preview_from_cache(
+    entry: DerivedViewCacheEntry,
+    cache_key: str,
+    source_crop_sha256: str,
+) -> ResolvedCropJpegPreview:
+    manifest = _require_mapping(entry.manifest, "crop JPEG preview cache manifest")
+    if (
+        manifest.get("view_kind") != CROP_JPEG_PREVIEW_SCHEMA
+        or manifest.get("cache_key") != cache_key
+    ):
+        raise DerivedViewError("cache entry is for a different crop JPEG preview")
+    identity = _require_mapping(
+        manifest.get("identity"), "crop JPEG preview cache identity"
+    )
+    expected = {
+        "schema_version",
+        "source_crop_sha256",
+        "output_encoding",
+        "quality",
+        "transform_version",
+        "content_type",
+        "image_sha256",
+    }
+    _strict(identity, expected, "crop JPEG preview cache identity")
+    if identity["schema_version"] != CROP_JPEG_PREVIEW_SCHEMA:
+        raise DerivedViewError("crop JPEG preview cache identity has an unsupported schema")
+    if identity["source_crop_sha256"] != source_crop_sha256:
+        raise DerivedViewError("crop JPEG preview cache source differs")
+    if identity["output_encoding"] != "jpeg" or identity["quality"] != CROP_JPEG_PREVIEW_QUALITY:
+        raise DerivedViewError("crop JPEG preview cache encoding differs")
+    if identity["transform_version"] != CROP_JPEG_PREVIEW_TRANSFORM_VERSION:
+        raise DerivedViewError("crop JPEG preview cache transform differs")
+    result = ResolvedCropJpegPreview(image_bytes=entry.content)
+    if (
+        identity["content_type"] != result.content_type
+        or identity["image_sha256"] != result.image_sha256
+    ):
+        raise DerivedViewError("crop JPEG preview cache identity does not match its bytes")
+    return result
+
+
 __all__ = [
     "DEFAULT_DECODER_VERSION",
     "DEFAULT_FRAME_TRANSFORM_VERSION",
     "DEFAULT_TRANSFORM_VERSION",
+    "CROP_JPEG_PREVIEW_QUALITY",
+    "CROP_JPEG_PREVIEW_SCHEMA",
+    "CROP_JPEG_PREVIEW_TRANSFORM_VERSION",
     "DERIVED_VIEW_CACHE_SCHEMA",
+    "ResolvedCropJpegPreview",
     "DetectorBoxGeometry",
     "DerivedViewCache",
     "DerivedViewCacheEntry",
@@ -1927,9 +2060,11 @@ __all__ = [
     "VisibleRegionExclusionInput",
     "VisibleRegionCropRequest",
     "crop_cache_key",
+    "crop_jpeg_preview_cache_key",
     "frame_cache_key",
     "generate_visible_region_corruption",
     "parse_geometry",
     "resolve_exact_event",
+    "resolve_crop_jpeg_preview",
     "resolve_visible_region_crop",
 ]

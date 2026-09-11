@@ -24,9 +24,11 @@ from doko_operations.derived_view import (
     VisibleRegionCropRequest,
     VisibleRegionExclusionInput,
     crop_cache_key,
+    crop_jpeg_preview_cache_key,
     frame_cache_key,
     generate_visible_region_corruption,
     parse_geometry,
+    resolve_crop_jpeg_preview,
     resolve_exact_event,
     resolve_visible_region_crop,
 )
@@ -357,6 +359,36 @@ def _colour_frame() -> ResolvedFrame:
         output_encoding="png",
         image_bytes=encoded.getvalue(),
     )
+
+
+def test_crop_jpeg_preview_uses_a_verified_warm_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    crop = resolve_visible_region_crop(
+        _colour_frame(),
+        DetectorBoxGeometry(200, 200, 800, 800),
+        crop_policy="raw_rectangular",
+    )
+    cache = DerivedViewCache(tmp_path / "derived-views")
+
+    cold = resolve_crop_jpeg_preview(crop, cache=cache)
+
+    assert cold.content_type == "image/jpeg"
+    with Image.open(BytesIO(cold.image_bytes)) as image:
+        assert image.format == "JPEG"
+    preview_key = crop_jpeg_preview_cache_key(crop)
+    cached = cache.read(preview_key)
+    assert cached is not None
+    assert cached.manifest["view_kind"] == "visible-region-crop-jpeg-preview/v1"
+
+    def fail_if_decoded(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("warm JPEG preview should not decode the canonical crop")
+
+    monkeypatch.setattr(Image, "open", fail_if_decoded)
+    warm = resolve_crop_jpeg_preview(crop, cache=cache)
+
+    assert warm.image_bytes == cold.image_bytes
+    assert warm.image_sha256 == cold.image_sha256
 
 
 def _predicted_region(x_min: int, y_min: int, x_max: int, y_max: int):

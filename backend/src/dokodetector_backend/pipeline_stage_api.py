@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from io import BytesIO
 from typing import Any
 
-from doko_operations.derived_view import DerivedViewError
+from doko_operations.derived_view import DerivedViewError, resolve_crop_jpeg_preview
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
-from PIL import Image
 
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.event_pipeline_service import EventPipelineService
@@ -338,10 +336,9 @@ def get_recording_identity_crop(
     """Return one verified identity crop derived from a stored identity revision."""
 
     validate_recording_id(recording_id)
+    service = _visual_identity_service(request)
     try:
-        crop = _visual_identity_service(request).resolve_identity_crop(
-            recording_id, revision_id, item_id
-        )
+        crop = service.resolve_identity_crop(recording_id, revision_id, item_id)
     except PipelineNotFound as error:
         raise ContractError("identity_crop_not_found", str(error), status_code=404) from error
     except (VisualIdentityPipelineInputError, DerivedViewError, OSError, RuntimeError) as error:
@@ -356,12 +353,16 @@ def get_recording_identity_crop(
     content_type = crop.content_type
     etag = crop.image_sha256
     if preview == "browser" and content_type == "image/x-portable-pixmap":
-        preview_buffer = BytesIO()
-        with Image.open(BytesIO(content)) as image:
-            image.save(preview_buffer, format="PNG")
-        content = preview_buffer.getvalue()
-        content_type = "image/png"
-        etag = f"{etag}-browser-preview"
+        try:
+            browser_preview = resolve_crop_jpeg_preview(
+                crop,
+                cache=service.storage.derived_views_root,
+            )
+        except (DerivedViewError, OSError, RuntimeError) as error:
+            raise ContractError("derived_view_unavailable", str(error), status_code=409) from error
+        content = browser_preview.image_bytes
+        content_type = browser_preview.content_type
+        etag = f"{browser_preview.image_sha256}-browser-preview"
     return Response(
         content=content,
         media_type=content_type,

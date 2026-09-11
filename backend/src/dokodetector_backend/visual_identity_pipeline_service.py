@@ -18,6 +18,7 @@ from doko_operations.derived_view import (
     FrameResolver,
     ResolvedCrop,
     parse_geometry,
+    resolve_crop_jpeg_preview,
     resolve_exact_event,
     resolve_visible_region_crop,
 )
@@ -506,6 +507,14 @@ class VisualIdentityPipelineService:
                 status="unusable",
                 candidates=(),
                 unusable_reason=crop.unusable_reason,
+            )
+        try:
+            resolve_crop_jpeg_preview(crop, cache=self.storage.derived_views_root)
+        except (DerivedViewError, OSError, RuntimeError):
+            LOGGER.warning(
+                "visual_identity_browser_preview_cache_warm_failed",
+                extra={"run_id": run.run_id, "card_id": card.card_id},
+                exc_info=True,
             )
         try:
             assert crop.image_bytes is not None

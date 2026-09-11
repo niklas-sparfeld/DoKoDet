@@ -205,8 +205,8 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
             f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
         )
         assert preview_response.status_code == 200, preview_response.text
-        assert preview_response.headers["content-type"] == "image/png"
-        assert preview_response.content.startswith(b"\x89PNG\r\n\x1a\n")
+        assert preview_response.headers["content-type"] == "image/jpeg"
+        assert preview_response.content.startswith(b"\xff\xd8\xff")
         assert generated_outcome["candidates"] == [
             {
                 "identity": "CLUBS_NINE",
