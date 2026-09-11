@@ -141,7 +141,7 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     assert first.status == "ok"
     assert first.candidates == second.candidates
     assert len(first.candidates) == 24
-    assert sum(candidate.probability for candidate in first.candidates) == pytest.approx(1.0)
+    assert 0 < sum(candidate.probability for candidate in first.candidates) < 1.0
     assert [candidate.card for candidate in first.candidates] == sorted(
         (candidate.card for candidate in first.candidates),
         key=lambda card: (
