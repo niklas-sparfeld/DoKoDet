@@ -536,6 +536,7 @@ class VisibleCardPipelineService:
                 "height": frame.height,
                 "policy_id": "full-frame-0-1000/v1",
             },
+            side=proposal.side,
             model_scores=model_scores,
         )
 

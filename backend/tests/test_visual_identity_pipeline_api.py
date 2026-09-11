@@ -68,6 +68,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
                 polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
+            side="face_up",
         ),
         VisibleCardCandidate(
             card_id="card-empty",
@@ -75,6 +76,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
                 polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
+            side="unknown",
         ),
         VisibleCardCandidate(
             card_id="card-unusable",
@@ -82,6 +84,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
                 polygons=(((0, 0), (10, 0), (10, 10), (0, 10)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
+            side="face_down",
         ),
         VisibleCardCandidate(
             card_id="card-failed",
@@ -89,6 +92,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
                 polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
+            side="unknown",
         ),
     )
     content = VisibleCardData(
@@ -261,17 +265,16 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         ]
         assert outcomes[1]["geometry"]["kind"] == "reviewed-visible-region/v1"
         assert outcomes[1]["candidates"] == []
+        assert outcomes[1]["unusable_reason"] == "The classifier returned no identity candidates."
         assert outcomes[0]["status"] == "classified"
         assert outcomes[0]["crop_identity"]["crop_policy"] == "predicted_visible_region"
         assert outcomes[2]["crop_identity"]["status"] == "unusable"
+        assert outcomes[2]["unusable_reason"] == "face_down"
         assert outcomes[3]["crop_identity"]["status"] == "usable"
         assert outcomes[3]["error"] == "The visual identity classifier failed for this card."
-        assert [request.provider for request in provider.requests] == [
-            "fixture-identity",
-            "fixture-identity",
-            "fixture-identity",
-            "fixture-identity",
-        ]
+        assert sorted(request.card_id for request in provider.requests[-3:]) == sorted(
+            ["card-classified", "card-empty", "card-failed"]
+        )
 
     restarted = create_test_app(
         _settings(tmp_path),

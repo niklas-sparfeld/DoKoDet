@@ -570,6 +570,17 @@ class VisualIdentityPipelineService:
                 candidates=(),
                 error="The visible-card identity crop is unavailable.",
             )
+        if card.side == "face_down":
+            return VisualIdentityOutcome(
+                card_id=card.card_id,
+                frame_identity=frame_identity,
+                geometry=geometry,
+                crop_identity=crop_identity,
+                classifier=classifier_identity,
+                status="unusable",
+                candidates=(),
+                unusable_reason="face_down",
+            )
         if crop.status == "unusable":
             return VisualIdentityOutcome(
                 card_id=card.card_id,

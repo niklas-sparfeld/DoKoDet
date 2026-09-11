@@ -64,6 +64,7 @@ def _visible_candidate(card_id: str, geometry: object) -> VisibleCardCandidate:
         card_id=card_id,
         geometry=geometry,  # type: ignore[arg-type]
         normalization={"width": 1_000, "height": 1_000, "policy_id": "full-frame-0-1000/v1"},
+        side="unknown",
     )
 
 

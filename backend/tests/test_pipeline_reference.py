@@ -204,6 +204,7 @@ def _vision_source_revision(revision_store: PipelineRevisionStore, content_type:
                                 "height": 64,
                                 "policy_id": "fixture.v1",
                             },
+                            "side": "face_down",
                             "model_scores": [{"producer_id": "detector.v1", "score": 0.8}],
                         }
                     ],
@@ -590,6 +591,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
     )
     assert reviewed.draft.items[0].review_state == "corrected"
     assert reviewed.draft.items[0].item["frame_identity"] == original["frame_identity"]
+    assert reviewed.draft.items[0].item["candidates"][0]["side"] == "face_down"
     assert reviewed.draft.items[0].item["candidates"][0]["geometry"]["kind"] == (
         "reviewed-visible-region/v1"
     )
@@ -611,6 +613,7 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
     )
     assert restored.draft.items[0].review_state == "pending"
     assert restored.draft.items[0].item == original
+    assert restored.draft.items[0].item["candidates"][0]["side"] == "face_down"
 
     accepted = service.update_draft(
         "recording-01",
@@ -742,9 +745,7 @@ def test_identity_commands_preserve_geometry_and_support_manual_labels(
         {
             "operator_id": "operator-01",
             "expected_revision": 2,
-            "operations": [
-                {"operation": "set_identity_unreviewed", "item_id": "card-01"}
-            ],
+            "operations": [{"operation": "set_identity_unreviewed", "item_id": "card-01"}],
         },
     )
     assert unreviewed.draft.items[0].review_state == "pending"

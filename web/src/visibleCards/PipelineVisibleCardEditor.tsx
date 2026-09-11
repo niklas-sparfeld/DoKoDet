@@ -644,6 +644,7 @@ export function PipelineVisibleCardEditor({
             height: frame.outcome.frame_identity?.height ?? 1,
             policy_id: "full-frame-0-1000/v1",
           },
+          side: "unknown",
         });
       }
       setFrameReview(
@@ -1353,6 +1354,7 @@ function readCandidate(value: unknown): Candidate | null {
   if (
     !isRecord(value) ||
     typeof value.card_id !== "string" ||
+    !isVisibleCardSide(value.side) ||
     !isRecord(value.geometry) ||
     !isRecord(value.normalization)
   )
@@ -1363,10 +1365,15 @@ function readCandidate(value: unknown): Candidate | null {
     card_id: value.card_id,
     geometry,
     normalization: value.normalization,
+    side: value.side,
     ...(Array.isArray(value.model_scores)
       ? { model_scores: value.model_scores.filter(isRecord) }
       : {}),
   };
+}
+
+function isVisibleCardSide(value: unknown): value is Candidate["side"] {
+  return value === "face_up" || value === "face_down" || value === "unknown";
 }
 
 function readGeometry(value: Record<string, unknown>): Geometry | null {

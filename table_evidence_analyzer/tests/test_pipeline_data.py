@@ -57,6 +57,7 @@ def _content() -> dict[str, object]:
                             "height": 64,
                             "policy_id": "full-frame-0-1000/v1",
                         },
+                        "side": "face_up",
                         "model_scores": [{"producer_id": "detector.v1", "score": 0.8}],
                     }
                 ],
@@ -95,6 +96,7 @@ def test_visible_card_data_round_trips_to_canonical_bytes() -> None:
         lambda value: value["outcomes"][0]["candidates"][0]["geometry"].update(
             kind="unsupported/v1"
         ),
+        lambda value: value["outcomes"][0]["candidates"][0].pop("side"),
         lambda value: value["outcomes"][2].update(error=None),
         lambda value: value["outcomes"][0].update(unexpected=True),
     ],

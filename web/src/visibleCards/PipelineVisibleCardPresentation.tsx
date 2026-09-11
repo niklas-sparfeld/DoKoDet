@@ -332,6 +332,7 @@ function ProposalColumn({
                   <span className={visibleStyles.proposalDetails}>
                     <strong>Proposal {index + 1}</strong>
                     <span>Detector suggestion</span>
+                    <small>{formatIdentifier(candidate.side)}</small>
                     <small>{formatGeometryKind(candidate.geometry)}</small>
                   </span>
                 </button>

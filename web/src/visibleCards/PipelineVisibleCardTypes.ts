@@ -18,10 +18,13 @@ export type Geometry = {
   visible_region?: { polygons: Point[][] };
 };
 
+export type VisibleCardSide = "face_up" | "face_down" | "unknown";
+
 export type Candidate = {
   card_id: string;
   geometry: Geometry;
   normalization: Record<string, unknown>;
+  side: VisibleCardSide;
   model_scores?: Array<Record<string, unknown>>;
 };
 

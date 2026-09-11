@@ -26,6 +26,7 @@ const FRAME_IDENTITY = {
 };
 const DETECTOR_CANDIDATE: Candidate = {
   card_id: "run-card-1",
+  side: "unknown",
   geometry: {
     kind: "detector-box/v1",
     box_2d: { x_min: 100, y_min: 100, x_max: 800, y_max: 800 },
@@ -111,6 +112,7 @@ function generatedResultWithTwoFrames() {
       {
         ...DETECTOR_CANDIDATE,
         card_id: "run-card-2",
+        side: "face_down",
       },
     ],
     error: null,

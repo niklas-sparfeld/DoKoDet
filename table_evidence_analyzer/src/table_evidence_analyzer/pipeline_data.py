@@ -19,6 +19,7 @@ TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 EXACT_EVENT_FRAME_SCHEMA_VERSION = "exact-event/v1"
 DETECTOR_BOX_GEOMETRY_KIND = "detector-box/v1"
 PREDICTED_VISIBLE_REGION_GEOMETRY_KIND = "visible-region/v1"
+VISIBLE_CARD_SIDES = frozenset({"face_up", "face_down", "unknown"})
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _QUALIFIED = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
@@ -465,6 +466,7 @@ class VisibleCardCandidate:
     card_id: str
     geometry: PipelineGeometry
     normalization: dict[str, Any]
+    side: Literal["face_up", "face_down", "unknown"]
     model_scores: tuple[VisibleCardModelScore, ...] | None = None
 
     @classmethod
@@ -472,7 +474,7 @@ class VisibleCardCandidate:
         cls, raw: Mapping[str, Any], context: str = "candidate"
     ) -> "VisibleCardCandidate":
         data = _mapping(raw, context)
-        expected = {"card_id", "geometry", "normalization", "model_scores"}
+        expected = {"card_id", "geometry", "normalization", "side", "model_scores"}
         _strict(data, expected if "model_scores" in data else expected - {"model_scores"}, context)
         normalization = _mapping(data["normalization"], f"{context}.normalization")
         _strict(normalization, {"width", "height", "policy_id"}, f"{context}.normalization")
@@ -483,6 +485,9 @@ class VisibleCardCandidate:
                 normalization["policy_id"], f"{context}.normalization.policy_id"
             ),
         }
+        side = data["side"]
+        if side not in VISIBLE_CARD_SIDES:
+            raise PipelineDataError(f"{context}.side must be face_up, face_down, or unknown")
         raw_scores = data.get("model_scores")
         scores: tuple[VisibleCardModelScore, ...] | None = None
         if raw_scores is not None:
@@ -501,6 +506,7 @@ class VisibleCardCandidate:
                 _mapping(data["geometry"], f"{context}.geometry"), f"{context}.geometry"
             ),
             normalization=normalized,
+            side=side,
             model_scores=scores,
         )
 
@@ -509,6 +515,7 @@ class VisibleCardCandidate:
             "card_id": self.card_id,
             "geometry": self.geometry.to_mapping(),
             "normalization": self.normalization,
+            "side": self.side,
         }
         if self.model_scores is not None:
             value["model_scores"] = [score.to_mapping() for score in self.model_scores]
@@ -1091,6 +1098,7 @@ __all__ = [
     "VISIBLE_CARD_DATA_SCHEMA_VERSION",
     "VISUAL_IDENTITY_DATA_SCHEMA_VERSION",
     "VisibleCardCandidate",
+    "VISIBLE_CARD_SIDES",
     "VisibleCardData",
     "VisibleCardFrameIdentity",
     "VisibleCardModelScore",

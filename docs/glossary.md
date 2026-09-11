@@ -209,6 +209,11 @@ The pixels of one visible card that can be reviewed in a source frame. A visible
 include hidden card pixels, an occluding card, a human hand, or the background. One visible region
 can use more than one polygon when an occluder splits the visible pixels.
 
+### Card side
+
+The observed presentation of a visible card. It is `face_up` when the card face is visible,
+`face_down` when the card back is visible, and `unknown` when the side is not classified.
+
 ### Derived box
 
 The tight axis-aligned detector box calculated from a visible region. A derived box does not

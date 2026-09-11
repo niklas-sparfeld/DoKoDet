@@ -173,6 +173,7 @@ def _visible_reference() -> StoredRevision:
                 "card_id": "card-01",
                 "geometry": _geometry(),
                 "normalization": {"width": 64, "height": 64, "policy_id": "normalize.v1"},
+                "side": "unknown",
             }
         ],
         "error": None,

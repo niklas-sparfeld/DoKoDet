@@ -26,7 +26,9 @@
 - **M1:** Complete — the visible-card processor processes every event in the selected revision,
   keeps input order, retains successful and failed outcomes for retry, and distinguishes empty from
   failed results.
-- **M2:** Not started — preserve card side and handle face-down visual identity outcomes.
+- **M2:** Complete — visible-card candidates preserve card side through the backend and review
+  boundary, and face-down candidates produce successful unusable identity outcomes without
+  classifier calls.
 - **M3:** Not started — preserve card side through observation assembly and publish the boundary.
 
 ## 1. Problem
@@ -168,6 +170,8 @@ Acceptance:
 - visible-card service, API, workspace, and comparison tests pass.
 
 ### M2 — Preserve side and abstain on face-down identity
+
+Status: Complete.
 
 - Add required `side` to the active visible-card candidate contract.
 - Preserve provider side through backend conversion, persistence, maintained-reference edits, API

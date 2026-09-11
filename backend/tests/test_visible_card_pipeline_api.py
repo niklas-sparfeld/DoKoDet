@@ -418,6 +418,7 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
                 {"x": 100, "y": 800},
             ]
         ]
+        assert generated_content["outcomes"][0]["candidates"][0]["side"] == "unknown"
         assert generated_content["outcomes"][2]["error"] == "fixture detector failed"
         assert generated_content["outcomes"][2]["frame_identity"] is not None
         assert generated_content["outcomes"][3]["frame_identity"] is None

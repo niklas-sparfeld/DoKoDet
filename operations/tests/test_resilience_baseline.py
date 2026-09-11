@@ -123,7 +123,18 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
                 "event_id": "event-01",
                 "frame_identity": frame,
                 "status": "detected",
-                "candidates": [{"card_id": "card-01", "geometry": geometry}],
+                "candidates": [
+                    {
+                        "card_id": "card-01",
+                        "geometry": geometry,
+                        "normalization": {
+                            "width": 100,
+                            "height": 100,
+                            "policy_id": "full-frame-0-1000/v1",
+                        },
+                        "side": "unknown",
+                    }
+                ],
             }
         ],
     }
@@ -132,7 +143,18 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
         "outcomes": [
             {
                 **generated_visible["outcomes"][0],
-                "candidates": [{"card_id": "card-01", "geometry": geometry}],
+                "candidates": [
+                    {
+                        "card_id": "card-01",
+                        "geometry": geometry,
+                        "normalization": {
+                            "width": 100,
+                            "height": 100,
+                            "policy_id": "full-frame-0-1000/v1",
+                        },
+                        "side": "unknown",
+                    }
+                ],
             }
         ],
     }

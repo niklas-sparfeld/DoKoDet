@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0061 — Card-state change and face-down pipeline](3-in-progress/0061-Card_State_Change_and_Face_Down_Pipeline.md) | 0048 and 0049 complete | M0–M1 complete: generated CardEventNet proposals use `card_state_changed`, the binary training target collapses confirmed meaningful annotation types, and visible-card detection produces one ordered outcome for every selected event. M2–M3 not started. |
+| [0061 — Card-state change and face-down pipeline](3-in-progress/0061-Card_State_Change_and_Face_Down_Pipeline.md) | 0048 and 0049 complete | M0–M2 complete: generated CardEventNet proposals use `card_state_changed`, visible-card detection produces one ordered outcome for every selected event, and card side plus face-down identity abstention now survive the active review boundary. M3 not started. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
 
 ### Blocked
