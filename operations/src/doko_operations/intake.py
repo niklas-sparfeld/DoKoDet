@@ -276,6 +276,27 @@ def inspect_repository(
                 str(error),
             )
         )
+    try:
+        from .cardevent_dataset import validate_cardeventnet_dataset_artifacts
+
+        failures.extend(
+            Failure(
+                _relative_path(artifact_path / "cardevent-datasets", repo),
+                "cardevent_dataset",
+                message,
+            )
+            for message in validate_cardeventnet_dataset_artifacts(
+                repo, operations_root=artifact_path
+            )
+        )
+    except (OSError, ValueError) as error:
+        failures.append(
+            Failure(
+                _relative_path(artifact_path / "cardevent-datasets", repo),
+                "cardevent_dataset",
+                str(error),
+            )
+        )
     evidence_inspections = [
         _inspect_evidence_package(candidate, repo)
         for candidate in discover_evidence_package_paths(evidence_root)

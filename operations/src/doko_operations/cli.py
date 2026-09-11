@@ -13,6 +13,11 @@ from .cardevent_campaign import (
     promote_card_event_campaign,
     run_card_event_campaign,
 )
+from .cardevent_dataset import (
+    CardEventNetDatasetFreezeError,
+    freeze_cardeventnet_dataset,
+    render_cardeventnet_freeze_human,
+)
 from .cardevent_inventory import (
     CardEventNetInventoryError,
     audit_cardeventnet,
@@ -190,6 +195,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     readiness.add_argument("--format", choices=("human", "json"), default="human")
     readiness.add_argument("--json", action="store_true", help="Alias for --format json.")
+    freeze = cardevent_commands.add_parser(
+        "freeze",
+        help="Freeze an immutable CardEventNet dataset and sealed split.",
+        description="Freeze an immutable CardEventNet dataset and sealed split.",
+    )
+    _add_path_options(freeze, suppress_defaults=True)
+    freeze.add_argument(
+        "--operations-root",
+        type=Path,
+        default=None,
+        help="Shared operations root (default: data/operations).",
+    )
+    freeze.add_argument("--operator", required=True)
+    freeze.add_argument("--format", choices=("human", "json"), default="human")
+    freeze.add_argument("--json", action="store_true", help="Alias for --format json.")
     baseline = data_commands.add_parser(
         "resilience-baseline",
         help="Freeze the visible-region identity resilience contract and report coverage.",
@@ -541,7 +561,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         data_parser.choices["data"].print_help()
         return 0
     if args.command == "data" and args.data_command == "cardevent":
-        if args.cardevent_command not in {"audit", "migrate", "readiness"}:
+        if args.cardevent_command not in {"audit", "migrate", "readiness", "freeze"}:
             data_parser = next(
                 action for action in parser._subparsers._group_actions if action.dest == "command"
             )
@@ -619,6 +639,41 @@ def main(argv: Sequence[str] | None = None) -> int:
                         receipt_path=receipt["path"] if receipt is not None else None,
                     )
                 )
+            return 0
+        if args.cardevent_command == "freeze":
+            try:
+                config = RepositoryConfig.from_environment(
+                    getattr(args, "repository_root", None),
+                    intake_root=getattr(args, "intake_root", None),
+                    artifacts_root=getattr(args, "artifacts_root", None),
+                )
+                result = freeze_cardeventnet_dataset(
+                    config.repository_root,
+                    intake_root=config.bundle_root,
+                    operations_root=args.operations_root or config.derived_artifact_root,
+                    operator=args.operator,
+                )
+            except CardEventNetDatasetFreezeError as error:
+                result = error.report
+                if result is None:
+                    print(f"error: {error}", file=sys.stderr)
+                    return 2
+                if args.json or args.format == "json":
+                    sys.stdout.write(
+                        json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+                    )
+                else:
+                    sys.stdout.write(render_cardeventnet_freeze_human(result))
+                return 2
+            except (ConfigurationError, OSError, ValueError) as error:
+                print(f"error: {error}", file=sys.stderr)
+                return 2
+            if args.json or args.format == "json":
+                sys.stdout.write(
+                    json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+                )
+            else:
+                sys.stdout.write(render_cardeventnet_freeze_human(result))
             return 0
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))

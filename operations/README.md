@@ -24,7 +24,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 
 The retained `doko` commands are grouped by owner:
 
-- `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `resilience-baseline`,
+- `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `resilience-baseline`,
   `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`, `impact`, and
   `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
@@ -87,6 +87,18 @@ Use `--receipt <path>` to select a different receipt path. The recording workspa
 maintained event reference only after every event has a decision and the person records full-source
 coverage. An empty event reference is valid when the person reviewed the complete recording and
 confirmed that it contains no card-state changes.
+
+M3 freezes one immutable dataset version only when readiness, source metadata, event revisions, and
+the active group-safe split pass validation. The command seals the test partition before training
+and writes `dataset.json`, `split.json`, `coverage.json`, and a freeze receipt below
+`data/operations/cardevent-datasets/<dataset-version-id>/`:
+
+```bash
+doko data cardevent freeze --repository-root . --operator <name>
+doko data cardevent freeze --repository-root . --operator <name> --format json
+```
+
+The command returns the exact missing inputs and writes no dataset when the freeze is blocked.
 
 ```bash
 doko model status

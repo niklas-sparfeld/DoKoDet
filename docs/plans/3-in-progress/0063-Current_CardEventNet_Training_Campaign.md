@@ -8,9 +8,10 @@
 - **Status:** In Progress
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
 - **Readiness:** The shared recording intake, maintained event references, group-safe development
-  split, model campaign runner, and canonical `card_state_changed` event contract exist. The legacy
-  importer and campaign defaults still read `card_event_net/data`, so the implementation must join
-  these paths before training.
+  split, model campaign runner, and canonical `card_state_changed` event contract exist. The
+  imported CardEventNet annotations are accepted and published as completed full-recording
+  references. M3 remains blocked until source-lineage metadata, a maintained split, and an
+  independent sealed test group exist.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze one leakage-safe train/validation/test dataset, run a
   reproducible campaign, and retain a new `best.pt` and model bundle with complete lineage.
@@ -25,12 +26,14 @@
 - **M1:** Complete (2026-09-11) — migrate the complete readable legacy source corpus into current
   bundles, preserve annotation evidence and lineage, seed unreviewed draft references, and write a
   source-digest parity receipt. Legacy removal remains an explicit post-parity operator action.
-- **M2:** In progress (2026-09-11) — the readiness report, per-recording human action queue,
+- **M2:** Complete (2026-09-11) — the readiness report, per-recording human action queue,
   workspace routes, durable progress summary, blocker report, and digest-backed receipt are
-  available. The imported recordings still need human full-recording review before this
-  milestone can complete.
-- **M3:** Not started — freeze a current CardEventNet dataset and leakage-safe train, validation,
-  and sealed test partitions.
+  available. All 32 imported annotation references were accepted and completed with full-recording
+  coverage. One separate unannotated source remains explicitly blocked in the readiness queue.
+- **M3:** In progress (2026-09-11) — the deterministic freeze preflight, immutable dataset
+  publication contract, sealed split output, and `data validate` checks are available. The current
+  repository is blocked by missing source-lineage metadata, no maintained development split, no
+  independent sealed test group, and the separate unannotated source.
 - **M4:** Not started — make training and evaluation consume a materialized view of the frozen
   shared dataset and prove the path with a smoke run.
 - **M5:** Not started — prepare and run one bounded validation campaign, then lock one candidate or
