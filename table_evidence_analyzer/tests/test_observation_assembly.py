@@ -147,6 +147,7 @@ def test_assembler_preserves_order_lineage_and_detected_empty_evidence() -> None
         "visible-01",
         "identity-01",
     ]
+    assert result.observations[0].cards[0].side == "face_up"
     assert result.observations[0].cards[0].identity_candidates[0].card == "HEARTS_TEN"
     assert result.observations[1].status == "observed"
     assert result.observations[1].cards == []
@@ -214,19 +215,50 @@ def test_assembler_retains_classified_unusable_and_failed_proposals() -> None:
 
     cards = result.observations[0].cards
     assert [card.observed_card_id for card in cards] == ["card-01", "card-02", "card-03"]
+    assert [card.side for card in cards] == ["face_up", "face_down", "unknown"]
     assert [card.identity_status for card in cards] == ["classified", "unusable", "failed"]
     assert cards[1].identity_candidates == []
     assert cards[2].identity_candidates == []
     assert result.observations[0].status == "observed"
     assert result.observations[0].diagnostics["assembly"]["retained_card_count"] == 3
     assert result.observations[0].diagnostics["assembly"]["identity_details"]["card-02"] == {
+        "side": "face_down",
         "status": "unusable",
         "unusable_reason": "UNKNOWN",
     }
     assert result.observations[0].diagnostics["assembly"]["identity_details"]["card-03"] == {
+        "side": "unknown",
         "status": "failed",
         "error": "timeout",
     }
+
+
+def test_face_down_side_forces_unusable_identity_at_assembly_boundary() -> None:
+    events, visible, identities = _inputs()
+    visible = VisibleCardData(
+        outcomes=(
+            replace(
+                visible.outcomes[0],
+                candidates=(replace(visible.outcomes[0].candidates[0], side="face_down"),),
+            ),
+            visible.outcomes[1],
+        )
+    )
+
+    result = assemble_table_observations(
+        events,
+        visible,
+        identities,
+        recording_id="recording-01",
+        video_sha256=DIGEST,
+        assembly_run_id="assembly-face-down-01",
+        input_revision_ids=("events-01", "visible-01", "identity-01"),
+    )
+
+    card = result.observations[0].cards[0]
+    assert card.side == "face_down"
+    assert card.identity_status == "unusable"
+    assert card.identity_candidates == []
 
 
 @pytest.mark.parametrize(

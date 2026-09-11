@@ -115,34 +115,43 @@ def assemble_table_observations(
                 None,
             )
             if identity is None:
-                identity_status = "failed"
+                identity_status = "unusable" if candidate.side == "face_down" else "failed"
                 identity_statuses[candidate.card_id] = identity_status
                 identity_details[candidate.card_id] = {
+                    "side": candidate.side,
                     "status": identity_status,
-                    "reason": "missing visual identity outcome",
+                    "reason": (
+                        "face-down card has no identity outcome"
+                        if candidate.side == "face_down"
+                        else "missing visual identity outcome"
+                    ),
                 }
                 cards.append(
                     ObservedCard(
                         observed_card_id=candidate.card_id,
+                        side=candidate.side,
                         identity_status=identity_status,
                         identity_candidates=[],
                     )
                 )
                 continue
             converted = _identity_candidates(identity.candidates)
-            identity_status = identity.status
+            identity_status = "unusable" if candidate.side == "face_down" else identity.status
             if identity_status == "classified" and not converted:
                 identity_status = "unusable"
             identity_statuses[candidate.card_id] = identity_status
-            detail = {"status": identity_status}
+            detail = {"side": candidate.side, "status": identity_status}
             if identity.unusable_reason is not None:
                 detail["unusable_reason"] = identity.unusable_reason
+            elif candidate.side == "face_down":
+                detail["unusable_reason"] = "face_down"
             if identity.error is not None:
                 detail["error"] = identity.error
             identity_details[candidate.card_id] = detail
             cards.append(
                 ObservedCard(
                     observed_card_id=candidate.card_id,
+                    side=candidate.side,
                     identity_status=identity_status,
                     identity_candidates=converted if identity_status == "classified" else [],
                 )

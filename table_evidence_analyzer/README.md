@@ -14,6 +14,9 @@ From `table_evidence_analyzer/`:
 - Public CLI: `mise exec -- uv run table-analyzer --help`.
 - Boundary: read selected evidence packages and emit table observations; game rules and
   reconstruction remain in `game_engine/` and `operations/`.
+- Observation boundary: each observed card carries the detector side (`face_up`, `face_down`, or
+  `unknown`) and its identity status. Observation assembly copies this value from the selected
+  visible-card result without making a gameplay decision.
 - Local checks:
 
   ```bash

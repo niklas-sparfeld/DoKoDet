@@ -49,6 +49,12 @@ The reconstruction engine consumes observations, rules, round context, and optio
 constraints. It does not consume pixels or make one recording equivalent to one round or game.
 A reviewed visual identity is not a human assertion that a player played that card.
 
+Observation assembly copies the selected visible-card `side` into every `ObservedCard`. The value is
+`face_up`, `face_down`, or `unknown`. A known face-down card remains an anonymous observed card with
+`identity_status=unusable` and no identity candidates. The table-observation publisher and the
+mirrored game-engine parser retain this field exactly. Reconstruction does not use card side yet;
+that decision belongs to a later reconstruction epic.
+
 ## 3. Data, review, and reproducibility
 
 Every processor run pins its video source, input revisions, implementation, model, configuration,

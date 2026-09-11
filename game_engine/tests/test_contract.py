@@ -30,7 +30,17 @@ def test_minimal_observation_crosses_the_reconstruction_boundary_unchanged() -> 
     observation = parse_observation_bytes(raw)
 
     assert json.loads(canonical_json_bytes(observation)) == payload
+    assert observation.cards[0].side == "face_up"
     assert observation.cards[0].identity_candidates[0].card == "HEARTS_TEN"
+
+
+def test_mixed_card_sides_cross_the_reconstruction_boundary() -> None:
+    raw, payload = load_fixture("observations/mixed-sides.json")
+
+    observation = parse_observation_bytes(raw)
+
+    assert [card.side for card in observation.cards] == ["face_up", "face_down", "unknown"]
+    assert json.loads(canonical_json_bytes(observation)) == payload
 
 
 def test_card_set_and_round_manifest_derive_the_canonical_trick_count() -> None:

@@ -18,6 +18,7 @@
     {
       "identity_status": "classified",
       "observed_card_id": "observation-001-card-01",
+      "side": "face_up",
       "identity_candidates": [
         {
           "card": "HEARTS_TEN",

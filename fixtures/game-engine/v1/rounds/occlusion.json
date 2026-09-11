@@ -52,6 +52,7 @@
         "cards": [
           {
             "observed_card_id": "observation-001-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_JACK",
@@ -96,6 +97,7 @@
         "cards": [
           {
             "observed_card_id": "observation-002-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_TEN",
@@ -140,6 +142,7 @@
         "cards": [
           {
             "observed_card_id": "observation-003-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_JACK",
@@ -184,6 +187,7 @@
         "cards": [
           {
             "observed_card_id": "observation-004-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_QUEEN",
@@ -257,6 +261,7 @@
         "cards": [
           {
             "observed_card_id": "observation-006-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_KING",
@@ -301,6 +306,7 @@
         "cards": [
           {
             "observed_card_id": "observation-007-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_ACE",
@@ -345,6 +351,7 @@
         "cards": [
           {
             "observed_card_id": "observation-008-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_TEN",
@@ -389,6 +396,7 @@
         "cards": [
           {
             "observed_card_id": "observation-009-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_TEN",
@@ -462,6 +470,7 @@
         "cards": [
           {
             "observed_card_id": "observation-011-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_KING",
@@ -506,6 +515,7 @@
         "cards": [
           {
             "observed_card_id": "observation-012-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_KING",
@@ -550,6 +560,7 @@
         "cards": [
           {
             "observed_card_id": "observation-013-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_TEN",
@@ -594,6 +605,7 @@
         "cards": [
           {
             "observed_card_id": "observation-014-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_KING",
@@ -638,6 +650,7 @@
         "cards": [
           {
             "observed_card_id": "observation-015-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_ACE",
@@ -682,6 +695,7 @@
         "cards": [
           {
             "observed_card_id": "observation-016-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_TEN",
@@ -726,6 +740,7 @@
         "cards": [
           {
             "observed_card_id": "observation-017-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_ACE",
@@ -770,6 +785,7 @@
         "cards": [
           {
             "observed_card_id": "observation-018-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_JACK",
@@ -814,6 +830,7 @@
         "cards": [
           {
             "observed_card_id": "observation-019-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_JACK",
@@ -858,6 +875,7 @@
         "cards": [
           {
             "observed_card_id": "observation-020-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_TEN",
@@ -902,6 +920,7 @@
         "cards": [
           {
             "observed_card_id": "observation-021-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_QUEEN",
@@ -946,6 +965,7 @@
         "cards": [
           {
             "observed_card_id": "observation-022-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_QUEEN",
@@ -990,6 +1010,7 @@
         "cards": [
           {
             "observed_card_id": "observation-023-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_QUEEN",
@@ -1034,6 +1055,7 @@
         "cards": [
           {
             "observed_card_id": "observation-024-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_ACE",
@@ -1078,6 +1100,7 @@
         "cards": [
           {
             "observed_card_id": "observation-025-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_KING",
@@ -1122,6 +1145,7 @@
         "cards": [
           {
             "observed_card_id": "observation-026-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_KING",
@@ -1166,6 +1190,7 @@
         "cards": [
           {
             "observed_card_id": "observation-027-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_JACK",
@@ -1210,6 +1235,7 @@
         "cards": [
           {
             "observed_card_id": "observation-028-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_QUEEN",
@@ -1254,6 +1280,7 @@
         "cards": [
           {
             "observed_card_id": "observation-029-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_TEN",
@@ -1298,6 +1325,7 @@
         "cards": [
           {
             "observed_card_id": "observation-030-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_KING",
@@ -1342,6 +1370,7 @@
         "cards": [
           {
             "observed_card_id": "observation-031-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_QUEEN",
@@ -1386,6 +1415,7 @@
         "cards": [
           {
             "observed_card_id": "observation-032-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_ACE",
@@ -1430,6 +1460,7 @@
         "cards": [
           {
             "observed_card_id": "observation-033-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "HEARTS_JACK",
@@ -1474,6 +1505,7 @@
         "cards": [
           {
             "observed_card_id": "observation-034-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_QUEEN",
@@ -1518,6 +1550,7 @@
         "cards": [
           {
             "observed_card_id": "observation-035-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_KING",
@@ -1562,6 +1595,7 @@
         "cards": [
           {
             "observed_card_id": "observation-036-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_JACK",
@@ -1606,6 +1640,7 @@
         "cards": [
           {
             "observed_card_id": "observation-037-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_ACE",
@@ -1650,6 +1685,7 @@
         "cards": [
           {
             "observed_card_id": "observation-038-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_KING",
@@ -1694,6 +1730,7 @@
         "cards": [
           {
             "observed_card_id": "observation-039-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_TEN",
@@ -1738,6 +1775,7 @@
         "cards": [
           {
             "observed_card_id": "observation-040-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_QUEEN",
@@ -1782,6 +1820,7 @@
         "cards": [
           {
             "observed_card_id": "observation-041-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "DIAMONDS_JACK",
@@ -1826,6 +1865,7 @@
         "cards": [
           {
             "observed_card_id": "observation-042-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "SPADES_ACE",
@@ -1870,6 +1910,7 @@
         "cards": [
           {
             "observed_card_id": "observation-043-card-01",
+            "side": "face_up",
             "identity_candidates": [
               {
                 "card": "CLUBS_ACE",

@@ -1,0 +1,50 @@
+{
+  "schema_version": "table-observation/v1",
+  "observation_id": "observation-mixed-sides",
+  "source": {
+    "package_id": "package-001",
+    "snippet_part_name": "event_snippet"
+  },
+  "session": {
+    "session_id": "session-001",
+    "event_sequence": 2
+  },
+  "observed_at_ms": 43125,
+  "status": "observed",
+  "capabilities": [
+    "identity_candidates"
+  ],
+  "cards": [
+    {
+      "observed_card_id": "observation-mixed-sides-card-01",
+      "side": "face_up",
+      "identity_status": "classified",
+      "identity_candidates": [
+        {
+          "card": "HEARTS_TEN",
+          "probability": 1.0
+        }
+      ]
+    },
+    {
+      "observed_card_id": "observation-mixed-sides-card-02",
+      "side": "face_down",
+      "identity_status": "unusable",
+      "identity_candidates": []
+    },
+    {
+      "observed_card_id": "observation-mixed-sides-card-03",
+      "side": "unknown",
+      "identity_status": "failed",
+      "identity_candidates": []
+    }
+  ],
+  "calibration": "fixture",
+  "analyzer": {
+    "name": "synthetic",
+    "version": "synthetic-v1"
+  },
+  "diagnostics": {
+    "fixture": "mixed-card-sides"
+  }
+}

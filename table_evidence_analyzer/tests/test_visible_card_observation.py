@@ -135,6 +135,7 @@ def test_visible_card_analyzer_emits_schema_valid_identity_observation() -> None
     assert observation.session.session_id == "session-fixture"
     assert observation.session.event_sequence == 7
     assert len(observation.cards) == 1
+    assert observation.cards[0].side == "face_up"
     assert observation.cards[0].identity_candidates[0].card == "CLUBS_NINE"
     probabilities = [
         candidate.probability for candidate in observation.cards[0].identity_candidates
@@ -240,6 +241,7 @@ def test_mixed_identity_outcomes_keep_every_visible_card_proposal() -> None:
         "unusable",
         "failed",
     ]
+    assert [card.side for card in observation.cards] == ["face_up", "face_up", "face_up"]
     assert len(observation.cards) == 3
 
 

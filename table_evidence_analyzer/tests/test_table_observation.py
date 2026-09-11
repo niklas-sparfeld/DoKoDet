@@ -28,10 +28,25 @@ def test_minimal_observation_crosses_the_analyzer_boundary_unchanged() -> None:
 
     assert json.loads(canonical_json_bytes(observation)) == payload
     assert observation.cards[0].identity_candidates[0].card == "HEARTS_TEN"
+    assert observation.cards[0].side == "face_up"
     assert observation.cards[0].presence_score is None
     assert "player" not in payload
     assert "turn" not in payload
     assert "game_state" not in payload
+
+
+def test_mixed_card_sides_cross_the_analyzer_contract() -> None:
+    raw, payload = load_fixture("observations/mixed-sides.json")
+
+    observation = parse_observation_bytes(raw)
+
+    assert [card.side for card in observation.cards] == ["face_up", "face_down", "unknown"]
+    assert [card.identity_status for card in observation.cards] == [
+        "classified",
+        "unusable",
+        "failed",
+    ]
+    assert json.loads(canonical_json_bytes(observation)) == payload
 
 
 def test_absent_optional_score_is_not_zero() -> None:
@@ -61,6 +76,15 @@ def test_explicit_null_is_not_an_absent_optional_field() -> None:
     invalid["cards"][0]["presence_score"] = None
 
     with pytest.raises(ValidationError, match="presence_score field requires"):
+        TableObservation.model_validate(invalid)
+
+
+def test_card_side_is_required() -> None:
+    _, payload = load_fixture("observations/minimal.json")
+    invalid = copy.deepcopy(payload)
+    invalid["cards"][0].pop("side")
+
+    with pytest.raises(ValidationError):
         TableObservation.model_validate(invalid)
 
 

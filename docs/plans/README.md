@@ -51,7 +51,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0061 — Card-state change and face-down pipeline](3-in-progress/0061-Card_State_Change_and_Face_Down_Pipeline.md) | 0048 and 0049 complete | M0–M2 complete: generated CardEventNet proposals use `card_state_changed`, visible-card detection produces one ordered outcome for every selected event, and card side plus face-down identity abstention now survive the active review boundary. M3 not started. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
 
 ### Blocked
@@ -68,6 +67,7 @@ The shared target architecture is
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
 | [0060 — iOS capture module boundaries](5-closed/0060-iOS_Capture_Module_Boundaries.md) | Complete | M0–M3 complete: evidence-package, repository-intake, recording, upload, and analysis boundaries are split with focused app workflow tests and unchanged UI-facing behavior. |
+| [0061 — Card-state change and face-down pipeline](5-closed/0061-Card_State_Change_and_Face_Down_Pipeline.md) | Complete | M0–M3 complete: generic card-state events reach every visible-card input, side-aware candidates preserve face-up, face-down, and unknown evidence, face-down identity abstains explicitly, and observation plus game-engine contracts retain side without changing reconstruction decisions. |
 | [0059 — Web workspace module boundaries](5-closed/0059-Web_Workspace_Module_Boundaries.md) | Complete | M0–M7 complete: route and URL-state helpers, recording shell, inspector/history, Timeline Rail coordination, event-stage ownership, visible-card stage ownership, visual-identity stage ownership, observation/round-analysis controls, and analysis presentation ownership have focused sources and regression proof. |
 | [0058 — Backend pipeline service boundaries](5-closed/0058-Backend_Pipeline_Service_Boundaries.md) | Complete | M0–M4 complete: pipeline routes, execution, comparison, workspace composition, maintained-reference handlers, shared stores, and application construction have focused ownership with unchanged public contracts. |
 | [0057 — Operations module and public API boundaries](5-closed/0057-Operations_Module_and_Public_API_Boundaries.md) | Complete | M0–M3 complete: the eager operations facade is removed, pipeline comparison and round reconstruction have direct contract and execution modules, and focused import and behavior checks pass. |
@@ -122,10 +122,10 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0061 before another classifier comparison.** M0 makes CardEventNet output generic
-   card-state changes. Complete M1 to propagate every event, then preserve card side through
-   visible-card, visual-identity, and observation-assembly results. Do not add temporal association
-   or change reconstruction behavior.
+1. **Use the completed 0061 contracts before another classifier comparison.** CardEventNet now
+   emits generic card-state changes. Visible-card detection processes every event, preserves card
+   side, and observation assembly publishes face-up, face-down, and unknown evidence. Do not add
+   temporal association or change reconstruction behavior.
 2. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic 0057 is complete.
 3. **Reconcile 0051 M0 with the current data architecture and the completed 0061 contracts.** Read durable revisions from
    `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
@@ -226,13 +226,13 @@ context. Check dependencies again before changing a Blocked epic to Ready.
 - Use the newly imported `IMG_0661` recording as the intended different validation source after its
   visible-card and visual identity maintained references are complete.
 - Keep 0052, 0043, and 0050 blocked until 0051 publishes its frozen comparison and decision.
-- Add 0061 as a small pre-reconstruction processor correction. CardEventNet emits only generic
-  `card_state_changed` proposals. Visible-card detection processes every event and keeps both card
-  sides. Visual identity abstains explicitly on face-down cards. Observation assembly preserves the
-  side, while reconstruction behavior, new side processors, and temporal association stay out of
-  scope.
-- Complete 0061 before 0051 freezes another classifier comparison so the comparison records the
-  corrected side and identity semantics.
+- 0061 is complete as the small pre-reconstruction processor correction. CardEventNet emits only
+  generic `card_state_changed` proposals. Visible-card detection processes every event and keeps
+  all three card sides. Visual identity abstains explicitly on face-down cards. Observation
+  assembly and the game-engine parser preserve the side, while reconstruction behavior, new side
+  processors, and temporal association stay out of scope.
+- 0051 must use the completed 0061 side and identity semantics when it freezes another classifier
+  comparison.
 
 ## Closed-epic policy
 

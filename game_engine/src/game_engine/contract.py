@@ -45,6 +45,7 @@ Capability = Literal[
 ]
 CalibrationState = Literal["fixture", "uncalibrated", "calibrated"]
 IdentityStatus = Literal["classified", "unusable", "failed"]
+CardSide = Literal["face_up", "face_down", "unknown"]
 ObservationStatus = Literal["observed", "insufficient_evidence"]
 Identifier = Annotated[
     str,
@@ -155,6 +156,7 @@ class ObservedCard(ContractModel):
     """One anonymous visual card proposal inside one table observation."""
 
     observed_card_id: Identifier
+    side: CardSide
     identity_status: IdentityStatus = "classified"
     identity_candidates: list[IdentityCandidate] = Field(max_length=24)
     presence_score: BoundedScore | None = None
@@ -462,6 +464,7 @@ def _parse_bytes(
 
 __all__ = [
     "ANALYZER_CAPABILITIES",
+    "CardSide",
     "CALIBRATION_STATES",
     "Capability",
     "OBSERVATION_PROBABILITY_TOLERANCE",

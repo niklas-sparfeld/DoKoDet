@@ -5,7 +5,7 @@
 - **Summary:** Make CardEventNet report generic card-state changes, process every event through the
   existing visible-card stage, and preserve face-down evidence through visual identity and table
   observation assembly.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0048 and 0049 complete
 - **Readiness:** The current processor boundaries and the required breaking contract changes are
   known. No new processor, model head, training campaign, or reconstruction behavior is required.
@@ -15,6 +15,9 @@
   visible-card outcome. Face-up, face-down, and unknown card sides remain explicit through the last
   pre-reconstruction processor. Face-down cards produce an explicit unusable identity outcome
   instead of a fabricated identity or a missing card.
+- **Closure reason:** Complete
+- **Closure note:** M3 completed the side-aware observation contract and publish boundary. The
+  reconstruction engine retains the evidence but does not use card side for gameplay decisions.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -29,7 +32,9 @@
 - **M2:** Complete — visible-card candidates preserve card side through the backend and review
   boundary, and face-down candidates produce successful unusable identity outcomes without
   classifier calls.
-- **M3:** Not started — preserve card side through observation assembly and publish the boundary.
+- **M3:** Complete — observation assembly copies card side into every observed card, preserves
+  face-down cards with unusable identity status, and the analyzer, backend, and game-engine
+  boundaries serialize and parse the field without reconstruction policy changes.
 
 ## 1. Problem
 

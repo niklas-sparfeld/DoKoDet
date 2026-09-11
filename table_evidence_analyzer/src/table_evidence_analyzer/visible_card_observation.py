@@ -391,6 +391,7 @@ def adapt_visible_card_result(
             cards.append(
                 ObservedCard(
                     observed_card_id=card_id,
+                    side=proposal.side,
                     identity_status=identity_status,
                     identity_candidates=list(candidates),
                 )

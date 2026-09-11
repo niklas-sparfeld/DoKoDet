@@ -200,6 +200,7 @@ def test_observation_crosses_analyzer_backend_reconstruction_boundary(backend) -
     assert persisted.schema_version == "table-observation/v1"
     assert persisted.source.package_id == str(PACKAGE_ID)
     assert persisted.session.event_sequence == 1
+    assert persisted.cards[0].side == "face_up"
     assert (
         client.app.state.operations_storage.root / stored.relative_path
     ).read_bytes() == stored.observation_json.encode()
@@ -211,6 +212,9 @@ def test_observation_crosses_analyzer_backend_reconstruction_boundary(backend) -
     assert reconstruction_json(
         parse_reconstruction_observation(stored.observation_json.encode())
     ) == canonical_json_bytes(persisted)
+    assert parse_reconstruction_observation(stored.observation_json.encode()).cards[0].side == (
+        "face_up"
+    )
     response = client.get(f"/v1/evidence-packages/{payload['package_id']}/table-observations")
     direct = client.get(f"/v1/table-observations/{stored.observation_id}")
     assert response.status_code == direct.status_code == 200

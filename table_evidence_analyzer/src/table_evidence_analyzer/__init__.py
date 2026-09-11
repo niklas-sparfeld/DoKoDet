@@ -141,6 +141,7 @@ from table_evidence_analyzer.table_observation import (
     ANALYZER_CAPABILITIES,
     CALIBRATION_STATES,
     OBSERVATION_SCHEMA_VERSION,
+    CardSide,
     ContractError,
     IdentityCandidate,
     IdentityStatus,
@@ -356,6 +357,7 @@ from table_evidence_analyzer.visual_identity import (
 __all__ = [
     "CALIBRATION_STATES",
     "ANALYZER_CAPABILITIES",
+    "CardSide",
     "CARD_IDENTITIES",
     "CARD_SET_ID",
     "CardIdentity",

@@ -818,6 +818,7 @@ def _materialize_observation(
                 )
         observed_card: dict[str, object] = {
             "observed_card_id": card_id,
+            "side": "face_up",
             "identity_candidates": [
                 {"card": card, "probability": probability} for card, probability in candidates
             ],
