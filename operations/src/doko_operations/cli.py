@@ -13,6 +13,12 @@ from .cardevent_campaign import (
     promote_card_event_campaign,
     run_card_event_campaign,
 )
+from .cardevent_inventory import (
+    CardEventNetInventoryError,
+    audit_cardeventnet,
+    render_cardevent_inventory_human,
+    render_cardevent_inventory_json,
+)
 from .config import ConfigurationError, RepositoryConfig
 from .evidence_adoption import EvidencePackageAdoptionError, adopt_runtime_evidence_package
 from .holdout import SystemHoldoutError, seal_system_holdout_group
@@ -89,6 +95,37 @@ def build_parser() -> argparse.ArgumentParser:
             action="store_true",
             help="Alias for --format json.",
         )
+    cardevent = data_commands.add_parser(
+        "cardevent", help="Inspect the legacy CardEventNet corpus."
+    )
+    cardevent_commands = cardevent.add_subparsers(dest="cardevent_command", metavar="COMMAND")
+    audit = cardevent_commands.add_parser(
+        "audit",
+        help="Audit legacy CardEventNet artifacts without changing data.",
+        description="Audit legacy CardEventNet artifacts without changing data.",
+    )
+    _add_path_options(audit, suppress_defaults=True)
+    audit.add_argument(
+        "--legacy-root",
+        type=Path,
+        default=None,
+        help="Legacy CardEventNet data root (default: card_event_net/data).",
+    )
+    audit.add_argument(
+        "--operations-root",
+        type=Path,
+        default=None,
+        help="Shared operations root (default: data/operations).",
+    )
+    audit.add_argument(
+        "--campaign-root",
+        type=Path,
+        default=None,
+        help="Model campaign root (default: data/model-campaigns).",
+    )
+    audit.add_argument("--holdout-registry", type=Path, default=None)
+    audit.add_argument("--format", choices=("human", "json"), default="human")
+    audit.add_argument("--json", action="store_true", help="Alias for --format json.")
     baseline = data_commands.add_parser(
         "resilience-baseline",
         help="Freeze the visible-region identity resilience contract and report coverage.",
@@ -438,6 +475,31 @@ def main(argv: Sequence[str] | None = None) -> int:
             action for action in parser._subparsers._group_actions if action.dest == "command"
         )
         data_parser.choices["data"].print_help()
+        return 0
+    if args.command == "data" and args.data_command == "cardevent":
+        if args.cardevent_command != "audit":
+            data_parser = next(
+                action for action in parser._subparsers._group_actions if action.dest == "command"
+            )
+            data_parser.choices["data"].choices["cardevent"].print_help()
+            return 0
+        try:
+            config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
+            report = audit_cardeventnet(
+                config.repository_root,
+                legacy_root=args.legacy_root,
+                intake_root=getattr(args, "intake_root", None),
+                operations_root=args.operations_root or getattr(args, "artifacts_root", None),
+                campaign_root=args.campaign_root,
+                holdout_registry=args.holdout_registry,
+            )
+        except (ConfigurationError, OSError, CardEventNetInventoryError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(render_cardevent_inventory_json(report))
+        else:
+            sys.stdout.write(render_cardevent_inventory_human(report))
         return 0
     if args.command == "data" and args.data_command == "impact":
         try:

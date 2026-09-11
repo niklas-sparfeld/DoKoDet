@@ -24,8 +24,9 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 
 The retained `doko` commands are grouped by owner:
 
-- `doko data`: `status`, `validate`, `resilience-baseline`, `resilience-comparison`,
-  `complete-video`, `adopt-evidence`, `holdout seal`, `impact`, and `source retire`.
+- `doko data`: `status`, `validate`, `cardevent audit`, `resilience-baseline`,
+  `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`, `impact`, and
+  `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
 - `doko reconstruct`: `round`.
 
@@ -35,6 +36,20 @@ lifecycle, model operations, resilience checks, and reconstruction orchestration
 [recording workspace](../web/README.md#local-development) for recording-pipeline review.
 
 M0 provides strict local contracts and read-only inspection for model-improvement campaigns.
+
+Epic 0063 M0 provides a read-only audit of the legacy CardEventNet tree. It records every source,
+annotation, review, split, manifest, cache, and output path with its digest, intended disposition,
+and destination. It reconciles these paths with shared recording bundles, event revisions,
+maintained references, development assignments, system holdouts, and model campaigns. Annotation
+presence is separate from maintained-reference completion:
+
+```bash
+doko data cardevent audit --repository-root . --legacy-root card_event_net/data
+doko data cardevent audit --repository-root . --format json
+```
+
+The audit does not migrate, repair, or delete data. Its JSON output is deterministic and includes
+the `remaining_imports` list and item-level discrepancies for M1.
 
 ```bash
 doko model status

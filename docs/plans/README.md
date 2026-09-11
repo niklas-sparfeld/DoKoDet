@@ -46,12 +46,12 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](2-ready/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | Move all remaining legacy CardEventNet data into shared storage, expose and complete human event-review gaps, freeze leakage-safe train/validation/test data, and create a new traceable CardEventNet model through the current campaign workflow. M0–M6 not started. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0 complete: the read-only audit inventories all legacy paths, records source and annotation digests plus intended dispositions, separates annotation presence from maintained-reference completion, and reconciles shared bundles, event revisions, references, splits, holdouts, and campaigns. M1–M6 remain not started. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
 | [0062 — Canonical card-state data and face-down identity](3-in-progress/0062-Canonical_Card_State_and_Face_Down_Identity.md) | 0061 complete | M0–M3 are complete: active event data and contracts use the singleton `card_state_changed` value, immutable history remains readable, event review plus comparison surfaces use one canonical label, and visual identity preserves `FACE_DOWN` separately from `UNKNOWN`, unusable evidence, and processor failure. M4 remains not started. |
 
@@ -124,9 +124,9 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Start 0063 M0 for the new CardEventNet model.** Audit all legacy CardEventNet artifacts against
-   shared intake and maintained event references. Report missing and incomplete human review before
-   migration or split changes.
+1. **Continue 0063 with M1 for the new CardEventNet model.** Use the M0 audit to migrate all
+   remaining legacy CardEventNet artifacts into shared intake and operations. Keep missing and
+   incomplete human review explicit before split changes.
 2. **Finish 0062 before another classifier comparison.** Complete face-down visual-identity review,
    training-data support, and the observation handoff. Do not add temporal association or change
    reconstruction behavior.

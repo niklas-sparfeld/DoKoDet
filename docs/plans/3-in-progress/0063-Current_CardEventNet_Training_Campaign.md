@@ -5,7 +5,7 @@
 - **Summary:** Move the remaining legacy CardEventNet corpus into shared repository data, expose
   human-review gaps, freeze a current train/validation/test dataset, and run one bounded campaign
   that produces a new CardEventNet model.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
 - **Readiness:** The shared recording intake, maintained event references, group-safe development
   split, model campaign runner, and canonical `card_state_changed` event contract exist. The legacy
@@ -19,8 +19,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — inventory every legacy artifact and publish a read-only migration and
-  annotation-readiness report.
+- **M0:** Complete (2026-09-11) — the read-only `doko data cardevent audit` inventories legacy
+  files, records dispositions and digests, separates annotation presence from maintained-reference
+  completion, and reconciles shared data and model-operation artifacts.
 - **M1:** Not started — import all remaining source recordings and useful lineage into shared data,
   validate parity, and retire `card_event_net/data` as an active authority.
 - **M2:** Not started — provide one human event-review queue and complete the required maintained
