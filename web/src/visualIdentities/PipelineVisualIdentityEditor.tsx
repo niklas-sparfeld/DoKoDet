@@ -168,10 +168,18 @@ export function PipelineVisualIdentityEditor({
   );
 
   const hydrateReference = useCallback(
-    (nextReference: PipelineReferenceResource, preserveSelection = true) => {
-      const nextItems = nextReference.draft.items
+    (
+      nextReference: PipelineReferenceResource,
+      preserveSelection = true,
+      pendingCommands: PendingCommand[] = [],
+    ) => {
+      const serverItems = nextReference.draft.items
         .map(toEditableIdentity)
         .filter((item): item is EditableIdentity => item !== null);
+      const nextItems = pendingCommands.reduce(
+        (current, command) => command.applyOptimistic(current),
+        serverItems,
+      );
       referenceRef.current = nextReference;
       serverRevisionRef.current = nextReference.draft.revision;
       setReference(nextReference);
@@ -328,8 +336,8 @@ export function PipelineVisualIdentityEditor({
           operations: [command.operation],
         },
       );
-      hydrateReference(nextReference);
       queueRef.current.shift();
+      hydrateReference(nextReference, true, queueRef.current);
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(
         queueRef.current.length === 0
@@ -398,6 +406,7 @@ export function PipelineVisualIdentityEditor({
         operation,
         notice: noticeText,
         attempts: 0,
+        applyOptimistic: optimistic,
       });
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(describeCommand(queueRef.current[0]));
@@ -620,7 +629,7 @@ export function PipelineVisualIdentityEditor({
         recordingId,
         CONTENT_TYPE,
       );
-      hydrateReference(winning);
+      hydrateReference(winning, true, queueRef.current);
       setSaveState("saving");
       setError(null);
       setNotice(

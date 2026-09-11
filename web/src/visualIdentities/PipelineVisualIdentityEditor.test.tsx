@@ -91,23 +91,39 @@ function generatedResult(
 
 function reference(
   reviewState: "pending" | "accepted" | "identity_unusable" = "pending",
+  additionalItems: Array<{
+    cardId: string;
+    reviewState?: "pending" | "accepted" | "identity_unusable";
+    requestedTimeUs?: number;
+  }> = [],
+  revision = reviewState === "pending" ? 0 : 1,
 ) {
-  const itemOutcome =
-    reviewState === "identity_unusable"
-      ? {
-          ...outcome(),
-          status: "unusable" as const,
-          candidates: [],
-          unusable_reason: "Reviewed identity unusable.",
-        }
-      : outcome();
+  const itemSpecs = [{ cardId: CARD_ID, reviewState }, ...additionalItems];
+  const items = itemSpecs.map((spec) => {
+    const itemReviewState = spec.reviewState ?? reviewState;
+    const itemOutcome =
+      itemReviewState === "identity_unusable"
+        ? {
+            ...outcome([], spec.cardId, spec.requestedTimeUs),
+            status: "unusable" as const,
+            candidates: [],
+            unusable_reason: "Reviewed identity unusable.",
+          }
+        : outcome(undefined, spec.cardId, spec.requestedTimeUs);
+    return {
+      item_id: spec.cardId,
+      base_item_id: null,
+      review_state: itemReviewState,
+      item: itemOutcome,
+    };
+  });
   return {
     recording_id: RECORDING_ID,
     content_type: "visual_identities",
     state: {
       recording_id: RECORDING_ID,
       content_type: "visual_identities",
-      draft_revision: reviewState === "pending" ? 0 : 1,
+      draft_revision: revision,
       draft_state: "draft",
       source_revision_id: REVISION_ID,
       selected_completed_revision_id: null,
@@ -116,16 +132,9 @@ function reference(
     draft: {
       recording_id: RECORDING_ID,
       content_type: "visual_identities",
-      revision: reviewState === "pending" ? 0 : 1,
+      revision,
       source_revision_id: REVISION_ID,
-      items: [
-        {
-          item_id: CARD_ID,
-          base_item_id: null,
-          review_state: reviewState,
-          item: itemOutcome,
-        },
-      ],
+      items,
       coverage: null,
       impact: [],
       updated_at: "2026-09-06T00:00:00Z",
@@ -484,6 +493,95 @@ describe("PipelineVisualIdentityEditor", () => {
 
     await waitFor(() => expect(putAttempts).toBe(2));
     expect(screen.getByText("Identity selected: ♥ Dame.")).toBeInTheDocument();
+  });
+
+  it("replays queued decisions on a delayed save response", async () => {
+    let resolveFirst!: (value: Response) => void;
+    let resolveSecond!: (value: Response) => void;
+    const firstSave = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondSave = new Promise<Response>((resolve) => {
+      resolveSecond = resolve;
+    });
+    let putCount = 0;
+    const railStates: string[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        putCount += 1;
+        return putCount === 1 ? firstSave : secondSave;
+      }
+      return Promise.resolve(
+        jsonResponse(
+          reference("pending", [
+            { cardId: "card-2", requestedTimeUs: 900_000 },
+          ]),
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+        onRailItemsChange={(items) => {
+          railStates.splice(
+            0,
+            railStates.length,
+            ...items.map((item) => item.state),
+          );
+        }}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    fireEvent.keyDown(window, { key: "a" });
+    await waitFor(() => expect(putCount).toBe(1));
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() => expect(screen.getByText("card-2")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "a" });
+    expect(putCount).toBe(1);
+
+    resolveFirst(
+      jsonResponse(
+        reference("accepted", [{ cardId: "card-2", requestedTimeUs: 900_000 }]),
+      ),
+    );
+    await waitFor(() => expect(putCount).toBe(2));
+    await waitFor(() => expect(railStates).toEqual(["accepted", "accepted"]));
+
+    resolveSecond(
+      jsonResponse(
+        reference(
+          "accepted",
+          [
+            {
+              cardId: "card-2",
+              reviewState: "accepted",
+              requestedTimeUs: 900_000,
+            },
+          ],
+          2,
+        ),
+      ),
+    );
+    await waitFor(() => expect(railStates).toEqual(["accepted", "accepted"]));
+
+    const putBodies = fetchImplementation.mock.calls
+      .filter(([, init]) => init?.method === "PUT")
+      .map(([, init]) => JSON.parse(String(init?.body)));
+    expect(putBodies.map((body) => body.expected_revision)).toEqual([0, 1]);
+    expect(putBodies.map((body) => body.operations[0].item_id)).toEqual([
+      CARD_ID,
+      "card-2",
+    ]);
   });
 
   it("keeps completion blocked until the empty prediction is reviewed", async () => {

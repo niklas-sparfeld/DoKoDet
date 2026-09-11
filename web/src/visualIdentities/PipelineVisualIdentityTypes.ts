@@ -62,6 +62,7 @@ export type PendingCommand = {
   operation: PipelineReferenceOperation;
   notice: string;
   attempts: number;
+  applyOptimistic: (current: EditableIdentity[]) => EditableIdentity[];
 };
 
 export const IDENTITY_SUIT_ROWS = [
