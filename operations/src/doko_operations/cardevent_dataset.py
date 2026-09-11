@@ -81,7 +81,11 @@ def build_cardeventnet_freeze_report(
                 blockers.append(f"recording {recording_id}: {blocker}")
         group_keys = _group_keys(record)
         missing = _missing_group_keys(record, group_keys)
-        if missing:
+        has_readiness_group_blocker = any(
+            isinstance(blocker, str) and blocker.startswith("missing group metadata:")
+            for blocker in record.get("blockers", [])
+        )
+        if missing and not has_readiness_group_blocker:
             blockers.append(
                 f"recording {recording_id} is missing group metadata: {', '.join(missing)}"
             )
@@ -574,6 +578,12 @@ def _load_active_split(operations: Path) -> dict[str, Any] | None:
     if version is None:
         return {"state": "invalid"}
     if version.get("split_version_digest") != active.get("split_version_digest"):
+        return {"state": "invalid"}
+    version_core = {
+        key: value for key, value in version.items() if key != "split_version_digest"
+    }
+    version_core.pop("split_version_id", None)
+    if _digest(version_core) != version.get("split_version_digest"):
         return {"state": "invalid"}
     return version
 
