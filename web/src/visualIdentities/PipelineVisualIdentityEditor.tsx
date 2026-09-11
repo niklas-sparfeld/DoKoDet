@@ -22,6 +22,7 @@ import {
 import {
   IdentityCardList,
   IdentitySourceSurface,
+  visualIdentityReviewPrewarmUrls,
 } from "./PipelineVisualIdentityPresentation";
 import {
   describeCommand,
@@ -39,6 +40,7 @@ import type {
   PipelineVisualIdentityRailItem,
   SaveState,
 } from "./PipelineVisualIdentityTypes";
+import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 export type { PipelineVisualIdentityRailItem } from "./PipelineVisualIdentityTypes";
 
 const CONTENT_TYPE = "visual_identities" as const;
@@ -785,6 +787,36 @@ export function PipelineVisualIdentityEditor({
     activeItems.find((item) => item.itemId === selectedItemId) ??
     activeItems[0] ??
     null;
+  const requestedItemId =
+    selectionItemId === undefined
+      ? new URLSearchParams(window.location.search).get("item")
+      : selectionItemId;
+  const prewarmItemIndex = activeItems.findIndex(
+    (item) => item.itemId === (selectedItemId ?? requestedItemId),
+  );
+  const activeItemIndex =
+    prewarmItemIndex >= 0
+      ? prewarmItemIndex
+      : activeItem === null
+        ? -1
+        : activeItems.indexOf(activeItem);
+  const prewarmItemUrls = useCallback(
+    (item: EditableIdentity) =>
+      visualIdentityReviewPrewarmUrls(
+        recordingId,
+        usesMaintainedIdentities
+          ? (reference?.draft.source_revision_id ?? null)
+          : generatedSourceRevisionId,
+        item,
+      ),
+    [
+      generatedSourceRevisionId,
+      recordingId,
+      reference,
+      usesMaintainedIdentities,
+    ],
+  );
+  usePipelineReviewPrewarm(activeItems, activeItemIndex, prewarmItemUrls);
   const reviewed = view === "reviewed";
   const pendingCount = items.filter(
     (item) => identityReviewStatus(item) === "unreviewed",

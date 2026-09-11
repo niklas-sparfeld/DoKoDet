@@ -45,6 +45,7 @@ function outcome(
   candidates = [{ identity: "CLUBS_NINE", score: 0.8 }],
   cardId = CARD_ID,
   requestedTimeUs = FRAME.requested_time_us,
+  cropIdentity: typeof CROP | null = CROP,
 ) {
   const frame = {
     ...FRAME,
@@ -55,7 +56,8 @@ function outcome(
     card_id: cardId,
     frame_identity: frame,
     geometry: GEOMETRY,
-    crop_identity: { ...CROP, frame_identity: frame },
+    crop_identity:
+      cropIdentity === null ? null : { ...cropIdentity, frame_identity: frame },
     classifier: {
       provider: "fixture.identity",
       implementation: { name: "fixture", version: "v1" },
@@ -97,7 +99,7 @@ function reference(
     requestedTimeUs?: number;
   }> = [],
   revision = reviewState === "pending" ? 0 : 1,
-  sourceRevisionId = REVISION_ID,
+  sourceRevisionId: string | null = REVISION_ID,
 ) {
   const itemSpecs = [{ cardId: CARD_ID, reviewState }, ...additionalItems];
   const items = itemSpecs.map((spec) => {
@@ -178,7 +180,9 @@ describe("PipelineVisualIdentityEditor", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: `Resolved source frame for ${CARD_ID}` }),
+      await screen.findByRole("img", {
+        name: `Resolved source frame for ${CARD_ID}`,
+      }),
     ).toHaveAttribute(
       "src",
       expect.stringContaining("derived-views/exact-event/750000"),
@@ -191,7 +195,157 @@ describe("PipelineVisualIdentityEditor", () => {
       `Resolved source frame for ${CARD_ID}`,
     );
     expect(screen.getByText(/immutable/)).toBeInTheDocument();
-    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    expect(
+      fetchImplementation.mock.calls.filter(([input]) =>
+        String(input).includes(
+          "/pipeline/visual-identities/identity-run-1/result",
+        ),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("prewarms exact frames and eligible browser-preview crops in block order", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((input) =>
+      String(input).includes("/pipeline/visual-identities/") &&
+      String(input).includes("/result")
+        ? Promise.resolve(
+            jsonResponse(
+              generatedResult(undefined, [
+                outcome(),
+                outcome(undefined, "card-2", 1_000_000),
+              ]),
+            ),
+          )
+        : Promise.resolve(new Response("warm")),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={2_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        selectionItemId="card-2"
+        view="generated"
+      />,
+    );
+
+    expect(
+      await screen.findByRole("img", {
+        name: "Resolved source frame for card-2",
+      }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(([input]) =>
+          String(input).includes("/derived-views/"),
+        ),
+      ).toHaveLength(4),
+    );
+    expect(
+      fetchImplementation.mock.calls
+        .filter(([input]) => String(input).includes("/derived-views/"))
+        .map(([input]) => String(input)),
+    ).toEqual([
+      expect.stringContaining("exact-event/750000"),
+      expect.stringContaining("identity-crops/identity-revision-1/card-1"),
+      expect.stringContaining("exact-event/1000000"),
+      expect.stringContaining("identity-crops/identity-revision-1/card-2"),
+    ]);
+  });
+
+  it("skips unusable, missing, and revisionless crops while warming frames", async () => {
+    const missingCrop = {
+      ...outcome(undefined, "missing-crop", 1_000_000),
+      crop_identity: null,
+    };
+    const unusableCrop = {
+      ...outcome(undefined, "unusable-crop", 1_250_000),
+      crop_identity: { ...CROP, status: "unusable" as const },
+    };
+    const fetchImplementation = vi.fn<typeof fetch>((input) =>
+      String(input).includes("/result")
+        ? Promise.resolve(
+            jsonResponse(
+              generatedResult(undefined, [
+                outcome(),
+                missingCrop,
+                unusableCrop,
+              ]),
+            ),
+          )
+        : Promise.resolve(new Response("warm")),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={2_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        selectionItemId="missing-crop"
+        view="generated"
+      />,
+    );
+
+    await screen.findByRole("img", {
+      name: "Resolved source frame for missing-crop",
+    });
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(([input]) =>
+          String(input).includes("/derived-views/"),
+        ),
+      ).toHaveLength(4),
+    );
+    const derivedUrls = fetchImplementation.mock.calls
+      .filter(([input]) => String(input).includes("/derived-views/"))
+      .map(([input]) => String(input));
+    expect(derivedUrls).toEqual([
+      expect.stringContaining("exact-event/750000"),
+      expect.stringContaining("identity-crops/identity-revision-1/card-1"),
+      expect.stringContaining("exact-event/1000000"),
+      expect.stringContaining("exact-event/1250000"),
+    ]);
+    expect(derivedUrls.some((url) => url.includes("missing-crop"))).toBe(false);
+    expect(derivedUrls.some((url) => url.includes("unusable-crop"))).toBe(
+      false,
+    );
+  });
+
+  it("skips crops when a maintained review has no source revision", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonResponse(reference("pending", [], 0, null))),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={2_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={null}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("img", {
+      name: "Resolved source frame for card-1",
+    });
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(([input]) =>
+          String(input).includes("/derived-views/"),
+        ),
+      ).toHaveLength(1),
+    );
+    expect(
+      fetchImplementation.mock.calls.some(([input]) =>
+        String(input).includes("identity-crops"),
+      ),
+    ).toBe(false);
   });
 
   it("navigates between cards and updates the selected frame", async () => {

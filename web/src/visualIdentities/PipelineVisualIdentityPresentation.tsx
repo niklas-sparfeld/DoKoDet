@@ -14,6 +14,23 @@ import {
   identityReviewStatus,
 } from "./PipelineVisualIdentityFormatting";
 
+export function visualIdentityReviewPrewarmUrls(
+  recordingId: string,
+  sourceRevisionId: string | null,
+  item: EditableIdentity,
+): string[] {
+  const frameUrl = pipelineDerivedFramePath(
+    recordingId,
+    item.outcome.frame_identity.requested_time_us,
+  );
+  const crop = item.outcome.crop_identity;
+  const cropUrl =
+    crop?.status === "usable" && sourceRevisionId !== null
+      ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
+      : null;
+  return cropUrl === null ? [frameUrl] : [frameUrl, cropUrl];
+}
+
 export function IdentityItemPanel({
   recordingId,
   sourceRevisionId,
@@ -29,14 +46,12 @@ export function IdentityItemPanel({
 }) {
   const crop = item.outcome.crop_identity;
   const frame = item.outcome.frame_identity;
-  const frameUrl = pipelineDerivedFramePath(
+  const [frameUrl, prewarmedCropUrl] = visualIdentityReviewPrewarmUrls(
     recordingId,
-    frame.requested_time_us,
+    sourceRevisionId,
+    item,
   );
-  const cropUrl =
-    crop?.status === "usable" && sourceRevisionId !== null
-      ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
-      : null;
+  const cropUrl = prewarmedCropUrl ?? null;
   const selectedIdentity = item.outcome.candidates[0]?.identity ?? null;
   return (
     <section

@@ -19,6 +19,16 @@ import type {
   FrameReviewStatus,
 } from "./PipelineVisibleCardTypes";
 
+export function visibleCardReviewPrewarmUrls(
+  recordingId: string,
+  frame: EditableFrame,
+): string[] {
+  const identity = frame.outcome.frame_identity;
+  return identity === null
+    ? []
+    : [pipelineDerivedFramePath(recordingId, identity.requested_time_us)];
+}
+
 export function VisibleCardFramePanel({
   recordingId,
   frame,
@@ -72,10 +82,7 @@ export function VisibleCardFramePanel({
   const identity = frame.outcome.frame_identity;
   const width = identity?.width ?? 1;
   const height = identity?.height ?? 1;
-  const sourceUrl =
-    identity === null
-      ? null
-      : pipelineDerivedFramePath(recordingId, identity.requested_time_us);
+  const sourceUrl = visibleCardReviewPrewarmUrls(recordingId, frame)[0] ?? null;
   return (
     <section
       className={visibleStyles.framePanel}

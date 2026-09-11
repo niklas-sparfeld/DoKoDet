@@ -118,6 +118,32 @@ function generatedResultWithTwoFrames() {
   return result;
 }
 
+function generatedResultWithFrames(count: number) {
+  const result = generatedResult();
+  const template = result.revisions[0].content.outcomes[0];
+  result.revisions[0].content.outcomes = Array.from(
+    { length: count },
+    (_, index) => ({
+      ...template,
+      event_id: `event-${index + 1}`,
+      frame_identity: {
+        ...FRAME_IDENTITY,
+        requested_time_us: (index + 1) * 100_000,
+        frame_index: index + 1,
+        presentation_timestamp_us: (index + 1) * 100_000,
+        image_sha256: String(index).repeat(64),
+      },
+      candidates: [
+        {
+          ...DETECTOR_CANDIDATE,
+          card_id: `run-card-${index + 1}`,
+        },
+      ],
+    }),
+  );
+  return result;
+}
+
 function reference(state: "pending" | "accepted" | "corrected" = "pending") {
   return {
     recording_id: RECORDING_ID,
@@ -333,10 +359,137 @@ describe("PipelineVisibleCardEditor", () => {
         }),
       ]),
     );
-    expect(fetchImplementation).toHaveBeenCalledTimes(1);
-    expect(fetchImplementation.mock.calls[0]?.[0]).toContain(
-      "/pipeline/visible-cards/visible-run-1/result",
+    expect(
+      fetchImplementation.mock.calls.filter(([input]) =>
+        String(input).includes("/pipeline/visible-cards/visible-run-1/result"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("prewarms the selected and neighboring frame blocks in order", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((input) =>
+      String(input).includes("/pipeline/visible-cards/") &&
+      String(input).includes("/result")
+        ? Promise.resolve(jsonResponse(generatedResultWithFrames(10)))
+        : Promise.resolve(new Response("warm")),
     );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={2_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        selectionItemId="event-6"
+        view="generated"
+      />,
+    );
+
+    await screen.findByAltText("Selected visible-card source frame");
+    await waitFor(() =>
+      expect(
+        screen.getByAltText("Selected visible-card source frame"),
+      ).toHaveAttribute("src", expect.stringContaining("exact-event/600000")),
+    );
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(([input]) =>
+          String(input).includes("/derived-views/exact-event/"),
+        ),
+      ).toHaveLength(10),
+    );
+    expect(
+      fetchImplementation.mock.calls
+        .filter(([input]) =>
+          String(input).includes("/derived-views/exact-event/"),
+        )
+        .map(([input]) => String(input).split("/").at(-1)),
+    ).toEqual([
+      "500000",
+      "600000",
+      "700000",
+      "800000",
+      "100000",
+      "200000",
+      "300000",
+      "400000",
+      "900000",
+      "1000000",
+    ]);
+  });
+
+  it("does not let failed frame prewarming affect selection or review errors", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((input) =>
+      String(input).includes("/result")
+        ? Promise.resolve(jsonResponse(generatedResultWithTwoFrames()))
+        : Promise.reject(new Error("derived frame failed")),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={2_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+      />,
+    );
+
+    expect(
+      await screen.findByAltText("Selected visible-card source frame"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(window.location.search).toContain(`item=${ITEM_ID}`),
+    );
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() =>
+      expect(window.location.search).toContain(`item=${SECOND_ITEM_ID}`),
+    );
+    expect(
+      screen.getByAltText("Selected visible-card source frame"),
+    ).toHaveAttribute("src", expect.stringContaining("exact-event/800000"));
+    expect(screen.queryByText("derived frame failed")).not.toBeInTheDocument();
+  });
+
+  it("aborts stale frame prewarming on selection and unmount", async () => {
+    const signals: AbortSignal[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      if (String(input).includes("/result"))
+        return Promise.resolve(jsonResponse(generatedResultWithTwoFrames()));
+      const signal = init?.signal;
+      if (signal !== undefined && signal !== null) signals.push(signal);
+      return new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener("abort", () =>
+          reject(new DOMException("Aborted", "AbortError")),
+        );
+      });
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    const { unmount } = render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={2_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+      />,
+    );
+
+    await screen.findByAltText("Selected visible-card source frame");
+    await waitFor(() =>
+      expect(window.location.search).toContain(`item=${ITEM_ID}`),
+    );
+    await waitFor(() => expect(signals.length).toBe(2));
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() =>
+      expect(window.location.search).toContain(`item=${SECOND_ITEM_ID}`),
+    );
+    await waitFor(() => expect(signals[0]?.aborted).toBe(true));
+    unmount();
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
   });
 
   it("renders each segmented visible-region polygon as its own overlay", async () => {

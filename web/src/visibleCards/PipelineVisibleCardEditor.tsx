@@ -32,8 +32,12 @@ import {
   useVisibleCardProposalSlot,
   useVisibleCardInspectorSlots,
 } from "./PipelineVisibleCardInspector";
-import { VisibleCardFramePanel } from "./PipelineVisibleCardPresentation";
+import {
+  visibleCardReviewPrewarmUrls,
+  VisibleCardFramePanel,
+} from "./PipelineVisibleCardPresentation";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
+import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import type {
   Candidate,
   EditableFrame,
@@ -1081,6 +1085,29 @@ export function PipelineVisibleCardEditor({
     displayedFrames.find((frame) => frame.itemId === selectedFrameId) ??
     displayedFrames[0] ??
     null;
+  const requestedFrameId =
+    selectionItemId === undefined
+      ? readPipelineEditorUrlState().item
+      : selectionItemId;
+  const prewarmFrameIndex = displayedFrames.findIndex(
+    (frame) => frame.itemId === (selectedFrameId ?? requestedFrameId),
+  );
+  const activeFrameIndex =
+    prewarmFrameIndex >= 0
+      ? prewarmFrameIndex
+      : activeFrame === null
+        ? -1
+        : displayedFrames.indexOf(activeFrame);
+  const prewarmFrameUrls = useCallback(
+    (frame: EditableFrame) => visibleCardReviewPrewarmUrls(recordingId, frame),
+    [recordingId],
+  );
+  usePipelineReviewPrewarm(
+    displayedFrames,
+    activeFrameIndex,
+    prewarmFrameUrls,
+    generatedSourceRevisionId,
+  );
   const reviewed = view === "reviewed";
   const editable = reviewed && reference !== null && !referenceNeedsSeed;
   const pendingCount = frames.filter(
