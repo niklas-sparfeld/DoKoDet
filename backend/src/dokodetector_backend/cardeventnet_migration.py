@@ -174,6 +174,26 @@ def read_split(path: Path, partitions: Sequence[str] = DEFAULT_PARTITIONS) -> li
     return selected
 
 
+def filter_selected_videos(
+    selected: Sequence[tuple[str, str]], video_ids: Sequence[str] | None
+) -> list[tuple[str, str]]:
+    """Limit a split selection to explicitly requested video IDs."""
+
+    if not video_ids:
+        return list(selected)
+    requested = tuple(_safe_id(video_id, "video_id") for video_id in video_ids)
+    if len(set(requested)) != len(requested):
+        raise CardEventNetMigrationError("A requested video_id occurs more than once")
+    available = {video_id for video_id, _partition in selected}
+    missing = sorted(set(requested) - available)
+    if missing:
+        raise CardEventNetMigrationError(
+            "Requested video IDs are not in the selected split partitions: " + ", ".join(missing)
+        )
+    requested_set = set(requested)
+    return [item for item in selected if item[0] in requested_set]
+
+
 def _load_events(
     annotation_path: Path, *, video_name: str, duration_us: int
 ) -> tuple[tuple[EventRecord, ...], str]:
@@ -429,6 +449,7 @@ def migrate(
     backend_root: Path,
     partitions: Sequence[str] = DEFAULT_PARTITIONS,
     split_name: str = DEFAULT_SPLIT,
+    video_ids: Sequence[str] | None = None,
 ) -> tuple[MigrationResult, ...]:
     """Import CardEventNet train/validation recordings and their human events."""
 
@@ -436,7 +457,7 @@ def migrate(
     backend_root = backend_root.expanduser().resolve()
     split_path = source_root / "splits" / split_name
     metadata = read_dataset_metadata(source_root / "dataset-manifest.v1.yaml")
-    selected = read_split(split_path, partitions)
+    selected = filter_selected_videos(read_split(split_path, partitions), video_ids)
     settings, revision_store, reference_service = _pipeline_services(backend_root=backend_root)
     storage = RepositoryBundleStorage(settings.repository_intake_root)
     recording_store = RecordingBundleStore(storage)
@@ -611,12 +632,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         choices=("train", "val", "validation", "test", "evaluation"),
         default=None,
     )
+    parser.add_argument(
+        "--video-id",
+        dest="video_ids",
+        action="append",
+        default=None,
+        help="Import only this video ID from the selected split partitions; repeat as needed.",
+    )
     args = parser.parse_args(argv)
     results = migrate(
         source_root=args.source_root,
         backend_root=args.backend_root,
         partitions=tuple(args.partitions or DEFAULT_PARTITIONS),
         split_name=args.split,
+        video_ids=args.video_ids,
     )
     total_bytes = sum(item.video_bytes for item in results)
     print(

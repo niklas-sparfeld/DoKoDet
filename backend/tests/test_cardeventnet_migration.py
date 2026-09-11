@@ -1,9 +1,13 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from dokodetector_backend.cardeventnet_migration import (
+    CardEventNetMigrationError,
     _default_repository_root,
     _load_events,
+    filter_selected_videos,
     read_dataset_metadata,
     read_split,
 )
@@ -17,6 +21,17 @@ def test_read_split_normalizes_validation_alias(tmp_path):
     )
 
     assert read_split(split, ("validation",)) == [("IMG_0002", "validation")]
+
+
+def test_filter_selected_videos_keeps_one_requested_split_item():
+    selected = [("IMG_0001", "train"), ("IMG_0002", "validation")]
+
+    assert filter_selected_videos(selected, ("IMG_0002",)) == [("IMG_0002", "validation")]
+
+
+def test_filter_selected_videos_rejects_item_outside_selected_partitions():
+    with pytest.raises(CardEventNetMigrationError, match="not in the selected split partitions"):
+        filter_selected_videos([("IMG_0001", "train")], ("IMG_0002",))
 
 
 def test_read_dataset_metadata_reads_scalar_overrides(tmp_path):
