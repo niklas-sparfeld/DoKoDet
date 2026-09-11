@@ -23,7 +23,9 @@
 - **M0:** Complete — generated CardEventNet proposals use `card_state_changed`; confirmed
   meaningful annotation types share one binary positive target, excluded confidence states remain
   excluded, and active backend and web contracts accept the generic event type.
-- **M1:** Not started — process every event with the existing visible-card processor.
+- **M1:** Complete — the visible-card processor processes every event in the selected revision,
+  keeps input order, retains successful and failed outcomes for retry, and distinguishes empty from
+  failed results.
 - **M2:** Not started — preserve card side and handle face-down visual identity outcomes.
 - **M3:** Not started — preserve card side through observation assembly and publish the boundary.
 

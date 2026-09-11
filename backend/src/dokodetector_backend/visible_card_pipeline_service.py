@@ -21,7 +21,6 @@ from doko_operations.derived_view import (
     resolve_exact_event,
 )
 from doko_operations.pipeline_data import (
-    CARD_STATE_CHANGED_EVENT_TYPE,
     DataRevision,
     EventData,
     ImplementationIdentity,
@@ -320,11 +319,7 @@ class VisibleCardPipelineService:
             event_revision = self.revision_store.require(run.request.input_revision_ids[0])
             if not isinstance(event_revision.content, EventData):
                 raise VisibleCardPipelineError("The event input revision is invalid.")
-            events = tuple(
-                event
-                for event in event_revision.content.events
-                if event.event_type in {"card_played", CARD_STATE_CHANGED_EVENT_TYPE}
-            )
+            events = event_revision.content.events
             outcomes_by_index: list[VisibleCardOutcome | None] = [None] * len(events)
             prior_items = {item.item_id: item for item in run.state.items}
             event_ids = {event.event_id for event in events}

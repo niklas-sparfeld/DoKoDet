@@ -14,6 +14,7 @@ from doko_operations.derived_view import (
     ResolvedFrame,
 )
 from doko_operations.pipeline_data import (
+    CARD_STATE_CHANGED_EVENT_TYPE,
     DataRevision,
     EventData,
     EventDataRevision,
@@ -298,16 +299,24 @@ def _wait(client: TestClient, run_id: str) -> dict:
     return body
 
 
-def _manual_event_revision(app, source, base: EventDataRevision) -> str:
+def _manual_event_revision(
+    app,
+    source,
+    base: EventDataRevision,
+    *,
+    event_types: tuple[str, ...] | None = None,
+) -> str:
+    if event_types is not None:
+        assert len(event_types) == len(base.content.events)
     content = EventData(
         events=tuple(
             EventRecord(
                 event_id=event.event_id,
-                event_type=event.event_type,
+                event_type=(event.event_type if event_types is None else event_types[index]),
                 start_us=event.start_us,
                 end_us=event.end_us,
             )
-            for event in base.content.events
+            for index, event in enumerate(base.content.events)
         )
     )
     revision_id = "events-manual-reference"
@@ -419,7 +428,16 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
         }
 
         manual_revision_id = _manual_event_revision(
-            app, generated_event_revision.manifest.source, generated_event_revision
+            app,
+            generated_event_revision.manifest.source,
+            generated_event_revision,
+            event_types=(
+                "card_played",
+                "card_moved",
+                "trick_cleared",
+                "card_removed",
+                CARD_STATE_CHANGED_EVENT_TYPE,
+            ),
         )
         visible_reference = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
@@ -431,9 +449,22 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-reference/result"
         ).json()
         assert reference_result["request"]["input_revision_ids"] == [manual_revision_id]
-        reference_card_id = reference_result["revisions"][0]["content"]["outcomes"][0][
-            "candidates"
-        ][0]["card_id"]
+        reference_content = reference_result["revisions"][0]["content"]
+        assert [outcome["status"] for outcome in reference_content["outcomes"]] == [
+            "detected",
+            "empty",
+            "failed",
+            "failed",
+            "empty",
+        ]
+        assert [outcome["event_id"] for outcome in reference_content["outcomes"]] == [
+            "event-000000",
+            "event-000001",
+            "event-000002",
+            "event-000003",
+            "event-000004",
+        ]
+        reference_card_id = reference_content["outcomes"][0]["candidates"][0]["card_id"]
         assert reference_card_id != generated_card_id
         selection = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/selection"
@@ -535,7 +566,7 @@ def test_visible_card_pipeline_retry_resumes_retained_items(tmp_path: Path) -> N
         app.state.pipeline_run_store.start(stored.run_id)
         app.state.pipeline_run_store.partial(
             stored.run_id,
-                progress=RunProgress(completed=1, total=5),
+            progress=RunProgress(completed=1, total=5),
             items=(baseline.state.items[0],),
         )
 
