@@ -182,6 +182,13 @@ describe("PipelineVisualIdentityEditor", () => {
       "src",
       expect.stringContaining("derived-views/exact-event/750000"),
     );
+    const images = screen.getAllByRole("img");
+    expect(images[0]).toHaveAccessibleName(
+      `Derived identity crop for ${CARD_ID}`,
+    );
+    expect(images[1]).toHaveAccessibleName(
+      `Resolved source frame for ${CARD_ID}`,
+    );
     expect(screen.getByText(/immutable/)).toBeInTheDocument();
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });

@@ -45,6 +45,21 @@ export function IdentityItemPanel({
     >
       <div className={identityStyles.detailGrid}>
         <figure className={identityStyles.imagePanel}>
+          {cropUrl !== null ? (
+            <img
+              className={identityStyles.cropImage}
+              src={cropUrl}
+              alt={`Derived identity crop for ${item.itemId}`}
+            />
+          ) : (
+            <p className={styles.detailEmptyState}>
+              {crop?.unusable_reason ??
+                item.outcome.error ??
+                "No usable crop is available."}
+            </p>
+          )}
+        </figure>
+        <figure className={identityStyles.imagePanel}>
           <div className={identityStyles.frameImageContainer}>
             <img
               className={identityStyles.canvasImage}
@@ -59,21 +74,6 @@ export function IdentityItemPanel({
               frame={frame}
             />
           </div>
-        </figure>
-        <figure className={identityStyles.imagePanel}>
-          {cropUrl !== null ? (
-            <img
-              className={identityStyles.cropImage}
-              src={cropUrl}
-              alt={`Derived identity crop for ${item.itemId}`}
-            />
-          ) : (
-            <p className={styles.detailEmptyState}>
-              {crop?.unusable_reason ??
-                item.outcome.error ??
-                "No usable crop is available."}
-            </p>
-          )}
         </figure>
       </div>
       {onSelectIdentity !== undefined ? (
