@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0 complete: the read-only audit inventories all legacy paths, records source and annotation digests plus intended dispositions, separates annotation presence from maintained-reference completion, and reconciles shared bundles, event revisions, references, splits, holdouts, and campaigns. M1–M6 remain not started. |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0 and M1 complete: the inventory-driven migration publishes current bundles, preserves legacy annotation evidence and metadata, seeds unreviewed maintained-reference drafts, repairs invalid imported descriptors, and writes a source-digest parity receipt. M2–M6 remain not started. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
 
 ### Blocked
@@ -124,12 +124,11 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M1 for the new CardEventNet model.** Use the M0 audit to migrate all
-   remaining legacy CardEventNet artifacts into shared intake and operations. Keep missing and
-   incomplete human review explicit before split changes.
-2. **Use the completed 0062 contracts in the next classifier comparison.** Keep
-   `FACE_DOWN` outside legal card identities, preserve the observation handoff, and do not add
-   temporal association or change reconstruction behavior.
+1. **Continue 0063 with M2 for the new CardEventNet model.** Use the M1 receipt and draft
+   references to finish missing and incomplete human review before split changes.
+2. **Finish 0062 before another classifier comparison.** Complete face-down visual-identity review,
+   training-data support, and the observation handoff. Do not add temporal association or change
+   reconstruction behavior.
 3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
 4. **Reconcile 0051 M0 with the current data architecture and the completed 0062 contracts.** Read

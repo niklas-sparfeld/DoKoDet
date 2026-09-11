@@ -22,8 +22,9 @@
 - **M0:** Complete (2026-09-11) — the read-only `doko data cardevent audit` inventories legacy
   files, records dispositions and digests, separates annotation presence from maintained-reference
   completion, and reconciles shared data and model-operation artifacts.
-- **M1:** Not started — import all remaining source recordings and useful lineage into shared data,
-  validate parity, and retire `card_event_net/data` as an active authority.
+- **M1:** Complete (2026-09-11) — migrate the complete readable legacy source corpus into current
+  bundles, preserve annotation evidence and lineage, seed unreviewed draft references, and write a
+  source-digest parity receipt. Legacy removal remains an explicit post-parity operator action.
 - **M2:** Not started — provide one human event-review queue and complete the required maintained
   event references.
 - **M3:** Not started — freeze a current CardEventNet dataset and leakage-safe train, validation,

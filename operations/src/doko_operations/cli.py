@@ -19,6 +19,11 @@ from .cardevent_inventory import (
     render_cardevent_inventory_human,
     render_cardevent_inventory_json,
 )
+from .cardevent_migration import (
+    CardEventNetMigrationError,
+    migrate_cardeventnet,
+    render_cardevent_migration_human,
+)
 from .config import ConfigurationError, RepositoryConfig
 from .evidence_adoption import EvidencePackageAdoptionError, adopt_runtime_evidence_package
 from .holdout import SystemHoldoutError, seal_system_holdout_group
@@ -126,6 +131,34 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--holdout-registry", type=Path, default=None)
     audit.add_argument("--format", choices=("human", "json"), default="human")
     audit.add_argument("--json", action="store_true", help="Alias for --format json.")
+    migrate = cardevent_commands.add_parser(
+        "migrate",
+        help="Migrate the legacy CardEventNet corpus into shared data.",
+        description="Migrate the legacy CardEventNet corpus into shared data.",
+    )
+    _add_path_options(migrate, suppress_defaults=True)
+    migrate.add_argument(
+        "--legacy-root",
+        type=Path,
+        default=None,
+        help="Legacy CardEventNet data root (default: card_event_net/data).",
+    )
+    migrate.add_argument(
+        "--operations-root",
+        type=Path,
+        default=None,
+        help="Shared operations root (default: data/operations).",
+    )
+    migrate.add_argument("--operator", required=True)
+    migrate.add_argument(
+        "--video-id",
+        dest="video_ids",
+        action="append",
+        default=None,
+        help="Migrate only this source recording; repeat as needed for a resumable repair.",
+    )
+    migrate.add_argument("--format", choices=("human", "json"), default="human")
+    migrate.add_argument("--json", action="store_true", help="Alias for --format json.")
     baseline = data_commands.add_parser(
         "resilience-baseline",
         help="Freeze the visible-region identity resilience contract and report coverage.",
@@ -477,11 +510,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         data_parser.choices["data"].print_help()
         return 0
     if args.command == "data" and args.data_command == "cardevent":
-        if args.cardevent_command != "audit":
+        if args.cardevent_command not in {"audit", "migrate"}:
             data_parser = next(
                 action for action in parser._subparsers._group_actions if action.dest == "command"
             )
             data_parser.choices["data"].choices["cardevent"].print_help()
+            return 0
+        if args.cardevent_command == "migrate":
+            try:
+                config = RepositoryConfig.from_environment(
+                    getattr(args, "repository_root", None),
+                    intake_root=getattr(args, "intake_root", None),
+                    artifacts_root=getattr(args, "artifacts_root", None),
+                )
+                result = migrate_cardeventnet(
+                    config.repository_root,
+                    legacy_root=args.legacy_root,
+                    intake_root=config.intake_root,
+                    operations_root=args.operations_root or config.derived_artifact_root,
+                    operator=args.operator,
+                    video_ids=args.video_ids,
+                )
+            except (ConfigurationError, OSError, CardEventNetMigrationError) as error:
+                print(f"error: {error}", file=sys.stderr)
+                return 2
+            if args.json or args.format == "json":
+                sys.stdout.write(json.dumps(result.to_mapping(), indent=2, sort_keys=True) + "\n")
+            else:
+                sys.stdout.write(render_cardevent_migration_human(result))
             return 0
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))

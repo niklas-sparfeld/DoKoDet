@@ -2,8 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-
-from dokodetector_backend.cardeventnet_migration import (
+from doko_operations.cardevent_migration import (
     CardEventNetMigrationError,
     _default_repository_root,
     _load_events,

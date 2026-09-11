@@ -24,7 +24,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 
 The retained `doko` commands are grouped by owner:
 
-- `doko data`: `status`, `validate`, `cardevent audit`, `resilience-baseline`,
+- `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `resilience-baseline`,
   `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`, `impact`, and
   `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
@@ -50,6 +50,21 @@ doko data cardevent audit --repository-root . --format json
 
 The audit does not migrate, repair, or delete data. Its JSON output is deterministic and includes
 the `remaining_imports` list and item-level discrepancies for M1.
+
+M1 migrates the complete readable legacy source corpus into shared recording bundles. It retains
+the original annotation bytes and metadata under `data/operations/cardeventnet-imports/`, publishes
+unreviewed event revisions, and creates draft maintained references. A parity receipt is written
+only after source count, byte length, and source digest checks pass:
+
+```bash
+doko data cardevent migrate \
+  --repository-root . \
+  --legacy-root card_event_net/data \
+  --operator <name>
+```
+
+The operation is resumable and a completed invocation is a no-op. Missing annotations remain
+explicit draft gaps. The command does not certify review or remove the legacy tree.
 
 ```bash
 doko model status
