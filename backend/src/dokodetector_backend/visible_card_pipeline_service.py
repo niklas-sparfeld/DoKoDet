@@ -245,9 +245,7 @@ class VisibleCardPipelineService:
         model_placeholder = {"name": provider_name, "version": provider_version}
         if values.get("model") is None or values.get("model") == model_placeholder:
             values["model"] = {
-                "name": self.settings.gemini_model
-                if provider_name == "gemini"
-                else provider_name,
+                "name": self.settings.gemini_model if provider_name == "gemini" else provider_name,
                 "version": provider_version,
             }
         configuration = values.get("configuration", {})
@@ -326,20 +324,50 @@ class VisibleCardPipelineService:
                 for event in event_revision.content.events
                 if event.event_type == "card_played"
             )
+            outcomes_by_index: list[VisibleCardOutcome | None] = [None] * len(events)
+            prior_items = {item.item_id: item for item in run.state.items}
+            event_ids = {event.event_id for event in events}
+            if not set(prior_items).issubset(event_ids):
+                raise VisibleCardPipelineError(
+                    "The retry contains an item that is not in the frozen event input."
+                )
+            items_by_index: list[RunItemOutcome | None] = [
+                prior_items.get(event.event_id) for event in events
+            ]
+            pending_events: list[tuple[int, Any]] = []
+            completed = 0
+            for index, event in enumerate(events):
+                item = items_by_index[index]
+                if item is None or item.status != "succeeded":
+                    pending_events.append((index, event))
+                    continue
+                if item.result is None:
+                    raise VisibleCardPipelineError(
+                        f"The retained outcome for event {event.event_id} is invalid."
+                    )
+                try:
+                    outcome = VisibleCardOutcome.from_mapping(item.result)
+                except ValueError as error:
+                    raise VisibleCardPipelineError(
+                        f"The retained outcome for event {event.event_id} is invalid."
+                    ) from error
+                if outcome.event_id != event.event_id:
+                    raise VisibleCardPipelineError(
+                        f"The retained outcome for event {event.event_id} has the wrong ID."
+                    )
+                outcomes_by_index[index] = outcome
+                completed += 1
             self.run_store.update_progress(
                 run_id,
-                progress=RunProgress(completed=0, total=len(events)),
+                progress=RunProgress(completed=completed, total=len(events)),
             )
-            outcomes_by_index: list[VisibleCardOutcome | None] = [None] * len(events)
-            items_by_index: list[RunItemOutcome | None] = [None] * len(events)
-            completed = 0
             with ThreadPoolExecutor(
                 max_workers=self.max_concurrent_requests,
                 thread_name_prefix="visible-card-event",
             ) as executor:
                 futures: dict[Future[VisibleCardOutcome], int] = {
                     executor.submit(self._process_event_timed, run, event): index
-                    for index, event in enumerate(events)
+                    for index, event in pending_events
                 }
                 for future in as_completed(futures):
                     index = futures[future]
@@ -457,9 +485,7 @@ class VisibleCardPipelineService:
                     "event_name": "visible_card_event_timing",
                     "run_id": run.run_id,
                     "event_id": event.event_id,
-                    "item_wall_time_ms": round(
-                        max(0.0, time.monotonic() - started) * 1000.0, 3
-                    ),
+                    "item_wall_time_ms": round(max(0.0, time.monotonic() - started) * 1000.0, 3),
                     "timing_scope": (
                         "wall-clock item timing; inference and network transfer are not separated"
                     ),

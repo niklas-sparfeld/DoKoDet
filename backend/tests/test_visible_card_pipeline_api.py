@@ -19,6 +19,7 @@ from doko_operations.pipeline_data import (
     EventDataRevision,
     EventRecord,
     HumanProducer,
+    RunProgress,
     canonical_event_data_bytes,
     sha256_bytes,
 )
@@ -489,6 +490,61 @@ def test_visible_card_pipeline_uses_configured_gemini_model_for_provider_placeho
     assert request.model is not None
     assert request.model.name == "gemini-test-model"
     assert request.model.version == "gemini-visible-cards-v1"
+
+
+def test_visible_card_pipeline_retry_resumes_retained_items(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-for-visible-retry"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-for-visible-retry")
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-visible-retry/result"
+        ).json()["state"]["output_revision_ids"][0]
+
+        baseline_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "visible-retry-baseline",
+                "event_revision_id": event_revision_id,
+            },
+        )
+        assert baseline_response.status_code == 202
+        assert _wait(client, "visible-retry-baseline")["state"]["status"] == "complete"
+        baseline = app.state.pipeline_run_store.require("visible-retry-baseline")
+
+        request = app.state.visible_card_pipeline_service._build_request(
+            RECORDING_ID,
+            {"run_id": "visible-retry", "event_revision_id": event_revision_id},
+        )
+        stored, created = app.state.pipeline_run_store.create(request)
+        assert created
+        app.state.pipeline_run_store.start(stored.run_id)
+        app.state.pipeline_run_store.partial(
+            stored.run_id,
+            progress=RunProgress(completed=1, total=4),
+            items=(baseline.state.items[0],),
+        )
+
+        retry_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-retry/retry"
+        )
+        assert retry_response.status_code == 202
+        status = _wait(client, "visible-retry")
+
+    assert status["state"]["status"] == "complete"
+    assert status["state"]["progress"] == {"completed": 4, "total": 4}
+    assert len(status["state"]["items"]) == 4
 
 
 def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: Path) -> None:

@@ -408,20 +408,50 @@ class VisualIdentityPipelineService:
                 if outcome.status == "detected"
                 for candidate in outcome.candidates
             ]
+            outcomes_by_index: list[VisualIdentityOutcome | None] = [None] * len(candidates)
+            prior_items = {item.item_id: item for item in run.state.items}
+            candidate_ids = {candidate.card_id for _, candidate in candidates}
+            if not set(prior_items).issubset(candidate_ids):
+                raise VisualIdentityPipelineError(
+                    "The retry contains an item that is not in the frozen card input."
+                )
+            items_by_index: list[RunItemOutcome | None] = [
+                prior_items.get(candidate.card_id) for _, candidate in candidates
+            ]
+            pending_candidates: list[tuple[int, Any, Any]] = []
+            completed = 0
+            for index, (visible_outcome, candidate) in enumerate(candidates):
+                item = items_by_index[index]
+                if item is None or item.status != "succeeded":
+                    pending_candidates.append((index, visible_outcome, candidate))
+                    continue
+                if item.result is None:
+                    raise VisualIdentityPipelineError(
+                        f"The retained outcome for card {candidate.card_id} is invalid."
+                    )
+                try:
+                    result = VisualIdentityOutcome.from_mapping(item.result)
+                except ValueError as error:
+                    raise VisualIdentityPipelineError(
+                        f"The retained outcome for card {candidate.card_id} is invalid."
+                    ) from error
+                if result.card_id != candidate.card_id:
+                    raise VisualIdentityPipelineError(
+                        f"The retained outcome for card {candidate.card_id} has the wrong ID."
+                    )
+                outcomes_by_index[index] = result
+                completed += 1
             self.run_store.update_progress(
                 run_id,
-                progress=RunProgress(completed=0, total=len(candidates)),
+                progress=RunProgress(completed=completed, total=len(candidates)),
             )
-            outcomes_by_index: list[VisualIdentityOutcome | None] = [None] * len(candidates)
-            items_by_index: list[RunItemOutcome | None] = [None] * len(candidates)
-            completed = 0
             with ThreadPoolExecutor(
                 max_workers=self.max_concurrent_requests,
                 thread_name_prefix="visual-identity-card",
             ) as executor:
                 futures: dict[Future[VisualIdentityOutcome], int] = {
                     executor.submit(self._process_card_timed, run, outcome, candidate): index
-                    for index, (outcome, candidate) in enumerate(candidates)
+                    for index, outcome, candidate in pending_candidates
                 }
                 for future in as_completed(futures):
                     index = futures[future]
@@ -628,9 +658,7 @@ class VisualIdentityPipelineService:
                     "event_name": "visual_identity_card_timing",
                     "run_id": run.run_id,
                     "card_id": card.card_id,
-                    "item_wall_time_ms": round(
-                        max(0.0, time.monotonic() - started) * 1000.0, 3
-                    ),
+                    "item_wall_time_ms": round(max(0.0, time.monotonic() - started) * 1000.0, 3),
                     "timing_scope": (
                         "wall-clock item timing; inference and network transfer are not separated"
                     ),

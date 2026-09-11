@@ -8,6 +8,7 @@ from app_factory import create_test_app
 from doko_operations.pipeline_data import (
     DataRevision,
     HumanProducer,
+    RunProgress,
     sha256_bytes,
 )
 from fastapi.testclient import TestClient
@@ -285,6 +286,82 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert [
             outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
         ] == ["classified", "unusable", "unusable", "failed"]
+
+
+def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=_IdentityProvider(),
+    )
+
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-for-identity-retry"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-for-identity-retry")
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-identity-retry/result"
+        ).json()["state"]["output_revision_ids"][0]
+
+        visible_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "visible-for-identity-retry",
+                "event_revision_id": event_revision_id,
+            },
+        )
+        assert visible_response.status_code == 202
+        assert _wait(client, "visible-for-identity-retry")["state"]["status"] == "complete"
+        visible_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-for-identity-retry/result"
+        ).json()
+        visible_revision_id = visible_result["state"]["output_revision_ids"][0]
+        visible_revision = app.state.pipeline_revision_store.require(visible_revision_id)
+        manual_revision_id = _manual_visible_revision(
+            app,
+            visible_revision.manifest.source,
+            visible_result["revisions"][0]["content"]["outcomes"][0]["frame_identity"],
+        )
+
+        baseline_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-retry-baseline",
+                "input_revision_ids": [manual_revision_id],
+            },
+        )
+        assert baseline_response.status_code == 202
+        assert _wait_identity(client, "identity-retry-baseline")["state"]["status"] == "complete"
+        baseline = app.state.pipeline_run_store.require("identity-retry-baseline")
+
+        request = app.state.visual_identity_pipeline_service._build_request(
+            RECORDING_ID,
+            {"run_id": "identity-retry", "input_revision_ids": [manual_revision_id]},
+        )
+        stored, created = app.state.pipeline_run_store.create(request)
+        assert created
+        app.state.pipeline_run_store.start(stored.run_id)
+        app.state.pipeline_run_store.partial(
+            stored.run_id,
+            progress=RunProgress(completed=2, total=4),
+            items=baseline.state.items[:2],
+        )
+
+        retry_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-retry/retry"
+        )
+        assert retry_response.status_code == 202
+        status = _wait_identity(client, "identity-retry")
+
+    assert status["state"]["status"] == "complete"
+    assert status["state"]["progress"] == {"completed": 4, "total": 4}
+    assert len(status["state"]["items"]) == 4
 
 
 def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> None:
