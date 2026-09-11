@@ -1570,6 +1570,96 @@ export interface components {
             status: "complete" | "partial";
         };
         /**
+         * PipelineVisualIdentityOutcomeResponse
+         * @description One persisted visual identity classification returned by the pipeline API.
+         */
+        PipelineVisualIdentityOutcomeResponse: {
+            /** Candidates */
+            candidates: {
+                [key: string]: unknown;
+            }[];
+            /** Card Id */
+            card_id: string;
+            /** Classifier */
+            classifier: {
+                [key: string]: unknown;
+            };
+            /** Crop Identity */
+            crop_identity: {
+                [key: string]: unknown;
+            } | null;
+            /** Error */
+            error: string | null;
+            /** Frame Identity */
+            frame_identity: {
+                [key: string]: unknown;
+            };
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "classified" | "face_down" | "unusable" | "failed";
+            /** Unusable Reason */
+            unusable_reason: string | null;
+        };
+        /**
+         * PipelineVisualIdentityResultResponse
+         * @description The completed visual identity result with typed persisted outcomes.
+         */
+        PipelineVisualIdentityResultResponse: {
+            /** Attempt */
+            attempt: number;
+            /** Processor Type */
+            processor_type: string;
+            /** Recording Id */
+            recording_id: string;
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Revisions */
+            revisions: components["schemas"]["PipelineVisualIdentityRevisionResponse"][];
+            /** Run Id */
+            run_id: string;
+            /** State */
+            state: {
+                [key: string]: unknown;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "complete" | "partial" | "failed";
+        };
+        /**
+         * PipelineVisualIdentityRevisionContentResponse
+         * @description The typed visual identity content inside one pipeline revision response.
+         */
+        PipelineVisualIdentityRevisionContentResponse: {
+            /** Outcomes */
+            outcomes: components["schemas"]["PipelineVisualIdentityOutcomeResponse"][];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-identity-data/v1";
+        };
+        /**
+         * PipelineVisualIdentityRevisionResponse
+         * @description One visual identity revision returned by the pipeline API.
+         */
+        PipelineVisualIdentityRevisionResponse: {
+            content: components["schemas"]["PipelineVisualIdentityRevisionContentResponse"];
+            /** Manifest */
+            manifest: {
+                [key: string]: unknown;
+            };
+        };
+        /**
          * PipelineWorkspaceAnalysisResponse
          * @description The retained round-analysis lifecycle facts shown by the final stage.
          */
@@ -3971,9 +4061,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PipelineVisualIdentityResultResponse"];
                 };
             };
             /** @description Validation Error */

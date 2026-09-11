@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from doko_operations.derived_view import (
     DerivedViewError,
@@ -11,7 +11,9 @@ from doko_operations.derived_view import (
 )
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
+from pydantic import Field
 
+from dokodetector_backend.contract import ContractModel
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.event_pipeline_service import EventPipelineService
 from dokodetector_backend.observation_pipeline_service import (
@@ -46,6 +48,47 @@ IDENTITY_CROP_BASE = (
     "/api/recordings/{recording_id}/pipeline/derived-views/identity-crops/{revision_id}/{item_id}"
 )
 OBSERVATION_BASE = "/api/recordings/{recording_id}/pipeline/observations"
+
+
+class PipelineVisualIdentityOutcomeResponse(ContractModel):
+    """One persisted visual identity classification returned by the pipeline API."""
+
+    card_id: str
+    frame_identity: dict[str, Any]
+    geometry: dict[str, Any]
+    crop_identity: dict[str, Any] | None
+    classifier: dict[str, Any]
+    status: Literal["classified", "face_down", "unusable", "failed"]
+    candidates: list[dict[str, Any]]
+    unusable_reason: str | None
+    error: str | None
+
+
+class PipelineVisualIdentityRevisionContentResponse(ContractModel):
+    """The typed visual identity content inside one pipeline revision response."""
+
+    schema_version: Literal["visual-identity-data/v1"]
+    outcomes: list[PipelineVisualIdentityOutcomeResponse]
+
+
+class PipelineVisualIdentityRevisionResponse(ContractModel):
+    """One visual identity revision returned by the pipeline API."""
+
+    manifest: dict[str, Any]
+    content: PipelineVisualIdentityRevisionContentResponse
+
+
+class PipelineVisualIdentityResultResponse(ContractModel):
+    """The completed visual identity result with typed persisted outcomes."""
+
+    run_id: str
+    recording_id: str
+    processor_type: str
+    status: Literal["queued", "running", "complete", "partial", "failed"]
+    attempt: int = Field(gt=0)
+    request: dict[str, Any]
+    state: dict[str, Any]
+    revisions: list[PipelineVisualIdentityRevisionResponse]
 
 
 def _event_service(request: Request) -> EventPipelineService:
@@ -506,7 +549,10 @@ def retry_visual_identity_run(recording_id: str, run_id: str, request: Request) 
         raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
-@router.get(VISUAL_IDENTITY_BASE + "/{run_id}/result")
+@router.get(
+    VISUAL_IDENTITY_BASE + "/{run_id}/result",
+    response_model=PipelineVisualIdentityResultResponse,
+)
 @router.get(VISUAL_IDENTITY_BASE + "/runs/{run_id}/result", include_in_schema=False)
 def get_visual_identity_result(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Return a completed visual identity run and its stored revision."""

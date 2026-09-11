@@ -3,7 +3,11 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from table_evidence_analyzer.card_classification import CachedCardClassifier, GeminiCardClassifier
+from table_evidence_analyzer.card_classification import (
+    FACE_DOWN_CARD,
+    CachedCardClassifier,
+    GeminiCardClassifier,
+)
 from table_evidence_analyzer.gemini_concurrency import GeminiRequestLimiter
 from table_evidence_analyzer.visible_cards import GeminiVisibleCardProvider, VisibleCardRequest
 
@@ -50,6 +54,7 @@ def test_gemini_classifier_sends_transformed_ppm_as_png_and_returns_identity() -
     ).classify_ppm(b"P6\n4 4\n255\n" + bytes([255, 0, 0] * 16))
 
     assert result.status == "ok"
+    assert result.classification == "identity"
     assert result.candidates[0].card == "HEARTS_TEN"
     assert result.candidates[0].probability == 1.0
     assert result.usage.total_tokens == 108
@@ -71,7 +76,48 @@ def test_gemini_classifier_turns_unknown_response_into_no_identity() -> None:
     ).classify_ppm(b"P6\n4 4\n255\n" + bytes([255, 0, 0] * 16))
 
     assert result.status == "ok"
+    assert result.classification == "unknown"
     assert result.candidates == ()
+
+
+def test_gemini_classifier_distinguishes_face_down_response() -> None:
+    def urlopen(_request: object, timeout: float) -> _Response:
+        del timeout
+        return _Response(
+            {"candidates": [{"content": {"parts": [{"text": '{"card":"FACE_DOWN"}'}]}}]}
+        )
+
+    result = GeminiCardClassifier(
+        api_key="runtime-secret", urlopen=urlopen, sleep=lambda _seconds: None
+    ).classify_ppm(b"P6\n4 4\n255\n" + bytes([255, 0, 0] * 16))
+
+    assert FACE_DOWN_CARD == "FACE_DOWN"
+    assert result.status == "ok"
+    assert result.classification == "face_down"
+    assert result.candidates == ()
+
+
+def test_gemini_classifier_keeps_malformed_and_provider_failures_distinct() -> None:
+    malformed = GeminiCardClassifier(
+        api_key="runtime-secret",
+        urlopen=lambda _request, timeout: _Response(
+            {"candidates": [{"content": {"parts": [{"text": "not-json"}]}}]}
+        ),
+        sleep=lambda _seconds: None,
+    ).classify_ppm(b"P6\n4 4\n255\n" + bytes([255, 0, 0] * 16))
+
+    def provider_failure(_request: object, timeout: float) -> _Response:
+        del timeout
+        raise OSError("fixture provider failure")
+
+    failed = GeminiCardClassifier(
+        api_key="runtime-secret", urlopen=provider_failure, sleep=lambda _seconds: None
+    ).classify_ppm(b"P6\n4 4\n255\n" + bytes([255, 0, 0] * 16))
+
+    assert malformed.status == "unavailable"
+    assert malformed.failure_kind == "malformed_response"
+    assert failed.status == "unavailable"
+    assert failed.failure_kind == "provider_failure"
 
 
 def test_cached_classifier_does_not_repeat_a_transformed_crop_request(tmp_path) -> None:

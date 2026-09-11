@@ -23,7 +23,8 @@
   and selected event revisions. Historical revisions remain readable and the durable receipt is
   idempotent.
 - **M1:** Complete — active contracts and UI now use the singleton `card_state_changed` event type.
-- **M2:** Not started — add the `FACE_DOWN` visual classification and processor outcome.
+- **M2:** Complete — visual classification now distinguishes identities, `FACE_DOWN`, `UNKNOWN`,
+  and processor failures, and persists `face_down` outcomes.
 - **M3:** Not started — make visual-identity review and training data use the face-down class.
 - **M4:** Not started — publish the face-down result through observation assembly and freeze the
   reconstruction handoff.
@@ -230,6 +231,21 @@ Acceptance:
   results;
 - mixed identity, face-down, unusable, and failed items survive save, restart, and retry; and
 - analyzer, backend, contract, and generated-client tests pass.
+
+#### M2 implementation evidence — 2026-09-11
+
+The visual classifier response contract now has a positive `FACE_DOWN` value beside `UNKNOWN`.
+Neither value is a card identity or a candidate. The normalized classifier result distinguishes an
+identity, `face_down`, and `unknown`, and records malformed output separately from provider failure.
+
+The visual-identity outcome contract and persistence now accept `face_down`. Known face-down input
+skips the classifier and stores a successful `face_down` outcome. A classifier `FACE_DOWN` response
+maps to the same outcome. The typed backend result route and generated web client expose the new
+status.
+
+Focused checks passed for the analyzer classifier and visual-identity tests, backend visual-identity
+pipeline and related pipeline tests, operations pipeline tests, and web typecheck, lint, formatting,
+generated-client verification, and tests.
 
 ### M3 — Make review and training data face-down aware
 

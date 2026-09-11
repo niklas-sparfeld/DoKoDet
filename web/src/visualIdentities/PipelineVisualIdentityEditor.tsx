@@ -1219,7 +1219,8 @@ function readItemsFromResult(
   return items.filter((item): item is EditableIdentity => item !== null);
 }
 
-function readOutcome(value: Record<string, unknown>): IdentityOutcome | null {
+function readOutcome(value: unknown): IdentityOutcome | null {
+  if (!isRecord(value)) return null;
   const cardId = value.card_id;
   const frame = readFrameIdentity(value.frame_identity);
   const geometry = isRecord(value.geometry) ? value.geometry : null;
@@ -1228,7 +1229,7 @@ function readOutcome(value: Record<string, unknown>): IdentityOutcome | null {
     typeof cardId !== "string" ||
     frame === null ||
     geometry === null ||
-    !["classified", "unusable", "failed"].includes(String(status))
+    !["classified", "face_down", "unusable", "failed"].includes(String(status))
   )
     return null;
   const candidates = Array.isArray(value.candidates)

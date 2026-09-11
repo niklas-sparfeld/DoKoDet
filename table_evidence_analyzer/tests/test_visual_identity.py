@@ -108,10 +108,27 @@ def test_visual_identity_data_preserves_lineage_order_and_optional_scores() -> N
     assert raw == canonical_visual_identity_data_bytes(parsed)
 
 
+def test_visual_identity_data_round_trips_face_down_without_identity_candidates() -> None:
+    value = _content()
+    value["outcomes"][0].update(
+        status="face_down",
+        candidates=[],
+    )
+
+    content = VisualIdentityData.from_mapping(value)
+    parsed = parse_visual_identity_data_bytes(canonical_visual_identity_data_bytes(content))
+
+    assert parsed.outcomes[0].status == "face_down"
+    assert parsed.outcomes[0].candidates == ()
+    assert parsed.outcomes[0].unusable_reason is None
+    assert parsed.outcomes[0].error is None
+
+
 @pytest.mark.parametrize(
     "mutate",
     [
         lambda value: value["outcomes"][0].update(status="unusable"),
+        lambda value: value["outcomes"][0].update(status="face_down"),
         lambda value: value["outcomes"][0]["candidates"][0].update(score=0.5, score_meaning=None),
         lambda value: value["outcomes"][0]["candidates"][0].update(identity="UNKNOWN"),
         lambda value: value["outcomes"][0].update(unexpected=True),

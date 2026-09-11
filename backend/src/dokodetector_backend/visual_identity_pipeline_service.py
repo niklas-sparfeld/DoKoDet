@@ -613,9 +613,8 @@ class VisualIdentityPipelineService:
                 geometry=geometry,
                 crop_identity=crop_identity,
                 classifier=classifier_identity,
-                status="unusable",
+                status="face_down",
                 candidates=(),
-                unusable_reason="face_down",
             )
         if crop.status == "unusable":
             return VisualIdentityOutcome(
@@ -646,11 +645,32 @@ class VisualIdentityPipelineService:
                 crop_bytes=crop.image_bytes,
             )
             result = self.classifier.classify(request) if self.classifier is not None else None
-            if result is None or result.status != "ok":
+            if result is None:
                 raise VisualIdentityPipelineError(
                     "The visual identity classifier returned no result."
                 )
-            if not result.candidates:
+            if result.status == "unavailable":
+                return VisualIdentityOutcome(
+                    card_id=card.card_id,
+                    frame_identity=frame_identity,
+                    geometry=geometry,
+                    crop_identity=crop_identity,
+                    classifier=classifier_identity,
+                    status="failed",
+                    candidates=(),
+                    error=result.error or "The visual identity classifier failed for this card.",
+                )
+            if result.classification == "face_down":
+                return VisualIdentityOutcome(
+                    card_id=card.card_id,
+                    frame_identity=frame_identity,
+                    geometry=geometry,
+                    crop_identity=crop_identity,
+                    classifier=classifier_identity,
+                    status="face_down",
+                    candidates=(),
+                )
+            if result.classification == "unknown" or not result.candidates:
                 return VisualIdentityOutcome(
                     card_id=card.card_id,
                     frame_identity=frame_identity,
@@ -660,6 +680,10 @@ class VisualIdentityPipelineService:
                     status="unusable",
                     candidates=(),
                     unusable_reason="The classifier returned no identity candidates.",
+                )
+            if result.classification != "identity":
+                raise VisualIdentityPipelineError(
+                    "The visual identity classifier returned an unsupported classification."
                 )
             candidates = tuple(
                 VisualIdentityCandidate(

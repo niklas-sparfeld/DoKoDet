@@ -1,9 +1,9 @@
 """Gemini identity classification for transformed visible-card crops.
 
 This is deliberately a narrow proof-of-concept boundary.  It accepts the deterministic binary
-PPM crop produced by the visible-card transform and returns either one canonical visual card
-identity or no identity.  A no-identity result is evidence that the crop is unreadable, not a
-guess about the physical card.
+PPM crop produced by the visible-card transform and returns one canonical visual card identity,
+the positive face-down class, or an abstention.  An abstention is evidence that the crop is
+unreadable, not a guess about the physical card.
 """
 
 from __future__ import annotations
@@ -42,22 +42,25 @@ from .visible_cards import (
 
 LOGGER = logging.getLogger(__name__)
 
-CARD_CLASSIFICATION_SCHEMA = "gemini-card-classification/v1"
-CARD_CLASSIFICATION_CACHE_SCHEMA = "gemini-card-classification-cache/v1"
+CARD_CLASSIFICATION_SCHEMA = "gemini-card-classification/v2"
+CARD_CLASSIFICATION_CACHE_SCHEMA = "gemini-card-classification-cache/v2"
+FACE_DOWN_CARD = "FACE_DOWN"
 UNKNOWN_CARD = "UNKNOWN"
+ClassificationKind = Literal["identity", "face_down", "unknown"]
 
 PROMPT = """This image is a transformed crop of one visible Doppelkopf playing card.
 
 Identify its visible suit and rank using the canonical card label in the response schema. Return
-UNKNOWN when the crop is face-down, too occluded, too blurred, or otherwise cannot support a
-reliable visual card identity. Do not guess. This is visual evidence only; do not infer a physical
-card, a card play, a trick, or game state.
+FACE_DOWN when the visible card back is positively recognizable. Return UNKNOWN when the crop is
+too occluded, too blurred, or otherwise cannot support a reliable visual classification. Do not
+guess. This is visual evidence only; do not infer a physical card, a card play, a trick, or game
+state.
 """
 
 RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "card": {"type": "string", "enum": [*CARD_IDENTITIES, UNKNOWN_CARD]},
+        "card": {"type": "string", "enum": [*CARD_IDENTITIES, FACE_DOWN_CARD, UNKNOWN_CARD]},
     },
     "required": ["card"],
     "additionalProperties": False,
@@ -77,18 +80,44 @@ class CardClassificationResult:
     """One bounded classification response for one transformed card crop."""
 
     status: Literal["ok", "unavailable"]
+    classification: ClassificationKind | None = None
     candidates: tuple[IdentityCandidate, ...] = ()
     usage: ProviderUsage = ProviderUsage()
     latency_ms: float = 0.0
     retry_count: int = 0
     estimated_cost_usd: float = 0.0
     error: str | None = None
+    failure_kind: Literal["malformed_response", "provider_failure"] | None = None
     raw_response: dict[str, Any] | None = None
     cache_hit: bool = False
 
     def __post_init__(self) -> None:
-        if self.status == "unavailable" and self.candidates:
-            raise CardClassificationError("unavailable classification cannot contain candidates")
+        if self.status not in {"ok", "unavailable"}:
+            raise CardClassificationError("classification status is unsupported")
+        if self.classification not in {None, "identity", "face_down", "unknown"}:
+            raise CardClassificationError("classification kind is unsupported")
+        if self.failure_kind not in {None, "malformed_response", "provider_failure"}:
+            raise CardClassificationError("classification failure kind is unsupported")
+        if self.status == "unavailable":
+            if self.candidates or self.classification is not None:
+                raise CardClassificationError(
+                    "unavailable classification cannot contain a positive classification"
+                )
+            if self.failure_kind is None:
+                object.__setattr__(self, "failure_kind", "provider_failure")
+            return
+        if self.failure_kind is not None or self.error is not None:
+            raise CardClassificationError("successful classification cannot contain a failure")
+        classification = self.classification
+        if classification is None:
+            classification = "identity" if self.candidates else "unknown"
+            object.__setattr__(self, "classification", classification)
+        if classification == "identity" and not self.candidates:
+            raise CardClassificationError("identity classification needs candidates")
+        if classification != "identity" and self.candidates:
+            raise CardClassificationError(
+                "face-down or unknown classification cannot contain candidates"
+            )
 
 
 @runtime_checkable
@@ -242,6 +271,7 @@ class GeminiCardClassifier:
             method="POST",
         )
         last_error = "Gemini returned a malformed classification response."
+        last_failure_kind: Literal["malformed_response", "provider_failure"] = "malformed_response"
         last_raw_response: dict[str, Any] | None = None
         limiter_wait_ms = 0.0
         http_round_trip_ms = 0.0
@@ -264,6 +294,7 @@ class GeminiCardClassifier:
                 if http_error is not None:
                     code, body = http_error
                     last_error = f"Gemini HTTP {code}: {body}"
+                    last_failure_kind = "provider_failure"
                     if code not in {429, 500, 502, 503, 504}:
                         break
                     raise _RetryableGeminiResponse()
@@ -276,16 +307,24 @@ class GeminiCardClassifier:
                 if not isinstance(parsed, dict) or set(parsed) != {"card"}:
                     raise CardClassificationError("response must contain only card")
                 card = parsed["card"]
-                if card not in {*CARD_IDENTITIES, UNKNOWN_CARD}:
+                if card not in {*CARD_IDENTITIES, FACE_DOWN_CARD, UNKNOWN_CARD}:
                     raise CardClassificationError("response card is not in the shared card set")
                 usage = ProviderUsage.from_usage_metadata(raw_response.get("usageMetadata"))
+                classification: ClassificationKind
+                if card == FACE_DOWN_CARD:
+                    classification = "face_down"
+                elif card == UNKNOWN_CARD:
+                    classification = "unknown"
+                else:
+                    classification = "identity"
                 candidates = (
                     ()
-                    if card == UNKNOWN_CARD
+                    if classification != "identity"
                     else (IdentityCandidate(card=card, probability=1.0),)
                 )
                 result = CardClassificationResult(
                     status="ok",
+                    classification=classification,
                     candidates=candidates,
                     usage=usage,
                     latency_ms=_elapsed_ms(started),
@@ -312,8 +351,10 @@ class GeminiCardClassifier:
                 json.JSONDecodeError,
             ) as error:
                 last_error = f"Gemini returned a malformed classification response: {error}"
+                last_failure_kind = "malformed_response"
             except (TimeoutError, urllib.error.URLError, OSError) as error:
                 last_error = f"Gemini classification request failed: {error}"
+                last_failure_kind = "provider_failure"
             if attempt < self.max_retries:
                 self._sleep((2**attempt) * random.uniform(0.8, 1.2))
         result = CardClassificationResult(
@@ -321,6 +362,7 @@ class GeminiCardClassifier:
             latency_ms=_elapsed_ms(started),
             retry_count=attempt,
             error=last_error,
+            failure_kind=last_failure_kind,
             raw_response=last_raw_response,
         )
         _log_gemini_timing(
@@ -374,12 +416,14 @@ class CachedCardClassifier:
             )
             return CardClassificationResult(
                 status=value["status"],
+                classification=value.get("classification"),
                 candidates=candidates,
                 usage=ProviderUsage(**value["usage"]),
                 latency_ms=value["latency_ms"],
                 retry_count=value["retry_count"],
                 estimated_cost_usd=value["estimated_cost_usd"],
                 error=value["error"],
+                failure_kind=value.get("failure_kind"),
                 raw_response=value["raw_response"],
             )
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
@@ -395,12 +439,14 @@ class CachedCardClassifier:
             "request": request.to_mapping(),
             "classifier": {"name": self.classifier.name, "version": self.classifier.version},
             "status": result.status,
+            "classification": result.classification,
             "candidates": [candidate.model_dump(mode="json") for candidate in result.candidates],
             "usage": result.usage.to_mapping(),
             "latency_ms": result.latency_ms,
             "retry_count": result.retry_count,
             "estimated_cost_usd": result.estimated_cost_usd,
             "error": result.error,
+            "failure_kind": result.failure_kind,
             "raw_response": result.raw_response,
         }
         temporary_path: str | None = None
@@ -453,6 +499,8 @@ def _estimate_cost(usage: ProviderUsage) -> float:
 __all__ = [
     "CARD_CLASSIFICATION_CACHE_SCHEMA",
     "CARD_CLASSIFICATION_SCHEMA",
+    "ClassificationKind",
+    "FACE_DOWN_CARD",
     "UNKNOWN_CARD",
     "CachedCardClassifier",
     "CardClassificationError",

@@ -49,7 +49,7 @@ class _IdentityProvider:
     def classify(self, request: VisualIdentityRequest) -> CardClassificationResult:
         self.requests.append(request)
         if request.card_id.endswith("empty"):
-            return CardClassificationResult(status="ok", candidates=())
+            return CardClassificationResult(status="ok", classification="unknown")
         if request.card_id.endswith("failed"):
             return CardClassificationResult(status="unavailable", error="fixture failure")
         return CardClassificationResult(
@@ -314,7 +314,7 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert [outcome["status"] for outcome in outcomes] == [
             "classified",
             "unusable",
-            "unusable",
+            "face_down",
             "failed",
         ]
         assert outcomes[1]["geometry"]["kind"] == "reviewed-visible-region/v1"
@@ -322,10 +322,11 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert outcomes[1]["unusable_reason"] == "The classifier returned no identity candidates."
         assert outcomes[0]["status"] == "classified"
         assert outcomes[0]["crop_identity"]["crop_policy"] == "predicted_visible_region"
-        assert outcomes[2]["crop_identity"]["status"] == "unusable"
-        assert outcomes[2]["unusable_reason"] == "face_down"
+        assert outcomes[2]["status"] == "face_down"
+        assert outcomes[2]["candidates"] == []
+        assert outcomes[2]["unusable_reason"] is None
         assert outcomes[3]["crop_identity"]["status"] == "usable"
-        assert outcomes[3]["error"] == "The visual identity classifier failed for this card."
+        assert outcomes[3]["error"] == "fixture failure"
         assert sorted(request.card_id for request in provider.requests[-3:]) == sorted(
             ["card-classified", "card-empty", "card-failed"]
         )
@@ -342,7 +343,7 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         assert persisted.status_code == 200
         assert [
             outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
-        ] == ["classified", "unusable", "unusable", "failed"]
+        ] == ["classified", "unusable", "face_down", "failed"]
 
 
 def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) -> None:
@@ -517,7 +518,7 @@ def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> No
     assert [outcome["status"] for outcome in outcomes] == [
         "classified",
         "unusable",
-        "unusable",
+        "face_down",
         "failed",
     ]
     assert [item["item_id"] for item in result["state"]["items"]] == [

@@ -30,7 +30,7 @@ export type IdentityOutcome = {
   frame_identity: FrameIdentity;
   geometry: Record<string, unknown>;
   crop_identity: CropIdentity | null;
-  status: "classified" | "unusable" | "failed";
+  status: "classified" | "face_down" | "unusable" | "failed";
   candidates: IdentityCandidate[];
   unusable_reason: string | null;
   error: string | null;

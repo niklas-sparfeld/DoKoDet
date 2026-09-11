@@ -364,8 +364,9 @@ For one frame, use `visible-card-observe`. Use `--provider gemini` only when the
 environment contains `GEMINI_API_KEY` and the request cost is approved.
 
 The proof-of-concept Gemini identity classifier consumes the deterministic polygon crop, converts
-it to PNG for the API, and emits a single canonical visual card identity only when the crop is
-readable. `UNKNOWN` produces no identity candidate. Its responses are cached separately from
+it to PNG for the API, and emits a positive visual classification only when the crop is readable.
+`FACE_DOWN` positively classifies a visible card back and produces no identity
+candidate. `UNKNOWN` produces no positive visual class. Their responses are cached separately from
 visible-card proposals and the observation records classifier token and cost data:
 
 ```bash

@@ -4,6 +4,8 @@ from table_evidence_analyzer.analyzer import AnalyzerEvidence, AnalyzerFrame, Ta
 from table_evidence_analyzer.card_classification import (
     CARD_CLASSIFICATION_CACHE_SCHEMA,
     CARD_CLASSIFICATION_SCHEMA,
+    ClassificationKind,
+    FACE_DOWN_CARD,
     UNKNOWN_CARD,
     CachedCardClassifier,
     CardClassificationError,
@@ -363,6 +365,8 @@ __all__ = [
     "CardIdentity",
     "CARD_CLASSIFICATION_CACHE_SCHEMA",
     "CARD_CLASSIFICATION_SCHEMA",
+    "ClassificationKind",
+    "FACE_DOWN_CARD",
     "CardSetManifest",
     "DeckCard",
     "DeckManifest",

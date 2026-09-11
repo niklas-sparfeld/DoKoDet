@@ -720,7 +720,7 @@ class VisualIdentityOutcome:
     geometry: PipelineGeometry
     crop_identity: VisualIdentityCropIdentity | None
     classifier: VisualIdentityClassifierIdentity
-    status: Literal["classified", "unusable", "failed"]
+    status: Literal["classified", "face_down", "unusable", "failed"]
     candidates: tuple[VisualIdentityCandidate, ...]
     unusable_reason: str | None = None
     error: str | None = None
@@ -746,7 +746,7 @@ class VisualIdentityOutcome:
             context,
         )
         status = data["status"]
-        if status not in {"classified", "unusable", "failed"}:
+        if status not in {"classified", "face_down", "unusable", "failed"}:
             raise PipelineDataError(f"{context}.status is unsupported")
         frame = VisibleCardFrameIdentity.from_mapping(
             _mapping(data["frame_identity"], f"{context}.frame_identity")
@@ -785,7 +785,11 @@ class VisualIdentityOutcome:
             not candidates or unusable_reason is not None or error is not None
         ):
             raise PipelineDataError(f"{context}.classified outcome has a failure reason")
-        if status in {"classified", "unusable"} and crop is None:
+        if status == "face_down" and (
+            candidates or unusable_reason is not None or error is not None
+        ):
+            raise PipelineDataError(f"{context}.face_down outcome is invalid")
+        if status in {"classified", "face_down", "unusable"} and crop is None:
             raise PipelineDataError(f"{context}.{status} outcome needs a crop identity")
         if status == "unusable" and (candidates or unusable_reason is None or error is not None):
             raise PipelineDataError(f"{context}.unusable outcome is invalid")
