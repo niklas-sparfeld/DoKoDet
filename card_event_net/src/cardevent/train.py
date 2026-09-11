@@ -20,7 +20,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from .annotation import AnnotationError, load_annotation
+from .annotation import AnnotationError, confirmed_event_times, load_annotation
 from .cache import CacheError, load_cache_metadata, require_cache_preprocessing
 from .config import Config, ConfigError, load_config, save_config
 from .dataset import (
@@ -414,9 +414,7 @@ def _sampling_report_for_split(
     for name in split.train:
         cache_path = _cache_for_video(name, cache_dir, preprocessing=config.input.preprocessing)
         annotation = _annotation_for_video(name, annotations_dir)
-        event_times_s = tuple(
-            event.time_s for event in annotation.events if event.confidence in {None, "confirmed"}
-        )
+        event_times_s = confirmed_event_times(annotation.events)
         metadata = load_cache_metadata(cache_path)
         eligible_by_video[name] = build_labeled_times(
             metadata.frame_timestamps_s,
@@ -462,9 +460,7 @@ def _validation_videos(
         cache_path = _cache_for_video(name, cache_dir, preprocessing=config.input.preprocessing)
         annotation = _annotation_for_video(name, annotations_dir)
         metadata = load_cache_metadata(cache_path)
-        event_times_s = tuple(
-            event.time_s for event in annotation.events if event.confidence in {None, "confirmed"}
-        )
+        event_times_s = confirmed_event_times(annotation.events)
         samples = inference_samples_for_cache(
             cache_path,
             stride_s=config.input.inference_stride_s,

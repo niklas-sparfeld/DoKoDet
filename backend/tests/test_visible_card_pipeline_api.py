@@ -276,6 +276,7 @@ def test_visible_card_events_are_bounded_and_ordered(tmp_path: Path) -> None:
         "event-000001",
         "event-000002",
         "event-000003",
+        "event-000004",
     ]
 
 
@@ -386,12 +387,14 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             "empty",
             "failed",
             "failed",
+            "empty",
         ]
         assert [outcome["event_id"] for outcome in generated_content["outcomes"]] == [
             "event-000000",
             "event-000001",
             "event-000002",
             "event-000003",
+            "event-000004",
         ]
         assert generated_content["outcomes"][0]["candidates"][0]["geometry"]["kind"] == (
             "visible-region/v1"
@@ -452,7 +455,7 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
         assert persisted.status_code == 200
         assert [
             outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
-        ] == ["detected", "empty", "failed", "failed"]
+        ] == ["detected", "empty", "failed", "failed", "empty"]
 
 
 def test_visible_card_pipeline_uses_configured_gemini_model_for_provider_placeholder(
@@ -532,7 +535,7 @@ def test_visible_card_pipeline_retry_resumes_retained_items(tmp_path: Path) -> N
         app.state.pipeline_run_store.start(stored.run_id)
         app.state.pipeline_run_store.partial(
             stored.run_id,
-            progress=RunProgress(completed=1, total=4),
+                progress=RunProgress(completed=1, total=5),
             items=(baseline.state.items[0],),
         )
 
@@ -543,8 +546,8 @@ def test_visible_card_pipeline_retry_resumes_retained_items(tmp_path: Path) -> N
         status = _wait(client, "visible-retry")
 
     assert status["state"]["status"] == "complete"
-    assert status["state"]["progress"] == {"completed": 4, "total": 4}
-    assert len(status["state"]["items"]) == 4
+    assert status["state"]["progress"] == {"completed": 5, "total": 5}
+    assert len(status["state"]["items"]) == 5
 
 
 def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: Path) -> None:

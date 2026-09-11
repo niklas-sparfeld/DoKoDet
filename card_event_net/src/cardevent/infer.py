@@ -17,7 +17,7 @@ from .cache import (
 from .config import Config
 from .dataset import CausalClipDataset, DatasetSample, inference_samples_for_cache
 from .device import resolve_device
-from .events import ProbabilitySample, probabilities_to_events
+from .events import CARD_STATE_CHANGED_EVENT_TYPE, ProbabilitySample, probabilities_to_events
 from .model import CardEventNet, build_model
 from .transforms import ClipTransform
 
@@ -154,6 +154,7 @@ def _prediction_payload(
         "checkpoint": checkpoint,
         "device": device,
         "preprocessing": preprocessing,
+        "event_type": CARD_STATE_CHANGED_EVENT_TYPE,
         "probabilities": [prediction.to_mapping() for prediction in predictions],
     }
     if threshold is not None:
@@ -165,7 +166,10 @@ def _prediction_payload(
         payload["threshold"] = threshold
         payload["merge_window_s"] = merge_window_s
         payload["min_event_gap_s"] = merge_window_s
-        payload["events"] = [event.to_mapping() for event in events]
+        payload["events"] = [
+            {**event.to_mapping(), "event_type": CARD_STATE_CHANGED_EVENT_TYPE}
+            for event in events
+        ]
     return payload
 
 

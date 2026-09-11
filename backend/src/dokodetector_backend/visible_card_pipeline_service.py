@@ -21,6 +21,7 @@ from doko_operations.derived_view import (
     resolve_exact_event,
 )
 from doko_operations.pipeline_data import (
+    CARD_STATE_CHANGED_EVENT_TYPE,
     DataRevision,
     EventData,
     ImplementationIdentity,
@@ -322,7 +323,7 @@ class VisibleCardPipelineService:
             events = tuple(
                 event
                 for event in event_revision.content.events
-                if event.event_type == "card_played"
+                if event.event_type in {"card_played", CARD_STATE_CHANGED_EVENT_TYPE}
             )
             outcomes_by_index: list[VisibleCardOutcome | None] = [None] * len(events)
             prior_items = {item.item_id: item for item in run.state.items}

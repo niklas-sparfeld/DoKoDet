@@ -517,7 +517,7 @@ export function PipelineCardEventEditor({
       reviewState: "added",
       event: {
         event_id: `manual-${Date.now()}-${commandSequenceRef.current + 1}`,
-        event_type: "card_played",
+        event_type: "card_state_changed",
         start_us: startUs,
         end_us: startUs,
       },

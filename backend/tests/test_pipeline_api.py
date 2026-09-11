@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from app_factory import create_test_app
+from doko_operations.pipeline_data import CARD_STATE_CHANGED_EVENT_TYPE
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
@@ -192,6 +193,9 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
         assert status["state"]["status"] == "complete"
         assert body["state"]["status"] == "complete"
         assert body["revisions"][0]["content"]["events"][0]["start_us"] == 500_000
+        assert body["revisions"][0]["content"]["events"][0]["event_type"] == (
+            CARD_STATE_CHANGED_EVENT_TYPE
+        )
         assert body["revisions"][0]["manifest"]["producer"]["kind"] == "processor"
         selection = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/events/generated-selection"
@@ -375,7 +379,7 @@ def test_import_validates_bundle_prediction_and_preserves_absent_model_fields(
         assert result["state"]["status"] == "complete"
         assert "model" not in result["request"]
         assert "model_id" in revision["manifest"]["producer"]
-        assert revision["content"]["events"][0]["event_type"] == "card_played"
+        assert revision["content"]["events"][0]["event_type"] == CARD_STATE_CHANGED_EVENT_TYPE
 
 
 def test_provider_failure_cannot_change_existing_generated_selection(tmp_path: Path) -> None:

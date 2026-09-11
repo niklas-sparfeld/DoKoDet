@@ -7,7 +7,7 @@ from math import isfinite
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from .annotation import AnnotationError, load_annotation
+from .annotation import AnnotationError, confirmed_events, load_annotation
 from .cache import CacheError, load_cache_metadata
 from .evaluation import THRESHOLD_GRID as _THRESHOLD_GRID
 from .evaluation import (
@@ -98,16 +98,14 @@ def load_model_streams(
         annotation_hash = hashlib.sha256(
             (annotation_root / f"{name}.json").read_bytes()
         ).hexdigest()
-        confirmed_events = tuple(
-            event for event in annotation.events if event.confidence in {None, "confirmed"}
-        )
+        positive_events = confirmed_events(annotation.events)
         videos.append(
             ScoredVideo(
                 name=name,
                 duration_s=duration_s,
-                ground_truth_times_s=tuple(event.time_s for event in confirmed_events),
+                ground_truth_times_s=tuple(event.time_s for event in positive_events),
                 probabilities=tuple(probabilities),
-                ground_truth_types=tuple(event.type for event in confirmed_events),
+                ground_truth_types=tuple(event.type for event in positive_events),
                 annotation_version_hash=annotation_hash,
             )
         )
@@ -224,7 +222,7 @@ def save_probability_plots(
                     "type": (
                         video.ground_truth_types[index]
                         if index < len(video.ground_truth_types)
-                        else "card_played"
+                        else "card_state_changed"
                     ),
                 }
                 for index, time_s in enumerate(video.ground_truth_times_s)

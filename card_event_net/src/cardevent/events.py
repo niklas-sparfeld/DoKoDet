@@ -9,6 +9,9 @@ class EventError(ValueError):
     """Raised when event probabilities or timestamps are invalid."""
 
 
+CARD_STATE_CHANGED_EVENT_TYPE = "card_state_changed"
+
+
 @dataclass(frozen=True, slots=True)
 class ProbabilitySample:
     """The model score at one causal decision timestamp."""

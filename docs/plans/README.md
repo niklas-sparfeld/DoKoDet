@@ -46,12 +46,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0061 — Card-state change and face-down pipeline](2-ready/0061-Card_State_Change_and_Face_Down_Pipeline.md) | 0048 and 0049 complete | Make every CardEventNet proposal a generic card-state change, process every event with the existing visible-card processor, and preserve face-down evidence through visual identity and observation assembly without changing reconstruction behavior. M0–M3 not started. |
+| [0061 — Card-state change and face-down pipeline](3-in-progress/0061-Card_State_Change_and_Face_Down_Pipeline.md) | 0048 and 0049 complete | M0 complete: generated CardEventNet proposals use `card_state_changed`, and the binary training target collapses confirmed meaningful annotation types while excluding non-confirmed states. M1–M3 not started. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0061 — Card-state change and face-down pipeline](3-in-progress/0061-Card_State_Change_and_Face_Down_Pipeline.md) | 0048 and 0049 complete | M0 complete: generated CardEventNet proposals use `card_state_changed`, and the binary training target collapses confirmed meaningful annotation types while excluding non-confirmed states. M1–M3 not started. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
 
 ### Blocked
@@ -122,10 +123,10 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Implement 0061 before another classifier comparison.** First make CardEventNet output generic
-   card-state changes and propagate every event. Then preserve card side through visible-card,
-   visual-identity, and observation-assembly results. Do not add temporal association or change
-   reconstruction behavior.
+1. **Continue 0061 before another classifier comparison.** M0 makes CardEventNet output generic
+   card-state changes. Complete M1 to propagate every event, then preserve card side through
+   visible-card, visual-identity, and observation-assembly results. Do not add temporal association
+   or change reconstruction behavior.
 2. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic 0057 is complete.
 3. **Reconcile 0051 M0 with the current data architecture and the completed 0061 contracts.** Read durable revisions from
    `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop

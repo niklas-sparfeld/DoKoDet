@@ -10,6 +10,8 @@ from .annotation import (
     VideoAnnotation,
     annotate_video,
     annotation_path_for_video,
+    confirmed_event_times,
+    confirmed_events,
     load_annotation,
     open_annotation_session,
     save_annotation,
@@ -65,6 +67,7 @@ from .evaluate import (
     select_threshold,
 )
 from .events import (
+    CARD_STATE_CHANGED_EVENT_TYPE,
     CausalEventDecoder,
     DetectedEvent,
     EventError,
@@ -230,6 +233,7 @@ __all__ = [
     "DATASET_VERSION_SCHEMA_VERSION",
     "DEFAULT_CLIP_OFFSETS_S",
     "DetectedEvent",
+    "CARD_STATE_CHANGED_EVENT_TYPE",
     "DISPOSITIONS",
     "deterministic_sample",
     "EventError",
@@ -307,6 +311,8 @@ __all__ = [
     "annotate_video",
     "adapt_cardevent_manifest",
     "annotation_path_for_video",
+    "confirmed_event_times",
+    "confirmed_events",
     "build_inference_times",
     "build_model",
     "build_source_import_receipt",

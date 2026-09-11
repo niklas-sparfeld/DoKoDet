@@ -82,8 +82,8 @@ the raw `logit` in `rawOutputs`.
 ## Known limits
 
 - The model package does not state the semantic meaning of the positive class.
-  The training labels and project documentation define it as a likely new
-  `card_played` event.
+  The training labels and project documentation define it as a persistent
+  `card_state_changed` event that justifies another table observation.
 - The package does not contain a live-camera ROI or calibration.
 - The package does not contain temporal timestamps or frame sampling metadata.
 - The app has no default live-camera ROI yet. Inference reports a clear error

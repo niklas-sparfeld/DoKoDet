@@ -20,6 +20,8 @@ export function formatIdentifier(value: string): string {
 
 export function eventTypeGuidance(type: PipelineCardEventType): string {
   return {
+    card_state_changed:
+      "A persistent card-related table-state change that justifies another table observation.",
     card_played: "A card reaches its final position in the trick area.",
     trick_cleared: "The cards from the completed trick leave the play area.",
     card_moved: "An existing card changes position without being played.",

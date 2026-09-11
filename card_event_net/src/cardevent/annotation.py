@@ -48,6 +48,7 @@ EVENT_TYPES = frozenset(
     }
 )
 EVENT_CONFIDENCES = frozenset({"confirmed", "uncertain", "ignore", "proposed"})
+POSITIVE_EVENT_CONFIDENCES = frozenset({None, "confirmed"})
 DEFAULT_DUPLICATE_TOLERANCE_S = 0.01
 ANNOTATION_SCHEMA_VERSION = "cardevent-annotation/v2"
 EVENT_TYPE_SHORTCUTS = {
@@ -260,6 +261,27 @@ class AnnotationEvent:
         if self.notes is not None:
             result["notes"] = self.notes
         return result
+
+
+def confirmed_events(events: Sequence[AnnotationEvent]) -> tuple[AnnotationEvent, ...]:
+    """Return all confirmed meaningful card-state annotations.
+
+    Annotation types describe the offline review detail. CardEventNet trains one binary
+    card-state-change target, so every known event type uses the same positive label when its
+    confidence is confirmed or absent. Uncertain, ignored, and proposed annotations are excluded.
+    """
+
+    return tuple(
+        event
+        for event in events
+        if event.type in EVENT_TYPES and event.confidence in POSITIVE_EVENT_CONFIDENCES
+    )
+
+
+def confirmed_event_times(events: Sequence[AnnotationEvent]) -> tuple[float, ...]:
+    """Return the binary-training times for confirmed meaningful annotations."""
+
+    return tuple(event.time_s for event in confirmed_events(events))
 
 
 @dataclass(frozen=True, slots=True)

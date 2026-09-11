@@ -16,6 +16,7 @@ from threading import RLock
 from typing import Any, Protocol
 
 from doko_operations.pipeline_data import (
+    CARD_STATE_CHANGED_EVENT_TYPE,
     DataRevision,
     EventData,
     EventDataRevision,
@@ -503,7 +504,11 @@ class EventPipelineService:
             payload,
         )
         content = _event_data_from_provider(
-            {"events": artifact, "event_type": "card_played", "producer_id": model_id},
+            {
+                "events": artifact,
+                "event_type": CARD_STATE_CHANGED_EVENT_TYPE,
+                "producer_id": model_id,
+            },
             run.request,
         )
         revision_id = _revision_id(run, suffix="import")
@@ -699,18 +704,17 @@ def _event_data_from_provider(
     request: ProcessorRunRequest,
 ) -> EventData:
     if isinstance(value, EventData):
-        return EventData.from_mapping(value.to_mapping(), duration_us=request.source.duration_us)
+        value = value.to_mapping()
     if isinstance(value, Mapping):
         raw_events = value.get("events")
-        event_type = value.get("event_type", request.configuration.get("event_type", "card_played"))
         producer_id = value.get(
             "producer_id",
             _model_id(request.model) or _implementation_id(request.implementation),
         )
     else:
         raw_events = value
-        event_type = request.configuration.get("event_type", "card_played")
         producer_id = _model_id(request.model) or _implementation_id(request.implementation)
+    event_type = CARD_STATE_CHANGED_EVENT_TYPE
     if not isinstance(raw_events, Sequence) or isinstance(raw_events, (str, bytes, bytearray)):
         raise PipelineProviderError("The event provider returned no valid event list.")
     events: list[dict[str, Any]] = []
@@ -729,13 +733,13 @@ def _event_data_from_provider(
             start_us = round(float(time_s) * 1_000_000)
             item = {
                 "event_id": raw.get("event_id", f"event-{index:06d}"),
-                "event_type": raw.get("event_type", event_type),
+                "event_type": event_type,
                 "start_us": start_us,
                 "end_us": round(float(raw.get("end_time_s", time_s)) * 1_000_000),
                 "model_scores": [{"producer_id": str(producer_id), "score": float(probability)}],
             }
         item.setdefault("event_id", f"event-{index:06d}")
-        item.setdefault("event_type", event_type)
+        item["event_type"] = event_type
         events.append(item)
     try:
         return EventData.from_mapping(

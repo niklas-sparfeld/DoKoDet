@@ -7,16 +7,45 @@ import pytest
 
 from cardevent.config import load_config
 from cardevent.events import (
+    CARD_STATE_CHANGED_EVENT_TYPE,
     CausalEventDecoder,
+    DetectedEvent,
     ProbabilitySample,
     candidate_peaks,
     match_events,
     probabilities_to_events,
 )
+from cardevent.infer import _prediction_payload
 
 
 def sample(time_s: float, probability: float) -> ProbabilitySample:
     return ProbabilitySample(time_s=time_s, probability=probability)
+
+
+def test_generated_event_type_is_generic() -> None:
+    assert CARD_STATE_CHANGED_EVENT_TYPE == "card_state_changed"
+
+
+def test_inference_payload_marks_every_generated_event_generic() -> None:
+    payload = _prediction_payload(
+        [DetectedEvent(time_s=1.0, probability=0.9)],
+        source_video="fixture.mov",
+        checkpoint="best.pt",
+        device="cpu",
+        threshold=0.5,
+        merge_window_s=0.6,
+        preprocessing="full-frame-letterbox-v1",
+    )
+
+    assert payload["event_type"] == CARD_STATE_CHANGED_EVENT_TYPE
+    assert payload["events"] == [
+        {
+            "time_s": 1.0,
+            "probability": 0.9,
+            "emitted_at_s": 1.0,
+            "event_type": CARD_STATE_CHANGED_EVENT_TYPE,
+        }
+    ]
 
 
 def test_causal_decoder_matches_shared_fixture() -> None:

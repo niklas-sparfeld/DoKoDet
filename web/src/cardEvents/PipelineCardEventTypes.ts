@@ -1,6 +1,7 @@
 import type { PipelineReferenceOperation } from "../api/client";
 
 export const PIPELINE_CARD_EVENT_TYPES = [
+  "card_state_changed",
   "card_played",
   "trick_cleared",
   "card_moved",

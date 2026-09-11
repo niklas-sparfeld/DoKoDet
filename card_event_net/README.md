@@ -1,7 +1,8 @@
 # CardEventNet
 
 CardEventNet detects meaningful visible card-state changes. A detected event triggers a new
-table-state evaluation.
+table-state evaluation. Every generated proposal uses the generic event type
+`card_state_changed`; it does not claim a card play, a card side, or another gameplay meaning.
 
 Run the commands below from `card_event_net/`.
 
@@ -81,8 +82,10 @@ The annotation tool stores one JSON file per source video in `data/annotations/`
 annotation V2 and contain saved events without geometry. Existing V1 files with an ROI load, and
 the next edit saves them as V2. Event types are `card_played`, `trick_cleared`, `card_moved`,
 `card_removed`, `card_returned`, `multiple_cards_dropped`, and `anomalous_state_change`.
-Use the repository's [labeling guidelines](../docs/CardEventNet_LabelingGuidelines.md) for class,
-timestamp, close-event, and hard-negative decisions.
+These detailed types are offline annotation labels. The binary training target maps every confirmed
+meaningful type to one positive `card_state_changed` target. Uncertain, ignored, and proposed
+annotations are excluded. Use the repository's [labeling guidelines](../docs/CardEventNet_LabelingGuidelines.md)
+for class, timestamp, close-event, and hard-negative decisions.
 
 Annotation controls:
 

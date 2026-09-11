@@ -26,6 +26,7 @@ PROCESSOR_RUN_REQUEST_SCHEMA_VERSION = "processor-run-request/v1"
 PROCESSOR_RUN_STATE_SCHEMA_VERSION = "processor-run-state/v1"
 PIPELINE_SELECTION_SCHEMA_VERSION = "pipeline-selection/v1"
 PIPELINE_SELECTION_UPDATE_SCHEMA_VERSION = "pipeline-selection-update/v1"
+CARD_STATE_CHANGED_EVENT_TYPE = "card_state_changed"
 
 PIPELINE_CONTENT_TYPES = frozenset(
     {"events", "visible_cards", "visual_identities", "table_observations"}

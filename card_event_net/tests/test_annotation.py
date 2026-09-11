@@ -13,6 +13,7 @@ from cardevent.annotation import (
     Roi,
     VideoAnnotation,
     annotation_path_for_video,
+    confirmed_events,
     load_annotation,
     load_annotation_proposals,
     save_annotation,
@@ -100,6 +101,20 @@ def test_validate_annotation_allows_v2_without_roi() -> None:
     )
 
     validate_annotation(annotation, metadata)
+
+
+def test_binary_target_collapses_confirmed_meaningful_types_and_excludes_unconfirmed() -> None:
+    events = (
+        AnnotationEvent(time_s=1.0, type="card_played"),
+        AnnotationEvent(time_s=2.0, type="card_moved", confidence="confirmed"),
+        AnnotationEvent(time_s=3.0, type="card_removed", confidence="confirmed"),
+        AnnotationEvent(time_s=4.0, type="trick_cleared", confidence="confirmed"),
+        AnnotationEvent(time_s=5.0, type="card_returned", confidence="uncertain"),
+        AnnotationEvent(time_s=6.0, type="multiple_cards_dropped", confidence="ignore"),
+        AnnotationEvent(time_s=7.0, type="anomalous_state_change", confidence="proposed"),
+    )
+
+    assert tuple(event.time_s for event in confirmed_events(events)) == (1.0, 2.0, 3.0, 4.0)
 
 
 def test_annotation_session_resumes_existing_file(tmp_path: Path) -> None:

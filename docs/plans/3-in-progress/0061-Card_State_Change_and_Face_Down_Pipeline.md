@@ -5,7 +5,7 @@
 - **Summary:** Make CardEventNet report generic card-state changes, process every event through the
   existing visible-card stage, and preserve face-down evidence through visual identity and table
   observation assembly.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0048 and 0049 complete
 - **Readiness:** The current processor boundaries and the required breaking contract changes are
   known. No new processor, model head, training campaign, or reconstruction behavior is required.
@@ -20,7 +20,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — align the binary CardEventNet target and generated event contract.
+- **M0:** Complete — generated CardEventNet proposals use `card_state_changed`; confirmed
+  meaningful annotation types share one binary positive target, excluded confidence states remain
+  excluded, and active backend and web contracts accept the generic event type.
 - **M1:** Not started — process every event with the existing visible-card processor.
 - **M2:** Not started — preserve card side and handle face-down visual identity outcomes.
 - **M3:** Not started — preserve card side through observation assembly and publish the boundary.

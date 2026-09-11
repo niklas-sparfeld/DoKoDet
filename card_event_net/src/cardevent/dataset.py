@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-from .annotation import VideoAnnotation
+from .annotation import VideoAnnotation, confirmed_event_times
 from .cache import CacheError, CacheMetadata, load_cache_metadata
 from .sampling import (
     DEFAULT_CLIP_OFFSETS_S,
@@ -171,11 +171,7 @@ def samples_for_annotation(
 ) -> list[DatasetSample]:
     return samples_for_cache(
         cache_dir,
-        [
-            event.time_s
-            for event in annotation.events
-            if event.confidence in {None, "confirmed"}
-        ],
+        confirmed_event_times(annotation.events),
         **sampling_options,
     )
 
