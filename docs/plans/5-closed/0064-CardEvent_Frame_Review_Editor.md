@@ -4,13 +4,14 @@
 
 - **Summary:** Replace the CardEvent review video with an exact source-frame work surface. Put
   event controls in a compact left sidebar. Keep the current right inspector unchanged.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Plans 0049, 0054, and 0062 complete
 - **Builds on:** The shared Timeline Rail, exact source-frame derived view, and CardEvent review
   command queue
 - **Outcome:** An operator reviews one CardEvent at a time with a large borderless exact source
   frame. The left sidebar shows the frequent controls and their shortcuts. The existing right
   inspector continues to own progress, save state, completion, and metadata.
+- **Closure reason:** Complete
 - **Reviewed:** 2026-09-11 against the current CardEvent editor and the visible-card and visual
   identity frame editors.
 
@@ -20,7 +21,7 @@
   selection, playhead, retained-frame, unavailable, and request-failure states.
 - **M1:** Complete — move frequent CardEvent controls to the left sidebar and remove repeated
   central UI.
-- **M2:** Not started — prove the simplified editor at desktop and narrow sizes with keyboard and
+- **M2:** Complete — prove the simplified editor at desktop and narrow sizes with keyboard and
   accessibility coverage.
 
 ## 1. Purpose
@@ -198,6 +199,21 @@ Acceptance:
 - keyboard workflows for seek, marker navigation, nudge, accept, dismiss, and add still pass;
 - rapid frame changes, save retry, and conflict recovery retain their current behavior; and
 - the CardEvent editor has no video element in reviewed mode.
+
+#### M2 implementation evidence — 2026-09-11
+
+- Added Playwright fixtures for pending, accepted, dismissed, manual, no-selection, loading, and
+  failed-frame reviewed states. The fixtures use the recording-owned pipeline, maintained
+  reference, exact-frame, and draft-update routes.
+- Added desktop and narrow geometry checks for the borderless frame, left controls, existing right
+  inspector, shared Timeline Rail, page bounds, and narrow frame-first ordering. All shortcut
+  buttons are checked for visible pills, accessible names, and keyboard focus order.
+- Added browser checks for exact-frame alternative text, live status announcements, all review
+  commands, repeated frame requests, and the absence of a video element in the reviewed task
+  surface. The focused editor tests continue to cover save retry and revision-conflict recovery.
+- Verification passed: `mise exec -- npm run typecheck`, `mise exec -- npm run lint`,
+  `mise exec -- npm run format`, `mise exec -- npm test` (150 tests), and
+  `mise exec -- npm run test:e2e` (12 tests, including a fresh production build) from `web`.
 
 ## 5. Verification
 
