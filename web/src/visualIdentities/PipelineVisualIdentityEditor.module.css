@@ -115,6 +115,37 @@
   height: auto;
 }
 
+.cropPreview {
+  display: grid;
+  min-height: 12rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 45%, var(--panel));
+}
+
+.cropPreview[data-loaded="true"] {
+  min-height: 0;
+}
+
+.cropPlaceholder,
+.cropPreview > .cropImage {
+  grid-area: 1 / 1;
+}
+
+.cropPlaceholder {
+  display: grid;
+  min-height: 12rem;
+  place-items: center;
+  padding: 1rem;
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cropImage[data-loaded="false"] {
+  opacity: 0;
+}
+
 .frameImageContainer {
   position: relative;
 }

@@ -399,6 +399,53 @@ describe("PipelineVisualIdentityEditor", () => {
     window.removeEventListener("popstate", popstate);
   });
 
+  it("shows a placeholder while the selected crop preview loads", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          jsonResponse(
+            generatedResult(undefined, [
+              outcome(),
+              outcome(undefined, "card-2", 1_000_000),
+            ]),
+          ),
+        ),
+      ),
+    );
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+      />,
+    );
+
+    const firstCrop = await screen.findByRole("img", {
+      name: `Derived identity crop for ${CARD_ID}`,
+    });
+    fireEvent.load(firstCrop);
+    expect(firstCrop).toHaveAttribute("data-loaded", "true");
+    await waitFor(() =>
+      expect(window.location.search).toContain(`item=${CARD_ID}`),
+    );
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+
+    const nextCrop = await screen.findByRole("img", {
+      name: "Derived identity crop for card-2",
+    });
+    expect(nextCrop).toHaveAttribute("data-loaded", "false");
+    expect(screen.getByText("Loading crop preview…")).toBeInTheDocument();
+
+    fireEvent.load(nextCrop);
+    expect(nextCrop).toHaveAttribute("data-loaded", "true");
+    expect(screen.queryByText("Loading crop preview…")).not.toBeInTheDocument();
+  });
+
   it("colors identity polygons by review state", async () => {
     vi.stubGlobal(
       "fetch",

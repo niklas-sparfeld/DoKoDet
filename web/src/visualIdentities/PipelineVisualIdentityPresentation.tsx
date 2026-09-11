@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import {
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
@@ -60,19 +62,15 @@ export function IdentityItemPanel({
     >
       <div className={identityStyles.detailGrid}>
         <figure className={identityStyles.imagePanel}>
-          {cropUrl !== null ? (
-            <img
-              className={identityStyles.cropImage}
-              src={cropUrl}
-              alt={`Derived identity crop for ${item.itemId}`}
-            />
-          ) : (
-            <p className={styles.detailEmptyState}>
-              {crop?.unusable_reason ??
-                item.outcome.error ??
-                "No usable crop is available."}
-            </p>
-          )}
+          <IdentityCropPreview
+            cropUrl={cropUrl}
+            itemId={item.itemId}
+            emptyMessage={
+              crop?.unusable_reason ??
+              item.outcome.error ??
+              "No usable crop is available."
+            }
+          />
         </figure>
         <figure className={identityStyles.imagePanel}>
           <div className={identityStyles.frameImageContainer}>
@@ -121,6 +119,41 @@ export function IdentityItemPanel({
         </section>
       ) : null}
     </section>
+  );
+}
+
+function IdentityCropPreview({
+  cropUrl,
+  itemId,
+  emptyMessage,
+}: {
+  cropUrl: string | null;
+  itemId: string;
+  emptyMessage: string;
+}) {
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+
+  if (cropUrl === null) {
+    return <p className={styles.detailEmptyState}>{emptyMessage}</p>;
+  }
+
+  const loaded = loadedUrl === cropUrl;
+  return (
+    <div className={identityStyles.cropPreview} data-loaded={loaded}>
+      {!loaded ? (
+        <div className={identityStyles.cropPlaceholder} role="status">
+          Loading crop preview…
+        </div>
+      ) : null}
+      <img
+        key={cropUrl}
+        className={identityStyles.cropImage}
+        data-loaded={loaded}
+        src={cropUrl}
+        alt={`Derived identity crop for ${itemId}`}
+        onLoad={() => setLoadedUrl(cropUrl)}
+      />
+    </div>
   );
 }
 
