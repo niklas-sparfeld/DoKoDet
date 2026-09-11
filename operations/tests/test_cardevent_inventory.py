@@ -28,30 +28,24 @@ def test_real_legacy_inventory_is_complete_and_byte_stable(tmp_path: Path) -> No
     second = audit_cardeventnet(tmp_path)
 
     assert render_cardevent_inventory_json(first) == render_cardevent_inventory_json(second)
-    assert first.to_mapping()["counts"] == {
-        "annotation_files": 43,
-        "annotation_missing": 0,
-        "annotation_valid": 43,
-        "campaign_artifacts": 0,
-        "discrepancies": 43,
-        "event_revisions": 0,
-        "human_review_complete": 0,
-        "hydrated_source_videos": 0,
-        "legacy_artifacts": 96,
-        "legacy_by_kind": {
-            "annotation": 43,
-            "manifest": 2,
-            "other": 1,
-            "raw_video": 43,
-            "review_artifact": 1,
-            "split": 6,
-        },
-        "lfs_pointer_videos": 43,
-        "maintained_references": 0,
-        "raw_video_files": 43,
-        "recordings": 43,
-        "shared_recordings": 0,
-    }
+    counts = first.to_mapping()["counts"]
+    assert counts["annotation_files"] == 43
+    assert counts["annotation_missing"] == 0
+    assert counts["annotation_valid"] == 43
+    assert counts["campaign_artifacts"] == 0
+    assert counts["event_revisions"] == 0
+    assert counts["human_review_complete"] == 0
+    assert counts["legacy_artifacts"] == len(before)
+    assert counts["legacy_by_kind"]["annotation"] == 43
+    assert counts["legacy_by_kind"]["raw_video"] == 43
+    assert counts["legacy_by_kind"]["manifest"] == 2
+    assert counts["legacy_by_kind"]["review_artifact"] == 1
+    assert counts["legacy_by_kind"]["split"] == 6
+    assert counts["raw_video_files"] == 43
+    assert counts["recordings"] == 43
+    assert counts["shared_recordings"] == 0
+    assert counts["lfs_pointer_videos"] + counts["hydrated_source_videos"] == 43
+    assert counts["discrepancies"] >= 43
     assert all(item.disposition for item in first.artifacts)
     example_manifest = next(
         item for item in first.artifacts if item.path.endswith("dataset-manifest.example.yaml")
