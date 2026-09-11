@@ -142,10 +142,19 @@ describe("RunControls", () => {
       "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH.";
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ detail: { message } }), {
-          status: 422,
-          headers: { "Content-Type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "invalid_pipeline_request",
+              message,
+              details: [],
+            },
+          }),
+          {
+            status: 422,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
       ),
     );
     vi.stubGlobal("fetch", fetchMock);

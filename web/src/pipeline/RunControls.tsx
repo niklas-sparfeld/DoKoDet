@@ -574,8 +574,11 @@ function describeRunError(reason: unknown): string {
     reason.body && typeof reason.body === "object" ? reason.body : null,
   );
   const nested = readObject(detail?.detail);
+  const stableError = readObject(detail?.error);
   const backendMessage =
-    readString(nested?.message) ?? readString(detail?.message);
+    readString(stableError?.message) ??
+    readString(nested?.message) ??
+    readString(detail?.message);
   if (backendMessage?.toLowerCase().includes("checkpoint")) {
     return backendMessage;
   }
