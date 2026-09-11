@@ -559,7 +559,7 @@ export function PipelineVisualIdentityEditor({
           expected_revision: serverRevisionRef.current,
           operator_id: reviewerId.trim(),
           coverage: {
-            kind: "identity_cards",
+            kind: "visual_identities",
             cards: currentItems.map((item) => ({
               card_id: item.itemId,
               decision:

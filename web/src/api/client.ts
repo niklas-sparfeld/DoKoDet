@@ -155,7 +155,7 @@ export type PipelineReferenceCompletionRequest = {
         }>;
       }
     | {
-        kind: "identity_cards";
+        kind: "visual_identities";
         cards: Array<{
           card_id: string;
           decision: "identity" | "unusable";

@@ -613,4 +613,43 @@ describe("PipelineVisualIdentityEditor", () => {
       screen.getByRole("button", { name: "Complete reference" }),
     ).toBeDisabled();
   });
+
+  it("uses the backend coverage kind when completing the reference", async () => {
+    let completionPayload: Record<string, unknown> | null = null;
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "POST") {
+        completionPayload = JSON.parse(String(init.body));
+        return Promise.resolve(jsonResponse(reference("accepted", [], 2)));
+      }
+      return Promise.resolve(jsonResponse(reference("accepted")));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={null}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Reviewer ID"), "reviewer-01");
+    const completeButton = screen.getByRole("button", {
+      name: "Complete reference",
+    });
+    await waitFor(() => expect(completeButton).not.toBeDisabled());
+    await user.click(completeButton);
+
+    await waitFor(() => expect(completionPayload).not.toBeNull());
+    expect(completionPayload).toMatchObject({
+      coverage: {
+        kind: "visual_identities",
+        cards: [{ card_id: CARD_ID, decision: "identity" }],
+      },
+    });
+  });
 });
