@@ -24,6 +24,7 @@ dependencies = [
 [project.scripts]
 dokodetector-backend = "dokodetector_backend.server:run"
 dokodetector-consolidate-storage = "dokodetector_backend.storage_consolidation:main"
+dokodetector-canonicalize-cardeventnet = "dokodetector_backend.cardeventnet_canonicalization:main"
 
 [dependency-groups]
 dev = [

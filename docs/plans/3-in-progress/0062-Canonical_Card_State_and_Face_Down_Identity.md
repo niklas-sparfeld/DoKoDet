@@ -4,7 +4,7 @@
 
 - **Summary:** Remove the retired event taxonomy from active data and UI, and make `FACE_DOWN` a
   first-class visual classification without adding it to the Doppelkopf card identities.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0061 complete
 - **Readiness:** The remaining legacy data, UI controls, classifier vocabulary, and review paths are
   identified. The change uses the existing event and visual-identity processors.
@@ -19,7 +19,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — canonicalize active event data and record the durable revision replacement.
+- **M0:** Complete — canonicalized active annotations, the review fixture, current event references,
+  and selected event revisions. Historical revisions remain readable and the durable receipt is
+  idempotent.
 - **M1:** Not started — remove the retired event taxonomy from active contracts and UI.
 - **M2:** Not started — add the `FACE_DOWN` visual classification and processor outcome.
 - **M3:** Not started — make visual-identity review and training data use the face-down class.
@@ -158,6 +160,19 @@ Acceptance:
 - event count, order, time, confidence, notes, coverage, and source lineage are unchanged;
 - old immutable revisions remain readable and are not selected as current data; and
 - a repeated migration is a no-op with the same audit result.
+
+#### M0 implementation evidence — 2026-09-11
+
+The canonicalization receipt is stored at `data/operations/cardeventnet-canonicalization-m0.json`.
+It records the pre-migration inventory, content and manifest digests, source lineage, coverage,
+reference changes, selection changes, historical revisions, and frozen-dataset checks.
+
+The migration changed 2,139 tracked annotation events in 43 files and 953 legacy values in one
+active review fixture. It published 11 canonical replacement revisions, updated 11 maintained
+event references and 11 current selections, and preserved all 22 original event revisions as
+historical data. The second invocation returned the same receipt byte-for-byte. The separate
+`cardeventnet-imports` annotation sidecars were not rewritten because they are immutable import
+history, not active revisions or selections.
 
 ### M1 — Remove the retired event taxonomy from contracts and UI
 

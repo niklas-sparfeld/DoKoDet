@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .events import CARD_STATE_CHANGED_EVENT_TYPE
 from .intake_contract import (
     IntakeContractError,
     ProposalGeneratorRun,
@@ -38,6 +39,7 @@ class AnnotationError(ValueError):
 
 EVENT_TYPES = frozenset(
     {
+        CARD_STATE_CHANGED_EVENT_TYPE,
         "card_played",
         "trick_cleared",
         "card_moved",

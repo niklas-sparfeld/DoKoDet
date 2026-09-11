@@ -46,13 +46,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0062 — Canonical card-state data and face-down identity](2-ready/0062-Canonical_Card_State_and_Face_Down_Identity.md) | 0061 complete | Replace current legacy event annotations and revisions with generic card-state changes, remove the event taxonomy from the UI, and add `FACE_DOWN` as a visual classification without changing reconstruction behavior. M0–M4 not started. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
+| [0062 — Canonical card-state data and face-down identity](3-in-progress/0062-Canonical_Card_State_and_Face_Down_Identity.md) | 0061 complete | M0 is complete: active annotations, fixture values, current event references, and selections are canonical, with immutable history and an idempotent receipt. M1–M4 remain not started. |
 
 ### Blocked
 

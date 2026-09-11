@@ -4,217 +4,217 @@
   "events": [
     {
       "time_s": 2.001929392446634,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 3.503376436781609,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 4.003858784893268,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 4.754582307060755,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 5.505305829228242,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 8.257958743842364,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 9.008682266009851,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 10.009646962233168,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 11.010611658456485,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 12.261817528735632,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 15.514952791461411,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 16.515917487684728,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 17.516882183908045,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 18.517846880131362,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 19.51881157635468,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 22.77194683908046,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 23.772911535303777,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 24.523635057471264,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 25.27435857963875,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 26.775805623973724,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 29.778699712643675,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 30.529423234811166,
-      "type": "card_moved"
+      "type": "card_state_changed"
     },
     {
       "time_s": 30.779664408866992,
-      "type": "card_played",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 31.530387931034483,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 32.531352627257796,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 33.53231732348112,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 37.285934934318554,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 38.28689963054187,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 39.28786432676519,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 40.03858784893267,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 41.54003489326765,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 45.29365250410509,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 46.04437602627257,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 46.795099548440064,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 47.79606424466338,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 48.54678776683087,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 56.05402298850574,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 57.80571120689655,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 58.80667590311987,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 59.55739942528735,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 60.55836412151067,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 68.31584051724137,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 69.31680521346469,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 70.31776990968801,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 71.31873460591133,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 72.06945812807881,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     },
     {
       "time_s": 74.57186986863711,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 75.82307573891624,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 76.57379926108374,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 77.32452278325123,
-      "type": "card_played"
+      "type": "card_state_changed"
     },
     {
       "time_s": 78.8259698275862,
-      "type": "trick_cleared",
+      "type": "card_state_changed",
       "confidence": "confirmed"
     }
   ]

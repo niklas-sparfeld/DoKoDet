@@ -19,6 +19,7 @@ from cardevent.annotation import (
     save_annotation,
     validate_annotation,
 )
+from cardevent.events import CARD_STATE_CHANGED_EVENT_TYPE
 from cardevent.video import VideoMetadata
 
 
@@ -48,6 +49,22 @@ def test_load_annotation_proposals_reads_repository_bundle_run() -> None:
     proposals = load_annotation_proposals(proposal_path)
 
     assert proposals == (AnnotationProposal(time_s=1.0, probability=0.9),)
+
+
+def test_load_annotation_accepts_canonical_event_type(tmp_path: Path) -> None:
+    path = tmp_path / "IMG_0090.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "cardevent-annotation/v2",
+                "video": "IMG_0090.mov",
+                "events": [{"time_s": 1.0, "type": CARD_STATE_CHANGED_EVENT_TYPE}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert load_annotation(path).events[0].type == CARD_STATE_CHANGED_EVENT_TYPE
 
 
 def test_save_annotation_sorts_events_and_warns(tmp_path: Path) -> None:
