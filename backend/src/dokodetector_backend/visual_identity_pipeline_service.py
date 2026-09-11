@@ -34,6 +34,7 @@ from doko_operations.pipeline_data import (
     sha256_bytes,
 )
 from table_evidence_analyzer.pipeline_data import (
+    DetectorBoxGeometry,
     PipelineGeometry,
     PredictedVisibleRegionGeometry,
     ReviewedVisibleRegionGeometry,
@@ -73,6 +74,8 @@ _SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._:-]+")
 def _default_crop_policy_for_geometry(geometry: PipelineGeometry) -> dict[str, str]:
     """Return the polygon crop policy that matches one visible-region geometry."""
 
+    if isinstance(geometry, DetectorBoxGeometry):
+        return {"policy_id": "raw_rectangular", "output_encoding": "ppm"}
     if isinstance(geometry, PredictedVisibleRegionGeometry):
         return {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
     if isinstance(geometry, ReviewedVisibleRegionGeometry):
@@ -86,21 +89,25 @@ def _default_crop_policy(content: VisibleCardData) -> dict[str, str]:
     """Return the default crop policy for one visible-card revision."""
 
     geometries = [
-        candidate.geometry
-        for outcome in content.outcomes
-        for candidate in outcome.candidates
+        candidate.geometry for outcome in content.outcomes for candidate in outcome.candidates
     ]
     if not geometries:
         return {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
-    policies = {
-        _default_crop_policy_for_geometry(geometry)["policy_id"] for geometry in geometries
-    }
-    if len(policies) != 1:
-        raise VisualIdentityPipelineInputError(
-            "the default visual identity crop policy requires one polygon geometry kind "
-            "per revision"
-        )
-    return {"policy_id": policies.pop(), "output_encoding": "ppm"}
+    policies = {_default_crop_policy_for_geometry(geometry)["policy_id"] for geometry in geometries}
+    if len(policies) == 1:
+        return {"policy_id": policies.pop(), "output_encoding": "ppm"}
+    # A maintained visible-card reference can contain generated geometry for accepted
+    # suggestions and reviewed geometry for corrected cards.  The item-level resolver below
+    # selects the matching policy for each geometry in that mixed revision.
+    return {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
+
+
+def _crop_policy_for_geometry(policy_id: str, geometry: PipelineGeometry) -> str:
+    """Resolve an origin-level polygon policy against one card's actual geometry."""
+
+    if policy_id in {"predicted_visible_region", "oracle_visible_region"}:
+        return _default_crop_policy_for_geometry(geometry)["policy_id"]
+    return policy_id
 
 
 class VisualIdentityPipelineError(RuntimeError):
@@ -467,6 +474,7 @@ class VisualIdentityPipelineService:
             crop_policy_id = crop_policy.get("policy_id")
             if crop_policy_id is None:
                 crop_policy_id = _default_crop_policy_for_geometry(geometry)["policy_id"]
+            crop_policy_id = _crop_policy_for_geometry(str(crop_policy_id), geometry)
             crop = resolve_visible_region_crop(
                 frame,
                 geometry.to_mapping(),

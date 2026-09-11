@@ -12,6 +12,7 @@ from doko_operations.pipeline_data import (
 from fastapi.testclient import TestClient
 from table_evidence_analyzer import (
     CardClassificationResult,
+    PredictedVisibleRegionGeometry,
     ReviewedVisibleRegionGeometry,
     VisibleCardCandidate,
     VisibleCardData,
@@ -61,7 +62,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
     candidates = (
         VisibleCardCandidate(
             card_id="card-classified",
-            geometry=ReviewedVisibleRegionGeometry(
+            geometry=PredictedVisibleRegionGeometry(
                 polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
@@ -231,7 +232,13 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
 
         completed_identity = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
-            json={"run_id": "identity-completed"},
+            json={
+                "run_id": "identity-completed",
+                "crop_policy": {
+                    "policy_id": "oracle_visible_region",
+                    "output_encoding": "ppm",
+                },
+            },
         )
         assert completed_identity.status_code == 202
         assert _wait_identity(client, "identity-completed")["state"]["status"] == "complete"
@@ -252,6 +259,8 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         ]
         assert outcomes[1]["geometry"]["kind"] == "reviewed-visible-region/v1"
         assert outcomes[1]["candidates"] == []
+        assert outcomes[0]["status"] == "classified"
+        assert outcomes[0]["crop_identity"]["crop_policy"] == "predicted_visible_region"
         assert outcomes[2]["crop_identity"]["status"] == "unusable"
         assert outcomes[3]["crop_identity"]["status"] == "usable"
         assert outcomes[3]["error"] == "The visual identity classifier failed for this card."
