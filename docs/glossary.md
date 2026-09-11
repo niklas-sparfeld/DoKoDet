@@ -164,6 +164,14 @@ specific name, such as `pending video`.
 A time-bounded occurrence that is relevant to detection or gameplay. Use a qualified event term
 when its review state matters.
 
+### Card-state change
+
+A persistent card-related table-state change that can justify another table observation. A
+card-state change can be a card placement, turn, meaningful move, removal, return, trick clear, or
+multi-card change. It does not assert a card play, a face side, or another gameplay meaning.
+
+Use `card_state_changed` as the event type for a generic CardEventNet proposal.
+
 ### Event proposal
 
 A possible event reported by a person or model before review. An event proposal is not ground

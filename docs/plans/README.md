@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0061 — Card-state change and face-down pipeline](2-ready/0061-Card_State_Change_and_Face_Down_Pipeline.md) | 0048 and 0049 complete | Make every CardEventNet proposal a generic card-state change, process every event with the existing visible-card processor, and preserve face-down evidence through visual identity and observation assembly without changing reconstruction behavior. M0–M3 not started. |
 
 ### In Progress
 
@@ -121,30 +122,34 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic 0057 is complete.
-2. **Reconcile 0051 M0 with the current data architecture.** Read durable revisions from
+1. **Implement 0061 before another classifier comparison.** First make CardEventNet output generic
+   card-state changes and propagate every event. Then preserve card side through visible-card,
+   visual-identity, and observation-assembly results. Do not add temporal association or change
+   reconstruction behavior.
+2. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic 0057 is complete.
+3. **Reconcile 0051 M0 with the current data architecture and the completed 0061 contracts.** Read durable revisions from
    `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
    defaults, use explicit development and validation groups, and preflight the complete experiment
    matrix against its budget.
-3. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
+4. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
    `IMG_0091` as one visually similar development comparison group. Generate and complete
    visible-card and visual identity references for the imported, different `IMG_0661` validation
    recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group gate. Keep
    sealed holdouts intact.
-4. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
+5. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
    and classifier executor, run development before validation, and measure the frozen simple
    exclusion policies. Use the decision to specify one response in 0052 or close 0052 as not
    required.
-5. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+6. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-6. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+7. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-7. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+8. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-8. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+9. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
@@ -221,6 +226,13 @@ context. Check dependencies again before changing a Blocked epic to Ready.
 - Use the newly imported `IMG_0661` recording as the intended different validation source after its
   visible-card and visual identity maintained references are complete.
 - Keep 0052, 0043, and 0050 blocked until 0051 publishes its frozen comparison and decision.
+- Add 0061 as a small pre-reconstruction processor correction. CardEventNet emits only generic
+  `card_state_changed` proposals. Visible-card detection processes every event and keeps both card
+  sides. Visual identity abstains explicitly on face-down cards. Observation assembly preserves the
+  side, while reconstruction behavior, new side processors, and temporal association stay out of
+  scope.
+- Complete 0061 before 0051 freezes another classifier comparison so the comparison records the
+  corrected side and identity semantics.
 
 ## Closed-epic policy
 
