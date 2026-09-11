@@ -6,6 +6,7 @@ import json
 import pytest
 
 from doko_operations.pipeline_data import (
+    CARD_STATE_CHANGED_EVENT_TYPE,
     EVENT_DATA_SCHEMA_VERSION,
     PIPELINE_SELECTION_SCHEMA_VERSION,
     PROCESSOR_RUN_REQUEST_SCHEMA_VERSION,
@@ -47,7 +48,7 @@ def _event_content() -> dict[str, object]:
         "events": [
             {
                 "event_id": "event-01",
-                "event_type": "card_played",
+                "event_type": CARD_STATE_CHANGED_EVENT_TYPE,
                 "start_us": 1_000_000,
                 "end_us": 1_250_000,
                 "model_scores": [{"producer_id": "card-event-net.v1", "score": 0.75}],
@@ -162,8 +163,18 @@ def test_event_revision_rejects_invalid_content_or_source(change, message: str) 
 def test_event_data_rejects_unordered_events_and_non_finite_scores() -> None:
     content = _event_content()
     content["events"] = [
-        {"event_id": "event-02", "event_type": "card_played", "start_us": 2, "end_us": 3},
-        {"event_id": "event-01", "event_type": "card_played", "start_us": 1, "end_us": 2},
+        {
+            "event_id": "event-02",
+            "event_type": CARD_STATE_CHANGED_EVENT_TYPE,
+            "start_us": 2,
+            "end_us": 3,
+        },
+        {
+            "event_id": "event-01",
+            "event_type": CARD_STATE_CHANGED_EVENT_TYPE,
+            "start_us": 1,
+            "end_us": 2,
+        },
     ]
     with pytest.raises(PipelineDataContractError):
         parse_event_data_bytes(canonical_event_data_bytes(content))
@@ -172,6 +183,19 @@ def test_event_data_rejects_unordered_events_and_non_finite_scores() -> None:
     content["events"][0]["model_scores"][0]["score"] = float("nan")
     with pytest.raises(ValueError):
         canonical_event_data_bytes(content)
+
+
+def test_active_event_contract_rejects_retired_types_but_history_can_be_read() -> None:
+    content = _event_content()
+    content["events"][0]["event_type"] = "card_played"
+
+    with pytest.raises(PipelineDataContractError, match="card_state_changed"):
+        canonical_event_data_bytes(content)
+    with pytest.raises(PipelineDataContractError, match="card_state_changed"):
+        parse_event_data_bytes(canonical_json_bytes(content))
+
+    historical = parse_event_data_bytes(canonical_json_bytes(content), allow_legacy=True)
+    assert historical.events[0].event_type == "card_played"
 
 
 def test_origin_lineage_rejects_fabricated_review_or_model_metadata() -> None:

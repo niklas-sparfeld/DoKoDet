@@ -43,7 +43,7 @@ SOURCE = {
 def event_content(*, with_score: bool = False) -> dict[str, object]:
     event: dict[str, object] = {
         "event_id": "event-01",
-        "event_type": "card_played",
+        "event_type": "card_state_changed",
         "start_us": 1_000_000,
         "end_us": 1_250_000,
     }
@@ -128,7 +128,7 @@ def request(run_id: str = "run-01") -> ProcessorRunRequest:
                 "weights_sha256": DIGEST,
                 "preprocessing": "full-frame/v1",
             },
-            "configuration": {"threshold": 0.5, "labels": ["card_played"]},
+            "configuration": {"threshold": 0.5, "labels": ["card_state_changed"]},
             "extraction_policy": {"policy_id": "exact-event/v1", "boundary": "nearest"},
             "crop_policy": None,
         }

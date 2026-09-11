@@ -34,7 +34,7 @@ class PipelineComparisonMatchingPolicyRequest(ContractModel):
     ) = None
     anchor: Literal["start_us", "end_us", "midpoint_us"] | None = None
     tolerance_us: int | None = Field(default=None, ge=0)
-    event_type: str | None = Field(default=None, min_length=1, max_length=128)
+    event_type: Literal["card_state_changed"] | None = None
     iou_threshold: float | None = Field(default=None, gt=0, le=1)
     derived_box_policy: Literal["bounding_box"] | None = None
 
@@ -138,7 +138,7 @@ class PipelineComparisonItemResponse(ContractModel):
         "unpaired_input",
     ]
     source_time_us: int | None
-    event_type: str
+    event_type: Literal["card_state_changed", "visible_card", "visual_identity"]
     reference_event_id: str | None
     run_event_id: str | None
     reference_event: dict[str, Any] | None

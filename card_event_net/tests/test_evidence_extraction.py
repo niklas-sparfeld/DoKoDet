@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import pytest
 
+from cardevent.events import CARD_STATE_CHANGED_EVENT_TYPE
 from cardevent.evidence_extraction import (
     EvidenceExtractionError,
     extract_annotation_evidence,
@@ -41,13 +42,17 @@ def _write_inputs(tmp_path: Path, *, event_time_s: float = 0.4) -> tuple[Path, P
                 "schema_version": "cardevent-annotation/v2",
                 "video": "sample.avi",
                 "events": [
-                    {"time_s": event_time_s, "type": "card_played"},
+                    {"time_s": event_time_s, "type": CARD_STATE_CHANGED_EVENT_TYPE},
                     {
                         "time_s": min(0.7, event_time_s + 0.2),
-                        "type": "card_played",
+                        "type": CARD_STATE_CHANGED_EVENT_TYPE,
                         "confidence": "uncertain",
                     },
-                    {"time_s": 0.8, "type": "trick_cleared", "confidence": "confirmed"},
+                    {
+                        "time_s": 0.8,
+                        "type": CARD_STATE_CHANGED_EVENT_TYPE,
+                        "confidence": "uncertain",
+                    },
                 ],
             }
         ),

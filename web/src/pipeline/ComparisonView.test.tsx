@@ -167,12 +167,7 @@ function comparison(
       side: index % 2 === 0 ? "left" : "right",
       outcome,
       source_time_us: (index + 1) * 100_000,
-      event_type:
-        contentType === "events"
-          ? "card_played"
-          : contentType === "visible_cards"
-            ? "visible_card"
-            : "visual_identity",
+      event_type: "card_state_changed",
       reference_event_id: null,
       run_event_id: null,
       reference_event: null,

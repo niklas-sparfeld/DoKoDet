@@ -18,7 +18,7 @@ function eventItem(
     review_state: "pending",
     item: {
       event_id: "event-1",
-      event_type: "card_played",
+      event_type: "card_state_changed",
       start_us: 1_000_000,
       end_us: 1_200_000,
       model_scores: [],
@@ -255,7 +255,7 @@ describe("PipelineCardEventEditor", () => {
             events: [
               {
                 event_id: "generated-event-1",
-                event_type: "card_played",
+                event_type: "card_state_changed",
                 start_us: 2_000_001,
                 end_us: 2_100_001,
               },
@@ -310,13 +310,13 @@ describe("PipelineCardEventEditor", () => {
             events: [
               {
                 event_id: "generated-event-1",
-                event_type: "card_played",
+                event_type: "card_state_changed",
                 start_us: 2_000_001,
                 end_us: 2_100_001,
               },
               {
                 event_id: "generated-event-2",
-                event_type: "trick_cleared",
+                event_type: "card_state_changed",
                 start_us: 3_000_001,
                 end_us: 3_100_001,
               },
@@ -342,7 +342,7 @@ describe("PipelineCardEventEditor", () => {
     );
 
     expect(
-      await screen.findByText("Trick Cleared at 0:03.000001"),
+      await screen.findByText("Card-state change at 0:03.000001"),
     ).toBeInTheDocument();
     expect(screen.getByText("0:03.000001")).toBeInTheDocument();
   });
@@ -367,13 +367,13 @@ describe("PipelineCardEventEditor", () => {
     );
 
     expect(
-      await screen.findByText("Card Played at 0:01.000000"),
+      await screen.findByText("Card-state change at 0:01.000000"),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(onRailItemsChange).toHaveBeenLastCalledWith([
         {
           itemId: "event-1",
-          label: "Card Played",
+          label: "Card-state change",
           state: "pending",
           startUs: 1_000_000,
           endUs: 1_200_000,

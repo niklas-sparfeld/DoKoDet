@@ -1190,6 +1190,11 @@ export interface components {
             observed_card_id: string;
             /** Presence Score */
             presence_score?: number | null;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "face_up" | "face_down" | "unknown";
         };
         /**
          * PackageMetadataResponse
@@ -1308,8 +1313,11 @@ export interface components {
         PipelineComparisonItemResponse: {
             /** Delta Us */
             delta_us: number | null;
-            /** Event Type */
-            event_type: string;
+            /**
+             * Event Type
+             * @enum {string}
+             */
+            event_type: "card_state_changed" | "visible_card" | "visual_identity";
             /** Frame Identity */
             frame_identity: {
                 [key: string]: unknown;
@@ -1381,7 +1389,7 @@ export interface components {
             /** Derived Box Policy */
             derived_box_policy?: "bounding_box" | null;
             /** Event Type */
-            event_type?: string | null;
+            event_type?: "card_state_changed" | null;
             /** Iou Threshold */
             iou_threshold?: number | null;
             /** Kind */

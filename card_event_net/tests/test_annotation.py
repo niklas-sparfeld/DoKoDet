@@ -98,8 +98,8 @@ def test_load_annotation_rejects_unsorted_events(tmp_path: Path) -> None:
                 "video": "IMG_0090.mov",
                 "roi": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.5},
                 "events": [
-                    {"time_s": 2.0, "type": "card_played"},
-                    {"time_s": 1.0, "type": "card_played"},
+                    {"time_s": 2.0, "type": CARD_STATE_CHANGED_EVENT_TYPE},
+                    {"time_s": 1.0, "type": CARD_STATE_CHANGED_EVENT_TYPE},
                 ],
             }
         ),
@@ -122,13 +122,23 @@ def test_validate_annotation_allows_v2_without_roi() -> None:
 
 def test_binary_target_collapses_confirmed_meaningful_types_and_excludes_unconfirmed() -> None:
     events = (
-        AnnotationEvent(time_s=1.0, type="card_played"),
-        AnnotationEvent(time_s=2.0, type="card_moved", confidence="confirmed"),
-        AnnotationEvent(time_s=3.0, type="card_removed", confidence="confirmed"),
-        AnnotationEvent(time_s=4.0, type="trick_cleared", confidence="confirmed"),
-        AnnotationEvent(time_s=5.0, type="card_returned", confidence="uncertain"),
-        AnnotationEvent(time_s=6.0, type="multiple_cards_dropped", confidence="ignore"),
-        AnnotationEvent(time_s=7.0, type="anomalous_state_change", confidence="proposed"),
+        AnnotationEvent(time_s=1.0, type=CARD_STATE_CHANGED_EVENT_TYPE),
+        AnnotationEvent(
+            time_s=2.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"
+        ),
+        AnnotationEvent(
+            time_s=3.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"
+        ),
+        AnnotationEvent(
+            time_s=4.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"
+        ),
+        AnnotationEvent(
+            time_s=5.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="uncertain"
+        ),
+        AnnotationEvent(time_s=6.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="ignore"),
+        AnnotationEvent(
+            time_s=7.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="proposed"
+        ),
     )
 
     assert tuple(event.time_s for event in confirmed_events(events)) == (1.0, 2.0, 3.0, 4.0)
@@ -154,7 +164,7 @@ def test_annotation_session_resumes_existing_file(tmp_path: Path) -> None:
             {
                 "video": "sample.mov",
                 "roi": {"x": 0.1, "y": 0.1, "width": 0.6, "height": 0.6},
-                "events": [{"time_s": 1.0, "type": "card_played"}],
+                "events": [{"time_s": 1.0, "type": CARD_STATE_CHANGED_EVENT_TYPE}],
             }
         ),
         encoding="utf-8",
@@ -181,8 +191,12 @@ def test_annotation_session_resumes_existing_file(tmp_path: Path) -> None:
         "schema_version": "cardevent-annotation/v2",
         "video": "sample.mov",
         "events": [
-            {"time_s": 1.0, "type": "card_played"},
-            {"time_s": 2.0, "type": "card_played", "confidence": "confirmed"},
+            {"time_s": 1.0, "type": CARD_STATE_CHANGED_EVENT_TYPE},
+            {
+                "time_s": 2.0,
+                "type": CARD_STATE_CHANGED_EVENT_TYPE,
+                "confidence": "confirmed",
+            },
         ],
     }
 
@@ -200,11 +214,17 @@ def test_new_annotation_session_saves_without_roi(tmp_path: Path) -> None:
     assert json.loads(session.annotation_path.read_text(encoding="utf-8")) == {
         "schema_version": "cardevent-annotation/v2",
         "video": "IMG_0090.mov",
-        "events": [{"time_s": 1.0, "type": "card_played", "confidence": "confirmed"}],
+        "events": [
+            {
+                "time_s": 1.0,
+                "type": CARD_STATE_CHANGED_EVENT_TYPE,
+                "confidence": "confirmed",
+            }
+        ],
     }
 
 
-def test_record_event_replaces_type_within_duplicate_tolerance(tmp_path: Path) -> None:
+def test_record_event_preserves_singleton_type_within_duplicate_tolerance(tmp_path: Path) -> None:
     metadata = sample_metadata()
     session = AnnotationSession(
         video_path=metadata.path,
@@ -213,20 +233,20 @@ def test_record_event_replaces_type_within_duplicate_tolerance(tmp_path: Path) -
         events=[
             AnnotationEvent(
                 time_s=1.0,
-                type="card_played",
+                type=CARD_STATE_CHANGED_EVENT_TYPE,
                 confidence="uncertain",
                 notes="turned face up",
             )
         ],
     )
 
-    selected_index = session.record_event(1.005, event_type="card_moved")
+    selected_index = session.record_event(1.005)
 
     assert selected_index == 0
     assert session.events == [
         AnnotationEvent(
             time_s=1.0,
-            type="card_moved",
+            type=CARD_STATE_CHANGED_EVENT_TYPE,
             confidence="uncertain",
             notes="turned face up",
         )
@@ -243,7 +263,7 @@ def test_record_event_adds_new_event_in_time_order(tmp_path: Path) -> None:
         events=[AnnotationEvent(time_s=2.0)],
     )
 
-    selected_index = session.record_event(1.0, event_type="card_played")
+    selected_index = session.record_event(1.0)
 
     assert selected_index == 0
     assert [event.time_s for event in session.events] == [1.0, 2.0]
@@ -258,7 +278,7 @@ def test_nearest_event_index_follows_timestamp(tmp_path: Path) -> None:
         annotation_path=tmp_path / "IMG_0090.json",
         events=[
             AnnotationEvent(time_s=1.0),
-            AnnotationEvent(time_s=3.0, type="card_moved"),
+            AnnotationEvent(time_s=3.0, type=CARD_STATE_CHANGED_EVENT_TYPE),
         ],
     )
 
@@ -279,14 +299,14 @@ def test_nearest_event_index_is_none_without_events(tmp_path: Path) -> None:
     assert session.nearest_event_index(1.0) is None
 
 
-def test_extended_event_types_and_optional_fields_round_trip(tmp_path: Path) -> None:
+def test_event_optional_fields_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "IMG_0090.json"
     annotation = VideoAnnotation(
         video="IMG_0090.mov",
         events=(
             AnnotationEvent(
                 time_s=1.0,
-                type="trick_cleared",
+                type=CARD_STATE_CHANGED_EVENT_TYPE,
                 confidence="confirmed",
                 notes="all cards removed",
             ),
@@ -298,10 +318,10 @@ def test_extended_event_types_and_optional_fields_round_trip(tmp_path: Path) -> 
     assert load_annotation(path).events[0] == annotation.events[0]
 
 
-def test_annotation_rejects_unknown_event_type() -> None:
+def test_annotation_rejects_retired_event_type() -> None:
     annotation = VideoAnnotation(
         video="IMG_0090.mov",
-        events=(AnnotationEvent(time_s=1.0, type="unknown"),),
+        events=(AnnotationEvent(time_s=1.0, type="card_played"),),
     )
 
     with pytest.raises(AnnotationError, match="Unknown event type"):
@@ -315,7 +335,13 @@ def test_load_annotation_preserves_legacy_roi_but_saves_v2(tmp_path: Path) -> No
             {
                 "video": "IMG_0090.mov",
                 "roi": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.5},
-                "events": [{"time_s": 1.0, "type": "card_played", "notes": "legacy"}],
+                "events": [
+                    {
+                        "time_s": 1.0,
+                        "type": CARD_STATE_CHANGED_EVENT_TYPE,
+                        "notes": "legacy",
+                    }
+                ],
             }
         ),
         encoding="utf-8",
@@ -328,7 +354,13 @@ def test_load_annotation_preserves_legacy_roi_but_saves_v2(tmp_path: Path) -> No
     assert json.loads(path.read_text(encoding="utf-8")) == {
         "schema_version": "cardevent-annotation/v2",
         "video": "IMG_0090.mov",
-        "events": [{"time_s": 1.0, "type": "card_played", "notes": "legacy"}],
+        "events": [
+            {
+                "time_s": 1.0,
+                "type": CARD_STATE_CHANGED_EVENT_TYPE,
+                "notes": "legacy",
+            }
+        ],
     }
 
 

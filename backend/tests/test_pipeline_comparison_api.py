@@ -181,13 +181,13 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
         [
             {
                 "event_id": "ref-1",
-                "event_type": "card_played",
+                "event_type": "card_state_changed",
                 "start_us": 500_000,
                 "end_us": 510_000,
             },
             {
                 "event_id": "ref-2",
-                "event_type": "card_played",
+                "event_type": "card_state_changed",
                 "start_us": 1_500_000,
                 "end_us": 1_510_000,
             },
@@ -209,19 +209,19 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
             [
                 {
                     "event_id": "left-match",
-                    "event_type": "card_played",
+                    "event_type": "card_state_changed",
                     "start_us": 510_000,
                     "end_us": 520_000,
                 },
                 {
                     "event_id": "left-extra",
-                    "event_type": "card_played",
+                    "event_type": "card_state_changed",
                     "start_us": 700_000,
                     "end_us": 710_000,
                 },
                 {
                     "event_id": "left-unreviewed",
-                    "event_type": "card_played",
+                    "event_type": "card_state_changed",
                     "start_us": 1_500_000,
                     "end_us": 1_510_000,
                 },
@@ -237,7 +237,7 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
             [
                 {
                     "event_id": "right-match",
-                    "event_type": "card_played",
+                    "event_type": "card_state_changed",
                     "start_us": 500_000,
                     "end_us": 510_000,
                 }
@@ -288,7 +288,14 @@ def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
     base = _content([])
     _publish_revision(revisions, revision_id="upstream-1", content=base, origin="manual")
     reference = _content(
-        [{"event_id": "ref-1", "event_type": "card_played", "start_us": 500_000, "end_us": 510_000}]
+        [
+            {
+                "event_id": "ref-1",
+                "event_type": "card_state_changed",
+                "start_us": 500_000,
+                "end_us": 510_000,
+            }
+        ]
     )
     _publish_revision(revisions, revision_id="reference-1", content=reference, origin="manual")
     _create_complete_run(
@@ -323,7 +330,14 @@ def test_partial_run_with_valid_output_is_comparable(tmp_path: Path) -> None:
     revisions = app.state.pipeline_revision_store
     runs = app.state.pipeline_run_store
     reference = _content(
-        [{"event_id": "ref-1", "event_type": "card_played", "start_us": 500_000, "end_us": 510_000}]
+        [
+            {
+                "event_id": "ref-1",
+                "event_type": "card_state_changed",
+                "start_us": 500_000,
+                "end_us": 510_000,
+            }
+        ]
     )
     _publish_revision(revisions, revision_id="reference-1", content=reference, origin="manual")
     _create_partial_run(

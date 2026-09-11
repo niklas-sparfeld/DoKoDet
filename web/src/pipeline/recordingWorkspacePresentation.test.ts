@@ -159,7 +159,7 @@ describe("recording workspace presentation model", () => {
             item_id: "event-1",
             status: "succeeded",
             result: {
-              event_type: "card_played",
+              event_type: "card_state_changed",
               start_us: 1_000_000,
               end_us: 1_500_000,
             },
@@ -206,7 +206,7 @@ describe("recording workspace presentation model", () => {
         itemId: "event-1",
         selectionParam: "item",
         laneId: "proposals",
-        label: "card_played",
+        label: "Card-state change",
         state: "succeeded",
         timeRange: { startUs: 1_000_000, endUs: 1_500_000 },
         runId: "run-events-1",

@@ -11,10 +11,7 @@ import {
 } from "../api/client";
 import styles from "../App.module.css";
 import eventStyles from "./PipelineCardEventEditor.module.css";
-import {
-  eventTypeGuidance,
-  formatIdentifier,
-} from "./PipelineCardEventFormatting";
+import { formatIdentifier } from "./PipelineCardEventFormatting";
 import {
   readProfileName,
   subscribeToProfileName,
@@ -31,16 +28,15 @@ import {
   useEventInspectorSlots,
 } from "./PipelineCardEventInspector";
 import {
-  PIPELINE_CARD_EVENT_TYPES,
+  CARD_STATE_CHANGED_EVENT_TYPE,
   type EditableEvent,
   type EventState,
   type PendingCommand,
-  type PipelineCardEventType,
   type PipelineEvent,
   type SaveState,
 } from "./PipelineCardEventTypes";
 
-export { PIPELINE_CARD_EVENT_TYPES } from "./PipelineCardEventTypes";
+export { CARD_STATE_CHANGED_EVENT_TYPE } from "./PipelineCardEventTypes";
 
 export type PipelineCardEventRailItem = {
   itemId: string;
@@ -339,7 +335,7 @@ export function PipelineCardEventEditor({
     onRailItemsChange?.(
       events.map((event) => ({
         itemId: event.itemId,
-        label: formatIdentifier(event.event.event_type),
+        label: "Card-state change",
         state: event.reviewState,
         startUs: event.event.start_us,
         endUs: event.event.end_us,
@@ -517,7 +513,7 @@ export function PipelineCardEventEditor({
       reviewState: "added",
       event: {
         event_id: `manual-${Date.now()}-${commandSequenceRef.current + 1}`,
-        event_type: "card_state_changed",
+        event_type: CARD_STATE_CHANGED_EVENT_TYPE,
         start_us: startUs,
         end_us: startUs,
       },
@@ -968,17 +964,10 @@ export function PipelineCardEventEditor({
               reject · N add · comma/period nudge one frame · Delete remove.
             </p>
           </details>
-          <details>
-            <summary>Event-type guidance</summary>
-            <ul>
-              {PIPELINE_CARD_EVENT_TYPES.map((type) => (
-                <li key={type}>
-                  <strong>{formatIdentifier(type)}:</strong>{" "}
-                  {eventTypeGuidance(type)}
-                </li>
-              ))}
-            </ul>
-          </details>
+          <p className={styles.detailLead}>
+            Review whether a persistent card-related table-state change is
+            visible and set its time to the first clear frame.
+          </p>
         </div>
 
         {notice !== null ? (
@@ -1057,7 +1046,7 @@ function readPipelineEvent(
   if (
     typeof eventId !== "string" ||
     typeof eventType !== "string" ||
-    !isPipelineCardEventType(eventType) ||
+    eventType !== CARD_STATE_CHANGED_EVENT_TYPE ||
     !isInteger(startUs) ||
     !isInteger(endUs)
   )
@@ -1073,11 +1062,6 @@ function readPipelineEvent(
   };
 }
 
-function isPipelineCardEventType(
-  value: string,
-): value is PipelineCardEventType {
-  return (PIPELINE_CARD_EVENT_TYPES as readonly string[]).includes(value);
-}
 function isEventState(value: string): value is EventState {
   return [
     "pending",

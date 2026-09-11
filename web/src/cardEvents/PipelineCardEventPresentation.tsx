@@ -1,11 +1,6 @@
-import type { ChangeEvent, RefObject } from "react";
+import type { RefObject } from "react";
 
-import type {
-  EditableEvent,
-  PipelineCardEventType,
-  PipelineEvent,
-} from "./PipelineCardEventTypes";
-import { PIPELINE_CARD_EVENT_TYPES } from "./PipelineCardEventTypes";
+import type { EditableEvent, PipelineEvent } from "./PipelineCardEventTypes";
 import {
   formatDuration,
   formatIdentifier,
@@ -145,7 +140,7 @@ export function GeneratedEventView({
             <dl className={styles.pipelineInspectorFacts}>
               <div>
                 <dt>Selected proposal</dt>
-                <dd>{formatIdentifier(selectedEvent.event_type)}</dd>
+                <dd>Card-state change</dd>
               </div>
               <div>
                 <dt>Time</dt>
@@ -230,25 +225,10 @@ export function EventDetails({
             aria-label="End time for selected event"
           />
         </label>
-        <label>
-          Event type
-          <select
-            value={event.event.event_type}
-            disabled={!editable}
-            onChange={(input: ChangeEvent<HTMLSelectElement>) =>
-              onChange({
-                event_type: input.target.value as PipelineCardEventType,
-              })
-            }
-            aria-label="Event type for selected event"
-          >
-            {PIPELINE_CARD_EVENT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {formatIdentifier(type)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className={eventStyles.frameReadout}>
+          <span>Event</span>
+          <strong>Card-state change</strong>
+        </div>
         <div className={eventStyles.frameReadout}>
           <span>Start frame</span>
           <strong>{Math.round((event.event.start_us / 1_000_000) * 30)}</strong>

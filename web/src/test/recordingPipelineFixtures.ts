@@ -166,7 +166,7 @@ export function recordingPipelinePresentationFixture(
           item_id: "event-1",
           status: state === "failed" ? "failed" : "succeeded",
           result: {
-            event_type: "card_played",
+            event_type: "card_state_changed",
             start_us: 1_000_000,
             end_us: 1_500_000,
           },

@@ -79,23 +79,18 @@ model evaluation. It does not own recording-pipeline review or table-observation
 Use the [recording workspace](../web/README.md#local-development) for pipeline review.
 
 The annotation tool stores one JSON file per source video in `data/annotations/`. New files use
-annotation V2 and contain saved events without geometry. Existing V1 files with an ROI load, and
-the next edit saves them as V2. Event types are `card_played`, `trick_cleared`, `card_moved`,
-`card_removed`, `card_returned`, `multiple_cards_dropped`, and `anomalous_state_change`.
-These detailed types are offline annotation labels. The binary training target maps every confirmed
-meaningful type to one positive `card_state_changed` target. Uncertain, ignored, and proposed
-annotations are excluded. Use the repository's [labeling guidelines](../docs/CardEventNet_LabelingGuidelines.md)
-for class, timestamp, close-event, and hard-negative decisions.
+annotation V2 and contain saved events without geometry. Every event uses the single active type
+`card_state_changed`. It records a persistent card-related table-state change that can justify
+another table observation. Uncertain, ignored, and proposed annotations are excluded. Use the
+repository's [labeling guidelines](../docs/CardEventNet_LabelingGuidelines.md) for event,
+timestamp, close-event, and hard-negative decisions.
 
 Annotation controls:
 
 ```text
-1-7     select event type
-SPACE   add an event, or change the event type at the same timestamp
+SPACE   mark a card-state change, or keep the event at the same timestamp
 W / S   jump to the previous or next saved event
 , / .   move the selected event one frame backward or forward
-E       set the selected event to the selected type
-T       cycle the selected event type
 U       mark the selected event or selected proposal uncertain
 N / B   jump to next or previous model proposal
 C       toggle before/after comparison
@@ -107,7 +102,7 @@ Q       save and exit
 ```
 
 The selected saved event follows the current video timestamp. The overlay shows its timestamp and
-type.
+the card-state-change label.
 
 ## Setup
 
@@ -150,7 +145,7 @@ you need to preserve the source version.
 
 ## Extract evidence from reviewed annotations
 
-Create source-resolution evidence packages around reviewed `card_played` timestamps:
+Create source-resolution evidence packages around reviewed `card_state_changed` timestamps:
 
 ```bash
 uv run cardevent extract-evidence \
@@ -164,9 +159,9 @@ uv run cardevent extract-evidence \
 
 The command extracts the six target offsets `[-800, -400, -100, 150, 400, 700] ms` by default. Use
 `--target-offset-ms 0` for the exact reviewed event frame used by the first TableEvidenceAnalyzer
-visible-card baseline. Repeat the option to select several offsets. The command includes card-play
+visible-card baseline. Repeat the option to select several offsets. The command includes card-state
 events whose confidence is absent or `confirmed`. It excludes uncertain, ignored, proposed, and
-non-card-play events.
+non-card-state events.
 
 Each output package contains a `cardevent-evidence/v2` manifest and source-resolution JPEGs. The
 root `extraction-manifest.json` records source-video, annotation, event, session, split,

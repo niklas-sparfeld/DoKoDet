@@ -350,7 +350,7 @@ describe("recording pipeline workspace", () => {
                 item_id: "event-rail-1",
                 status: "succeeded",
                 result: {
-                  event_type: "card_played",
+                  event_type: "card_state_changed",
                   start_us: 2_000_000,
                   end_us: 3_000_000,
                 },
@@ -384,7 +384,7 @@ describe("recording pipeline workspace", () => {
     );
 
     const item = await screen.findByRole("button", {
-      name: "card_played, 0:02–0:03, succeeded",
+      name: "Card-state change, 0:02–0:03, succeeded",
     });
     fireEvent.click(item);
 
@@ -820,7 +820,7 @@ describe("recording pipeline workspace", () => {
             review_state: "pending",
             item: {
               event_id: "generated-event-1",
-              event_type: "card_played",
+              event_type: "card_state_changed",
               start_us: 1_000_000,
               end_us: 1_500_000,
             },
@@ -860,7 +860,7 @@ describe("recording pipeline workspace", () => {
 
     await screen.findByRole("heading", { name: "CardEvent review" });
     const item = await screen.findByRole("button", {
-      name: "Card Played, 0:01–0:02, pending",
+      name: "Card-state change, 0:01–0:02, pending",
     });
     fireEvent.click(item);
 
@@ -1212,7 +1212,7 @@ describe("recording pipeline workspace", () => {
           side: "left",
           outcome: "miss",
           source_time_us: 12_000_000,
-          event_type: "card_played",
+          event_type: "card_state_changed",
           reference_event_id: null,
           run_event_id: null,
           reference_event: null,

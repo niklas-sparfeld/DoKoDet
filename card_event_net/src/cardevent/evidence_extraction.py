@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from .annotation import AnnotationEvent, load_annotation, validate_annotation
+from .events import CARD_STATE_CHANGED_EVENT_TYPE
 from .manifest import DatasetRecord, load_dataset_manifest
 from .splits import load_split
 from .video import _import_cv2, read_video_metadata
@@ -75,7 +76,7 @@ def extract_annotation_evidence(
     target_offsets_ms: Sequence[int] = DEFAULT_TARGET_OFFSETS_MS,
     jpeg_quality: float = 0.85,
 ) -> EvidenceExtractionResult:
-    """Extract source-resolution frames around reviewed card-play annotations.
+    """Extract source-resolution frames around reviewed card-state annotations.
 
     The output contains lightweight ``cardevent-evidence/v2`` package directories and one
     extraction manifest that preserves their annotation and recording lineage. It does not publish
@@ -136,7 +137,7 @@ def extract_annotation_evidence(
                 else _sha256_file(Path(split_path).expanduser().resolve())
             ),
             "partitions": list(selected_partitions) if split_path is not None else [],
-            "event_types": ["card_played"],
+            "event_types": [CARD_STATE_CHANGED_EVENT_TYPE],
             "accepted_confidences": [None, "confirmed"],
             "target_offsets_ms": list(offsets),
             "jpeg_quality": jpeg_quality,
@@ -179,7 +180,10 @@ def _extract_record(
     selected_events = [
         (index, event)
         for index, event in enumerate(annotation.events)
-        if event.type == "card_played" and event.confidence in {None, "confirmed"}
+        if (
+            event.type == CARD_STATE_CHANGED_EVENT_TYPE
+            and event.confidence in {None, "confirmed"}
+        )
     ]
     excluded_event_count = len(annotation.events) - len(selected_events)
 

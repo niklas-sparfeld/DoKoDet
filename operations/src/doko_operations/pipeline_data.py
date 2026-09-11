@@ -27,6 +27,17 @@ PROCESSOR_RUN_STATE_SCHEMA_VERSION = "processor-run-state/v1"
 PIPELINE_SELECTION_SCHEMA_VERSION = "pipeline-selection/v1"
 PIPELINE_SELECTION_UPDATE_SCHEMA_VERSION = "pipeline-selection-update/v1"
 CARD_STATE_CHANGED_EVENT_TYPE = "card_state_changed"
+_LEGACY_EVENT_TYPES = frozenset(
+    {
+        "card_played",
+        "trick_cleared",
+        "card_moved",
+        "card_removed",
+        "card_returned",
+        "multiple_cards_dropped",
+        "anomalous_state_change",
+    }
+)
 
 PIPELINE_CONTENT_TYPES = frozenset(
     {"events", "visible_cards", "visual_identities", "table_observations"}
@@ -126,10 +137,16 @@ def _identifier(value: Any, field: str) -> str:
     return result
 
 
-def _event_type(value: Any, field: str) -> str:
+def _event_type(value: Any, field: str, *, allow_legacy: bool = False) -> str:
     result = _text(value, field)
     if len(result) > 128 or _EVENT_TYPE.fullmatch(result) is None:
         raise PipelineDataContractError(f"{field} must be a qualified event type")
+    if not allow_legacy and result != CARD_STATE_CHANGED_EVENT_TYPE:
+        raise PipelineDataContractError(
+            f"{field} must be {CARD_STATE_CHANGED_EVENT_TYPE}"
+        )
+    if allow_legacy and result not in {*_LEGACY_EVENT_TYPES, CARD_STATE_CHANGED_EVENT_TYPE}:
+        raise PipelineDataContractError(f"{field} is unsupported")
     return result
 
 
@@ -371,6 +388,7 @@ class EventRecord:
         *,
         duration_us: int = 2**63 - 1,
         context: str = "event",
+        allow_legacy: bool = False,
     ) -> EventRecord:
         data = _mapping(raw, context)
         fields = {"event_id", "event_type", "start_us", "end_us", "model_scores"}
@@ -395,7 +413,9 @@ class EventRecord:
             scores = parsed_scores
         return cls(
             event_id=_identifier(data["event_id"], f"{context}.event_id"),
-            event_type=_event_type(data["event_type"], f"{context}.event_type"),
+            event_type=_event_type(
+                data["event_type"], f"{context}.event_type", allow_legacy=allow_legacy
+            ),
             start_us=start_us,
             end_us=end_us,
             model_scores=scores,
@@ -420,7 +440,13 @@ class EventData:
     events: tuple[EventRecord, ...]
 
     @classmethod
-    def from_mapping(cls, raw: Mapping[str, Any], *, duration_us: int = 2**63 - 1) -> EventData:
+    def from_mapping(
+        cls,
+        raw: Mapping[str, Any],
+        *,
+        duration_us: int = 2**63 - 1,
+        allow_legacy: bool = False,
+    ) -> EventData:
         data = _mapping(raw, "event data")
         _strict(data, {"schema_version", "events"}, "event data")
         if data["schema_version"] != EVENT_DATA_SCHEMA_VERSION:
@@ -429,7 +455,12 @@ class EventData:
         if not isinstance(raw_events, list):
             raise PipelineDataContractError("event data.events must be a list")
         events = tuple(
-            EventRecord.from_mapping(item, duration_us=duration_us, context=f"events[{index}]")
+            EventRecord.from_mapping(
+                item,
+                duration_us=duration_us,
+                context=f"events[{index}]",
+                allow_legacy=allow_legacy,
+            )
             for index, item in enumerate(raw_events)
         )
         if len({item.event_id for item in events}) != len(events):
@@ -446,19 +477,28 @@ class EventData:
         }
 
 
-def parse_event_data_bytes(raw: bytes, *, duration_us: int = 2**63 - 1) -> EventData:
+def parse_event_data_bytes(
+    raw: bytes,
+    *,
+    duration_us: int = 2**63 - 1,
+    allow_legacy: bool = False,
+) -> EventData:
     """Parse event content; pass the source duration when validating a revision."""
 
     value = _parse_json_bytes(raw, "event data")
-    return EventData.from_mapping(_mapping(value, "event data"), duration_us=duration_us)
+    return EventData.from_mapping(
+        _mapping(value, "event data"), duration_us=duration_us, allow_legacy=allow_legacy
+    )
 
 
-def canonical_event_data_bytes(value: EventData | Mapping[str, Any]) -> bytes:
+def canonical_event_data_bytes(
+    value: EventData | Mapping[str, Any], *, allow_legacy: bool = False
+) -> bytes:
     if isinstance(value, EventData):
-        data = value
+        data = EventData.from_mapping(value.to_mapping(), allow_legacy=allow_legacy)
     else:
         raw = _mapping(value, "event data")
-        data = EventData.from_mapping(raw)
+        data = EventData.from_mapping(raw, allow_legacy=allow_legacy)
     return canonical_json_bytes(data.to_mapping())
 
 
@@ -710,7 +750,12 @@ class DataRevision:
 DataRevisionManifest = DataRevision
 
 
-def validate_event_revision_content(manifest: DataRevision, content: EventData) -> None:
+def validate_event_revision_content(
+    manifest: DataRevision,
+    content: EventData,
+    *,
+    allow_legacy: bool = False,
+) -> None:
     """Validate the event payload against its source and declared content digest."""
 
     if manifest.content_type != "events" or manifest.content_schema != EVENT_DATA_SCHEMA_VERSION:
@@ -720,7 +765,9 @@ def validate_event_revision_content(manifest: DataRevision, content: EventData) 
         if isinstance(manifest.source, RecordingVideoSource)
         else 2**63 - 1
     )
-    validated = EventData.from_mapping(content.to_mapping(), duration_us=duration_us)
+    validated = EventData.from_mapping(
+        content.to_mapping(), duration_us=duration_us, allow_legacy=allow_legacy
+    )
     content_bytes = canonical_json_bytes(validated.to_mapping())
     if sha256_bytes(content_bytes) != manifest.content_sha256:
         raise PipelineDataContractError("content_sha256 does not match canonical event content")
@@ -738,7 +785,9 @@ class EventDataRevision:
     content: EventData
 
     @classmethod
-    def from_mapping(cls, raw: Mapping[str, Any]) -> EventDataRevision:
+    def from_mapping(
+        cls, raw: Mapping[str, Any], *, allow_legacy: bool = False
+    ) -> EventDataRevision:
         data = _mapping(raw, "event data revision")
         _strict(data, {"manifest", "content"}, "event data revision")
         manifest = DataRevision.from_mapping(_mapping(data["manifest"], "manifest"))
@@ -748,16 +797,23 @@ class EventDataRevision:
             else 2**63 - 1
         )
         content = EventData.from_mapping(
-            _mapping(data["content"], "content"), duration_us=duration_us
+            _mapping(data["content"], "content"),
+            duration_us=duration_us,
+            allow_legacy=allow_legacy,
         )
-        validate_event_revision_content(manifest, content)
+        validate_event_revision_content(manifest, content, allow_legacy=allow_legacy)
         return cls(manifest=manifest, content=content)
 
     def to_mapping(self) -> dict[str, Any]:
         return {"manifest": self.manifest.to_mapping(), "content": self.content.to_mapping()}
 
 
-def parse_data_revision_bytes(raw: bytes, content_bytes: bytes | None = None) -> DataRevision:
+def parse_data_revision_bytes(
+    raw: bytes,
+    content_bytes: bytes | None = None,
+    *,
+    allow_legacy: bool = False,
+) -> DataRevision:
     """Parse a revision manifest and optionally validate its separate content file."""
 
     manifest = DataRevision.from_mapping(
@@ -771,8 +827,9 @@ def parse_data_revision_bytes(raw: bytes, content_bytes: bytes | None = None) ->
                 if isinstance(manifest.source, RecordingVideoSource)
                 else 2**63 - 1
             ),
+            allow_legacy=allow_legacy,
         )
-        validate_event_revision_content(manifest, content)
+        validate_event_revision_content(manifest, content, allow_legacy=allow_legacy)
     return manifest
 
 
@@ -788,9 +845,12 @@ def canonical_data_revision_bytes(value: DataRevision | Mapping[str, Any]) -> by
 canonical_data_revision_manifest_bytes = canonical_data_revision_bytes
 
 
-def parse_event_data_revision_bytes(raw: bytes) -> EventDataRevision:
+def parse_event_data_revision_bytes(
+    raw: bytes, *, allow_legacy: bool = False
+) -> EventDataRevision:
     return EventDataRevision.from_mapping(
-        _mapping(_parse_json_bytes(raw, "event data revision"), "event data revision")
+        _mapping(_parse_json_bytes(raw, "event data revision"), "event data revision"),
+        allow_legacy=allow_legacy,
     )
 
 

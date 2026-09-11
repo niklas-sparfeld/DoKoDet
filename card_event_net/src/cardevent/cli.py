@@ -133,10 +133,10 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Event definition:\n"
-            "  Event time is the first frame at which the card has substantially\n"
-            "  reached its final position in the trick area.\n\n"
+            "  Event time is the first frame at which a persistent card-related\n"
+            "  table-state change is observable.\n\n"
             "Controls:\n"
-            "  SPACE   mark a card_played event\n"
+            "  SPACE   mark a card-state change\n"
             "  P       pause or play\n"
             "  A / D   seek backward or forward about 250 ms\n"
             "  J / L   seek backward or forward about 2 s\n"
@@ -163,7 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
         "extract-evidence",
         help=_PLACEHOLDER_COMMANDS["extract-evidence"],
         description=(
-            "Create source-resolution evidence packages from reviewed card-play annotations."
+            "Create source-resolution evidence packages from reviewed card-state annotations."
         ),
     )
     extract_evidence_parser.add_argument("--videos-dir", type=Path, required=True)

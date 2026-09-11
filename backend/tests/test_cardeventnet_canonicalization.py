@@ -7,11 +7,12 @@ from doko_operations.pipeline_data import (
     CARD_STATE_CHANGED_EVENT_TYPE,
     DataRevision,
     EventData,
-    EventDataRevision,
     EventRecord,
     HumanProducer,
     RecordingVideoSource,
+    canonical_data_revision_bytes,
     canonical_event_data_bytes,
+    canonical_json_bytes,
     sha256_bytes,
 )
 from doko_operations.pipeline_reference import (
@@ -67,7 +68,7 @@ def _publish_event_revision(
         content_schema="event-data/v1",
         recording_id=SOURCE.recording_id,
         source=SOURCE,
-        content_sha256=sha256_bytes(canonical_event_data_bytes(content)),
+        content_sha256=sha256_bytes(canonical_event_data_bytes(content, allow_legacy=True)),
         input_revision_ids=input_revision_ids,
         origin=origin,
         producer=HumanProducer(
@@ -78,7 +79,10 @@ def _publish_event_revision(
         coverage={"kind": "event_intervals", "intervals": [{"start_us": 0, "end_us": 10_000_000}]},
         created_at="2026-09-05T10:00:00Z",
     )
-    store.publish(EventDataRevision(manifest=manifest, content=content))
+    revision_path = store.revision_path(revision_id)
+    revision_path.mkdir(parents=True)
+    (revision_path / "manifest.json").write_bytes(canonical_data_revision_bytes(manifest))
+    (revision_path / "content.json").write_bytes(canonical_json_bytes(content.to_mapping()))
 
 
 def _write_active_reference(backend_root: Path, source_revision_id: str) -> None:

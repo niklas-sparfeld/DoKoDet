@@ -18,6 +18,7 @@ from typing import Any, Protocol
 
 from .pipeline_data import (
     DataRevision,
+    EventData,
     RecordingVideoSource,
     canonical_data_revision_bytes,
 )
@@ -320,6 +321,19 @@ def _content_mapping(stored: Any) -> Mapping[str, Any]:
     return _mapping(content.to_mapping(), "revision content")
 
 
+def _active_content_mapping(stored: Any) -> Mapping[str, Any]:
+    """Return content after applying the active event contract."""
+
+    manifest = _manifest(stored)
+    content = _content_mapping(stored)
+    if manifest.content_type != "events":
+        return content
+    try:
+        return EventData.from_mapping(content).to_mapping()
+    except (TypeError, ValueError) as error:
+        raise PipelineDatasetError("event dataset content uses a retired event type") from error
+
+
 def _manifest(stored: Any) -> DataRevision:
     value = getattr(stored, "manifest", None)
     if not isinstance(value, DataRevision):
@@ -539,7 +553,7 @@ def _validate_alignment(
     policies: Mapping[str, Any],
 ) -> None:
     reference_manifest = _manifest(reference)
-    reference_content = _content_mapping(reference)
+    reference_content = _active_content_mapping(reference)
     if task == "events":
         if inputs:
             raise PipelineDatasetError("event dataset does not accept implicit input revisions")
@@ -547,7 +561,7 @@ def _validate_alignment(
     if len(inputs) != 1:
         raise PipelineDatasetError("dataset needs one explicit upstream reference revision")
     upstream_manifest = _manifest(inputs[0])
-    upstream_content = _content_mapping(inputs[0])
+    upstream_content = _active_content_mapping(inputs[0])
     if upstream_manifest.origin not in PIPELINE_DATASET_REFERENCE_ORIGINS:
         raise PipelineDatasetError("dataset upstream revisions must be completed references")
     if upstream_manifest.recording_id != reference_manifest.recording_id:

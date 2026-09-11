@@ -15,7 +15,7 @@ const ITEMS: RecordingTimelineRailItem[] = [
     itemId: "event-1",
     selectionParam: "item",
     laneId: "events",
-    label: "card_played",
+    label: "Card-state change",
     state: "pending",
     timeRange: { startUs: 1_000_000, endUs: 2_000_000 },
     runId: "run-1",
@@ -25,7 +25,7 @@ const ITEMS: RecordingTimelineRailItem[] = [
     itemId: "event-2",
     selectionParam: "item",
     laneId: "events",
-    label: "trick_cleared",
+    label: "Card-state change",
     state: "accepted",
     timeRange: { startUs: 5_000_000, endUs: 6_000_000 },
     runId: "run-1",
@@ -88,7 +88,7 @@ describe("RecordingTimelineRail", () => {
       screen.getByRole("group", { name: "Events lane" }),
     ).toBeInTheDocument();
     const first = screen.getByRole("button", {
-      name: "card_played, 0:01–0:02, pending",
+      name: "Card-state change, 0:01–0:02, pending",
     });
     expect(first).toHaveAttribute("aria-pressed", "false");
 
@@ -101,10 +101,10 @@ describe("RecordingTimelineRail", () => {
   it("supports keyboard item stepping and pointer-captured scrubbing", () => {
     const { onTimeChange } = renderRail();
     const first = screen.getByRole("button", {
-      name: "card_played, 0:01–0:02, pending",
+      name: "Card-state change, 0:01–0:02, pending",
     });
     const second = screen.getByRole("button", {
-      name: "trick_cleared, 0:05–0:06, accepted",
+      name: "Card-state change, 0:05–0:06, accepted",
     });
     fireEvent.keyDown(first, { key: "ArrowRight" });
     expect(second).toHaveFocus();
@@ -141,7 +141,7 @@ describe("RecordingTimelineRail", () => {
       document.querySelector<HTMLElement>("[data-preview-position-us]");
     const rail = document.querySelector<HTMLElement>("[data-zoom]");
     const first = screen.getByRole("button", {
-      name: "card_played, 0:01–0:02, pending",
+      name: "Card-state change, 0:01–0:02, pending",
     });
 
     expect(preview()).not.toBeInTheDocument();
@@ -239,10 +239,10 @@ describe("RecordingTimelineRail", () => {
     });
     renderRail();
     const first = screen.getByRole("button", {
-      name: "card_played, 0:01–0:02, pending",
+      name: "Card-state change, 0:01–0:02, pending",
     });
     const second = screen.getByRole("button", {
-      name: "trick_cleared, 0:05–0:06, accepted",
+      name: "Card-state change, 0:05–0:06, accepted",
     });
 
     fireEvent.pointerEnter(first);

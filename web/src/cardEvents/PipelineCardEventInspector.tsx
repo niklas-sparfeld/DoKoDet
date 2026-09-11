@@ -300,10 +300,10 @@ function EventInspectorSelection({
         {view === "reviewed"
           ? selectedEvent === undefined
             ? "Select an event from the Timeline Rail."
-            : `${formatIdentifier(selectedEvent.event.event_type)} at ${formatMicroseconds(selectedEvent.event.start_us)}`
+            : `Card-state change at ${formatMicroseconds(selectedEvent.event.start_us)}`
           : selectedGeneratedEvent === undefined
             ? "Select a proposal from the Timeline Rail."
-            : `${formatIdentifier(selectedGeneratedEvent.event_type)} at ${formatMicroseconds(selectedGeneratedEvent.start_us)}`}
+            : `Card-state change at ${formatMicroseconds(selectedGeneratedEvent.start_us)}`}
       </p>
       {view === "reviewed" && reference !== null && slots !== null ? (
         <>

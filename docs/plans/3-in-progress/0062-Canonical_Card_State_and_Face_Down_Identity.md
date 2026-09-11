@@ -22,7 +22,7 @@
 - **M0:** Complete — canonicalized active annotations, the review fixture, current event references,
   and selected event revisions. Historical revisions remain readable and the durable receipt is
   idempotent.
-- **M1:** Not started — remove the retired event taxonomy from active contracts and UI.
+- **M1:** Complete — active contracts and UI now use the singleton `card_state_changed` event type.
 - **M2:** Not started — add the `FACE_DOWN` visual classification and processor outcome.
 - **M3:** Not started — make visual-identity review and training data use the face-down class.
 - **M4:** Not started — publish the face-down result through observation assembly and freeze the
@@ -191,6 +191,25 @@ Acceptance:
   values;
 - add, edit, complete, compare, and reload preserve the singleton event type; and
 - CardEventNet, backend, web, operations, and API-client checks pass.
+
+#### M1 implementation evidence — 2026-09-11
+
+Active CardEventNet, operations, backend, and web event contracts now accept only
+`card_state_changed`. The revision store keeps an explicit legacy-read path for immutable
+historical revisions, while active publish, reference, dataset, annotation, and comparison-event
+paths reject retired values. Manual event creation always writes the canonical value and the event
+editor, inspector, history, comparison, run summary, and Timeline Rail use one card-state-change
+label with no event-type selector or shortcut.
+
+Focused checks passed:
+
+- CardEventNet: 226 passed, 1 skipped, and Ruff;
+- operations pipeline data, dataset, and comparison tests and Ruff;
+- backend pipeline, reference, comparison, migration, and canonicalization tests and Ruff; and
+- web typecheck, lint, formatting, generated-client verification, and 144 tests.
+
+The broader repository suites still report unrelated pre-existing failures in model-improvement
+fixtures, TableEvidence campaign state, and one round-analysis recovery-log test.
 
 ### M2 — Add the face-down visual classification
 

@@ -99,7 +99,7 @@ def _source_revision(revision_store: PipelineRevisionStore) -> str:
         events=(
             EventRecord(
                 event_id="event-01",
-                event_type="card_played",
+                event_type="card_state_changed",
                 start_us=1_000_000,
                 end_us=1_250_000,
                 model_scores=(),
@@ -138,7 +138,7 @@ def _event_revision_variant(
         events=(
             EventRecord(
                 event_id="event-01",
-                event_type="card_played",
+                event_type="card_state_changed",
                 start_us=start_us,
                 end_us=start_us + 250_000,
                 model_scores=(),
@@ -386,7 +386,7 @@ def test_correction_keeps_new_item_id_and_records_base_item_id(tmp_path: Path) -
                     "item_id": "event-01",
                     "item": {
                         "event_id": "event-corrected",
-                        "event_type": "card_played",
+                        "event_type": "card_state_changed",
                         "start_us": 2_000_000,
                         "end_us": 2_250_000,
                     },
@@ -398,6 +398,37 @@ def test_correction_keeps_new_item_id_and_records_base_item_id(tmp_path: Path) -
     assert item.item_id == "event-corrected"
     assert item.base_item_id == "event-01"
     assert item.review_state == "corrected"
+
+
+def test_reference_write_rejects_retired_event_types(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _source_revision(revision_store)
+    service.create_reference(
+        "recording-01",
+        "events",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+
+    with pytest.raises(PipelineReferenceInputError, match="reference item failed"):
+        service.update_draft(
+            "recording-01",
+            "events",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 0,
+                "operations": [
+                    {
+                        "operation": "add",
+                        "item": {
+                            "event_id": "event-retired",
+                            "event_type": "card_played",
+                            "start_us": 2_000_000,
+                            "end_us": 2_250_000,
+                        },
+                    }
+                ],
+            },
+        )
 
 
 def test_completion_requires_declared_coverage_and_reports_missing_scope(
@@ -870,7 +901,7 @@ def test_correction_records_downstream_impact_and_coverage_survives_restart(
                     "item_id": "event-01",
                     "item": {
                         "event_id": "event-corrected",
-                        "event_type": "card_played",
+                        "event_type": "card_state_changed",
                         "start_us": 2_000_000,
                         "end_us": 2_250_000,
                     },
@@ -983,7 +1014,7 @@ def test_empty_reference_can_add_a_source_linked_manual_item(tmp_path: Path) -> 
                     "operation": "add",
                     "item": {
                         "event_id": "event-added",
-                        "event_type": "card_played",
+                        "event_type": "card_state_changed",
                         "start_us": 1_000_000,
                         "end_us": 1_250_000,
                     },

@@ -381,7 +381,7 @@ class PipelineRevisionStore:
 
     @staticmethod
     def _parse_content_bytes_for_manifest(
-        manifest: DataRevision, raw: bytes
+        manifest: DataRevision, raw: bytes, *, allow_legacy: bool = False
     ) -> EventData | VisibleCardData | VisualIdentityData | TableObservationData:
         duration_us = (
             manifest.source.duration_us
@@ -389,7 +389,9 @@ class PipelineRevisionStore:
             else 2**63 - 1
         )
         if manifest.content_type == "events":
-            return parse_event_data_bytes(raw, duration_us=duration_us)
+            return parse_event_data_bytes(
+                raw, duration_us=duration_us, allow_legacy=allow_legacy
+            )
         if manifest.content_type == "visible_cards":
             try:
                 return parse_visible_card_data_bytes(raw)
@@ -410,9 +412,11 @@ class PipelineRevisionStore:
     @staticmethod
     def _canonical_content_bytes(
         content: EventData | VisibleCardData | VisualIdentityData | TableObservationData,
+        *,
+        allow_legacy: bool = False,
     ) -> bytes:
         if isinstance(content, EventData):
-            return canonical_event_data_bytes(content)
+            return canonical_event_data_bytes(content, allow_legacy=allow_legacy)
         if isinstance(content, VisibleCardData):
             return canonical_visible_card_data_bytes(content)
         if isinstance(content, VisualIdentityData):
@@ -425,9 +429,11 @@ class PipelineRevisionStore:
     def _validate_content(
         manifest: DataRevision,
         content: EventData | VisibleCardData | VisualIdentityData | TableObservationData,
+        *,
+        allow_legacy: bool = False,
     ) -> None:
         if manifest.content_type == "events" and isinstance(content, EventData):
-            validate_event_revision_content(manifest, content)
+            validate_event_revision_content(manifest, content, allow_legacy=allow_legacy)
             return
         if manifest.content_type == "visible_cards" and isinstance(content, VisibleCardData):
             if sha256_bytes(canonical_visible_card_data_bytes(content)) != manifest.content_sha256:
@@ -555,18 +561,26 @@ class PipelineRevisionStore:
             raise ValueError("pipeline revision must contain only manifest.json and content.json")
         manifest_bytes = (path / "manifest.json").read_bytes()
         content_bytes = (path / "content.json").read_bytes()
-        manifest = parse_data_revision_bytes(manifest_bytes, content_bytes)
-        content = self._parse_content_bytes_for_manifest(manifest, content_bytes)
+        manifest = parse_data_revision_bytes(
+            manifest_bytes, content_bytes, allow_legacy=True
+        )
+        content = self._parse_content_bytes_for_manifest(
+            manifest, content_bytes, allow_legacy=True
+        )
         _strict_json_file(
             manifest_bytes,
             canonical_data_revision_bytes(manifest),
             "revision manifest",
         )
-        _strict_json_file(content_bytes, self._canonical_content_bytes(content), "revision content")
+        _strict_json_file(
+            content_bytes,
+            self._canonical_content_bytes(content, allow_legacy=True),
+            "revision content",
+        )
         self._validate_lineage(manifest)
         if require_canonical_name and manifest.revision_id != path.name:
             raise ValueError("revision ID differs from its directory name")
-        self._validate_content(manifest, content)
+        self._validate_content(manifest, content, allow_legacy=True)
         return StoredPipelineRevision(manifest=manifest, content=content)
 
     @staticmethod

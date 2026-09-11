@@ -61,14 +61,14 @@ videos:
     assert metadata["IMG_0002"].session_id == "capture-img-0002"
 
 
-def test_load_events_accepts_legacy_annotation_envelope(tmp_path):
+def test_load_events_accepts_legacy_annotation_envelope_with_canonical_events(tmp_path):
     annotation = tmp_path / "IMG_2780.json"
     annotation.write_text(
         json.dumps(
             {
                 "video": "IMG_2780.m4v",
                 "roi": {"x": 0, "y": 0, "width": 1, "height": 1},
-                "events": [{"time_s": 1.25, "type": "card_played"}],
+                "events": [{"time_s": 1.25, "type": "card_state_changed"}],
             }
         ),
         encoding="utf-8",

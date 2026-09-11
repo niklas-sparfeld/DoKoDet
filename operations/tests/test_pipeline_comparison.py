@@ -9,7 +9,7 @@ from doko_operations.pipeline_comparison_contract import (
     parse_pipeline_comparison_request_bytes,
 )
 from doko_operations.pipeline_comparison_execution import compare_event_data, match_event_records
-from doko_operations.pipeline_data import EventData, EventRecord
+from doko_operations.pipeline_data import CARD_STATE_CHANGED_EVENT_TYPE, EventData, EventRecord
 
 
 def _event(event_id: str, event_type: str, start_us: int, end_us: int | None = None) -> EventRecord:
@@ -32,38 +32,41 @@ def _policy(*, tolerance_us: int = 50) -> EventMatchingPolicy:
 def test_event_matching_groups_types_and_uses_stable_minimum_error_ties() -> None:
     policy = _policy(tolerance_us=100)
     predicted = (
-        _event("pred-b", "other", 100),
-        _event("pred-a", "card_played", 90),
-        _event("pred-c", "card_played", 110),
+        _event("pred-b", CARD_STATE_CHANGED_EVENT_TYPE, 100),
+        _event("pred-a", CARD_STATE_CHANGED_EVENT_TYPE, 90),
+        _event("pred-c", CARD_STATE_CHANGED_EVENT_TYPE, 110),
     )
     reference = (
-        _event("ref-b", "card_played", 100),
-        _event("ref-a", "card_played", 100),
-        _event("ref-other", "other", 100),
+        _event("ref-b", CARD_STATE_CHANGED_EVENT_TYPE, 100),
+        _event("ref-a", CARD_STATE_CHANGED_EVENT_TYPE, 100),
+        _event("ref-other", CARD_STATE_CHANGED_EVENT_TYPE, 100),
     )
 
     pairs = match_event_records(predicted, reference, policy=policy)
 
     assert {(predicted[pred].event_id, reference[ref].event_id) for pred, ref in pairs} == {
+        ("pred-b", "ref-b"),
         ("pred-a", "ref-a"),
-        ("pred-c", "ref-b"),
-        ("pred-b", "ref-other"),
+        ("pred-c", "ref-other"),
     }
 
 
 def test_event_comparison_excludes_unreviewed_events_from_metrics() -> None:
     policy = _policy(tolerance_us=25)
     reference = EventData(
-        events=(_event("ref-1", "card_played", 100), _event("ref-2", "card_played", 700))
+        events=(
+            _event("ref-1", CARD_STATE_CHANGED_EVENT_TYPE, 100),
+            _event("ref-2", CARD_STATE_CHANGED_EVENT_TYPE, 700),
+        )
     )
     left = EventData(
         events=(
-            _event("left-match", "card_played", 110),
-            _event("left-extra", "card_played", 300),
-            _event("left-unreviewed", "card_played", 900),
+            _event("left-match", CARD_STATE_CHANGED_EVENT_TYPE, 110),
+            _event("left-extra", CARD_STATE_CHANGED_EVENT_TYPE, 300),
+            _event("left-unreviewed", CARD_STATE_CHANGED_EVENT_TYPE, 900),
         )
     )
-    right = EventData(events=(_event("right-match", "card_played", 100),))
+    right = EventData(events=(_event("right-match", CARD_STATE_CHANGED_EVENT_TYPE, 100),))
     scope = PipelineComparisonScope(
         reviewed=((0, 800),),
         common_covered=((0, 800),),

@@ -31,16 +31,7 @@
           "minimum": 0
         },
         "type": {
-          "enum": [
-            "card_state_changed",
-            "card_played",
-            "trick_cleared",
-            "card_moved",
-            "card_removed",
-            "card_returned",
-            "multiple_cards_dropped",
-            "anomalous_state_change"
-          ]
+          "const": "card_state_changed"
         },
         "confidence": {
           "enum": ["confirmed", "uncertain", "ignore", "proposed"]

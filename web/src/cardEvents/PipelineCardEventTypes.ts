@@ -1,17 +1,7 @@
 import type { PipelineReferenceOperation } from "../api/client";
 
-export const PIPELINE_CARD_EVENT_TYPES = [
-  "card_state_changed",
-  "card_played",
-  "trick_cleared",
-  "card_moved",
-  "card_removed",
-  "card_returned",
-  "multiple_cards_dropped",
-  "anomalous_state_change",
-] as const;
-
-export type PipelineCardEventType = (typeof PIPELINE_CARD_EVENT_TYPES)[number];
+export const CARD_STATE_CHANGED_EVENT_TYPE = "card_state_changed" as const;
+export type PipelineCardEventType = typeof CARD_STATE_CHANGED_EVENT_TYPE;
 export type EventState =
   "pending" | "accepted" | "rejected" | "added" | "corrected" | "affected";
 

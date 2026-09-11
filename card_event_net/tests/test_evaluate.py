@@ -14,7 +14,7 @@ from cardevent.evaluate import (
     save_validation_stream,
     select_threshold,
 )
-from cardevent.events import ProbabilitySample
+from cardevent.events import CARD_STATE_CHANGED_EVENT_TYPE, ProbabilitySample
 from cardevent.splits import VideoSplit
 from cardevent.transition_diagnostics import (
     TransitionDiagnosticError,
@@ -34,7 +34,7 @@ def test_probability_axis_helper_draws_shared_event_markers() -> None:
         times_s=(0.0, 1.0),
         probabilities=(0.1, 0.9),
         threshold=0.5,
-        ground_truth_events=({"time_s": 0.8, "type": "card_played"},),
+        ground_truth_events=({"time_s": 0.8, "type": CARD_STATE_CHANGED_EVENT_TYPE},),
         predicted_events=({"time_s": 1.0, "probability": 0.9},),
     )
 

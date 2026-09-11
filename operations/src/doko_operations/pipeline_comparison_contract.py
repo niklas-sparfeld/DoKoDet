@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from .pipeline_data import canonical_json_bytes
+from .pipeline_data import CARD_STATE_CHANGED_EVENT_TYPE, canonical_json_bytes
 
 PIPELINE_COMPARISON_REQUEST_SCHEMA_VERSION = "pipeline-comparison-request/v1"
 PIPELINE_COMPARISON_SCHEMA_VERSION = "pipeline-comparison/v1"
@@ -34,6 +34,30 @@ ComparisonPolicyKind = Literal[
 ]
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _QUALIFIED = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
+
+
+def _active_event_type(value: Any, field: str) -> str:
+    result = _qualified(value, field)
+    if result != CARD_STATE_CHANGED_EVENT_TYPE:
+        raise PipelineComparisonContractError(
+            f"{field} must be {CARD_STATE_CHANGED_EVENT_TYPE}"
+        )
+    return result
+
+
+_COMPARISON_ITEM_TYPES = {
+    "events": CARD_STATE_CHANGED_EVENT_TYPE,
+    "visible_cards": "visible_card",
+    "visual_identities": "visual_identity",
+}
+
+
+def _comparison_item_type(value: Any, field: str, content_type: str) -> str:
+    result = _qualified(value, field)
+    expected = _COMPARISON_ITEM_TYPES[content_type]
+    if result != expected:
+        raise PipelineComparisonContractError(f"{field} must be {expected}")
+    return result
 
 
 class PipelineComparisonContractError(ValueError):
@@ -202,7 +226,7 @@ class EventMatchingPolicy:
                 event_type=(
                     None
                     if data.get("event_type") is None
-                    else _qualified(data["event_type"], "matching_policy.event_type")
+                    else _active_event_type(data["event_type"], "matching_policy.event_type")
                 ),
                 kind="event_timing",
             )
@@ -819,7 +843,8 @@ def _comparison_from_mapping(raw: Mapping[str, Any]) -> PipelineComparison:
     )
     if data["schema_version"] != PIPELINE_COMPARISON_SCHEMA_VERSION:
         raise PipelineComparisonContractError("pipeline comparison has an unsupported schema")
-    if data["content_type"] not in {"events", "visible_cards", "visual_identities"}:
+    content_type = data["content_type"]
+    if content_type not in {"events", "visible_cards", "visual_identities"}:
         raise PipelineComparisonContractError("pipeline comparison content_type is unsupported")
     expected_policy_kind = {
         "events": "event_timing",
@@ -852,7 +877,8 @@ def _comparison_from_mapping(raw: Mapping[str, Any]) -> PipelineComparison:
     if not isinstance(raw_items, list):
         raise PipelineComparisonContractError("items must be a list")
     items = tuple(
-        _item_from_mapping(item, f"items[{index}]") for index, item in enumerate(raw_items)
+        _item_from_mapping(item, f"items[{index}]", content_type=content_type)
+        for index, item in enumerate(raw_items)
     )
     if len({item.item_id for item in items}) != len(items):
         raise PipelineComparisonContractError("comparison item IDs must be unique")
@@ -977,7 +1003,7 @@ def _reference_from_mapping(raw: Any) -> PipelineComparisonReference:
     )
 
 
-def _item_from_mapping(raw: Any, field: str) -> PipelineComparisonItem:
+def _item_from_mapping(raw: Any, field: str, *, content_type: str) -> PipelineComparisonItem:
     data = _mapping(raw, field)
     _strict(
         data,
@@ -1042,7 +1068,7 @@ def _item_from_mapping(raw: Any, field: str) -> PipelineComparisonItem:
         side=data["side"],  # type: ignore[arg-type]
         outcome=data["outcome"],  # type: ignore[arg-type]
         source_time_us=source_time,
-        event_type=_qualified(data["event_type"], f"{field}.event_type"),
+        event_type=_comparison_item_type(data["event_type"], f"{field}.event_type", content_type),
         reference_event_id=(
             None
             if data["reference_event_id"] is None

@@ -3,6 +3,7 @@ import type {
   PipelineWorkspace,
   PipelineWorkspaceStage,
 } from "../api/client";
+import { CARD_STATE_CHANGED_EVENT_TYPE } from "../cardEvents/PipelineCardEventTypes";
 import type { PipelineUrlState, PipelineView } from "./recordingPipelineUrl";
 
 export {
@@ -686,6 +687,9 @@ function readFailureMessage(value: unknown): string | null {
 
 function railItemLabel(item: RawItem, fallback: string): string {
   const result = asRecord(item.result);
+  if (result?.event_type === CARD_STATE_CHANGED_EVENT_TYPE) {
+    return "Card-state change";
+  }
   for (const value of [
     result?.event_type,
     result?.card_id,

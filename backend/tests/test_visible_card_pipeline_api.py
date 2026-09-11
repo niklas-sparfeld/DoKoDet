@@ -433,12 +433,8 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             generated_event_revision.manifest.source,
             generated_event_revision,
             event_types=(
-                "card_played",
-                "card_moved",
-                "trick_cleared",
-                "card_removed",
                 CARD_STATE_CHANGED_EVENT_TYPE,
-            ),
+            ) * len(generated_event_revision.content.events),
         )
         visible_reference = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",

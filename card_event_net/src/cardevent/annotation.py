@@ -37,31 +37,11 @@ class AnnotationError(ValueError):
     pass
 
 
-EVENT_TYPES = frozenset(
-    {
-        CARD_STATE_CHANGED_EVENT_TYPE,
-        "card_played",
-        "trick_cleared",
-        "card_moved",
-        "card_removed",
-        "card_returned",
-        "multiple_cards_dropped",
-        "anomalous_state_change",
-    }
-)
+EVENT_TYPES = frozenset({CARD_STATE_CHANGED_EVENT_TYPE})
 EVENT_CONFIDENCES = frozenset({"confirmed", "uncertain", "ignore", "proposed"})
 POSITIVE_EVENT_CONFIDENCES = frozenset({None, "confirmed"})
 DEFAULT_DUPLICATE_TOLERANCE_S = 0.01
 ANNOTATION_SCHEMA_VERSION = "cardevent-annotation/v2"
-EVENT_TYPE_SHORTCUTS = {
-    ord("1"): "card_played",
-    ord("2"): "trick_cleared",
-    ord("3"): "card_moved",
-    ord("4"): "card_removed",
-    ord("5"): "card_returned",
-    ord("6"): "multiple_cards_dropped",
-    ord("7"): "anomalous_state_change",
-}
 
 
 def _require_mapping(data: Any, context: str) -> Mapping[str, Any]:
@@ -213,7 +193,7 @@ class Roi:
 @dataclass(frozen=True, slots=True)
 class AnnotationEvent:
     time_s: float
-    type: str = "card_played"
+    type: str = CARD_STATE_CHANGED_EVENT_TYPE
     confidence: str | None = None
     notes: str | None = None
 
@@ -268,15 +248,15 @@ class AnnotationEvent:
 def confirmed_events(events: Sequence[AnnotationEvent]) -> tuple[AnnotationEvent, ...]:
     """Return all confirmed meaningful card-state annotations.
 
-    Annotation types describe the offline review detail. CardEventNet trains one binary
-    card-state-change target, so every known event type uses the same positive label when its
-    confidence is confirmed or absent. Uncertain, ignored, and proposed annotations are excluded.
+    CardEventNet trains one binary card-state-change target. Uncertain, ignored, and proposed
+    annotations are excluded.
     """
 
     return tuple(
         event
         for event in events
-        if event.type in EVENT_TYPES and event.confidence in POSITIVE_EVENT_CONFIDENCES
+        if event.type == CARD_STATE_CHANGED_EVENT_TYPE
+        and event.confidence in POSITIVE_EVENT_CONFIDENCES
     )
 
 
@@ -568,13 +548,11 @@ class AnnotationSession:
         self,
         time_s: float,
         *,
-        event_type: str = "card_played",
         confidence: str | None = "confirmed",
         notes: str | None = None,
     ) -> Path:
         event = AnnotationEvent(
             time_s=time_s,
-            type=event_type,
             confidence=confidence,
             notes=notes,
         )
@@ -590,11 +568,10 @@ class AnnotationSession:
         self,
         time_s: float,
         *,
-        event_type: str = "card_played",
         confidence: str | None = "confirmed",
         notes: str | None = None,
     ) -> int:
-        """Add an event, or change the type of an event at the same time.
+        """Add an event, or keep the event at the same time.
 
         Keep the timestamp, confidence, and notes when an event already exists
         within the duplicate-event tolerance.
@@ -606,12 +583,11 @@ class AnnotationSession:
         ]
         if matching_indices:
             index = min(matching_indices, key=lambda item: abs(self.events[item].time_s - time_s))
-            self.update_event(index, event_type=event_type)
+            self.update_event(index)
             return index
 
         self.add_event(
             time_s,
-            event_type=event_type,
             confidence=confidence,
             notes=notes,
         )
@@ -625,7 +601,6 @@ class AnnotationSession:
         index: int,
         *,
         time_s: float | None = None,
-        event_type: str | None = None,
         confidence: str | None = None,
         notes: str | None = None,
     ) -> Path:
@@ -635,7 +610,6 @@ class AnnotationSession:
             raise AnnotationError("Event index is out of range.") from exc
         self.events[index] = AnnotationEvent(
             time_s=previous.time_s if time_s is None else time_s,
-            type=previous.type if event_type is None else event_type,
             confidence=previous.confidence if confidence is None else confidence,
             notes=previous.notes if notes is None else notes,
         )
@@ -667,18 +641,15 @@ def _print_annotation_help(session: AnnotationSession) -> None:
     print()
     print("Event definition:")
     print(
-        "  Event time is the first frame at which the card has substantially "
-        "reached its final position in the trick area."
+        "  Event time is the first frame at which a persistent card-related "
+        "table-state change is observable."
     )
     print()
     print("Controls:")
-    print("  1-7     select event type (card play, clear, move, remove, return, drop, anomaly)")
-    print("  SPACE   add an event, or change the event type at the same timestamp")
+    print("  SPACE   add a card-state change, or keep the event at the same timestamp")
     print("  W / S   jump to the previous or next saved event")
     print("            the selected event follows the current timestamp")
     print("  , / .   move the selected event one frame backward or forward")
-    print("  E       set the selected event to the selected type")
-    print("  T       cycle the selected event type")
     print("  U       mark the selected event or proposal uncertain")
     print("  N / B   jump to next or previous model proposal")
     print("  C       toggle before/after comparison")
@@ -725,7 +696,6 @@ def annotate_video(
     needs_frame_refresh = False
     selected_event_index: int | None = len(session.events) - 1 if session.events else None
     selected_proposal_index: int | None = None
-    selected_type = "card_played"
     compare_before_after = False
     wait_key = getattr(cv2, "waitKeyEx", cv2.waitKey)
 
@@ -758,7 +728,7 @@ def annotate_video(
                 selected_event = session.events[selected_event_index]
                 event_selection = (
                     f"{selected_event_index} "
-                    f"{_format_timestamp(selected_event.time_s)} {selected_event.type}"
+                    f"{_format_timestamp(selected_event.time_s)} card-state change"
                 )
             proposal_selection = (
                 selected_proposal_index if selected_proposal_index is not None else "-"
@@ -769,7 +739,6 @@ def annotate_video(
                     f"{_format_timestamp(session.metadata.duration_s)}"
                 ),
                 f"Events: {session.event_count}",
-                f"Type: {selected_type}",
                 f"Selected event: {event_selection}",
                 f"Proposal: {proposal_selection}",
                 f"State: {'PLAY' if playing else 'PAUSE'}",
@@ -811,9 +780,6 @@ def annotate_video(
                     current_frame_index + step,
                 )
                 frame_changed = True
-            elif key in EVENT_TYPE_SHORTCUTS:
-                selected_type = EVENT_TYPE_SHORTCUTS[key]
-                print(f"Selected event type: {selected_type}")
             elif key in (ord("w"), ord("W")):
                 if session.events:
                     selected_event_index = max(0, (selected_event_index or 0) - 1)
@@ -878,29 +844,15 @@ def annotate_video(
                         session.events[selected_event_index].time_s + delta / session.metadata.fps,
                     ),
                 )
-            elif key in (ord("e"), ord("E")) and selected_event_index is not None:
-                session.update_event(selected_event_index, event_type=selected_type)
-            elif key in (ord("t"), ord("T")) and selected_event_index is not None:
-                types = tuple(sorted(EVENT_TYPES))
-                current_type = session.events[selected_event_index].type
-                session.update_event(
-                    selected_event_index,
-                    event_type=types[(types.index(current_type) + 1) % len(types)],
-                )
             elif key in (ord("u"), ord("U")):
                 if selected_event_index is not None:
                     session.update_event(selected_event_index, confidence="uncertain")
                 elif selected_proposal_index is not None:
                     proposal = proposals[selected_proposal_index]
-                    session.add_event(
-                        proposal.time_s, event_type=selected_type, confidence="uncertain"
-                    )
+                    session.add_event(proposal.time_s, confidence="uncertain")
                     selected_event_index = len(session.events) - 1
             elif key == ord(" "):
-                selected_event_index = session.record_event(
-                    timestamp_s,
-                    event_type=selected_type,
-                )
+                selected_event_index = session.record_event(timestamp_s)
             elif key in (ord("c"), ord("C")):
                 compare_before_after = not compare_before_after
             if playing and not frame_changed:

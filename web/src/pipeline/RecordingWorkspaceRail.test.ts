@@ -12,7 +12,7 @@ describe("recording workspace rail coordination", () => {
     const items = [
       {
         itemId: "event-1",
-        label: "card_played",
+        label: "Card-state change",
         state: "accepted",
         startUs: 2_000_000,
         endUs: 3_000_000,
@@ -28,7 +28,7 @@ describe("recording workspace rail coordination", () => {
       {
         id: "event:event-1:state",
         laneId: "review-state",
-        label: "card_played · accepted",
+        label: "Card-state change · accepted",
       },
       {
         id: "events:coverage",

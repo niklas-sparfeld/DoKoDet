@@ -12,6 +12,7 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from doko_operations.pipeline_data import (
+    CARD_STATE_CHANGED_EVENT_TYPE,
     DataRevision,
     EventData,
     EventRecord,
@@ -63,7 +64,7 @@ def _revision(
         events=(
             EventRecord(
                 event_id="event-01",
-                event_type="card_played",
+                event_type=CARD_STATE_CHANGED_EVENT_TYPE,
                 start_us=2,
                 end_us=4,
             ),

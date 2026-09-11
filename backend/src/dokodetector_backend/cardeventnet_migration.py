@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from doko_operations.pipeline_data import (
+    CARD_STATE_CHANGED_EVENT_TYPE,
     DataRevision,
     EventData,
     EventDataRevision,
@@ -222,8 +223,10 @@ def _load_events(
             raise CardEventNetMigrationError(f"Invalid event {index}: {annotation_path}")
         event_type = raw_event.get("type")
         time_s = raw_event.get("time_s")
-        if not isinstance(event_type, str) or not event_type:
-            raise CardEventNetMigrationError(f"Invalid event type {index}: {annotation_path}")
+        if event_type != CARD_STATE_CHANGED_EVENT_TYPE:
+            raise CardEventNetMigrationError(
+                f"Event {index} does not use {CARD_STATE_CHANGED_EVENT_TYPE}: {annotation_path}"
+            )
         if isinstance(time_s, bool) or not isinstance(time_s, (int, float)):
             raise CardEventNetMigrationError(f"Invalid event time {index}: {annotation_path}")
         time_us = round(float(time_s) * 1_000_000)
@@ -233,7 +236,7 @@ def _load_events(
         events.append(
             EventRecord(
                 event_id=f"cardeventnet-event-{video_name.rsplit('.', 1)[0].lower()}-{index:03d}",
-                event_type=event_type,
+                event_type=CARD_STATE_CHANGED_EVENT_TYPE,
                 start_us=time_us,
                 end_us=time_us,
             )

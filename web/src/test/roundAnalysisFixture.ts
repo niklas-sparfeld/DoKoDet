@@ -81,6 +81,7 @@ function observation(
             ? [{ card: "CLUBS_NINE", probability: 1 - probability }]
             : []),
         ],
+        side: "unknown" as const,
       },
     ],
     calibration: "fixture" as const,
