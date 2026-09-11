@@ -7,9 +7,10 @@
   identity-model change.
 - **Status:** In Progress
 - **Depends on:** 0048 and 0049 complete
-- **Readiness:** M0 and M1 freeze the reusable measurement and outcome-preservation contracts.
-  Completed paired maintained visible-card and visual identity references from at least two
-  source-lineage groups remain required before validation classification.
+- **Readiness:** M1 and M2 are complete. Reconcile the M0 measurement contract with durable
+  operations storage, the current classifier and crop defaults, and the current reference
+  lifecycle before classification. Completed paired maintained visible-card and visual identity
+  references from the frozen development and validation groups remain required.
 - **Builds on:** 0038 crop-policy evidence and the 0048 visual identity outcome, derived-view, and
   observation-assembly contracts
 - **Outcome:** Publish a reproducible risk-versus-coverage baseline for the current identifier under
@@ -21,9 +22,9 @@
 
 ## Milestone status
 
-- **M0:** Complete — add the frozen resilience manifest and read-only coverage report. The current
-  inventory has four accepted recording bundles across three session groups, but no completed
-  paired maintained references and no validation classification is allowed.
+- **M0:** In progress — the frozen manifest and coverage gate exist, but their revision path,
+  classifier identity, bundle validation, reference-lineage checks, partitions, and request budget
+  need reconciliation with the current data contracts before the freeze is valid.
 - **M1:** Complete — preserve every visible-card proposal across classified, unusable, and failed
   visual identity outcomes. Empty successful classifier output is normalized to unusable, and
   reconstruction treats empty identity evidence as neutral.
@@ -31,9 +32,30 @@
   conditions without changing stored geometry. Crop lineage records the frozen exclusion policy,
   every input, every decision, and the original target geometry. Corruption generation records
   family, severity, seed, source digest, output digest, and transform version.
-- **M3:** Blocked — add the guarded paired comparison and metric retention boundary, but do not
-  classify because M0 still has no completed paired maintained references.
+- **M3:** Blocked — retained-row validation, paired metrics, and immutable output exist. Crop
+  materialization and classifier execution do not. Do not classify until M0 is reconciled and the
+  paired maintained-reference coverage gate passes.
 - **M4:** Not started — publish the decision and resolve the scope of 0052 and later detector work.
+
+## Current evidence and partition intent — 2026-09-11
+
+The durable intake contains 12 recording bundle directories after importing `IMG_0661`. The shared
+data validator accepts eight bundles and rejects four older `.m4v` bundles because their video
+descriptors do not use the current `.mov` path contract. The M0 inventory currently accepts all 12
+without applying that shared validation. Reconcile these readers before publishing another corpus
+count.
+
+`IMG_0090` and `IMG_0091` each have a completed visible-card maintained reference with 100 visible
+cards. `IMG_0090` has an identity draft with 3 accepted and 97 pending items. `IMG_0091` has a
+completed identity processor result but no identity maintained reference. Treat these visually
+similar recordings as one development comparison group. They must not satisfy the
+independent validation-group gate by themselves.
+
+`IMG_0661` is imported with 55 completed human event references. Its different capture date and
+setup make it the intended validation recording after visible-card and visual identity review.
+Freeze `IMG_0090` and `IMG_0091` as development and `IMG_0661` as validation before reading
+validation classification results. Confirm the source-lineage grouping from recording metadata and
+operator knowledge rather than selecting a validation group by identifier sort order.
 
 ## 1. Purpose and boundary
 
@@ -72,7 +94,7 @@ Freeze these input families before classification:
 
 - reviewed visible regions as the oracle condition;
 - matched generated Gemini visible regions as the current deployable region condition;
-- derived boxes for the current raw condition; and
+- derived boxes for the rectangular comparison condition; and
 - deterministic corruptions derived from reviewed visible regions.
 
 The corruption manifest must include fixed severities for:
@@ -117,7 +139,7 @@ does not create a card-play identity by itself.
 
 Compare these conditions on the same items and source bytes:
 
-1. `raw_rectangular`: the complete derived-box crop.
+1. `raw_rectangular`: the complete derived-box comparison crop.
 2. `predicted_visible_region`: keep only the target generated visible region.
 3. `generated_other_region_exclusion`: start with the target derived box and neutralize eligible
    interiors of other generated visible regions in the same frame.
@@ -146,6 +168,11 @@ an upper bound.
 Every condition is a versioned crop policy. Its cache identity includes the complete frame and
 geometry inputs, exclusion eligibility rule, erosion rule, fill value, encoding, and transform
 version. Store derived crop lineage. Do not modify the source or predicted visible regions.
+
+The current runtime chooses `predicted_visible_region` for generated visible-region geometry and
+`oracle_visible_region` for reviewed visible-region geometry. Do not describe `raw_rectangular` as
+the current default. Freeze the exact runtime policy and classifier identity in M0. Keep historical
+identity results generated with an earlier explicit policy as predictions, not evaluation targets.
 
 ## 5. Evaluation and decision
 
@@ -188,10 +215,19 @@ limit, later detector work must use this fixed identity baseline.
 
 ### M0 — Freeze corpus, conditions, and gates
 
+- Read durable revisions from `data/operations/pipeline/revisions`; do not use the retired
+  `.runtime/pipeline/revisions` default.
+- Reuse the shared recording-bundle validator so M0 and repository validation select the same
+  accepted inputs.
 - Add a manifest that selects completed visible-card and visual identity reference revisions.
-- Match generated regions to reviewed cards through recorded proposal and correction lineage.
+- Match generated regions to reviewed cards through revision producer lineage. Support the current
+  completed-reference lifecycle, where the draft can use the selected completed revision as its
+  edit source while the revision manifest preserves the generated base revision.
 - Freeze source-group partitions, corruption transforms and severities, crop conditions, classifier
   identity, cost budget, metrics, and decision gates.
+- Freeze the explicit development and validation recording groups and the exact
+  sample-condition-corruption matrix. Calculate its classifier request and cost estimate before a
+  classification request starts.
 - Add a sample-linked coverage report before any validation classification runs.
 
 Acceptance:
@@ -200,6 +236,8 @@ Acceptance:
 - development and validation source groups are disjoint and the system holdout is absent;
 - generated geometry remains a prediction and never becomes a target;
 - all corruption and crop parameters are immutable inputs to the run; and
+- the current configured classifier and runtime crop policy are recorded exactly;
+- the planned experiment fits the frozen request, cost, and wall-clock budgets; and
 - insufficient coverage stops the comparison with an explicit gap.
 
 ### M1 — Preserve cards across identity outcomes
@@ -238,20 +276,24 @@ Acceptance:
 
 ### M3 — Run the paired resilience comparison
 
+- Build a resumable executor that derives its work only from the frozen M0 manifest.
 - Materialize every frozen condition and execute the current identifier within the M0 budget.
+- Reuse a crop or classifier result only when its complete request and crop digest match.
 - Calculate paired risk, coverage, recovery, and harm results.
 - Retain item-level crops, outcomes, and diagnostics for UI inspection through 0049.
 - Do not tune a condition after reading validation results.
 
-Implementation note: the local M3 comparison boundary now validates retained rows, preserves
+Implementation note: the local M3 comparison boundary validates retained rows, preserves
 `classified`, `unusable`, and `failed` outcomes, calculates deterministic paired metrics, and
-writes immutable item-level row artifacts. It refuses to run while
-`validation_classification_allowed` is false. The current M0 manifest has no eligible paired
-maintained references, so classification remains stopped.
+writes immutable item-level row artifacts. It does not yet materialize crops or call the classifier.
+It refuses to aggregate while `validation_classification_allowed` is false. The current M0
+manifest has no eligible paired maintained references, so classification remains stopped.
 
 Acceptance:
 
 - every aggregate metric reproduces from retained paired rows;
+- a dry run reports the complete work matrix, cache reuse, request count, and estimated cost before
+  execution;
 - failures and unusable evidence stay in the denominator required by each metric;
 - actual Gemini regions and synthetic corruptions are reported separately; and
 - reviewed-region conditions are clearly marked as non-deployable upper bounds.

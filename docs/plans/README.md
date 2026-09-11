@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M0–M2 complete. M3 comparison and retention contracts are implemented but blocked by the M0 coverage gate. Crop lineage preserves target geometry and every exclusion input and decision. The current inventory has four accepted recording bundles across three session groups, but no completed paired maintained references; validation classification is stopped. |
+| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
 
 ### Blocked
 
@@ -122,23 +122,29 @@ The shared target architecture is
 ## Next steps
 
 1. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic 0057 is complete.
-2. **Collect and review the reported 0051 coverage through the recording pipeline.** For at least two
-   source-lineage groups, create paired completed maintained visible-card and visual identity
-   references. Then confirm a disjoint development and validation partition. Keep sealed holdouts
-   intact. Do not lower review or coverage requirements merely to unblock model work.
-3. **Continue 0051 after its coverage gate is met.** Freeze actual and
-   corrupted predicted-region conditions, then measure the simple exclusion crop policies. Use its
-   decision to specify one response in 0052 or close 0052 as not required.
-4. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+2. **Reconcile 0051 M0 with the current data architecture.** Read durable revisions from
+   `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
+   defaults, use explicit development and validation groups, and preflight the complete experiment
+   matrix against its budget.
+3. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
+   `IMG_0091` as one visually similar development comparison group. Generate and complete
+   visible-card and visual identity references for the imported, different `IMG_0661` validation
+   recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group gate. Keep
+   sealed holdouts intact.
+4. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
+   and classifier executor, run development before validation, and measure the frozen simple
+   exclusion policies. Use the decision to specify one response in 0052 or close 0052 as not
+   required.
+5. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-5. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+6. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-6. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+7. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+8. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
@@ -203,6 +209,18 @@ context. Check dependencies again before changing a Blocked epic to Ready.
 - Specify documentation authority first and obsolete interfaces second. Then specify operations,
   backend, web, and iOS module boundaries. Preserve active epic ownership and close any candidate
   whose detailed consumer or dependency evidence does not justify delivery.
+
+### Planning decisions — 2026-09-11
+
+- Reconcile active epic 0051 after durable pipeline revisions moved from `.runtime` to
+  `data/operations` and the runtime adopted polygon crop defaults. Do not alter closed cleanup epics
+  to record this active-work consequence.
+- Treat `IMG_0090` and `IMG_0091` as one visually similar development comparison group for 0051.
+  They cannot alone prove independent validation coverage even when their imported session
+  identifiers differ.
+- Use the newly imported `IMG_0661` recording as the intended different validation source after its
+  visible-card and visual identity maintained references are complete.
+- Keep 0052, 0043, and 0050 blocked until 0051 publishes its frozen comparison and decision.
 
 ## Closed-epic policy
 
