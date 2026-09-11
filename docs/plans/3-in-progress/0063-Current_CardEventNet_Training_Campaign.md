@@ -25,8 +25,10 @@
 - **M1:** Complete (2026-09-11) — migrate the complete readable legacy source corpus into current
   bundles, preserve annotation evidence and lineage, seed unreviewed draft references, and write a
   source-digest parity receipt. Legacy removal remains an explicit post-parity operator action.
-- **M2:** Not started — provide one human event-review queue and complete the required maintained
-  event references.
+- **M2:** In progress (2026-09-11) — the readiness report, per-recording human action queue,
+  workspace routes, durable progress summary, blocker report, and digest-backed receipt are
+  available. The imported recordings still need human full-recording review before this
+  milestone can complete.
 - **M3:** Not started — freeze a current CardEventNet dataset and leakage-safe train, validation,
   and sealed test partitions.
 - **M4:** Not started — make training and evaluation consume a materialized view of the frozen

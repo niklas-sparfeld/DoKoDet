@@ -24,6 +24,12 @@ from .cardevent_migration import (
     migrate_cardeventnet,
     render_cardevent_migration_human,
 )
+from .cardevent_readiness import (
+    CardEventNetReadinessError,
+    build_cardeventnet_readiness,
+    render_cardeventnet_readiness_human,
+    write_cardeventnet_readiness_receipt,
+)
 from .config import ConfigurationError, RepositoryConfig
 from .evidence_adoption import EvidencePackageAdoptionError, adopt_runtime_evidence_package
 from .holdout import SystemHoldoutError, seal_system_holdout_group
@@ -159,6 +165,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     migrate.add_argument("--format", choices=("human", "json"), default="human")
     migrate.add_argument("--json", action="store_true", help="Alias for --format json.")
+    readiness = cardevent_commands.add_parser(
+        "readiness",
+        help="Report CardEventNet human-review gaps without changing data.",
+        description="Report CardEventNet human-review gaps without changing data.",
+    )
+    _add_path_options(readiness, suppress_defaults=True)
+    readiness.add_argument(
+        "--operations-root",
+        type=Path,
+        default=None,
+        help="Shared operations root (default: data/operations).",
+    )
+    readiness.add_argument(
+        "--operator",
+        default=None,
+        help="Write a digest-backed receipt for this report using the operator ID.",
+    )
+    readiness.add_argument(
+        "--receipt",
+        type=Path,
+        default=None,
+        help="Receipt path; requires --operator. Without this option, no file is written.",
+    )
+    readiness.add_argument("--format", choices=("human", "json"), default="human")
+    readiness.add_argument("--json", action="store_true", help="Alias for --format json.")
     baseline = data_commands.add_parser(
         "resilience-baseline",
         help="Freeze the visible-region identity resilience contract and report coverage.",
@@ -510,7 +541,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         data_parser.choices["data"].print_help()
         return 0
     if args.command == "data" and args.data_command == "cardevent":
-        if args.cardevent_command not in {"audit", "migrate"}:
+        if args.cardevent_command not in {"audit", "migrate", "readiness"}:
             data_parser = next(
                 action for action in parser._subparsers._group_actions if action.dest == "command"
             )
@@ -538,6 +569,56 @@ def main(argv: Sequence[str] | None = None) -> int:
                 sys.stdout.write(json.dumps(result.to_mapping(), indent=2, sort_keys=True) + "\n")
             else:
                 sys.stdout.write(render_cardevent_migration_human(result))
+            return 0
+        if args.cardevent_command == "readiness":
+            try:
+                config = RepositoryConfig.from_environment(
+                    getattr(args, "repository_root", None),
+                    intake_root=getattr(args, "intake_root", None),
+                    artifacts_root=getattr(args, "artifacts_root", None),
+                )
+                operations_root = args.operations_root or config.derived_artifact_root
+                report = build_cardeventnet_readiness(
+                    config.repository_root,
+                    intake_root=config.bundle_root,
+                    operations_root=operations_root,
+                )
+                receipt = None
+                if args.receipt is not None and args.operator is None:
+                    raise CardEventNetReadinessError("--receipt requires --operator")
+                if args.operator is not None:
+                    receipt_path = args.receipt
+                    if receipt_path is None:
+                        receipt_path = (
+                            Path(operations_root).expanduser()
+                            / "cardeventnet-readiness"
+                            / "receipts"
+                            / f"readiness-{report.to_mapping()['report_digest']}.json"
+                        )
+                    if not receipt_path.is_absolute():
+                        receipt_path = config.repository_root / receipt_path
+                    receipt = write_cardeventnet_readiness_receipt(
+                        report,
+                        receipt_path,
+                        operator=args.operator,
+                    )
+            except (ConfigurationError, OSError, CardEventNetReadinessError) as error:
+                print(f"error: {error}", file=sys.stderr)
+                return 2
+            if args.json or args.format == "json":
+                output = report.to_mapping()
+                if receipt is not None:
+                    output["receipt"] = receipt
+                sys.stdout.write(
+                    json.dumps(output, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+                )
+            else:
+                sys.stdout.write(
+                    render_cardeventnet_readiness_human(
+                        report,
+                        receipt_path=receipt["path"] if receipt is not None else None,
+                    )
+                )
             return 0
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))

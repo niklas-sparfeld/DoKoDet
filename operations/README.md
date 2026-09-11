@@ -24,7 +24,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 
 The retained `doko` commands are grouped by owner:
 
-- `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `resilience-baseline`,
+- `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `resilience-baseline`,
   `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`, `impact`, and
   `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
@@ -65,6 +65,28 @@ doko data cardevent migrate \
 
 The operation is resumable and a completed invocation is a no-op. Missing annotations remain
 explicit draft gaps. The command does not certify review or remove the legacy tree.
+
+M2 provides a read-only human-review queue over the shared CardEventNet recordings. It separates
+missing annotations from imported annotations that still need a person to review the complete
+source video. Each queued item includes the recording-workspace route, review progress, and
+secondary eligibility blockers:
+
+```bash
+doko data cardevent readiness --repository-root .
+doko data cardevent readiness --repository-root . --format json
+```
+
+After the operator completes the queued reviews, write an integrity-checked readiness receipt in
+one explicit operation. The receipt does not change the report or certify any review by itself:
+
+```bash
+doko data cardevent readiness --repository-root . --operator <name>
+```
+
+Use `--receipt <path>` to select a different receipt path. The recording workspace completes a
+maintained event reference only after every event has a decision and the person records full-source
+coverage. An empty event reference is valid when the person reviewed the complete recording and
+confirmed that it contains no card-state changes.
 
 ```bash
 doko model status
