@@ -127,6 +127,45 @@ def test_migration_stops_on_a_conflicting_existing_source(tmp_path: Path) -> Non
     ).exists()
 
 
+def test_migration_preserves_stale_bounded_import_annotation(tmp_path: Path) -> None:
+    legacy = tmp_path / "card_event_net" / "data"
+    _write_legacy(legacy, "IMG_0001", b"updated-source", [("card_state_changed", 1.25)])
+    destination = (
+        tmp_path
+        / "data"
+        / "operations"
+        / "cardeventnet-imports"
+        / "cardeventnet-IMG_0001"
+    )
+    destination.mkdir(parents=True)
+    stale_annotation = json.dumps(
+        {
+            "schema_version": "cardevent-annotation/v2",
+            "video": "IMG_0001.mov",
+            "events": [{"type": "card_played", "time_s": 1.25}],
+        }
+    ).encode("utf-8")
+    (destination / "annotation.json").write_bytes(stale_annotation)
+    (destination / "import.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "cardeventnet-import/v1",
+                "source_annotation": str(legacy / "annotations" / "IMG_0001.json"),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = migrate_cardeventnet(tmp_path, operator="operator-a")
+
+    annotation = legacy / "annotations" / "IMG_0001.json"
+    assert result.state == "complete"
+    assert (destination / "annotation.json").read_bytes() == annotation.read_bytes()
+    assert (
+        destination / f"annotation-legacy-{_sha256(stale_annotation)}.json"
+    ).read_bytes() == stale_annotation
+
+
 def test_migration_repairs_an_imported_noncanonical_video_descriptor(tmp_path: Path) -> None:
     legacy = tmp_path / "card_event_net" / "data"
     _write_legacy(legacy, "IMG_0001", b"repair-me", [])

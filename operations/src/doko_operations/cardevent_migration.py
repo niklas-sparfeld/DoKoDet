@@ -852,7 +852,32 @@ def _preserve_annotation(
     if annotation_path is None:
         return None, None
     annotation_bytes = annotation_path.read_bytes()
-    _copy_once(annotation_path, destination / "annotation.json")
+    annotation_destination = destination / "annotation.json"
+    if annotation_destination.exists() and annotation_destination.read_bytes() != annotation_bytes:
+        previous_import = _read_object(destination / "import.json")
+        previous_source = (
+            previous_import.get("source_annotation")
+            if previous_import is not None
+            else None
+        )
+        is_legacy_import = (
+            previous_import is not None
+            and previous_import.get("schema_version") == "cardeventnet-import/v1"
+            and isinstance(previous_source, str)
+            and Path(previous_source).expanduser().resolve() == annotation_path.resolve()
+        )
+        if not is_legacy_import:
+            raise CardEventNetMigrationError(
+                f"migration destination conflicts with source: {annotation_destination}"
+            )
+        previous_digest = _sha256_path(annotation_destination)
+        _copy_once(
+            annotation_destination,
+            destination / f"annotation-legacy-{previous_digest}.json",
+        )
+        _atomic_write(annotation_destination, annotation_bytes, replace=True)
+    else:
+        _copy_once(annotation_path, annotation_destination)
     return _sha256_bytes(annotation_bytes), annotation_bytes
 
 
