@@ -53,7 +53,7 @@ export interface paths {
         };
         /**
          * Get Recording Exact Event Frame
-         * @description Return one verified exact-event frame resolved from the accepted recording video.
+         * @description Return one verified exact or sampled review frame from the accepted recording video.
          */
         get: operations["get_recording_exact_event_frame_api_recordings__recording_id__pipeline_derived_views_exact_event__requested_time_us__get"];
         put?: never;
@@ -2893,7 +2893,9 @@ export interface operations {
     };
     get_recording_exact_event_frame_api_recordings__recording_id__pipeline_derived_views_exact_event__requested_time_us__get: {
         parameters: {
-            query?: never;
+            query?: {
+                preview?: "sampled_250ms" | null;
+            };
             header?: never;
             path: {
                 recording_id: string;

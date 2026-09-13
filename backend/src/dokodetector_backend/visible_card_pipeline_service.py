@@ -15,9 +15,11 @@ from threading import BoundedSemaphore, RLock
 from typing import Any, Protocol
 
 from doko_operations.derived_view import (
+    SAMPLED_FRAME_INTERVAL_US,
     DerivedViewError,
     FrameResolver,
     ResolvedFrame,
+    SampledFrameResolver,
     resolve_exact_event,
 )
 from doko_operations.pipeline_data import (
@@ -117,6 +119,9 @@ class VisibleCardPipelineService:
             thread_name_prefix="visible-card-pipeline",
         )
         self._futures: dict[str, Future[None]] = {}
+        self._source_contexts: dict[
+            str, tuple[tuple[int, int, int, int, str], RecordingVideoSource]
+        ] = {}
         self._lock = RLock()
 
     async def start(self) -> None:
@@ -176,6 +181,27 @@ class VisibleCardPipelineService:
                 cache=self.storage.derived_views_root,
                 resolver=self.frame_resolver,
                 output_encoding="jpeg",
+                validate_source=False,
+            )
+
+    def resolve_sampled_source_frame(
+        self, recording_id: str, requested_time_us: int
+    ) -> ResolvedFrame:
+        """Resolve a fast 250 ms review frame from the accepted recording video."""
+
+        _, source = self._accepted_source(recording_id)
+        with self._derived_view_lock:
+            return resolve_exact_event(
+                self._video_path(recording_id),
+                source=source,
+                requested_time_us=requested_time_us,
+                cache=self.storage.derived_views_root,
+                resolver=SampledFrameResolver(
+                    self.storage.derived_views_root / "sampled-frames",
+                    interval_us=SAMPLED_FRAME_INTERVAL_US,
+                ),
+                output_encoding="jpeg",
+                validate_source=False,
             )
 
     def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
@@ -597,12 +623,30 @@ class VisibleCardPipelineService:
             LOGGER.exception("visible_card_pipeline_failure_persist_failed")
 
     def _accepted_source(self, recording_id: str) -> tuple[Any, RecordingVideoSource]:
-        bundle = self.recording_store.get(recording_id)
+        bundle = self.recording_store.get_metadata(recording_id)
         if bundle is None:
             raise PipelineNotFound(f"The recording was not found: {recording_id}")
         video_path = self._video_path(recording_id)
         if not video_path.is_file():
             raise VisibleCardPipelineInputError("The accepted recording video is unavailable.")
+        try:
+            video_stat = video_path.stat()
+        except OSError as error:
+            raise VisibleCardPipelineInputError(
+                "The accepted recording video is unavailable."
+            ) from error
+        cache_key = (
+            video_stat.st_mtime_ns,
+            video_stat.st_ctime_ns,
+            video_stat.st_size,
+            bundle.video_byte_length,
+            bundle.source_sha256,
+        )
+        with self._lock:
+            cached = self._source_contexts.get(recording_id)
+            if cached is not None and cached[0] == cache_key:
+                return bundle, cached[1]
+
         actual_length, actual_digest = _file_identity(video_path)
         if actual_length != bundle.video_byte_length or actual_digest != bundle.source_sha256:
             raise VisibleCardPipelineInputError(
@@ -624,13 +668,16 @@ class VisibleCardPipelineService:
             raise VisibleCardPipelineInputError(
                 "The accepted recording video is outside the repository root."
             ) from error
-        return bundle, RecordingVideoSource(
+        source = RecordingVideoSource(
             recording_id=recording_id,
             relative_path=relative_path,
             video_sha256=bundle.source_sha256,
             byte_length=actual_length,
             duration_us=probe.duration_ms * 1000,
         )
+        with self._lock:
+            self._source_contexts[recording_id] = (cache_key, source)
+        return bundle, source
 
     def _video_path(self, recording_id: str) -> Path:
         manifest = self.repository_storage.bundle_path(recording_id) / "manifest.json"

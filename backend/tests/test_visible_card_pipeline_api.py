@@ -681,6 +681,34 @@ def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: P
         assert second.headers["etag"] == first.headers["etag"]
 
 
+def test_sampled_event_frame_route_reuses_one_250_ms_cache(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+
+    first_path = (
+        f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/exact-event/100000"
+        "?preview=sampled_250ms"
+    )
+    second_path = (
+        f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/exact-event/400000"
+        "?preview=sampled_250ms"
+    )
+    with TestClient(app) as client:
+        first = client.get(first_path)
+        second = client.get(second_path)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.headers["x-dokodetector-frame-interval-us"] == "250000"
+    assert first.headers["x-dokodetector-frame-time-us"] == "250000"
+    assert second.headers["x-dokodetector-frame-time-us"] == "500000"
+    cache_root = tmp_path / "runtime" / "pipeline" / "derived-views" / "sampled-frames"
+    assert len(list(cache_root.rglob("manifest.json"))) == 1
+
+
 def _wait_event(client: TestClient, run_id: str) -> dict:
     deadline = time.monotonic() + 5
     body: dict = {}

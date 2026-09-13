@@ -28,6 +28,7 @@ from PIL import Image, UnidentifiedImageError
 from .pipeline_data import RecordingVideoSource, canonical_json_bytes
 
 EXACT_EVENT_SCHEMA = "exact-event/v1"
+SAMPLED_FRAME_CACHE_SCHEMA = "sampled-frame-cache/v1"
 VISIBLE_REGION_CROP_SCHEMA = "visible-region-crop/v1"
 CROP_JPEG_PREVIEW_SCHEMA = "visible-region-crop-jpeg-preview/v1"
 DERIVED_VIEW_CACHE_SCHEMA = "derived-view-cache/v1"
@@ -42,6 +43,8 @@ CROP_JPEG_PREVIEW_TRANSFORM_VERSION = (
     f"pillow/{PILLOW_TOOLCHAIN_VERSION}/crop-browser-jpeg-v1"
 )
 CROP_JPEG_PREVIEW_QUALITY = 90
+SAMPLED_FRAME_INTERVAL_US = 250_000
+SAMPLED_FRAME_MAX_DIMENSION = 1280
 
 SUPPORTED_FRAME_ENCODINGS = frozenset({"jpeg", "png"})
 SUPPORTED_CROP_ENCODINGS = frozenset({"jpeg", "png", "ppm"})
@@ -1233,6 +1236,222 @@ class FFmpegFrameResolver:
         return result.stdout
 
 
+class SampledFrameResolver:
+    """Resolve review frames from a recording-scoped, 250 ms sample cache."""
+
+    def __init__(
+        self,
+        cache_root: str | Path,
+        *,
+        interval_us: int = SAMPLED_FRAME_INTERVAL_US,
+        max_dimension: int = SAMPLED_FRAME_MAX_DIMENSION,
+        ffmpeg_binary: str = "ffmpeg",
+        decoder_version: str = DEFAULT_DECODER_VERSION,
+    ) -> None:
+        self.cache_root = Path(cache_root).expanduser()
+        self.interval_us = _require_int(interval_us, "interval_us", minimum=1)
+        self.max_dimension = _require_int(max_dimension, "max_dimension", minimum=1)
+        self.ffmpeg_binary = _require_text(ffmpeg_binary, "ffmpeg_binary")
+        self.decoder_version = _require_text(decoder_version, "decoder_version")
+        self.transform_version = (
+            f"ffmpeg-mjpeg/{FFMPEG_TOOLCHAIN_VERSION}/sampled-"
+            f"{self.interval_us}us-max-{self.max_dimension}/v1"
+        )
+
+    def resolve(self, request: ExactEventRequest, video_path: Path) -> ResolvedFrame:
+        if not isinstance(request, ExactEventRequest):
+            raise DerivedViewError("frame resolver needs an exact-event request")
+        if request.output_encoding != "jpeg":
+            raise DerivedViewError("the sampled frame provider currently emits JPEG frames")
+        path = Path(video_path)
+        if not path.is_file():
+            raise DerivedViewSourceError(f"source video does not exist: {path}")
+        frames = self._ensure_cache(path, request.source)
+        selected = next(
+            (frame for frame in frames if frame[1] >= request.requested_time_us),
+            frames[-1],
+        )
+        frame_index, timestamp_us, width, height, relative_path = selected
+        try:
+            image_bytes = (self._cache_path(request.source) / relative_path).read_bytes()
+        except OSError as error:
+            raise DerivedViewProbeError("sampled frame cache could not be read") from error
+        actual_width, actual_height = _image_dimensions(image_bytes)
+        if (actual_width, actual_height) != (width, height):
+            raise DerivedViewProbeError("sampled frame dimensions do not match the cache")
+        return ResolvedFrame(
+            requested_time_us=request.requested_time_us,
+            frame_index=frame_index,
+            presentation_timestamp_us=timestamp_us,
+            source_video_sha256=request.source.video_sha256,
+            width=width,
+            height=height,
+            decoder_version=self.decoder_version,
+            transform_version=self.transform_version,
+            output_encoding=request.output_encoding,
+            image_bytes=image_bytes,
+        )
+
+    def _cache_path(self, source: RecordingVideoSource) -> Path:
+        return self.cache_root / source.video_sha256 / f"{self.interval_us}-{self.max_dimension}"
+
+    def _ensure_cache(
+        self,
+        video_path: Path,
+        source: RecordingVideoSource,
+    ) -> list[tuple[int, int, int, int, str]]:
+        destination = self._cache_path(source)
+        cached = self._read_cache(destination, source)
+        if cached is not None:
+            return cached
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary_dir = Path(tempfile.mkdtemp(prefix=".sampled-", dir=destination.parent))
+        frames_dir = temporary_dir / "frames"
+        frames_dir.mkdir()
+        try:
+            filter_expression = (
+                f"fps={1_000_000 / self.interval_us:g},"
+                f"scale=w='min({self.max_dimension},iw)':"
+                f"h='min({self.max_dimension},ih)':"
+                "force_original_aspect_ratio=decrease"
+            )
+            command = [
+                self.ffmpeg_binary,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(video_path),
+                "-vf",
+                filter_expression,
+                "-q:v",
+                "2",
+                "-start_number",
+                "0",
+                str(frames_dir / "%06d.jpg"),
+            ]
+            try:
+                result = subprocess.run(command, capture_output=True, check=False)
+            except (OSError, subprocess.SubprocessError) as error:
+                raise DerivedViewProbeError(
+                    f"ffmpeg could not create sampled frames: {error}"
+                ) from error
+            if result.returncode != 0:
+                detail = result.stderr.decode("utf-8", errors="replace").strip()
+                raise DerivedViewProbeError(
+                    "ffmpeg could not create sampled frames: "
+                    f"{detail or 'unknown error'}"
+                )
+
+            entries: list[tuple[int, int, int, int, str]] = []
+            for frame_path in frames_dir.glob("*.jpg"):
+                try:
+                    frame_index = int(frame_path.stem)
+                    image_bytes = frame_path.read_bytes()
+                except (OSError, ValueError) as error:
+                    raise DerivedViewProbeError(
+                        "sampled frame cache contains an invalid frame"
+                    ) from error
+                width, height = _image_dimensions(image_bytes)
+                entries.append(
+                    (
+                        frame_index,
+                        frame_index * self.interval_us,
+                        width,
+                        height,
+                        f"frames/{frame_path.name}",
+                    )
+                )
+            entries.sort(key=lambda entry: entry[0])
+            if not entries or [item[0] for item in entries] != list(range(len(entries))):
+                if not entries:
+                    raise DerivedViewMissingFrameError(
+                        "ffmpeg returned no sampled frames for the source video"
+                    )
+                raise DerivedViewProbeError("ffmpeg returned non-contiguous sampled frames")
+            manifest = {
+                "schema_version": SAMPLED_FRAME_CACHE_SCHEMA,
+                "source_video_sha256": source.video_sha256,
+                "byte_length": source.byte_length,
+                "interval_us": self.interval_us,
+                "max_dimension": self.max_dimension,
+                "frames": [
+                    {
+                        "frame_index": frame_index,
+                        "presentation_timestamp_us": timestamp_us,
+                        "width": width,
+                        "height": height,
+                        "relative_path": relative_path,
+                    }
+                    for frame_index, timestamp_us, width, height, relative_path in entries
+                ],
+            }
+            _write_fsync(temporary_dir / "manifest.json", canonical_json_bytes(manifest))
+            if destination.exists() or destination.is_symlink():
+                if destination.is_symlink():
+                    destination.unlink()
+                else:
+                    shutil.rmtree(destination)
+            os.replace(temporary_dir, destination)
+            temporary_dir = Path()
+            return entries
+        finally:
+            if temporary_dir != Path() and (temporary_dir.exists() or temporary_dir.is_symlink()):
+                shutil.rmtree(temporary_dir, ignore_errors=True)
+
+    def _read_cache(
+        self,
+        directory: Path,
+        source: RecordingVideoSource,
+    ) -> list[tuple[int, int, int, int, str]] | None:
+        if not directory.is_dir() or directory.is_symlink():
+            return None
+        try:
+            manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        if not isinstance(manifest, Mapping):
+            return None
+        if (
+            manifest.get("schema_version") != SAMPLED_FRAME_CACHE_SCHEMA
+            or manifest.get("source_video_sha256") != source.video_sha256
+            or manifest.get("byte_length") != source.byte_length
+            or manifest.get("interval_us") != self.interval_us
+            or manifest.get("max_dimension") != self.max_dimension
+            or not isinstance(manifest.get("frames"), list)
+        ):
+            return None
+        entries: list[tuple[int, int, int, int, str]] = []
+        for raw in manifest["frames"]:
+            if not isinstance(raw, Mapping):
+                return None
+            try:
+                frame_index = _require_int(raw.get("frame_index"), "sampled frame index", minimum=0)
+                timestamp_us = _require_int(
+                    raw.get("presentation_timestamp_us"),
+                    "sampled frame timestamp",
+                    minimum=0,
+                )
+                width = _require_int(raw.get("width"), "sampled frame width", minimum=1)
+                height = _require_int(raw.get("height"), "sampled frame height", minimum=1)
+                relative_path = _require_text(raw.get("relative_path"), "sampled frame path")
+            except DerivedViewError:
+                return None
+            if (
+                timestamp_us != frame_index * self.interval_us
+                or relative_path != f"frames/{frame_index:06d}.jpg"
+            ):
+                return None
+            frame_path = directory / relative_path
+            if not frame_path.is_file() or frame_path.is_symlink():
+                return None
+            entries.append((frame_index, timestamp_us, width, height, relative_path))
+        if not entries or [item[0] for item in entries] != list(range(len(entries))):
+            return None
+        return entries
+
+
 class OpenCVFrameResolver:
     """Optional OpenCV adapter for existing local paths that need it."""
 
@@ -1330,6 +1549,7 @@ def resolve_exact_event(
     cache: DerivedViewCache | str | Path | None = None,
     resolver: FrameResolver | None = None,
     output_encoding: str = "jpeg",
+    validate_source: bool = True,
 ) -> ResolvedFrame:
     """Resolve the first source presentation timestamp at or after an event time."""
 
@@ -1346,7 +1566,10 @@ def resolve_exact_event(
     provider = resolver or FFmpegFrameResolver()
     decoder_version = _require_text(provider.decoder_version, "resolver.decoder_version")
     path = Path(video_path)
-    _validate_source_video(path, accepted_source)
+    if validate_source:
+        _validate_source_video(path, accepted_source)
+    elif not path.is_file():
+        raise DerivedViewSourceError(f"source video does not exist: {path}")
     cache_store = _cache_store(cache)
     key = frame_cache_key(
         request,
@@ -2069,6 +2292,10 @@ __all__ = [
     "FFmpegFrameResolver",
     "FrameResolver",
     "OpenCVFrameResolver",
+    "SAMPLED_FRAME_CACHE_SCHEMA",
+    "SAMPLED_FRAME_INTERVAL_US",
+    "SAMPLED_FRAME_MAX_DIMENSION",
+    "SampledFrameResolver",
     "PILLOW_TOOLCHAIN_VERSION",
     "PixelBounds",
     "ResolvedCrop",

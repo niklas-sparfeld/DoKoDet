@@ -5,6 +5,7 @@ import {
   pipelineComparisonPath,
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
+  pipelineReviewFramePath,
   pipelineObservationRunPath,
   pipelineObservationRunRetryPath,
   pipelineObservationRunsPath,
@@ -67,6 +68,9 @@ describe("DokoDetector API client", () => {
     ]);
     expect(pipelineDerivedFramePath("recording/1", 123456)).toBe(
       "/api/recordings/recording%2F1/pipeline/derived-views/exact-event/123456",
+    );
+    expect(pipelineReviewFramePath("recording/1", 123456)).toBe(
+      "/api/recordings/recording%2F1/pipeline/derived-views/exact-event/123456?preview=sampled_250ms",
     );
     expect(
       pipelineIdentityCropPath("recording/1", "revision/1", "card 1"),

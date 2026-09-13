@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from doko_operations.derived_view import (
+    SAMPLED_FRAME_INTERVAL_US,
     DerivedViewError,
     resolve_crop_jpeg_preview,
     resolve_crop_jpeg_preview_from_cache,
@@ -345,9 +346,12 @@ def get_visible_card_result(recording_id: str, run_id: str, request: Request) ->
 
 @router.get(DERIVED_FRAME_BASE, response_class=Response)
 def get_recording_exact_event_frame(
-    recording_id: str, requested_time_us: int, request: Request
+    recording_id: str,
+    requested_time_us: int,
+    request: Request,
+    preview: Literal["sampled_250ms"] | None = None,
 ) -> Response:
-    """Return one verified exact-event frame resolved from the accepted recording video."""
+    """Return one verified exact or sampled review frame from the accepted recording video."""
 
     validate_recording_id(recording_id)
     if requested_time_us < 0:
@@ -357,7 +361,12 @@ def get_recording_exact_event_frame(
             status_code=422,
         )
     try:
-        frame = _visible_service(request).resolve_source_frame(recording_id, requested_time_us)
+        service = _visible_service(request)
+        frame = (
+            service.resolve_sampled_source_frame(recording_id, requested_time_us)
+            if preview == "sampled_250ms"
+            else service.resolve_source_frame(recording_id, requested_time_us)
+        )
     except PipelineNotFound as error:
         raise ContractError("recording_not_found", str(error), status_code=404) from error
     except (VisibleCardPipelineInputError, DerivedViewError, OSError, RuntimeError) as error:
@@ -368,6 +377,10 @@ def get_recording_exact_event_frame(
         headers={
             "Cache-Control": "private, max-age=31536000, immutable",
             "ETag": f'"{frame.image_sha256}"',
+            "X-DokoDetector-Frame-Time-Us": str(frame.presentation_timestamp_us),
+            "X-DokoDetector-Frame-Interval-Us": (
+                str(SAMPLED_FRAME_INTERVAL_US) if preview == "sampled_250ms" else "0"
+            ),
         },
     )
 

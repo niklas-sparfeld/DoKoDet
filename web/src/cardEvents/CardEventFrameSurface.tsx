@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { pipelineDerivedFramePath } from "../api/client";
+import { pipelineReviewFramePath } from "../api/client";
 import styles from "../App.module.css";
 import eventStyles from "./PipelineCardEventEditor.module.css";
 import { formatMicroseconds } from "./PipelineCardEventFormatting";
@@ -21,10 +21,10 @@ export type CardEventFrameSurfaceProps = {
   requestedTimeUs: number;
 };
 
-class ExactFrameUnavailableError extends Error {
+class ReviewFrameUnavailableError extends Error {
   constructor(status: number) {
-    super(`Exact source frame unavailable (${status}).`);
-    this.name = "ExactFrameUnavailableError";
+    super(`CardEvent review frame unavailable (${status}).`);
+    this.name = "ReviewFrameUnavailableError";
   }
 }
 
@@ -40,7 +40,7 @@ export function CardEventFrameSurface({
     const normalizedTimeUs = normalizeTime(requestedTimeUs);
     return {
       requestedTimeUs: normalizedTimeUs,
-      requestedUrl: pipelineDerivedFramePath(recordingId, normalizedTimeUs),
+      requestedUrl: pipelineReviewFramePath(recordingId, normalizedTimeUs),
       displayUrl: null,
       displayedTimeUs: null,
       status: "loading",
@@ -50,7 +50,7 @@ export function CardEventFrameSurface({
 
   useEffect(() => {
     const normalizedTimeUs = normalizeTime(requestedTimeUs);
-    const requestUrl = pipelineDerivedFramePath(recordingId, normalizedTimeUs);
+    const requestUrl = pipelineReviewFramePath(recordingId, normalizedTimeUs);
     const sequence = sequenceRef.current + 1;
     sequenceRef.current = sequence;
     abortRef.current?.abort();
@@ -59,10 +59,12 @@ export function CardEventFrameSurface({
 
     void fetch(requestUrl, { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new ExactFrameUnavailableError(response.status);
-        return response.blob();
+        if (!response.ok)
+          throw new ReviewFrameUnavailableError(response.status);
+        const displayedTimeUs = readFrameTime(response, normalizedTimeUs);
+        return response.blob().then((blob) => ({ blob, displayedTimeUs }));
       })
-      .then((blob) => {
+      .then(({ blob, displayedTimeUs }) => {
         if (controller.signal.aborted || sequence !== sequenceRef.current)
           return;
         const displayUrl = createDisplayUrl(
@@ -84,7 +86,7 @@ export function CardEventFrameSurface({
           requestedTimeUs: normalizedTimeUs,
           requestedUrl: requestUrl,
           displayUrl,
-          displayedTimeUs: normalizedTimeUs,
+          displayedTimeUs,
           status: "ready",
           error: null,
         });
@@ -97,7 +99,7 @@ export function CardEventFrameSurface({
           requestedTimeUs: normalizedTimeUs,
           requestedUrl: requestUrl,
           status:
-            reason instanceof ExactFrameUnavailableError
+            reason instanceof ReviewFrameUnavailableError
               ? "unavailable"
               : "failed",
           error: describeFrameError(reason),
@@ -120,7 +122,7 @@ export function CardEventFrameSurface({
   );
 
   const normalizedRequestedTimeUs = normalizeTime(requestedTimeUs);
-  const requestedUrl = pipelineDerivedFramePath(
+  const requestedUrl = pipelineReviewFramePath(
     recordingId,
     normalizedRequestedTimeUs,
   );
@@ -151,7 +153,7 @@ export function CardEventFrameSurface({
   return (
     <section
       className={eventStyles.frameSurface}
-      aria-label="CardEvent exact source frame"
+      aria-label="CardEvent review source frame"
       data-frame-status={currentFrame.status}
       data-requested-time-us={currentFrame.requestedTimeUs}
     >
@@ -162,8 +164,8 @@ export function CardEventFrameSurface({
             src={currentFrame.displayUrl}
             alt={
               displayedTimeLabel === null
-                ? `Exact CardEvent source frame at ${timeLabel}`
-                : `Exact CardEvent source frame at ${displayedTimeLabel}`
+                ? `CardEvent review frame at ${timeLabel}`
+                : `CardEvent review frame at ${displayedTimeLabel}`
             }
             data-frame-requested-time-us={currentFrame.requestedTimeUs}
             onError={() => {
@@ -183,7 +185,7 @@ export function CardEventFrameSurface({
                       displayedTimeUs: null,
                       status: "failed",
                       error:
-                        "The exact source frame image could not be displayed.",
+                        "The CardEvent review frame image could not be displayed.",
                     }
                   : current,
               );
@@ -192,7 +194,7 @@ export function CardEventFrameSurface({
         ) : null}
         {currentFrame.status === "loading" ? (
           <p className={eventStyles.frameStatus} role="status">
-            Loading exact source frame at {timeLabel}…
+            Loading CardEvent review frame at {timeLabel}…
           </p>
         ) : null}
         {currentFrame.status === "unavailable" ||
@@ -215,6 +217,13 @@ function normalizeTime(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
+function readFrameTime(response: Response, fallback: number): number {
+  const raw = response.headers.get("X-DokoDetector-Frame-Time-Us");
+  if (raw === null) return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? Math.round(value) : fallback;
+}
+
 function createDisplayUrl(
   blob: Blob,
   fallbackUrl: string,
@@ -233,16 +242,17 @@ function frameAnnouncement(
 ): string {
   if (status === "loading")
     return retained
-      ? `Loading exact source frame at ${timeLabel}. The last available frame remains visible.`
-      : `Loading exact source frame at ${timeLabel}.`;
-  if (status === "ready") return `Exact source frame loaded at ${timeLabel}.`;
+      ? `Loading CardEvent review frame at ${timeLabel}. The last available frame remains visible.`
+      : `Loading CardEvent review frame at ${timeLabel}.`;
+  if (status === "ready")
+    return `CardEvent review frame loaded at ${timeLabel}.`;
   if (status === "unavailable")
-    return `Exact source frame unavailable at ${timeLabel}.`;
-  return `Exact source frame failed at ${timeLabel}.`;
+    return `CardEvent review frame unavailable at ${timeLabel}.`;
+  return `CardEvent review frame failed at ${timeLabel}.`;
 }
 
 function describeFrameError(reason: unknown): string {
   return reason instanceof Error
     ? reason.message
-    : "The exact source frame request failed.";
+    : "The CardEvent review frame request failed.";
 }

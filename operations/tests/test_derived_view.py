@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from PIL import Image
@@ -12,6 +13,7 @@ from PIL import Image
 from doko_operations.derived_view import (
     DEFAULT_DECODER_VERSION,
     DEFAULT_TRANSFORM_VERSION,
+    SAMPLED_FRAME_INTERVAL_US,
     DerivedViewCache,
     DerivedViewError,
     DerivedViewMissingFrameError,
@@ -21,6 +23,7 @@ from doko_operations.derived_view import (
     PredictedVisibleRegionGeometry,
     ResolvedFrame,
     ReviewedVisibleRegionGeometry,
+    SampledFrameResolver,
     VisibleRegionCropRequest,
     VisibleRegionExclusionInput,
     crop_cache_key,
@@ -37,7 +40,7 @@ from doko_operations.derived_view import (
 from doko_operations.pipeline_data import RecordingVideoSource
 
 
-def _make_cfr_video(path: Path) -> None:
+def _make_cfr_video(path: Path, *, duration_s: float = 0.5) -> None:
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
         pytest.skip("ffmpeg is required for derived-view fixtures")
@@ -52,7 +55,7 @@ def _make_cfr_video(path: Path) -> None:
             "-i",
             "testsrc=size=64x48:rate=10",
             "-t",
-            "0.5",
+            str(duration_s),
             "-c:v",
             "libx264",
             "-pix_fmt",
@@ -163,6 +166,37 @@ def test_exact_event_vfr_does_not_use_nominal_frame_rate(tmp_path: Path) -> None
 
     assert frame.frame_index == 2
     assert frame.presentation_timestamp_us == 280_000
+
+
+def test_sampled_frame_resolver_extracts_one_250_ms_cache_for_many_requests(
+    tmp_path: Path,
+) -> None:
+    video = tmp_path / "cfr.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    source = _source(video, duration_us=1_000_000)
+    resolver = SampledFrameResolver(tmp_path / "sampled-frames")
+
+    with patch("doko_operations.derived_view.subprocess.run", wraps=subprocess.run) as run:
+        first = resolve_exact_event(
+            video,
+            source=source,
+            requested_time_us=100_000,
+            resolver=resolver,
+        )
+        second = resolve_exact_event(
+            video,
+            source=source,
+            requested_time_us=300_000,
+            resolver=resolver,
+        )
+
+    assert run.call_count == 1
+    assert first.presentation_timestamp_us == SAMPLED_FRAME_INTERVAL_US
+    assert second.presentation_timestamp_us == SAMPLED_FRAME_INTERVAL_US * 2
+    assert first.width == second.width == 64
+    assert first.height == second.height == 48
+    cache_directories = list((tmp_path / "sampled-frames").rglob("manifest.json"))
+    assert len(cache_directories) == 1
 
 
 def test_exact_event_missing_frame_and_corrupt_cache_regenerate(tmp_path: Path) -> None:

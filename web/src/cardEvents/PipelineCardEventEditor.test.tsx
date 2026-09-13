@@ -191,7 +191,7 @@ describe("PipelineCardEventEditor", () => {
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("region", { name: "CardEvent exact source frame" }),
+        screen.getByRole("region", { name: "CardEvent review source frame" }),
       ).toHaveAttribute("data-requested-time-us", "2500000"),
     );
     fireEvent.click(
@@ -395,7 +395,7 @@ describe("PipelineCardEventEditor", () => {
     );
   });
 
-  it("uses the exact source frame and Timeline Rail selection instead of an event table", async () => {
+  it("uses the sampled review frame and Timeline Rail selection instead of an event table", async () => {
     const server = referenceResponse([eventItem()]);
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(response(server)),
@@ -405,7 +405,7 @@ describe("PipelineCardEventEditor", () => {
 
     expect(
       await screen.findByRole("img", {
-        name: "Exact CardEvent source frame at 0:01.000000",
+        name: "CardEvent review frame at 0:01.000000",
       }),
     ).toBeInTheDocument();
     expect(document.querySelector("video")).not.toBeInTheDocument();
@@ -441,7 +441,7 @@ describe("PipelineCardEventEditor", () => {
     });
     await waitFor(() =>
       expect(
-        screen.getByRole("region", { name: "CardEvent exact source frame" }),
+        screen.getByRole("region", { name: "CardEvent review source frame" }),
       ).toHaveAttribute("data-requested-time-us", "1000000"),
     );
 

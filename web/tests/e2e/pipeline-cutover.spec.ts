@@ -685,7 +685,7 @@ for (const fixture of [
       name: "CardEvent review controls",
     });
     const frame = page.getByRole("region", {
-      name: "CardEvent exact source frame",
+      name: "CardEvent review source frame",
     });
     await expect(taskSurface).toBeVisible();
     await expect(controls).toBeVisible();
@@ -693,13 +693,13 @@ for (const fixture of [
     await expect(frame.getByRole("img")).toHaveAttribute(
       "alt",
       fixture.state === "no-selection"
-        ? "Exact CardEvent source frame at 0:00.000000"
-        : "Exact CardEvent source frame at 0:01.000000",
+        ? "CardEvent review frame at 0:00.000000"
+        : "CardEvent review frame at 0:01.000000",
     );
     await expect(frame.getByRole("status")).toContainText(
       fixture.state === "no-selection"
-        ? "Exact source frame loaded at 0:00.000000."
-        : "Exact source frame loaded at 0:01.000000.",
+        ? "CardEvent review frame loaded at 0:00.000000."
+        : "CardEvent review frame loaded at 0:01.000000.",
     );
     expect(await taskSurface.locator("video").count()).toBe(0);
 
@@ -745,7 +745,7 @@ test("keeps the reviewed CardEvent workbench accessible at desktop and narrow si
     );
 
     const frame = page.getByRole("region", {
-      name: "CardEvent exact source frame",
+      name: "CardEvent review source frame",
     });
     const controls = page.getByRole("complementary", {
       name: "CardEvent review controls",
@@ -762,7 +762,7 @@ test("keeps the reviewed CardEvent workbench accessible at desktop and narrow si
     const layout = await page.evaluate(() => {
       const rect = (selector: string) =>
         document.querySelector(selector)?.getBoundingClientRect() ?? null;
-      const frameRect = rect('[aria-label="CardEvent exact source frame"]');
+      const frameRect = rect('[aria-label="CardEvent review source frame"]');
       const controlsRect = rect('[aria-label="CardEvent review controls"]');
       const centerRect = rect('[data-slot="center"]');
       const inspectorRect = rect('[data-slot="inspector"]');
@@ -902,10 +902,10 @@ test("announces loading and failed exact source-frame fixtures", async ({
     `/recordings/${REVIEW_RECORDING_ID}/pipeline/events?view=reviewed`,
   );
   const loadingFrame = page.getByRole("region", {
-    name: "CardEvent exact source frame",
+    name: "CardEvent review source frame",
   });
   await expect(
-    loadingFrame.getByText("Loading exact source frame at 0:00.000000…", {
+    loadingFrame.getByText("Loading CardEvent review frame at 0:00.000000…", {
       exact: true,
     }),
   ).toBeVisible();
@@ -918,13 +918,13 @@ test("announces loading and failed exact source-frame fixtures", async ({
   });
   await page.reload();
   const failedFrame = page.getByRole("region", {
-    name: "CardEvent exact source frame",
+    name: "CardEvent review source frame",
   });
   await expect(failedFrame.getByRole("alert")).toContainText(
-    "Exact source frame unavailable (503).",
+    "CardEvent review frame unavailable (503).",
   );
   await expect(failedFrame.getByRole("status")).toContainText(
-    "Exact source frame unavailable at 0:00.000000.",
+    "CardEvent review frame unavailable at 0:00.000000.",
   );
 });
 

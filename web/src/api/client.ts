@@ -781,6 +781,13 @@ export function pipelineDerivedFramePath(
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/exact-event/${encodeURIComponent(String(Math.max(0, Math.round(requestedTimeUs))))}`;
 }
 
+export function pipelineReviewFramePath(
+  recordingId: string,
+  requestedTimeUs: number,
+): string {
+  return `${pipelineDerivedFramePath(recordingId, requestedTimeUs)}?preview=sampled_250ms`;
+}
+
 export function pipelineReferencePath(
   recordingId: string,
   contentType: PipelineSelectableContentType,
