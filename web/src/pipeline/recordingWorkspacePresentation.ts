@@ -470,6 +470,8 @@ function normalizeSelection(
 
 function defaultViewForStage(stage: PipelineWorkspaceStage): PipelineView {
   return stage.selected_generated_revision_id !== null ||
+    stage.reference == null ||
+    stage.reference.state === "empty" ||
     !stage.has_maintained_reference
     ? "generated"
     : "reviewed";

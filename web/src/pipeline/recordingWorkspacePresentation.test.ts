@@ -103,6 +103,31 @@ describe("recording workspace presentation model", () => {
     }
   });
 
+  it("defaults a fresh reviewable stage to generated output", () => {
+    const presentation = buildRecordingWorkspacePresentation({
+      workspace: pipelineWorkspace({
+        stageOverrides: {
+          visible_cards: {
+            reference: {
+              state: "empty",
+              draft_revision: null,
+              selected_completion: null,
+              source_revision_id: null,
+              coverage: null,
+              coverage_state: "none",
+              affected_count: 0,
+              updated_at: null,
+            },
+          },
+        },
+      }),
+      stageKey: "visible_cards",
+    });
+
+    expect(presentation.topBar.view).toBe("generated");
+    expect(presentation.inspector.selection?.view).toBe("generated");
+  });
+
   it("uses one comparison surface while retaining the selected stage rail", () => {
     const presentation = buildRecordingWorkspacePresentation({
       workspace: recordingPipelinePresentationFixture("complete"),
