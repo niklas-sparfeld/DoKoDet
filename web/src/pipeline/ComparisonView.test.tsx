@@ -22,6 +22,7 @@ const OUTCOMES: PipelineComparisonResponse["items"][number]["outcome"][] = [
   "empty",
   "not_reviewed",
   "unpaired_input",
+  "ignored",
 ];
 
 function stage(
@@ -225,6 +226,10 @@ function counts(): PipelineComparisonResponse["counts"]["left"] {
     not_reviewed: 1,
     unpaired_input: 1,
     failures: 1,
+    ignored_frames: 0,
+    ignored_regions: 0,
+    ignored_pixels: 0,
+    neutralized_predictions: 0,
   };
 }
 

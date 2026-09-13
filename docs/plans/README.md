@@ -51,7 +51,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0065 — Visible-card ignore regions](3-in-progress/0065-Visible_Card_Ignore_Regions.md) | 0048, 0049, and 0062 complete | M0–M2 are complete: the strict contract, durable atomic reference operations, and visible-card editor workflow preserve generated lineage and distinguish card, ignored, empty, and unusable coverage. M3 remains. |
 | [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M4 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings with complete coverage. Its deterministic disposable trainer view is lineage-aware, and the CPU smoke path writes a loadable checkpoint plus validation report. M5 remains next. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. Untidy stacks in `IMG_0661` must use 0065 ignore regions before they enter the frozen comparison. |
 
@@ -70,6 +69,7 @@ The shared target architecture is
 | --- | --- | --- |
 | [0062 — Canonical card-state data and face-down identity](5-closed/0062-Canonical_Card_State_and_Face_Down_Identity.md) | Complete | M0–M4 complete: active event data and contracts use the singleton `card_state_changed` value, immutable history remains readable, review and comparison surfaces use one canonical label, `FACE_DOWN` remains outside legal card identities, and the pre-reconstruction observation plus game-engine boundary preserves face-down status, exact visual outcome diagnostics, and source lineage without changing reconstruction. |
 | [0064 — CardEvent frame-review editor](5-closed/0064-CardEvent_Frame_Review_Editor.md) | Complete | M0–M2 complete: the reviewed CardEvent editor uses the recording-owned exact source-frame surface, compact left review controls, responsive desktop and narrow layouts, and browser accessibility regression coverage while the right inspector remains unchanged. |
+| [0065 — Visible-card ignore regions](5-closed/0065-Visible_Card_Ignore_Regions.md) | Complete | M0–M3 complete: reviewed ignore regions preserve generated lineage, remain separate from card targets, materialize deterministic masks or exact frame exclusions, and neutralize ignored predictions with explicit comparison counts. |
 | [0060 — iOS capture module boundaries](5-closed/0060-iOS_Capture_Module_Boundaries.md) | Complete | M0–M3 complete: evidence-package, repository-intake, recording, upload, and analysis boundaries are split with focused app workflow tests and unchanged UI-facing behavior. |
 | [0061 — Card-state change and face-down pipeline](5-closed/0061-Card_State_Change_and_Face_Down_Pipeline.md) | Complete | M0–M3 complete: generic card-state events reach every visible-card input, side-aware candidates preserve face-up, face-down, and unknown evidence, face-down identity abstains explicitly, and observation plus game-engine contracts retain side without changing reconstruction decisions. |
 | [0059 — Web workspace module boundaries](5-closed/0059-Web_Workspace_Module_Boundaries.md) | Complete | M0–M7 complete: route and URL-state helpers, recording shell, inspector/history, Timeline Rail coordination, event-stage ownership, visible-card stage ownership, visual-identity stage ownership, observation/round-analysis controls, and analysis presentation ownership have focused sources and regression proof. |
@@ -128,22 +128,23 @@ The shared target architecture is
 
 1. **Continue 0063 with M5 for the new CardEventNet model.** Use the frozen dataset and
    lineage-aware trainer view to define and run the bounded validation campaign.
-2. **Continue 0065 with M3 for untidy visible-card stacks.** Project reviewed ignore regions into
-   datasets before affected `IMG_0661` frames enter a visible-card dataset or the 0051 identity
-   freeze. Preserve Gemini proposals as generated evidence. Do not create an `untidy_stack` model
-   class.
+2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
+   affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
+   evidence. Do not create an `untidy_stack` model class.
 3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
-4. **Reconcile 0051 M0 with the current data architecture and the completed 0062 contracts.** Read
+4. **Reconcile 0051 M0 with the current data architecture and the completed 0062 and 0065
+   contracts.** Read
    durable revisions from
    `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
    defaults, use explicit development and validation groups, and preflight the complete experiment
-   matrix against its budget. Wait for 0065 before freezing affected `IMG_0661` items.
+   matrix against its budget. Apply the 0065 mask or frame-exclusion policy to affected `IMG_0661`
+   items.
 5. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
-   `IMG_0091` as one visually similar development comparison group. After 0065, revise affected
-   visible-card frames and complete visual identity review for the different `IMG_0661` validation
-   recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group gate. Keep
-   sealed holdouts intact.
+   `IMG_0091` as one visually similar development comparison group. With 0065 complete, revise
+   affected visible-card frames and complete visual identity review for the different `IMG_0661`
+   validation recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group
+   gate. Keep sealed holdouts intact.
 6. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
    and classifier executor, run development before validation, and measure the frozen simple
    exclusion policies. Use the decision to specify one response in 0052 or close 0052 as not

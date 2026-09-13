@@ -7,6 +7,7 @@ It validates the complete selection before publishing one immutable dataset mani
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -14,18 +15,27 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from table_evidence_analyzer.local_identity import (
     FACE_DOWN_TARGET,
     VISUAL_IDENTITY_TARGETS,
 )
+from table_evidence_analyzer.pipeline_data import VisibleCardData, parse_pipeline_geometry
 
 from .pipeline_data import (
     DataRevision,
     EventData,
     RecordingVideoSource,
     canonical_data_revision_bytes,
+)
+from .visible_card_ignore import (
+    mask_count,
+    mask_digest,
+    pack_mask,
+    rasterize_geometry,
+    subtract_mask,
+    union_masks,
 )
 
 PIPELINE_DATASET_SCHEMA_VERSION = "pipeline-dataset/v1"
@@ -42,6 +52,8 @@ PIPELINE_DATASET_REFERENCE_COVERAGE_SCHEMA = "pipeline-reference-coverage/v1"
 PIPELINE_DATASET_TARGET_STATE = "reviewed_reference"
 PIPELINE_DATASET_ROBUSTNESS_ROLE = "robustness_comparison"
 PIPELINE_VISUAL_IDENTITY_TARGET_SCHEMA = "visual-identity-target/v1"
+PIPELINE_VISIBLE_CARD_IGNORE_POLICIES = frozenset({"mask_pixels", "exclude_frame"})
+PIPELINE_VISIBLE_CARD_IGNORE_RASTER_POLICY = "pixel-center-even-odd/v1"
 _SAFE_IDENTIFIER = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._:-")
 _QUALIFIED_IDENTIFIER = _SAFE_IDENTIFIER | {"/"}
 _DIGEST_LENGTH = 64
@@ -250,6 +262,7 @@ class PipelineDatasetRequest:
     partition: str
     robustness_input_revision_id: str | None = None
     protected_groups: tuple[tuple[str, str], ...] = ()
+    visible_card_ignore_policy: Literal["mask_pixels", "exclude_frame"] | None = None
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "PipelineDatasetRequest":
@@ -263,6 +276,7 @@ class PipelineDatasetRequest:
             "partition",
             "robustness_input_revision_id",
             "protected_groups",
+            "visible_card_ignore_policy",
         }
         if set(data) != expected:
             raise PipelineDatasetError("dataset request has invalid fields")
@@ -286,6 +300,7 @@ class PipelineDatasetRequest:
             partition=data["partition"],
             robustness_input_revision_id=data["robustness_input_revision_id"],
             protected_groups=_group_keys(raw_protected),
+            visible_card_ignore_policy=data["visible_card_ignore_policy"],
         )
 
     def __post_init__(self) -> None:
@@ -311,6 +326,16 @@ class PipelineDatasetRequest:
             if robustness in inputs or robustness == self.reference_revision_id:
                 raise PipelineDatasetError("robustness input must be a distinct revision")
             object.__setattr__(self, "robustness_input_revision_id", robustness)
+        if self.task == "visible_cards":
+            if self.visible_card_ignore_policy not in PIPELINE_VISIBLE_CARD_IGNORE_POLICIES:
+                raise PipelineDatasetError(
+                    "visible-card dataset needs an explicit ignore policy: "
+                    "mask_pixels or exclude_frame"
+                )
+        elif self.visible_card_ignore_policy is not None:
+            raise PipelineDatasetError(
+                "visible-card ignore policy is only valid for visible-card datasets"
+            )
         protected = _group_keys(self.protected_groups)
         object.__setattr__(self, "selected_input_revision_ids", inputs)
         object.__setattr__(self, "source_groups", tuple(self.source_groups))
@@ -327,6 +352,7 @@ class PipelineDatasetRequest:
             "partition": self.partition,
             "robustness_input_revision_id": self.robustness_input_revision_id,
             "protected_groups": [list(pair) for pair in self.protected_groups],
+            "visible_card_ignore_policy": self.visible_card_ignore_policy,
         }
 
 
@@ -577,6 +603,130 @@ def _targets(
     return targets
 
 
+def _visible_card_projection(
+    content: Mapping[str, Any],
+    targets: Sequence[Mapping[str, Any]],
+    policy: Literal["mask_pixels", "exclude_frame"],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, int]]:
+    """Materialize visible-card samples, ignore masks, and frame exclusions."""
+
+    data = VisibleCardData.from_mapping(content)
+    targets_by_frame: dict[bytes, list[Mapping[str, Any]]] = {}
+    for target in targets:
+        frame = target.get("frame_identity")
+        if isinstance(frame, Mapping):
+            targets_by_frame.setdefault(_canonical(frame), []).append(target)
+
+    samples: list[dict[str, Any]] = []
+    ignore_regions: list[dict[str, Any]] = []
+    exclusions: list[dict[str, Any]] = []
+    ignored_pixel_count = 0
+    ignored_frame_count = 0
+    ignored_region_count = 0
+    for outcome in data.outcomes:
+        if outcome.status != "detected" or outcome.frame_identity is None:
+            continue
+        frame = outcome.frame_identity.to_mapping()
+        frame_key = _canonical(frame)
+        width = outcome.frame_identity.width
+        height = outcome.frame_identity.height
+        size = width * height
+        frame_targets = targets_by_frame.get(frame_key, [])
+        target_masks = [
+            rasterize_geometry(
+                parse_pipeline_geometry(target["geometry"], "visible-card target geometry"),
+                width=width,
+                height=height,
+            )
+            for target in frame_targets
+        ]
+        normal_mask = union_masks(target_masks, size=size)
+        effective_regions: list[tuple[Any, bytearray]] = []
+        for region in outcome.ignored_regions:
+            if region.normalization["width"] != width or region.normalization["height"] != height:
+                raise PipelineDatasetError(
+                    f"ignore region {region.region_id} normalization does not match "
+                    "its source frame"
+                )
+            region_mask = rasterize_geometry(region.geometry, width=width, height=height)
+            effective = subtract_mask(region_mask, normal_mask)
+            effective_count = mask_count(effective)
+            if effective_count == 0:
+                raise PipelineDatasetError(
+                    f"ignore region {region.region_id} effective mask is empty"
+                )
+            effective_regions.append((region, effective))
+            ignore_regions.append(
+                {
+                    "event_id": outcome.event_id,
+                    "frame_identity": frame,
+                    "region_id": region.region_id,
+                    "geometry": region.geometry.to_mapping(),
+                    "normalization": dict(region.normalization),
+                    "reason": region.reason,
+                    "source_candidates": [
+                        candidate.to_mapping() for candidate in region.source_candidates
+                    ],
+                    "raster_policy": PIPELINE_VISIBLE_CARD_IGNORE_RASTER_POLICY,
+                    "mask_digest": mask_digest(effective),
+                    "mask_data_base64": base64.b64encode(pack_mask(effective)).decode("ascii"),
+                    "effective_ignored_pixel_count": effective_count,
+                }
+            )
+
+        if effective_regions:
+            ignored_frame_count += 1
+            ignored_region_count += len(effective_regions)
+            effective_ignore = union_masks([mask for _, mask in effective_regions], size=size)
+            frame_ignored_count = mask_count(effective_ignore)
+            ignored_pixel_count += frame_ignored_count
+            if policy == "exclude_frame":
+                exclusions.append(
+                    {
+                        "event_id": outcome.event_id,
+                        "frame_identity": frame,
+                        "reason": "untidy_stack",
+                        "region_ids": [region.region_id for region, _ in effective_regions],
+                    }
+                )
+                continue
+        else:
+            effective_ignore = bytearray(size)
+            frame_ignored_count = 0
+
+        sample: dict[str, Any] = {
+            "event_id": outcome.event_id,
+            "frame_identity": frame,
+            "targets": [dict(target) for target in frame_targets],
+            "ignore_region_ids": [region.region_id for region, _ in effective_regions],
+        }
+        if policy == "mask_pixels":
+            loss_mask = bytearray(1 if not value else 0 for value in effective_ignore)
+            packed_loss_mask = pack_mask(loss_mask)
+            sample["loss_mask"] = {
+                "schema_version": "visible-card-loss-mask/v1",
+                "encoding": "bitset-row-major-lsb/v1",
+                "applies_to": ["positive", "background"],
+                "width": width,
+                "height": height,
+                "data_base64": base64.b64encode(packed_loss_mask).decode("ascii"),
+                "mask_digest": hashlib.sha256(packed_loss_mask).hexdigest(),
+                "included_pixel_count": size - frame_ignored_count,
+                "ignored_pixel_count": frame_ignored_count,
+            }
+        samples.append(sample)
+    return (
+        samples,
+        ignore_regions,
+        exclusions,
+        {
+            "ignored_frame_count": ignored_frame_count,
+            "ignored_region_count": ignored_region_count,
+            "ignored_pixel_count": ignored_pixel_count,
+        },
+    )
+
+
 def _validate_alignment(
     task: str,
     reference: Any,
@@ -671,6 +821,28 @@ def _stable_manifest(
     _validate_alignment(request.task, reference, inputs, request.policies)
     _validate_robustness(reference, robustness)
     targets = _targets(request.task, reference_content, source_group, request.policies)
+    if request.task == "visible_cards":
+        assert request.visible_card_ignore_policy is not None
+        samples, ignore_regions, exclusions, ignore_counts = _visible_card_projection(
+            reference_content,
+            targets,
+            request.visible_card_ignore_policy,
+        )
+        retained_frame_keys = {_canonical(sample["frame_identity"]) for sample in samples}
+        targets = [
+            target
+            for target in targets
+            if _canonical(target["frame_identity"]) in retained_frame_keys
+        ]
+    else:
+        samples = []
+        ignore_regions = []
+        exclusions = []
+        ignore_counts = {
+            "ignored_frame_count": 0,
+            "ignored_region_count": 0,
+            "ignored_pixel_count": 0,
+        }
     lineages = {"reference": _revision_lineage(reference)}
     if inputs:
         lineages["inputs"] = [_revision_lineage(item) for item in inputs]
@@ -687,9 +859,7 @@ def _stable_manifest(
         "selected_revisions": {
             "completed_reference": reference_manifest.revision_id,
             "inputs": [_manifest(item).revision_id for item in inputs],
-            "robustness": None
-            if robustness is None
-            else _manifest(robustness).revision_id,
+            "robustness": None if robustness is None else _manifest(robustness).revision_id,
         },
         "selected_reference_revision_id": reference_manifest.revision_id,
         "selected_input_revision_ids": [_manifest(item).revision_id for item in inputs],
@@ -705,9 +875,14 @@ def _stable_manifest(
         "partition": request.partition,
         "protected_groups": [list(pair) for pair in request.protected_groups],
         "policies": request.policies,
+        "visible_card_ignore_policy": request.visible_card_ignore_policy,
         "target_contract": target_contract,
         "coverage": coverage,
         "targets": targets,
+        "samples": samples,
+        "ignore_regions": ignore_regions,
+        "exclusions": exclusions,
+        **ignore_counts,
         "lineage": lineages,
     }
 
@@ -875,6 +1050,8 @@ __all__ = [
     "PIPELINE_DATASET_ROBUSTNESS_ROLE",
     "PIPELINE_DATASET_SCHEMA_VERSION",
     "PIPELINE_DATASET_TARGET_STATE",
+    "PIPELINE_VISIBLE_CARD_IGNORE_POLICIES",
+    "PIPELINE_VISIBLE_CARD_IGNORE_RASTER_POLICY",
     "PIPELINE_VISUAL_IDENTITY_TARGET_SCHEMA",
     "PipelineDatasetConsumer",
     "PipelineDatasetError",

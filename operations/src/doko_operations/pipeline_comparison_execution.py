@@ -11,8 +11,10 @@ from table_evidence_analyzer.pipeline_data import (
     DetectorBoxGeometry,
     PipelineGeometry,
     PredictedVisibleRegionGeometry,
+    ReviewedIgnoreRegionGeometry,
     ReviewedVisibleRegionGeometry,
     VisibleCardData,
+    VisibleCardIgnoreRegion,
     VisibleCardOutcome,
     VisualIdentityData,
     VisualIdentityOutcome,
@@ -32,6 +34,12 @@ from .pipeline_comparison_contract import (
     _intersection,
 )
 from .pipeline_data import EventData, EventRecord, canonical_json_bytes
+from .visible_card_ignore import (
+    mask_count,
+    rasterize_geometry,
+    subtract_mask,
+    union_masks,
+)
 
 
 def event_anchor(event: EventRecord, policy: EventMatchingPolicy) -> int:
@@ -298,12 +306,21 @@ def compare_event_data(
     return counts, metrics, tuple(result_items)
 
 
-def geometry_box(geometry: PipelineGeometry) -> tuple[int, int, int, int]:
+def geometry_box(
+    geometry: PipelineGeometry | ReviewedIgnoreRegionGeometry,
+) -> tuple[int, int, int, int]:
     """Return the declared derived box for detector or reviewed geometry."""
 
     if isinstance(geometry, DetectorBoxGeometry):
         return geometry.x_min, geometry.y_min, geometry.x_max, geometry.y_max
-    if isinstance(geometry, (PredictedVisibleRegionGeometry, ReviewedVisibleRegionGeometry)):
+    if isinstance(
+        geometry,
+        (
+            PredictedVisibleRegionGeometry,
+            ReviewedVisibleRegionGeometry,
+            ReviewedIgnoreRegionGeometry,
+        ),
+    ):
         points = [point for polygon in geometry.polygons for point in polygon]
         return (
             min(point[0] for point in points),
@@ -314,7 +331,10 @@ def geometry_box(geometry: PipelineGeometry) -> tuple[int, int, int, int]:
     raise PipelineComparisonContractError("geometry is not a supported pipeline geometry")
 
 
-def geometry_iou(left: PipelineGeometry, right: PipelineGeometry) -> float:
+def geometry_iou(
+    left: PipelineGeometry | ReviewedIgnoreRegionGeometry,
+    right: PipelineGeometry | ReviewedIgnoreRegionGeometry,
+) -> float:
     """Calculate IoU for the declared boxes of two pipeline geometries."""
 
     left_box = geometry_box(left)
@@ -445,11 +465,20 @@ def _compare_visible_card_side(
     not_reviewed = 0
     unpaired_input = 0
     failures = 0
+    ignored_frames = 0
+    ignored_regions = 0
+    ignored_pixels = 0
+    neutralized_predictions = 0
     items: list[PipelineComparisonItem] = []
     for frame_key in sorted(set(reference_groups) | set(content_groups)):
         reference_outcomes = reference_groups.get(frame_key, [])
         content_outcomes = content_groups.get(frame_key, [])
         is_reviewed = frame_key in reviewed_keys
+        frame_ignore_regions = _visible_ignore_regions(reference_outcomes)
+        if is_reviewed and frame_ignore_regions:
+            ignored_frames += 1
+            ignored_regions += len(frame_ignore_regions)
+            ignored_pixels += _visible_ignore_pixel_count(reference_outcomes)
         if not is_reviewed:
             for outcome in content_outcomes:
                 if outcome.status == "failed":
@@ -589,25 +618,46 @@ def _compare_visible_card_side(
                     )
                 )
                 continue
-            if not reference_outcome.candidates and not content_outcome.candidates:
+            neutralized_indices = {
+                index
+                for index, candidate in enumerate(content_outcome.candidates)
+                if _overlaps_ignore_region(candidate.geometry, frame_ignore_regions, threshold)
+            }
+            neutralized_predictions += len(neutralized_indices)
+            ordinary_content = [
+                candidate
+                for index, candidate in enumerate(content_outcome.candidates)
+                if index not in neutralized_indices
+            ]
+            for index in sorted(neutralized_indices):
                 items.append(
                     _vision_item(
                         recording_id=recording_id,
                         side=side,
-                        outcome="empty",
+                        outcome="ignored",
                         frame=content_outcome.frame_identity,
                         reference_event_id=reference_outcome.event_id,
                         run_event_id=content_outcome.event_id,
-                        reference_context=reference_outcome.to_mapping(),
-                        run_context=content_outcome.to_mapping(),
+                        run_card=content_outcome.candidates[index],
                     )
                 )
+            if not reference_outcome.candidates and not ordinary_content:
+                if not neutralized_indices:
+                    items.append(
+                        _vision_item(
+                            recording_id=recording_id,
+                            side=side,
+                            outcome="empty",
+                            frame=content_outcome.frame_identity,
+                            reference_event_id=reference_outcome.event_id,
+                            run_event_id=content_outcome.event_id,
+                            reference_context=reference_outcome.to_mapping(),
+                            run_context=content_outcome.to_mapping(),
+                        )
+                    )
                 continue
             candidate_matches = match_geometry_records(
-                [
-                    (candidate.card_id, candidate.geometry)
-                    for candidate in content_outcome.candidates
-                ],
+                [(candidate.card_id, candidate.geometry) for candidate in ordinary_content],
                 [
                     (candidate.card_id, candidate.geometry)
                     for candidate in reference_outcome.candidates
@@ -618,7 +668,7 @@ def _compare_visible_card_side(
             matched_reference = {pair[1] for pair in candidate_matches}
             matches += len(candidate_matches)
             misses += len(reference_outcome.candidates) - len(matched_reference)
-            extras += len(content_outcome.candidates) - len(matched_content)
+            extras += len(ordinary_content) - len(matched_content)
             for content_index, reference_index, iou in candidate_matches:
                 items.append(
                     _vision_item(
@@ -646,7 +696,7 @@ def _compare_visible_card_side(
                             reference_card=candidate,
                         )
                     )
-            for index, candidate in enumerate(content_outcome.candidates):
+            for index, candidate in enumerate(ordinary_content):
                 if index not in matched_content:
                     items.append(
                         _vision_item(
@@ -676,6 +726,10 @@ def _compare_visible_card_side(
             not_reviewed=not_reviewed,
             unpaired_input=unpaired_input,
             failures=failures,
+            ignored_frames=ignored_frames,
+            ignored_regions=ignored_regions,
+            ignored_pixels=ignored_pixels,
+            neutralized_predictions=neutralized_predictions,
         ),
         PipelineComparisonMetrics(
             precision=precision,
@@ -931,6 +985,50 @@ def _geometry_threshold(policy: EventMatchingPolicy, expected_kind: ComparisonPo
             f"matching policy must be {expected_kind} with an IoU threshold"
         )
     return policy.iou_threshold
+
+
+def _visible_ignore_regions(
+    outcomes: Sequence[VisibleCardOutcome],
+) -> tuple[VisibleCardIgnoreRegion, ...]:
+    return tuple(region for outcome in outcomes for region in outcome.ignored_regions)
+
+
+def _visible_ignore_pixel_count(outcomes: Sequence[VisibleCardOutcome]) -> int:
+    """Count the effective ignored pixels in one reviewed frame group."""
+
+    with_frames = [outcome for outcome in outcomes if outcome.frame_identity is not None]
+    if not with_frames:
+        return 0
+    frame = with_frames[0].frame_identity
+    assert frame is not None
+    width = frame.width
+    height = frame.height
+    size = width * height
+    normal = union_masks(
+        [
+            rasterize_geometry(candidate.geometry, width=width, height=height)
+            for outcome in with_frames
+            for candidate in outcome.candidates
+        ],
+        size=size,
+    )
+    effective = [
+        subtract_mask(
+            rasterize_geometry(region.geometry, width=width, height=height),
+            normal,
+        )
+        for outcome in with_frames
+        for region in outcome.ignored_regions
+    ]
+    return mask_count(union_masks(effective, size=size))
+
+
+def _overlaps_ignore_region(
+    geometry: PipelineGeometry,
+    regions: Sequence[VisibleCardIgnoreRegion],
+    threshold: float,
+) -> bool:
+    return any(geometry_iou(geometry, region.geometry) >= threshold for region in regions)
 
 
 def _visible_frame_groups(

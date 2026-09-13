@@ -1287,10 +1287,18 @@ export interface components {
             extras: number;
             /** Failures */
             failures: number;
+            /** Ignored Frames */
+            ignored_frames: number;
+            /** Ignored Pixels */
+            ignored_pixels: number;
+            /** Ignored Regions */
+            ignored_regions: number;
             /** Matches */
             matches: number;
             /** Misses */
             misses: number;
+            /** Neutralized Predictions */
+            neutralized_predictions: number;
             /** Not Reviewed */
             not_reviewed: number;
             /** Reference Events */
@@ -1350,7 +1358,7 @@ export interface components {
              * Outcome
              * @enum {string}
              */
-            outcome: "match" | "miss" | "extra" | "disagreement" | "failure" | "empty" | "not_reviewed" | "unpaired_input";
+            outcome: "match" | "miss" | "extra" | "disagreement" | "failure" | "empty" | "not_reviewed" | "unpaired_input" | "ignored";
             /** Reference Candidates */
             reference_candidates: {
                 [key: string]: unknown;

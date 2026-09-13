@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -60,6 +62,7 @@ def _revision(
     origin: str,
     coverage: dict[str, object],
     content: EventData | None = None,
+    source: RecordingVideoSource = SOURCE,
 ) -> StoredRevision:
     value = content or EventData(
         events=(
@@ -85,8 +88,8 @@ def _revision(
         revision_id=revision_id,
         content_type="events",
         content_schema="event-data/v1",
-        recording_id=SOURCE.recording_id,
-        source=SOURCE,
+        recording_id=source.recording_id,
+        source=source,
         content_sha256=sha256_bytes(canonical_event_data_bytes(value)),
         input_revision_ids=(),
         origin=origin,
@@ -129,6 +132,7 @@ def _vision_revision(
     *,
     coverage: dict[str, object],
     origin: str = "manual",
+    source: RecordingVideoSource = SOURCE,
 ) -> StoredRevision:
     if content_type == "visible_cards":
         content_bytes = canonical_visible_card_data_bytes(content)
@@ -140,8 +144,8 @@ def _vision_revision(
         revision_id=revision_id,
         content_type=content_type,
         content_schema=schema,
-        recording_id=SOURCE.recording_id,
-        source=SOURCE,
+        recording_id=source.recording_id,
+        source=source,
         content_sha256=sha256_bytes(content_bytes),
         input_revision_ids=(),
         origin=origin,
@@ -272,6 +276,7 @@ def _request(
     source_groups: tuple[PipelineDatasetSourceGroup, ...] | None = None,
     policies: dict[str, object] | None = None,
     robustness_input_revision_id: str | None = None,
+    visible_card_ignore_policy: str | None = None,
 ) -> PipelineDatasetRequest:
     return PipelineDatasetRequest(
         task="events",
@@ -281,6 +286,7 @@ def _request(
         policies=policies or {"event": {"policy_id": "event-target/v1", "boundary": "source"}},
         partition="train",
         robustness_input_revision_id=robustness_input_revision_id,
+        visible_card_ignore_policy=visible_card_ignore_policy,
     )
 
 
@@ -451,6 +457,7 @@ def test_visible_and_identity_consumers_require_exact_reviewed_lineage(tmp_path:
         source_groups=(_source_group(),),
         policies={"frame": {"policy_id": "exact-event/v1"}},
         partition="train",
+        visible_card_ignore_policy="mask_pixels",
     )
     visible = materialize_pipeline_dataset(catalog, visible_request, tmp_path / "visible")
     assert visible["target_count"] == 1
@@ -544,3 +551,204 @@ def test_identity_geometry_and_policy_mismatch_fail_before_publication(tmp_path:
             tmp_path / "dataset",
         )
     assert not (tmp_path / "dataset").exists()
+
+
+def _ignore_region() -> dict[str, object]:
+    return {
+        "region_id": "img0661-stack-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 0, "y": 0},
+                    {"x": 250, "y": 0},
+                    {"x": 250, "y": 250},
+                    {"x": 0, "y": 250},
+                ]
+            ],
+        },
+        "normalization": {
+            "width": 100,
+            "height": 100,
+            "policy_id": "full-frame-0-1000/v1",
+        },
+        "reason": "untidy_stack",
+        "source_candidates": [
+            {"revision_id": "img0661-gemini-v1", "card_id": "generated-stack-01"}
+        ],
+    }
+
+
+def _visible_reference_with_ignore(
+    revision_id: str = "visible-reference-ignore-01",
+    *,
+    source: RecordingVideoSource = SOURCE,
+) -> StoredRevision:
+    value = _visible_reference().content.to_mapping()
+    value["outcomes"][0]["ignored_regions"] = [_ignore_region()]
+    return _vision_revision(
+        revision_id,
+        "visible_cards",
+        VisibleCardData.from_mapping(value),
+        coverage={
+            "schema_version": "pipeline-reference-coverage/v1",
+            "kind": "visible_frames",
+            "frames": [{"frame_identity": _frame(), "decision": "cards_and_ignored"}],
+        },
+        source=source,
+    )
+
+
+def _visible_request(
+    reference_revision_id: str,
+    *,
+    source: RecordingVideoSource = SOURCE,
+    policy: str | None,
+) -> PipelineDatasetRequest:
+    return PipelineDatasetRequest(
+        task="visible_cards",
+        reference_revision_id=reference_revision_id,
+        selected_input_revision_ids=("event-reference-01",),
+        source_groups=(
+            replace(
+                _source_group(),
+                recording_id=source.recording_id,
+                source_sha256=source.video_sha256,
+            ),
+        ),
+        policies={"frame": {"policy_id": "exact-event/v1"}},
+        partition="train",
+        visible_card_ignore_policy=policy,
+    )
+
+
+def test_visible_dataset_materializes_mask_pixels_and_keeps_clear_mixed_card(
+    tmp_path: Path,
+) -> None:
+    reference = _visible_reference_with_ignore()
+    event_reference = _event_reference()
+    result = materialize_pipeline_dataset(
+        RevisionCatalog(reference, event_reference),
+        _visible_request(reference.manifest.revision_id, policy="mask_pixels"),
+        tmp_path / "dataset",
+    )
+
+    manifest = result["manifest"]
+    assert len(manifest["targets"]) == 1
+    assert manifest["targets"][0]["card_id"] == "card-01"
+    assert manifest["visible_card_ignore_policy"] == "mask_pixels"
+    assert len(manifest["ignore_regions"]) == 1
+    assert manifest["ignore_regions"][0]["source_candidates"] == [
+        {"revision_id": "img0661-gemini-v1", "card_id": "generated-stack-01"}
+    ]
+    assert manifest["ignore_regions"][0]["effective_ignored_pixel_count"] > 0
+
+    sample = manifest["samples"][0]
+    loss_mask = sample["loss_mask"]
+    assert loss_mask["applies_to"] == ["positive", "background"]
+    packed = base64.b64decode(loss_mask["data_base64"])
+    assert (
+        loss_mask["ignored_pixel_count"]
+        == manifest["ignore_regions"][0]["effective_ignored_pixel_count"]
+    )
+    assert loss_mask["included_pixel_count"] + loss_mask["ignored_pixel_count"] == 10_000
+    assert sum(byte.bit_count() for byte in packed) == loss_mask["included_pixel_count"]
+    assert sample["targets"][0]["card_id"] == "card-01"
+
+
+def test_visible_dataset_excludes_frame_with_exact_source_reason(tmp_path: Path) -> None:
+    reference = _visible_reference_with_ignore()
+    event_reference = _event_reference()
+    result = materialize_pipeline_dataset(
+        RevisionCatalog(reference, event_reference),
+        _visible_request(reference.manifest.revision_id, policy="exclude_frame"),
+        tmp_path / "dataset",
+    )
+
+    manifest = result["manifest"]
+    assert manifest["samples"] == []
+    assert manifest["targets"] == []
+    assert manifest["exclusions"] == [
+        {
+            "event_id": "event-01",
+            "frame_identity": _frame(),
+            "reason": "untidy_stack",
+            "region_ids": ["img0661-stack-01"],
+        }
+    ]
+
+
+def test_visible_dataset_requires_an_explicit_ignore_policy(tmp_path: Path) -> None:
+    reference = _visible_reference_with_ignore()
+    event_reference = _event_reference()
+    with pytest.raises(PipelineDatasetError, match="ignore policy"):
+        materialize_pipeline_dataset(
+            RevisionCatalog(reference, event_reference),
+            _visible_request(reference.manifest.revision_id, policy=None),
+            tmp_path / "dataset",
+        )
+
+
+def test_visible_dataset_rejects_an_empty_effective_ignore_mask(tmp_path: Path) -> None:
+    value = _visible_reference().content.to_mapping()
+    value["outcomes"][0]["ignored_regions"] = [_ignore_region()]
+    value["outcomes"][0]["ignored_regions"][0]["geometry"]["polygons"] = [
+        [
+            {"x": 0, "y": 0},
+            {"x": 1000, "y": 0},
+            {"x": 1000, "y": 1000},
+            {"x": 0, "y": 1000},
+        ]
+    ]
+    value["outcomes"][0]["candidates"][0]["geometry"] = {
+        "kind": "detector-box/v1",
+        "box_2d": {"x_min": 0, "y_min": 0, "x_max": 1000, "y_max": 1000},
+    }
+    reference = _vision_revision(
+        "visible-reference-empty-ignore",
+        "visible_cards",
+        VisibleCardData.from_mapping(value),
+        coverage={
+            "schema_version": "pipeline-reference-coverage/v1",
+            "kind": "visible_frames",
+            "frames": [{"frame_identity": _frame(), "decision": "cards_and_ignored"}],
+        },
+    )
+    with pytest.raises(PipelineDatasetError, match="effective mask is empty"):
+        materialize_pipeline_dataset(
+            RevisionCatalog(reference, _event_reference()),
+            _visible_request(reference.manifest.revision_id, policy="mask_pixels"),
+            tmp_path / "dataset",
+        )
+
+
+def test_img_0661_reviewed_ignore_region_keeps_generated_lineage_and_materializes(
+    tmp_path: Path,
+) -> None:
+    annotation_path = Path(__file__).parents[2] / "card_event_net/data/annotations/IMG_0661.json"
+    annotation = json.loads(annotation_path.read_text(encoding="utf-8"))
+    assert annotation["video"] == "IMG_0661.MOV"
+    assert annotation["events"]
+
+    img_source = replace(SOURCE, recording_id="IMG_0661", relative_path="IMG_0661.MOV")
+    reference = _visible_reference_with_ignore(source=img_source)
+    event_reference = _revision(
+        "event-reference-01",
+        origin="manual",
+        coverage={
+            "schema_version": "pipeline-reference-coverage/v1",
+            "kind": "event_intervals",
+            "intervals": [{"start_us": 0, "end_us": 10}],
+            "source_duration_us": 10,
+        },
+        source=img_source,
+    )
+    result = materialize_pipeline_dataset(
+        RevisionCatalog(reference, event_reference),
+        _visible_request(reference.manifest.revision_id, source=img_source, policy="mask_pixels"),
+        tmp_path / "dataset",
+    )
+
+    assert result["manifest"]["recording_id"] == "IMG_0661"
+    assert result["manifest"]["ignore_regions"][0]["reason"] == "untidy_stack"
+    assert result["manifest"]["ignore_regions"][0]["source_candidates"]

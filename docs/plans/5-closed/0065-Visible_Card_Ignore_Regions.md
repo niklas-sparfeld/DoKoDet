@@ -4,7 +4,8 @@
 
 - **Summary:** Let a reviewer mark an ambiguous untidy card stack as one ignore region without
   asserting a card instance, and keep those pixels out of detector and segmenter supervision.
-- **Status:** In Progress
+- **Status:** Complete
+- **Closure reason:** Complete
 - **Depends on:** 0048, 0049, and 0062 complete
 - **Readiness:** The maintained visible-card reference, polygon editor, immutable generated
   revisions, and dataset consumer boundary exist. `IMG_0661` supplies the first real case.
@@ -20,7 +21,7 @@
 - **M0:** Complete — define and publish the strict ignore-region contract and its boundaries.
 - **M1:** Complete — persist ignore-region review operations and complete references safely.
 - **M2:** Complete — add the low-effort region workflow to the visible-card editor.
-- **M3:** Not started — project ignore regions into datasets and verify loss and metric behavior.
+- **M3:** Complete — project ignore regions into datasets and verify loss and metric behavior.
 
 ## 1. Problem
 
@@ -295,6 +296,18 @@ Acceptance:
   region with complete lineage; and
 - relevant automated tests, static checks, reproducibility checks, and local Markdown link checks
   pass.
+
+Implementation: the visible-card dataset request requires `mask_pixels` or `exclude_frame`.
+Materialization uses the frozen pixel-center raster policy, subtracts normal target pixels, and
+records packed loss masks, source-region masks, exclusion receipts, and effective pixel counts.
+Visible-card comparison emits `ignored` items and reports ignored frames, regions, pixels, and
+neutralized predictions without including them in instance metrics. Focused fixtures cover a mixed
+frame, an excluded frame, an empty effective mask, and an `IMG_0661` source lineage.
+
+Verification: focused operations and backend comparison tests, Ruff checks, and generated OpenAPI
+verification pass. The full operations suite still has six pre-existing TableEvidence campaign
+failures because its fixture campaign reaches `compared` instead of the test's expected
+`candidate_locked` state.
 
 ## 6. Delivery handoff
 

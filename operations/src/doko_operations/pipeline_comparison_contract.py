@@ -25,6 +25,7 @@ ComparisonOutcome = Literal[
     "empty",
     "not_reviewed",
     "unpaired_input",
+    "ignored",
 ]
 ComparisonSideName = Literal["left", "right"]
 ComparisonPolicyKind = Literal[
@@ -39,9 +40,7 @@ _QUALIFIED = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
 def _active_event_type(value: Any, field: str) -> str:
     result = _qualified(value, field)
     if result != CARD_STATE_CHANGED_EVENT_TYPE:
-        raise PipelineComparisonContractError(
-            f"{field} must be {CARD_STATE_CHANGED_EVENT_TYPE}"
-        )
+        raise PipelineComparisonContractError(f"{field} must be {CARD_STATE_CHANGED_EVENT_TYPE}")
     return result
 
 
@@ -569,6 +568,10 @@ class PipelineComparisonCounts:
     not_reviewed: int
     unpaired_input: int
     failures: int = 0
+    ignored_frames: int = 0
+    ignored_regions: int = 0
+    ignored_pixels: int = 0
+    neutralized_predictions: int = 0
 
     def to_mapping(self) -> dict[str, int]:
         return {
@@ -580,6 +583,10 @@ class PipelineComparisonCounts:
             "not_reviewed": self.not_reviewed,
             "unpaired_input": self.unpaired_input,
             "failures": self.failures,
+            "ignored_frames": self.ignored_frames,
+            "ignored_regions": self.ignored_regions,
+            "ignored_pixels": self.ignored_pixels,
+            "neutralized_predictions": self.neutralized_predictions,
         }
 
 
@@ -913,6 +920,10 @@ def _counts_from_mapping(raw: Any, field: str) -> PipelineComparisonCounts:
             "not_reviewed",
             "unpaired_input",
             "failures",
+            "ignored_frames",
+            "ignored_regions",
+            "ignored_pixels",
+            "neutralized_predictions",
         },
         field,
     )
@@ -1043,6 +1054,7 @@ def _item_from_mapping(raw: Any, field: str, *, content_type: str) -> PipelineCo
         "empty",
         "not_reviewed",
         "unpaired_input",
+        "ignored",
     }:
         raise PipelineComparisonContractError(f"{field}.outcome is unsupported")
     source_time = data["source_time_us"]

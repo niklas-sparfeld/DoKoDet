@@ -29,6 +29,7 @@ const OUTCOME_TEXT: Record<ComparisonItem["outcome"], string> = {
   empty: "Empty source frame",
   not_reviewed: "Not reviewed",
   unpaired_input: "Unpaired input",
+  ignored: "Ignored: prediction overlaps a reviewed ignore region",
 };
 
 const POLICIES: Record<ComparisonContentType, ComparisonPolicy> = {
@@ -803,7 +804,7 @@ function comparisonPath(
 function countSummary(
   counts: PipelineComparisonResponse["counts"]["left"],
 ): string {
-  return `${counts.matches} matches · ${counts.misses} misses · ${counts.extras} extras · ${counts.failures} failures · ${counts.not_reviewed} not reviewed`;
+  return `${counts.matches} matches · ${counts.misses} misses · ${counts.extras} extras · ${counts.failures} failures · ${counts.not_reviewed} not reviewed · ${counts.neutralized_predictions} ignored predictions (${counts.ignored_regions} regions, ${counts.ignored_pixels} pixels)`;
 }
 
 function metricSummary(

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from table_evidence_analyzer.pipeline_data import (
     DetectorBoxGeometry,
+    ReviewedIgnoreRegionGeometry,
     ReviewedVisibleRegionGeometry,
     VisibleCardCandidate,
     VisibleCardData,
     VisibleCardFrameIdentity,
+    VisibleCardIgnoreRegion,
+    VisibleCardIgnoreSourceCandidate,
     VisibleCardOutcome,
     VisualIdentityCandidate,
     VisualIdentityClassifierIdentity,
@@ -74,6 +77,7 @@ def _visible_outcome(
     status: str,
     candidates: tuple[VisibleCardCandidate, ...] = (),
     error: str | None = None,
+    ignored_regions: tuple[VisibleCardIgnoreRegion, ...] = (),
 ) -> VisibleCardOutcome:
     return VisibleCardOutcome(
         event_id=event_id,
@@ -81,6 +85,7 @@ def _visible_outcome(
         status=status,  # type: ignore[arg-type]
         candidates=candidates,
         error=error,
+        ignored_regions=ignored_regions,
     )
 
 
@@ -183,6 +188,68 @@ def test_visible_card_comparison_keeps_empty_failed_unreviewed_and_unpaired_dist
     assert counts["left"].not_reviewed == 1
     assert counts["left"].failures == 1
     assert metrics["left"].precision is None
+
+
+def test_visible_card_comparison_neutralizes_predictions_inside_reviewed_ignore_regions() -> None:
+    frame = _frame(100_000)
+    ignore = VisibleCardIgnoreRegion(
+        region_id="ignore-stack-1",
+        geometry=ReviewedIgnoreRegionGeometry(
+            polygons=(((400, 400), (600, 400), (600, 600), (400, 600)),)
+        ),
+        normalization={"width": 1_000, "height": 1_000, "policy_id": "full-frame-0-1000/v1"},
+        reason="untidy_stack",
+        source_candidates=(
+            VisibleCardIgnoreSourceCandidate(
+                revision_id="gemini-run-1", card_id="generated-stack-card-1"
+            ),
+        ),
+    )
+    reference = VisibleCardData(
+        outcomes=(
+            _visible_outcome(
+                "event-1",
+                frame,
+                "detected",
+                (_visible_candidate("reference-card", _box(100, 100, 200, 200)),),
+                ignored_regions=(ignore,),
+            ),
+        )
+    )
+    run = VisibleCardData(
+        outcomes=(
+            _visible_outcome(
+                "event-1",
+                frame,
+                "detected",
+                (
+                    _visible_candidate("clear-card", _box(100, 100, 200, 200)),
+                    _visible_candidate("stack-card", _box(400, 400, 600, 600)),
+                ),
+            ),
+        )
+    )
+    scope = build_frame_comparison_scope(
+        reviewed=[frame.to_mapping()], left=[frame.to_mapping()], right=[frame.to_mapping()]
+    )
+
+    counts, metrics, items = compare_visible_card_data(
+        recording_id="recording-1",
+        reference=reference,
+        left=run,
+        right=run,
+        policy=_geometry_policy("visible_card_geometry"),
+        scope=scope,
+    )
+
+    assert counts["left"].matches == 1
+    assert counts["left"].extras == 0
+    assert counts["left"].neutralized_predictions == 1
+    assert counts["left"].ignored_frames == 1
+    assert counts["left"].ignored_regions == 1
+    assert counts["left"].ignored_pixels == 40_000
+    assert metrics["left"].precision == 1.0
+    assert {item.outcome for item in items} == {"match", "ignored"}
 
 
 def _classifier() -> VisualIdentityClassifierIdentity:

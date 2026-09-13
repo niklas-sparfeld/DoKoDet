@@ -277,6 +277,10 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
         "not_reviewed": 1,
         "unpaired_input": 0,
         "failures": 0,
+        "ignored_frames": 0,
+        "ignored_regions": 0,
+        "ignored_pixels": 0,
+        "neutralized_predictions": 0,
     }
     assert {item["outcome"] for item in body["items"]} == {"match", "extra", "not_reviewed"}
 

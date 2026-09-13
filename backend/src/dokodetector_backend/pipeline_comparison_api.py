@@ -82,6 +82,10 @@ class PipelineComparisonCountsResponse(ContractModel):
     not_reviewed: int = Field(ge=0)
     unpaired_input: int = Field(ge=0)
     failures: int = Field(ge=0)
+    ignored_frames: int = Field(ge=0)
+    ignored_regions: int = Field(ge=0)
+    ignored_pixels: int = Field(ge=0)
+    neutralized_predictions: int = Field(ge=0)
 
 
 class PipelineComparisonMetricsResponse(ContractModel):
@@ -136,6 +140,7 @@ class PipelineComparisonItemResponse(ContractModel):
         "empty",
         "not_reviewed",
         "unpaired_input",
+        "ignored",
     ]
     source_time_us: int | None
     event_type: Literal["card_state_changed", "visible_card", "visual_identity"]
