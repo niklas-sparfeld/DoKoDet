@@ -33,6 +33,13 @@ New annotations and caches use the full frame. They do not require a selected RO
 runs and Python inference require the preprocessing identifier `full_frame_letterbox_v1`. Legacy
 ROI annotations still load, but their geometry does not control preprocessing.
 
+Frozen campaign runs use a disposable view created by the operations project. Build it with
+`doko data cardevent materialize`, then pass the view to `prepare`, `train`, `evaluate`, or
+`diagnose` with `--dataset-view`. The view supplies the videos, V2 annotations, split, and cache
+under `.runtime/cardevent/datasets/<dataset-version-id>/`; it is derived input, not a source or
+annotation authority. Training checkpoints and evaluation reports retain the view's dataset,
+split, source, event-reference, materializer, preprocessing, code, and environment identity.
+
 The checked-in Core ML model and the iOS probe still use the legacy ROI contract. Do not combine
 them with a new full-frame checkpoint. [Plan 0013](../docs/plans/5-closed/0013-CardEventNet_FullFrameInput.md)
 tracks the remaining retraining and iOS migration.

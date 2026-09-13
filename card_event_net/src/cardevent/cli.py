@@ -31,6 +31,7 @@ from .lifecycle import (
     save_lifecycle_receipt,
 )
 from .manifest import ManifestError, load_dataset_manifest, make_group_split
+from .run_view import RunViewError, load_materialized_run_view
 from .splits import SplitError, make_video_split, save_split
 from .train import TrainingError, train_from_files
 from .transition_diagnostics import TransitionDiagnosticError, diagnose_saved_validation_stream
@@ -213,12 +214,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Build the low-resolution frame cache.",
         description="Decode annotated videos and build their 10 fps frame caches.",
     )
-    prepare_parser.add_argument(
+    prepare_inputs = prepare_parser.add_mutually_exclusive_group(required=True)
+    prepare_inputs.add_argument(
         "--videos",
         nargs="+",
         type=Path,
-        required=True,
         help="Source videos to cache.",
+    )
+    prepare_inputs.add_argument(
+        "--dataset-view",
+        type=Path,
+        help="Materialized frozen dataset view (also selects videos, annotations, and cache).",
     )
     prepare_parser.add_argument(
         "--annotations-dir",
@@ -286,7 +292,13 @@ def build_parser() -> argparse.ArgumentParser:
         description="Train CardEventNet with the two-stage transfer-learning schedule.",
     )
     train_parser.add_argument("--config", type=Path, required=True, help="Training config YAML.")
-    train_parser.add_argument("--split", type=Path, required=True, help="Video split YAML.")
+    train_inputs = train_parser.add_mutually_exclusive_group(required=True)
+    train_inputs.add_argument("--split", type=Path, help="Video split YAML.")
+    train_inputs.add_argument(
+        "--dataset-view",
+        type=Path,
+        help="Materialized frozen dataset view (also selects split, annotations, and cache).",
+    )
     train_parser.add_argument(
         "--output-dir",
         type=Path,
@@ -406,7 +418,13 @@ def build_parser() -> argparse.ArgumentParser:
         description="Tune a threshold on validation data and report event-level metrics.",
     )
     evaluate_parser.add_argument("--checkpoint", type=Path, required=True, help="Model checkpoint.")
-    evaluate_parser.add_argument("--split", type=Path, required=True, help="Video split YAML.")
+    evaluate_inputs = evaluate_parser.add_mutually_exclusive_group(required=True)
+    evaluate_inputs.add_argument("--split", type=Path, help="Video split YAML.")
+    evaluate_inputs.add_argument(
+        "--dataset-view",
+        type=Path,
+        help="Materialized frozen dataset view (also selects split, annotations, and cache).",
+    )
     evaluate_parser.add_argument(
         "--partition",
         choices=("train", "val", "test"),
@@ -476,7 +494,13 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     diagnose_parser.add_argument("--checkpoint", type=Path, required=True, help="Model checkpoint.")
-    diagnose_parser.add_argument("--split", type=Path, required=True, help="Video split YAML.")
+    diagnose_inputs = diagnose_parser.add_mutually_exclusive_group(required=True)
+    diagnose_inputs.add_argument("--split", type=Path, help="Video split YAML.")
+    diagnose_inputs.add_argument(
+        "--dataset-view",
+        type=Path,
+        help="Materialized frozen dataset view (also selects split, annotations, and cache).",
+    )
     diagnose_parser.add_argument(
         "--cache-dir",
         type=Path,
@@ -548,7 +572,13 @@ def build_parser() -> argparse.ArgumentParser:
         description="Find false model triggers in the training partition.",
     )
     mine_parser.add_argument("--checkpoint", type=Path, required=True, help="Model checkpoint.")
-    mine_parser.add_argument("--split", type=Path, required=True, help="Video split YAML.")
+    mine_inputs = mine_parser.add_mutually_exclusive_group(required=True)
+    mine_inputs.add_argument("--split", type=Path, help="Video split YAML.")
+    mine_inputs.add_argument(
+        "--dataset-view",
+        type=Path,
+        help="Materialized frozen dataset view (also selects split, annotations, and cache).",
+    )
     mine_parser.add_argument(
         "--out",
         type=Path,
@@ -723,6 +753,13 @@ def _dispatch_placeholder(parser: argparse.ArgumentParser, command_name: str) ->
     parser.exit(2, f"error: command '{command_name}' is not implemented yet.\n")
 
 
+def _load_run_view_or_exit(parser: argparse.ArgumentParser, path: Path):
+    try:
+        return load_materialized_run_view(path)
+    except (RunViewError, OSError, ValueError) as exc:
+        parser.exit(1, f"error: {exc}\n")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -824,13 +861,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if command_name == "prepare":
-        progress = _prepare_progress_callback(args.videos)
+        if args.dataset_view is not None:
+            view = _load_run_view_or_exit(parser, args.dataset_view)
+            videos = view.video_paths()
+            annotations_dir = view.annotations_dir
+            cache_dir = view.cache_dir
+        else:
+            videos = args.videos
+            annotations_dir = args.annotations_dir
+            cache_dir = args.cache_dir
+        progress = _prepare_progress_callback(videos)
         skipped: list[Path] = []
         try:
             cache_paths = prepare_videos(
-                args.videos,
-                annotations_dir=args.annotations_dir,
-                cache_root=args.cache_dir,
+                videos,
+                annotations_dir=annotations_dir,
+                cache_root=cache_dir,
                 cache_fps=args.cache_fps,
                 size=args.size,
                 progress_callback=progress,
@@ -875,14 +921,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     if command_name == "train":
         if args.resume is not None and args.run_name is not None:
             parser.exit(2, "error: --resume cannot be combined with --run-name.\n")
+        data_identity = None
+        if args.dataset_view is not None:
+            view = _load_run_view_or_exit(parser, args.dataset_view)
+            split_path = view.split_path
+            cache_dir = view.cache_dir
+            annotations_dir = view.annotations_dir
+            data_identity = view.data_identity(preprocessing="resolved-from-config")
+        else:
+            split_path = args.split
+            cache_dir = args.cache_dir
+            annotations_dir = args.annotations_dir
         try:
             result = train_from_files(
                 args.config,
-                args.split,
+                split_path,
                 output_dir=args.output_dir,
                 run_name=args.run_name,
-                cache_dir=args.cache_dir,
-                annotations_dir=args.annotations_dir,
+                cache_dir=cache_dir,
+                annotations_dir=annotations_dir,
                 max_samples=args.max_samples,
                 device_override=args.device,
                 hard_negative_manifest=args.hard_negative_manifest,
@@ -891,6 +948,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 precision=args.precision,
                 seed_override=args.seed,
                 resume_path=args.resume,
+                data_identity=data_identity,
             )
         except (TrainingError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
@@ -918,17 +976,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if command_name == "evaluate":
+        data_identity = None
+        if args.dataset_view is not None:
+            view = _load_run_view_or_exit(parser, args.dataset_view)
+            split_path = view.split_path
+            cache_dir = view.cache_dir
+            annotations_dir = view.annotations_dir
+            data_identity = view.data_identity(preprocessing="resolved-from-checkpoint")
+        else:
+            split_path = args.split
+            cache_dir = args.cache_dir
+            annotations_dir = args.annotations_dir
         try:
             payload = evaluate_checkpoint_from_files(
                 args.checkpoint,
-                args.split,
+                split_path,
                 partition=args.partition,
-                cache_dir=args.cache_dir,
-                annotations_dir=args.annotations_dir,
+                cache_dir=cache_dir,
+                annotations_dir=annotations_dir,
                 output_path=args.out,
                 device_override=args.device,
                 reviewed_hard_negative_manifest=args.reviewed_hard_negative_manifest,
                 threshold_override=args.threshold,
+                data_identity=data_identity,
             )
         except (EvaluationError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
@@ -963,14 +1033,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if command_name == "diagnose":
+        data_identity = None
+        if args.dataset_view is not None:
+            view = _load_run_view_or_exit(parser, args.dataset_view)
+            split_path = view.split_path
+            cache_dir = view.cache_dir
+            annotations_dir = view.annotations_dir
+            data_identity = view.data_identity(preprocessing="resolved-from-checkpoint")
+        else:
+            split_path = args.split
+            cache_dir = args.cache_dir
+            annotations_dir = args.annotations_dir
         try:
             payload = diagnose_checkpoint_from_files(
                 args.checkpoint,
-                args.split,
-                cache_dir=args.cache_dir,
-                annotations_dir=args.annotations_dir,
+                split_path,
+                cache_dir=cache_dir,
+                annotations_dir=annotations_dir,
                 output_path=args.out,
                 device_override=args.device,
+                data_identity=data_identity,
             )
         except (EvaluationError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
@@ -1013,13 +1095,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if command_name == "mine-hard-negatives":
+        if args.dataset_view is not None:
+            view = _load_run_view_or_exit(parser, args.dataset_view)
+            split_path = view.split_path
+            cache_dir = view.cache_dir
+            annotations_dir = view.annotations_dir
+        else:
+            split_path = args.split
+            cache_dir = args.cache_dir
+            annotations_dir = args.annotations_dir
         try:
             payload = mine_hard_negatives_from_files(
                 args.checkpoint,
-                args.split,
+                split_path,
                 out_path=args.out,
-                cache_dir=args.cache_dir,
-                annotations_dir=args.annotations_dir,
+                cache_dir=cache_dir,
+                annotations_dir=annotations_dir,
                 device_override=args.device,
                 batch_size=args.batch_size,
                 threshold=args.threshold,

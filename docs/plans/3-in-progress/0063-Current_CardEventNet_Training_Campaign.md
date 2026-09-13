@@ -10,8 +10,8 @@
 - **Readiness:** The shared recording intake, maintained event references, group-safe development
   split, model campaign runner, and canonical `card_state_changed` event contract exist. The
   imported CardEventNet annotations are accepted and published as completed full-recording
-  references. M3 remains blocked until source-lineage metadata, a maintained split, and an
-  independent sealed test group exist.
+  references. The frozen dataset, disposable trainer view, and lineage-aware smoke path are
+  complete. M5 is ready to define the bounded validation campaign.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze one leakage-safe train/validation/test dataset, run a
   reproducible campaign, and retain a new `best.pt` and model bundle with complete lineage.
@@ -36,8 +36,9 @@
   metadata, respects current source permissions, and keeps the previously unassigned kitchen
   session as independent test. The separate unannotated recording remains outside this migrated
   CardEventNet campaign corpus.
-- **M4:** Not started — make training and evaluation consume a materialized view of the frozen
-  shared dataset and prove the path with a smoke run.
+- **M4:** Complete (2026-09-13) — materialize the frozen shared dataset into a deterministic
+  disposable run view, route CardEventNet prepare/train/evaluate/diagnose and campaign execution
+  through that view, retain complete run lineage, and prove the path with a CPU smoke run.
 - **M5:** Not started — prepare and run one bounded validation campaign, then lock one candidate or
   record why no candidate is suitable.
 - **M6:** Not started — evaluate the locked candidate once on test, export it, and retain the new
@@ -317,6 +318,14 @@ Acceptance:
 - the trainer reads no production input below `card_event_net/data`;
 - a smoke run writes a loadable `best.pt` and evaluation report; and
 - CardEventNet tests, operations tests, lint, format, and data validation pass.
+
+Result: `doko data cardevent materialize` now builds
+`.runtime/cardevent/datasets/<dataset-version-id>/` with source links, V2 annotations, a trainer
+split, derived-file digests, and a manifest digest. CardEventNet commands accept the view through
+`--dataset-view`; the campaign runner requires the frozen dataset for real execution and no longer
+selects `card_event_net/data` as its implicit input. Training checkpoints and evaluation reports
+retain dataset, split, source, event-reference, materializer, preprocessing, code, and environment
+identity. A local CPU smoke run wrote and loaded `best.pt` and wrote a validation report.
 
 ### M5 — Validation campaign
 

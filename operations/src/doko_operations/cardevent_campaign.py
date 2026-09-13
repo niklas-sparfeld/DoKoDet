@@ -15,8 +15,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
+from .cardevent_materialization import (
+    CardEventNetMaterializationError,
+    materialize_cardeventnet_dataset,
+)
 from .model_improvement import (
     ArtifactReference,
     CandidateLock,
@@ -66,17 +70,13 @@ class CommandResult:
 class CommandRunner(Protocol):
     """Run one existing CardEventNet command."""
 
-    def run(
-        self, command: Sequence[str], *, cwd: Path, log_path: Path
-    ) -> CommandResult: ...
+    def run(self, command: Sequence[str], *, cwd: Path, log_path: Path) -> CommandResult: ...
 
 
 class SubprocessCommandRunner:
     """Execute CardEventNet commands and retain their complete output."""
 
-    def run(
-        self, command: Sequence[str], *, cwd: Path, log_path: Path
-    ) -> CommandResult:
+    def run(self, command: Sequence[str], *, cwd: Path, log_path: Path) -> CommandResult:
         try:
             completed = subprocess.run(
                 list(command),
@@ -121,19 +121,25 @@ class FixtureCommandRunner:
         self.test_quality = test_quality
         self.fail_commands = frozenset(fail_commands)
 
-    def run(
-        self, command: Sequence[str], *, cwd: Path, log_path: Path
-    ) -> CommandResult:
+    def run(self, command: Sequence[str], *, cwd: Path, log_path: Path) -> CommandResult:
         del cwd
         command = tuple(str(item) for item in command)
         self.commands.append(command)
-        command_name = next((item for item in command if item in {
-            "train",
-            "evaluate",
-            "diagnose",
-            "export-coreml",
-            "mine-hard-negatives",
-        }), None)
+        command_name = next(
+            (
+                item
+                for item in command
+                if item
+                in {
+                    "train",
+                    "evaluate",
+                    "diagnose",
+                    "export-coreml",
+                    "mine-hard-negatives",
+                }
+            ),
+            None,
+        )
         if command_name in self.fail_commands:
             _write_text(log_path, f"command: {shlex.join(command)}\nreturncode: 1\n")
             return CommandResult(1, "", f"fixture {command_name} failed")
@@ -152,7 +158,9 @@ class FixtureCommandRunner:
             quality = (
                 self.test_quality
                 if partition == "test" and self.test_quality is not None
-                else 0.93 if is_candidate else 0.90
+                else 0.93
+                if is_candidate
+                else 0.90
             )
             _write_json(output_path, _fixture_evaluation(quality=quality, partition=partition))
         elif "diagnose" in command:
@@ -430,6 +438,7 @@ def _candidate_command_options(
     default_annotations: Path,
     output_dir: Path,
     run_name: str,
+    dataset_view: Path | None = None,
     hard_negative_manifest: Path | None = None,
     max_samples: int | None = None,
     device: str | None = None,
@@ -455,19 +464,26 @@ def _candidate_command_options(
         "train",
         "--config",
         str(config_path),
-        "--split",
-        str(split_path),
         "--output-dir",
         str(output_dir),
         "--run-name",
         run_name,
         "--seed",
         str(seed),
-        "--cache-dir",
-        str(cache_dir),
-        "--annotations-dir",
-        str(annotations_dir),
     ]
+    if dataset_view is None:
+        command.extend(
+            (
+                "--split",
+                str(split_path),
+                "--cache-dir",
+                str(cache_dir),
+                "--annotations-dir",
+                str(annotations_dir),
+            )
+        )
+    else:
+        command.extend(("--dataset-view", str(dataset_view)))
     if selected_samples is not None:
         command.extend(("--max-samples", str(selected_samples)))
     if selected_device is not None:
@@ -490,23 +506,31 @@ def _evaluation_command(
     output_path: Path,
     device: str | None,
     threshold: float | None = None,
+    dataset_view: Path | None = None,
 ) -> tuple[str, ...]:
     command: list[str] = [
         *_command_prefix(project_root),
         "evaluate",
         "--checkpoint",
         str(checkpoint),
-        "--split",
-        str(split),
         "--partition",
         partition,
-        "--cache-dir",
-        str(cache_dir),
-        "--annotations-dir",
-        str(annotations_dir),
         "--out",
         str(output_path),
     ]
+    if dataset_view is None:
+        command.extend(
+            (
+                "--split",
+                str(split),
+                "--cache-dir",
+                str(cache_dir),
+                "--annotations-dir",
+                str(annotations_dir),
+            )
+        )
+    else:
+        command.extend(("--dataset-view", str(dataset_view)))
     if device is not None:
         command.extend(("--device", device))
     if threshold is not None:
@@ -523,29 +547,39 @@ def _diagnose_command(
     output_path: Path,
     device: str | None,
     project_root: Path,
+    dataset_view: Path | None = None,
 ) -> tuple[str, ...]:
     command: list[str] = [
         *_command_prefix(project_root),
         "diagnose",
         "--checkpoint",
         str(checkpoint),
-        "--split",
-        str(split),
-        "--cache-dir",
-        str(cache_dir),
-        "--annotations-dir",
-        str(annotations_dir),
         "--out",
         str(output_path),
     ]
+    if dataset_view is None:
+        command.extend(
+            (
+                "--split",
+                str(split),
+                "--cache-dir",
+                str(cache_dir),
+                "--annotations-dir",
+                str(annotations_dir),
+            )
+        )
+    else:
+        command.extend(("--dataset-view", str(dataset_view)))
     if device is not None:
         command.extend(("--device", device))
     return tuple(command)
 
 
-def _metrics_from_evaluation(
-    payload: Mapping[str, object], checkpoint: Path
-) -> dict[str, object]:
+def _prepare_command(project_root: Path, dataset_view: Path) -> tuple[str, ...]:
+    return (*_command_prefix(project_root), "prepare", "--dataset-view", str(dataset_view))
+
+
+def _metrics_from_evaluation(payload: Mapping[str, object], checkpoint: Path) -> dict[str, object]:
     overall = payload.get("overall", {})
     if not isinstance(overall, Mapping):
         raise CardEventCampaignError("CardEventNet evaluation has no overall metrics object")
@@ -564,11 +598,15 @@ def _metrics_from_evaluation(
         if destination not in metrics and source in overall:
             metrics[destination] = overall[source]
     videos = payload.get("videos", [])
-    video_f1 = [
-        float(item["event_f1"])
-        for item in videos
-        if isinstance(item, Mapping) and isinstance(item.get("event_f1"), (int, float))
-    ] if isinstance(videos, list) else []
+    video_f1 = (
+        [
+            float(item["event_f1"])
+            for item in videos
+            if isinstance(item, Mapping) and isinstance(item.get("event_f1"), (int, float))
+        ]
+        if isinstance(videos, list)
+        else []
+    )
     metrics.setdefault("worst_video_f1", min(video_f1, default=0.0))
     metrics.setdefault("worst_video_support", len(video_f1))
     metrics.setdefault("important_scenario_group_f1", 0.0)
@@ -578,13 +616,14 @@ def _metrics_from_evaluation(
     checkpoint_size = checkpoint.stat().st_size / (1024 * 1024) if checkpoint.is_file() else 0.0
     metrics.setdefault("model_size_mb", checkpoint_size)
     if "timestamp_confirmation_delay_ms" not in metrics:
-        metrics["timestamp_confirmation_delay_ms"] = float(
-            overall.get("timestamp_error_median_s", overall.get("latency_median_s", 0.0))
-        ) * 1000.0
+        metrics["timestamp_confirmation_delay_ms"] = (
+            float(overall.get("timestamp_error_median_s", overall.get("latency_median_s", 0.0)))
+            * 1000.0
+        )
     if "causal_confirmation_delay_ms" not in metrics:
-        metrics["causal_confirmation_delay_ms"] = float(
-            overall.get("emission_latency_median_s", 0.0)
-        ) * 1000.0
+        metrics["causal_confirmation_delay_ms"] = (
+            float(overall.get("emission_latency_median_s", 0.0)) * 1000.0
+        )
     metrics.setdefault("decoder_compatible", True)
     return metrics
 
@@ -852,6 +891,7 @@ def run_card_event_campaign(
     split_path: str | Path | None = None,
     cache_dir: str | Path | None = None,
     annotations_dir: str | Path | None = None,
+    dataset_path: str | Path | None = None,
     max_samples: int | None = None,
     device: str | None = None,
     precision: str | None = None,
@@ -865,9 +905,7 @@ def run_card_event_campaign(
     if recipe.component != "card-event-net":
         raise CardEventCampaignError("CardEventNet campaign recipes must use card-event-net")
     profile = _load_profile(recipe)
-    registry_file = _resolve(
-        root, registry_path or root / "data" / "model-registry.json"
-    )
+    registry_file = _resolve(root, registry_path or root / "data" / "model-registry.json")
     registry = load_model_registry(registry_file)
     champion = registry.champion_for(recipe.component, recipe.capability)
     if champion is None:
@@ -912,9 +950,79 @@ def run_card_event_campaign(
 
     project = _resolve(root, project_root or root / "card_event_net")
     default_config = _resolve(root, config_path or project / "configs" / "base.yaml")
-    default_split = _resolve(root, split_path or project / "data" / "splits" / "default.yaml")
-    default_cache = _resolve(root, cache_dir or project / "data" / "cache")
-    default_annotations = _resolve(root, annotations_dir or project / "data" / "annotations")
+    dataset_view: Path | None = None
+    materialization_identity: dict[str, Any] | None = None
+    default_dataset = root / "data" / "operations" / "cardevent-datasets" / recipe.data.dataset.id
+    selected_dataset = _resolve(root, dataset_path or default_dataset)
+    if selected_dataset.exists():
+        try:
+            materialized = materialize_cardeventnet_dataset(
+                selected_dataset,
+                repository_root=root,
+            )
+        except CardEventNetMaterializationError as error:
+            raise CardEventCampaignError(str(error)) from error
+        dataset_view = materialized.view_root
+        materialization_identity = _read_json(
+            dataset_view / "materialization.json", "materialization manifest"
+        )
+    elif dataset_path is not None or not isinstance(command_runner, FixtureCommandRunner):
+        raise CardEventCampaignError(
+            "frozen CardEventNet dataset is required at "
+            f"{selected_dataset}; pass --dataset or publish the recipe dataset first"
+        )
+    fixture_root = root / ".runtime" / "cardevent" / "fixture"
+    default_split = _resolve(
+        root,
+        split_path
+        or (dataset_view / "split.yaml" if dataset_view else fixture_root / "split.yaml"),
+    )
+    default_cache = _resolve(
+        root,
+        cache_dir or (dataset_view / "cache" if dataset_view else fixture_root / "cache"),
+    )
+    default_annotations = _resolve(
+        root,
+        annotations_dir
+        or (dataset_view / "annotations" if dataset_view else fixture_root / "annotations"),
+    )
+    if dataset_view is not None and any(
+        value is not None for value in (split_path, cache_dir, annotations_dir)
+    ):
+        raise CardEventCampaignError(
+            "a materialized frozen dataset view selects split, cache, and annotations; "
+            "do not override them separately"
+        )
+    if dataset_view is not None:
+        _run_checked(
+            command_runner,
+            _prepare_command(project, dataset_view),
+            root=root,
+            log_path=campaign_dir / "logs" / "prepare.log",
+            manifest_path=command_manifest,
+        )
+    data_identity = None
+    if materialization_identity is not None:
+        data_identity = {
+            "dataset": materialization_identity.get("dataset"),
+            "split": materialization_identity.get("split"),
+            "materializer": {
+                "schema_version": materialization_identity.get("schema_version"),
+                "version": materialization_identity.get("materializer_version"),
+                "manifest_digest": materialization_identity.get("manifest_digest"),
+            },
+            "source_inputs": [
+                item
+                for item in materialization_identity.get("inputs", [])
+                if isinstance(item, Mapping) and item.get("kind") == "source_video"
+            ],
+            "event_references": [
+                item
+                for item in materialization_identity.get("inputs", [])
+                if isinstance(item, Mapping)
+                and item.get("kind") in {"event_reference_manifest", "event_reference_content"}
+            ],
+        }
     champion_evaluation_file = campaign_dir / "champion-evaluation.json"
     champion_evaluation: ModelEvaluation
     champion_payload: dict[str, object]
@@ -933,6 +1041,7 @@ def run_card_event_campaign(
             annotations_dir=default_annotations,
             output_path=champion_evaluation_output,
             device=device,
+            dataset_view=dataset_view,
         )
         try:
             _run_checked(
@@ -963,6 +1072,7 @@ def run_card_event_campaign(
                     "run_id": f"run-{selected_id}-champion",
                     "recipe_digest": recipe.digest,
                     "data": recipe.data.to_mapping(),
+                    "data_identity": data_identity,
                     "validation_partition": "val",
                 },
             )
@@ -1004,7 +1114,8 @@ def run_card_event_campaign(
             )
             continue
         if (
-            failure_count > 0 and failure_count >= recipe.budget.max_failures
+            failure_count > 0
+            and failure_count >= recipe.budget.max_failures
             or time.monotonic() - started >= recipe.budget.max_compute_minutes * 60
         ):
             reason = (
@@ -1053,6 +1164,7 @@ def run_card_event_campaign(
                     "experiment_family": candidate.experiment_family,
                     "recipe_digest": recipe.digest,
                     "data": recipe.data.to_mapping(),
+                    "data_identity": data_identity,
                     "seed": _seed_from_configuration(configuration, recipe.seeds[0]),
                 },
             )
@@ -1076,19 +1188,32 @@ def run_card_event_campaign(
                     "mine-hard-negatives",
                     "--checkpoint",
                     str(champion_checkpoint),
-                    "--split",
-                    str(_path_from_configuration(configuration, "split_path", default_split, root)),
                     "--out",
                     str(hard_negative_manifest),
-                    "--cache-dir",
-                    str(_path_from_configuration(configuration, "cache_dir", default_cache, root)),
-                    "--annotations-dir",
-                    str(
-                        _path_from_configuration(
-                            configuration, "annotations_dir", default_annotations, root
-                        )
-                    ),
                 )
+                if dataset_view is None:
+                    mine_command += (
+                        "--split",
+                        str(
+                            _path_from_configuration(
+                                configuration, "split_path", default_split, root
+                            )
+                        ),
+                        "--cache-dir",
+                        str(
+                            _path_from_configuration(
+                                configuration, "cache_dir", default_cache, root
+                            )
+                        ),
+                        "--annotations-dir",
+                        str(
+                            _path_from_configuration(
+                                configuration, "annotations_dir", default_annotations, root
+                            )
+                        ),
+                    )
+                else:
+                    mine_command += ("--dataset-view", str(dataset_view))
                 _run_checked(
                     command_runner,
                     mine_command,
@@ -1113,6 +1238,7 @@ def run_card_event_campaign(
                 default_annotations=default_annotations,
                 output_dir=run_dir.parent,
                 run_name=run_dir.name,
+                dataset_view=dataset_view,
                 hard_negative_manifest=hard_negative_manifest,
                 max_samples=max_samples,
                 device=device,
@@ -1152,11 +1278,12 @@ def run_card_event_campaign(
                     output_path=raw_evaluation_path,
                     device=selected_device,
                     threshold=_threshold_from_configuration(configuration),
+                    dataset_view=dataset_view,
                 ),
-                    root=root,
-                    log_path=candidate_dir / "evaluate.log",
-                    manifest_path=command_manifest,
-                )
+                root=root,
+                log_path=candidate_dir / "evaluate.log",
+                manifest_path=command_manifest,
+            )
             raw = _read_json(raw_evaluation_path, "CardEventNet candidate evaluation")
             _run_checked(
                 command_runner,
@@ -1168,9 +1295,10 @@ def run_card_event_campaign(
                     output_path=candidate_dir / "diagnostics.json",
                     device=selected_device,
                     project_root=project,
+                    dataset_view=dataset_view,
                 ),
-                    root=root,
-                    log_path=candidate_dir / "diagnose.log",
+                root=root,
+                log_path=candidate_dir / "diagnose.log",
                 manifest_path=command_manifest,
             )
             if _bool_from_configuration(configuration, "export_coreml"):
@@ -1292,9 +1420,7 @@ def run_card_event_campaign(
             if item.candidate_id == comparison.recommended_candidate_id
         )
         run = next(
-            item
-            for item in campaign.candidate_runs
-            if item.candidate_id == candidate.candidate_id
+            item for item in campaign.candidate_runs if item.candidate_id == candidate.candidate_id
         )
         evaluation = evaluations[candidate.candidate_id]
         lock = _candidate_lock(
@@ -1650,9 +1776,7 @@ def promote_card_event_campaign(
             test_evaluation.role != "candidate"
             or test_evaluation.candidate_id != selected_candidate
         ):
-            raise CardEventPromotionError(
-                "sealed test evaluation identifies the wrong candidate"
-            )
+            raise CardEventPromotionError("sealed test evaluation identifies the wrong candidate")
         if test_evaluation.data != recipe.data:
             raise CardEventPromotionError("sealed test evaluation uses the wrong data context")
         if test_evaluation.state != "success":

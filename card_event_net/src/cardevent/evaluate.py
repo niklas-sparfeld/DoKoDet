@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import platform
+import socket
+import subprocess
 from dataclasses import replace
 from math import isfinite
 from pathlib import Path
@@ -33,6 +36,49 @@ event_f1 = _event_f1
 
 SAVED_PLOT_DPI = 280
 REVIEW_TIMELINE_DPI = 220
+
+
+def _git_commit() -> str | None:
+    current = Path.cwd().resolve()
+    for directory in (current, *current.parents):
+        if not (directory / ".git").exists():
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=directory,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            return None
+        return result.stdout.strip() or None
+    return None
+
+
+def _evaluation_environment(device: Any) -> dict[str, Any]:
+    try:
+        import torch
+
+        torch_version = torch.__version__
+    except ModuleNotFoundError:
+        torch_version = None
+    try:
+        import torchvision
+
+        torchvision_version = torchvision.__version__
+    except ModuleNotFoundError:
+        torchvision_version = None
+    return {
+        "hostname": socket.gethostname(),
+        "platform": platform.platform(),
+        "python_version": platform.python_version(),
+        "torch_version": torch_version,
+        "torchvision_version": torchvision_version,
+        "device": str(device),
+        "git_commit": _git_commit(),
+    }
 
 
 def _partition_names(split: VideoSplit, partition: str) -> tuple[str, ...]:
@@ -527,6 +573,7 @@ def evaluate_checkpoint_from_files(
     device_override: str | None = None,
     reviewed_hard_negative_manifest: str | Path | None = None,
     threshold_override: float | None = None,
+    data_identity: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Evaluate a checkpoint and select thresholds from validation data only."""
     try:
@@ -654,6 +701,14 @@ def evaluate_checkpoint_from_files(
     payload["target_recall_met"] = selection.target_recall_met
     payload["maximum_attainable_recall"] = selection.maximum_attainable_recall
     payload["selection_reason"] = selection.selection_reason
+    if data_identity is not None:
+        resolved_identity = dict(data_identity)
+        resolved_identity["preprocessing"] = loaded.config.input.preprocessing
+        resolved_identity["code"] = {
+            "git_commit": _git_commit(),
+        }
+        resolved_identity["environment"] = _evaluation_environment(loaded.device)
+        payload["data_identity"] = resolved_identity
     validation_stream_path = save_validation_stream(
         validation_videos,
         destination.parent / "validation-streams" / "evaluation.json.gz",
@@ -682,6 +737,7 @@ def diagnose_checkpoint_from_files(
     annotations_dir: str | Path = "data/annotations",
     output_path: str | Path | None = None,
     device_override: str | None = None,
+    data_identity: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compare train and validation event behavior at a validation threshold."""
     try:
@@ -769,6 +825,12 @@ def diagnose_checkpoint_from_files(
         },
         "operating_plots": {name: str(path) for name, path in operating_plots.items()},
     }
+    if data_identity is not None:
+        resolved_identity = dict(data_identity)
+        resolved_identity["preprocessing"] = loaded.config.input.preprocessing
+        resolved_identity["code"] = {"git_commit": _git_commit()}
+        resolved_identity["environment"] = _evaluation_environment(loaded.device)
+        payload["data_identity"] = resolved_identity
     destination = (
         Path(output_path)
         if output_path is not None

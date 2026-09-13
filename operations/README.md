@@ -219,6 +219,35 @@ doko model promote <campaign-id> \
 The promotion receipt records the old and new bundle digests. A repeated confirmed invocation
 reads the receipt and does not rerun the test or export.
 
+## CardEventNet frozen trainer views
+
+The CardEventNet campaign consumes a frozen dataset from shared operations data. Materialize its
+disposable trainer view before a direct local run:
+
+```bash
+mise exec -- uv run --project operations doko data cardevent materialize \
+  --repository-root . \
+  --dataset data/operations/cardevent-datasets/<dataset-version-id>
+```
+
+The view is written below `.runtime/cardevent/datasets/<dataset-version-id>/`. It contains linked
+source videos, generated V2 annotations, the trainer split, a cache directory, and a digest-backed
+`materialization.json`. Pass the view to CardEventNet commands:
+
+```bash
+mise exec -- uv run --project card_event_net cardevent prepare --dataset-view <view>
+mise exec -- uv run --project card_event_net cardevent train \
+  --config card_event_net/configs/base.yaml \
+  --dataset-view <view>
+mise exec -- uv run --project card_event_net cardevent evaluate \
+  --checkpoint <best.pt> --dataset-view <view> --partition val
+```
+
+The campaign runner materializes the frozen dataset and passes only `--dataset-view` to
+prepare/train/evaluate/diagnose and hard-negative mining. It records the dataset, split, source,
+event-reference, materializer, preprocessing, code, and environment identity in campaign run
+artifacts. It does not use `card_event_net/data` as an implicit campaign input.
+
 M5 adds a read-only composed evaluation on the plan 0027 system holdout. Both component campaigns
 must have a candidate lock. Pass the frozen dataset and split manifests for each component:
 

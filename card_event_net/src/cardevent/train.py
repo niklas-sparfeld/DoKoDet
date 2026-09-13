@@ -822,6 +822,48 @@ def _validate_checkpoint_compatibility(
         raise TrainingError(f"Checkpoint is missing model_state: {path}")
 
 
+def _resolved_data_identity(
+    data_identity: Mapping[str, Any] | None,
+    *,
+    config: Config,
+    environment: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    if data_identity is None:
+        return None
+    resolved = dict(data_identity)
+    resolved["preprocessing"] = config.input.preprocessing
+    resolved["code"] = {"git_commit": environment.get("git_commit")}
+    resolved["environment"] = dict(environment)
+    return resolved
+
+
+def _validate_data_identity(
+    checkpoint: Mapping[str, Any],
+    expected: Mapping[str, Any],
+    *,
+    path: Path,
+) -> None:
+    saved = checkpoint.get("data_identity")
+    if not isinstance(saved, Mapping):
+        raise TrainingError(
+            "The resume checkpoint has no frozen dataset identity. "
+            f"Resume with a checkpoint created from the materialized run view: {path}"
+        )
+    comparable_keys = (
+        "dataset",
+        "split",
+        "materializer",
+        "source_inputs",
+        "event_references",
+        "preprocessing",
+    )
+    if any(saved.get(key) != expected.get(key) for key in comparable_keys):
+        raise TrainingError(
+            "The resume checkpoint frozen dataset identity does not match the supplied run view. "
+            "Resume with the original materialized dataset."
+        )
+
+
 def _resume_state(
     checkpoint_path: Path,
     *,
@@ -1058,6 +1100,7 @@ def _save_checkpoint(
     best_validation_detail: Mapping[str, Any] | None = None,
     early_stopping_best: float | None = None,
     early_stopping_epochs_without_improvement: int | None = None,
+    data_identity: Mapping[str, Any] | None = None,
 ) -> None:
     if runtime is None:
         runtime = TrainingRuntimeOptions(
@@ -1084,6 +1127,8 @@ def _save_checkpoint(
         ),
         "max_samples": max_samples,
     }
+    if data_identity is not None:
+        payload["data_identity"] = dict(data_identity)
     if best_metrics is not None:
         payload["best_metrics"] = dict(best_metrics)
     if best_epoch is not None:
@@ -1121,6 +1166,7 @@ def train_model(
     precision: str | None = None,
     resume_path: str | Path | None = None,
     write_sampling_report: bool = False,
+    data_identity: Mapping[str, Any] | None = None,
 ) -> TrainingResult:
     """Run the two-stage CardEventNet training schedule."""
     run_path = Path(run_dir)
@@ -1140,6 +1186,15 @@ def train_model(
 
     save_config(config, run_path / "config.yaml")
     environment = _environment_metadata(device)
+    resolved_data_identity = _resolved_data_identity(
+        data_identity,
+        config=config,
+        environment=environment,
+    )
+    if resume_state and resolved_data_identity is not None:
+        _validate_data_identity(
+            resume_state.checkpoint, resolved_data_identity, path=resume_state.checkpoint_path
+        )
     _atomic_write_text(
         run_path / "environment.json",
         json.dumps(environment, indent=2, allow_nan=False) + "\n",
@@ -1486,6 +1541,7 @@ def train_model(
                     early_stopping_epochs_without_improvement=(
                         epochs_without_improvement if stage_index == len(stages) - 1 else None
                     ),
+                    data_identity=resolved_data_identity,
                 )
                 if is_new_best:
                     _save_checkpoint(
@@ -1515,6 +1571,7 @@ def train_model(
                         early_stopping_epochs_without_improvement=(
                             epochs_without_improvement if stage_index == len(stages) - 1 else None
                         ),
+                        data_identity=resolved_data_identity,
                     )
                 metrics_file.write(json.dumps(row, allow_nan=False) + "\n")
                 metrics_file.flush()
@@ -1661,6 +1718,8 @@ def train_model(
         },
         "plots": plot_paths,
     }
+    if resolved_data_identity is not None:
+        summary["data_identity"] = resolved_data_identity
     if sampling_data is not None:
         summary["sampling_report"] = sampling_data
     _atomic_write_text(
@@ -1686,6 +1745,7 @@ def train_from_files(
     precision: str | None = None,
     seed_override: int | None = None,
     resume_path: str | Path | None = None,
+    data_identity: Mapping[str, Any] | None = None,
 ) -> TrainingResult:
     try:
         config = load_config(config_path)
@@ -1731,4 +1791,5 @@ def train_from_files(
         precision=precision,
         resume_path=checkpoint_path,
         write_sampling_report=True,
+        data_identity=data_identity,
     )

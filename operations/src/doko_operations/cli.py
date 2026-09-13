@@ -24,6 +24,10 @@ from .cardevent_inventory import (
     render_cardevent_inventory_human,
     render_cardevent_inventory_json,
 )
+from .cardevent_materialization import (
+    CardEventNetMaterializationError,
+    materialize_cardeventnet_dataset,
+)
 from .cardevent_migration import (
     CardEventNetMigrationError,
     migrate_cardeventnet,
@@ -210,6 +214,16 @@ def build_parser() -> argparse.ArgumentParser:
     freeze.add_argument("--operator", required=True)
     freeze.add_argument("--format", choices=("human", "json"), default="human")
     freeze.add_argument("--json", action="store_true", help="Alias for --format json.")
+    materialize = cardevent_commands.add_parser(
+        "materialize",
+        help="Build a disposable CardEventNet trainer view from a frozen dataset.",
+        description="Build a disposable CardEventNet trainer view from a frozen dataset.",
+    )
+    _add_path_options(materialize, suppress_defaults=True)
+    materialize.add_argument("--dataset", type=Path, required=True)
+    materialize.add_argument("--output", type=Path, default=None)
+    materialize.add_argument("--format", choices=("human", "json"), default="human")
+    materialize.add_argument("--json", action="store_true", help="Alias for --format json.")
     baseline = data_commands.add_parser(
         "resilience-baseline",
         help="Freeze the visible-region identity resilience contract and report coverage.",
@@ -371,7 +385,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--dataset",
         type=Path,
         default=None,
-        help="Explicit plan 0020 dataset manifest for TableEvidenceAnalyzer.",
+        help="Explicit frozen dataset path for the selected model component.",
     )
     improve.add_argument(
         "--artifacts",
@@ -561,7 +575,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         data_parser.choices["data"].print_help()
         return 0
     if args.command == "data" and args.data_command == "cardevent":
-        if args.cardevent_command not in {"audit", "migrate", "readiness", "freeze"}:
+        if args.cardevent_command not in {
+            "audit",
+            "migrate",
+            "readiness",
+            "freeze",
+            "materialize",
+        }:
             data_parser = next(
                 action for action in parser._subparsers._group_actions if action.dest == "command"
             )
@@ -674,6 +694,32 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             else:
                 sys.stdout.write(render_cardeventnet_freeze_human(result))
+            return 0
+        if args.cardevent_command == "materialize":
+            try:
+                config = RepositoryConfig.from_environment(
+                    getattr(args, "repository_root", None),
+                    intake_root=getattr(args, "intake_root", None),
+                    artifacts_root=getattr(args, "artifacts_root", None),
+                )
+                result = materialize_cardeventnet_dataset(
+                    args.dataset,
+                    repository_root=config.repository_root,
+                    output_root=args.output,
+                )
+            except (ConfigurationError, OSError, CardEventNetMaterializationError) as error:
+                print(f"error: {error}", file=sys.stderr)
+                return 2
+            if args.json or args.format == "json":
+                sys.stdout.write(json.dumps(result.to_mapping(), indent=2, sort_keys=True) + "\n")
+            else:
+                sys.stdout.write(
+                    "CardEventNet trainer view materialized\n"
+                    f"dataset: {result.dataset_version_id}\n"
+                    f"split: {result.split_version_id}\n"
+                    f"view: {result.view_root}\n"
+                    f"manifest: {result.manifest_digest}\n"
+                )
             return 0
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
@@ -985,6 +1031,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         split_path=args.split,
                         cache_dir=args.cache_dir,
                         annotations_dir=args.annotations_dir,
+                        dataset_path=args.dataset,
                         max_samples=args.max_samples,
                         device=args.device,
                         precision=args.precision,
