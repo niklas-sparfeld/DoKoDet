@@ -217,6 +217,13 @@ The pixels of one visible card that can be reviewed in a source frame. A visible
 include hidden card pixels, an occluding card, a human hand, or the background. One visible region
 can use more than one polygon when an occluder splits the visible pixels.
 
+### Visible-card ignore region
+
+A reviewed source-frame region that contains visible card-like evidence but does not support
+reliable card-instance annotation. It is not a card, card side, visual classification, or model
+class. A visible-card dataset must mask its pixels from loss or exclude the complete frame. It must
+not use the region as a positive target or as ordinary background.
+
 ### Card side
 
 The observed presentation of a visible card. It is `face_up` when the card face is visible,

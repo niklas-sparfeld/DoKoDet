@@ -6,11 +6,12 @@
   measure whether visible-region exclusion can recover contaminated crops before any detector or
   identity-model change.
 - **Status:** In Progress
-- **Depends on:** 0048 and 0049 complete
+- **Depends on:** 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items
 - **Readiness:** M1 and M2 are complete. Reconcile the M0 measurement contract with durable
   operations storage, the current classifier and crop defaults, and the current reference
-  lifecycle before classification. Completed paired maintained visible-card and visual identity
-  references from the frozen development and validation groups remain required.
+  lifecycle before classification. Complete 0065 before ambiguous `IMG_0661` stacks enter the
+  freeze. Completed paired maintained visible-card and visual identity references from the frozen
+  development and validation groups remain required.
 - **Builds on:** 0038 crop-policy evidence and the 0048 visual identity outcome, derived-view, and
   observation-assembly contracts
 - **Outcome:** Publish a reproducible risk-versus-coverage baseline for the current identifier under
@@ -51,11 +52,18 @@ completed identity processor result but no identity maintained reference. Treat 
 similar recordings as one development comparison group. They must not satisfy the
 independent validation-group gate by themselves.
 
-`IMG_0661` is imported with 55 completed human event references. Its different capture date and
-setup make it the intended validation recording after visible-card and visual identity review.
-Freeze `IMG_0090` and `IMG_0091` as development and `IMG_0661` as validation before reading
-validation classification results. Confirm the source-lineage grouping from recording metadata and
-operator knowledge rather than selecting a validation group by identifier sort order.
+`IMG_0661` is imported with 55 completed human event references and a completed maintained
+visible-card reference. Its different capture date and setup make it the intended validation
+recording after the affected visible-card frames are revised through 0065 and visual identity
+review is complete. Freeze `IMG_0090` and `IMG_0091` as development and `IMG_0661` as validation
+before reading validation classification results. Confirm the source-lineage grouping from
+recording metadata and operator knowledge rather than selecting a validation group by identifier
+sort order.
+
+Untidy face-down stacks in `IMG_0661` do not support reliable card-instance geometry. Epic 0065
+adds reviewed ignore regions for these pixels. Do not accept a stack polygon as one card, require
+card-by-card correction, or let an omitted stack become background. Exclude ignore regions from the
+identity sample matrix because they have no card or identity target.
 
 ## 1. Purpose and boundary
 

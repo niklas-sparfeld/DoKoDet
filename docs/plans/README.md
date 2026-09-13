@@ -46,13 +46,14 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0065 — Visible-card ignore regions](2-ready/0065-Visible_Card_Ignore_Regions.md) | 0048, 0049, and 0062 complete | Let a reviewer convert ambiguous Gemini card proposals into one `untidy_stack` ignore region. Keep normal cards in the frame usable, and require dataset consumers to mask the region or exclude the frame. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M3 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings with complete coverage. Source-lineage groups use recorded capture sessions, real-game IDs come from preserved metadata, and the unassigned kitchen session is the independent test group. M4 remains next. |
-| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
+| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. Untidy stacks in `IMG_0661` must use 0065 ignore regions before they enter the frozen comparison. |
 
 ### Blocked
 
@@ -127,19 +128,19 @@ The shared target architecture is
 
 1. **Continue 0063 with M2 for the new CardEventNet model.** Use the M1 receipt and draft
    references to finish missing and incomplete human review before split changes.
-2. **Finish 0062 before another classifier comparison.** Complete face-down visual-identity review,
-   training-data support, and the observation handoff. Do not add temporal association or change
-   reconstruction behavior.
+2. **Start 0065 for untidy visible-card stacks.** Add reviewed ignore regions before affected
+   `IMG_0661` frames enter a visible-card dataset or the 0051 identity freeze. Preserve Gemini
+   proposals as generated evidence. Do not create an `untidy_stack` model class.
 3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
 4. **Reconcile 0051 M0 with the current data architecture and the completed 0062 contracts.** Read
    durable revisions from
    `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
    defaults, use explicit development and validation groups, and preflight the complete experiment
-   matrix against its budget.
+   matrix against its budget. Wait for 0065 before freezing affected `IMG_0661` items.
 5. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
-   `IMG_0091` as one visually similar development comparison group. Generate and complete
-   visible-card and visual identity references for the imported, different `IMG_0661` validation
+   `IMG_0091` as one visually similar development comparison group. After 0065, revise affected
+   visible-card frames and complete visual identity review for the different `IMG_0661` validation
    recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group gate. Keep
    sealed holdouts intact.
 6. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
@@ -245,6 +246,19 @@ context. Check dependencies again before changing a Blocked epic to Ready.
 - Use the completed 0062 contracts before 0051 freezes another classifier comparison. Keep semantic
   event prediction, new processors, temporal association, model training, and reconstruction
   behavior out of scope.
+
+### Planning decisions — 2026-09-13
+
+- Add 0065 for ambiguous untidy card stacks found during `IMG_0661` visible-card review. An ignore
+  region is reviewed data beside card candidates. It is not a card, card side, identity-usability
+  value, or model class.
+- Preserve all generated Gemini candidates. Let one atomic human-review operation replace selected
+  maintained-reference candidates with one `untidy_stack` ignore region and retain their source
+  revision and candidate IDs.
+- A mixed frame keeps its normal card targets. Dataset consumers must mask ignored pixels or exclude
+  the complete frame explicitly. They must never learn ignored pixels as ordinary background.
+- Complete 0065 before 0051 freezes affected `IMG_0661` items. Keep segmenter training and provider
+  selection in later epic 0050.
 
 ## Closed-epic policy
 
