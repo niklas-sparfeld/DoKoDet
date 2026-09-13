@@ -440,7 +440,7 @@ describe("PipelineVisibleCardEditor", () => {
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${ITEM_ID}`),
     );
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${SECOND_ITEM_ID}`),
     );
@@ -483,7 +483,7 @@ describe("PipelineVisibleCardEditor", () => {
         ),
       ).toHaveLength(1),
     );
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${SECOND_ITEM_ID}`),
     );
@@ -804,8 +804,11 @@ describe("PipelineVisibleCardEditor", () => {
       name: "Visible-card review controls",
     });
     expect(
-      within(controls).getByRole("button", { name: "Previous frame Left" }),
+      within(controls).getByRole("button", { name: "Previous frame" }),
     ).toBeInTheDocument();
+    expect(
+      within(controls).getByRole("button", { name: "Previous frame" }),
+    ).toHaveAttribute("aria-keyshortcuts", "Alt+ArrowLeft");
     expect(
       within(controls).getByRole("button", { name: "Accept frame A" }),
     ).toBeInTheDocument();
@@ -901,7 +904,7 @@ describe("PipelineVisibleCardEditor", () => {
       screen.getByRole("button", { name: "Close editor Esc" }),
     ).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
 
     await waitFor(() =>
       expect(

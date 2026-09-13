@@ -2271,6 +2271,14 @@ progress {
   padding: 0.5rem 1rem 0.55rem;
 }
 
+.recordingTimelineRailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
 .recordingTimelineTransport {
   display: flex;
   align-items: center;
@@ -2278,6 +2286,57 @@ progress {
   color: var(--muted-ink);
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+.recordingTimelineSeekingSlot {
+  display: flex;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.recordingTimelineSeekingControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.recordingTimelineSeekingGroup {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.recordingTimelineSeekingButton {
+  display: inline-flex;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.recordingTimelineSeekingButton:hover:not(:disabled),
+.recordingTimelineSeekingButton:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.recordingTimelineSeekingButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .recordingTimelineTransport .secondaryButton,
@@ -3755,6 +3814,15 @@ progress {
   .recordingTimelineRailHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .recordingTimelineSeekingSlot,
+  .recordingTimelineSeekingControls {
+    width: 100%;
+  }
+
+  .recordingTimelineSeekingControls {
+    justify-content: flex-start;
   }
 
   .recordingTimelineTransport {

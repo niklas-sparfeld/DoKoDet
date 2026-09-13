@@ -714,9 +714,14 @@ export function PipelineCardEventEditor({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
+      const isTimelineSeekingTarget =
+        target !== null &&
+        typeof target.closest === "function" &&
+        target.closest('[data-timeline-seeking-controls="true"]') !== null;
       if (
         target !== null &&
-        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+          (isTimelineSeekingTarget && event.key === " "))
       )
         return;
       if (event.key === " ") {
@@ -727,13 +732,13 @@ export function PipelineCardEventEditor({
           void videoRef.current.play().catch(() => undefined);
         else videoRef.current.pause();
       } else if (
-        event.altKey &&
+        !event.altKey &&
         (event.key === "ArrowLeft" || event.key === "ArrowRight")
       ) {
         event.preventDefault();
         selectAdjacent(event.key === "ArrowLeft" ? -1 : 1);
       } else if (
-        !event.altKey &&
+        event.altKey &&
         (event.key === "ArrowLeft" || event.key === "ArrowRight")
       ) {
         event.preventDefault();

@@ -8,6 +8,11 @@ import { createPortal } from "react-dom";
 import { pipelineDerivedFramePath } from "../api/client";
 import styles from "../App.module.css";
 import { ShortcutButton } from "../pipeline/ShortcutButton";
+import {
+  TimelineRailSeekingControls,
+  TimelineRailSeekingPortal,
+  useTimelineRailSeekingSlot,
+} from "../pipeline/TimelineRailSeekingControls";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
   formatIdentifier,
@@ -69,89 +74,115 @@ export function VisibleCardReviewControls({
     editable &&
     selectedFrame !== null &&
     selectedFrame.outcome.frame_identity !== null;
+  const timelineSeekingSlot = useTimelineRailSeekingSlot();
+  const seekingGroups = [
+    {
+      label: "Frame navigation",
+      controls: [
+        {
+          label: "Previous frame",
+          symbol: "⏮",
+          shortcut: "Alt+ArrowLeft",
+          ariaShortcut: "Alt+ArrowLeft",
+          disabled: !hasPrevious,
+          disabledReason: "There is no previous frame.",
+          onClick: onPrevious,
+        },
+        {
+          label: "Next frame",
+          symbol: "⏭",
+          shortcut: "Alt+ArrowRight",
+          ariaShortcut: "Alt+ArrowRight",
+          disabled: !hasNext,
+          disabledReason: "There is no next frame.",
+          onClick: onNext,
+        },
+      ],
+    },
+    {
+      label: "Polygon navigation",
+      controls: [
+        {
+          label: "Previous polygon",
+          symbol: "▲",
+          shortcut: "Up",
+          ariaShortcut: "ArrowUp",
+          disabled: !hasProposals,
+          disabledReason: "This frame has no polygons.",
+          onClick: onPreviousProposal,
+        },
+        {
+          label: "Next polygon",
+          symbol: "▼",
+          shortcut: "Down",
+          ariaShortcut: "ArrowDown",
+          disabled: !hasProposals,
+          disabledReason: "This frame has no polygons.",
+          onClick: onNextProposal,
+        },
+      ],
+    },
+  ] as const;
+  const seeking =
+    timelineSeekingSlot !== null ? (
+      <TimelineRailSeekingPortal
+        slot={timelineSeekingSlot}
+        groups={seekingGroups}
+      />
+    ) : null;
   return (
-    <aside
-      className={visibleStyles.controlSidebar}
-      aria-label="Visible-card review controls"
-    >
-      <p className={styles.statusLabel}>Review controls</p>
-      <div className={visibleStyles.controlGroup}>
-        <ShortcutButton
-          label="Previous frame"
-          shortcut="Left"
-          ariaShortcut="ArrowLeft"
-          disabled={!hasPrevious}
-          disabledReason="There is no previous frame."
-          onClick={onPrevious}
-        />
-        <ShortcutButton
-          label="Next frame"
-          shortcut="Right"
-          ariaShortcut="ArrowRight"
-          disabled={!hasNext}
-          disabledReason="There is no next frame."
-          onClick={onNext}
-        />
-      </div>
-      <div className={visibleStyles.controlGroup}>
-        <ShortcutButton
-          label="Previous proposal"
-          shortcut="Up"
-          ariaShortcut="ArrowUp"
-          disabled={!hasProposals}
-          disabledReason="This frame has no proposals."
-          onClick={onPreviousProposal}
-        />
-        <ShortcutButton
-          label="Next proposal"
-          shortcut="Down"
-          ariaShortcut="ArrowDown"
-          disabled={!hasProposals}
-          disabledReason="This frame has no proposals."
-          onClick={onNextProposal}
-        />
-      </div>
-      {editable ? (
-        <div className={visibleStyles.controlGroup}>
-          <ShortcutButton
-            label={
-              reviewStatus === "accepted" ? "Mark unreviewed" : "Accept frame"
-            }
-            shortcut="A"
-            ariaShortcut="A"
-            variant="primary"
-            disabled={!canAccept}
-            disabledReason="Accept is available for detected frames."
-            onClick={onAccept}
-          />
-          <ShortcutButton
-            label="Add missed card"
-            shortcut="N"
-            ariaShortcut="N"
-            variant="primary"
-            disabled={!canAddCard}
-            disabledReason="A resolved source frame is required to add a card."
-            onClick={onAddCard}
-          />
-          <ShortcutButton
-            label="Reviewed empty frame"
-            shortcut="E"
-            ariaShortcut="E"
-            disabled={selectedFrame === null}
-            disabledReason="Select a frame before marking it empty."
-            onClick={onMarkEmpty}
-          />
-          <ShortcutButton
-            label="Unusable frame"
-            shortcut="U"
-            ariaShortcut="U"
-            disabled={selectedFrame === null}
-            disabledReason="Select a frame before marking it unusable."
-            onClick={onMarkUnusable}
-          />
-        </div>
-      ) : null}
-    </aside>
+    <>
+      {seeking}
+      <aside
+        className={visibleStyles.controlSidebar}
+        aria-label="Visible-card review controls"
+      >
+        <p className={styles.statusLabel}>Review controls</p>
+        {timelineSeekingSlot === null ? (
+          <TimelineRailSeekingControls groups={seekingGroups} />
+        ) : null}
+        {editable ? (
+          <div className={visibleStyles.controlGroup}>
+            <ShortcutButton
+              label={
+                reviewStatus === "accepted" ? "Mark unreviewed" : "Accept frame"
+              }
+              shortcut="A"
+              ariaShortcut="A"
+              variant="primary"
+              disabled={!canAccept}
+              disabledReason="Accept is available for detected frames."
+              onClick={onAccept}
+            />
+            <ShortcutButton
+              label="Add missed card"
+              shortcut="N"
+              ariaShortcut="N"
+              variant="primary"
+              disabled={!canAddCard}
+              disabledReason="A resolved source frame is required to add a card."
+              onClick={onAddCard}
+            />
+            <ShortcutButton
+              label="Reviewed empty frame"
+              shortcut="E"
+              ariaShortcut="E"
+              disabled={selectedFrame === null}
+              disabledReason="Select a frame before marking it empty."
+              onClick={onMarkEmpty}
+            />
+            <ShortcutButton
+              label="Unusable frame"
+              shortcut="U"
+              ariaShortcut="U"
+              disabled={selectedFrame === null}
+              disabledReason="Select a frame before marking it unusable."
+              onClick={onMarkUnusable}
+            />
+          </div>
+        ) : null}
+      </aside>
+    </>
   );
 }
 

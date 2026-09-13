@@ -6,6 +6,11 @@ import {
 } from "../api/client";
 import styles from "../App.module.css";
 import { ShortcutButton } from "../pipeline/ShortcutButton";
+import {
+  TimelineRailSeekingControls,
+  TimelineRailSeekingPortal,
+  useTimelineRailSeekingSlot,
+} from "../pipeline/TimelineRailSeekingControls";
 import identityStyles from "./PipelineVisualIdentityEditor.module.css";
 import {
   IDENTITY_SUIT_ROWS,
@@ -65,78 +70,99 @@ export function IdentityReviewControls({
     (reviewStatus === "accepted" || item.outcome.candidates.length > 0);
   const canMark =
     editable && item !== null && item.outcome.crop_identity !== null;
+  const timelineSeekingSlot = useTimelineRailSeekingSlot();
+  const seekingGroups = [
+    {
+      label: "Card navigation",
+      controls: [
+        {
+          label: "Previous card",
+          symbol: "⏮",
+          shortcut: "Alt+ArrowLeft",
+          ariaShortcut: "Alt+ArrowLeft",
+          disabled: !hasPrevious,
+          disabledReason: "There is no previous card.",
+          onClick: onPrevious,
+        },
+        {
+          label: "Next card",
+          symbol: "⏭",
+          shortcut: "Alt+ArrowRight",
+          ariaShortcut: "Alt+ArrowRight",
+          disabled: !hasNext,
+          disabledReason: "There is no next card.",
+          onClick: onNext,
+        },
+      ],
+    },
+  ] as const;
+  const seeking =
+    timelineSeekingSlot !== null ? (
+      <TimelineRailSeekingPortal
+        slot={timelineSeekingSlot}
+        groups={seekingGroups}
+      />
+    ) : null;
   return (
-    <aside
-      className={identityStyles.controlSidebar}
-      aria-label="Visual identity review controls"
-    >
-      <p className={styles.statusLabel}>Review controls</p>
-      <div className={identityStyles.controlGroup}>
-        <ShortcutButton
-          label="Previous card"
-          shortcut="Left"
-          ariaShortcut="ArrowLeft"
-          disabled={!hasPrevious}
-          disabledReason="There is no previous card."
-          onClick={onPrevious}
-        />
-        <ShortcutButton
-          label="Next card"
-          shortcut="Right"
-          ariaShortcut="ArrowRight"
-          disabled={!hasNext}
-          disabledReason="There is no next card."
-          onClick={onNext}
-        />
-      </div>
-      {editable ? (
-        <div className={identityStyles.controlGroup}>
-          <ShortcutButton
-            label={reviewStatus === "accepted" ? "Mark unreviewed" : "Accept"}
-            shortcut="A"
-            ariaShortcut="A"
-            variant="primary"
-            disabled={!canAccept}
-            disabledReason="Accept is available when an identity candidate exists."
-            onClick={onAccept}
-          />
-          <ShortcutButton
-            label={
-              reviewStatus === "unusable"
-                ? "Mark unreviewed"
-                : "Identity unusable"
-            }
-            shortcut="U"
-            ariaShortcut="U"
-            disabled={!canMark}
-            disabledReason="A usable crop is required to mark an identity unusable."
-            onClick={onMarkUnusable}
-          />
-          <ShortcutButton
-            label={
-              reviewStatus === "face_down" ? "Mark unreviewed" : "Face down"
-            }
-            shortcut="F"
-            ariaShortcut="F"
-            disabled={!canMark}
-            disabledReason="A usable crop is required to mark a card face down."
-            onClick={onMarkFaceDown}
-          />
-          <ShortcutButton
-            label={
-              reviewStatus === "source_problem"
-                ? "Mark unreviewed"
-                : "Source problem"
-            }
-            shortcut="S"
-            ariaShortcut="S"
-            disabled={item === null}
-            disabledReason="Select a card before reporting a source problem."
-            onClick={onReportSourceProblem}
-          />
-        </div>
-      ) : null}
-    </aside>
+    <>
+      {seeking}
+      <aside
+        className={identityStyles.controlSidebar}
+        aria-label="Visual identity review controls"
+      >
+        <p className={styles.statusLabel}>Review controls</p>
+        {timelineSeekingSlot === null ? (
+          <TimelineRailSeekingControls groups={seekingGroups} />
+        ) : null}
+        {editable ? (
+          <div className={identityStyles.controlGroup}>
+            <ShortcutButton
+              label={reviewStatus === "accepted" ? "Mark unreviewed" : "Accept"}
+              shortcut="A"
+              ariaShortcut="A"
+              variant="primary"
+              disabled={!canAccept}
+              disabledReason="Accept is available when an identity candidate exists."
+              onClick={onAccept}
+            />
+            <ShortcutButton
+              label={
+                reviewStatus === "unusable"
+                  ? "Mark unreviewed"
+                  : "Identity unusable"
+              }
+              shortcut="U"
+              ariaShortcut="U"
+              disabled={!canMark}
+              disabledReason="A usable crop is required to mark an identity unusable."
+              onClick={onMarkUnusable}
+            />
+            <ShortcutButton
+              label={
+                reviewStatus === "face_down" ? "Mark unreviewed" : "Face down"
+              }
+              shortcut="F"
+              ariaShortcut="F"
+              disabled={!canMark}
+              disabledReason="A usable crop is required to mark a card face down."
+              onClick={onMarkFaceDown}
+            />
+            <ShortcutButton
+              label={
+                reviewStatus === "source_problem"
+                  ? "Mark unreviewed"
+                  : "Source problem"
+              }
+              shortcut="S"
+              ariaShortcut="S"
+              disabled={item === null}
+              disabledReason="Select a card before reporting a source problem."
+              onClick={onReportSourceProblem}
+            />
+          </div>
+        ) : null}
+      </aside>
+    </>
   );
 }
 

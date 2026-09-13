@@ -990,9 +990,14 @@ export function PipelineVisibleCardEditor({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
+      const isTimelineSeekingTarget =
+        target !== null &&
+        typeof target.closest === "function" &&
+        target.closest('[data-timeline-seeking-controls="true"]') !== null;
       if (
         target !== null &&
-        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+          (isTimelineSeekingTarget && event.key === " "))
       ) {
         return;
       }
@@ -1011,10 +1016,11 @@ export function PipelineVisibleCardEditor({
       const index = current.findIndex(
         (frame) => frame.itemId === selectedFrameIdRef.current,
       );
-      if (event.key === "ArrowLeft" && index > 0) {
+      if (event.altKey && event.key === "ArrowLeft" && index > 0) {
         event.preventDefault();
         selectFrame(current[index - 1]);
       } else if (
+        event.altKey &&
         event.key === "ArrowRight" &&
         index >= 0 &&
         index < current.length - 1

@@ -788,9 +788,14 @@ export function PipelineVisualIdentityEditor({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
+      const isTimelineSeekingTarget =
+        target !== null &&
+        typeof target.closest === "function" &&
+        target.closest('[data-timeline-seeking-controls="true"]') !== null;
       if (
         target !== null &&
-        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+          (isTimelineSeekingTarget && event.key === " "))
       )
         return;
       const current = navigationItemsRef.current;
@@ -804,10 +809,11 @@ export function PipelineVisualIdentityEditor({
         if (videoRef.current.paused)
           void videoRef.current.play().catch(() => undefined);
         else videoRef.current.pause();
-      } else if (event.key === "ArrowLeft" && index > 0) {
+      } else if (event.altKey && event.key === "ArrowLeft" && index > 0) {
         event.preventDefault();
         selectItem(current[index - 1]);
       } else if (
+        event.altKey &&
         event.key === "ArrowRight" &&
         index >= 0 &&
         index < current.length - 1

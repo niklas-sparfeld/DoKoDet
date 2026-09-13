@@ -410,7 +410,7 @@ describe("PipelineVisualIdentityEditor", () => {
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${CARD_ID}`),
     );
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     await waitFor(() =>
       expect(window.location.search).toContain("t_us=1000000"),
     );
@@ -457,7 +457,7 @@ describe("PipelineVisualIdentityEditor", () => {
       expect(window.location.search).toContain(`item=${CARD_ID}`),
     );
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
 
     const nextCrop = await screen.findByRole("img", {
       name: "Derived identity crop for card-2",
@@ -913,7 +913,7 @@ describe("PipelineVisualIdentityEditor", () => {
     fireEvent.keyDown(window, { key: "a" });
     await waitFor(() => expect(putCount).toBe(1));
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     await waitFor(() => expect(screen.getByText("card-2")).toBeInTheDocument());
     fireEvent.keyDown(window, { key: "a" });
     expect(putCount).toBe(1);
@@ -998,7 +998,7 @@ describe("PipelineVisualIdentityEditor", () => {
     await user.type(screen.getByLabelText("Operator ID"), "operator-01");
     fireEvent.keyDown(window, { key: "a" });
     await waitFor(() => expect(putBodies).toHaveLength(1));
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     await waitFor(() => expect(screen.getByText("card-2")).toBeInTheDocument());
     fireEvent.keyDown(window, { key: "a" });
     await waitFor(() =>

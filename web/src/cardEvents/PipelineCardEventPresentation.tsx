@@ -8,8 +8,13 @@ import {
   formatMicroseconds,
 } from "./PipelineCardEventFormatting";
 import styles from "../App.module.css";
-import { ShortcutButton } from "../pipeline/ShortcutButton";
+import {
+  TimelineRailSeekingControls,
+  TimelineRailSeekingPortal,
+  useTimelineRailSeekingSlot,
+} from "../pipeline/TimelineRailSeekingControls";
 import eventStyles from "./PipelineCardEventEditor.module.css";
+import { ShortcutButton } from "../pipeline/ShortcutButton";
 
 export function EventSourceSurface({
   recordingId,
@@ -179,91 +184,119 @@ export function CardEventReviewControls({
   onDismiss: () => void;
   onAddEvent: () => void;
 }) {
+  const timelineSeekingSlot = useTimelineRailSeekingSlot();
   const canDecide = selectedState === "pending" || selectedState === "affected";
   const canNudge = selectedState !== null;
   const dismissLabel =
     selectedState === "rejected" ? "Undo dismiss" : "Dismiss";
+  const seekingGroups = [
+    {
+      label: "Event navigation",
+      controls: [
+        {
+          label: "Previous event",
+          symbol: "⏮",
+          shortcut: "ArrowLeft",
+          ariaShortcut: "ArrowLeft",
+          disabled: !hasPrevious,
+          disabledReason: "There is no previous event.",
+          onClick: onPrevious,
+        },
+        {
+          label: "Next event",
+          symbol: "⏭",
+          shortcut: "ArrowRight",
+          ariaShortcut: "ArrowRight",
+          disabled: !hasNext,
+          disabledReason: "There is no next event.",
+          onClick: onNext,
+        },
+      ],
+    },
+    {
+      label: "Frame seek",
+      controls: [
+        {
+          label: "Seek left",
+          symbol: "←",
+          shortcut: "Alt+ArrowLeft",
+          ariaShortcut: "Alt+ArrowLeft",
+          onClick: () => onSeek(-250_000),
+        },
+        {
+          label: "Seek right",
+          symbol: "→",
+          shortcut: "Alt+ArrowRight",
+          ariaShortcut: "Alt+ArrowRight",
+          onClick: () => onSeek(250_000),
+        },
+      ],
+    },
+  ] as const;
+  const seeking =
+    timelineSeekingSlot !== null ? (
+      <TimelineRailSeekingPortal
+        slot={timelineSeekingSlot}
+        groups={seekingGroups}
+      />
+    ) : null;
   return (
-    <aside
-      className={eventStyles.controlSidebar}
-      aria-label="CardEvent review controls"
-    >
-      <p className={styles.statusLabel}>Review controls</p>
-      <div className={eventStyles.controlGroup}>
-        <ShortcutButton
-          label="Previous"
-          shortcut="Alt+Left"
-          ariaShortcut="Alt+ArrowLeft"
-          disabled={!hasPrevious}
-          disabledReason="There is no previous event."
-          onClick={onPrevious}
-        />
-        <ShortcutButton
-          label="Next"
-          shortcut="Alt+Right"
-          ariaShortcut="Alt+ArrowRight"
-          disabled={!hasNext}
-          disabledReason="There is no next event."
-          onClick={onNext}
-        />
-      </div>
-      <div className={eventStyles.controlGroup}>
-        <ShortcutButton
-          label="Seek earlier"
-          shortcut="Left"
-          ariaShortcut="ArrowLeft"
-          onClick={() => onSeek(-250_000)}
-        />
-        <ShortcutButton
-          label="Seek later"
-          shortcut="Right"
-          ariaShortcut="ArrowRight"
-          onClick={() => onSeek(250_000)}
-        />
-        <ShortcutButton
-          label="Nudge earlier"
-          shortcut=","
-          ariaShortcut=","
-          disabled={!canNudge}
-          disabledReason="Select an event before nudging its time."
-          onClick={() => onNudge(-1)}
-        />
-        <ShortcutButton
-          label="Nudge later"
-          shortcut="."
-          ariaShortcut="."
-          disabled={!canNudge}
-          disabledReason="Select an event before nudging its time."
-          onClick={() => onNudge(1)}
-        />
-      </div>
-      <div className={eventStyles.controlGroup}>
-        <ShortcutButton
-          label="Accept"
-          shortcut="A"
-          ariaShortcut="A"
-          variant="primary"
-          disabled={!canDecide}
-          disabledReason="Accept is available for pending events."
-          onClick={onAccept}
-        />
-        <ShortcutButton
-          label={dismissLabel}
-          shortcut="D"
-          ariaShortcut="D"
-          disabled={selectedState === null}
-          disabledReason="Select an event before dismissing it."
-          onClick={onDismiss}
-        />
-        <ShortcutButton
-          label="Add event"
-          shortcut="N"
-          ariaShortcut="N"
-          variant="primary"
-          onClick={onAddEvent}
-        />
-      </div>
-    </aside>
+    <>
+      {seeking}
+      <aside
+        className={eventStyles.controlSidebar}
+        aria-label="CardEvent review controls"
+      >
+        <p className={styles.statusLabel}>Review controls</p>
+        {timelineSeekingSlot === null ? (
+          <TimelineRailSeekingControls groups={seekingGroups} />
+        ) : null}
+        <div className={eventStyles.controlGroup}>
+          <ShortcutButton
+            label="Nudge earlier"
+            shortcut=","
+            ariaShortcut=","
+            disabled={!canNudge}
+            disabledReason="Select an event before nudging its time."
+            onClick={() => onNudge(-1)}
+          />
+          <ShortcutButton
+            label="Nudge later"
+            shortcut="."
+            ariaShortcut="."
+            disabled={!canNudge}
+            disabledReason="Select an event before nudging its time."
+            onClick={() => onNudge(1)}
+          />
+        </div>
+        <div className={eventStyles.controlGroup}>
+          <ShortcutButton
+            label="Accept"
+            shortcut="A"
+            ariaShortcut="A"
+            variant="primary"
+            disabled={!canDecide}
+            disabledReason="Accept is available for pending events."
+            onClick={onAccept}
+          />
+          <ShortcutButton
+            label={dismissLabel}
+            shortcut="D"
+            ariaShortcut="D"
+            disabled={selectedState === null}
+            disabledReason="Select an event before dismissing it."
+            onClick={onDismiss}
+          />
+          <ShortcutButton
+            label="Add event"
+            shortcut="N"
+            ariaShortcut="N"
+            variant="primary"
+            onClick={onAddEvent}
+          />
+        </div>
+      </aside>
+    </>
   );
 }
 

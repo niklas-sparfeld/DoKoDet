@@ -66,19 +66,24 @@ describe("RecordingTimelineRail", () => {
     sourceVideo = null;
   });
 
-  it("keeps playback controls beside the scrubber without a redundant heading", () => {
+  it("keeps playback controls above the scrubber without a redundant heading", () => {
     renderRail();
 
     expect(screen.queryByText("Timeline Rail")).not.toBeInTheDocument();
     expect(screen.queryByText("Recording navigation")).not.toBeInTheDocument();
 
     const controls = screen.getByRole("group", { name: "Playback controls" });
-    const scrubber = controls.parentElement;
+    const header = controls.parentElement;
     const range = screen.getByRole("slider", { name: "Recording playhead" });
+    const track = range.parentElement;
 
-    expect(scrubber).not.toBeNull();
-    expect(scrubber?.firstElementChild).toBe(controls);
-    expect(scrubber?.lastElementChild).toBe(range.parentElement);
+    expect(header).not.toBeNull();
+    expect(header?.firstElementChild).toBe(controls);
+    expect(header?.lastElementChild).toHaveAttribute(
+      "data-timeline-seeking-slot",
+      "true",
+    );
+    expect(track?.parentElement?.lastElementChild).toBe(track);
   });
 
   it("renders ordered accessible lanes and selects an item with its source time", () => {

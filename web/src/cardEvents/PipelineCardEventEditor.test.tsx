@@ -448,25 +448,25 @@ describe("PipelineCardEventEditor", () => {
     const controls = screen.getByRole("complementary", {
       name: "CardEvent review controls",
     });
-    for (const shortcut of [
-      ["Previous", "Alt+Left"],
-      ["Next", "Alt+Right"],
-      ["Seek earlier", "Left"],
-      ["Seek later", "Right"],
-      ["Nudge earlier", ","],
-      ["Nudge later", "."],
-      ["Accept", "A"],
-      ["Dismiss", "D"],
-      ["Add event", "N"],
+    for (const ariaName of [
+      "Previous event",
+      "Next event",
+      "Seek left",
+      "Seek right",
+      "Nudge earlier ,",
+      "Nudge later .",
+      "Accept A",
+      "Dismiss D",
+      "Add event N",
     ]) {
       expect(
         within(controls).getByRole("button", {
-          name: `${shortcut[0]} ${shortcut[1]}`,
+          name: ariaName,
         }),
       ).toBeInTheDocument();
     }
     expect(
-      within(controls).getByRole("button", { name: "Previous Alt+Left" }),
+      within(controls).getByRole("button", { name: "Previous event" }),
     ).toBeDisabled();
     expect(
       within(controls).getByRole("button", { name: "Nudge earlier ," }),
@@ -482,21 +482,21 @@ describe("PipelineCardEventEditor", () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(controls).getByRole("button", { name: "Next Alt+Right" }),
+      within(controls).getByRole("button", { name: "Next event" }),
     );
     expect(window.location.search).toContain("item=event-2");
     expect(window.location.search).toContain("t_us=3000000");
 
     fireEvent.click(
-      within(controls).getByRole("button", { name: "Seek earlier Left" }),
+      within(controls).getByRole("button", { name: "Seek left" }),
     );
     expect(window.location.search).toContain("t_us=2750000");
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
-    expect(window.location.search).toContain("t_us=3000000");
-    fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true });
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
     expect(window.location.search).toContain("item=event-1");
     expect(window.location.search).toContain("t_us=1000000");
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    expect(window.location.search).toContain("t_us=1250000");
   });
 
   it("requires complete coverage before publishing and sends full-recording microseconds", async () => {

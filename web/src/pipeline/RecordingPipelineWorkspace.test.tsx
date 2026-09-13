@@ -861,6 +861,26 @@ describe("recording pipeline workspace", () => {
     await screen.findByRole("complementary", {
       name: "CardEvent review controls",
     });
+    const timeline = screen.getByRole("region", { name: "Timeline Rail" });
+    expect(
+      await within(timeline).findByRole("group", { name: "Event navigation" }),
+    ).toBeInTheDocument();
+    const previousEvent = within(timeline).getByRole("button", {
+      name: "Previous event",
+    });
+    expect(previousEvent).toHaveAttribute("aria-keyshortcuts", "ArrowLeft");
+    expect(previousEvent).toHaveTextContent("⏮");
+    expect(previousEvent).not.toHaveTextContent("Previous event");
+    expect(
+      within(timeline).getByRole("button", { name: "Seek right" }),
+    ).toHaveAttribute("aria-keyshortcuts", "Alt+ArrowRight");
+    expect(
+      within(
+        screen.getByRole("complementary", {
+          name: "CardEvent review controls",
+        }),
+      ).queryByRole("button", { name: "Previous event" }),
+    ).not.toBeInTheDocument();
     const item = await screen.findByRole("button", {
       name: "Card-state change, 0:01–0:02, pending",
     });
