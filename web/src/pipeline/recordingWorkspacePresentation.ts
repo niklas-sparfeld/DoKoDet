@@ -223,6 +223,7 @@ const RAIL_LANES: Record<
     { id: "resolved-frames", label: "Resolved frames" },
     { id: "frame-decision", label: "Frame decision" },
     { id: "proposals", label: "Proposals" },
+    { id: "ignore-regions", label: "Ignore regions" },
   ],
   visual_identities: [
     { id: "identity-cards", label: "Identity cards" },

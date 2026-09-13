@@ -43,6 +43,35 @@ const DETECTOR_CANDIDATE: Candidate = {
     policy_id: "full-frame-0-1000/v1",
   },
 };
+const SECOND_DETECTOR_CANDIDATE: Candidate = {
+  ...DETECTOR_CANDIDATE,
+  card_id: "run-card-2",
+  geometry: {
+    kind: "detector-box/v1",
+    box_2d: { x_min: 200, y_min: 200, x_max: 700, y_max: 700 },
+  },
+};
+const IGNORE_REGION = {
+  region_id: "ignore-region-1",
+  geometry: {
+    kind: "reviewed-ignore-region/v1" as const,
+    polygons: [
+      [
+        { x: 100, y: 100 },
+        { x: 800, y: 100 },
+        { x: 800, y: 800 },
+        { x: 100, y: 800 },
+      ],
+    ],
+  },
+  normalization: {
+    width: FRAME_IDENTITY.width,
+    height: FRAME_IDENTITY.height,
+    policy_id: "full-frame-0-1000/v1",
+  },
+  reason: "untidy_stack" as const,
+  source_candidates: [],
+};
 
 const SEGMENTED_GEOMETRY_WITH_DERIVED_BOX: Candidate["geometry"] = {
   kind: "detector-box/v1",
@@ -227,6 +256,44 @@ function referenceWithSegmentedGeometry() {
             ...candidate,
             geometry: SEGMENTED_GEOMETRY_WITH_DERIVED_BOX,
           })),
+        },
+      })),
+    },
+  };
+}
+
+function referenceWithTwoCandidates() {
+  const current = reference();
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      items: current.draft.items.map((item) => ({
+        ...item,
+        item: {
+          ...item.item,
+          candidates: [DETECTOR_CANDIDATE, SECOND_DETECTOR_CANDIDATE],
+        },
+      })),
+    },
+  };
+}
+
+function referenceWithIgnoreRegion(
+  candidates: Candidate[] = [DETECTOR_CANDIDATE],
+) {
+  const current = reference();
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      revision: current.draft.revision + 1,
+      items: current.draft.items.map((item) => ({
+        ...item,
+        item: {
+          ...item.item,
+          candidates,
+          ignored_regions: [IGNORE_REGION],
         },
       })),
     },
@@ -718,6 +785,220 @@ describe("PipelineVisibleCardEditor", () => {
         name: "Polygon 2, point 1 at 100, 100",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("converts multiple selected proposals into one untidy-stack ignore region", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
+      Promise.resolve(
+        jsonResponse(
+          init?.method === "PUT"
+            ? referenceWithIgnoreRegion([])
+            : referenceWithTwoCandidates(),
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await screen.findByAltText("Selected visible-card source frame");
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Select proposal 1 for ignore region",
+      }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Select proposal 2 for ignore region",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Convert selected to ignore region I",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(requestBody.operations).toEqual([
+      expect.objectContaining({
+        operation: "convert_to_ignore_region",
+        item_id: ITEM_ID,
+        candidate_ids: ["run-card-1", "run-card-2"],
+        region: expect.objectContaining({
+          reason: "untidy_stack",
+          geometry: expect.objectContaining({
+            kind: "reviewed-ignore-region/v1",
+            polygons: expect.any(Array),
+          }),
+        }),
+      }),
+    ]);
+    expect(
+      await screen.findByRole("region", {
+        name: "Visible-card ignore regions",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Ignore region 1")).toBeInTheDocument();
+    expect(screen.getAllByText("Ignore regions")).not.toHaveLength(0);
+  });
+
+  it("draws, reshapes, and deletes an ignore region with dedicated operations", async () => {
+    const responses = [
+      reference(),
+      referenceWithIgnoreRegion(),
+      referenceWithIgnoreRegion(),
+      reference(),
+    ];
+    let putCount = 0;
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        const response =
+          responses[Math.min(putCount + 1, responses.length - 1)];
+        putCount += 1;
+        return Promise.resolve(jsonResponse(response));
+      }
+      return Promise.resolve(jsonResponse(responses[0]));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await screen.findByAltText("Selected visible-card source frame");
+    await user.click(
+      screen.getByRole("button", { name: "Draw ignore region" }),
+    );
+    const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10 });
+    fireEvent.pointerDown(canvas, { clientX: 80, clientY: 10 });
+    fireEvent.pointerDown(canvas, { clientX: 80, clientY: 80 });
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const createBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(createBody.operations[0]).toMatchObject({
+      operation: "create_ignore_region",
+      item_id: ITEM_ID,
+      region: { reason: "untidy_stack" },
+    });
+
+    const ignoreRegions = screen.getByRole("region", {
+      name: "Visible-card ignore regions",
+    });
+    await user.click(
+      within(ignoreRegions).getByRole("button", { name: "Edit" }),
+    );
+    const point = screen.getByRole("button", {
+      name: "Polygon 1, point 1 at 100, 100",
+    });
+    const regionCanvas = screen.getByRole("img", {
+      name: "1 visible-card proposal and 1 ignore region",
+    });
+    vi.spyOn(regionCanvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.pointerDown(point, { clientX: 10, clientY: 10, pointerId: 5 });
+    fireEvent.pointerMove(regionCanvas, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 5,
+    });
+    fireEvent.pointerUp(regionCanvas, { pointerId: 5 });
+    await waitFor(() => expect(putCount).toBe(2));
+    const replaceBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        )[1]?.[1]?.body,
+      ),
+    );
+    expect(replaceBody.operations[0]).toMatchObject({
+      operation: "replace_ignore_region",
+      item_id: ITEM_ID,
+      region_id: IGNORE_REGION.region_id,
+    });
+
+    await user.click(
+      within(ignoreRegions).getByRole("button", { name: "Delete" }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toHaveLength(3),
+    );
+    const deleteBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        )[2]?.[1]?.body,
+      ),
+    );
+    expect(deleteBody.operations[0]).toMatchObject({
+      operation: "delete_ignore_region",
+      item_id: ITEM_ID,
+      region_id: IGNORE_REGION.region_id,
+    });
   });
 
   it("adds a second polygon and saves its completed points", async () => {

@@ -19,7 +19,7 @@
 
 - **M0:** Complete — define and publish the strict ignore-region contract and its boundaries.
 - **M1:** Complete — persist ignore-region review operations and complete references safely.
-- **M2:** Not started — add the low-effort region workflow to the visible-card editor.
+- **M2:** Complete — add the low-effort region workflow to the visible-card editor.
 - **M3:** Not started — project ignore regions into datasets and verify loss and metric behavior.
 
 ## 1. Problem
@@ -246,21 +246,32 @@ Acceptance:
 
 ### M2 — Add the visible-card review workflow
 
-- Add multi-select for card candidates in one frame.
-- Add **Convert to ignore region** with the fixed `untidy_stack` reason.
-- Reuse the polygon editor for create, reshape, multi-polygon edit, and delete operations.
-- Render ignore regions separately from card candidates in the video surface, inspector, and
-  Timeline Rail state.
-- Exclude ignore regions from proposal counts, card side controls, and identity actions.
-- Preserve optimistic saves, retry, conflict recovery, keyboard access, and narrow layouts.
+- Complete — add multi-select for card candidates in one frame.
+- Complete — add **Convert selected to ignore region** with the fixed `untidy_stack` reason.
+- Complete — reuse the polygon editor for create, reshape, multi-polygon edit, and delete
+  operations.
+- Complete — render ignore regions separately from card candidates in the video surface, inspector,
+  and Timeline Rail state.
+- Complete — exclude ignore regions from proposal counts, card side controls, and identity actions.
+- Complete — preserve optimistic saves, retry, conflict recovery, keyboard access, and narrow
+  layouts.
 
 Acceptance:
 
-- the operator can convert several Gemini polygons into one region with one action;
-- the generated revision remains visible and unchanged in history;
-- normal cards in the same frame remain editable and countable;
-- reload and browser recovery show the saved region exactly once; and
-- web unit, type, lint, format, generated-client, and focused browser checks pass.
+- Complete — the operator can convert several Gemini polygons into one region with one action;
+- Complete — the generated revision remains visible and unchanged in history;
+- Complete — normal cards in the same frame remain editable and countable;
+- Complete — reload and browser recovery show the saved region exactly once; and
+- Complete — web unit, type, lint, format, generated-client, and focused browser checks pass.
+
+Implementation: `PipelineVisibleCardEditor` owns multi-select, conversion, drawing, and the
+optimistic command queue. `PipelineVisibleCardPresentation` renders card candidates and neutral
+ignore regions as separate surfaces. `RecordingWorkspaceRail` publishes a separate ignore-region
+lane. Ignore regions do not expose card side controls or identity actions.
+
+Verification: the web check passes with 18 test files and 154 tests. The existing CardEvent browser
+check still fails on its unrelated missing `Next Alt+Right` control; the workspace-layout browser
+check passes.
 
 ### M3 — Make dataset and evaluation behavior safe
 

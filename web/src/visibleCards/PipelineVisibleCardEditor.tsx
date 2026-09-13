@@ -116,6 +116,9 @@ export function PipelineVisibleCardEditor({
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
   );
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>(
+    [],
+  );
   const [loading, setLoading] = useState(view === "reviewed");
   const [generatedLoading, setGeneratedLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,6 +185,7 @@ export function PipelineVisibleCardEditor({
     dragRef.current = null;
     setEditor(null);
     setSelectedCandidateId(null);
+    setSelectedCandidateIds([]);
     setEditorError(null);
   }, []);
 
@@ -340,6 +344,7 @@ export function PipelineVisibleCardEditor({
           view === "reviewed" ? frameReviewStatus(frame) : frame.outcome.status,
         timeUs: frame.outcome.frame_identity?.requested_time_us ?? null,
         proposalCount: frame.outcome.candidates.length,
+        ignoredRegionCount: frame.outcome.ignored_regions.length,
         decision: view === "reviewed" ? frameDecision(frame) : null,
       })),
     );
@@ -611,8 +616,34 @@ export function PipelineVisibleCardEditor({
       setEditor({
         frameItemId: frame.itemId,
         cardId: candidate?.card_id ?? null,
+        regionId: null,
+        ignoreRegion: null,
         polygons,
         polygonIndex: Math.min(Math.max(0, polygonIndex), polygons.length - 1),
+        selectedPointIndex: null,
+      });
+    },
+    [],
+  );
+
+  const openIgnoreRegionEditor = useCallback(
+    (frame: EditableFrame, region: IgnoreRegion | null = null) => {
+      if (frame.outcome.frame_identity === null) return;
+      const nextRegion =
+        region ?? newIgnoreRegion(frame, nextManualRegionId(frame));
+      setEditorError(null);
+      setSelectedCandidateId(null);
+      setSelectedCandidateIds([]);
+      setEditor({
+        frameItemId: frame.itemId,
+        cardId: null,
+        regionId: nextRegion.region_id,
+        ignoreRegion: region,
+        polygons:
+          region === null
+            ? [[]]
+            : region.geometry.polygons.map((polygon) => [...polygon]),
+        polygonIndex: 0,
         selectedPointIndex: null,
       });
     },
@@ -629,6 +660,64 @@ export function PipelineVisibleCardEditor({
       const validation = validatePolygons(currentEditor.polygons);
       if (validation !== null) {
         setEditorError(validation);
+        return;
+      }
+      if (currentEditor.regionId !== null) {
+        const existingRegion = frame.outcome.ignored_regions.find(
+          (region) => region.region_id === currentEditor.regionId,
+        );
+        const region = currentEditor.ignoreRegion ?? existingRegion;
+        const nextRegion = {
+          ...(region ?? newIgnoreRegion(frame, currentEditor.regionId)),
+          geometry: {
+            kind: "reviewed-ignore-region/v1" as const,
+            polygons: currentEditor.polygons.map((polygon) =>
+              polygon.map((point) => ({
+                x: Math.round(point.x),
+                y: Math.round(point.y),
+              })),
+            ),
+          },
+        };
+        const operation: PipelineReferenceOperation = {
+          operation:
+            existingRegion === undefined
+              ? "create_ignore_region"
+              : "replace_ignore_region",
+          item_id: frame.itemId,
+          region_id:
+            existingRegion === undefined ? undefined : currentEditor.regionId,
+          region: ignoreRegionMapping(nextRegion),
+        };
+        enqueue(
+          operation,
+          existingRegion === undefined
+            ? "Ignore region created."
+            : "Ignore-region geometry saved.",
+          (current) =>
+            current.map((candidate) => {
+              if (candidate.itemId !== frame.itemId) return candidate;
+              const ignoredRegions =
+                existingRegion === undefined
+                  ? [...candidate.outcome.ignored_regions, nextRegion]
+                  : candidate.outcome.ignored_regions.map((currentRegion) =>
+                      currentRegion.region_id === nextRegion.region_id
+                        ? nextRegion
+                        : currentRegion,
+                    );
+              return {
+                ...candidate,
+                outcome: {
+                  ...candidate.outcome,
+                  status: "detected",
+                  ignored_regions: ignoredRegions,
+                  error: null,
+                },
+              };
+            }),
+        );
+        if (closeEditor) setEditor(null);
+        setEditorError(null);
         return;
       }
       const candidates = frame.outcome.candidates.map((candidate) =>
@@ -667,7 +756,7 @@ export function PipelineVisibleCardEditor({
       if (closeEditor) setEditor(null);
       setEditorError(null);
     },
-    [setFrameReview],
+    [enqueue, setFrameReview],
   );
 
   useEffect(() => {
@@ -700,6 +789,106 @@ export function PipelineVisibleCardEditor({
       );
     },
     [setFrameReview],
+  );
+
+  const toggleCandidateSelection = useCallback((cardId: string) => {
+    setSelectedCandidateIds((current) =>
+      current.includes(cardId)
+        ? current.filter((candidateId) => candidateId !== cardId)
+        : [...current, cardId],
+    );
+  }, []);
+
+  const convertSelectedToIgnoreRegion = useCallback(
+    (frame: EditableFrame) => {
+      const selected = frame.outcome.candidates.filter((candidate) =>
+        selectedCandidateIds.includes(candidate.card_id),
+      );
+      if (selected.length === 0) return;
+      const region = newIgnoreRegion(frame, nextManualRegionId(frame));
+      const operation: PipelineReferenceOperation = {
+        operation: "convert_to_ignore_region",
+        item_id: frame.itemId,
+        region: ignoreRegionMapping({
+          ...region,
+          geometry: {
+            kind: "reviewed-ignore-region/v1",
+            polygons: selected.flatMap((candidate) =>
+              geometryPolygons(candidate.geometry),
+            ),
+          },
+        }),
+        candidate_ids: selected.map((candidate) => candidate.card_id),
+      };
+      endEditMode();
+      enqueue(
+        operation,
+        `Converted ${selected.length} proposal${selected.length === 1 ? "" : "s"} to one untidy-stack ignore region.`,
+        (current) =>
+          current.map((candidate) => {
+            if (candidate.itemId !== frame.itemId) return candidate;
+            const remainingCandidates = candidate.outcome.candidates.filter(
+              (currentCandidate) =>
+                !selectedCandidateIds.includes(currentCandidate.card_id),
+            );
+            return {
+              ...candidate,
+              reviewState:
+                remainingCandidates.length === 0
+                  ? "accepted"
+                  : candidate.reviewState,
+              outcome: {
+                ...candidate.outcome,
+                status: "detected",
+                candidates: remainingCandidates,
+                ignored_regions: [
+                  ...candidate.outcome.ignored_regions,
+                  {
+                    ...region,
+                    geometry: {
+                      kind: "reviewed-ignore-region/v1",
+                      polygons: selected.flatMap((currentCandidate) =>
+                        geometryPolygons(currentCandidate.geometry),
+                      ),
+                    },
+                  },
+                ],
+                error: null,
+              },
+            };
+          }),
+      );
+    },
+    [endEditMode, enqueue, selectedCandidateIds],
+  );
+
+  const removeIgnoreRegion = useCallback(
+    (frame: EditableFrame, regionId: string) => {
+      endEditMode();
+      enqueue(
+        {
+          operation: "delete_ignore_region",
+          item_id: frame.itemId,
+          region_id: regionId,
+        },
+        "Ignore region deleted.",
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId !== frame.itemId
+              ? candidate
+              : {
+                  ...candidate,
+                  outcome: {
+                    ...candidate.outcome,
+                    ignored_regions: candidate.outcome.ignored_regions.filter(
+                      (region) => region.region_id !== regionId,
+                    ),
+                  },
+                },
+          ),
+      );
+    },
+    [endEditMode, enqueue],
   );
 
   const handleCanvasPointerMove = useCallback(
@@ -754,7 +943,10 @@ export function PipelineVisibleCardEditor({
       });
       if (completed)
         window.setTimeout(
-          () => void saveEditorRef.current?.(currentEditor.cardId === null),
+          () =>
+            void saveEditorRef.current?.(
+              currentEditor.cardId === null && currentEditor.regionId === null,
+            ),
           0,
         );
     },
@@ -868,7 +1060,12 @@ export function PipelineVisibleCardEditor({
             frames: currentFrames.map((frame) => ({
               item_id: frame.itemId,
               frame_identity: frame.outcome.frame_identity,
-              decision: frameDecision(frame) as "cards" | "empty" | "unusable",
+              decision: frameDecision(frame) as
+                | "cards"
+                | "ignored"
+                | "cards_and_ignored"
+                | "empty"
+                | "unusable",
             })),
           },
         },
@@ -1042,6 +1239,16 @@ export function PipelineVisibleCardEditor({
           event.preventDefault();
           openEditor(frame, null);
         }
+      } else if (
+        canEdit &&
+        (event.key === "i" || event.key === "I") &&
+        selectedCandidateIds.length > 0
+      ) {
+        const frame = current[index];
+        if (frame !== undefined) {
+          event.preventDefault();
+          convertSelectedToIgnoreRegion(frame);
+        }
       } else if (canEdit && (event.key === "a" || event.key === "A")) {
         const frame = current[index];
         if (frame?.outcome.status === "detected") {
@@ -1066,6 +1273,7 @@ export function PipelineVisibleCardEditor({
     return () => window.removeEventListener("keydown", handler);
   }, [
     generatedFrames,
+    convertSelectedToIgnoreRegion,
     endEditMode,
     openEditor,
     referenceNeedsSeed,
@@ -1074,6 +1282,7 @@ export function PipelineVisibleCardEditor({
     usesMaintainedFrames,
     view,
     toggleFrameAcceptance,
+    selectedCandidateIds.length,
   ]);
 
   const displayedFrames = usesMaintainedFrames ? frames : generatedFrames;
@@ -1228,6 +1437,11 @@ export function PipelineVisibleCardEditor({
                 }}
                 onAccept={() => toggleFrameAcceptance(activeFrame)}
                 onAddCard={() => openEditor(activeFrame, null)}
+                selectedCandidateCount={selectedCandidateIds.length}
+                onConvertToIgnoreRegion={() =>
+                  convertSelectedToIgnoreRegion(activeFrame)
+                }
+                onCreateIgnoreRegion={() => openIgnoreRegionEditor(activeFrame)}
                 onMarkEmpty={() => setFrameOutcome(activeFrame, "empty")}
                 onMarkUnusable={() => setFrameOutcome(activeFrame, "unusable")}
               />
@@ -1240,6 +1454,18 @@ export function PipelineVisibleCardEditor({
               }
               selectedCandidateId={selectedCandidateId}
               editorError={editorError}
+              selectedCandidateIds={selectedCandidateIds}
+              onToggleCandidateSelection={toggleCandidateSelection}
+              onOpenIgnoreRegion={
+                editable
+                  ? (region) => openIgnoreRegionEditor(activeFrame, region)
+                  : undefined
+              }
+              onRemoveIgnoreRegion={
+                editable
+                  ? (regionId) => removeIgnoreRegion(activeFrame, regionId)
+                  : undefined
+              }
               readOnly={!editable}
               onSelectCandidate={(candidate) => {
                 setSelectedCandidateId(candidate.card_id);
@@ -1637,13 +1863,14 @@ function coverageEntries(
 
 function frameDecision(
   frame: EditableFrame,
-): "cards" | "empty" | "unusable" | null {
-  if (
-    frame.outcome.status === "detected" &&
-    frame.reviewState === "accepted" &&
-    frame.outcome.candidates.length > 0
-  )
-    return "cards";
+): "cards" | "ignored" | "cards_and_ignored" | "empty" | "unusable" | null {
+  if (frame.outcome.status === "detected" && frame.reviewState === "accepted") {
+    const hasCards = frame.outcome.candidates.length > 0;
+    const hasIgnoredRegions = frame.outcome.ignored_regions.length > 0;
+    if (hasCards && hasIgnoredRegions) return "cards_and_ignored";
+    if (hasCards) return "cards";
+    if (hasIgnoredRegions) return "ignored";
+  }
   if (frame.outcome.status === "empty" && frame.reviewState === "empty")
     return "empty";
   if (frame.outcome.status === "failed" && frame.reviewState === "unusable")
@@ -1653,6 +1880,45 @@ function frameDecision(
 
 function nextManualCardId(frame: EditableFrame): string {
   return `manual-${frame.itemId}-${Date.now()}`;
+}
+
+function nextManualRegionId(frame: EditableFrame): string {
+  return `ignore-${frame.itemId}-${Date.now()}`;
+}
+
+function newIgnoreRegion(frame: EditableFrame, regionId: string): IgnoreRegion {
+  const identity = frame.outcome.frame_identity;
+  return {
+    region_id: regionId,
+    geometry: {
+      kind: "reviewed-ignore-region/v1",
+      polygons: [],
+    },
+    normalization: {
+      width: identity?.width ?? 1,
+      height: identity?.height ?? 1,
+      policy_id: "full-frame-0-1000/v1",
+    },
+    reason: "untidy_stack",
+    source_candidates: [],
+  };
+}
+
+function ignoreRegionMapping(region: IgnoreRegion): Record<string, unknown> {
+  return {
+    region_id: region.region_id,
+    geometry: {
+      kind: region.geometry.kind,
+      polygons: region.geometry.polygons.map((polygon) =>
+        polygon.map((point) => ({ x: point.x, y: point.y })),
+      ),
+    },
+    normalization: { ...region.normalization },
+    reason: region.reason,
+    source_candidates: region.source_candidates.map((source) => ({
+      ...source,
+    })),
+  };
 }
 
 function isFrameReviewState(value: string): value is FrameReviewState {

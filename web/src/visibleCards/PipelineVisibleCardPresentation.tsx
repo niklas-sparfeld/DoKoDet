@@ -23,6 +23,7 @@ import type {
   EditableFrame,
   EditorState,
   FrameReviewStatus,
+  IgnoreRegion,
 } from "./PipelineVisibleCardTypes";
 
 export function visibleCardReviewPrewarmUrls(
@@ -44,6 +45,9 @@ export function VisibleCardReviewControls({
   onNext,
   onAccept,
   onAddCard,
+  selectedCandidateCount,
+  onConvertToIgnoreRegion,
+  onCreateIgnoreRegion,
   onMarkEmpty,
   onMarkUnusable,
 }: {
@@ -55,6 +59,9 @@ export function VisibleCardReviewControls({
   onNext: () => void;
   onAccept: () => void;
   onAddCard: () => void;
+  selectedCandidateCount: number;
+  onConvertToIgnoreRegion: () => void;
+  onCreateIgnoreRegion: () => void;
   onMarkEmpty: () => void;
   onMarkUnusable: () => void;
 }) {
@@ -135,6 +142,23 @@ export function VisibleCardReviewControls({
               onClick={onAddCard}
             />
             <ShortcutButton
+              label="Convert selected to ignore region"
+              shortcut="I"
+              ariaShortcut="I"
+              variant="primary"
+              disabled={selectedCandidateCount === 0}
+              disabledReason="Select one or more proposals to convert them to an ignore region."
+              onClick={onConvertToIgnoreRegion}
+            />
+            <button
+              className={styles.inlineAction}
+              type="button"
+              disabled={!canAddCard}
+              onClick={onCreateIgnoreRegion}
+            >
+              Draw ignore region
+            </button>
+            <ShortcutButton
               label="Reviewed empty frame"
               shortcut="E"
               ariaShortcut="E"
@@ -163,6 +187,10 @@ export function VisibleCardFramePanel({
   editor,
   selectedCandidateId,
   editorError,
+  selectedCandidateIds,
+  onToggleCandidateSelection,
+  onOpenIgnoreRegion,
+  onRemoveIgnoreRegion,
   onSelectCandidate,
   onSelectCandidatePolygon,
   onOpenEditor,
@@ -184,6 +212,10 @@ export function VisibleCardFramePanel({
   editor: EditorState | null;
   selectedCandidateId: string | null;
   editorError: string | null;
+  selectedCandidateIds: string[];
+  onToggleCandidateSelection: (cardId: string) => void;
+  onOpenIgnoreRegion?: (region: IgnoreRegion) => void;
+  onRemoveIgnoreRegion?: (regionId: string) => void;
   onSelectCandidate?: (candidate: Candidate) => void;
   onSelectCandidatePolygon?: (
     candidate: Candidate,
@@ -233,7 +265,7 @@ export function VisibleCardFramePanel({
               className={visibleStyles.overlay}
               viewBox={`0 0 ${width} ${height}`}
               role="img"
-              aria-label={`${frame.outcome.candidates.length} visible-card proposal${frame.outcome.candidates.length === 1 ? "" : "s"}`}
+              aria-label={`${frame.outcome.candidates.length} visible-card proposal${frame.outcome.candidates.length === 1 ? "" : "s"}${frame.outcome.ignored_regions.length > 0 ? ` and ${frame.outcome.ignored_regions.length} ignore region${frame.outcome.ignored_regions.length === 1 ? "" : "s"}` : ""}`}
               onPointerMove={onPointerMove}
               onPointerDown={onCanvasPointerDown}
               onPointerUp={onPointerUp}
@@ -246,13 +278,27 @@ export function VisibleCardFramePanel({
                     : "auto",
               }}
             >
+              {frame.outcome.ignored_regions.map((region) => (
+                <IgnoreRegionOverlay
+                  key={region.region_id}
+                  region={region}
+                  width={width}
+                  height={height}
+                  selected={editor?.regionId === region.region_id}
+                  interactive={!readOnly && onOpenIgnoreRegion !== undefined}
+                  onOpen={() => onOpenIgnoreRegion?.(region)}
+                />
+              ))}
               {frame.outcome.candidates.map((candidate) => (
                 <CandidateOverlay
                   key={candidate.card_id}
                   candidate={candidate}
                   width={width}
                   height={height}
-                  selected={candidate.card_id === selectedCandidateId}
+                  selected={
+                    candidate.card_id === selectedCandidateId ||
+                    selectedCandidateIds.includes(candidate.card_id)
+                  }
                   reviewStatus={frameReviewStatus(frame)}
                   interactive={
                     editor === null && onSelectCandidatePolygon !== undefined
@@ -328,10 +374,14 @@ export function VisibleCardFramePanel({
           frame={frame}
           sourceUrl={sourceUrl}
           readOnly={readOnly}
+          selectedCandidateIds={selectedCandidateIds}
+          onToggleCandidateSelection={onToggleCandidateSelection}
           selectedCandidateId={selectedCandidateId}
           onSelectCandidate={onSelectCandidate}
           onOpenEditor={onOpenEditor}
           onRemoveCard={onRemoveCard}
+          onOpenIgnoreRegion={onOpenIgnoreRegion}
+          onRemoveIgnoreRegion={onRemoveIgnoreRegion}
         />,
         proposalSlot,
       )}
@@ -411,18 +461,26 @@ function ProposalColumn({
   frame,
   sourceUrl,
   readOnly,
+  selectedCandidateIds,
+  onToggleCandidateSelection,
   selectedCandidateId,
   onSelectCandidate,
   onOpenEditor,
   onRemoveCard,
+  onOpenIgnoreRegion,
+  onRemoveIgnoreRegion,
 }: {
   frame: EditableFrame;
   sourceUrl: string | null;
   readOnly: boolean;
+  selectedCandidateIds: string[];
+  onToggleCandidateSelection: (cardId: string) => void;
   selectedCandidateId: string | null;
   onSelectCandidate?: (candidate: Candidate) => void;
   onOpenEditor?: (candidate: Candidate | null) => void;
   onRemoveCard?: (cardId: string) => void;
+  onOpenIgnoreRegion?: (region: IgnoreRegion) => void;
+  onRemoveIgnoreRegion?: (regionId: string) => void;
 }) {
   return (
     <section
@@ -438,12 +496,28 @@ function ProposalColumn({
           {frame.outcome.candidates.map((candidate, index) => (
             <li key={candidate.card_id}>
               <div className={visibleStyles.proposalRow}>
+                {!readOnly ? (
+                  <label className={visibleStyles.proposalCheckbox}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select proposal ${index + 1} for ignore region`}
+                      checked={selectedCandidateIds.includes(candidate.card_id)}
+                      onChange={() =>
+                        onToggleCandidateSelection(candidate.card_id)
+                      }
+                    />
+                    <span className={styles.visuallyHidden}>
+                      Select for ignore region
+                    </span>
+                  </label>
+                ) : null}
                 <button
                   className={visibleStyles.proposalSelect}
                   type="button"
                   aria-label={`Select proposal ${index + 1}`}
                   aria-pressed={candidate.card_id === selectedCandidateId}
                   data-selected={candidate.card_id === selectedCandidateId}
+                  data-has-selection={!readOnly}
                   onClick={() => onSelectCandidate?.(candidate)}
                 >
                   <CandidatePreview
@@ -483,6 +557,52 @@ function ProposalColumn({
           ))}
         </ol>
       )}
+      {frame.outcome.ignored_regions.length > 0 ? (
+        <section
+          className={visibleStyles.ignoreRegionList}
+          aria-label="Visible-card ignore regions"
+        >
+          <p className={styles.statusLabel}>Ignore regions</p>
+          <ol className={visibleStyles.proposalItems}>
+            {frame.outcome.ignored_regions.map((region, index) => (
+              <li key={region.region_id}>
+                <div className={visibleStyles.ignoreRegionRow}>
+                  <span
+                    className={visibleStyles.ignoreRegionSwatch}
+                    aria-hidden="true"
+                  />
+                  <span className={visibleStyles.proposalDetails}>
+                    <strong>Ignore region {index + 1}</strong>
+                    <span>Untidy stack</span>
+                    <small>
+                      {region.geometry.polygons.length} polygon
+                      {region.geometry.polygons.length === 1 ? "" : "s"}
+                    </small>
+                  </span>
+                  {!readOnly ? (
+                    <div className={visibleStyles.actionButtons}>
+                      <button
+                        className={styles.inlineAction}
+                        type="button"
+                        onClick={() => onOpenIgnoreRegion?.(region)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className={styles.inlineAction}
+                        type="button"
+                        onClick={() => onRemoveIgnoreRegion?.(region.region_id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -564,6 +684,71 @@ function formatGeometryKind(geometry: Candidate["geometry"]): string {
     return "Box";
   }
   return formatIdentifier(kind);
+}
+
+function IgnoreRegionOverlay({
+  region,
+  width,
+  height,
+  selected,
+  interactive,
+  onOpen,
+}: {
+  region: IgnoreRegion;
+  width: number;
+  height: number;
+  selected: boolean;
+  interactive: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <g
+      data-ignore-region-id={region.region_id}
+      data-selected={selected}
+      data-reason={region.reason}
+    >
+      {region.geometry.polygons.map((polygon, polygonIndex) => (
+        <polygon
+          key={`${region.region_id}-polygon-${polygonIndex}`}
+          points={polygon
+            .map(
+              (point) =>
+                `${(point.x * width) / 1000},${(point.y * height) / 1000}`,
+            )
+            .join(" ")}
+          fill="rgba(255, 170, 96, 0.22)"
+          stroke={selected ? "#ffffff" : "#f0a35b"}
+          strokeDasharray="3 3"
+          strokeWidth={polygonStrokeWidth(width)}
+          role={interactive ? "button" : undefined}
+          tabIndex={interactive ? 0 : undefined}
+          aria-label={
+            interactive
+              ? `Edit ignore region ${region.region_id}, polygon ${polygonIndex + 1}`
+              : undefined
+          }
+          onClick={
+            interactive
+              ? (event) => {
+                  event.stopPropagation();
+                  onOpen();
+                }
+              : undefined
+          }
+          onKeyDown={
+            interactive
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onOpen();
+                  }
+                }
+              : undefined
+          }
+        />
+      ))}
+    </g>
+  );
 }
 
 function CandidateOverlay({

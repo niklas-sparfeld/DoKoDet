@@ -310,7 +310,7 @@ export function buildVisibleCardRailItems(
             startUs: item.timeUs,
             endUs: Math.min(Math.max(durationUs, 0), item.timeUs + 1),
           };
-    return [
+    const railItems: RecordingTimelineRailItem[] = [
       {
         id: `visible-card:${item.itemId}`,
         itemId: item.itemId,
@@ -342,6 +342,19 @@ export function buildVisibleCardRailItems(
         runId: null,
       },
     ];
+    if ((item.ignoredRegionCount ?? 0) > 0) {
+      railItems.push({
+        id: `visible-card:${item.itemId}:ignore-regions`,
+        itemId: item.itemId,
+        selectionParam: "item" as const,
+        laneId: "ignore-regions",
+        label: `${item.label} · ${item.ignoredRegionCount} ignore region${item.ignoredRegionCount === 1 ? "" : "s"}`,
+        state: "ignored",
+        timeRange,
+        runId: null,
+      });
+    }
+    return railItems;
   });
 }
 

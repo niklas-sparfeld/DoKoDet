@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0065 — Visible-card ignore regions](3-in-progress/0065-Visible_Card_Ignore_Regions.md) | 0048, 0049, and 0062 complete | M0–M1 are complete: the strict `ignored_regions` contract and durable atomic reference operations preserve generated lineage and distinguish card, ignored, empty, and unusable coverage. M2–M3 remain. |
+| [0065 — Visible-card ignore regions](3-in-progress/0065-Visible_Card_Ignore_Regions.md) | 0048, 0049, and 0062 complete | M0–M2 are complete: the strict contract, durable atomic reference operations, and visible-card editor workflow preserve generated lineage and distinguish card, ignored, empty, and unusable coverage. M3 remains. |
 | [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M4 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings with complete coverage. Its deterministic disposable trainer view is lineage-aware, and the CPU smoke path writes a loadable checkpoint plus validation report. M5 remains next. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. Untidy stacks in `IMG_0661` must use 0065 ignore regions before they enter the frozen comparison. |
 
@@ -128,9 +128,10 @@ The shared target architecture is
 
 1. **Continue 0063 with M5 for the new CardEventNet model.** Use the frozen dataset and
    lineage-aware trainer view to define and run the bounded validation campaign.
-2. **Continue 0065 with M2 for untidy visible-card stacks.** Add reviewed ignore regions before
-   affected `IMG_0661` frames enter a visible-card dataset or the 0051 identity freeze. Preserve
-   Gemini proposals as generated evidence. Do not create an `untidy_stack` model class.
+2. **Continue 0065 with M3 for untidy visible-card stacks.** Project reviewed ignore regions into
+   datasets before affected `IMG_0661` frames enter a visible-card dataset or the 0051 identity
+   freeze. Preserve Gemini proposals as generated evidence. Do not create an `untidy_stack` model
+   class.
 3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
 4. **Reconcile 0051 M0 with the current data architecture and the completed 0062 contracts.** Read

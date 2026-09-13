@@ -93,4 +93,27 @@ describe("recording workspace rail coordination", () => {
       },
     ]);
   });
+
+  it("keeps ignore regions in their own Timeline Rail lane", () => {
+    const items = [
+      {
+        itemId: "frame-1",
+        label: "Frame 1",
+        state: "accepted",
+        timeUs: 4_000_000,
+        proposalCount: 1,
+        ignoredRegionCount: 1,
+        decision: "cards_and_ignored",
+      },
+    ] satisfies PipelineVisibleCardRailItem[];
+
+    expect(buildVisibleCardRailItems(items, 90_000_000)).toContainEqual(
+      expect.objectContaining({
+        id: "visible-card:frame-1:ignore-regions",
+        laneId: "ignore-regions",
+        label: "Frame 1 · 1 ignore region",
+        state: "ignored",
+      }),
+    );
+  });
 });

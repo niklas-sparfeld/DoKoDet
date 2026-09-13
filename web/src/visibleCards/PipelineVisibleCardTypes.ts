@@ -89,6 +89,8 @@ export type PendingCommand = {
 export type EditorState = {
   frameItemId: string;
   cardId: string | null;
+  regionId: string | null;
+  ignoreRegion: IgnoreRegion | null;
   polygons: Point[][];
   polygonIndex: number;
   selectedPointIndex: number | null;
@@ -100,5 +102,7 @@ export type PipelineVisibleCardRailItem = {
   state: FrameReviewStatus | Outcome["status"];
   timeUs: number | null;
   proposalCount: number;
-  decision: "cards" | "empty" | "unusable" | null;
+  ignoredRegionCount?: number;
+  decision:
+    "cards" | "ignored" | "cards_and_ignored" | "empty" | "unusable" | null;
 };

@@ -360,6 +360,13 @@ function VisibleCardInspectorSelection({
             0,
           )}
         />
+        <ReviewCount
+          label="Ignore regions"
+          value={frames.reduce(
+            (count, frame) => count + frame.outcome.ignored_regions.length,
+            0,
+          )}
+        />
       </div>
       <p className={styles.pipelineInspectorEmpty}>
         {selectedFrame === null
@@ -377,6 +384,10 @@ function VisibleCardInspectorSelection({
           <div>
             <dt>Proposal count</dt>
             <dd>{selectedFrame.outcome.candidates.length}</dd>
+          </div>
+          <div>
+            <dt>Ignore-region count</dt>
+            <dd>{selectedFrame.outcome.ignored_regions.length}</dd>
           </div>
         </dl>
       ) : null}
