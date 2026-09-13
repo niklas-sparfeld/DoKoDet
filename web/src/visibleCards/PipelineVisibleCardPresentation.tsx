@@ -39,12 +39,9 @@ export function VisibleCardReviewControls({
   editable,
   hasPrevious,
   hasNext,
-  hasProposals,
   selectedFrame,
   onPrevious,
   onNext,
-  onPreviousProposal,
-  onNextProposal,
   onAccept,
   onAddCard,
   onMarkEmpty,
@@ -53,12 +50,9 @@ export function VisibleCardReviewControls({
   editable: boolean;
   hasPrevious: boolean;
   hasNext: boolean;
-  hasProposals: boolean;
   selectedFrame: EditableFrame | null;
   onPrevious: () => void;
   onNext: () => void;
-  onPreviousProposal: () => void;
-  onNextProposal: () => void;
   onAccept: () => void;
   onAddCard: () => void;
   onMarkEmpty: () => void;
@@ -82,8 +76,8 @@ export function VisibleCardReviewControls({
         {
           label: "Previous frame",
           symbol: "⏮",
-          shortcut: "Alt+ArrowLeft",
-          ariaShortcut: "Alt+ArrowLeft",
+          shortcut: "ArrowLeft",
+          ariaShortcut: "ArrowLeft",
           disabled: !hasPrevious,
           disabledReason: "There is no previous frame.",
           onClick: onPrevious,
@@ -91,34 +85,11 @@ export function VisibleCardReviewControls({
         {
           label: "Next frame",
           symbol: "⏭",
-          shortcut: "Alt+ArrowRight",
-          ariaShortcut: "Alt+ArrowRight",
+          shortcut: "ArrowRight",
+          ariaShortcut: "ArrowRight",
           disabled: !hasNext,
           disabledReason: "There is no next frame.",
           onClick: onNext,
-        },
-      ],
-    },
-    {
-      label: "Polygon navigation",
-      controls: [
-        {
-          label: "Previous polygon",
-          symbol: "▲",
-          shortcut: "Up",
-          ariaShortcut: "ArrowUp",
-          disabled: !hasProposals,
-          disabledReason: "This frame has no polygons.",
-          onClick: onPreviousProposal,
-        },
-        {
-          label: "Next polygon",
-          symbol: "▼",
-          shortcut: "Down",
-          ariaShortcut: "ArrowDown",
-          disabled: !hasProposals,
-          disabledReason: "This frame has no polygons.",
-          onClick: onNextProposal,
         },
       ],
     },

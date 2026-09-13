@@ -440,7 +440,7 @@ describe("PipelineVisibleCardEditor", () => {
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${ITEM_ID}`),
     );
-    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${SECOND_ITEM_ID}`),
     );
@@ -483,7 +483,7 @@ describe("PipelineVisibleCardEditor", () => {
         ),
       ).toHaveLength(1),
     );
-    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${SECOND_ITEM_ID}`),
     );
@@ -808,7 +808,7 @@ describe("PipelineVisibleCardEditor", () => {
     ).toBeInTheDocument();
     expect(
       within(controls).getByRole("button", { name: "Previous frame" }),
-    ).toHaveAttribute("aria-keyshortcuts", "Alt+ArrowLeft");
+    ).toHaveAttribute("aria-keyshortcuts", "ArrowLeft");
     expect(
       within(controls).getByRole("button", { name: "Accept frame A" }),
     ).toBeInTheDocument();
@@ -904,7 +904,7 @@ describe("PipelineVisibleCardEditor", () => {
       screen.getByRole("button", { name: "Close editor Esc" }),
     ).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
 
     await waitFor(() =>
       expect(
@@ -1134,51 +1134,6 @@ describe("PipelineVisibleCardEditor", () => {
         expect.objectContaining({ itemId: ITEM_ID, timeUs: 400_000 }),
         expect.objectContaining({ itemId: SECOND_ITEM_ID, timeUs: 800_000 }),
       ]),
-    );
-  });
-
-  it("cycles through the current frame proposals with the up and down arrows", async () => {
-    const result = generatedResult();
-    result.revisions[0].content.outcomes[0].candidates.push({
-      ...DETECTOR_CANDIDATE,
-      card_id: "run-card-2",
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(result))),
-    );
-
-    render(
-      <PipelineVisibleCardEditor
-        recordingId={RECORDING_ID}
-        durationUs={1_000_000}
-        generatedRevisionId={REVISION_ID}
-        generatedRunId={RUN_ID}
-        view="generated"
-      />,
-    );
-
-    await screen.findByAltText("Selected visible-card source frame");
-    await waitFor(() =>
-      expect(window.location.search).toContain(`item=${ITEM_ID}`),
-    );
-    fireEvent.keyDown(window, { key: "ArrowDown" });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Select proposal 1" }),
-      ).toHaveAttribute("aria-pressed", "true"),
-    );
-    fireEvent.keyDown(window, { key: "ArrowDown" });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Select proposal 2" }),
-      ).toHaveAttribute("aria-pressed", "true"),
-    );
-    fireEvent.keyDown(window, { key: "ArrowUp" });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Select proposal 1" }),
-      ).toHaveAttribute("aria-pressed", "true"),
     );
   });
 

@@ -78,11 +78,11 @@ describe("RecordingTimelineRail", () => {
     const track = range.parentElement;
 
     expect(header).not.toBeNull();
-    expect(header?.firstElementChild).toBe(controls);
-    expect(header?.lastElementChild).toHaveAttribute(
+    expect(header?.firstElementChild).toHaveAttribute(
       "data-timeline-seeking-slot",
       "true",
     );
+    expect(header?.lastElementChild).toBe(controls);
     expect(track?.parentElement?.lastElementChild).toBe(track);
   });
 

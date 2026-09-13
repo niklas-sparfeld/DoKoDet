@@ -78,8 +78,8 @@ export function IdentityReviewControls({
         {
           label: "Previous card",
           symbol: "⏮",
-          shortcut: "Alt+ArrowLeft",
-          ariaShortcut: "Alt+ArrowLeft",
+          shortcut: "ArrowLeft",
+          ariaShortcut: "ArrowLeft",
           disabled: !hasPrevious,
           disabledReason: "There is no previous card.",
           onClick: onPrevious,
@@ -87,8 +87,8 @@ export function IdentityReviewControls({
         {
           label: "Next card",
           symbol: "⏭",
-          shortcut: "Alt+ArrowRight",
-          ariaShortcut: "Alt+ArrowRight",
+          shortcut: "ArrowRight",
+          ariaShortcut: "ArrowRight",
           disabled: !hasNext,
           disabledReason: "There is no next card.",
           onClick: onNext,

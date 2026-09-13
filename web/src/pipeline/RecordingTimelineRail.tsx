@@ -370,6 +370,10 @@ export function RecordingTimelineRail({
 
       <div className={styles.recordingTimelineRailHeader}>
         <div
+          className={styles.recordingTimelineSeekingSlot}
+          data-timeline-seeking-slot="true"
+        />
+        <div
           className={styles.recordingTimelineTransport}
           aria-label="Playback controls"
           role="group"
@@ -405,10 +409,6 @@ export function RecordingTimelineRail({
             +
           </button>
         </div>
-        <div
-          className={styles.recordingTimelineSeekingSlot}
-          data-timeline-seeking-slot="true"
-        />
       </div>
 
       <div className={styles.recordingTimelineScrubberViewport}>

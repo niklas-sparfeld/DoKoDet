@@ -809,11 +809,11 @@ export function PipelineVisualIdentityEditor({
         if (videoRef.current.paused)
           void videoRef.current.play().catch(() => undefined);
         else videoRef.current.pause();
-      } else if (event.altKey && event.key === "ArrowLeft" && index > 0) {
+      } else if (!event.altKey && event.key === "ArrowLeft" && index > 0) {
         event.preventDefault();
         selectItem(current[index - 1]);
       } else if (
-        event.altKey &&
+        !event.altKey &&
         event.key === "ArrowRight" &&
         index >= 0 &&
         index < current.length - 1

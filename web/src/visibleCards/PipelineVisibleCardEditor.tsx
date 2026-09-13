@@ -1016,36 +1016,17 @@ export function PipelineVisibleCardEditor({
       const index = current.findIndex(
         (frame) => frame.itemId === selectedFrameIdRef.current,
       );
-      if (event.altKey && event.key === "ArrowLeft" && index > 0) {
+      if (!event.altKey && event.key === "ArrowLeft" && index > 0) {
         event.preventDefault();
         selectFrame(current[index - 1]);
       } else if (
-        event.altKey &&
+        !event.altKey &&
         event.key === "ArrowRight" &&
         index >= 0 &&
         index < current.length - 1
       ) {
         event.preventDefault();
         selectFrame(current[index + 1]);
-      } else if (
-        (event.key === "ArrowUp" || event.key === "ArrowDown") &&
-        index >= 0
-      ) {
-        const proposals = current[index].outcome.candidates;
-        if (proposals.length > 0) {
-          event.preventDefault();
-          const selectedIndex = proposals.findIndex(
-            (candidate) => candidate.card_id === selectedCandidateId,
-          );
-          const offset = event.key === "ArrowUp" ? -1 : 1;
-          const nextIndex =
-            selectedIndex < 0
-              ? offset > 0
-                ? 0
-                : proposals.length - 1
-              : (selectedIndex + offset + proposals.length) % proposals.length;
-          setSelectedCandidateId(proposals[nextIndex].card_id);
-        }
       } else if (canEdit && (event.key === "n" || event.key === "N")) {
         const frame = current[index >= 0 ? index : 0];
         if (frame !== undefined) {
@@ -1081,7 +1062,6 @@ export function PipelineVisibleCardEditor({
     referenceNeedsSeed,
     selectFrame,
     setFrameOutcome,
-    selectedCandidateId,
     usesMaintainedFrames,
     view,
     toggleFrameAcceptance,
@@ -1105,23 +1085,6 @@ export function PipelineVisibleCardEditor({
       : activeFrame === null
         ? -1
         : displayedFrames.indexOf(activeFrame);
-  const selectAdjacentProposal = useCallback(
-    (direction: -1 | 1) => {
-      const proposals = activeFrame?.outcome.candidates ?? [];
-      if (proposals.length === 0) return;
-      const selectedIndex = proposals.findIndex(
-        (candidate) => candidate.card_id === selectedCandidateId,
-      );
-      const nextIndex =
-        selectedIndex < 0
-          ? direction > 0
-            ? 0
-            : proposals.length - 1
-          : (selectedIndex + direction + proposals.length) % proposals.length;
-      setSelectedCandidateId(proposals[nextIndex].card_id);
-    },
-    [activeFrame, selectedCandidateId],
-  );
   const prewarmFrameUrls = useCallback(
     (frame: EditableFrame) => visibleCardReviewPrewarmUrls(recordingId, frame),
     [recordingId],
@@ -1245,7 +1208,6 @@ export function PipelineVisibleCardEditor({
                   activeFrameIndex >= 0 &&
                   activeFrameIndex < displayedFrames.length - 1
                 }
-                hasProposals={activeFrame.outcome.candidates.length > 0}
                 selectedFrame={activeFrame}
                 onPrevious={() => {
                   const previous = displayedFrames[activeFrameIndex - 1];
@@ -1255,8 +1217,6 @@ export function PipelineVisibleCardEditor({
                   const next = displayedFrames[activeFrameIndex + 1];
                   if (next !== undefined) selectFrame(next);
                 }}
-                onPreviousProposal={() => selectAdjacentProposal(-1)}
-                onNextProposal={() => selectAdjacentProposal(1)}
                 onAccept={() => toggleFrameAcceptance(activeFrame)}
                 onAddCard={() => openEditor(activeFrame, null)}
                 onMarkEmpty={() => setFrameOutcome(activeFrame, "empty")}
