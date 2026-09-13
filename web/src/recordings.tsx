@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ApiError,
   createDokoDetectorClient,
-  repositoryBundleVideoPath,
+  repositoryBundleThumbnailPath,
   type RecordingSummary,
   type PipelineWorkspace,
 } from "./api/client";
@@ -209,110 +209,22 @@ function RecordingThumbnail({
   recordingId: string;
   roundId: string;
 }) {
-  const thumbnailRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [loadRequested, setLoadRequested] = useState(false);
-  const [screenshot, setScreenshot] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    const thumbnail = thumbnailRef.current;
-    if (thumbnail === null) return;
-
-    if (typeof IntersectionObserver === "undefined") {
-      const timer = window.setTimeout(() => setLoadRequested(true), 0);
-      return () => window.clearTimeout(timer);
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setLoadRequested(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(thumbnail);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!loadRequested) return;
-    const video = videoRef.current;
-    if (video === null) return;
-
-    let disposed = false;
-
-    const captureScreenshot = () => {
-      if (disposed || video.videoWidth === 0 || video.videoHeight === 0) return;
-
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext("2d");
-        if (context === null)
-          throw new Error("The thumbnail canvas is unavailable.");
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        setScreenshot(canvas.toDataURL("image/jpeg", 0.78));
-      } catch {
-        setFailed(true);
-      }
-    };
-
-    const seekToRandomFrame = () => {
-      if (!Number.isFinite(video.duration) || video.duration <= 0) {
-        setFailed(true);
-        return;
-      }
-
-      const margin = Math.min(video.duration * 0.15, 2);
-      const usableDuration = Math.max(0, video.duration - margin * 2);
-      try {
-        video.currentTime = margin + Math.random() * usableDuration;
-      } catch {
-        setFailed(true);
-      }
-    };
-
-    const handleError = () => setFailed(true);
-    video.addEventListener("loadedmetadata", seekToRandomFrame);
-    video.addEventListener("seeked", captureScreenshot);
-    video.addEventListener("error", handleError);
-    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-      seekToRandomFrame();
-    }
-
-    return () => {
-      disposed = true;
-      video.removeEventListener("loadedmetadata", seekToRandomFrame);
-      video.removeEventListener("seeked", captureScreenshot);
-      video.removeEventListener("error", handleError);
-    };
-  }, [loadRequested, recordingId]);
 
   return (
     <div
-      ref={thumbnailRef}
       className={`${styles.recordingThumbnail} ${failed ? styles.recordingThumbnailFallback : ""}`}
       role="img"
-      aria-label={`Random screenshot from ${roundId}`}
+      aria-label={`Cached thumbnail from ${roundId}`}
     >
-      {screenshot !== null ? (
-        <img src={screenshot} alt="" />
-      ) : (
-        <video
-          ref={videoRef}
-          {...(loadRequested
-            ? { src: repositoryBundleVideoPath(recordingId) }
-            : {})}
-          preload={loadRequested ? "metadata" : "none"}
-          muted
-          playsInline
-          aria-hidden="true"
+      {!failed ? (
+        <img
+          src={repositoryBundleThumbnailPath(recordingId)}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
         />
-      )}
+      ) : null}
       {failed ? <span>Preview unavailable</span> : null}
     </div>
   );

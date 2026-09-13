@@ -33,6 +33,7 @@ from dokodetector_backend.pipeline_composition import (
     install_pipeline_composition,
 )
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
+from dokodetector_backend.recording_thumbnail import RecordingThumbnailCache
 from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
@@ -100,6 +101,9 @@ def create_app(
         app_settings.repository_intake_root
     )
     app.state.recording_bundle_store = RecordingBundleStore(app.state.repository_bundle_storage)
+    app.state.recording_thumbnail_cache = RecordingThumbnailCache(
+        app_settings.evidence_root / "recording-thumbnails"
+    )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.readiness_state = "unknown"
     app.state.analyzer = analyzer or create_configured_analyzer(app_settings)

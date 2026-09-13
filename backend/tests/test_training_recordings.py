@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
+from dokodetector_backend.recording_thumbnail import RecordingThumbnailCache
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 
@@ -107,6 +108,55 @@ def test_upload_stores_one_complete_commit_ready_bundle(backend) -> None:
     assert video_response.headers["content-type"] == "video/quicktime"
     assert video_response.headers["etag"] == f'"{hashlib.sha256(fixture["video"]).hexdigest()}"'
     assert video_response.content == fixture["video"]
+
+
+def test_upload_warms_one_recording_thumbnail_cache_entry(backend, monkeypatch) -> None:
+    client, _, _ = backend
+    fixture = load_fixture()
+    recording_id = fixture["manifest_object"]["recording_id"]
+    thumbnail = b"cached thumbnail"
+
+    monkeypatch.setattr(
+        "dokodetector_backend.recording_thumbnail._render_first_frame",
+        lambda video_path, *, timeout_seconds: thumbnail,
+    )
+
+    response = client.put(
+        f"/v1/repository-bundles/{recording_id}",
+        files=bundle_parts(fixture),
+    )
+
+    assert response.status_code == 201
+    cache: RecordingThumbnailCache = client.app.state.recording_thumbnail_cache
+    assert cache.read(fixture["manifest_object"]["source_sha256"]) == thumbnail
+
+
+def test_thumbnail_route_serves_cache_without_opening_source_video(backend, monkeypatch) -> None:
+    client, _, intake_root = backend
+    fixture = load_fixture()
+    recording_id = fixture["manifest_object"]["recording_id"]
+    source_sha256 = fixture["manifest_object"]["source_sha256"]
+    bundle_path = intake_root / recording_id
+    shutil.copytree(FIXTURE_ROOT, bundle_path)
+    cache: RecordingThumbnailCache = client.app.state.recording_thumbnail_cache
+    thumbnail = b"cached thumbnail"
+    cache._write(source_sha256, thumbnail)
+
+    original_open = Path.open
+
+    def reject_video_open(path: Path, *args, **kwargs):
+        if path.suffix == ".mov":
+            raise AssertionError("thumbnail cache hits must not open source video")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", reject_video_open)
+
+    response = client.get(f"/v1/repository-bundles/{recording_id}/thumbnail")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["cache-control"] == "private, max-age=31536000, immutable"
+    assert response.content == thumbnail
 
 
 def test_identical_retry_is_idempotent_and_conflicting_content_is_rejected(backend) -> None:

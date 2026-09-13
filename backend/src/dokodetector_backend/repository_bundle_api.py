@@ -30,6 +30,10 @@ from dokodetector_backend.recording_bundle_store import (
     RecordingBundleConflict,
     RecordingBundleStoreError,
 )
+from dokodetector_backend.recording_thumbnail import (
+    RecordingThumbnailError,
+    thumbnail_etag,
+)
 from dokodetector_backend.repository_bundle_storage import (
     RepositoryBundleStorage,
     StoredRepositoryFile,
@@ -166,6 +170,21 @@ async def upload_repository_bundle(
                 )
                 if not created:
                     response.status_code = 200
+                try:
+                    request.app.state.recording_thumbnail_cache.ensure(
+                        stored.source_sha256,
+                        storage.bundle_path(stored.recording_id)
+                        / PurePosixPath(bundle.files.video.relative_path),
+                    )
+                except (RecordingThumbnailError, OSError) as error:
+                    log_event(
+                        LOGGER,
+                        logging.WARNING,
+                        "recording_thumbnail_cache_warm_failed",
+                        request_id=get_or_create_request_id(request),
+                        recording_id=stored.recording_id,
+                        reason=str(error),
+                    )
                 log_event(
                     LOGGER,
                     logging.INFO,
@@ -253,6 +272,52 @@ def get_repository_bundle(recording_id: str, request: Request) -> RepositoryBund
                 sha256=file.sha256,
             )
             for relative_path, file in files.items()
+        },
+    )
+
+
+@router.get(
+    "/v1/repository-bundles/{recording_id}/thumbnail",
+    response_class=Response,
+)
+def get_repository_bundle_thumbnail(recording_id: str, request: Request) -> Response:
+    """Return one cached JPEG frame for an accepted source recording."""
+
+    requested_id = _parse_recording_id(recording_id)
+    stored = request.app.state.recording_bundle_store.get_metadata(requested_id)
+    if stored is None:
+        raise ContractError(
+            "repository_bundle_not_found",
+            "The repository bundle was not found.",
+            status_code=404,
+        )
+
+    thumbnail_cache = request.app.state.recording_thumbnail_cache
+    thumbnail = thumbnail_cache.read(stored.source_sha256)
+    if thumbnail is None:
+        bundle_path = request.app.state.repository_bundle_storage.bundle_path(requested_id)
+        try:
+            manifest = parse_repository_bundle((bundle_path / "manifest.json").read_bytes())
+            if (
+                manifest.recording_id != requested_id
+                or manifest.source_sha256 != stored.source_sha256
+            ):
+                raise RecordingThumbnailError("stored recording metadata is inconsistent")
+            video_path = bundle_path / PurePosixPath(manifest.files.video.relative_path)
+            thumbnail = thumbnail_cache.ensure(stored.source_sha256, video_path)
+        except (OSError, TypeError, ValueError, RecordingThumbnailError) as error:
+            raise ContractError(
+                "recording_thumbnail_unavailable",
+                "The recording thumbnail is unavailable.",
+                status_code=404,
+            ) from error
+
+    return Response(
+        content=thumbnail,
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "private, max-age=31536000, immutable",
+            "ETag": f'"{thumbnail_etag(thumbnail)}"',
         },
     )
 

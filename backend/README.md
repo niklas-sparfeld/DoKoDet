@@ -360,6 +360,11 @@ until an operator supplies valid metadata and both task enrollments. Use the [da
 lifecycle](../docs/Data_Lifecycle.md) and [repository intake
 contract](../docs/Repository_Intake_Contract.md) for completion and one-time adoption commands.
 
+The runtime root contains disposable recording thumbnails at
+`.runtime/recording-thumbnails/<source-sha256>.jpg`. The backend creates one thumbnail from the
+first source-video frame when a recording is accepted and serves it from the recording catalog
+without streaming the source video.
+
 Deleting `.runtime/` removes only disposable backend cache and process state. It does not remove
 accepted source bundles, pipeline records, observations, or analysis artifacts. There is no delete
 API for recordings or evidence packages. To remove local test data,

@@ -638,6 +638,10 @@ export function repositoryBundleVideoPath(recordingId: string): string {
   return `/v1/repository-bundles/${encodeURIComponent(recordingId)}/video`;
 }
 
+export function repositoryBundleThumbnailPath(recordingId: string): string {
+  return `/v1/repository-bundles/${encodeURIComponent(recordingId)}/thumbnail`;
+}
+
 export function recordingAnalysisPath(recordingId: string): string {
   return `/v1/recordings/${encodeURIComponent(recordingId)}/round-analyses`;
 }

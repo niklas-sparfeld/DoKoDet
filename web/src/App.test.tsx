@@ -101,7 +101,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders each recording as a compact row with a random screenshot", async () => {
+  it("renders each recording as a compact row with a cached thumbnail", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(() =>
@@ -137,16 +137,13 @@ describe("App", () => {
     expect(row).toHaveTextContent("Session");
     expect(row).toHaveTextContent("session-fixture");
     expect(
-      screen.getByRole("img", { name: "Random screenshot from round-7" }),
+      screen.getByRole("img", { name: "Cached thumbnail from round-7" }),
     ).toBeInTheDocument();
-    expect(row.querySelector("video")).not.toHaveAttribute("src");
-    await waitFor(() =>
-      expect(row.querySelector("video")).toHaveAttribute(
-        "src",
-        `/v1/repository-bundles/${recordingId}/video`,
-      ),
+    expect(row.querySelector("img")).toHaveAttribute(
+      "src",
+      `/v1/repository-bundles/${recordingId}/thumbnail`,
     );
-    expect(row.querySelector("video")).toHaveAttribute("preload", "metadata");
+    expect(row.querySelector("video")).not.toBeInTheDocument();
     expect(row.querySelectorAll("button")).toHaveLength(0);
     expect(
       screen.queryByRole("button", { name: "Refresh" }),

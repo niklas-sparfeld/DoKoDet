@@ -17,6 +17,7 @@ import {
   recordingDetailPath,
   recordingPipelineSelectionPath,
   recordingPipelineWorkspacePath,
+  repositoryBundleThumbnailPath,
   repositoryBundleVideoPath,
   roundAnalysisFramePath,
   roundCounterfactualPath,
@@ -207,6 +208,9 @@ describe("DokoDetector API client", () => {
   it("encodes source and counterfactual paths", async () => {
     expect(repositoryBundleVideoPath("recording/1")).toBe(
       "/v1/repository-bundles/recording%2F1/video",
+    );
+    expect(repositoryBundleThumbnailPath("recording/1")).toBe(
+      "/v1/repository-bundles/recording%2F1/thumbnail",
     );
     expect(roundAnalysisFramePath("analysis/1", "package/2", "frame 03")).toBe(
       "/v1/round-analyses/analysis%2F1/evidence-packages/package%2F2/frames/frame%2003",

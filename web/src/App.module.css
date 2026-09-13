@@ -1663,8 +1663,7 @@ progress {
   background: var(--surface-raised);
 }
 
-.recordingThumbnail img,
-.recordingThumbnail video {
+.recordingThumbnail img {
   display: block;
   width: 100%;
   height: 100%;
