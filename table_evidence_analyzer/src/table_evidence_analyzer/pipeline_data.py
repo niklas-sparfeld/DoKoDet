@@ -19,7 +19,10 @@ TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 EXACT_EVENT_FRAME_SCHEMA_VERSION = "exact-event/v1"
 DETECTOR_BOX_GEOMETRY_KIND = "detector-box/v1"
 PREDICTED_VISIBLE_REGION_GEOMETRY_KIND = "visible-region/v1"
+REVIEWED_IGNORE_REGION_GEOMETRY_KIND = "reviewed-ignore-region/v1"
 VISIBLE_CARD_SIDES = frozenset({"face_up", "face_down", "unknown"})
+VISIBLE_CARD_IGNORE_REASONS = frozenset({"untidy_stack"})
+VISIBLE_CARD_IGNORE_RASTER_POLICY = "pixel-center-even-odd/v1"
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _QUALIFIED = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
@@ -355,6 +358,183 @@ class ReviewedVisibleRegionGeometry:
                     for polygon in self.polygons
                 ]
             },
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewedIgnoreRegionGeometry:
+    """One or more reviewed polygons containing ambiguous visible-card evidence."""
+
+    polygons: tuple[tuple[tuple[int, int], ...], ...]
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "geometry"
+    ) -> "ReviewedIgnoreRegionGeometry":
+        data = _mapping(raw, context)
+        _strict(data, {"kind", "polygons"}, context)
+        if data["kind"] != REVIEWED_IGNORE_REGION_GEOMETRY_KIND:
+            raise PipelineDataError(f"{context}.kind is unsupported")
+        raw_polygons = data["polygons"]
+        if not isinstance(raw_polygons, list) or not raw_polygons:
+            raise PipelineDataError(f"{context}.polygons must be non-empty")
+        polygons: list[tuple[tuple[int, int], ...]] = []
+        for polygon_index, raw_polygon in enumerate(raw_polygons):
+            if not isinstance(raw_polygon, list) or len(raw_polygon) < 3:
+                raise PipelineDataError(f"{context}.polygons[{polygon_index}] needs three points")
+            points: list[tuple[int, int]] = []
+            for point_index, raw_point in enumerate(raw_polygon):
+                point = _mapping(
+                    raw_point,
+                    f"{context}.polygons[{polygon_index}][{point_index}]",
+                )
+                _strict(
+                    point,
+                    {"x", "y"},
+                    f"{context}.polygons[{polygon_index}][{point_index}]",
+                )
+                points.append(
+                    (
+                        _coordinate(
+                            point["x"],
+                            f"{context}.polygons[{polygon_index}][{point_index}].x",
+                        ),
+                        _coordinate(
+                            point["y"],
+                            f"{context}.polygons[{polygon_index}][{point_index}].y",
+                        ),
+                    )
+                )
+            area = sum(
+                points[index][0] * points[(index + 1) % len(points)][1]
+                - points[(index + 1) % len(points)][0] * points[index][1]
+                for index in range(len(points))
+            )
+            if area == 0:
+                raise PipelineDataError(
+                    f"{context}.polygons[{polygon_index}] must have positive area"
+                )
+            polygons.append(tuple(points))
+        return cls(polygons=tuple(polygons))
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "kind": REVIEWED_IGNORE_REGION_GEOMETRY_KIND,
+            "polygons": [
+                [{"x": point[0], "y": point[1]} for point in polygon] for polygon in self.polygons
+            ],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class VisibleCardIgnoreSourceCandidate:
+    """One generated card proposal consumed by a reviewed ignore region."""
+
+    revision_id: str
+    card_id: str
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "source_candidate"
+    ) -> "VisibleCardIgnoreSourceCandidate":
+        data = _mapping(raw, context)
+        _strict(data, {"revision_id", "card_id"}, context)
+        return cls(
+            revision_id=_identifier(data["revision_id"], f"{context}.revision_id"),
+            card_id=_identifier(data["card_id"], f"{context}.card_id"),
+        )
+
+    def to_mapping(self) -> dict[str, str]:
+        return {"revision_id": self.revision_id, "card_id": self.card_id}
+
+
+@dataclass(frozen=True, slots=True)
+class VisibleCardIgnoreRegion:
+    """Reviewed evidence that must be ignored by visible-card supervision."""
+
+    region_id: str
+    geometry: ReviewedIgnoreRegionGeometry
+    normalization: dict[str, Any]
+    reason: Literal["untidy_stack"]
+    source_candidates: tuple[VisibleCardIgnoreSourceCandidate, ...]
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "ignored_region"
+    ) -> "VisibleCardIgnoreRegion":
+        data = _mapping(raw, context)
+        _strict(
+            data,
+            {"region_id", "geometry", "normalization", "reason", "source_candidates"},
+            context,
+        )
+        normalization = _mapping(data["normalization"], f"{context}.normalization")
+        _strict(normalization, {"width", "height", "policy_id"}, f"{context}.normalization")
+        normalized = {
+            "width": _positive_int(normalization["width"], f"{context}.normalization.width"),
+            "height": _positive_int(normalization["height"], f"{context}.normalization.height"),
+            "policy_id": _qualified(
+                normalization["policy_id"], f"{context}.normalization.policy_id"
+            ),
+        }
+        raw_sources = data["source_candidates"]
+        if not isinstance(raw_sources, list):
+            raise PipelineDataError(f"{context}.source_candidates must be a list")
+        source_candidates = tuple(
+            VisibleCardIgnoreSourceCandidate.from_mapping(
+                item, f"{context}.source_candidates[{index}]"
+            )
+            for index, item in enumerate(raw_sources)
+        )
+        reason = data["reason"]
+        if not isinstance(reason, str) or reason not in VISIBLE_CARD_IGNORE_REASONS:
+            raise PipelineDataError(f"{context}.reason is unsupported")
+        return cls(
+            region_id=_identifier(data["region_id"], f"{context}.region_id"),
+            geometry=ReviewedIgnoreRegionGeometry.from_mapping(
+                _mapping(data["geometry"], f"{context}.geometry"), f"{context}.geometry"
+            ),
+            normalization=normalized,
+            reason=reason,
+            source_candidates=source_candidates,
+        )
+
+    def __post_init__(self) -> None:
+        _identifier(self.region_id, "ignored_region.region_id")
+        if not isinstance(self.geometry, ReviewedIgnoreRegionGeometry):
+            raise PipelineDataError("ignored_region.geometry must use the ignore-region contract")
+        normalization = _mapping(self.normalization, "ignored_region.normalization")
+        _strict(
+            normalization,
+            {"width", "height", "policy_id"},
+            "ignored_region.normalization",
+        )
+        normalized = {
+            "width": _positive_int(normalization["width"], "ignored_region.normalization.width"),
+            "height": _positive_int(normalization["height"], "ignored_region.normalization.height"),
+            "policy_id": _qualified(
+                normalization["policy_id"], "ignored_region.normalization.policy_id"
+            ),
+        }
+        object.__setattr__(self, "normalization", normalized)
+        if not isinstance(self.reason, str) or self.reason not in VISIBLE_CARD_IGNORE_REASONS:
+            raise PipelineDataError("ignored_region.reason is unsupported")
+        if not isinstance(self.source_candidates, tuple) or any(
+            not isinstance(item, VisibleCardIgnoreSourceCandidate)
+            for item in self.source_candidates
+        ):
+            raise PipelineDataError("ignored_region.source_candidates are invalid")
+        source_keys = [(item.revision_id, item.card_id) for item in self.source_candidates]
+        if len(source_keys) != len(set(source_keys)):
+            raise PipelineDataError("ignored_region.source_candidates must be unique")
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "region_id": self.region_id,
+            "geometry": self.geometry.to_mapping(),
+            "normalization": self.normalization,
+            "reason": self.reason,
+            "source_candidates": [item.to_mapping() for item in self.source_candidates],
         }
 
 
@@ -900,18 +1080,28 @@ class TableObservationData:
 
 @dataclass(frozen=True, slots=True)
 class VisibleCardOutcome:
-    """The durable result for one requested event."""
+    """The durable result for one requested event.
+
+    Ignore polygons use ``VISIBLE_CARD_IGNORE_RASTER_POLICY`` when a later dataset
+    materializer converts normalized coordinates into pixels. The materializer
+    subtracts normal card-target pixels from that mask and rejects an empty result.
+    """
 
     event_id: str
     frame_identity: VisibleCardFrameIdentity | None
     status: Literal["detected", "empty", "failed"]
     candidates: tuple[VisibleCardCandidate, ...]
     error: str | None = None
+    ignored_regions: tuple[VisibleCardIgnoreRegion, ...] = ()
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any], context: str = "outcome") -> "VisibleCardOutcome":
         data = _mapping(raw, context)
-        _strict(data, {"event_id", "frame_identity", "status", "candidates", "error"}, context)
+        _strict(
+            data,
+            {"event_id", "frame_identity", "status", "candidates", "ignored_regions", "error"},
+            context,
+        )
         status = data["status"]
         if status not in {"detected", "empty", "failed"}:
             raise PipelineDataError(f"{context}.status is unsupported")
@@ -924,6 +1114,20 @@ class VisibleCardOutcome:
         )
         if len({item.card_id for item in candidates}) != len(candidates):
             raise PipelineDataError(f"{context}.candidates must have unique card IDs")
+        raw_ignored_regions = data["ignored_regions"]
+        if not isinstance(raw_ignored_regions, list):
+            raise PipelineDataError(f"{context}.ignored_regions must be a list")
+        ignored_regions = tuple(
+            VisibleCardIgnoreRegion.from_mapping(item, f"{context}.ignored_regions[{index}]")
+            for index, item in enumerate(raw_ignored_regions)
+        )
+        region_ids = [region.region_id for region in ignored_regions]
+        if len(set(region_ids)) != len(region_ids):
+            raise PipelineDataError(f"{context}.ignored_regions must have unique region IDs")
+        if set(region_ids).intersection(item.card_id for item in candidates):
+            raise PipelineDataError(
+                f"{context}.card_id and ignored_regions.region_id must use distinct identifiers"
+            )
         frame = (
             None
             if data["frame_identity"] is None
@@ -934,12 +1138,18 @@ class VisibleCardOutcome:
         error = data["error"]
         if error is not None:
             error = _text(error, f"{context}.error")
-        if status == "detected" and not candidates:
-            raise PipelineDataError(f"{context}.detected outcome needs candidates")
-        if status == "empty" and (candidates or error is not None):
-            raise PipelineDataError(f"{context}.empty outcome must have no candidates or error")
-        if status == "failed" and (candidates or error is None):
-            raise PipelineDataError(f"{context}.failed outcome needs an error and no candidates")
+        if status == "detected" and not candidates and not ignored_regions:
+            raise PipelineDataError(
+                f"{context}.detected outcome needs candidates or ignored regions"
+            )
+        if status == "empty" and (candidates or ignored_regions or error is not None):
+            raise PipelineDataError(
+                f"{context}.empty outcome must have no candidates, ignored regions, or error"
+            )
+        if status == "failed" and (candidates or ignored_regions or error is None):
+            raise PipelineDataError(
+                f"{context}.failed outcome needs an error and no candidates or ignored regions"
+            )
         if status in {"detected", "empty"} and frame is None:
             raise PipelineDataError(f"{context}.{status} outcome needs a frame identity")
         return cls(
@@ -948,6 +1158,7 @@ class VisibleCardOutcome:
             status=status,
             candidates=candidates,
             error=error,
+            ignored_regions=ignored_regions,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -958,6 +1169,7 @@ class VisibleCardOutcome:
             else self.frame_identity.to_mapping(),
             "status": self.status,
             "candidates": [candidate.to_mapping() for candidate in self.candidates],
+            "ignored_regions": [region.to_mapping() for region in self.ignored_regions],
             "error": self.error,
         }
 
@@ -995,12 +1207,22 @@ class VisibleCardData:
 def parse_visible_card_data_bytes(raw: bytes) -> VisibleCardData:
     if not isinstance(raw, bytes):
         raise TypeError("visible-card data must be bytes")
+
+    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise PipelineDataError(f"visible-card data contains a duplicate field: {key}")
+            result[key] = value
+        return result
+
     try:
         value = json.loads(
             raw.decode("utf-8"),
             parse_constant=lambda value: (_ for _ in ()).throw(
                 PipelineDataError(f"visible-card data contains a non-finite JSON number: {value}")
             ),
+            object_pairs_hook=reject_duplicate_keys,
         )
     except PipelineDataError:
         raise
@@ -1096,6 +1318,8 @@ __all__ = [
     "DETECTOR_BOX_GEOMETRY_KIND",
     "EXACT_EVENT_FRAME_SCHEMA_VERSION",
     "PREDICTED_VISIBLE_REGION_GEOMETRY_KIND",
+    "REVIEWED_IGNORE_REGION_GEOMETRY_KIND",
+    "VISIBLE_CARD_IGNORE_RASTER_POLICY",
     "PipelineDataError",
     "PipelineGeometry",
     "TABLE_OBSERVATION_DATA_SCHEMA_VERSION",
@@ -1105,10 +1329,14 @@ __all__ = [
     "VISIBLE_CARD_SIDES",
     "VisibleCardData",
     "VisibleCardFrameIdentity",
+    "VisibleCardIgnoreRegion",
+    "VisibleCardIgnoreSourceCandidate",
     "VisibleCardModelScore",
     "VisibleCardOutcome",
     "PredictedVisibleRegionGeometry",
+    "ReviewedIgnoreRegionGeometry",
     "ReviewedVisibleRegionGeometry",
+    "VISIBLE_CARD_IGNORE_REASONS",
     "VisualIdentityCandidate",
     "VisualIdentityClassifierIdentity",
     "VisualIdentityCropIdentity",

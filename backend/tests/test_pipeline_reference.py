@@ -208,6 +208,7 @@ def _vision_source_revision(revision_store: PipelineRevisionStore, content_type:
                             "model_scores": [{"producer_id": "detector.v1", "score": 0.8}],
                         }
                     ],
+                    "ignored_regions": [],
                     "error": None,
                 }
             ],

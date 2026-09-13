@@ -92,6 +92,85 @@ class PipelineVisualIdentityResultResponse(ContractModel):
     revisions: list[PipelineVisualIdentityRevisionResponse]
 
 
+class PipelineVisibleCardPointResponse(ContractModel):
+    """One normalized point in a reviewed visible-card ignore polygon."""
+
+    x: int = Field(ge=0, le=1000)
+    y: int = Field(ge=0, le=1000)
+
+
+class PipelineVisibleCardIgnoreGeometryResponse(ContractModel):
+    """The distinct geometry shape used by reviewed ignore regions."""
+
+    kind: Literal["reviewed-ignore-region/v1"]
+    polygons: list[list[PipelineVisibleCardPointResponse]] = Field(min_length=1)
+
+
+class PipelineVisibleCardIgnoreSourceCandidateResponse(ContractModel):
+    """One generated revision and candidate consumed by an ignore region."""
+
+    revision_id: str = Field(min_length=1)
+    card_id: str = Field(min_length=1)
+
+
+class PipelineVisibleCardIgnoreRegionResponse(ContractModel):
+    """A reviewed region that is excluded from visible-card supervision."""
+
+    region_id: str = Field(min_length=1)
+    geometry: PipelineVisibleCardIgnoreGeometryResponse
+    normalization: dict[str, Any]
+    reason: Literal["untidy_stack"]
+    source_candidates: list[PipelineVisibleCardIgnoreSourceCandidateResponse]
+
+
+class PipelineVisibleCardCandidateResponse(ContractModel):
+    """One generated or reviewed visible-card candidate."""
+
+    card_id: str
+    geometry: dict[str, Any]
+    normalization: dict[str, Any]
+    side: Literal["face_up", "face_down", "unknown"]
+    model_scores: list[dict[str, Any]] | None = None
+
+
+class PipelineVisibleCardOutcomeResponse(ContractModel):
+    """One persisted visible-card outcome, including ignored evidence."""
+
+    event_id: str
+    frame_identity: dict[str, Any] | None
+    status: Literal["detected", "empty", "failed"]
+    candidates: list[PipelineVisibleCardCandidateResponse]
+    ignored_regions: list[PipelineVisibleCardIgnoreRegionResponse]
+    error: str | None
+
+
+class PipelineVisibleCardRevisionContentResponse(ContractModel):
+    """The typed visible-card content inside one pipeline revision response."""
+
+    schema_version: Literal["visible-card-data/v1"]
+    outcomes: list[PipelineVisibleCardOutcomeResponse]
+
+
+class PipelineVisibleCardRevisionResponse(ContractModel):
+    """One visible-card revision returned by the pipeline API."""
+
+    manifest: dict[str, Any]
+    content: PipelineVisibleCardRevisionContentResponse
+
+
+class PipelineVisibleCardResultResponse(ContractModel):
+    """The completed visible-card result with typed persisted outcomes."""
+
+    run_id: str
+    recording_id: str
+    processor_type: str
+    status: Literal["queued", "running", "complete", "partial", "failed"]
+    attempt: int = Field(gt=0)
+    request: dict[str, Any]
+    state: dict[str, Any]
+    revisions: list[PipelineVisibleCardRevisionResponse]
+
+
 def _event_service(request: Request) -> EventPipelineService:
     return request.app.state.event_pipeline_service
 
@@ -327,7 +406,11 @@ def retry_visible_card_run(recording_id: str, run_id: str, request: Request) -> 
         raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
-@router.get(VISIBLE_CARD_BASE + "/{run_id}/result")
+@router.get(
+    VISIBLE_CARD_BASE + "/{run_id}/result",
+    response_model=PipelineVisibleCardResultResponse,
+    response_model_exclude_unset=True,
+)
 @router.get(VISIBLE_CARD_BASE + "/runs/{run_id}/result", include_in_schema=False)
 def get_visible_card_result(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Return one completed visible-card detector run and its stored revision."""

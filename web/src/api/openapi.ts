@@ -1590,6 +1590,160 @@ export interface components {
             status: "complete" | "partial";
         };
         /**
+         * PipelineVisibleCardCandidateResponse
+         * @description One generated or reviewed visible-card candidate.
+         */
+        PipelineVisibleCardCandidateResponse: {
+            /** Card Id */
+            card_id: string;
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /** Model Scores */
+            model_scores?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Normalization */
+            normalization: {
+                [key: string]: unknown;
+            };
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "face_up" | "face_down" | "unknown";
+        };
+        /**
+         * PipelineVisibleCardIgnoreGeometryResponse
+         * @description The distinct geometry shape used by reviewed ignore regions.
+         */
+        PipelineVisibleCardIgnoreGeometryResponse: {
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "reviewed-ignore-region/v1";
+            /** Polygons */
+            polygons: components["schemas"]["PipelineVisibleCardPointResponse"][][];
+        };
+        /**
+         * PipelineVisibleCardIgnoreRegionResponse
+         * @description A reviewed region that is excluded from visible-card supervision.
+         */
+        PipelineVisibleCardIgnoreRegionResponse: {
+            geometry: components["schemas"]["PipelineVisibleCardIgnoreGeometryResponse"];
+            /** Normalization */
+            normalization: {
+                [key: string]: unknown;
+            };
+            /**
+             * Reason
+             * @constant
+             */
+            reason: "untidy_stack";
+            /** Region Id */
+            region_id: string;
+            /** Source Candidates */
+            source_candidates: components["schemas"]["PipelineVisibleCardIgnoreSourceCandidateResponse"][];
+        };
+        /**
+         * PipelineVisibleCardIgnoreSourceCandidateResponse
+         * @description One generated revision and candidate consumed by an ignore region.
+         */
+        PipelineVisibleCardIgnoreSourceCandidateResponse: {
+            /** Card Id */
+            card_id: string;
+            /** Revision Id */
+            revision_id: string;
+        };
+        /**
+         * PipelineVisibleCardOutcomeResponse
+         * @description One persisted visible-card outcome, including ignored evidence.
+         */
+        PipelineVisibleCardOutcomeResponse: {
+            /** Candidates */
+            candidates: components["schemas"]["PipelineVisibleCardCandidateResponse"][];
+            /** Error */
+            error: string | null;
+            /** Event Id */
+            event_id: string;
+            /** Frame Identity */
+            frame_identity: {
+                [key: string]: unknown;
+            } | null;
+            /** Ignored Regions */
+            ignored_regions: components["schemas"]["PipelineVisibleCardIgnoreRegionResponse"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "detected" | "empty" | "failed";
+        };
+        /**
+         * PipelineVisibleCardPointResponse
+         * @description One normalized point in a reviewed visible-card ignore polygon.
+         */
+        PipelineVisibleCardPointResponse: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
+         * PipelineVisibleCardResultResponse
+         * @description The completed visible-card result with typed persisted outcomes.
+         */
+        PipelineVisibleCardResultResponse: {
+            /** Attempt */
+            attempt: number;
+            /** Processor Type */
+            processor_type: string;
+            /** Recording Id */
+            recording_id: string;
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Revisions */
+            revisions: components["schemas"]["PipelineVisibleCardRevisionResponse"][];
+            /** Run Id */
+            run_id: string;
+            /** State */
+            state: {
+                [key: string]: unknown;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "complete" | "partial" | "failed";
+        };
+        /**
+         * PipelineVisibleCardRevisionContentResponse
+         * @description The typed visible-card content inside one pipeline revision response.
+         */
+        PipelineVisibleCardRevisionContentResponse: {
+            /** Outcomes */
+            outcomes: components["schemas"]["PipelineVisibleCardOutcomeResponse"][];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visible-card-data/v1";
+        };
+        /**
+         * PipelineVisibleCardRevisionResponse
+         * @description One visible-card revision returned by the pipeline API.
+         */
+        PipelineVisibleCardRevisionResponse: {
+            content: components["schemas"]["PipelineVisibleCardRevisionContentResponse"];
+            /** Manifest */
+            manifest: {
+                [key: string]: unknown;
+            };
+        };
+        /**
          * PipelineVisualIdentityOutcomeResponse
          * @description One persisted visual identity classification returned by the pipeline API.
          */
@@ -3837,9 +3991,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PipelineVisibleCardResultResponse"];
                 };
             };
             /** @description Validation Error */

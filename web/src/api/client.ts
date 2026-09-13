@@ -179,22 +179,9 @@ export type PipelineEventResult = {
     };
   }>;
 };
-export type PipelineVisibleCardResult = {
-  run_id: string;
-  recording_id: string;
-  processor_type: string;
-  status: string;
-  attempt: number;
-  request: Record<string, unknown>;
-  state: Record<string, unknown>;
-  revisions: Array<{
-    manifest: Record<string, unknown>;
-    content: {
-      schema_version?: string;
-      outcomes?: Array<Record<string, unknown>>;
-    };
-  }>;
-};
+export type PipelineVisibleCardResult = JsonResponse<
+  paths["/api/recordings/{recording_id}/pipeline/visible-cards/{run_id}/result"]["get"]["responses"][200]
+>;
 export type PipelineVisualIdentityResult = JsonResponse<
   paths["/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/result"]["get"]["responses"][200]
 >;

@@ -4,7 +4,7 @@
 
 - **Summary:** Let a reviewer mark an ambiguous untidy card stack as one ignore region without
   asserting a card instance, and keep those pixels out of detector and segmenter supervision.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0048, 0049, and 0062 complete
 - **Readiness:** The maintained visible-card reference, polygon editor, immutable generated
   revisions, and dataset consumer boundary exist. `IMG_0661` supplies the first real case.
@@ -17,7 +17,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — define the ignore-region contract and its boundaries.
+- **M0:** Complete — define and publish the strict ignore-region contract and its boundaries.
 - **M1:** Not started — persist ignore-region review operations and complete references safely.
 - **M2:** Not started — add the low-effort region workflow to the visible-card editor.
 - **M3:** Not started — project ignore regions into datasets and verify loss and metric behavior.
@@ -139,6 +139,15 @@ contains ignore regions. The materialized dataset records the source region, ras
 mask digest, and effective ignored-pixel count. Normal target pixels take precedence, and the
 materializer verifies that the final target and ignore masks do not overlap.
 
+M0 freezes the raster and overlap rules for later materialization. Coordinates are integer values in
+the inclusive `0..1000` normalized frame. For an output pixel `(x, y)` in a frame of width `W` and
+height `H`, sample the normalized pixel center
+`(1000 * (2x + 1) / (2W), 1000 * (2y + 1) / (2H))`. A point on a polygon edge is inside. Other
+points use the even-odd rule. The region mask is the union of all polygons, clipped to the frame.
+The effective ignore mask is the region mask minus the union of normal reviewed card-target masks.
+Materialization rejects a region when that effective mask is empty and verifies that the final card
+target and ignore masks have no intersection.
+
 For evaluation, predictions that overlap an ignore region by the frozen threshold are neither true
 positives nor false positives. Metrics still evaluate normal reviewed card targets in the same
 frame. Reports count ignored frames, regions, pixels, and neutralized predictions so that ignored
@@ -191,14 +200,19 @@ Out of scope:
 
 ### M0 — Define the reviewed ignore-region contract
 
-- Freeze the canonical visible-card ignore-region glossary term in the active contract.
-- Add the sibling `ignored_regions` collection, the distinct `reviewed-ignore-region/v1` geometry,
-  and the strict `untidy_stack` region contract.
-- Define mixed, ignore-only, and empty frame invariants.
-- Define deterministic polygon rasterization and target-overlap validation.
-- Define source-revision and source-candidate lineage plus canonical serialization.
-- Replace active fixtures and API schemas with the new contract. Do not add a compatibility write
-  path.
+- Complete — froze the canonical visible-card ignore-region glossary term in the active contract.
+- Complete — added the sibling `ignored_regions` collection, the distinct
+  `reviewed-ignore-region/v1` geometry, and the strict `untidy_stack` region contract.
+- Complete — defined mixed, ignore-only, and empty frame invariants.
+- Complete — froze deterministic polygon rasterization and target-overlap validation rules for M3.
+- Complete — defined source-revision and source-candidate lineage plus canonical serialization.
+- Complete — replaced active fixtures and API schemas with the new contract. No compatibility write
+  path was added.
+
+Implementation: `table_evidence_analyzer.pipeline_data` owns the strict content contract;
+`backend.pipeline_stage_api` exposes the typed result schema; and the web client consumes the
+generated schema. Generated and reviewed outcomes always serialize `ignored_regions`, including an
+empty collection.
 
 Acceptance:
 

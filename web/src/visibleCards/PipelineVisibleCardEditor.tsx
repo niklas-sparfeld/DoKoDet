@@ -42,6 +42,8 @@ import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import type {
   Candidate,
   EditableFrame,
+  IgnoreRegion,
+  IgnoreRegionSourceCandidate,
   EditorState,
   FrameIdentity,
   FrameReviewState,
@@ -572,6 +574,7 @@ export function PipelineVisibleCardEditor({
         ...frame.outcome,
         status: outcome === "empty" ? "empty" : "failed",
         candidates: [],
+        ignored_regions: [],
         error: outcome === "empty" ? null : "Reviewed unusable frame.",
       };
       enqueue(
@@ -654,6 +657,7 @@ export function PipelineVisibleCardEditor({
           ...frame.outcome,
           status: "detected",
           candidates,
+          ignored_regions: frame.outcome.ignored_regions,
           error: null,
         },
         currentEditor.cardId === null
@@ -680,8 +684,13 @@ export function PipelineVisibleCardEditor({
         frame,
         {
           ...frame.outcome,
-          status: candidates.length === 0 ? "empty" : "detected",
+          status:
+            candidates.length === 0 &&
+            frame.outcome.ignored_regions.length === 0
+              ? "empty"
+              : "detected",
           candidates,
+          ignored_regions: frame.outcome.ignored_regions,
           error: null,
         },
         "Visible card removed from the frame review.",
@@ -1321,10 +1330,12 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
   const status = value.status;
   const rawFrame = value.frame_identity;
   const rawCandidates = value.candidates;
+  const rawIgnoredRegions = value.ignored_regions;
   if (
     typeof eventId !== "string" ||
     !["detected", "empty", "failed"].includes(String(status)) ||
-    !Array.isArray(rawCandidates)
+    !Array.isArray(rawCandidates) ||
+    !Array.isArray(rawIgnoredRegions)
   )
     return null;
   const frame = rawFrame === null ? null : readFrameIdentity(rawFrame);
@@ -1332,11 +1343,15 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
   const candidates = rawCandidates
     .map(readCandidate)
     .filter((candidate): candidate is Candidate => candidate !== null);
+  const ignoredRegions = rawIgnoredRegions
+    .map(readIgnoreRegion)
+    .filter((region): region is IgnoreRegion => region !== null);
   return {
     event_id: eventId,
     frame_identity: frame,
     status: status as Outcome["status"],
     candidates,
+    ignored_regions: ignoredRegions,
     error: typeof value.error === "string" ? value.error : null,
   };
 }
@@ -1373,6 +1388,64 @@ function readCandidate(value: unknown): Candidate | null {
     ...(Array.isArray(value.model_scores)
       ? { model_scores: value.model_scores.filter(isRecord) }
       : {}),
+  };
+}
+
+function readIgnoreRegion(value: unknown): IgnoreRegion | null {
+  if (!isRecord(value)) return null;
+  const geometry = value.geometry;
+  const normalization = value.normalization;
+  const sourceCandidates = value.source_candidates;
+  if (
+    typeof value.region_id !== "string" ||
+    value.reason !== "untidy_stack" ||
+    !isRecord(geometry) ||
+    geometry.kind !== "reviewed-ignore-region/v1" ||
+    !Array.isArray(geometry.polygons) ||
+    !isRecord(normalization) ||
+    !isInteger(normalization.width) ||
+    !isInteger(normalization.height) ||
+    typeof normalization.policy_id !== "string" ||
+    !Array.isArray(sourceCandidates)
+  )
+    return null;
+  const polygons = geometry.polygons.map((polygon) => {
+    if (
+      !Array.isArray(polygon) ||
+      polygon.some(
+        (point) =>
+          !isRecord(point) || !isInteger(point.x) || !isInteger(point.y),
+      )
+    )
+      return null;
+    return polygon as Point[];
+  });
+  if (
+    polygons.some((polygon): polygon is null => polygon === null) ||
+    validatePolygons(polygons as Point[][]) !== null
+  )
+    return null;
+  const sources = sourceCandidates
+    .filter(isRecord)
+    .filter(
+      (source): source is Record<string, unknown> =>
+        typeof source.revision_id === "string" &&
+        typeof source.card_id === "string",
+    ) as IgnoreRegionSourceCandidate[];
+  if (sources.length !== sourceCandidates.length) return null;
+  return {
+    region_id: value.region_id,
+    geometry: {
+      kind: "reviewed-ignore-region/v1",
+      polygons: polygons as Point[][],
+    },
+    normalization: {
+      width: normalization.width,
+      height: normalization.height,
+      policy_id: normalization.policy_id,
+    },
+    reason: "untidy_stack",
+    source_candidates: sources,
   };
 }
 

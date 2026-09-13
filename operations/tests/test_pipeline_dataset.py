@@ -178,6 +178,7 @@ def _visible_reference() -> StoredRevision:
                 "side": "unknown",
             }
         ],
+        "ignored_regions": [],
         "error": None,
     }
     content = VisibleCardData.from_mapping(

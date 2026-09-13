@@ -93,6 +93,7 @@ function generatedResult() {
               frame_identity: FRAME_IDENTITY,
               status: "detected",
               candidates: [DETECTOR_CANDIDATE],
+              ignored_regions: [],
               error: null,
             },
           ],
@@ -121,6 +122,7 @@ function generatedResultWithTwoFrames() {
         side: "face_down",
       },
     ],
+    ignored_regions: [],
     error: null,
   });
   return result;
@@ -199,6 +201,7 @@ function reference(state: "pending" | "accepted" | "corrected" = "pending") {
                   }
                 : DETECTOR_CANDIDATE,
             ],
+            ignored_regions: [],
             error: null,
           },
         },

@@ -28,11 +28,32 @@ export type Candidate = {
   model_scores?: Array<Record<string, unknown>>;
 };
 
+export type IgnoreRegionSourceCandidate = {
+  revision_id: string;
+  card_id: string;
+};
+
+export type IgnoreRegion = {
+  region_id: string;
+  geometry: {
+    kind: "reviewed-ignore-region/v1";
+    polygons: Point[][];
+  };
+  normalization: {
+    width: number;
+    height: number;
+    policy_id: string;
+  };
+  reason: "untidy_stack";
+  source_candidates: IgnoreRegionSourceCandidate[];
+};
+
 export type Outcome = {
   event_id: string;
   frame_identity: FrameIdentity | null;
   status: "detected" | "empty" | "failed";
   candidates: Candidate[];
+  ignored_regions: IgnoreRegion[];
   error: string | null;
 };
 

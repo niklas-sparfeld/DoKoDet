@@ -135,6 +135,7 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
                         "side": "unknown",
                     }
                 ],
+                "ignored_regions": [],
             }
         ],
     }
