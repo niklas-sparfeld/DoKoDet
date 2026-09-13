@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 import subprocess
 from io import BytesIO
@@ -20,6 +21,7 @@ from doko_operations.derived_view import (
     DerivedViewSourceError,
     DetectorBoxGeometry,
     ExactEventRequest,
+    FFmpegFrameResolver,
     PredictedVisibleRegionGeometry,
     ResolvedFrame,
     ReviewedVisibleRegionGeometry,
@@ -125,6 +127,57 @@ def _source(path: Path, *, duration_us: int) -> RecordingVideoSource:
         byte_length=len(content),
         duration_us=duration_us,
     )
+
+
+def test_ffmpeg_probe_reads_packet_timestamps_without_frame_side_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = {
+        "streams": [{"width": 1920, "height": 1080}],
+        "packets": [{"pts_time": "0.033333"}, {"pts_time": "0.000000"}],
+    }
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
+        calls.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(payload).encode("utf-8"),
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(subprocess, "run", run)
+
+    frames = FFmpegFrameResolver()._probe_frames(tmp_path / "source.mov")
+
+    assert frames == [(0, 1920, 1080), (33_333, 1920, 1080)]
+    assert len(calls) == 1
+    assert "-show_packets" in calls[0]
+    assert "-show_frames" not in calls[0]
+
+
+def test_ffmpeg_decoder_seeks_to_the_requested_timestamp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=b"jpeg", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", run)
+
+    image_bytes = FFmpegFrameResolver()._decode_frame(
+        tmp_path / "source.mov", 12, 5_000_000, "jpeg"
+    )
+
+    assert image_bytes == b"jpeg"
+    assert len(calls) == 1
+    assert "-copyts" in calls[0]
+    assert calls[0][calls[0].index("-ss") + 1] == "4.999999500"
+    assert calls[0][calls[0].index("-vf") + 1] == r"select=gte(t\,4.999999500)"
+    assert "eq(n" not in " ".join(calls[0])
 
 
 def test_exact_event_uses_presentation_timestamps_and_warm_cache(tmp_path: Path) -> None:

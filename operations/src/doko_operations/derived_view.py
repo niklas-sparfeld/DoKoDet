@@ -39,9 +39,7 @@ PILLOW_TOOLCHAIN_VERSION = "12.3.0"
 DEFAULT_DECODER_VERSION = f"ffmpeg/{FFMPEG_TOOLCHAIN_VERSION}"
 DEFAULT_FRAME_TRANSFORM_VERSION = f"ffmpeg-mjpeg/{FFMPEG_TOOLCHAIN_VERSION}"
 DEFAULT_TRANSFORM_VERSION = f"pillow/{PILLOW_TOOLCHAIN_VERSION}/crop-conditions-v2"
-CROP_JPEG_PREVIEW_TRANSFORM_VERSION = (
-    f"pillow/{PILLOW_TOOLCHAIN_VERSION}/crop-browser-jpeg-v1"
-)
+CROP_JPEG_PREVIEW_TRANSFORM_VERSION = f"pillow/{PILLOW_TOOLCHAIN_VERSION}/crop-browser-jpeg-v1"
 CROP_JPEG_PREVIEW_QUALITY = 90
 SAMPLED_FRAME_INTERVAL_US = 250_000
 SAMPLED_FRAME_MAX_DIMENSION = 1280
@@ -1135,7 +1133,12 @@ class FFmpegFrameResolver:
                 "no presentation timestamp is at or after the requested event time"
             )
         frame_index, timestamp_us, width, height = selected
-        image_bytes = self._decode_frame(path, frame_index, request.output_encoding)
+        image_bytes = self._decode_frame(
+            path,
+            frame_index,
+            request.requested_time_us,
+            request.output_encoding,
+        )
         actual_width, actual_height = _image_dimensions(image_bytes)
         if (actual_width, actual_height) != (width, height):
             raise DerivedViewProbeError("decoded frame dimensions do not match ffprobe")
@@ -1153,15 +1156,18 @@ class FFmpegFrameResolver:
         )
 
     def _probe_frames(self, video_path: Path) -> list[tuple[int, int, int]]:
+        # Packet timestamps avoid decoding and serializing per-frame Dolby Vision side data.
+        # Sort them because codec packet order is decode order, not presentation order.
         command = [
             self.ffprobe_binary,
             "-v",
             "error",
             "-select_streams",
             "v:0",
-            "-show_frames",
+            "-show_streams",
+            "-show_packets",
             "-show_entries",
-            "frame=best_effort_timestamp_time,width,height",
+            "stream=width,height:packet=pts_time",
             "-of",
             "json",
             str(video_path),
@@ -1174,44 +1180,68 @@ class FFmpegFrameResolver:
             ) from error
         if result.returncode != 0:
             detail = result.stderr.decode("utf-8", errors="replace").strip()
-            raise DerivedViewProbeError(
-                f"ffprobe could not inspect source video: {detail or 'unknown error'}"
-            )
+            detail = detail or f"exit code {result.returncode}"
+            raise DerivedViewProbeError(f"ffprobe could not inspect source video: {detail}")
         try:
             payload = json.loads(result.stdout.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise DerivedViewProbeError("ffprobe returned invalid frame metadata") from error
-        if not isinstance(payload, Mapping) or not isinstance(payload.get("frames"), list):
+        if (
+            not isinstance(payload, Mapping)
+            or not isinstance(payload.get("streams"), list)
+            or not isinstance(payload.get("packets"), list)
+        ):
             raise DerivedViewProbeError("ffprobe returned incomplete frame metadata")
-        frames: list[tuple[int, int, int]] = []
-        for index, raw in enumerate(payload["frames"]):
-            frame = _require_mapping(raw, f"ffprobe frame {index}")
-            if "best_effort_timestamp_time" not in frame:
-                raise DerivedViewProbeError(f"ffprobe frame {index} has no presentation timestamp")
-            timestamp_us = _timestamp_us(
-                frame["best_effort_timestamp_time"], "presentation timestamp"
-            )
-            width = _require_positive_probe_int(frame.get("width"), "frame width")
-            height = _require_positive_probe_int(frame.get("height"), "frame height")
-            frames.append((timestamp_us, width, height))
+        if len(payload["streams"]) != 1:
+            raise DerivedViewProbeError("ffprobe returned an invalid video stream count")
+        stream = _require_mapping(payload["streams"][0], "ffprobe video stream")
+        width = _require_positive_probe_int(stream.get("width"), "frame width")
+        height = _require_positive_probe_int(stream.get("height"), "frame height")
+        frames: list[tuple[int, int, int, int]] = []
+        for packet_index, raw in enumerate(payload["packets"]):
+            packet = _require_mapping(raw, f"ffprobe packet {packet_index}")
+            if "pts_time" not in packet:
+                raise DerivedViewProbeError(
+                    f"ffprobe packet {packet_index} has no presentation timestamp"
+                )
+            timestamp_us = _timestamp_us(packet["pts_time"], "presentation timestamp")
+            frames.append((timestamp_us, packet_index, width, height))
         if not frames:
             raise DerivedViewProbeError("source video has no decoded frames")
-        return frames
+        frames.sort(key=lambda value: (value[0], value[1]))
+        return [(timestamp_us, width, height) for timestamp_us, _, width, height in frames]
 
-    def _decode_frame(self, video_path: Path, frame_index: int, encoding: str) -> bytes:
+    def _decode_frame(
+        self,
+        video_path: Path,
+        frame_index: int,
+        requested_time_us: int,
+        encoding: str,
+    ) -> bytes:
         if encoding != "jpeg":
             raise DerivedViewError("the FFmpeg frame provider currently emits JPEG frames")
-        filter_expression = f"select=eq(n\\,{frame_index})"
+        # Seek close to the selected frame, then filter by the requested timestamp.  Input
+        # seeking can leave one or more decoded frames before the seek point in the pipeline;
+        # the timestamp filter preserves the exact-event "at or after" rule.  Subtract half a
+        # microsecond to match the half-up rounding used by _timestamp_us.
+        filter_timestamp_ns = max(0, requested_time_us * 1000 - 500)
+        seek_seconds = Decimal(filter_timestamp_ns) / Decimal(1_000_000_000)
+        filter_expression = f"select=gte(t\\,{seek_seconds:.9f})"
         command = [
             self.ffmpeg_binary,
             "-v",
             "error",
+            "-copyts",
+            "-ss",
+            f"{seek_seconds:.9f}",
             "-i",
             str(video_path),
             "-vf",
             filter_expression,
             "-frames:v",
             "1",
+            "-fps_mode",
+            "passthrough",
             "-f",
             "image2pipe",
             "-c:v",
@@ -1228,9 +1258,8 @@ class FFmpegFrameResolver:
             ) from error
         if result.returncode != 0:
             detail = result.stderr.decode("utf-8", errors="replace").strip()
-            raise DerivedViewProbeError(
-                f"ffmpeg could not extract frame {frame_index}: {detail or 'unknown error'}"
-            )
+            detail = detail or f"exit code {result.returncode}"
+            raise DerivedViewProbeError(f"ffmpeg could not extract frame {frame_index}: {detail}")
         if not result.stdout:
             raise DerivedViewMissingFrameError(f"ffmpeg returned no frame for index {frame_index}")
         return result.stdout
@@ -2239,9 +2268,7 @@ def _crop_jpeg_preview_from_cache(
         or manifest.get("cache_key") != cache_key
     ):
         raise DerivedViewError("cache entry is for a different crop JPEG preview")
-    identity = _require_mapping(
-        manifest.get("identity"), "crop JPEG preview cache identity"
-    )
+    identity = _require_mapping(manifest.get("identity"), "crop JPEG preview cache identity")
     expected = {
         "schema_version",
         "source_crop_sha256",
