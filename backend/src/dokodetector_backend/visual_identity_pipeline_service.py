@@ -16,6 +16,7 @@ from typing import Any
 
 from doko_operations.derived_view import (
     DerivedViewError,
+    FFmpegFrameResolver,
     FrameResolver,
     ResolvedCrop,
     ResolvedCropJpegPreview,
@@ -141,7 +142,9 @@ class VisualIdentityPipelineService:
         self.settings = settings
         self.recording_store = recording_store
         self.repository_storage = repository_storage
-        self.frame_resolver = frame_resolver
+        self.frame_resolver = (
+            frame_resolver if frame_resolver is not None else FFmpegFrameResolver()
+        )
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store

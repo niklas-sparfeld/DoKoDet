@@ -47,13 +47,17 @@ def probe_video_bytes(source: bytes, *, timeout_seconds: float = 5.0) -> VideoPr
 
 
 def probe_video_path(path: str | Path, *, timeout_seconds: float = 5.0) -> VideoProbe:
-    """Probe and count decoded frames from a local file without loading it into memory."""
+    """Probe and count video packets from a local file without decoding every frame."""
 
     video_path = Path(path)
     if not video_path.is_file():
         raise VideoProbeError("The video file does not exist.")
     return _probe_video(
-        str(video_path), None, timeout_seconds=timeout_seconds, count_frames=True
+        str(video_path),
+        None,
+        timeout_seconds=timeout_seconds,
+        count_frames=False,
+        count_packets=True,
     )
 
 
@@ -67,9 +71,7 @@ def probe_video_path_metadata(path: str | Path, *, timeout_seconds: float = 5.0)
     video_path = Path(path)
     if not video_path.is_file():
         raise VideoProbeError("The video file does not exist.")
-    return _probe_video(
-        str(video_path), None, timeout_seconds=timeout_seconds, count_frames=False
-    )
+    return _probe_video(str(video_path), None, timeout_seconds=timeout_seconds, count_frames=False)
 
 
 def _probe_video(
@@ -78,7 +80,10 @@ def _probe_video(
     *,
     timeout_seconds: float,
     count_frames: bool = True,
+    count_packets: bool = False,
 ) -> VideoProbe:
+    if count_frames and count_packets:
+        raise ValueError("a video probe cannot count frames and packets at the same time")
     ffprobe = shutil.which("ffprobe")
     if ffprobe is None:
         raise VideoProbeUnavailable("The local video probe tool is not installed.")
@@ -97,6 +102,8 @@ def _probe_video(
         ]
         if count_frames:
             command.append("-count_frames")
+        elif count_packets:
+            command.append("-count_packets")
         command.extend(["-i", input_path])
         result = subprocess.run(
             command,
@@ -110,7 +117,7 @@ def _probe_video(
     except OSError as error:
         raise VideoProbeUnavailable("The local video probe could not run.") from error
 
-    if result.returncode != 0:
+    if result.returncode != 0 or (count_packets and (result.stderr or b"").strip()):
         raise VideoProbeError("The video bytes could not be decoded.")
 
     try:
@@ -148,6 +155,10 @@ def _probe_video(
         frame_count = _positive_int(stream.get("nb_read_frames"), "decoded video frames")
         if declared_frame_count is not None and frame_count != declared_frame_count:
             raise VideoProbeError("The video does not contain all declared frames.")
+    elif count_packets:
+        frame_count = _positive_int(stream.get("nb_read_packets"), "video packets")
+        if declared_frame_count is not None and frame_count != declared_frame_count:
+            raise VideoProbeError("The video does not contain all declared video packets.")
     elif declared_frame_count is not None:
         frame_count = declared_frame_count
     else:

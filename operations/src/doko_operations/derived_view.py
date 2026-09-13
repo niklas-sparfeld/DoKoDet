@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from io import BytesIO
 from pathlib import Path
+from threading import RLock
 from typing import Any, Protocol
 
 from PIL import Image, UnidentifiedImageError
@@ -28,7 +29,7 @@ from PIL import Image, UnidentifiedImageError
 from .pipeline_data import RecordingVideoSource, canonical_json_bytes
 
 EXACT_EVENT_SCHEMA = "exact-event/v1"
-SAMPLED_FRAME_CACHE_SCHEMA = "sampled-frame-cache/v1"
+SAMPLED_FRAME_CACHE_SCHEMA = "sampled-frame-cache/v2"
 VISIBLE_REGION_CROP_SCHEMA = "visible-region-crop/v1"
 CROP_JPEG_PREVIEW_SCHEMA = "visible-region-crop-jpeg-preview/v1"
 DERIVED_VIEW_CACHE_SCHEMA = "derived-view-cache/v1"
@@ -1114,6 +1115,8 @@ class FFmpegFrameResolver:
         self.ffprobe_binary = _require_text(ffprobe_binary, "ffprobe_binary")
         self.decoder_version = _require_text(decoder_version, "decoder_version")
         self.transform_version = DEFAULT_FRAME_TRANSFORM_VERSION
+        self._frame_index_cache: dict[str, tuple[tuple[int, int, int], ...]] = {}
+        self._frame_index_cache_lock = RLock()
 
     def resolve(self, request: ExactEventRequest, video_path: Path) -> ResolvedFrame:
         if not isinstance(request, ExactEventRequest):
@@ -1121,7 +1124,7 @@ class FFmpegFrameResolver:
         path = Path(video_path)
         if not path.is_file():
             raise DerivedViewSourceError(f"source video does not exist: {path}")
-        frames = self._probe_frames(path)
+        frames = self._cached_probe_frames(request.source.video_sha256, path)
         selected_candidates = [
             (frame_index, timestamp_us, width, height)
             for frame_index, (timestamp_us, width, height) in enumerate(frames)
@@ -1154,6 +1157,19 @@ class FFmpegFrameResolver:
             output_encoding=request.output_encoding,
             image_bytes=image_bytes,
         )
+
+    def _cached_probe_frames(
+        self, source_video_sha256: str, video_path: Path
+    ) -> tuple[tuple[int, int, int], ...]:
+        with self._frame_index_cache_lock:
+            cached = self._frame_index_cache.get(source_video_sha256)
+        if cached is not None:
+            return cached
+
+        probed = tuple(self._probe_frames(video_path))
+        with self._frame_index_cache_lock:
+            cached = self._frame_index_cache.setdefault(source_video_sha256, probed)
+        return cached
 
     def _probe_frames(self, video_path: Path) -> list[tuple[int, int, int]]:
         # Packet timestamps avoid decoding and serializing per-frame Dolby Vision side data.
@@ -1284,7 +1300,7 @@ class SampledFrameResolver:
         self.decoder_version = _require_text(decoder_version, "decoder_version")
         self.transform_version = (
             f"ffmpeg-mjpeg/{FFMPEG_TOOLCHAIN_VERSION}/sampled-"
-            f"{self.interval_us}us-max-{self.max_dimension}/v1"
+            f"{self.interval_us}us-max-{self.max_dimension}/v2"
         )
 
     def resolve(self, request: ExactEventRequest, video_path: Path) -> ResolvedFrame:
@@ -1295,16 +1311,37 @@ class SampledFrameResolver:
         path = Path(video_path)
         if not path.is_file():
             raise DerivedViewSourceError(f"source video does not exist: {path}")
-        frames = self._ensure_cache(path, request.source)
-        selected = next(
-            (frame for frame in frames if frame[1] >= request.requested_time_us),
-            frames[-1],
+        destination = self._cache_path(request.source)
+        frames = self._read_cache(destination, request.source) or []
+        last_sample_index = max(
+            0,
+            (request.source.duration_us + self.interval_us - 1) // self.interval_us - 1,
         )
+        sample_index = min(
+            (request.requested_time_us + self.interval_us - 1) // self.interval_us,
+            last_sample_index,
+        )
+        selected = next((frame for frame in frames if frame[0] == sample_index), None)
+        if selected is None:
+            timestamp_us = sample_index * self.interval_us
+            image_bytes = self._decode_sample(path, timestamp_us)
+            width, height = _image_dimensions(image_bytes)
+            selected = (
+                sample_index,
+                timestamp_us,
+                width,
+                height,
+                f"frames/{sample_index:06d}.jpg",
+            )
+            frames.append(selected)
+            self._write_cache(destination, request.source, frames, image_bytes)
+        else:
+            frame_index, timestamp_us, width, height, relative_path = selected
+            try:
+                image_bytes = (destination / relative_path).read_bytes()
+            except OSError as error:
+                raise DerivedViewProbeError("sampled frame cache could not be read") from error
         frame_index, timestamp_us, width, height, relative_path = selected
-        try:
-            image_bytes = (self._cache_path(request.source) / relative_path).read_bytes()
-        except OSError as error:
-            raise DerivedViewProbeError("sampled frame cache could not be read") from error
         actual_width, actual_height = _image_dimensions(image_bytes)
         if (actual_width, actual_height) != (width, height):
             raise DerivedViewProbeError("sampled frame dimensions do not match the cache")
@@ -1324,81 +1361,72 @@ class SampledFrameResolver:
     def _cache_path(self, source: RecordingVideoSource) -> Path:
         return self.cache_root / source.video_sha256 / f"{self.interval_us}-{self.max_dimension}"
 
-    def _ensure_cache(
-        self,
-        video_path: Path,
-        source: RecordingVideoSource,
-    ) -> list[tuple[int, int, int, int, str]]:
-        destination = self._cache_path(source)
-        cached = self._read_cache(destination, source)
-        if cached is not None:
-            return cached
-
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        temporary_dir = Path(tempfile.mkdtemp(prefix=".sampled-", dir=destination.parent))
-        frames_dir = temporary_dir / "frames"
-        frames_dir.mkdir()
+    def _decode_sample(self, video_path: Path, timestamp_us: int) -> bytes:
+        seek_seconds = Decimal(timestamp_us) / Decimal(1_000_000)
+        timestamp = f"{seek_seconds:.9f}"
+        filter_expression = (
+            f"select=gte(t\\,{timestamp}),"
+            f"scale=w='min({self.max_dimension},iw)':"
+            f"h='min({self.max_dimension},ih)':"
+            "force_original_aspect_ratio=decrease"
+        )
+        command = [
+            self.ffmpeg_binary,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-copyts",
+            "-ss",
+            timestamp,
+            "-i",
+            str(video_path),
+            "-map",
+            "0:v:0",
+            "-vf",
+            filter_expression,
+            "-frames:v",
+            "1",
+            "-fps_mode",
+            "passthrough",
+            "-f",
+            "image2pipe",
+            "-c:v",
+            "mjpeg",
+            "-q:v",
+            "2",
+            "-",
+        ]
         try:
-            filter_expression = (
-                f"fps={1_000_000 / self.interval_us:g},"
-                f"scale=w='min({self.max_dimension},iw)':"
-                f"h='min({self.max_dimension},ih)':"
-                "force_original_aspect_ratio=decrease"
+            result = subprocess.run(command, capture_output=True, check=False)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise DerivedViewProbeError(
+                f"ffmpeg could not extract sampled frame at {timestamp_us}: {error}"
+            ) from error
+        if result.returncode != 0:
+            detail = result.stderr.decode("utf-8", errors="replace").strip()
+            detail = detail or f"exit code {result.returncode}"
+            raise DerivedViewProbeError(
+                f"ffmpeg could not extract sampled frame at {timestamp_us}: {detail}"
             )
-            command = [
-                self.ffmpeg_binary,
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-i",
-                str(video_path),
-                "-vf",
-                filter_expression,
-                "-q:v",
-                "2",
-                "-start_number",
-                "0",
-                str(frames_dir / "%06d.jpg"),
-            ]
-            try:
-                result = subprocess.run(command, capture_output=True, check=False)
-            except (OSError, subprocess.SubprocessError) as error:
-                raise DerivedViewProbeError(
-                    f"ffmpeg could not create sampled frames: {error}"
-                ) from error
-            if result.returncode != 0:
-                detail = result.stderr.decode("utf-8", errors="replace").strip()
-                raise DerivedViewProbeError(
-                    "ffmpeg could not create sampled frames: "
-                    f"{detail or 'unknown error'}"
-                )
+        if not result.stdout:
+            raise DerivedViewMissingFrameError(
+                f"ffmpeg returned no sampled frame at {timestamp_us}"
+            )
+        return result.stdout
 
-            entries: list[tuple[int, int, int, int, str]] = []
-            for frame_path in frames_dir.glob("*.jpg"):
-                try:
-                    frame_index = int(frame_path.stem)
-                    image_bytes = frame_path.read_bytes()
-                except (OSError, ValueError) as error:
-                    raise DerivedViewProbeError(
-                        "sampled frame cache contains an invalid frame"
-                    ) from error
-                width, height = _image_dimensions(image_bytes)
-                entries.append(
-                    (
-                        frame_index,
-                        frame_index * self.interval_us,
-                        width,
-                        height,
-                        f"frames/{frame_path.name}",
-                    )
-                )
-            entries.sort(key=lambda entry: entry[0])
-            if not entries or [item[0] for item in entries] != list(range(len(entries))):
-                if not entries:
-                    raise DerivedViewMissingFrameError(
-                        "ffmpeg returned no sampled frames for the source video"
-                    )
-                raise DerivedViewProbeError("ffmpeg returned non-contiguous sampled frames")
+    def _write_cache(
+        self,
+        destination: Path,
+        source: RecordingVideoSource,
+        entries: list[tuple[int, int, int, int, str]],
+        image_bytes: bytes,
+    ) -> None:
+        try:
+            destination.mkdir(parents=True, exist_ok=True)
+            frames_directory = destination / "frames"
+            frames_directory.mkdir(exist_ok=True)
+            entry = entries[-1]
+            _write_fsync(destination / entry[4], image_bytes)
             manifest = {
                 "schema_version": SAMPLED_FRAME_CACHE_SCHEMA,
                 "source_video_sha256": source.video_sha256,
@@ -1413,21 +1441,14 @@ class SampledFrameResolver:
                         "height": height,
                         "relative_path": relative_path,
                     }
-                    for frame_index, timestamp_us, width, height, relative_path in entries
+                    for frame_index, timestamp_us, width, height, relative_path in sorted(
+                        entries, key=lambda item: item[0]
+                    )
                 ],
             }
-            _write_fsync(temporary_dir / "manifest.json", canonical_json_bytes(manifest))
-            if destination.exists() or destination.is_symlink():
-                if destination.is_symlink():
-                    destination.unlink()
-                else:
-                    shutil.rmtree(destination)
-            os.replace(temporary_dir, destination)
-            temporary_dir = Path()
-            return entries
-        finally:
-            if temporary_dir != Path() and (temporary_dir.exists() or temporary_dir.is_symlink()):
-                shutil.rmtree(temporary_dir, ignore_errors=True)
+            _write_fsync(destination / "manifest.json", canonical_json_bytes(manifest))
+        except OSError as error:
+            raise DerivedViewProbeError("sampled frame cache could not be written") from error
 
     def _read_cache(
         self,
@@ -1476,9 +1497,10 @@ class SampledFrameResolver:
             if not frame_path.is_file() or frame_path.is_symlink():
                 return None
             entries.append((frame_index, timestamp_us, width, height, relative_path))
-        if not entries or [item[0] for item in entries] != list(range(len(entries))):
+        frame_indices = [item[0] for item in entries]
+        if not entries or len(frame_indices) != len(set(frame_indices)):
             return None
-        return entries
+        return sorted(entries, key=lambda entry: entry[0])
 
 
 class OpenCVFrameResolver:

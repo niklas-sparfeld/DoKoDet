@@ -17,6 +17,7 @@ from typing import Any, Protocol
 from doko_operations.derived_view import (
     SAMPLED_FRAME_INTERVAL_US,
     DerivedViewError,
+    FFmpegFrameResolver,
     FrameResolver,
     ResolvedFrame,
     SampledFrameResolver,
@@ -104,7 +105,9 @@ class VisibleCardPipelineService:
         self.recording_store = recording_store
         self.repository_storage = repository_storage
         self.detector_provider = detector_provider
-        self.frame_resolver = frame_resolver
+        self.frame_resolver = (
+            frame_resolver if frame_resolver is not None else FFmpegFrameResolver()
+        )
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store

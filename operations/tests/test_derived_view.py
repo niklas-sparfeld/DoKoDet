@@ -180,6 +180,33 @@ def test_ffmpeg_decoder_seeks_to_the_requested_timestamp(
     assert "eq(n" not in " ".join(calls[0])
 
 
+def test_ffmpeg_resolver_reuses_packet_probe_for_one_source(
+    tmp_path: Path,
+) -> None:
+    video = tmp_path / "source.mp4"
+    video.write_bytes(b"source")
+    source = _source(video, duration_us=100_000)
+    image = BytesIO()
+    Image.new("RGB", (64, 48), (10, 20, 30)).save(image, format="JPEG")
+    resolver = FFmpegFrameResolver()
+
+    with (
+        patch.object(
+            resolver,
+            "_probe_frames",
+            return_value=[(0, 64, 48), (100_000, 64, 48)],
+        ) as probe,
+        patch.object(resolver, "_decode_frame", return_value=image.getvalue()) as decode,
+    ):
+        first = resolver.resolve(ExactEventRequest(source=source, requested_time_us=0), video)
+        second = resolver.resolve(ExactEventRequest(source=source, requested_time_us=50_000), video)
+
+    assert first.frame_index == 0
+    assert second.frame_index == 1
+    assert probe.call_count == 1
+    assert decode.call_count == 2
+
+
 def test_exact_event_uses_presentation_timestamps_and_warm_cache(tmp_path: Path) -> None:
     video = tmp_path / "cfr.mp4"
     _make_cfr_video(video)
@@ -221,7 +248,7 @@ def test_exact_event_vfr_does_not_use_nominal_frame_rate(tmp_path: Path) -> None
     assert frame.presentation_timestamp_us == 280_000
 
 
-def test_sampled_frame_resolver_extracts_one_250_ms_cache_for_many_requests(
+def test_sampled_frame_resolver_extracts_requested_samples_and_reuses_them(
     tmp_path: Path,
 ) -> None:
     video = tmp_path / "cfr.mp4"
@@ -242,14 +269,24 @@ def test_sampled_frame_resolver_extracts_one_250_ms_cache_for_many_requests(
             requested_time_us=300_000,
             resolver=resolver,
         )
+        repeated_sample = resolve_exact_event(
+            video,
+            source=source,
+            requested_time_us=150_000,
+            resolver=resolver,
+        )
 
-    assert run.call_count == 1
+    assert run.call_count == 2
     assert first.presentation_timestamp_us == SAMPLED_FRAME_INTERVAL_US
     assert second.presentation_timestamp_us == SAMPLED_FRAME_INTERVAL_US * 2
+    assert repeated_sample.presentation_timestamp_us == SAMPLED_FRAME_INTERVAL_US
     assert first.width == second.width == 64
     assert first.height == second.height == 48
     cache_directories = list((tmp_path / "sampled-frames").rglob("manifest.json"))
     assert len(cache_directories) == 1
+    assert len(list((tmp_path / "sampled-frames").rglob("*.jpg"))) == 2
+    assert all("-ss" in call.args[0] for call in run.call_args_list)
+    assert all("fps=" not in " ".join(call.args[0]) for call in run.call_args_list)
 
 
 def test_exact_event_missing_frame_and_corrupt_cache_regenerate(tmp_path: Path) -> None:
