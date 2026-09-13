@@ -30,10 +30,12 @@
   workspace routes, durable progress summary, blocker report, and digest-backed receipt are
   available. All 32 imported annotation references were accepted and completed with full-recording
   coverage. One separate unannotated source remains explicitly blocked in the readiness queue.
-- **M3:** In progress (2026-09-11) — the deterministic freeze preflight, immutable dataset
-  publication contract, sealed split output, and `data validate` checks are available. The current
-  repository is blocked by missing source-lineage metadata, no maintained development split, no
-  independent sealed test group, and the separate unannotated source.
+- **M3:** Complete (2026-09-13) — freeze `cardeventnet-dataset-babc3dca31acd0c3631c` has 28 train,
+  10 validation, and five sealed test recordings with complete reviewed coverage. The policy uses
+  recorded capture sessions as source-lineage groups, restores real-game IDs from preserved legacy
+  metadata, respects current source permissions, and keeps the previously unassigned kitchen
+  session as independent test. The separate unannotated recording remains outside this migrated
+  CardEventNet campaign corpus.
 - **M4:** Not started — make training and evaluation consume a materialized view of the frozen
   shared dataset and prove the path with a smoke run.
 - **M5:** Not started — prepare and run one bounded validation campaign, then lock one candidate or

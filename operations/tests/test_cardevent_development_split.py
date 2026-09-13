@@ -231,6 +231,37 @@ def test_test_and_system_holdout_groups_are_read_only(tmp_path: Path) -> None:
     assert "read-only system holdout" in " ".join(holdout_preview["validation"]["blockers"])
 
 
+def test_test_partition_can_be_sealed_once(tmp_path: Path) -> None:
+    store = CardEventDevelopmentSplitStore(tmp_path)
+    facts = (recording("recording-a", allowed_uses=("train", "validation", "test")),)
+    initial = store.read(facts)
+
+    preview = store.preview(
+        facts,
+        recording_id="recording-a",
+        destination="test",
+        expected_active_split_digest=initial["split_version_digest"],
+    )
+    assert preview["validation"] == {"valid": True, "blockers": []}
+    applied = store.apply(
+        facts,
+        recording_id="recording-a",
+        destination="test",
+        expected_active_split_digest=initial["split_version_digest"],
+        preview_digest=preview["preview_digest"],
+        operator="operator",
+    )
+    assert applied["partitions"]["test"] == ["recording-a"]
+
+    sealed = store.preview(
+        facts,
+        recording_id="recording-a",
+        destination="train",
+        expected_active_split_digest=applied["split_version_digest"],
+    )
+    assert "read-only test partition" in " ".join(sealed["validation"]["blockers"])
+
+
 def test_published_version_and_receipt_keep_parent_and_digest_provenance(tmp_path: Path) -> None:
     store = CardEventDevelopmentSplitStore(tmp_path)
     facts = (recording("recording-a"),)

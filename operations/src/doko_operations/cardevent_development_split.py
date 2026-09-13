@@ -34,6 +34,7 @@ CARD_EVENT_DEVELOPMENT_SPLIT_RECEIPT_TYPE = "development_split_assignment"
 DEVELOPMENT_PARTITIONS = ("train", "validation", "unassigned")
 ALL_PARTITIONS = (*DEVELOPMENT_PARTITIONS, "test")
 GROUP_KEY_NAMES = ("game_id", "session_id", "source_lineage", "table_setup")
+REQUIRED_GROUP_KEY_NAMES = ("session_id", "source_lineage", "table_setup")
 _DIGEST_LENGTH = 64
 
 
@@ -364,7 +365,7 @@ def _build_preview(
         blockers.append("The affected group touches the read-only system holdout.")
 
     for item in affected:
-        missing = sorted(set(GROUP_KEY_NAMES) - {name for name, _ in item.group_keys})
+        missing = sorted(set(REQUIRED_GROUP_KEY_NAMES) - {name for name, _ in item.group_keys})
         if missing:
             blockers.append(
                 f"Missing leakage-group data for {item.recording_id}: {', '.join(missing)}."
@@ -651,9 +652,9 @@ def _counts(partitions: Mapping[str, Sequence[str]]) -> dict[str, int]:
 
 
 def _validate_destination(destination: str) -> None:
-    if destination not in DEVELOPMENT_PARTITIONS:
+    if destination not in ALL_PARTITIONS:
         raise CardEventDevelopmentSplitError(
-            "Development partition must be train, validation, or unassigned."
+            "Development partition must be train, validation, test, or unassigned."
         )
 
 

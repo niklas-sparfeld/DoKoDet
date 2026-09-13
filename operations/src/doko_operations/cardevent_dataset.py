@@ -250,10 +250,29 @@ def build_cardeventnet_freeze(
         intake_root=intake_root,
         operations_root=operations,
     ).to_mapping()
-    records = [dict(item) for item in readiness.get("recordings", []) if isinstance(item, Mapping)]
+    records = [
+        dict(item)
+        for item in readiness.get("recordings", [])
+        if isinstance(item, Mapping) and item.get("migration_state") == "migrated"
+    ]
+    migrated_ids = {
+        item["recording_id"]
+        for item in records
+        if isinstance(item.get("recording_id"), str)
+    }
+    readiness["review_queue"] = [
+        dict(item)
+        for item in readiness.get("review_queue", [])
+        if isinstance(item, Mapping) and item.get("recording_id") in migrated_ids
+    ]
     revisions = _event_revisions(repository, operations)
     for record in records:
-        _enrich_record(repository, record, revisions.get(record.get("recording_id"), ()))
+        _enrich_record(
+            repository,
+            operations,
+            record,
+            revisions.get(record.get("recording_id"), ()),
+        )
     readiness["recordings"] = records
     split = _load_active_split(operations)
     holdout_groups = _load_holdout_groups(operations)
@@ -444,6 +463,7 @@ def _dataset_entry(record: Mapping[str, Any], partition: str) -> dict[str, Any]:
         "retention_state": record.get("retention_state", "active"),
         "content_type": record.get("content_type"),
         "group_keys": [list(key) for key in _group_keys(record)],
+        "group_metadata_basis": record.get("group_metadata_basis", {}),
         "partition": partition,
         "event_revision_id": revision.get("revision_id") if isinstance(revision, Mapping) else None,
         "event_revision_manifest_path": (
@@ -634,6 +654,7 @@ def _event_revisions(repository: Path, operations: Path) -> dict[str, list[dict[
 
 def _enrich_record(
     repository: Path,
+    operations: Path,
     record: dict[str, Any],
     revisions: Sequence[Mapping[str, Any]],
 ) -> None:
@@ -647,13 +668,44 @@ def _enrich_record(
             record.get("recording_id", "")
         ) / "source-record.json"
     source = _read_object(source_record_path) or {}
+    recording_id = record.get("recording_id")
+    imported_metadata = (
+        _read_object(
+            operations
+            / "cardeventnet-imports"
+            / recording_id
+            / "metadata.json"
+        )
+        if isinstance(recording_id, str)
+        else None
+    )
+    group_metadata_basis: dict[str, str] = {}
+    if source.get("content_type") == "real_game" and not source.get("game_id"):
+        game_id = (
+            imported_metadata.get("game_id") if isinstance(imported_metadata, Mapping) else None
+        )
+        if isinstance(game_id, str) and game_id:
+            source["game_id"] = game_id
+            group_metadata_basis["game_id"] = "preserved_legacy_metadata"
+    if not source.get("source_lineage"):
+        session_id = source.get("session_id")
+        if isinstance(session_id, str) and session_id:
+            source["source_lineage"] = f"session-lineage-{session_id}"
+            group_metadata_basis["source_lineage"] = "recorded_session_id"
     record["source_asset_id"] = source.get("source_asset_id")
     record["source_permission"] = source.get("source_permission")
     record["allowed_uses"] = source.get("allowed_uses", record.get("allowed_partitions", []))
     record["retention_state"] = source.get("retention_state")
     record["content_type"] = source.get("content_type")
     record["source_metadata"] = source
+    record["group_metadata_basis"] = group_metadata_basis
     record["group_keys"] = [list(key) for key in _group_keys({"source_metadata": source})]
+    if not _missing_group_keys(record, _group_keys({"source_metadata": source})):
+        record["blockers"] = [
+            blocker
+            for blocker in record.get("blockers", [])
+            if not isinstance(blocker, str) or not blocker.startswith("missing group metadata:")
+        ]
     selected_id = record.get("maintained_reference", {}).get("selected_completed_revision_id")
     if not isinstance(selected_id, str):
         selected_id = record.get("maintained_reference", {}).get("source_revision_id")

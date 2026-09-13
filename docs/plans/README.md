@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M2 complete. M3 is in progress: accepted full-recording references, deterministic freeze preflight, immutable dataset publication, sealed split output, and validation checks exist. Freeze remains blocked by missing source-lineage metadata, no maintained split, no independent sealed test group, and one unannotated source. |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M3 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings with complete coverage. Source-lineage groups use recorded capture sessions, real-game IDs come from preserved metadata, and the unassigned kitchen session is the independent test group. M4 remains next. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. The durable store has 12 bundle directories, of which the shared validator accepts eight; no completed paired maintained references exist. |
 
 ### Blocked
