@@ -121,6 +121,10 @@ export type PipelineReferenceOperation = {
     | "restore_frame_suggestions"
     | "set_frame_empty"
     | "set_frame_unusable"
+    | "create_ignore_region"
+    | "replace_ignore_region"
+    | "delete_ignore_region"
+    | "convert_to_ignore_region"
     | "accept_identity_suggestion"
     | "set_identity_unreviewed"
     | "set_identity_face_down"
@@ -132,6 +136,9 @@ export type PipelineReferenceOperation = {
   decision?: string;
   identity?: string;
   source_revision_id?: string;
+  region_id?: string;
+  region?: Record<string, unknown>;
+  candidate_ids?: string[];
 };
 export type PipelineReferenceDraftUpdateRequest = {
   expected_revision: number;
@@ -152,7 +159,8 @@ export type PipelineReferenceCompletionRequest = {
         frames: Array<{
           item_id?: string;
           frame_identity: Record<string, unknown> | null;
-          decision: "cards" | "empty" | "unusable";
+          decision:
+            "cards" | "ignored" | "cards_and_ignored" | "empty" | "unusable";
         }>;
       }
     | {

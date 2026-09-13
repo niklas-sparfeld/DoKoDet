@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from typing import Any
 
 from doko_operations.pipeline_data import (
@@ -21,6 +22,8 @@ from doko_operations.pipeline_reference import (
 from table_evidence_analyzer.pipeline_data import (
     PipelineDataError,
     VisibleCardData,
+    VisibleCardIgnoreRegion,
+    VisibleCardIgnoreSourceCandidate,
     VisualIdentityData,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
@@ -534,12 +537,63 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
     def _canonical_content_bytes(self, content: Mapping[str, Any]) -> bytes:
         return canonical_visible_card_data_bytes(VisibleCardData.from_mapping(content))
 
+    def rebase_items(
+        self,
+        recording_id: str,
+        current: Any,
+        source_revision_id: str,
+        require_source_revision: Callable[[str, str, str], StoredPipelineRevision],
+    ) -> list[ReferenceDraftItem]:
+        """Rebase generated frames without silently dropping reviewed ignore regions."""
+
+        rebased = super().rebase_items(
+            recording_id, current, source_revision_id, require_source_revision
+        )
+        previous_by_item_id = {item.item_id: item for item in current.draft.items}
+        preserved: list[ReferenceDraftItem] = []
+        for item in rebased:
+            previous = previous_by_item_id.get(item.item_id)
+            raw_regions = None if previous is None else previous.item.get("ignored_regions")
+            if not raw_regions:
+                preserved.append(item)
+                continue
+            if item.item.get("frame_identity") != previous.item.get("frame_identity"):
+                raise PipelineReferenceInputError(
+                    f"cannot rebase reviewed ignore regions for changed frame {item.item_id}"
+                )
+            regions = [
+                VisibleCardIgnoreRegion.from_mapping(
+                    region, f"items.{item.item_id}.ignored_regions[{index}]"
+                ).to_mapping()
+                for index, region in enumerate(raw_regions)
+            ]
+            consumed_card_ids = {
+                source["card_id"] for region in regions for source in region["source_candidates"]
+            }
+            updated = dict(item.item)
+            updated["ignored_regions"] = regions
+            updated["candidates"] = [
+                candidate
+                for candidate in updated["candidates"]
+                if candidate.get("card_id") not in consumed_card_ids
+            ]
+            self.validate_item(updated, source_revision_id, recording_id)
+            preserved.append(self._replace(item, item=updated))
+        return preserved
+
     def _apply_special_operation(
         self,
         items: list[ReferenceDraftItem],
         operation: PipelineReferenceOperation,
         source_revision_id: str | None,
     ) -> list[ReferenceDraftItem] | None:
+        if operation.operation in {
+            "create_ignore_region",
+            "replace_ignore_region",
+            "delete_ignore_region",
+            "convert_to_ignore_region",
+        }:
+            return self._apply_ignore_region_operation(items, operation, source_revision_id)
         if operation.operation not in {
             "set_frame_review",
             "accept_frame_suggestions",
@@ -556,6 +610,10 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         existing = items[index]
         if operation.operation == "restore_frame_suggestions":
             assert operation.item is not None
+            if operation.item.get("ignored_regions") != []:
+                raise PipelineReferenceInputError(
+                    "restore_frame_suggestions cannot restore reviewed ignore regions"
+                )
             self.validate_item(operation.item, source_revision_id)
             if operation.item.get("frame_identity") != existing.item.get("frame_identity"):
                 raise PipelineReferenceInputError(
@@ -579,6 +637,10 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             )
         if operation.operation == "set_frame_review":
             assert operation.item is not None
+            if operation.item.get("ignored_regions") != existing.item.get("ignored_regions"):
+                raise PipelineReferenceInputError(
+                    "set_frame_review cannot change ignore regions; use an ignore-region operation"
+                )
             self.validate_item(operation.item, source_revision_id)
             if operation.item.get("frame_identity") != existing.item.get("frame_identity"):
                 raise PipelineReferenceInputError(
@@ -613,6 +675,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             )
         replacement = dict(existing.item)
         replacement["candidates"] = []
+        replacement["ignored_regions"] = []
         if operation.operation == "set_frame_empty":
             replacement.update(status="empty", error=None)
             state = "empty"
@@ -625,6 +688,174 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             + [self._replace(existing, review_state=state, item=replacement)]
             + items[index + 1 :]
         )
+
+    def _apply_ignore_region_operation(
+        self,
+        items: list[ReferenceDraftItem],
+        operation: PipelineReferenceOperation,
+        source_revision_id: str | None,
+    ) -> list[ReferenceDraftItem]:
+        assert operation.item_id is not None
+        index = self.find_item(items, operation.item_id)
+        if index is None:
+            raise PipelineReferenceInputError(f"item was not found: {operation.item_id}")
+        existing = items[index]
+        if existing.item.get("status") != "detected":
+            raise PipelineReferenceInputError(
+                "ignore regions can only be changed on a detected visible-card frame"
+            )
+        if existing.review_state in {"empty", "unusable", "rejected"}:
+            raise PipelineReferenceInputError(
+                "ignore regions cannot be changed on an unresolved frame"
+            )
+
+        current_regions = self._regions(existing)
+        if operation.operation == "delete_ignore_region":
+            assert operation.region_id is not None
+            if not any(region.region_id == operation.region_id for region in current_regions):
+                raise PipelineReferenceInputError(
+                    f"ignore region was not found: {operation.region_id}"
+                )
+            updated_regions = [
+                region for region in current_regions if region.region_id != operation.region_id
+            ]
+        else:
+            assert operation.region is not None
+            try:
+                region = VisibleCardIgnoreRegion.from_mapping(
+                    operation.region, f"operation.{operation.operation}.region"
+                )
+            except (PipelineDataError, TypeError, ValueError) as error:
+                raise PipelineReferenceInputError("ignore region is invalid") from error
+            self._validate_region_frame(region, existing)
+            if region.source_candidates and operation.operation != "replace_ignore_region":
+                raise PipelineReferenceInputError(
+                    "ignore-region source candidates are assigned by the reference operation"
+                )
+            if operation.operation == "create_ignore_region":
+                if any(current.region_id == region.region_id for current in current_regions):
+                    raise PipelineReferenceInputError(
+                        f"ignore region already exists: {region.region_id}"
+                    )
+                updated_regions = [*current_regions, region]
+            elif operation.operation == "replace_ignore_region":
+                assert operation.region_id is not None
+                if region.region_id != operation.region_id:
+                    raise PipelineReferenceInputError(
+                        "replace_ignore_region cannot change the region ID"
+                    )
+                target = next(
+                    (
+                        current
+                        for current in current_regions
+                        if current.region_id == region.region_id
+                    ),
+                    None,
+                )
+                if target is None:
+                    raise PipelineReferenceInputError(
+                        f"ignore region was not found: {operation.region_id}"
+                    )
+                if (
+                    region.source_candidates
+                    and region.source_candidates != target.source_candidates
+                ):
+                    raise PipelineReferenceInputError(
+                        "replace_ignore_region cannot change source-candidate lineage"
+                    )
+                updated_regions = [
+                    replace(region, source_candidates=current.source_candidates)
+                    if current.region_id == region.region_id
+                    else current
+                    for current in current_regions
+                ]
+            else:
+                assert operation.candidate_ids is not None
+                if source_revision_id is None:
+                    raise PipelineReferenceInputError(
+                        "converting generated card candidates needs a source revision"
+                    )
+                if any(current.region_id == region.region_id for current in current_regions):
+                    raise PipelineReferenceInputError(
+                        f"ignore region already exists: {region.region_id}"
+                    )
+                candidates = self._candidates(existing)
+                candidate_by_id = {candidate["card_id"]: candidate for candidate in candidates}
+                missing = [
+                    candidate_id
+                    for candidate_id in operation.candidate_ids
+                    if candidate_id not in candidate_by_id
+                ]
+                if missing:
+                    raise PipelineReferenceInputError(
+                        "ignore-region conversion references missing candidates: "
+                        + ", ".join(missing)
+                    )
+                region = replace(
+                    region,
+                    source_candidates=tuple(
+                        VisibleCardIgnoreSourceCandidate(
+                            revision_id=source_revision_id,
+                            card_id=candidate_id,
+                        )
+                        for candidate_id in operation.candidate_ids
+                    ),
+                )
+                updated_regions = [*current_regions, region]
+
+        updated = dict(existing.item)
+        updated["ignored_regions"] = [region.to_mapping() for region in updated_regions]
+        if operation.operation == "convert_to_ignore_region":
+            assert operation.candidate_ids is not None
+            selected = set(operation.candidate_ids)
+            updated["candidates"] = [
+                candidate
+                for candidate in self._candidates(existing)
+                if candidate["card_id"] not in selected
+            ]
+        self.validate_item(updated, source_revision_id)
+        state = existing.review_state
+        if operation.operation == "convert_to_ignore_region" and not updated["candidates"]:
+            state = "accepted"
+        return (
+            items[:index]
+            + [self._replace(existing, review_state=state, item=updated)]
+            + items[index + 1 :]
+        )
+
+    @staticmethod
+    def _regions(item: ReferenceDraftItem) -> list[VisibleCardIgnoreRegion]:
+        raw_regions = item.item.get("ignored_regions")
+        if not isinstance(raw_regions, list):
+            raise PipelineReferenceInputError("visible-card ignored_regions must be a list")
+        try:
+            return [
+                VisibleCardIgnoreRegion.from_mapping(
+                    raw_region, f"item.{item.item_id}.ignored_regions[{index}]"
+                )
+                for index, raw_region in enumerate(raw_regions)
+            ]
+        except (PipelineDataError, TypeError, ValueError) as error:
+            raise PipelineReferenceInputError("visible-card ignored_regions are invalid") from error
+
+    @staticmethod
+    def _candidates(item: ReferenceDraftItem) -> list[dict[str, Any]]:
+        raw_candidates = item.item.get("candidates")
+        if not isinstance(raw_candidates, list):
+            raise PipelineReferenceInputError("visible-card candidates must be a list")
+        return [dict(candidate) for candidate in raw_candidates]
+
+    @staticmethod
+    def _validate_region_frame(region: VisibleCardIgnoreRegion, item: ReferenceDraftItem) -> None:
+        frame = item.item.get("frame_identity")
+        if not isinstance(frame, Mapping):
+            raise PipelineReferenceInputError("ignore regions need a resolved frame identity")
+        if region.normalization["width"] != frame.get("width") or region.normalization[
+            "height"
+        ] != frame.get("height"):
+            raise PipelineReferenceInputError(
+                "ignore-region normalization must match the resolved frame dimensions"
+            )
 
     def validate_coverage(
         self,
@@ -641,7 +872,10 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 [
                     {
                         "field": "coverage.frames",
-                        "message": "declare cards, empty, or unusable for every resolved frame",
+                        "message": (
+                            "declare cards, ignored, cards_and_ignored, empty, or unusable "
+                            "for every resolved frame"
+                        ),
                     }
                 ],
             )
@@ -658,11 +892,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                     }
                 )
                 continue
-            expected_decision = {
-                "detected": "cards",
-                "empty": "empty",
-                "failed": "unusable",
-            }.get(item.item.get("status"))
+            expected_decision = self._expected_coverage_decision(item.item)
             if expected_decision != entry["decision"] or not self._visible_coverage_state(
                 item.item, item.review_state
             ):
@@ -681,6 +911,23 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             "kind": "visible_frames",
             "frames": normalized_frames,
         }
+
+    @staticmethod
+    def _expected_coverage_decision(item: Mapping[str, Any]) -> str | None:
+        status = item.get("status")
+        if status == "empty":
+            return "empty"
+        if status == "failed":
+            return "unusable"
+        if status != "detected":
+            return None
+        has_candidates = bool(item.get("candidates"))
+        has_regions = bool(item.get("ignored_regions"))
+        if has_candidates and has_regions:
+            return "cards_and_ignored"
+        if has_regions:
+            return "ignored"
+        return "cards"
 
     def correction_impact(
         self,
@@ -745,9 +992,16 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                         f"coverage.frames[{index}].frame_identity is invalid"
                     ) from error
             decision = raw_frame["decision"]
-            if decision not in {"cards", "empty", "unusable"}:
+            if decision not in {
+                "cards",
+                "ignored",
+                "cards_and_ignored",
+                "empty",
+                "unusable",
+            }:
                 raise PipelineReferenceInputError(
-                    f"coverage.frames[{index}].decision must be cards, empty, or unusable"
+                    "coverage.frames[{}].decision must be cards, ignored, cards_and_ignored, "
+                    "empty, or unusable".format(index)
                 )
             entry = {"frame_identity": normalized_frame, "decision": decision}
             if "item_id" in raw_frame:

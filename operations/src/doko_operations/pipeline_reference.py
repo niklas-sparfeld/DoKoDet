@@ -45,6 +45,10 @@ PIPELINE_REFERENCE_OPERATIONS = frozenset(
         "restore_frame_suggestions",
         "set_frame_empty",
         "set_frame_unusable",
+        "create_ignore_region",
+        "replace_ignore_region",
+        "delete_ignore_region",
+        "convert_to_ignore_region",
         "accept_identity_suggestion",
         "set_identity_unreviewed",
         "set_identity_face_down",
@@ -452,6 +456,9 @@ class PipelineReferenceOperation:
     decision: str | None = None
     identity: str | None = None
     source_revision_id: str | None = None
+    region_id: str | None = None
+    region: dict[str, Any] | None = None
+    candidate_ids: tuple[str, ...] | None = None
 
     @classmethod
     def from_mapping(
@@ -485,6 +492,45 @@ class PipelineReferenceOperation:
             return cls(
                 operation=operation,
                 item_id=_identifier(data["item_id"], f"{context}.item_id"),
+            )
+        if operation == "create_ignore_region":
+            _strict(data, {"operation", "item_id", "region"}, context)
+            region = _mapping(data["region"], f"{context}.region")
+            _validate_json(region, f"{context}.region")
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                region=json.loads(canonical_json_bytes(region).decode("utf-8")),
+            )
+        if operation == "replace_ignore_region":
+            _strict(data, {"operation", "item_id", "region_id", "region"}, context)
+            region = _mapping(data["region"], f"{context}.region")
+            _validate_json(region, f"{context}.region")
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                region_id=_identifier(data["region_id"], f"{context}.region_id"),
+                region=json.loads(canonical_json_bytes(region).decode("utf-8")),
+            )
+        if operation == "delete_ignore_region":
+            _strict(data, {"operation", "item_id", "region_id"}, context)
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                region_id=_identifier(data["region_id"], f"{context}.region_id"),
+            )
+        if operation == "convert_to_ignore_region":
+            _strict(data, {"operation", "item_id", "candidate_ids", "region"}, context)
+            region = _mapping(data["region"], f"{context}.region")
+            _validate_json(region, f"{context}.region")
+            candidate_ids = _identifier_list(data["candidate_ids"], f"{context}.candidate_ids")
+            if not candidate_ids:
+                raise PipelineReferenceContractError(f"{context}.candidate_ids must not be empty")
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                region=json.loads(canonical_json_bytes(region).decode("utf-8")),
+                candidate_ids=candidate_ids,
             )
         if operation == "restore_frame_suggestions":
             _strict(data, {"operation", "item_id", "item"}, context)
@@ -558,6 +604,12 @@ class PipelineReferenceOperation:
             value["identity"] = self.identity
         if self.source_revision_id is not None:
             value["source_revision_id"] = self.source_revision_id
+        if self.region_id is not None:
+            value["region_id"] = self.region_id
+        if self.region is not None:
+            value["region"] = self.region
+        if self.candidate_ids is not None:
+            value["candidate_ids"] = list(self.candidate_ids)
         return value
 
 

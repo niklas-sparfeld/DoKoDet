@@ -18,7 +18,7 @@
 ## Milestone status
 
 - **M0:** Complete — define and publish the strict ignore-region contract and its boundaries.
-- **M1:** Not started — persist ignore-region review operations and complete references safely.
+- **M1:** Complete — persist ignore-region review operations and complete references safely.
 - **M2:** Not started — add the low-effort region workflow to the visible-card editor.
 - **M3:** Not started — project ignore regions into datasets and verify loss and metric behavior.
 
@@ -224,13 +224,17 @@ Acceptance:
 
 ### M1 — Add durable reference operations
 
-- Add atomic create, replace, and delete operations for ignore regions.
-- Add one atomic operation that consumes selected card candidates into one ignore region.
-- Preserve the generated source revision and record every consumed candidate reference.
-- Permit mixed and ignore-only reviewed frames without calling them empty or failed.
-- Require every generated candidate to have a resolved review disposition before completion.
-- Keep card-candidate downstream impact checks and exclude ignore regions from visual-identity
-  impact.
+- Complete — add atomic `create_ignore_region`, `replace_ignore_region`, and
+  `delete_ignore_region` operations.
+- Complete — add one atomic `convert_to_ignore_region` operation that consumes selected card
+  candidates into one region.
+- Complete — preserve the generated source revision and record every consumed candidate reference.
+- Complete — permit mixed and ignore-only reviewed frames without calling them empty or failed.
+  Coverage uses `cards`, `ignored`, or `cards_and_ignored` for detected frames.
+- Complete — require every generated candidate to have a resolved frame review disposition before
+  completion.
+- Complete — keep card-candidate downstream impact checks and exclude ignore-region operations from
+  visual-identity impact.
 
 Acceptance:
 

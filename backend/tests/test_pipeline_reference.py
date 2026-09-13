@@ -167,7 +167,13 @@ def _event_revision_variant(
     return manifest.revision_id
 
 
-def _vision_source_revision(revision_store: PipelineRevisionStore, content_type: str) -> str:
+def _vision_source_revision(
+    revision_store: PipelineRevisionStore,
+    content_type: str,
+    *,
+    visible_candidate_ids: tuple[str, ...] = ("card-01",),
+    revision_id: str | None = None,
+) -> str:
     frame = {
         "schema_version": "exact-event/v1",
         "source_video_sha256": DIGEST,
@@ -188,6 +194,20 @@ def _vision_source_revision(revision_store: PipelineRevisionStore, content_type:
         "box_2d": {"x_min": 1, "y_min": 1, "x_max": 50, "y_max": 50},
     }
     if content_type == "visible_cards":
+        candidates = [
+            {
+                "card_id": card_id,
+                "geometry": geometry,
+                "normalization": {
+                    "width": 64,
+                    "height": 64,
+                    "policy_id": "fixture.v1",
+                },
+                "side": "face_down",
+                "model_scores": [{"producer_id": "detector.v1", "score": 0.8}],
+            }
+            for card_id in visible_candidate_ids
+        ]
         content = {
             "schema_version": "visible-card-data/v1",
             "outcomes": [
@@ -195,19 +215,7 @@ def _vision_source_revision(revision_store: PipelineRevisionStore, content_type:
                     "event_id": "event-01",
                     "frame_identity": frame,
                     "status": "detected",
-                    "candidates": [
-                        {
-                            "card_id": "card-01",
-                            "geometry": geometry,
-                            "normalization": {
-                                "width": 64,
-                                "height": 64,
-                                "policy_id": "fixture.v1",
-                            },
-                            "side": "face_down",
-                            "model_scores": [{"producer_id": "detector.v1", "score": 0.8}],
-                        }
-                    ],
+                    "candidates": candidates,
                     "ignored_regions": [],
                     "error": None,
                 }
@@ -261,8 +269,9 @@ def _vision_source_revision(revision_store: PipelineRevisionStore, content_type:
         content_sha256 = sha256_bytes(canonical_visual_identity_data_bytes(content))
         content_bytes = canonical_visual_identity_data_bytes(content)
         schema = "visual-identity-data/v1"
+    published_revision_id = revision_id or f"generated-{content_type}-01"
     manifest = DataRevision(
-        revision_id=f"generated-{content_type}-01",
+        revision_id=published_revision_id,
         content_type=content_type,
         content_schema=schema,
         recording_id=SOURCE.recording_id,
@@ -271,7 +280,7 @@ def _vision_source_revision(revision_store: PipelineRevisionStore, content_type:
         input_revision_ids=(),
         origin="processor",
         producer=ProcessorProducer(
-            run_id=f"run-{content_type}-01",
+            run_id=f"run-{published_revision_id}",
             processor_type=content_type,
             implementation_id="fixture.v1",
             model_id="fixture-model.v1",
@@ -719,6 +728,336 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
         )
 
 
+def test_visible_card_ignore_region_operations_are_atomic_idempotent_and_durable(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(
+        revision_store,
+        "visible_cards",
+        visible_candidate_ids=("card-01", "card-02"),
+    )
+    service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    region = {
+        "region_id": "ignore-region-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 100, "y": 100},
+                    {"x": 700, "y": 100},
+                    {"x": 700, "y": 700},
+                    {"x": 100, "y": 700},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+
+    with pytest.raises(PipelineReferenceInputError, match="ignore region already exists"):
+        service.update_draft(
+            "recording-01",
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 0,
+                "operations": [
+                    {
+                        "operation": "convert_to_ignore_region",
+                        "item_id": "event-01",
+                        "candidate_ids": ["card-01"],
+                        "region": region,
+                    },
+                    {
+                        "operation": "create_ignore_region",
+                        "item_id": "event-01",
+                        "region": region,
+                    },
+                ],
+            },
+        )
+    unchanged = service.get_reference("recording-01", "visible_cards")
+    assert unchanged.draft.revision == 0
+    assert unchanged.draft.items[0].item["candidates"]
+    assert unchanged.draft.items[0].item["ignored_regions"] == []
+
+    converted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "command_id": "convert-card-01",
+            "operations": [
+                {
+                    "operation": "convert_to_ignore_region",
+                    "item_id": "event-01",
+                    "candidate_ids": ["card-01"],
+                    "region": region,
+                }
+            ],
+        },
+    )
+    outcome = converted.draft.items[0].item
+    assert converted.draft.revision == 1
+    assert [candidate["card_id"] for candidate in outcome["candidates"]] == ["card-02"]
+    assert outcome["ignored_regions"][0]["source_candidates"] == [
+        {"revision_id": source_revision_id, "card_id": "card-01"}
+    ]
+    assert converted.draft.impact == ()
+
+    replayed = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "command_id": "convert-card-01",
+            "operations": [
+                {
+                    "operation": "convert_to_ignore_region",
+                    "item_id": "event-01",
+                    "candidate_ids": ["card-01"],
+                    "region": region,
+                }
+            ],
+        },
+    )
+    assert replayed == converted
+
+    accepted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "operations": [{"operation": "accept_frame_suggestions", "item_id": "event-01"}],
+        },
+    )
+    completed = service.complete_reference(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 2,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": accepted.draft.items[0].item["frame_identity"],
+                        "decision": "cards_and_ignored",
+                    }
+                ],
+            },
+        },
+    )
+    revision_id = completed.state.selected_completed_revision_id
+    assert revision_id is not None
+    stored = revision_store.require(revision_id)
+    assert stored.content.outcomes[0].candidates[0].card_id == "card-02"
+    assert stored.content.outcomes[0].ignored_regions[0].source_candidates[0].revision_id == (
+        source_revision_id
+    )
+    restored = PipelineReferenceStore(tmp_path / "operations" / "pipeline-references").require(
+        "recording-01", "visible_cards"
+    )
+    assert restored.draft.items[0].item["ignored_regions"] == outcome["ignored_regions"]
+
+
+def test_visible_card_ignore_region_create_replace_delete_preserves_lineage_and_is_atomic(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    region = {
+        "region_id": "ignore-region-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 100, "y": 100},
+                    {"x": 300, "y": 100},
+                    {"x": 300, "y": 300},
+                    {"x": 100, "y": 300},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+    service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {"operation": "create_ignore_region", "item_id": "event-01", "region": region}
+            ],
+        },
+    )
+    replacement = {
+        **region,
+        "geometry": {
+            **region["geometry"],
+            "polygons": [
+                [
+                    {"x": 150, "y": 150},
+                    {"x": 350, "y": 150},
+                    {"x": 350, "y": 350},
+                    {"x": 150, "y": 350},
+                ]
+            ],
+        },
+    }
+    replaced = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "operations": [
+                {
+                    "operation": "replace_ignore_region",
+                    "item_id": "event-01",
+                    "region_id": "ignore-region-01",
+                    "region": replacement,
+                }
+            ],
+        },
+    )
+    assert replaced.draft.items[0].item["ignored_regions"][0]["geometry"] == replacement["geometry"]
+    assert replaced.draft.items[0].item["ignored_regions"][0]["source_candidates"] == []
+
+    with pytest.raises(PipelineReferenceInputError, match="region was not found"):
+        service.update_draft(
+            "recording-01",
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 2,
+                "operations": [
+                    {
+                        "operation": "delete_ignore_region",
+                        "item_id": "event-01",
+                        "region_id": "missing-region",
+                    }
+                ],
+            },
+        )
+    still_replaced = service.get_reference("recording-01", "visible_cards")
+    assert still_replaced.draft.revision == 2
+
+    deleted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 2,
+            "operations": [
+                {
+                    "operation": "delete_ignore_region",
+                    "item_id": "event-01",
+                    "region_id": "ignore-region-01",
+                }
+            ],
+        },
+    )
+    assert deleted.draft.items[0].item["ignored_regions"] == []
+
+
+def test_visible_card_ignore_only_coverage_and_rebase_preserve_region(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    first_revision = _vision_source_revision(revision_store, "visible_cards")
+    second_revision = _vision_source_revision(
+        revision_store, "visible_cards", revision_id="generated-visible_cards-02"
+    )
+    service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": first_revision},
+    )
+    region = {
+        "region_id": "ignore-region-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 100, "y": 100},
+                    {"x": 700, "y": 100},
+                    {"x": 700, "y": 700},
+                    {"x": 100, "y": 700},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+    converted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {
+                    "operation": "convert_to_ignore_region",
+                    "item_id": "event-01",
+                    "candidate_ids": ["card-01"],
+                    "region": region,
+                }
+            ],
+        },
+    )
+    rebased = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "source_revision_id": second_revision,
+            "operations": [],
+        },
+    )
+    assert rebased.draft.source_revision_id == second_revision
+    assert rebased.draft.items[0].item["candidates"] == []
+    assert rebased.draft.items[0].item["ignored_regions"][0]["source_candidates"] == [
+        {"revision_id": first_revision, "card_id": "card-01"}
+    ]
+
+    completed = service.complete_reference(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 2,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": converted.draft.items[0].item["frame_identity"],
+                        "decision": "ignored",
+                    }
+                ],
+            },
+        },
+    )
+    assert completed.draft.items[0].item["ignored_regions"]
+
+
 def test_identity_commands_preserve_geometry_and_support_manual_labels(
     tmp_path: Path,
 ) -> None:
@@ -906,19 +1245,19 @@ def test_completed_identity_reference_repairs_visible_face_down_as_new_revision(
     assert repaired.draft.items[0].review_state == "face_down"
     assert repaired.draft.items[0].item["status"] == "face_down"
     assert repaired.draft.coverage is not None
-    assert repaired.draft.coverage["cards"] == [
-        {"card_id": "card-01", "decision": "face_down"}
-    ]
+    assert repaired.draft.coverage["cards"] == [{"card_id": "card-01", "decision": "face_down"}]
     assert revision_store.require(old_revision_id).content.outcomes[0].status == "unusable"
     assert revision_store.require(new_revision_id).content.outcomes[0].status == "face_down"
     assert (
-        service.selection_store.get(SOURCE.recording_id, "visual_identities")
-        .selected_completed_reference_revision_id
+        service.selection_store.get(
+            SOURCE.recording_id, "visual_identities"
+        ).selected_completed_reference_revision_id
         == new_revision_id
     )
     assert (
-        service.get_reference(SOURCE.recording_id, "visual_identities")
-        .state.selected_completed_revision_id
+        service.get_reference(
+            SOURCE.recording_id, "visual_identities"
+        ).state.selected_completed_revision_id
         == new_revision_id
     )
 
