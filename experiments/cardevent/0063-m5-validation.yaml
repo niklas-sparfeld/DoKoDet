@@ -1,6 +1,6 @@
 schema_version: model-improvement-recipe/v1
 recipe_id: cardeventnet-0063-m5-validation
-recipe_version: 1
+recipe_version: 2
 component: card-event-net
 capability: event-detection
 task: cardevent_event_detection
@@ -26,13 +26,16 @@ data:
     digest: 614c19df991bb4219186430f106ed7b536b1102c3f6863dcd7ab7faa8e3ffd0f
 
 experiment_axes:
-  - current-full-frame-training
+  - transition-label-full-clip-v2
 candidates:
-  - candidate_id: candidate-full-frame-v1
-    experiment_family: current-full-frame-training
+  - candidate_id: candidate-transition-label-v2
+    experiment_family: transition-label-full-clip-v2
     configuration:
-      config_path: card_event_net/configs/base.yaml
-      device: cpu
+      # This is the configuration that produced the Core ML transition model.
+      # Keep its short target window so distinct state changes can re-arm the
+      # causal decoder between peaks.
+      config_path: card_event_net/configs/transition-label-v2.yaml
+      device: mps
       precision: fp32
       seed: 42
       decoder_settings:
@@ -45,10 +48,10 @@ seeds:
 repeat_policy: single
 budget:
   max_candidates: 1
-  max_compute_minutes: 60
+  max_compute_minutes: 120
   max_failures: 1
 execution:
-  device: cpu
+  device: mps
   precision: fp32
 selection_metrics:
   - metric: event_f1

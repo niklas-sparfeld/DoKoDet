@@ -26,15 +26,20 @@ def test_epic_0063_m5_recipe_is_bounded_and_targets_frozen_validation_data() -> 
     )
     assert len(recipe.candidates) == recipe.budget.max_candidates == 1
     assert recipe.seeds == (42,)
-    assert recipe.budget.max_compute_minutes == 60
+    assert recipe.budget.max_compute_minutes == 120
     assert recipe.budget.max_failures == 1
-    assert recipe.execution.device == "cpu"
+    assert recipe.execution.device == "mps"
     assert recipe.execution.precision == "fp32"
     assert recipe.export_compatibility == "runtime/v1"
     assert recipe.candidates[0].configuration["decoder_settings"] == {
         "peak_confirmation_s": 0.125,
         "min_event_gap_s": 0.625,
     }
+    assert recipe.candidates[0].candidate_id == "candidate-transition-label-v2"
+    assert recipe.candidates[0].configuration["config_path"] == (
+        "card_event_net/configs/transition-label-v2.yaml"
+    )
+    assert recipe.candidates[0].configuration["device"] == "mps"
     assert recipe.sealed_test_authorized is True
 
 
