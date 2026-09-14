@@ -576,7 +576,15 @@ def _diagnose_command(
 
 
 def _prepare_command(project_root: Path, dataset_view: Path) -> tuple[str, ...]:
-    return (*_command_prefix(project_root), "prepare", "--dataset-view", str(dataset_view))
+    return (
+        *_command_prefix(project_root),
+        "prepare",
+        "--dataset-view",
+        str(dataset_view),
+        "--partition",
+        "train",
+        "val",
+    )
 
 
 def _metrics_from_evaluation(payload: Mapping[str, object], checkpoint: Path) -> dict[str, object]:
@@ -598,17 +606,28 @@ def _metrics_from_evaluation(payload: Mapping[str, object], checkpoint: Path) ->
         if destination not in metrics and source in overall:
             metrics[destination] = overall[source]
     videos = payload.get("videos", [])
-    video_f1 = (
-        [
-            float(item["event_f1"])
-            for item in videos
-            if isinstance(item, Mapping) and isinstance(item.get("event_f1"), (int, float))
-        ]
-        if isinstance(videos, list)
-        else []
+    video_metrics = (
+        [item for item in videos if isinstance(item, Mapping)] if isinstance(videos, list) else []
     )
+    video_f1 = [
+        float(item["event_f1"])
+        for item in video_metrics
+        if isinstance(item.get("event_f1"), (int, float))
+    ]
+    video_recall = [
+        float(item["event_recall"])
+        for item in video_metrics
+        if isinstance(item.get("event_recall"), (int, float))
+    ]
+    video_precision = [
+        float(item["event_precision"])
+        for item in video_metrics
+        if isinstance(item.get("event_precision"), (int, float))
+    ]
     metrics.setdefault("worst_video_f1", min(video_f1, default=0.0))
     metrics.setdefault("worst_video_support", len(video_f1))
+    metrics.setdefault("worst_video_recall", min(video_recall, default=0.0))
+    metrics.setdefault("worst_video_precision", min(video_precision, default=0.0))
     metrics.setdefault("important_scenario_group_f1", 0.0)
     metrics.setdefault("important_scenario_group_support", 0)
     metrics.setdefault("reviewed_hard_negative_false_positive_rate", 0.0)
@@ -770,6 +789,18 @@ def _run_checked(
     return result
 
 
+def _training_checkpoint(result: CommandResult, expected: Path) -> Path:
+    """Find the checkpoint reported after CardEventNet handles a run-name collision."""
+    if expected.is_file():
+        return expected
+    prefix = "Best checkpoint:"
+    for line in result.stdout.splitlines():
+        if line.startswith(prefix):
+            reported = Path(line.removeprefix(prefix).strip())
+            return reported if reported.is_absolute() else expected.parent / reported
+    return expected
+
+
 def _load_profile(recipe: ModelRecipe):
     profile = default_gate_profile(recipe.component)
     if profile.gate_profile_id != recipe.gate_profile_id:
@@ -847,7 +878,19 @@ def _candidate_lock(
 def render_card_event_campaign_report(
     campaign: ModelCampaign, comparison: ModelComparison, *, recipe: ModelRecipe
 ) -> str:
-    """Render the M1 report from the resolved recipe and comparison artifacts."""
+    """Render the bounded validation report from the resolved recipe and comparison artifacts."""
+    evaluations = (comparison.champion, *comparison.candidates)
+
+    def _metric(evaluation: ModelEvaluation, key: str) -> str:
+        value = evaluation.metrics.get(key)
+        if value is None:
+            return "—"
+        if isinstance(value, bool):
+            return "yes" if value else "no"
+        if isinstance(value, (int, float)):
+            return f"{value:.3f}"
+        return str(value)
+
     lines = [
         "# CardEventNet campaign report",
         "",
@@ -860,7 +903,7 @@ def render_card_event_campaign_report(
         "## Commands",
         "",
         "The campaign evaluates the champion and every candidate on the same validation split. "
-        "No test command is part of M1.",
+        "No test command is part of M5.",
         "",
         "The exact commands and exit codes are recorded in `logs/commands.json`; complete output "
         "is kept beside each command log.",
@@ -870,10 +913,46 @@ def render_card_event_campaign_report(
         "| Candidate | State | Checkpoint | Result |",
         "| --- | --- | --- | --- |",
     ]
+    if comparison.champion.failure_reason is not None:
+        lines.extend(
+            [
+                "Champion evaluation status:",
+                f"- `{comparison.champion.state}` — {comparison.champion.failure_reason}",
+                "",
+            ]
+        )
     for run in campaign.candidate_runs:
         lines.append(
             f"| `{run.candidate_id}` | `{run.state}` | "
             f"`{run.checkpoint_id or 'none'}` | `{run.result_digest or 'none'}` |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Validation metrics",
+            "",
+            "| Run | State | Recall | Precision | F1 | Worst-recording recall | "
+            "Worst-recording precision | Worst-recording F1 | False events/hour | "
+            "Timing delay (ms) | Causal delay (ms) | Hard-negative FP rate |",
+            "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for evaluation in evaluations:
+        label = (
+            "champion" if evaluation.role == "champion" else evaluation.candidate_id or "candidate"
+        )
+        lines.append(
+            f"| `{label}` | `{evaluation.state}` | "
+            f"{_metric(evaluation, 'event_recall')} | "
+            f"{_metric(evaluation, 'event_precision')} | "
+            f"{_metric(evaluation, 'event_f1')} | "
+            f"{_metric(evaluation, 'worst_video_recall')} | "
+            f"{_metric(evaluation, 'worst_video_precision')} | "
+            f"{_metric(evaluation, 'worst_video_f1')} | "
+            f"{_metric(evaluation, 'false_events_per_hour')} | "
+            f"{_metric(evaluation, 'timestamp_confirmation_delay_ms')} | "
+            f"{_metric(evaluation, 'causal_confirmation_delay_ms')} | "
+            f"{_metric(evaluation, 'reviewed_hard_negative_false_positive_rate')} |"
         )
     lines.extend(["", "## Validation comparison", "", render_comparison_report(comparison), ""])
     return "\n".join(lines)
@@ -1077,14 +1156,35 @@ def run_card_event_campaign(
                 },
             )
         except (CardEventCampaignError, OSError, ModelImprovementError) as error:
-            campaign = _update(
-                campaign,
-                state="failed",
-                timestamp=timestamp,
-                failure_reason=f"champion evaluation failed: {error}",
+            reason = f"champion evaluation failed: {error}"
+            champion_payload = {
+                "evaluation_id": f"evaluation-{selected_id}-champion",
+                "role": "champion",
+                "candidate_id": None,
+                "run_id": f"run-{selected_id}-champion",
+                "bundle": champion.champion_bundle.to_mapping(),
+                "state": "skipped",
+                "data": recipe.data.to_mapping(),
+                "metrics": {},
+                "gates": [],
+                "failure_reason": reason,
+            }
+            champion_evaluation = ModelEvaluation.from_mapping(champion_payload)
+            _write_json(champion_evaluation_file, champion_payload)
+            _write_json(
+                campaign_dir / "champion-run.json",
+                {
+                    "run_id": f"run-{selected_id}-champion",
+                    "recipe_digest": recipe.digest,
+                    "data": recipe.data.to_mapping(),
+                    "data_identity": data_identity,
+                    "validation_partition": "val",
+                    "state": "skipped",
+                    "failure_reason": reason,
+                },
             )
+            campaign = _update(campaign, state="running", timestamp=timestamp)
             _write_campaign(campaign_file, campaign)
-            raise
 
     evaluations: dict[str, ModelEvaluation] = {}
     evaluation_payloads: dict[str, Mapping[str, object]] = {}
@@ -1142,6 +1242,7 @@ def run_card_event_campaign(
                 }
             )
             _write_json(evaluation_file, evaluation.to_mapping())
+            _write_json(candidate_dir / "run-reference.json", run.to_mapping())
             evaluations[candidate.candidate_id] = evaluation
             campaign = _update(
                 campaign,
@@ -1156,18 +1257,6 @@ def run_card_event_campaign(
         candidate_dir.mkdir(parents=True, exist_ok=True)
         hard_negative_manifest: Path | None = None
         try:
-            _write_json(
-                run_dir / "model-improvement.json",
-                {
-                    "campaign_id": selected_id,
-                    "candidate_id": candidate.candidate_id,
-                    "experiment_family": candidate.experiment_family,
-                    "recipe_digest": recipe.digest,
-                    "data": recipe.data.to_mapping(),
-                    "data_identity": data_identity,
-                    "seed": _seed_from_configuration(configuration, recipe.seeds[0]),
-                },
-            )
             for shared_key, shared_path in (
                 ("split_path", default_split),
                 ("cache_dir", default_cache),
@@ -1245,16 +1334,28 @@ def run_card_event_campaign(
                 precision=precision,
                 seed=_seed_from_configuration(configuration, recipe.seeds[0]),
             )
-            _run_checked(
+            train_result = _run_checked(
                 command_runner,
                 train_command,
                 root=root,
                 log_path=candidate_dir / "train.log",
                 manifest_path=command_manifest,
             )
-            checkpoint = run_dir / "best.pt"
+            checkpoint = _training_checkpoint(train_result, run_dir / "best.pt")
             if not checkpoint.is_file():
                 raise CardEventCampaignError(f"training did not write checkpoint {checkpoint}")
+            _write_json(
+                checkpoint.parent / "model-improvement.json",
+                {
+                    "campaign_id": selected_id,
+                    "candidate_id": candidate.candidate_id,
+                    "experiment_family": candidate.experiment_family,
+                    "recipe_digest": recipe.digest,
+                    "data": recipe.data.to_mapping(),
+                    "data_identity": data_identity,
+                    "seed": _seed_from_configuration(configuration, recipe.seeds[0]),
+                },
+            )
             selected_split = _path_from_configuration(
                 configuration, "split_path", default_split, root
             )
@@ -1349,6 +1450,7 @@ def run_card_event_campaign(
                 }
             )
             _write_json(evaluation_file, evaluation.to_mapping())
+            _write_json(candidate_dir / "run-reference.json", run.to_mapping())
             evaluations[candidate.candidate_id] = evaluation
             evaluation_payloads[candidate.candidate_id] = raw
         except (CardEventCampaignError, OSError, ModelImprovementError) as error:
@@ -1373,6 +1475,7 @@ def run_card_event_campaign(
                 }
             )
             _write_json(evaluation_file, evaluation.to_mapping())
+            _write_json(candidate_dir / "run-reference.json", run.to_mapping())
             evaluations[candidate.candidate_id] = evaluation
         campaign = _update(
             campaign,
@@ -1404,6 +1507,15 @@ def run_card_event_campaign(
         profile=profile,
         generated_at_utc=timestamp,
     )
+    if (
+        comparison.champion.state != "success"
+        and comparison.recommendation != "human_review_required"
+    ):
+        comparison = replace(
+            comparison,
+            recommendation="human_review_required",
+            recommended_candidate_id=None,
+        )
     comparison_file = campaign_dir / "comparison.json"
     _write_json(comparison_file, comparison.to_mapping())
     recommendation_state = {

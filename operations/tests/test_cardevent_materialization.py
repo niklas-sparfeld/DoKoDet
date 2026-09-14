@@ -155,6 +155,20 @@ def test_materialization_rebuild_is_deterministic_and_loadable(tmp_path: Path) -
     )
 
 
+def test_materialization_rebuild_preserves_disposable_cache(tmp_path: Path) -> None:
+    dataset_dir = _write_frozen_dataset(tmp_path)
+    first = materialize_cardeventnet_dataset(dataset_dir, repository_root=tmp_path)
+    marker = first.view_root / "cache" / "recording-train" / "marker.txt"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("cache retained\n", encoding="utf-8")
+
+    second = materialize_cardeventnet_dataset(dataset_dir, repository_root=tmp_path)
+
+    assert (second.view_root / "cache" / "recording-train" / "marker.txt").read_text(
+        encoding="utf-8"
+    ) == "cache retained\n"
+
+
 def test_materialization_replaces_changed_derived_files(tmp_path: Path) -> None:
     dataset_dir = _write_frozen_dataset(tmp_path)
     result = materialize_cardeventnet_dataset(dataset_dir, repository_root=tmp_path)

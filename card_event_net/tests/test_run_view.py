@@ -76,6 +76,7 @@ def test_materialized_run_view_validates_manifest_and_exposes_identity(tmp_path:
     identity = view.data_identity(preprocessing="full_frame_letterbox_v1")
 
     assert view.video_paths() == (tmp_path / "videos" / "recording.mov",)
+    assert view.video_paths(("train",)) == (tmp_path / "videos" / "recording.mov",)
     assert identity["dataset"]["id"] == "dataset-fixture"
     assert identity["materializer"]["version"] == "cardeventnet-materializer/v1"
     assert identity["preprocessing"] == "full_frame_letterbox_v1"

@@ -73,6 +73,40 @@ def test_extract_video_cache_writes_full_frames_and_timestamps(tmp_path: Path) -
     assert [current for current, _ in progress] == list(range(7))
 
 
+def test_extract_video_cache_keeps_logical_name_for_symlinked_video(tmp_path: Path) -> None:
+    source_path = tmp_path / "video-recording.mov"
+    video_path = tmp_path / "recording.mov"
+    annotation_dir = tmp_path / "annotations"
+    annotation_dir.mkdir()
+
+    writer = cv2.VideoWriter(
+        str(source_path),
+        cv2.VideoWriter_fourcc(*"MJPG"),
+        10.0,
+        (32, 32),
+    )
+    if not writer.isOpened():
+        pytest.skip("OpenCV cannot create a test video with MJPG in this environment.")
+    writer.write(np.zeros((32, 32, 3), dtype=np.uint8))
+    writer.release()
+    video_path.symlink_to(source_path)
+    (annotation_dir / "recording.json").write_text(
+        json.dumps(
+            {"schema_version": "cardevent-annotation/v2", "video": "recording.mov", "events": []}
+        ),
+        encoding="utf-8",
+    )
+
+    cache_dir = extract_video_cache(
+        video_path,
+        annotations_dir=annotation_dir,
+        cache_root=tmp_path / "cache",
+        size=32,
+    )
+
+    assert load_cache_metadata(cache_dir).source_video == "recording.mov"
+
+
 def test_cache_is_usable_requires_matching_complete_cache(tmp_path: Path) -> None:
     cache_dir = tmp_path / "cache" / "sample"
     frames_dir = cache_dir / "frames"

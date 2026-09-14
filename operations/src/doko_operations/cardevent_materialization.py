@@ -254,6 +254,10 @@ def materialize_cardeventnet_dataset(
         }
         manifest_file = staging / "materialization.json"
         manifest_file.write_bytes(_json_bytes(manifest))
+        existing_cache = destination / "cache"
+        if existing_cache.is_dir() and not existing_cache.is_symlink():
+            shutil.rmtree(staging / "cache")
+            os.replace(existing_cache, staging / "cache")
         if destination.exists() or destination.is_symlink():
             _remove_destination(destination)
         os.replace(staging, destination)

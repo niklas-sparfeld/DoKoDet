@@ -248,6 +248,24 @@ prepare/train/evaluate/diagnose and hard-negative mining. It records the dataset
 event-reference, materializer, preprocessing, code, and environment identity in campaign run
 artifacts. It does not use `card_event_net/data` as an implicit campaign input.
 
+## Epic 0063 M5 validation campaign
+
+The checked-in M5 recipe runs one bounded CPU/FP32 candidate against the current champion on the
+frozen validation partition:
+
+```bash
+mise exec -- uv run --project operations doko model improve card-event-net \
+  --repository-root . \
+  --recipe experiments/cardevent/0063-m5-validation.yaml \
+  --device cpu \
+  --precision fp32
+```
+
+The runner prepares only `train` and `val` caches for campaign selection. It never evaluates the
+sealed `test` partition or the system holdout. Repeat the same command to resume completed work.
+The campaign retains the resolved recipe, command logs, champion and candidate evaluations,
+diagnostics, comparison, and candidate run references below `data/model-campaigns/`.
+
 M5 adds a read-only composed evaluation on the plan 0027 system holdout. Both component campaigns
 must have a candidate lock. Pass the frozen dataset and split manifests for each component:
 

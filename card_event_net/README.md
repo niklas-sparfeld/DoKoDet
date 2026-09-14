@@ -40,6 +40,15 @@ under `.runtime/cardevent/datasets/<dataset-version-id>/`; it is derived input, 
 annotation authority. Training checkpoints and evaluation reports retain the view's dataset,
 split, source, event-reference, materializer, preprocessing, code, and environment identity.
 
+When a campaign prepares a frozen view, it selects only the development partitions:
+
+```bash
+uv run cardevent prepare --dataset-view <view> --partition train val
+```
+
+Preparing `test` is a separate explicit action. The M5 campaign does not prepare or evaluate that
+partition.
+
 The checked-in Core ML model and the iOS probe still use the legacy ROI contract. Do not combine
 them with a new full-frame checkpoint. [Plan 0013](../docs/plans/5-closed/0013-CardEventNet_FullFrameInput.md)
 tracks the remaining retraining and iOS migration.

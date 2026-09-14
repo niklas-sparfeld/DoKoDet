@@ -5,7 +5,7 @@ import math
 import shutil
 import tempfile
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -195,7 +195,11 @@ def extract_video_cache(
         raise CacheError("cache size must be positive.")
 
     metadata = read_video_metadata(video_path)
-    annotation_path = annotation_path_for_video(metadata.path, annotations_dir=annotations_dir)
+    # Keep the caller's logical name for annotations and cache metadata. A
+    # materialized run view links a stable recording name to the source video;
+    # read_video_metadata resolves that link for the decoder.
+    metadata = replace(metadata, path=Path(video_path).expanduser())
+    annotation_path = annotation_path_for_video(video_path, annotations_dir=annotations_dir)
     if not annotation_path.is_file():
         raise AnnotationError(
             f"No annotation exists for {metadata.path.name}: {annotation_path}. "

@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .splits import load_split
+
 MATERIALIZATION_SCHEMA_VERSION = "cardeventnet-materialization/v1"
 
 
@@ -51,12 +53,18 @@ class MaterializedRunView:
     def manifest_digest(self) -> str:
         return str(self.manifest["manifest_digest"])
 
-    def video_paths(self) -> tuple[Path, ...]:
+    def video_paths(self, partitions: tuple[str, ...] | None = None) -> tuple[Path, ...]:
+        selected_names: set[str] | None = None
+        if partitions is not None:
+            split = load_split(self.split_path)
+            selected_names = {name for partition in partitions for name in split.names(partition)}
         return tuple(
             sorted(
                 path
                 for path in self.videos_dir.iterdir()
-                if path.is_file() and path.suffix.lower() in {".mov", ".m4v", ".mp4"}
+                if path.is_file()
+                and path.suffix.lower() in {".mov", ".m4v", ".mp4"}
+                and (selected_names is None or path.stem in selected_names)
             )
         )
 

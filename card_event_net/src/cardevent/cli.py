@@ -255,6 +255,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Rebuild caches even when a matching complete cache exists.",
     )
+    prepare_parser.add_argument(
+        "--partition",
+        nargs="+",
+        choices=("train", "val", "test"),
+        default=None,
+        help="Partitions to prepare for a dataset view (default: all).",
+    )
     prepare_parser.set_defaults(command_name="prepare")
 
     split_parser = subparsers.add_parser(
@@ -863,7 +870,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if command_name == "prepare":
         if args.dataset_view is not None:
             view = _load_run_view_or_exit(parser, args.dataset_view)
-            videos = view.video_paths()
+            videos = view.video_paths(None if args.partition is None else tuple(args.partition))
             annotations_dir = view.annotations_dir
             cache_dir = view.cache_dir
         else:
