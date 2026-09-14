@@ -666,6 +666,8 @@ export function PipelineVisibleCardEditor({
         const existingRegion = frame.outcome.ignored_regions.find(
           (region) => region.region_id === currentEditor.regionId,
         );
+        const hasExistingRegion =
+          existingRegion !== undefined || currentEditor.ignoreRegion !== null;
         const region = currentEditor.ignoreRegion ?? existingRegion;
         const nextRegion = {
           ...(region ?? newIgnoreRegion(frame, currentEditor.regionId)),
@@ -680,31 +682,32 @@ export function PipelineVisibleCardEditor({
           },
         };
         const operation: PipelineReferenceOperation = {
-          operation:
-            existingRegion === undefined
-              ? "create_ignore_region"
-              : "replace_ignore_region",
+          operation: !hasExistingRegion
+            ? "create_ignore_region"
+            : "replace_ignore_region",
           item_id: frame.itemId,
-          region_id:
-            existingRegion === undefined ? undefined : currentEditor.regionId,
+          region_id: !hasExistingRegion ? undefined : currentEditor.regionId,
           region: ignoreRegionMapping(nextRegion),
         };
         enqueue(
           operation,
-          existingRegion === undefined
+          !hasExistingRegion
             ? "Ignore region created."
             : "Ignore-region geometry saved.",
           (current) =>
             current.map((candidate) => {
               if (candidate.itemId !== frame.itemId) return candidate;
-              const ignoredRegions =
-                existingRegion === undefined
-                  ? [...candidate.outcome.ignored_regions, nextRegion]
-                  : candidate.outcome.ignored_regions.map((currentRegion) =>
-                      currentRegion.region_id === nextRegion.region_id
-                        ? nextRegion
-                        : currentRegion,
-                    );
+              const containsRegion = candidate.outcome.ignored_regions.some(
+                (currentRegion) =>
+                  currentRegion.region_id === nextRegion.region_id,
+              );
+              const ignoredRegions = containsRegion
+                ? candidate.outcome.ignored_regions.map((currentRegion) =>
+                    currentRegion.region_id === nextRegion.region_id
+                      ? nextRegion
+                      : currentRegion,
+                  )
+                : [...candidate.outcome.ignored_regions, nextRegion];
               return {
                 ...candidate,
                 outcome: {
@@ -715,6 +718,11 @@ export function PipelineVisibleCardEditor({
                 },
               };
             }),
+        );
+        setEditor((current) =>
+          current?.regionId === nextRegion.region_id
+            ? { ...current, ignoreRegion: nextRegion }
+            : current,
         );
         if (closeEditor) setEditor(null);
         setEditorError(null);
@@ -941,7 +949,10 @@ export function PipelineVisibleCardEditor({
         polygons[current.polygonIndex] = [...polygon, point];
         return { ...current, polygons };
       });
-      if (completed)
+      if (
+        completed ||
+        (currentEditor.regionId !== null && activePolygon.length >= 3)
+      )
         window.setTimeout(
           () =>
             void saveEditorRef.current?.(

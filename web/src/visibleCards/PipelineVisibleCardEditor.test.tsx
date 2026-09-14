@@ -1042,6 +1042,91 @@ describe("PipelineVisibleCardEditor", () => {
     });
   });
 
+  it("saves points added after an ignore region reaches three points", async () => {
+    let putCount = 0;
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        putCount += 1;
+        return Promise.resolve(jsonResponse(referenceWithIgnoreRegion()));
+      }
+      return Promise.resolve(jsonResponse(reference()));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await screen.findByAltText("Selected visible-card source frame");
+    await user.click(
+      screen.getByRole("button", { name: "Draw ignore region" }),
+    );
+    const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10 });
+    fireEvent.pointerDown(canvas, { clientX: 80, clientY: 10 });
+    fireEvent.pointerDown(canvas, { clientX: 80, clientY: 80 });
+    await waitFor(() => expect(putCount).toBe(1));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Ignore region created.",
+      ),
+    );
+    const createBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        )[0]?.[1]?.body,
+      ),
+    );
+
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 80 });
+    await waitFor(() => expect(putCount).toBe(2));
+
+    const replaceBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        )[1]?.[1]?.body,
+      ),
+    );
+    expect(replaceBody.operations[0]).toMatchObject({
+      operation: "replace_ignore_region",
+      item_id: ITEM_ID,
+      region_id: createBody.operations[0].region.region_id,
+      region: {
+        geometry: {
+          polygons: [
+            [
+              { x: 100, y: 100 },
+              { x: 800, y: 100 },
+              { x: 800, y: 800 },
+              { x: 100, y: 800 },
+            ],
+          ],
+        },
+      },
+    });
+  });
+
   it("adds a second polygon and saves its completed points", async () => {
     const responses = [reference(), reference("corrected")];
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
