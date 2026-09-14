@@ -178,6 +178,7 @@ def _vision_source_revision(
     *,
     visible_candidate_ids: tuple[str, ...] = ("card-01",),
     revision_id: str | None = None,
+    identity_status: str = "classified",
 ) -> str:
     frame = {
         "schema_version": "exact-event/v1",
@@ -244,6 +245,18 @@ def _vision_source_revision(
             "image_sha256": DIGEST,
             "unusable_reason": None,
         }
+        identity_candidates = (
+            []
+            if identity_status == "face_down"
+            else [
+                {
+                    "identity": "CLUBS_NINE",
+                    "score": 0.8,
+                    "score_meaning": "probability",
+                    "producer_id": "identity.v1",
+                }
+            ]
+        )
         content = {
             "schema_version": "visual-identity-data/v1",
             "outcomes": [
@@ -257,15 +270,8 @@ def _vision_source_revision(
                         "implementation": {"name": "fixture", "version": "v1"},
                         "model": {"name": "fixture-model", "version": "v1"},
                     },
-                    "status": "classified",
-                    "candidates": [
-                        {
-                            "identity": "CLUBS_NINE",
-                            "score": 0.8,
-                            "score_meaning": "probability",
-                            "producer_id": "identity.v1",
-                        }
-                    ],
+                    "status": identity_status,
+                    "candidates": identity_candidates,
                     "unusable_reason": None,
                     "error": None,
                 }
@@ -1474,6 +1480,36 @@ def test_completed_identity_reference_repairs_visible_face_down_as_new_revision(
         ).state.selected_completed_revision_id
         == new_revision_id
     )
+
+
+def test_face_down_identity_suggestion_can_be_accepted(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    identity_revision_id = _vision_source_revision(
+        revision_store, "visual_identities", identity_status="face_down"
+    )
+
+    service.create_reference(
+        SOURCE.recording_id,
+        "visual_identities",
+        {"operator_id": "operator-01", "source_revision_id": identity_revision_id},
+    )
+
+    accepted = service.update_draft(
+        SOURCE.recording_id,
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "accept_identity_suggestion", "item_id": "card-01"}],
+        },
+    )
+
+    item = accepted.draft.items[0]
+    assert item.review_state == "accepted"
+    assert item.item["status"] == "face_down"
+    assert item.item["candidates"] == []
 
 
 def test_identity_status_batch_skips_full_draft_revalidation(

@@ -67,7 +67,9 @@ export function IdentityReviewControls({
   const canAccept =
     editable &&
     item !== null &&
-    (reviewStatus === "accepted" || item.outcome.candidates.length > 0);
+    (reviewStatus === "accepted" ||
+      item.outcome.candidates.length > 0 ||
+      item.outcome.status === "face_down");
   const canMark =
     editable && item !== null && item.outcome.crop_identity !== null;
   const timelineSeekingSlot = useTimelineRailSeekingSlot();

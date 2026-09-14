@@ -455,7 +455,11 @@ export function PipelineVisualIdentityEditor({
 
   const acceptSuggestion = useCallback(
     (item: EditableIdentity) => {
-      if (item.outcome.candidates.length === 0) return;
+      if (
+        item.outcome.candidates.length === 0 &&
+        item.outcome.status !== "face_down"
+      )
+        return;
       applyReviewState(
         item,
         { operation: "accept_identity_suggestion", item_id: item.itemId },

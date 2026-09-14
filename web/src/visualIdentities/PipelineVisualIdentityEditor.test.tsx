@@ -52,6 +52,7 @@ function outcome(
   cardId = CARD_ID,
   requestedTimeUs = FRAME.requested_time_us,
   cropIdentity: typeof CROP | null = CROP,
+  status: "classified" | "face_down" = "classified",
 ) {
   const frame = {
     ...FRAME,
@@ -69,8 +70,8 @@ function outcome(
       implementation: { name: "fixture", version: "v1" },
       model: { name: "fixture-model", version: "v1" },
     },
-    status: "classified",
-    candidates,
+    status,
+    candidates: status === "face_down" ? [] : candidates,
     unusable_reason: null,
     error: null,
   };
@@ -116,6 +117,7 @@ function reference(
   }> = [],
   revision = reviewState === "pending" ? 0 : 1,
   sourceRevisionId: string | null = REVISION_ID,
+  outcomeStatus: "classified" | "face_down" = "classified",
 ) {
   const itemSpecs = [{ cardId: CARD_ID, reviewState }, ...additionalItems];
   const items = itemSpecs.map((spec) => {
@@ -141,7 +143,13 @@ function reference(
                 candidates: [],
                 error: "Reviewed source problem.",
               }
-            : outcome(undefined, spec.cardId, spec.requestedTimeUs);
+            : outcome(
+                undefined,
+                spec.cardId,
+                spec.requestedTimeUs,
+                CROP,
+                outcomeStatus,
+              );
     return {
       item_id: spec.cardId,
       base_item_id: null,
@@ -521,6 +529,51 @@ describe("PipelineVisualIdentityEditor", () => {
         stroke: expect.objectContaining({ value: "#ff7d72" }),
       }),
     });
+  });
+
+  it("accepts a face-down identity suggestion", async () => {
+    const putBodies: Record<string, unknown>[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        putBodies.push(JSON.parse(String(init.body)));
+        return Promise.resolve(
+          jsonResponse(reference("accepted", [], 1, REVISION_ID, "face_down")),
+        );
+      }
+      return Promise.resolve(
+        jsonResponse(reference("pending", [], 0, REVISION_ID, "face_down")),
+      );
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={null}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+
+    const controls = screen.getByRole("complementary", {
+      name: "Visual identity review controls",
+    });
+    const acceptButton = within(controls).getByRole("button", {
+      name: "Accept A",
+    });
+    expect(acceptButton).toBeEnabled();
+    await user.click(acceptButton);
+
+    await waitFor(() => expect(putBodies).toHaveLength(1));
+    expect(putBodies[0]?.operations).toEqual([
+      { operation: "accept_identity_suggestion", item_id: CARD_ID },
+    ]);
+    expect(screen.getByText("Accepted")).toBeInTheDocument();
   });
 
   it("keeps generated identities visible while a new review has no reference", async () => {

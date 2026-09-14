@@ -1148,11 +1148,15 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
         existing_item = dict(existing.item)
         if operation.operation == "accept_identity_suggestion":
             candidates = existing_item.get("candidates")
-            if (
-                existing_item.get("status") != "classified"
-                or not isinstance(candidates, list)
-                or not candidates
-            ):
+            is_classified_suggestion = (
+                existing_item.get("status") == "classified"
+                and isinstance(candidates, list)
+                and bool(candidates)
+            )
+            is_face_down_suggestion = (
+                existing_item.get("status") == "face_down" and candidates == []
+            )
+            if not (is_classified_suggestion or is_face_down_suggestion):
                 raise PipelineReferenceInputError(
                     "the identity suggestion is unavailable for this card"
                 )
