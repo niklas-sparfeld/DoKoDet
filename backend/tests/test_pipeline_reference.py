@@ -316,6 +316,10 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
     )
     assert created.draft.items[0].item_id == "event-01"
     assert created.draft.items[0].review_state == "pending"
+    assert (created.draft.items[0].item["start_us"], created.draft.items[0].item["end_us"]) == (
+        1_000_000,
+        1_250_000,
+    )
 
     accepted = service.update_draft(
         "recording-01",
@@ -328,6 +332,10 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
     )
     assert accepted.draft.revision == 1
     assert accepted.draft.items[0].review_state == "accepted"
+    assert (accepted.draft.items[0].item["start_us"], accepted.draft.items[0].item["end_us"]) == (
+        1_000_000,
+        1_250_000,
+    )
 
     completed = service.complete_reference(
         "recording-01",
@@ -344,12 +352,20 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
     assert stored_revision.manifest.origin == "corrected"
     assert stored_revision.manifest.producer.base_revision_id == source_revision_id
     assert stored_revision.content.events[0].model_scores is None
+    assert (
+        stored_revision.content.events[0].start_us,
+        stored_revision.content.events[0].end_us,
+    ) == (1_000_000, 1_250_000)
 
     restarted = PipelineReferenceStore(tmp_path / "operations" / "pipeline-references")
     restored = restarted.require("recording-01", "events")
     assert restored.state.draft_state == "completed"
     assert restored.state.selected_completed_revision_id == revision_id
     assert restored.draft.items[0].item_id == "event-01"
+    assert (restored.draft.items[0].item["start_us"], restored.draft.items[0].item["end_us"]) == (
+        1_000_000,
+        1_250_000,
+    )
 
 
 def test_stale_reference_edit_returns_current_revision_without_losing_newer_draft(

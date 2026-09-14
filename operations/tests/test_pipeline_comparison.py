@@ -8,7 +8,11 @@ from doko_operations.pipeline_comparison_contract import (
     canonical_pipeline_comparison_request_bytes,
     parse_pipeline_comparison_request_bytes,
 )
-from doko_operations.pipeline_comparison_execution import compare_event_data, match_event_records
+from doko_operations.pipeline_comparison_execution import (
+    compare_event_data,
+    event_anchor,
+    match_event_records,
+)
 from doko_operations.pipeline_data import CARD_STATE_CHANGED_EVENT_TYPE, EventData, EventRecord
 
 
@@ -94,6 +98,47 @@ def test_event_comparison_excludes_unreviewed_events_from_metrics() -> None:
     assert metrics["left"].precision == 0.5
     assert metrics["left"].recall == 0.5
     assert [item.outcome for item in items].count("not_reviewed") == 1
+
+
+def test_interval_comparison_uses_stable_end_and_preserves_both_bounds() -> None:
+    policy = EventMatchingPolicy(
+        policy_id="event-timing/stable-end-v1",
+        anchor="end_us",
+        tolerance_us=25,
+    )
+    reference_event = _event(
+        "ref-interval", CARD_STATE_CHANGED_EVENT_TYPE, 100, end_us=300
+    )
+    predicted_event = _event(
+        "pred-interval", CARD_STATE_CHANGED_EVENT_TYPE, 120, end_us=320
+    )
+
+    assert event_anchor(reference_event, policy) == 300
+    counts, _, items = compare_event_data(
+        recording_id="recording-1",
+        left_run_id="left-run",
+        right_run_id="right-run",
+        reference=EventData(events=(reference_event,)),
+        left=EventData(events=(predicted_event,)),
+        right=EventData(events=()),
+        policy=policy,
+        scope=PipelineComparisonScope(
+            reviewed=((0, 500),),
+            common_covered=((0, 500),),
+            left_only=(),
+            right_only=(),
+        ),
+        left_coverage=((0, 500),),
+        right_coverage=((0, 500),),
+    )
+
+    match = next(item for item in items if item.side == "left" and item.outcome == "match")
+    assert counts["left"].matches == 1
+    assert match.source_time_us == 300
+    assert match.delta_us == 20
+    assert match.reference_event == reference_event.to_mapping()
+    assert match.run_event == predicted_event.to_mapping()
+    assert match.source_links["derived_view"].endswith("/exact-event/300")
 
 
 def test_comparison_request_canonicalization_normalizes_optional_event_type() -> None:

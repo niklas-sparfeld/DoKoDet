@@ -1,0 +1,11 @@
+{
+  "schema_version": "event-data/v1",
+  "events": [
+    {
+      "event_id": "event-interval-01",
+      "event_type": "card_state_changed",
+      "start_us": 3000000,
+      "end_us": 4250000
+    }
+  ]
+}

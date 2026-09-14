@@ -25,25 +25,25 @@ Apply this rule to the complete camera frame. Use game context to distinguish:
 A **table card** is a card that rests on the table or falls onto it. A card that stays in a
 player's hand is not a table card. Location alone does not decide a label.
 
-## Event time
+## Event time and interval
 
-Set `time_s` to the earliest frame where the new state is clear enough for table-state detection
-to observe it.
+For a point event, set `time_s` to the earliest frame where the new state is clear enough for
+table-state detection to observe it. The recording-pipeline contract represents this as
+`start_us == end_us`.
 
-Do not use:
+For a persistent change that takes time, review one card-state change interval. Set its start to
+the first visible action that begins the persistent table-state change. Set its end to the first
+frame where the new table state is stable. A trick clear is one interval when cards move,
+disappear, reappear, or remain partly visible before the table becomes stable.
 
-- the start of hand movement;
-- first hand contact;
-- the first blurred frame;
-- the time when a hand leaves; or
-- the time when the complete table becomes empty.
+Do not use hand movement, first hand contact, a blurred frame, the time when a hand leaves, or the
+time when the complete table becomes empty unless that frame is also the first visible action or
+the first stable new state. Do not split intermediate card movement into separate events.
 
-For a placement, move, turn, removal, return, collection, or multi-card change, use the first
-frame where the new pose and role are visible. If motion blur hides the result, advance to the
-first clear frame.
-
-The format uses point events. It does not store movement intervals. This avoids false conflicts
-when two physical actions overlap.
+Use the interval's stable end as the CardEventNet event anchor. The interval interior is part of
+the reviewed change, not ordinary negative evidence or a hard negative. See the
+[`CardEventNet interval data policy`](CardEventNet_Interval_DataPolicy.md) for the diagnostic
+outcomes and exact range rules.
 
 ## Meaningful change
 
@@ -142,7 +142,9 @@ video has one JSON file:
 
 The active contract accepts only `card_state_changed`. V2 annotations have no geometry. V1 files
 with an `roi` field remain readable only as historical input; the current annotator writes V2 and
-uses the full frame.
+uses the full frame. The legacy video annotation file shown above stores point events. The
+recording-pipeline review contract stores reviewed ranges with `start_us` and `end_us`; both forms
+keep the single `card_state_changed` event type. Use the pipeline contract for interval review.
 
 Keep events in time order. Close events are valid when they represent separate visible changes.
 The current validator rejects only effective duplicates within 10 ms and warns about events less

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
@@ -32,6 +33,7 @@ from doko_operations.pipeline_data import (
 )
 
 DIGEST = "a" * 64
+PIPELINE_EVENT_FIXTURES = Path(__file__).parents[2] / "fixtures" / "pipeline-data" / "v1"
 SOURCE = {
     "schema_version": "recording-video/v1",
     "recording_id": "recording-01",
@@ -133,6 +135,29 @@ def test_event_revision_variants_round_trip_to_canonical_bytes() -> None:
         parse_data_revision_bytes(canonical_data_revision_bytes(synthetic)).source,
         SyntheticFixtureSource,
     )
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "expected_bounds"),
+    [
+        ("event-data-point.json", (2_000_000, 2_000_000)),
+        ("event-data-interval.json", (3_000_000, 4_250_000)),
+    ],
+)
+def test_event_contract_fixtures_preserve_point_and_interval_bounds(
+    fixture_name: str, expected_bounds: tuple[int, int]
+) -> None:
+    fixture = json.loads(
+        (PIPELINE_EVENT_FIXTURES / fixture_name).read_text(encoding="utf-8")
+    )
+
+    parsed = parse_event_data_bytes(
+        canonical_event_data_bytes(fixture), duration_us=10_000_000
+    )
+
+    event = parsed.events[0]
+    assert (event.start_us, event.end_us) == expected_bounds
+    assert canonical_event_data_bytes(parsed) == canonical_event_data_bytes(fixture)
 
 
 @pytest.mark.parametrize(

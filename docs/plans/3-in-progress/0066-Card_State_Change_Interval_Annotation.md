@@ -4,10 +4,12 @@
 
 - **Summary:** Let an operator mark the start and stable end of a long card-state change in the
   CardEvent review editor.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** None
 - **Builds on:** 0049, 0062, and 0064 complete; 0063 supplies reviewed failure evidence but does
   not block this work.
+- **Readiness:** M0 is complete. The interval semantics, stable-end policy, contract fixtures, and
+  preservation checks are in place. M1 is ready to add interval editing to the CardEvent viewer.
 - **Outcome:** A reviewed event can remain a point or become a nonzero card-state change interval.
   The editor makes both bounds clear. CardEventNet uses the stable end as the event anchor and does
   not treat the interval interior as a hard negative or ordinary negative sample.
@@ -60,15 +62,27 @@ This epic does not include:
 8. A new reviewed revision and a new frozen dataset are required before interval-aware training.
    The current 0063 frozen data remains immutable.
 
+## Milestone status
+
+- **M0:** Complete (2026-09-14) — define the card-state change interval in the glossary and
+  labeling guide, publish the stable-end and diagnostic policy, add point and interval contract
+  fixtures, and verify validation, ordering, comparison, and maintained-reference preservation.
+- **M1:** Not started — add interval editing to the CardEvent viewer.
+- **M2:** Not started — make intervals understandable in review.
+- **M3:** Not started — keep interval interiors out of negative evidence.
+- **M4:** Not started — run a bounded trick-clear review pilot.
+
 ## Delivery milestones
 
 ### M0 — Lock interval review semantics
 
-- Add the card-state change interval definition to the glossary and CardEvent annotation guidance.
-- Add focused contract fixtures for a point event and a nonzero interval event.
-- Define the stable-end anchor and interval-aware diagnostic outcomes in one data-policy document.
-- Verify that pipeline event validation, ordering, comparison, and reference commands preserve a
-  nonzero `start_us` and `end_us` range.
+- Complete — add the card-state change interval definition to the glossary and CardEvent
+  annotation guidance.
+- Complete — add focused contract fixtures for a point event and a nonzero interval event.
+- Complete — define the stable-end anchor and interval-aware diagnostic outcomes in one data-policy
+  document.
+- Complete — verify that pipeline event validation, ordering, comparison, and reference commands
+  preserve a nonzero `start_us` and `end_us` range.
 
 Acceptance:
 
