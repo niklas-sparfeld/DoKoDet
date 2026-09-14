@@ -70,6 +70,7 @@ table-analyzer train-dinov3-identity --help
 table-analyzer export-dinov3-identity --help
 table-analyzer classify-dinov3-identity --help
 table-analyzer train-visible-card-detector --help
+table-analyzer train-rfdetr-segmentation --help
 table-analyzer train --help
 table-analyzer evaluate --help
 table-analyzer export --help

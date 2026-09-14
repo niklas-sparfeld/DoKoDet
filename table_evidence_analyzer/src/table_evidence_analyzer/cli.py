@@ -220,6 +220,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use rfdetr for the CUDA run or fixture for local contract tests.",
     )
 
+    segmentation_train_parser = commands.add_parser(
+        "train-rfdetr-segmentation",
+        help="Run the one-epoch RF-DETR visible-region segmentation smoke path.",
+        description=(
+            "Train RF-DETR SegMedium on a deterministic subset of an M1 COCO view, "
+            "then reload and verify one local mask prediction."
+        ),
+    )
+    segmentation_train_parser.add_argument("--dataset-dir", type=Path, required=True)
+    segmentation_train_parser.add_argument("--pretrained-checkpoint", type=Path, required=True)
+    segmentation_train_parser.add_argument("--output-dir", type=Path, required=True)
+    segmentation_train_parser.add_argument(
+        "--runner",
+        choices=("rfdetr", "fixture"),
+        default="rfdetr",
+        help="Use rfdetr for the real smoke path or fixture for contract tests.",
+    )
+    segmentation_train_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="mps"
+    )
+    segmentation_train_parser.add_argument("--train-image-count", type=int, default=6)
+    segmentation_train_parser.add_argument("--validation-image-count", type=int, default=1)
+
     evaluate_parser = commands.add_parser(
         "evaluate",
         help="Evaluate a frozen run or exported bundle.",
@@ -606,6 +629,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                     pretrained_checkpoint=args.pretrained_checkpoint,
                     output_dir=args.output_dir,
                     runner=args.runner,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "train-rfdetr-segmentation":
+        from .rfdetr_segmentation_training import (
+            RfdetrSegmentationTrainingConfig,
+            run_rfdetr_segmentation_training,
+        )
+
+        try:
+            report = run_rfdetr_segmentation_training(
+                RfdetrSegmentationTrainingConfig(
+                    dataset_dir=args.dataset_dir,
+                    pretrained_checkpoint=args.pretrained_checkpoint,
+                    output_dir=args.output_dir,
+                    runner=args.runner,
+                    device=args.device,
+                    train_image_count=args.train_image_count,
+                    validation_image_count=args.validation_image_count,
                 )
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:

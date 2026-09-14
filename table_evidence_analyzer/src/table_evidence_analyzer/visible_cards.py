@@ -55,6 +55,11 @@ LOCAL_DEVICE_NAMES = frozenset({"cpu", "mps"})
 LOCAL_INPUT_SIZE = 704
 LOCAL_CONFIDENCE_THRESHOLD = 0.5
 LOCAL_RFDETR_VERSION = "1.9.4"
+LOCAL_SEGMENTATION_PROVIDER_NAME = "local-rfdetr-segmentation"
+LOCAL_SEGMENTATION_PROVIDER_VERSION = "local-visible-card-segmentation-v1"
+LOCAL_SEGMENTATION_INPUT_SIZE = 432
+LOCAL_SEGMENTATION_CONFIDENCE_THRESHOLD = 0.5
+LOCAL_SEGMENTATION_RFDETR_VERSION = "1.9.4"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SIDES = frozenset({"face_up", "face_down", "unknown"})
@@ -64,6 +69,7 @@ LOGGER = logging.getLogger(__name__)
 
 class _RetryableGeminiResponse(Exception):
     """Internal marker for a retryable HTTP response."""
+
 
 PROMPT = """Find every visible physical playing card in this image.
 
@@ -860,6 +866,46 @@ def _load_local_rfdetr(bundle: Any, device: str) -> Any:
     return model
 
 
+def _load_local_rfdetr_segmentation(bundle: Any, device: str) -> Any:
+    try:
+        from rfdetr import RFDETRSegMedium
+    except ImportError as error:
+        raise VisibleCardError(
+            f"local visible-card segmentation requires rfdetr {LOCAL_SEGMENTATION_RFDETR_VERSION}; "
+            "install the training or inference dependency group"
+        ) from error
+    try:
+        package_version = importlib.metadata.version("rfdetr")
+    except importlib.metadata.PackageNotFoundError as error:
+        raise VisibleCardError("RF-DETR package metadata is not installed") from error
+    if package_version != LOCAL_SEGMENTATION_RFDETR_VERSION:
+        raise VisibleCardError(
+            f"installed rfdetr version {package_version} does not match the frozen "
+            f"{LOCAL_SEGMENTATION_RFDETR_VERSION} segmentation bundle"
+        )
+    try:
+        model = RFDETRSegMedium.from_checkpoint(
+            str(bundle.checkpoint_path),
+            num_classes=1,
+            resolution=LOCAL_SEGMENTATION_INPUT_SIZE,
+            device=device,
+        )
+    except Exception as error:
+        raise VisibleCardError(
+            f"could not load the local RF-DETR segmentation bundle: {error}"
+        ) from error
+    model_context = getattr(model, "model", None)
+    actual_device = getattr(model_context, "device", None)
+    if actual_device is not None:
+        actual_device_name = str(actual_device).split(":", 1)[0]
+        if actual_device_name != device:
+            raise VisibleCardError(
+                f"RF-DETR segmentation loaded on {actual_device!s}, but the requested "
+                f"device is {device}"
+            )
+    return model
+
+
 def _sequence(value: Any, field_name: str) -> list[Any]:
     if value is None:
         raise VisibleCardError(f"detector output is missing {field_name}")
@@ -948,9 +994,7 @@ def _normalised_polygon_from_mask(
         try:
             x_pixel, y_pixel = (float(value) for value in coordinates)
         except (TypeError, ValueError) as error:
-            raise VisibleCardError(
-                "detector output mask polygon points must be numeric"
-            ) from error
+            raise VisibleCardError("detector output mask polygon points must be numeric") from error
         if not all(math.isfinite(value) for value in (x_pixel, y_pixel)):
             raise VisibleCardError("detector output mask polygon points must be finite")
         if not 0 <= x_pixel <= width or not 0 <= y_pixel <= height:
@@ -1016,6 +1060,7 @@ class LocalVisibleCardProvider:
 
     name = LOCAL_PROVIDER_NAME
     version = LOCAL_PROVIDER_VERSION
+    accepted_class_ids = frozenset({0})
 
     def __init__(
         self,
@@ -1119,7 +1164,7 @@ class LocalVisibleCardProvider:
                 class_id = int(raw_class_id)
                 if not math.isfinite(score) or not 0 <= score <= 1:
                     raise VisibleCardError("detector output confidence must be finite in [0, 1]")
-                if class_id != 0:
+                if class_id not in self.accepted_class_ids:
                     raise VisibleCardError(f"detector returned unsupported class id: {class_id}")
                 if score <= self.confidence_threshold:
                     continue
@@ -1174,6 +1219,56 @@ class LocalVisibleCardProvider:
             },
             latency_ms=_elapsed_ms(started),
         )
+
+
+class LocalVisibleCardSegmentationProvider(LocalVisibleCardProvider):
+    """Run one bundled RF-DETR segmentation model on an explicitly selected local device."""
+
+    name = LOCAL_SEGMENTATION_PROVIDER_NAME
+    version = LOCAL_SEGMENTATION_PROVIDER_VERSION
+    accepted_class_ids = frozenset({0, 1})
+
+    def __init__(
+        self,
+        bundle: str | Path,
+        *,
+        device: Literal["cpu", "mps", "cuda"] = "cpu",
+        detector: Any | None = None,
+        model_loader: Callable[[Any, str], Any] | None = None,
+        torch_module: Any | None = None,
+    ) -> None:
+        if device not in {"cpu", "mps", "cuda"}:
+            raise VisibleCardError("local segmentation device must be cpu, mps, or cuda")
+        from .rfdetr_segmentation_training import load_rfdetr_segmentation_bundle
+
+        try:
+            loaded_bundle = load_rfdetr_segmentation_bundle(bundle)
+        except Exception as error:
+            raise VisibleCardError(
+                f"could not validate the local visible-card segmentation bundle: {error}"
+            ) from error
+        self.bundle = loaded_bundle
+        self.device = device
+        self.confidence_threshold = LOCAL_SEGMENTATION_CONFIDENCE_THRESHOLD
+        self.input_size = LOCAL_SEGMENTATION_INPUT_SIZE
+        if torch_module is None and device != "cpu":
+            torch_module = _import_torch()
+        if torch_module is not None:
+            if device == "mps":
+                available = _local_device_available(device, torch_module)
+            else:
+                cuda = getattr(torch_module, "cuda", None)
+                available_fn = getattr(cuda, "is_available", None)
+                available = bool(callable(available_fn) and available_fn())
+            if not available:
+                raise VisibleCardError(f"requested local device is unavailable: {device}")
+        self._torch = torch_module
+        self._detector = detector
+        started = time.monotonic()
+        if self._detector is None:
+            loader = model_loader or _load_local_rfdetr_segmentation
+            self._detector = loader(self.bundle, device)
+        self.load_latency_ms = _elapsed_ms(started)
 
 
 def _elapsed_ms(started: float) -> float:
@@ -1897,6 +1992,9 @@ __all__ = [
     "IMPROVED_PROMPT",
     "IMPROVED_REQUEST_SCHEMA_VERSION",
     "LocalVisibleCardProvider",
+    "LocalVisibleCardSegmentationProvider",
+    "LOCAL_SEGMENTATION_PROVIDER_NAME",
+    "LOCAL_SEGMENTATION_PROVIDER_VERSION",
     "LOCAL_PROVIDER_NAME",
     "LOCAL_PROVIDER_VERSION",
     "LOCAL_RFDETR_VERSION",
