@@ -27,6 +27,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Decision file (default: beside the manifest as hard-negative-review.json).",
     )
+    parser.add_argument(
+        "--only-decision",
+        choices=(*DECISIONS, "unreviewed"),
+        help="Show only candidates with this existing decision.",
+    )
     parser.add_argument("--width", type=int, default=640, help="Width of each evidence panel.")
     return parser.parse_args()
 
@@ -194,6 +199,12 @@ def main() -> int:
     existing = load_existing_decisions(output_path, source_digest)
     for item in items:
         item["decision"] = existing.get(item["id"])
+    review_items = items
+    if args.only_decision is not None:
+        selected_decision = None if args.only_decision == "unreviewed" else args.only_decision
+        review_items = [item for item in items if item["decision"] == selected_decision]
+    if not review_items:
+        raise ValueError("No candidates match --only-decision")
     videos = source_videos(args.videos_dir)
 
     index = 0
@@ -201,9 +212,9 @@ def main() -> int:
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     try:
         while True:
-            item = items[index]
+            item = review_items[index]
             canvas = review_frame(
-                resolve_video(item["video"], videos), item, args.width, index, len(items)
+                resolve_video(item["video"], videos), item, args.width, index, len(review_items)
             )
             cv2.imshow(window_name, canvas)
             key = cv2.waitKeyEx(0)
@@ -213,7 +224,7 @@ def main() -> int:
                 index = max(0, index - 1)
                 continue
             if key in RIGHT_KEYS:
-                index = min(len(items) - 1, index + 1)
+                index = min(len(review_items) - 1, index + 1)
                 continue
             decision = {ord("a"): "no_event", ord("s"): "missed_event", ord("d"): "uncertain"}.get(
                 key
@@ -221,7 +232,7 @@ def main() -> int:
             if decision is not None:
                 item["decision"] = decision
                 save_review(output_path, args.manifest, source_digest, items)
-                index = min(len(items) - 1, index + 1)
+                index = min(len(review_items) - 1, index + 1)
             elif key in (ord("x"), ord("X")):
                 item["decision"] = None
                 save_review(output_path, args.manifest, source_digest, items)
