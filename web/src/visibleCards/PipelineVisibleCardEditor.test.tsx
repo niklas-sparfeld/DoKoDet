@@ -366,6 +366,55 @@ function referenceWithTwoFrames() {
   };
 }
 
+function referenceWithReviewedPreviousIgnoreRegion() {
+  const current = referenceWithTwoFrames();
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      items: current.draft.items.map((item, index) =>
+        index === 0
+          ? {
+              ...item,
+              review_state: "accepted",
+              item: {
+                ...item.item,
+                ignored_regions: [IGNORE_REGION],
+              },
+            }
+          : item,
+      ),
+    },
+  };
+}
+
+function referenceAfterCopyingPreviousIgnoreRegion() {
+  const current = referenceWithReviewedPreviousIgnoreRegion();
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      revision: current.draft.revision + 1,
+      items: current.draft.items.map((item, index) =>
+        index === 1
+          ? {
+              ...item,
+              item: {
+                ...item.item,
+                ignored_regions: [
+                  {
+                    ...IGNORE_REGION,
+                    region_id: `ignore-${SECOND_ITEM_ID}-copied-1`,
+                  },
+                ],
+              },
+            }
+          : item,
+      ),
+    },
+  };
+}
+
 function emptyReference() {
   const current = reference();
   return {
@@ -934,6 +983,70 @@ describe("PipelineVisibleCardEditor", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Ignore region 1")).toBeInTheDocument();
     expect(screen.getAllByText("Ignore regions")).not.toHaveLength(0);
+  });
+
+  it("copies ignore regions from the previous reviewed frame", async () => {
+    const previous = referenceWithReviewedPreviousIgnoreRegion();
+    const copied = referenceAfterCopyingPreviousIgnoreRegion();
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
+      Promise.resolve(jsonResponse(init?.method === "PUT" ? copied : previous)),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    const controls = await screen.findByRole("complementary", {
+      name: "Visible-card review controls",
+    });
+    const copyButton = within(controls).getByRole("button", {
+      name: "Copy ignore regions from previous reviewed frame",
+    });
+    expect(copyButton).toBeDisabled();
+
+    await user.click(
+      within(controls).getByRole("button", { name: "Next frame" }),
+    );
+    expect(copyButton).toBeEnabled();
+    await user.click(copyButton);
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toHaveLength(1),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(requestBody.operations).toEqual([
+      {
+        operation: "create_ignore_region",
+        item_id: SECOND_ITEM_ID,
+        region: {
+          ...IGNORE_REGION,
+          region_id: `ignore-${SECOND_ITEM_ID}-copied-1`,
+        },
+      },
+    ]);
+    expect(
+      await screen.findByRole("region", {
+        name: "Visible-card ignore regions",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("draws, reshapes, and deletes an ignore region with dedicated operations", async () => {

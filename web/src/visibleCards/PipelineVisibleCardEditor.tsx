@@ -378,7 +378,7 @@ export function PipelineVisibleCardEditor({
           expected_revision: serverRevisionRef.current,
           operator_id: operatorId.trim(),
           command_id: command.commandId,
-          operations: [command.operation],
+          operations: command.operations,
         },
       );
       hydrateReference(nextReference);
@@ -443,9 +443,9 @@ export function PipelineVisibleCardEditor({
     };
   }, [processQueue]);
 
-  const enqueue = useCallback(
+  const enqueueOperations = useCallback(
     (
-      operation: PipelineReferenceOperation,
+      operations: PipelineReferenceOperation[],
       noticeText: string,
       optimistic: (current: EditableFrame[]) => EditableFrame[],
     ) => {
@@ -453,7 +453,7 @@ export function PipelineVisibleCardEditor({
       setLocalFrames(optimistic(framesRef.current));
       queueRef.current.push({
         commandId: nextCommandId(),
-        operation,
+        operations,
         notice: noticeText,
         attempts: 0,
       });
@@ -464,6 +464,17 @@ export function PipelineVisibleCardEditor({
       void processQueueRef.current?.();
     },
     [nextCommandId, setLocalFrames],
+  );
+
+  const enqueue = useCallback(
+    (
+      operation: PipelineReferenceOperation,
+      noticeText: string,
+      optimistic: (current: EditableFrame[]) => EditableFrame[],
+    ) => {
+      enqueueOperations([operation], noticeText, optimistic);
+    },
+    [enqueueOperations],
   );
 
   const startReference = useCallback(() => {
@@ -902,6 +913,65 @@ export function PipelineVisibleCardEditor({
     [endEditMode, enqueue],
   );
 
+  const copyIgnoreRegions = useCallback(
+    (frame: EditableFrame, source: EditableFrame) => {
+      if (source.outcome.ignored_regions.length === 0) return;
+      const copiedRegions = source.outcome.ignored_regions.map(
+        (region, index): IgnoreRegion => ({
+          ...region,
+          region_id: copiedIgnoreRegionId(frame, index),
+          geometry: {
+            kind: "reviewed-ignore-region/v1",
+            polygons: region.geometry.polygons.map((polygon) =>
+              polygon.map((point) => ({ ...point })),
+            ),
+          },
+          normalization: {
+            ...region.normalization,
+            width:
+              frame.outcome.frame_identity?.width ?? region.normalization.width,
+            height:
+              frame.outcome.frame_identity?.height ??
+              region.normalization.height,
+          },
+          source_candidates: [],
+        }),
+      );
+      const operations: PipelineReferenceOperation[] = [
+        ...frame.outcome.ignored_regions.map((region) => ({
+          operation: "delete_ignore_region" as const,
+          item_id: frame.itemId,
+          region_id: region.region_id,
+        })),
+        ...copiedRegions.map((region) => ({
+          operation: "create_ignore_region" as const,
+          item_id: frame.itemId,
+          region: ignoreRegionMapping(region),
+        })),
+      ];
+      endEditMode();
+      enqueueOperations(
+        operations,
+        `Copied ${copiedRegions.length} ignore region${copiedRegions.length === 1 ? "" : "s"} from the previous reviewed frame.`,
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId !== frame.itemId
+              ? candidate
+              : {
+                  ...candidate,
+                  outcome: {
+                    ...candidate.outcome,
+                    status: "detected",
+                    ignored_regions: copiedRegions,
+                    error: null,
+                  },
+                },
+          ),
+      );
+    },
+    [endEditMode, enqueueOperations],
+  );
+
   const handleCanvasPointerMove = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
       const drag = dragRef.current;
@@ -1317,6 +1387,20 @@ export function PipelineVisibleCardEditor({
       : activeFrame === null
         ? -1
         : displayedFrames.indexOf(activeFrame);
+  const previousReviewedFrame =
+    activeFrameIndex <= 0
+      ? null
+      : ([...displayedFrames]
+          .slice(0, activeFrameIndex)
+          .reverse()
+          .find(
+            (frame) =>
+              frameReviewStatus(frame) === "accepted" &&
+              frame.outcome.ignored_regions.length > 0,
+          ) ?? null);
+  const canCopyIgnoreRegions =
+    activeFrame?.outcome.status === "detected" &&
+    previousReviewedFrame !== null;
   const prewarmFrameUrls = useCallback(
     (frame: EditableFrame) => visibleCardReviewPrewarmUrls(recordingId, frame),
     [recordingId],
@@ -1426,6 +1510,12 @@ export function PipelineVisibleCardEditor({
           convertSelectedToIgnoreRegion(activeFrame)
         }
         onCreateIgnoreRegion={() => openIgnoreRegionEditor(activeFrame)}
+        canCopyIgnoreRegions={canCopyIgnoreRegions}
+        onCopyIgnoreRegions={() =>
+          !canCopyIgnoreRegions || previousReviewedFrame === null
+            ? undefined
+            : copyIgnoreRegions(activeFrame, previousReviewedFrame)
+        }
         onMarkEmpty={() => setFrameOutcome(activeFrame, "empty")}
         onMarkUnusable={() => setFrameOutcome(activeFrame, "unusable")}
       />
@@ -1907,6 +1997,10 @@ function nextManualCardId(frame: EditableFrame): string {
 
 function nextManualRegionId(frame: EditableFrame): string {
   return `ignore-${frame.itemId}-${Date.now()}`;
+}
+
+function copiedIgnoreRegionId(frame: EditableFrame, index: number): string {
+  return `ignore-${frame.itemId}-copied-${index + 1}`;
 }
 
 function newIgnoreRegion(frame: EditableFrame, regionId: string): IgnoreRegion {

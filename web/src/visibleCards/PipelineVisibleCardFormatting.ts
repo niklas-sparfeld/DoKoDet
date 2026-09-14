@@ -34,7 +34,8 @@ export function formatIdentifier(value: string): string {
 }
 
 export function describeCommand(command: PendingCommand | undefined): string {
+  const operation = command?.operations[0];
   return command === undefined
     ? "none"
-    : `${formatIdentifier(command.operation.operation)} ${command.operation.item_id ?? "frame"}`;
+    : `${formatIdentifier(operation?.operation ?? "operation")} ${operation?.item_id ?? "frame"}`;
 }

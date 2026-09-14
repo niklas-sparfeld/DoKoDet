@@ -81,7 +81,7 @@ export type SaveState = "saved" | "saving" | "retrying" | "error" | "conflict";
 
 export type PendingCommand = {
   commandId: string;
-  operation: PipelineReferenceOperation;
+  operations: PipelineReferenceOperation[];
   notice: string;
   attempts: number;
 };

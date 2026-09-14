@@ -48,6 +48,8 @@ export function VisibleCardReviewControls({
   selectedCandidateCount,
   onConvertToIgnoreRegion,
   onCreateIgnoreRegion,
+  canCopyIgnoreRegions,
+  onCopyIgnoreRegions,
   onMarkEmpty,
   onMarkUnusable,
 }: {
@@ -62,6 +64,8 @@ export function VisibleCardReviewControls({
   selectedCandidateCount: number;
   onConvertToIgnoreRegion: () => void;
   onCreateIgnoreRegion: () => void;
+  canCopyIgnoreRegions: boolean;
+  onCopyIgnoreRegions: () => void;
   onMarkEmpty: () => void;
   onMarkUnusable: () => void;
 }) {
@@ -151,12 +155,25 @@ export function VisibleCardReviewControls({
               onClick={onConvertToIgnoreRegion}
             />
             <button
-              className={styles.inlineAction}
+              className={styles.secondaryButton}
               type="button"
               disabled={!canAddCard}
               onClick={onCreateIgnoreRegion}
             >
               Draw ignore region
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              disabled={!canCopyIgnoreRegions}
+              title={
+                canCopyIgnoreRegions
+                  ? undefined
+                  : "Review an earlier frame with ignore regions first."
+              }
+              onClick={onCopyIgnoreRegions}
+            >
+              Copy ignore regions from previous reviewed frame
             </button>
             <ShortcutButton
               label="Reviewed empty frame"
@@ -582,14 +599,14 @@ function ProposalColumn({
                   {!readOnly ? (
                     <div className={visibleStyles.actionButtons}>
                       <button
-                        className={styles.inlineAction}
+                        className={styles.secondaryButton}
                         type="button"
                         onClick={() => onOpenIgnoreRegion?.(region)}
                       >
                         Edit
                       </button>
                       <button
-                        className={styles.inlineAction}
+                        className={styles.secondaryButton}
                         type="button"
                         onClick={() => onRemoveIgnoreRegion?.(region.region_id)}
                       >
