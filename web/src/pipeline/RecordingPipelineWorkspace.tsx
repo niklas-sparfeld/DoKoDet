@@ -356,7 +356,10 @@ export function RecordingPipelineWorkspace({
             {stage.key === "visual_identities" ? (
               <div data-identity-card-list-slot="cards" />
             ) : (
-              <div data-visible-card-proposal-slot="proposals" />
+              <>
+                <div data-visible-card-proposal-slot="proposals" />
+                <div data-visible-card-review-controls-slot="controls" />
+              </>
             )}
           </aside>
         ) : null}

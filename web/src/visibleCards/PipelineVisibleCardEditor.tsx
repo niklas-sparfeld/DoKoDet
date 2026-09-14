@@ -7,6 +7,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   ApiError,
@@ -31,6 +32,7 @@ import {
   VisibleCardInspectorPortals,
   useVisibleCardProposalSlot,
   useVisibleCardInspectorSlots,
+  useVisibleCardReviewControlsSlot,
 } from "./PipelineVisibleCardInspector";
 import {
   visibleCardReviewPrewarmUrls,
@@ -139,6 +141,7 @@ export function PipelineVisibleCardEditor({
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
   const proposalSlot = useVisibleCardProposalSlot();
+  const reviewControlsSlot = useVisibleCardReviewControlsSlot();
   useEffect(
     () =>
       subscribeToProfileName(() => {
@@ -1399,6 +1402,35 @@ export function PipelineVisibleCardEditor({
     />
   );
 
+  const reviewControls =
+    activeFrame !== null && (view === "generated" || editable) ? (
+      <VisibleCardReviewControls
+        editable={editable}
+        hasPrevious={activeFrameIndex > 0}
+        hasNext={
+          activeFrameIndex >= 0 && activeFrameIndex < displayedFrames.length - 1
+        }
+        selectedFrame={activeFrame}
+        onPrevious={() => {
+          const previous = displayedFrames[activeFrameIndex - 1];
+          if (previous !== undefined) selectFrame(previous);
+        }}
+        onNext={() => {
+          const next = displayedFrames[activeFrameIndex + 1];
+          if (next !== undefined) selectFrame(next);
+        }}
+        onAccept={() => toggleFrameAcceptance(activeFrame)}
+        onAddCard={() => openEditor(activeFrame, null)}
+        selectedCandidateCount={selectedCandidateIds.length}
+        onConvertToIgnoreRegion={() =>
+          convertSelectedToIgnoreRegion(activeFrame)
+        }
+        onCreateIgnoreRegion={() => openIgnoreRegionEditor(activeFrame)}
+        onMarkEmpty={() => setFrameOutcome(activeFrame, "empty")}
+        onMarkUnusable={() => setFrameOutcome(activeFrame, "unusable")}
+      />
+    ) : null;
+
   if (loading) {
     return (
       <>
@@ -1428,88 +1460,68 @@ export function PipelineVisibleCardEditor({
                 : "Select a resolved frame from the Timeline Rail."}
           </p>
         ) : (
-          <div className={visibleStyles.reviewWorkbench}>
-            {view === "generated" || editable ? (
-              <VisibleCardReviewControls
-                editable={editable}
-                hasPrevious={activeFrameIndex > 0}
-                hasNext={
-                  activeFrameIndex >= 0 &&
-                  activeFrameIndex < displayedFrames.length - 1
+          <>
+            {reviewControlsSlot !== null && reviewControls !== null
+              ? createPortal(reviewControls, reviewControlsSlot)
+              : null}
+            <div
+              className={`${visibleStyles.reviewWorkbench} ${reviewControlsSlot !== null ? visibleStyles.reviewWorkbenchWithSidebarControls : ""}`}
+            >
+              {reviewControlsSlot === null ? reviewControls : null}
+              <VisibleCardFramePanel
+                recordingId={recordingId}
+                frame={activeFrame}
+                editor={
+                  editor?.frameItemId === activeFrame.itemId ? editor : null
                 }
-                selectedFrame={activeFrame}
-                onPrevious={() => {
-                  const previous = displayedFrames[activeFrameIndex - 1];
-                  if (previous !== undefined) selectFrame(previous);
-                }}
-                onNext={() => {
-                  const next = displayedFrames[activeFrameIndex + 1];
-                  if (next !== undefined) selectFrame(next);
-                }}
-                onAccept={() => toggleFrameAcceptance(activeFrame)}
-                onAddCard={() => openEditor(activeFrame, null)}
-                selectedCandidateCount={selectedCandidateIds.length}
-                onConvertToIgnoreRegion={() =>
-                  convertSelectedToIgnoreRegion(activeFrame)
+                selectedCandidateId={selectedCandidateId}
+                editorError={editorError}
+                selectedCandidateIds={selectedCandidateIds}
+                onToggleCandidateSelection={toggleCandidateSelection}
+                onOpenIgnoreRegion={
+                  editable
+                    ? (region) => openIgnoreRegionEditor(activeFrame, region)
+                    : undefined
                 }
-                onCreateIgnoreRegion={() => openIgnoreRegionEditor(activeFrame)}
-                onMarkEmpty={() => setFrameOutcome(activeFrame, "empty")}
-                onMarkUnusable={() => setFrameOutcome(activeFrame, "unusable")}
+                onRemoveIgnoreRegion={
+                  editable
+                    ? (regionId) => removeIgnoreRegion(activeFrame, regionId)
+                    : undefined
+                }
+                readOnly={!editable}
+                onSelectCandidate={(candidate) => {
+                  setSelectedCandidateId(candidate.card_id);
+                  if (editable) openEditor(activeFrame, candidate);
+                }}
+                onSelectCandidatePolygon={
+                  editable
+                    ? (candidate, polygonIndex) =>
+                        openEditor(activeFrame, candidate, polygonIndex)
+                    : undefined
+                }
+                onOpenEditor={
+                  editable
+                    ? (candidate) => openEditor(activeFrame, candidate)
+                    : undefined
+                }
+                onCancelEditor={editable ? () => setEditor(null) : undefined}
+                onRemoveCard={
+                  editable
+                    ? (cardId) => removeCard(activeFrame, cardId)
+                    : undefined
+                }
+                onPointerMove={handleCanvasPointerMove}
+                onCanvasPointerDown={addVisibleRegionPoint}
+                onPointerUp={stopCanvasPointer}
+                onPointPointerDown={startPointDrag}
+                onDeleteSelectedPoint={deleteSelectedPoint}
+                onSelectEditorPolygon={selectEditorPolygon}
+                onAddEditorPolygon={addEditorPolygon}
+                onRemoveEditorPolygon={removeEditorPolygon}
+                proposalSlot={proposalSlot}
               />
-            ) : null}
-            <VisibleCardFramePanel
-              recordingId={recordingId}
-              frame={activeFrame}
-              editor={
-                editor?.frameItemId === activeFrame.itemId ? editor : null
-              }
-              selectedCandidateId={selectedCandidateId}
-              editorError={editorError}
-              selectedCandidateIds={selectedCandidateIds}
-              onToggleCandidateSelection={toggleCandidateSelection}
-              onOpenIgnoreRegion={
-                editable
-                  ? (region) => openIgnoreRegionEditor(activeFrame, region)
-                  : undefined
-              }
-              onRemoveIgnoreRegion={
-                editable
-                  ? (regionId) => removeIgnoreRegion(activeFrame, regionId)
-                  : undefined
-              }
-              readOnly={!editable}
-              onSelectCandidate={(candidate) => {
-                setSelectedCandidateId(candidate.card_id);
-                if (editable) openEditor(activeFrame, candidate);
-              }}
-              onSelectCandidatePolygon={
-                editable
-                  ? (candidate, polygonIndex) =>
-                      openEditor(activeFrame, candidate, polygonIndex)
-                  : undefined
-              }
-              onOpenEditor={
-                editable
-                  ? (candidate) => openEditor(activeFrame, candidate)
-                  : undefined
-              }
-              onCancelEditor={editable ? () => setEditor(null) : undefined}
-              onRemoveCard={
-                editable
-                  ? (cardId) => removeCard(activeFrame, cardId)
-                  : undefined
-              }
-              onPointerMove={handleCanvasPointerMove}
-              onCanvasPointerDown={addVisibleRegionPoint}
-              onPointerUp={stopCanvasPointer}
-              onPointPointerDown={startPointDrag}
-              onDeleteSelectedPoint={deleteSelectedPoint}
-              onSelectEditorPolygon={selectEditorPolygon}
-              onAddEditorPolygon={addEditorPolygon}
-              onRemoveEditorPolygon={removeEditorPolygon}
-              proposalSlot={proposalSlot}
-            />
-          </div>
+            </div>
+          </>
         )}
         {notice !== null ? (
           <p className={styles.recordingNotice} role="status">

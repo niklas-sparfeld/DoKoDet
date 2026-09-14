@@ -34,6 +34,23 @@ export function useVisibleCardProposalSlot(): HTMLElement | null {
   return slot;
 }
 
+export function useVisibleCardReviewControlsSlot(): HTMLElement | null {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSlot(
+        document.querySelector<HTMLElement>(
+          '[data-visible-card-review-controls-slot="controls"]',
+        ),
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return slot;
+}
+
 export function useVisibleCardInspectorSlots(
   inspectorEnabled: boolean,
   view: "generated" | "reviewed",

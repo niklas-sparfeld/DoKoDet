@@ -12,6 +12,10 @@
   min-width: 0;
 }
 
+.reviewWorkbenchWithSidebarControls {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .controlSidebar {
   display: grid;
   align-self: end;

@@ -444,6 +444,37 @@ describe("PipelineVisibleCardEditor", () => {
     ).toHaveLength(1);
   });
 
+  it("places review controls in the visible-card sidebar slot", async () => {
+    const controlsSlot = document.createElement("div");
+    controlsSlot.dataset.visibleCardReviewControlsSlot = "controls";
+    document.body.append(controlsSlot);
+    try {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>(() =>
+          Promise.resolve(jsonResponse(generatedResult())),
+        ),
+      );
+
+      render(
+        <PipelineVisibleCardEditor
+          recordingId={RECORDING_ID}
+          durationUs={1_000_000}
+          generatedRevisionId={REVISION_ID}
+          generatedRunId={RUN_ID}
+          view="generated"
+        />,
+      );
+
+      const controls = await screen.findByRole("complementary", {
+        name: "Visible-card review controls",
+      });
+      await waitFor(() => expect(controls.parentElement).toBe(controlsSlot));
+    } finally {
+      controlsSlot.remove();
+    }
+  });
+
   it("prewarms the next neighboring frames in order", async () => {
     const fetchImplementation = vi.fn<typeof fetch>((input) =>
       String(input).includes("/pipeline/visible-cards/") &&
