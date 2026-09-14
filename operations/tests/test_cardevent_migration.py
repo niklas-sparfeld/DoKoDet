@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+from doko_operations import cardevent_migration
 from doko_operations.cardevent_migration import migrate_cardeventnet
 from doko_operations.cli import main
 from doko_operations.intake import inspect_repository
@@ -11,6 +14,15 @@ from doko_operations.pipeline_reference import (
     parse_reference_draft_bytes,
     parse_reference_state_bytes,
 )
+
+
+@pytest.fixture(autouse=True)
+def _stub_video_duration_probe(monkeypatch: pytest.MonkeyPatch):
+    """Keep legacy byte fixtures independent of the local ffprobe binary."""
+
+    original = cardevent_migration._probe_video_duration_us
+    monkeypatch.setattr(cardevent_migration, "_probe_video_duration_us", lambda path: 10_000_000)
+    return original
 
 
 def test_migration_publishes_current_bundles_and_unreviewed_drafts(tmp_path: Path) -> None:
@@ -70,6 +82,56 @@ def test_migration_publishes_current_bundles_and_unreviewed_drafts(tmp_path: Pat
         / "legacy"
         / "dataset-manifest.v1.yaml"
     ).is_file()
+
+
+def test_migration_uses_canonical_video_duration_for_imported_revision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    legacy = tmp_path / "card_event_net" / "data"
+    _write_legacy(legacy, "IMG_0001", b"video-1", [])
+    monkeypatch.setattr(
+        cardevent_migration,
+        "_probe_video_duration_us",
+        lambda path: 9_999_000,
+    )
+
+    result = migrate_cardeventnet(tmp_path, operator="operator-a")
+
+    revision_path = (
+        tmp_path
+        / "data"
+        / "operations"
+        / "pipeline"
+        / "revisions"
+        / result.items[0].revision_id
+    )
+    revision = parse_data_revision_bytes(
+        (revision_path / "manifest.json").read_bytes(),
+        (revision_path / "content.json").read_bytes(),
+    )
+    assert revision.source.duration_us == 9_999_000
+
+
+def test_probe_video_duration_uses_video_stream_and_backend_rounding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _stub_video_duration_probe,
+) -> None:
+    video = tmp_path / "video.mov"
+    video.write_bytes(b"video")
+    monkeypatch.setattr(cardevent_migration, "_probe_video_duration_us", _stub_video_duration_probe)
+
+    class _Result:
+        returncode = 0
+        stdout = (
+            '{"streams":[{"codec_type":"video","duration":"520.751667"}],'
+            '"format":{"duration":"520.751667"}}'
+        )
+
+    monkeypatch.setattr(cardevent_migration.shutil, "which", lambda name: "/usr/bin/ffprobe")
+    monkeypatch.setattr(cardevent_migration.subprocess, "run", lambda *args, **kwargs: _Result())
+
+    assert cardevent_migration._probe_video_duration_us(video) == 520_752_000
 
 
 def test_migration_is_a_no_op_after_a_complete_receipt(tmp_path: Path) -> None:

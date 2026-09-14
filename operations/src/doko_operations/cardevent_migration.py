@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -160,6 +162,69 @@ def _sha256_path(path: Path) -> str:
     except OSError as error:
         raise CardEventNetMigrationError(f"could not read source file {path}: {error}") from error
     return digest.hexdigest()
+
+
+def _probe_video_duration_us(path: Path) -> int:
+    """Return the canonical video duration with the backend's millisecond rounding."""
+
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe is None:
+        raise CardEventNetMigrationError("ffprobe is required to inspect the canonical video")
+    try:
+        result = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration:stream=codec_type,duration",
+                "-show_streams",
+                "-of",
+                "json",
+                str(path),
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise CardEventNetMigrationError(
+            f"could not probe canonical video duration: {path}"
+        ) from error
+    if result.returncode != 0:
+        raise CardEventNetMigrationError(f"could not probe canonical video duration: {path}")
+    payload: Any = None
+    try:
+        payload = json.loads(result.stdout)
+        streams = payload["streams"]
+        stream_duration = next(
+            stream.get("duration")
+            for stream in streams
+            if isinstance(stream, Mapping)
+            and stream.get("codec_type") == "video"
+            and stream.get("duration")
+        )
+    except (KeyError, TypeError, StopIteration, json.JSONDecodeError):
+        try:
+            format_payload = payload["format"]
+            stream_duration = format_payload["duration"]
+        except (KeyError, TypeError) as fallback_error:
+            raise CardEventNetMigrationError(
+                f"canonical video duration is unavailable: {path}"
+            ) from fallback_error
+    try:
+        seconds = float(stream_duration)
+    except (TypeError, ValueError) as error:
+        raise CardEventNetMigrationError(
+            f"canonical video duration is invalid: {path}"
+        ) from error
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise CardEventNetMigrationError(f"canonical video duration is invalid: {path}")
+    duration_ms = round(seconds * 1_000)
+    if duration_ms <= 0:
+        raise CardEventNetMigrationError(f"canonical video duration is invalid: {path}")
+    return duration_ms * 1_000
 
 
 def _safe_id(value: str, field: str) -> str:
@@ -1101,6 +1166,13 @@ def migrate_cardeventnet(
                 raise CardEventNetMigrationError(
                     f"canonical video is unavailable for {recording.video_id}"
                 )
+            metadata_duration_us = round(details.duration_s * 1_000_000)
+            try:
+                duration_us = _probe_video_duration_us(video)
+            except CardEventNetMigrationError:
+                # Keep metadata-only legacy fixtures migratable. Complete video bundles use the
+                # probed duration, which is the source identity enforced by the backend.
+                duration_us = metadata_duration_us
             video_relative = _relative(video, repository)
             revision_id, _revision_action = _write_revision(
                 repository,
@@ -1109,7 +1181,7 @@ def migrate_cardeventnet(
                 source_path,
                 recording.source_sha256,
                 recording.source_byte_length,
-                round(details.duration_s * 1_000_000),
+                duration_us,
                 annotation_bytes,
                 annotation_schema,
                 events,
