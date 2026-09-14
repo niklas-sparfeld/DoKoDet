@@ -6,6 +6,7 @@ from typing import Any
 
 import torch
 
+from .annotation import confirmed_event_intervals
 from .cache import CacheError
 from .config import Config, load_config
 from .dataset import CachedFrameStore, DatasetSample, inference_samples_for_cache
@@ -90,6 +91,10 @@ def load_baseline_streams(
                 duration_s=duration_s,
                 ground_truth_times_s=tuple(event.time_s for event in annotation.events),
                 probabilities=tuple(baseline_stream_for_cache(cache_path, config)),
+                ground_truth_intervals_s=tuple(
+                    (interval.start_s, interval.end_s)
+                    for interval in confirmed_event_intervals(annotation.events)
+                ),
             )
         )
     return videos

@@ -41,7 +41,7 @@ def _write_frozen_dataset(root: Path) -> Path:
                     "end_us": index * 1_000_000,
                     "event_id": f"event-{recording_id}",
                     "event_type": "card_state_changed",
-                    "start_us": index * 1_000_000,
+                    "start_us": index * 1_000_000 - (250_000 if index == 2 else 0),
                 }
             ]
         }
@@ -149,7 +149,16 @@ def test_materialization_rebuild_is_deterministic_and_loadable(tmp_path: Path) -
     assert (second.view_root / "videos" / "recording-train.mov").is_symlink()
     assert (second.view_root / "annotations" / "recording-validation.json").read_text(
         encoding="utf-8"
-    ).find('"card_state_changed"') >= 0
+    ).find('"start_s": 1.75') >= 0
+    assert '"time_s": 2.0' in (
+        second.view_root / "annotations" / "recording-validation.json"
+    ).read_text(encoding="utf-8")
+    manifest = json.loads((second.view_root / "materialization.json").read_text(encoding="utf-8"))
+    assert manifest["event_target_policy"] == {
+        "version": "stable-end-anchor-v1",
+        "anchor": "end_us",
+        "interval_interior": "exclude_from_negative_evidence",
+    }
     assert (second.view_root / "split.yaml").read_text(encoding="utf-8") == (
         "train:\n- recording-train\nval:\n- recording-validation\ntest:\n- recording-test\n"
     )

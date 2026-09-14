@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from .events import CARD_STATE_CHANGED_EVENT_TYPE
+from .events import CARD_STATE_CHANGED_EVENT_TYPE, EventInterval
 from .intake_contract import (
     IntakeContractError,
     ProposalGeneratorRun,
@@ -196,11 +196,13 @@ class AnnotationEvent:
     type: str = CARD_STATE_CHANGED_EVENT_TYPE
     confidence: str | None = None
     notes: str | None = None
+    start_s: float | None = None
+    end_s: float | None = None
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "AnnotationEvent":
         mapping = _require_mapping(data, "event")
-        allowed_keys = {"time_s", "type", "confidence", "notes"}
+        allowed_keys = {"time_s", "type", "confidence", "notes", "start_s", "end_s"}
         unknown_keys = set(mapping) - allowed_keys
         if unknown_keys:
             names = ", ".join(sorted(unknown_keys))
@@ -215,11 +217,31 @@ class AnnotationEvent:
             )
         if notes is not None and not isinstance(notes, str):
             raise AnnotationError("event.notes must be a string or null.")
+        start_s = mapping.get("start_s")
+        end_s = mapping.get("end_s")
+        if (start_s is None) != (end_s is None):
+            raise AnnotationError("event.start_s and event.end_s must be provided together.")
+        if start_s is not None:
+            if (
+                isinstance(start_s, bool)
+                or not isinstance(start_s, (int, float))
+                or not math.isfinite(float(start_s))
+                or float(start_s) < 0.0
+                or isinstance(end_s, bool)
+                or not isinstance(end_s, (int, float))
+                or not math.isfinite(float(end_s))
+                or float(end_s) < float(start_s)
+            ):
+                raise AnnotationError("event interval must be finite, non-negative, and ordered.")
+            if float(end_s) != float(mapping["time_s"]):
+                raise AnnotationError("event.time_s must be the stable end of an interval.")
         event = cls(
             time_s=_require_float(mapping, "time_s", min_value=0.0),
             type=_require_string(mapping, "type"),
             confidence=confidence,
             notes=notes,
+            start_s=None if start_s is None else float(start_s),
+            end_s=None if end_s is None else float(end_s),
         )
         if event.type not in EVENT_TYPES:
             raise AnnotationError(f"Unknown event type: {event.type}.")
@@ -238,11 +260,27 @@ class AnnotationEvent:
             "time_s": self.time_s,
             "type": self.type,
         }
+        if (self.start_s is None) != (self.end_s is None):
+            raise AnnotationError("event.start_s and event.end_s must be provided together.")
+        if self.start_s is not None:
+            EventInterval(self.start_s, self.end_s)
+            if self.end_s != self.time_s:
+                raise AnnotationError("event.time_s must be the stable end of an interval.")
+            result["start_s"] = self.start_s
+            result["end_s"] = self.end_s
         if self.confidence is not None:
             result["confidence"] = self.confidence
         if self.notes is not None:
             result["notes"] = self.notes
         return result
+
+    @property
+    def interval(self) -> EventInterval:
+        """Return the reviewed range, using the point time for legacy events."""
+        return EventInterval(
+            self.time_s if self.start_s is None else self.start_s,
+            self.time_s if self.end_s is None else self.end_s,
+        )
 
 
 def confirmed_events(events: Sequence[AnnotationEvent]) -> tuple[AnnotationEvent, ...]:
@@ -264,6 +302,12 @@ def confirmed_event_times(events: Sequence[AnnotationEvent]) -> tuple[float, ...
     """Return the binary-training times for confirmed meaningful annotations."""
 
     return tuple(event.time_s for event in confirmed_events(events))
+
+
+def confirmed_event_intervals(events: Sequence[AnnotationEvent]) -> tuple[EventInterval, ...]:
+    """Return reviewed ranges for confirmed meaningful annotations."""
+
+    return tuple(event.interval for event in confirmed_events(events))
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-from .annotation import VideoAnnotation, confirmed_event_times
+from .annotation import VideoAnnotation, confirmed_event_intervals, confirmed_event_times
 from .cache import CacheError, CacheMetadata, load_cache_metadata
+from .events import EventInterval
 from .sampling import (
     DEFAULT_CLIP_OFFSETS_S,
     LABEL_NEGATIVE,
@@ -84,6 +85,7 @@ def samples_for_cache(
     negative_to_positive_ratio: int = 3,
     seed: int = 42,
     confirmed_hard_negative_times_s: Sequence[float] = (),
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]] = (),
 ) -> list[DatasetSample]:
     cache_path = Path(cache_dir)
     metadata = load_cache_metadata(cache_path)
@@ -96,6 +98,7 @@ def samples_for_cache(
         negative_to_positive_ratio=negative_to_positive_ratio,
         seed=seed,
         confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+        event_intervals_s=event_intervals_s,
     )
     return _dataset_samples(cache_path, metadata, times)
 
@@ -109,6 +112,7 @@ def inference_samples_for_cache(
     past_exclusion_s: float = 1.8,
     future_exclusion_s: float = 0.8,
     confirmed_hard_negative_times_s: Sequence[float] = (),
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]] = (),
 ) -> list[DatasetSample]:
     cache_path = Path(cache_dir)
     metadata = load_cache_metadata(cache_path)
@@ -124,6 +128,7 @@ def inference_samples_for_cache(
                         past_exclusion_s=past_exclusion_s,
                         future_exclusion_s=future_exclusion_s,
                         confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+                        event_intervals_s=event_intervals_s,
                     )
                 )
                 if event_times_s is not None
@@ -137,6 +142,7 @@ def inference_samples_for_cache(
                     past_exclusion_s=past_exclusion_s,
                     future_exclusion_s=future_exclusion_s,
                     confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+                    event_intervals_s=event_intervals_s,
                 )
                 if event_times_s is not None
                 else LABEL_NEGATIVE
@@ -172,6 +178,7 @@ def samples_for_annotation(
     return samples_for_cache(
         cache_dir,
         confirmed_event_times(annotation.events),
+        event_intervals_s=confirmed_event_intervals(annotation.events),
         **sampling_options,
     )
 

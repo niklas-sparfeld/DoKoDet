@@ -281,6 +281,67 @@ def test_transition_diagnostics_measure_tails_and_nearest_review_scores(tmp_path
     assert report["aggregate"]["reviewed_hard_negatives"]["at_or_above_threshold_count"] == 1
 
 
+def test_transition_diagnostics_separates_interval_outcomes() -> None:
+    video = ScoredVideo(
+        name="interval",
+        duration_s=20.0,
+        ground_truth_times_s=(12.0, 15.0),
+        ground_truth_intervals_s=((10.0, 12.0), (15.0, 15.0)),
+        probabilities=(
+            ProbabilitySample(10.5, 0.9),
+            ProbabilitySample(10.7, 0.1),
+            ProbabilitySample(12.0, 0.8),
+            ProbabilitySample(12.2, 0.1),
+            ProbabilitySample(14.0, 0.7),
+            ProbabilitySample(14.2, 0.1),
+            ProbabilitySample(15.0, 0.9),
+            ProbabilitySample(15.2, 0.1),
+        ),
+    )
+
+    report = transition_diagnostics(
+        [video],
+        threshold=0.5,
+        merge_window_s=0.6,
+        event_match_tolerance_s=0.1,
+    )
+
+    assert report["aggregate"]["event_diagnostics"] == {
+        "point_matches": 1,
+        "stable_end_matches": 1,
+        "in_progress_detections": 1,
+        "confirmed_false_triggers": 1,
+        "misses": 0,
+    }
+
+
+def test_evaluate_streams_does_not_count_interval_interior_as_false() -> None:
+    video = ScoredVideo(
+        name="interval",
+        duration_s=20.0,
+        ground_truth_times_s=(12.0,),
+        ground_truth_intervals_s=((10.0, 12.0),),
+        probabilities=(
+            ProbabilitySample(10.5, 0.9),
+            ProbabilitySample(10.7, 0.1),
+            ProbabilitySample(14.0, 0.8),
+            ProbabilitySample(14.2, 0.1),
+        ),
+    )
+
+    overall, per_video = evaluate_streams(
+        [video],
+        threshold=0.5,
+        merge_window_s=0.6,
+        event_match_tolerance_s=0.1,
+    )
+
+    assert overall["false_events"] == 1.0
+    assert overall["in_progress_detections"] == 1.0
+    assert per_video[0]["false_count"] == 1
+    assert per_video[0]["in_progress_detection_count"] == 1
+
+
 def test_transition_diagnostics_reject_training_scoped_manifest(tmp_path) -> None:
     manifest = tmp_path / "training-negatives.json"
     manifest.write_text(

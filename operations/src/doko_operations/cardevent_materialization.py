@@ -20,6 +20,7 @@ from .cardevent_dataset import (
 
 CARD_EVENTNET_MATERIALIZATION_SCHEMA_VERSION = "cardeventnet-materialization/v1"
 CARD_EVENTNET_MATERIALIZER_VERSION = "cardeventnet-materializer/v1"
+CARD_EVENTNET_INTERVAL_POLICY = "stable-end-anchor-v1"
 _DIGEST_LENGTH = 64
 
 
@@ -198,10 +199,7 @@ def materialize_cardeventnet_dataset(
             annotation_payload = {
                 "schema_version": "cardevent-annotation/v2",
                 "video": video_name,
-                "events": [
-                    {"time_s": start_us / 1_000_000, "type": "card_state_changed"}
-                    for start_us in events
-                ],
+                "events": [_annotation_event(start_us, end_us) for start_us, end_us in events],
             }
             annotation_bytes = _json_bytes(annotation_payload)
             annotation_destination.write_bytes(annotation_bytes)
@@ -245,6 +243,11 @@ def materialize_cardeventnet_dataset(
             "materializer_version": CARD_EVENTNET_MATERIALIZER_VERSION,
             "dataset": {"id": dataset_id, "digest": dataset_digest},
             "split": {"id": split_id, "digest": split_digest},
+            "event_target_policy": {
+                "version": CARD_EVENTNET_INTERVAL_POLICY,
+                "anchor": "end_us",
+                "interval_interior": "exclude_from_negative_evidence",
+            },
             "inputs": inputs,
             "generated_files": generated_files,
         }
@@ -324,7 +327,7 @@ def _digest(value: Any, field: str) -> str:
     return value
 
 
-def _load_events(path: Path, recording_id: str) -> list[int]:
+def _load_events(path: Path, recording_id: str) -> list[tuple[int, int]]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
@@ -336,7 +339,7 @@ def _load_events(path: Path, recording_id: str) -> list[int]:
         raise CardEventNetMaterializationError(
             f"event reference content for {recording_id} has no events list"
         )
-    result: list[int] = []
+    result: list[tuple[int, int]] = []
     for index, raw_event in enumerate(raw_events):
         if (
             not isinstance(raw_event, Mapping)
@@ -358,12 +361,33 @@ def _load_events(path: Path, recording_id: str) -> list[int]:
             raise CardEventNetMaterializationError(
                 f"event reference {recording_id}[{index}] has invalid interval"
             )
-        result.append(start_us)
-    if result != sorted(result) or len(result) != len(set(result)):
+        result.append((start_us, end_us))
+    end_times = [end_us for _, end_us in result]
+    if (
+        result != sorted(result)
+        or len(result) != len({start_us for start_us, _ in result})
+        or end_times != sorted(end_times)
+        or len(end_times) != len(set(end_times))
+    ):
         raise CardEventNetMaterializationError(
             f"event reference {recording_id} is not strictly ordered"
         )
     return result
+
+
+def _annotation_event(start_us: int, end_us: int) -> dict[str, Any]:
+    event: dict[str, Any] = {
+        "time_s": end_us / 1_000_000,
+        "type": "card_state_changed",
+    }
+    if start_us != end_us:
+        event.update(
+            {
+                "start_s": start_us / 1_000_000,
+                "end_s": end_us / 1_000_000,
+            }
+        )
+    return event
 
 
 def _link_source(source: Path, destination: Path) -> None:
@@ -418,6 +442,7 @@ def _mapping_digest(value: Mapping[str, Any]) -> str:
 __all__ = [
     "CARD_EVENTNET_MATERIALIZATION_SCHEMA_VERSION",
     "CARD_EVENTNET_MATERIALIZER_VERSION",
+    "CARD_EVENTNET_INTERVAL_POLICY",
     "CardEventNetMaterializationError",
     "CardEventNetMaterializationResult",
     "materialize_cardeventnet_dataset",

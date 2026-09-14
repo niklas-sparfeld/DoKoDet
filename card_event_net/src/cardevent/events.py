@@ -13,6 +13,30 @@ CARD_STATE_CHANGED_EVENT_TYPE = "card_state_changed"
 
 
 @dataclass(frozen=True, slots=True)
+class EventInterval:
+    """The reviewed source range for one card-state change."""
+
+    start_s: float
+    end_s: float
+
+    def __post_init__(self) -> None:
+        if (
+            not isfinite(self.start_s)
+            or not isfinite(self.end_s)
+            or self.start_s < 0.0
+            or self.end_s < self.start_s
+        ):
+            raise EventError("Event interval must be finite, non-negative, and ordered.")
+
+    @property
+    def is_point(self) -> bool:
+        return self.start_s == self.end_s
+
+    def contains_interior(self, time_s: float) -> bool:
+        return self.start_s <= time_s < self.end_s
+
+
+@dataclass(frozen=True, slots=True)
 class ProbabilitySample:
     """The model score at one causal decision timestamp."""
 
@@ -61,6 +85,94 @@ class DetectedEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class PredictionOutcome:
+    """Diagnostic classification for one decoded prediction."""
+
+    prediction: DetectedEvent
+    outcome: str
+    anchor_time_s: float | None = None
+    interval_start_s: float | None = None
+    interval_end_s: float | None = None
+
+
+def classify_prediction_outcomes(
+    predicted_events: Sequence[DetectedEvent],
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]],
+    *,
+    tolerance_s: float,
+) -> tuple[PredictionOutcome, ...]:
+    """Classify predictions against point and reviewed interval anchors."""
+    if not isfinite(tolerance_s) or tolerance_s < 0.0:
+        raise EventError("tolerance_s must be finite and non-negative.")
+    intervals: list[EventInterval] = []
+    for interval in event_intervals_s:
+        if isinstance(interval, EventInterval):
+            intervals.append(interval)
+        elif (
+            isinstance(interval, (tuple, list))
+            and len(interval) == 2
+            and not isinstance(interval[0], bool)
+            and not isinstance(interval[1], bool)
+            and isinstance(interval[0], (int, float))
+            and isinstance(interval[1], (int, float))
+        ):
+            intervals.append(EventInterval(float(interval[0]), float(interval[1])))
+        else:
+            raise EventError("Event intervals must contain numeric start and end times.")
+
+    ordered_intervals = tuple(
+        sorted(intervals, key=lambda interval: (interval.end_s, interval.start_s))
+    )
+    used_anchors: set[int] = set()
+    outcomes: list[PredictionOutcome] = []
+    for prediction in sorted(predicted_events, key=lambda event: event.time_s):
+        matching = [
+            (abs(prediction.time_s - interval.end_s), index, interval)
+            for index, interval in enumerate(ordered_intervals)
+            if index not in used_anchors and abs(prediction.time_s - interval.end_s) <= tolerance_s
+        ]
+        if matching:
+            _, index, interval = min(matching, key=lambda item: (item[0], item[2].end_s))
+            used_anchors.add(index)
+            outcomes.append(
+                PredictionOutcome(
+                    prediction=prediction,
+                    outcome="point_match" if interval.is_point else "stable_end_match",
+                    anchor_time_s=interval.end_s,
+                    interval_start_s=interval.start_s,
+                    interval_end_s=interval.end_s,
+                )
+            )
+            continue
+        containing = next(
+            (
+                interval
+                for interval in ordered_intervals
+                if interval.contains_interior(prediction.time_s)
+            ),
+            None,
+        )
+        if containing is not None:
+            outcomes.append(
+                PredictionOutcome(
+                    prediction=prediction,
+                    outcome="in_progress_detection",
+                    anchor_time_s=containing.end_s,
+                    interval_start_s=containing.start_s,
+                    interval_end_s=containing.end_s,
+                )
+            )
+        else:
+            outcomes.append(
+                PredictionOutcome(
+                    prediction=prediction,
+                    outcome="confirmed_false_trigger",
+                )
+            )
+    return tuple(outcomes)
+
+
+@dataclass(frozen=True, slots=True)
 class _PendingPeak:
     time_s: float
     probability: float
@@ -101,10 +213,7 @@ class CausalEventDecoder:
 
     def consume(self, sample: ProbabilitySample) -> DetectedEvent | None:
         """Consume one timestamp-ordered sample and maybe emit one event."""
-        if (
-            self._last_sample_time_s is not None
-            and sample.time_s < self._last_sample_time_s
-        ):
+        if self._last_sample_time_s is not None and sample.time_s < self._last_sample_time_s:
             self.reset()
 
         # A missing interval separates probability segments. Confirm the
@@ -203,11 +312,14 @@ def candidate_peaks(
 
     raw_peaks: list[ProbabilitySample] = []
     segment_start = 0
-    for segment_end in (*(
-        index
-        for index in range(1, len(ordered))
-        if ordered[index].time_s - ordered[index - 1].time_s > min_event_gap_s
-    ), len(ordered)):
+    for segment_end in (
+        *(
+            index
+            for index in range(1, len(ordered))
+            if ordered[index].time_s - ordered[index - 1].time_s > min_event_gap_s
+        ),
+        len(ordered),
+    ):
         index = segment_start
         while index < segment_end:
             start = index
@@ -256,11 +368,7 @@ def probabilities_to_events(
         peak_confirmation_s=peak_confirmation_s,
         min_event_gap_s=gap,
     )
-    events = [
-        event
-        for sample in samples
-        if (event := decoder.consume(sample)) is not None
-    ]
+    events = [event for sample in samples if (event := decoder.consume(sample)) is not None]
     if (event := decoder.flush()) is not None:
         events.append(event)
     return events

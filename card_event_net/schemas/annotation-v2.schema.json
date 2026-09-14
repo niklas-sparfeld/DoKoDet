@@ -38,6 +38,14 @@
         },
         "notes": {
           "type": ["string", "null"]
+        },
+        "start_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end_s": {
+          "type": "number",
+          "minimum": 0
         }
       }
     }

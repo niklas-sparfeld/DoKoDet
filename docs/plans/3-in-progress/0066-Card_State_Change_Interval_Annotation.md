@@ -8,9 +8,10 @@
 - **Depends on:** None
 - **Builds on:** 0049, 0062, and 0064 complete; 0063 supplies reviewed failure evidence but does
   not block this work.
-- **Readiness:** M0–M2 are complete. The interval semantics, stable-end policy, contract
+- **Readiness:** M0–M3 are complete. The interval semantics, stable-end policy, contract
   fixtures, preservation checks, CardEvent viewer editing controls, range-aware Timeline Rail,
-  and bound navigation are in place. M3 is ready to define interval-aware negative evidence.
+  bound navigation, interval-aware targets, negative evidence exclusion, and diagnostics are in
+  place. M4 is ready for the bounded review pilot.
 - **Outcome:** A reviewed event can remain a point or become a nonzero card-state change interval.
   The editor makes both bounds clear. CardEventNet uses the stable end as the event anchor and does
   not treat the interval interior as a hard negative or ordinary negative sample.
@@ -70,7 +71,7 @@ This epic does not include:
   fixtures, and verify validation, ordering, comparison, and maintained-reference preservation.
 - **M1:** Complete (2026-09-14) — add interval editing to the CardEvent viewer.
 - **M2:** Complete (2026-09-14) — make intervals understandable in review.
-- **M3:** Not started — keep interval interiors out of negative evidence.
+- **M3:** Complete (2026-09-14) — keep interval interiors out of negative evidence.
 - **M4:** Not started — run a bounded trick-clear review pilot.
 
 ## Delivery milestones
@@ -131,20 +132,20 @@ Acceptance:
 
 ### M3 — Keep interval interiors out of negative evidence
 
-- Add an explicit interval policy to CardEventNet materialization and diagnostics.
-- Use `end_us` for the point target of a reviewed interval.
-- Exclude samples inside the reviewed interval from ordinary negatives, confirmed hard negatives,
+- Complete — add an explicit interval policy to CardEventNet materialization and diagnostics.
+- Complete — use `end_us` for the point target of a reviewed interval.
+- Complete — exclude samples inside the reviewed interval from ordinary negatives, confirmed hard negatives,
   and false-trigger counts that assume a point target.
-- Report predictions inside an interval as in-progress detections so review can distinguish them
+- Complete — report predictions inside an interval as in-progress detections so review can distinguish them
   from missed events and confirmed no-event triggers.
-- Add unit coverage for point events, nonzero intervals, overlapping label windows, and mining
+- Complete — add unit coverage for point events, nonzero intervals, overlapping label windows, and mining
   behavior.
 
 Acceptance:
 
-- no interval-interior sample enters a hard-negative manifest or ordinary-negative selection;
-- an interval-end target still creates the configured positive label window; and
-- diagnostics separately count point matches, in-progress detections, and confirmed false triggers.
+- Complete — no interval-interior sample enters a hard-negative manifest or ordinary-negative selection;
+- Complete — an interval-end target still creates the configured positive label window; and
+- Complete — diagnostics separately count point matches, in-progress detections, and confirmed false triggers.
 
 ### M4 — Run a bounded trick-clear review pilot
 

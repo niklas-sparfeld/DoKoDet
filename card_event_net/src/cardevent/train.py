@@ -20,7 +20,12 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from .annotation import AnnotationError, confirmed_event_times, load_annotation
+from .annotation import (
+    AnnotationError,
+    confirmed_event_intervals,
+    confirmed_event_times,
+    load_annotation,
+)
 from .cache import CacheError, load_cache_metadata, require_cache_preprocessing
 from .config import Config, ConfigError, load_config, save_config
 from .dataset import (
@@ -43,7 +48,13 @@ from .evaluation import (
 from .events import ProbabilitySample
 from .hard_negatives import HardNegativeError, load_hard_negative_times
 from .model import CardEventNet, build_model, freeze_backbone, unfreeze_backbone
-from .sampling import DEFAULT_CLIP_OFFSETS_S, LabeledTime, build_labeled_times, sampling_report
+from .sampling import (
+    DEFAULT_CLIP_OFFSETS_S,
+    LabeledTime,
+    build_labeled_times,
+    is_inside_event_interval,
+    sampling_report,
+)
 from .splits import SplitError, VideoSplit, load_split
 from .transforms import ClipTransform
 
@@ -84,6 +95,7 @@ class _ValidationVideo:
     samples: tuple[DatasetSample, ...]
     event_times_s: tuple[float, ...]
     duration_s: float
+    event_intervals_s: tuple[Any, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -337,6 +349,7 @@ def _training_samples_for_split(
                     cache_path,
                     name,
                     hard_negative_times.get(name, ()),
+                    event_intervals_s=confirmed_event_intervals(annotation.events),
                     repeat=config.training.hard_negative_repeat,
                 )
             )
@@ -354,6 +367,7 @@ def _hard_negative_samples_for_video(
     name: str,
     times_s: Sequence[float],
     *,
+    event_intervals_s: Sequence[Any] = (),
     repeat: int,
 ) -> list[DatasetSample]:
     if repeat < 2:
@@ -364,6 +378,9 @@ def _hard_negative_samples_for_video(
         raise TrainingError(
             f"Could not load cache metadata for hard negatives in {name}: {exc}"
         ) from exc
+    eligible_times = tuple(
+        time_s for time_s in times_s if not is_inside_event_interval(time_s, event_intervals_s)
+    )
     return [
         DatasetSample(
             source_video=source_video,
@@ -372,7 +389,7 @@ def _hard_negative_samples_for_video(
             label=0.0,
             label_state="confirmed_hard_negative",
         )
-        for time_s in sorted(times_s)
+        for time_s in sorted(eligible_times)
         for _ in range(repeat)
     ]
 
@@ -411,14 +428,21 @@ def _sampling_report_for_split(
             raise TrainingError(str(exc)) from exc
 
     eligible_by_video: dict[str, tuple[LabeledTime, ...]] = {}
+    filtered_hard_negative_counts: dict[str, int] = {}
     for name in split.train:
         cache_path = _cache_for_video(name, cache_dir, preprocessing=config.input.preprocessing)
         annotation = _annotation_for_video(name, annotations_dir)
         event_times_s = confirmed_event_times(annotation.events)
+        event_intervals_s = confirmed_event_intervals(annotation.events)
+        filtered_hard_negative_counts[name] = sum(
+            not is_inside_event_interval(time_s, event_intervals_s)
+            for time_s in raw_hard_negative_times.get(name, ())
+        )
         metadata = load_cache_metadata(cache_path)
         eligible_by_video[name] = build_labeled_times(
             metadata.frame_timestamps_s,
             event_times_s,
+            event_intervals_s=event_intervals_s,
             positive_window_s=config.labels.positive_window_s,
             past_exclusion_s=config.labels.negative_past_exclusion_s,
             future_exclusion_s=config.labels.negative_future_exclusion_s,
@@ -441,9 +465,7 @@ def _sampling_report_for_split(
         future_exclusion_s=config.labels.negative_future_exclusion_s,
         negative_to_positive_ratio=config.labels.negative_to_positive_ratio,
         hard_negative_manifest=(str(hard_negative_manifest) if hard_negative_manifest else None),
-        raw_hard_negative_counts={
-            name: len(times) for name, times in raw_hard_negative_times.items()
-        },
+        raw_hard_negative_counts=filtered_hard_negative_counts,
     )
 
 
@@ -461,6 +483,7 @@ def _validation_videos(
         annotation = _annotation_for_video(name, annotations_dir)
         metadata = load_cache_metadata(cache_path)
         event_times_s = confirmed_event_times(annotation.events)
+        event_intervals_s = confirmed_event_intervals(annotation.events)
         samples = inference_samples_for_cache(
             cache_path,
             stride_s=config.input.inference_stride_s,
@@ -468,6 +491,7 @@ def _validation_videos(
             positive_window_s=config.labels.positive_window_s,
             past_exclusion_s=config.labels.negative_past_exclusion_s,
             future_exclusion_s=config.labels.negative_future_exclusion_s,
+            event_intervals_s=event_intervals_s,
         )
         if max_samples is not None:
             samples = _limit_samples(samples, max_samples)
@@ -476,6 +500,7 @@ def _validation_videos(
                 name=name,
                 samples=tuple(samples),
                 event_times_s=event_times_s,
+                event_intervals_s=event_intervals_s,
                 duration_s=metadata.duration_s,
             )
         )
@@ -669,6 +694,7 @@ def _evaluate_validation(
                 name=video.name,
                 duration_s=video.duration_s,
                 ground_truth_times_s=video.event_times_s,
+                ground_truth_intervals_s=video.event_intervals_s,
                 probabilities=tuple(probabilities),
             )
         )

@@ -7,6 +7,7 @@ from cardevent.sampling import (
     LABEL_IGNORE,
     build_training_times,
     is_clean_negative_time,
+    is_inside_event_interval,
     is_positive_time,
     label_state_for_time,
     sampling_report,
@@ -79,6 +80,50 @@ def test_three_way_labels_ignore_transitions_and_hard_negatives_override_them() 
     assert (
         label_state_for_time(10.6, (10.0,), confirmed_hard_negative_times_s=(10.6,))
         == LABEL_CONFIRMED_HARD_NEGATIVE
+    )
+
+
+def test_interval_interior_is_neither_ordinary_negative_nor_hard_negative() -> None:
+    intervals = ((10.0, 12.0),)
+
+    assert is_inside_event_interval(10.0, intervals)
+    assert is_inside_event_interval(11.5, intervals)
+    assert not is_inside_event_interval(12.0, intervals)
+    assert (
+        label_state_for_time(
+            11.5,
+            (12.0,),
+            confirmed_hard_negative_times_s=(11.5,),
+            event_intervals_s=intervals,
+        )
+        == LABEL_IGNORE
+    )
+
+
+def test_interval_end_keeps_the_positive_target_window() -> None:
+    samples = build_training_times(
+        (10.0, 10.5, 11.0, 11.5, 12.0, 12.5),
+        (12.0,),
+        positive_window_s=0.25,
+        past_exclusion_s=0.5,
+        future_exclusion_s=0.25,
+        negative_to_positive_ratio=1,
+        event_intervals_s=((10.0, 12.0),),
+    )
+
+    assert [sample.time_s for sample in samples if sample.label == 1.0] == [12.0]
+    assert all(sample.time_s not in {10.0, 10.5, 11.0, 11.5} for sample in samples)
+
+
+def test_overlapping_positive_windows_still_win_over_interval_ignore() -> None:
+    assert (
+        label_state_for_time(
+            12.0,
+            (12.0, 14.0),
+            positive_window_s=0.25,
+            event_intervals_s=((10.0, 12.0), (11.0, 14.0)),
+        )
+        == "positive"
     )
 
 

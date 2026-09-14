@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from math import isfinite
 from typing import Mapping, Sequence
 
+from .events import EventInterval
+
 DEFAULT_CLIP_OFFSETS_S: tuple[float, ...] = (
     -1.4,
     -1.2,
@@ -36,6 +38,46 @@ LABEL_IGNORE = "ignore"
 LABEL_CONFIRMED_HARD_NEGATIVE = "confirmed_hard_negative"
 
 
+def _normalise_intervals(
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]],
+) -> tuple[tuple[float, float], ...]:
+    result: list[tuple[float, float]] = []
+    for interval in event_intervals_s:
+        if isinstance(interval, EventInterval):
+            start_s, end_s = interval.start_s, interval.end_s
+        elif (
+            isinstance(interval, (tuple, list))
+            and len(interval) == 2
+            and not isinstance(interval[0], bool)
+            and not isinstance(interval[1], bool)
+            and isinstance(interval[0], (int, float))
+            and isinstance(interval[1], (int, float))
+        ):
+            start_s, end_s = float(interval[0]), float(interval[1])
+        else:
+            raise SamplingError("Event intervals must contain numeric start and end times.")
+        if (
+            not isfinite(float(start_s))
+            or not isfinite(float(end_s))
+            or float(start_s) < 0.0
+            or float(end_s) < float(start_s)
+        ):
+            raise SamplingError("Event intervals must be finite, non-negative, and ordered.")
+        result.append((float(start_s), float(end_s)))
+    return tuple(result)
+
+
+def is_inside_event_interval(
+    decision_time_s: float,
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]],
+) -> bool:
+    """Return whether a time is part of an interval before its stable end."""
+    return any(
+        start_s <= decision_time_s < end_s
+        for start_s, end_s in _normalise_intervals(event_intervals_s)
+    )
+
+
 def label_state_for_time(
     decision_time_s: float,
     event_times_s: Sequence[float],
@@ -45,8 +87,14 @@ def label_state_for_time(
     future_exclusion_s: float = 0.8,
     confirmed_hard_negative_times_s: Sequence[float] = (),
     hard_negative_tolerance_s: float = 1e-6,
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]] = (),
 ) -> str:
     """Classify one decision time with shared train and validation semantics."""
+    intervals = _normalise_intervals(event_intervals_s)
+    if is_positive_time(decision_time_s, event_times_s, positive_window_s=positive_window_s):
+        return LABEL_POSITIVE
+    if is_inside_event_interval(decision_time_s, intervals):
+        return LABEL_IGNORE
     if any(
         abs(decision_time_s - time_s) <= hard_negative_tolerance_s
         for time_s in confirmed_hard_negative_times_s
@@ -54,8 +102,6 @@ def label_state_for_time(
         if is_positive_time(decision_time_s, event_times_s, positive_window_s=positive_window_s):
             raise SamplingError("Confirmed hard negatives cannot overlap positive windows.")
         return LABEL_CONFIRMED_HARD_NEGATIVE
-    if is_positive_time(decision_time_s, event_times_s, positive_window_s=positive_window_s):
-        return LABEL_POSITIVE
     if is_clean_negative_time(
         decision_time_s,
         event_times_s,
@@ -181,6 +227,7 @@ def is_clean_negative_time(
     *,
     past_exclusion_s: float = 1.8,
     future_exclusion_s: float = 0.8,
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]] = (),
 ) -> bool:
     if (
         past_exclusion_s < 0.0
@@ -189,7 +236,7 @@ def is_clean_negative_time(
         or not isfinite(future_exclusion_s)
     ):
         raise SamplingError("Negative exclusion windows must be finite and non-negative.")
-    return not event_in_window(
+    return not is_inside_event_interval(decision_time_s, event_intervals_s) and not event_in_window(
         decision_time_s,
         event_times_s,
         start_offset_s=-past_exclusion_s,
@@ -207,6 +254,7 @@ def build_training_times(
     negative_to_positive_ratio: int = 3,
     seed: int = 42,
     confirmed_hard_negative_times_s: Sequence[float] = (),
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]] = (),
 ) -> tuple[LabeledTime, ...]:
     """Build deterministic, approximately 1:3 positive/clean-negative samples."""
     _validate_timestamps(frame_timestamps_s)
@@ -224,6 +272,7 @@ def build_training_times(
                     past_exclusion_s=past_exclusion_s,
                     future_exclusion_s=future_exclusion_s,
                     confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+                    event_intervals_s=event_intervals_s,
                 )
             ),
             label_state=label_state_for_time(
@@ -233,6 +282,7 @@ def build_training_times(
                 past_exclusion_s=past_exclusion_s,
                 future_exclusion_s=future_exclusion_s,
                 confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+                event_intervals_s=event_intervals_s,
             ),
         )
         for time_s in frame_timestamps_s
@@ -270,6 +320,7 @@ def build_labeled_times(
     past_exclusion_s: float = 1.8,
     future_exclusion_s: float = 0.8,
     confirmed_hard_negative_times_s: Sequence[float] = (),
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]] = (),
 ) -> tuple[LabeledTime, ...]:
     """Return every decision time, including ignored transition samples."""
     _validate_timestamps(frame_timestamps_s)
@@ -282,6 +333,7 @@ def build_labeled_times(
             past_exclusion_s=past_exclusion_s,
             future_exclusion_s=future_exclusion_s,
             confirmed_hard_negative_times_s=confirmed_hard_negative_times_s,
+            event_intervals_s=event_intervals_s,
         )
         result.append(LabeledTime(time_s=time_s, label=label_for_state(state), label_state=state))
     return tuple(result)

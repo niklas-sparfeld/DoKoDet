@@ -11,6 +11,7 @@ from cardevent.evaluate import ScoredVideo
 from cardevent.events import DetectedEvent, ProbabilitySample
 from cardevent.hard_negatives import (
     HardNegativeError,
+    classify_prediction_outcomes,
     false_triggers,
     load_hard_negative_times,
 )
@@ -30,6 +31,31 @@ def test_false_triggers_keeps_only_unmatched_predictions() -> None:
         (2.0, 0.8),
         (4.0, 0.7),
     ]
+
+
+def test_interval_interior_predictions_are_in_progress_not_hard_negatives() -> None:
+    predicted = (
+        DetectedEvent(time_s=10.5, probability=0.9),
+        DetectedEvent(time_s=12.0, probability=0.8),
+        DetectedEvent(time_s=14.0, probability=0.7),
+    )
+    intervals = ((10.0, 12.0),)
+
+    outcomes = classify_prediction_outcomes(predicted, intervals, tolerance_s=0.1)
+    assert [item.outcome for item in outcomes] == [
+        "in_progress_detection",
+        "stable_end_match",
+        "confirmed_false_trigger",
+    ]
+    assert [
+        event.time_s
+        for event in false_triggers(
+            predicted,
+            (12.0,),
+            tolerance_s=0.1,
+            event_intervals_s=intervals,
+        )
+    ] == [14.0]
 
 
 def test_load_hard_negative_times_returns_only_requested_train_videos(tmp_path: Path) -> None:
@@ -108,6 +134,33 @@ def test_hard_negative_samples_are_repeated(tmp_path: Path) -> None:
     assert len(samples) == 6
     assert [sample.decision_time_s for sample in samples] == [1.0] * 3 + [2.0] * 3
     assert all(sample.label == 0.0 for sample in samples)
+
+
+def test_hard_negative_samples_skip_interval_interior(tmp_path: Path) -> None:
+    cache_dir = tmp_path / "game"
+    cache_dir.mkdir()
+    (cache_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "source_video": "game.mov",
+                "cache_fps": 10.0,
+                "duration_s": 10.0,
+                "frame_timestamps_s": [0.0, 1.0, 2.0, 3.0],
+                "frame_size": 224,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    samples = _hard_negative_samples_for_video(
+        cache_dir,
+        "game",
+        (1.5, 2.0, 3.0),
+        event_intervals_s=((1.0, 2.0),),
+        repeat=2,
+    )
+
+    assert [sample.decision_time_s for sample in samples] == [2.0, 2.0, 3.0, 3.0]
 
 
 def test_mining_writes_false_trigger_manifest(

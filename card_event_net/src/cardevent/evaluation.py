@@ -16,6 +16,7 @@ from .events import (
     EventMatchResult,
     ProbabilitySample,
     candidate_peaks,
+    classify_prediction_outcomes,
     match_events,
     probabilities_to_events,
 )
@@ -39,6 +40,7 @@ class ScoredVideo:
     probabilities: tuple[ProbabilitySample, ...]
     ground_truth_types: tuple[str, ...] = ()
     annotation_version_hash: str | None = None
+    ground_truth_intervals_s: tuple[tuple[float, float], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +70,7 @@ def _metrics_from_match(
     duration_s: float,
     peak_confirmation_s: float,
     latencies_s: Sequence[float] | None = None,
+    false_events_override: int | None = None,
 ) -> dict[str, float]:
     latencies = tuple(match.latencies_s if latencies_s is None else latencies_s)
     emission_latencies = tuple(
@@ -78,9 +81,10 @@ def _metrics_from_match(
     )
     duration_hours = duration_s / 3600.0
     recall = match.detected_true_events / match.real_events if match.real_events else 0.0
+    false_events = match.false_events if false_events_override is None else false_events_override
     precision = (
-        match.detected_true_events / (match.detected_true_events + match.false_events)
-        if match.detected_true_events + match.false_events
+        match.detected_true_events / (match.detected_true_events + false_events)
+        if match.detected_true_events + false_events
         else 0.0
     )
     timestamp_error_median_s = median(latencies) if latencies else 0.0
@@ -95,7 +99,7 @@ def _metrics_from_match(
         "real_events": float(match.real_events),
         "detected_true_events": float(match.detected_true_events),
         "missed_events": float(match.missed_events),
-        "false_events": float(match.false_events),
+        "false_events": float(false_events),
         "event_recall": recall,
         "event_precision": precision,
         "event_f1": event_f1(precision, recall),
@@ -135,7 +139,7 @@ def _failure_details(
     threshold: float,
     merge_window_s: float,
     event_match_tolerance_s: float,
-) -> tuple[list[dict[str, float | str]], list[dict[str, float]]]:
+) -> tuple[list[dict[str, float | str]], list[dict[str, float]], list[dict[str, float]]]:
     missed: list[dict[str, float | str]] = []
     ground_truth_times = tuple(sorted(video.ground_truth_times_s))
     for ground_truth_index in match.unmatched_ground_truth_indices:
@@ -169,14 +173,33 @@ def _failure_details(
             }
         )
 
+    intervals = video.ground_truth_intervals_s or tuple(
+        (time_s, time_s) for time_s in video.ground_truth_times_s
+    )
+    outcomes = classify_prediction_outcomes(
+        predicted_events,
+        intervals,
+        tolerance_s=event_match_tolerance_s,
+    )
     false_events = [
         {
-            "predicted_time_s": predicted_events[index].time_s,
-            "probability": predicted_events[index].probability,
+            "predicted_time_s": item.prediction.time_s,
+            "probability": item.prediction.probability,
         }
-        for index in match.unmatched_predicted_indices
+        for item in outcomes
+        if item.outcome == "confirmed_false_trigger"
     ]
-    return missed, false_events
+    in_progress = [
+        {
+            "predicted_time_s": item.prediction.time_s,
+            "probability": item.prediction.probability,
+            "interval_start_s": item.interval_start_s,
+            "interval_end_s": item.interval_end_s,
+        }
+        for item in outcomes
+        if item.outcome == "in_progress_detection"
+    ]
+    return missed, false_events, in_progress
 
 
 def evaluate_streams(
@@ -204,6 +227,7 @@ def evaluate_streams(
     total_detected_true_events = 0
     total_missed_events = 0
     total_false_events = 0
+    total_in_progress_detections = 0
     all_latencies: list[float] = []
     all_emission_latencies: list[float] = []
 
@@ -219,12 +243,24 @@ def evaluate_streams(
             video.ground_truth_times_s,
             tolerance_s=event_match_tolerance_s,
         )
+        intervals = video.ground_truth_intervals_s or tuple(
+            (time_s, time_s) for time_s in video.ground_truth_times_s
+        )
+        outcomes = classify_prediction_outcomes(
+            detected_events,
+            intervals,
+            tolerance_s=event_match_tolerance_s,
+        )
+        confirmed_false_count = sum(
+            outcome.outcome == "confirmed_false_trigger" for outcome in outcomes
+        )
         metrics = _metrics_from_match(
             match,
             duration_s=video.duration_s,
             peak_confirmation_s=peak_confirmation_s,
+            false_events_override=confirmed_false_count,
         )
-        missed_details, false_details = _failure_details(
+        missed_details, false_details, in_progress_details = _failure_details(
             video,
             detected_events,
             match,
@@ -238,7 +274,7 @@ def evaluate_streams(
             "event_count": int(match.real_events),
             "detected_count": int(match.detected_true_events),
             "missed_count": int(match.missed_events),
-            "false_count": int(match.false_events),
+            "false_count": len(false_details),
             "recall": metrics["event_recall"],
             "precision": metrics["event_precision"],
             "false_events_per_hour": metrics["false_events_per_hour"],
@@ -246,6 +282,8 @@ def evaluate_streams(
             "latency_p95_s": metrics["latency_p95_s"],
             "missed_event_details": missed_details,
             "false_event_details": false_details,
+            "in_progress_detection_count": len(in_progress_details),
+            "in_progress_detection_details": in_progress_details,
             "failure_manifest": {
                 "missed_events": missed_details,
                 "false_events": false_details,
@@ -264,7 +302,8 @@ def evaluate_streams(
         total_real_events += match.real_events
         total_detected_true_events += match.detected_true_events
         total_missed_events += match.missed_events
-        total_false_events += match.false_events
+        total_false_events += len(false_details)
+        total_in_progress_detections += len(in_progress_details)
         all_latencies.extend(match.latencies_s)
         all_emission_latencies.extend(
             matched.emission_latency_s
@@ -295,6 +334,7 @@ def evaluate_streams(
         "detected_true_events": float(total_detected_true_events),
         "missed_events": float(total_missed_events),
         "false_events": float(total_false_events),
+        "in_progress_detections": float(total_in_progress_detections),
         "event_recall": recall,
         "event_precision": precision,
         "event_f1": event_f1(precision, recall),
@@ -550,6 +590,13 @@ def save_validation_stream(
                 "logits": [sample.logit for sample in video.probabilities],
                 "probabilities": [sample.probability for sample in video.probabilities],
                 "ground_truth_events_s": list(video.ground_truth_times_s),
+                "ground_truth_intervals_s": [
+                    {"start_s": start_s, "end_s": end_s}
+                    for start_s, end_s in (
+                        video.ground_truth_intervals_s
+                        or tuple((time_s, time_s) for time_s in video.ground_truth_times_s)
+                    )
+                ],
                 "ground_truth_event_types": list(video.ground_truth_types),
                 "annotation_version_hash": video.annotation_version_hash,
             }

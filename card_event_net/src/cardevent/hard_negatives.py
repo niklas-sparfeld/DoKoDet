@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .evaluate import load_model_streams, select_threshold
-from .events import DetectedEvent, match_events, probabilities_to_events
+from .events import (
+    DetectedEvent,
+    EventInterval,
+    classify_prediction_outcomes,
+    probabilities_to_events,
+)
 from .infer import InferenceError, load_checkpoint
 from .splits import SplitError, VideoSplit, load_split
 
@@ -41,22 +46,19 @@ def false_triggers(
     ground_truth_times_s: Sequence[float],
     *,
     tolerance_s: float,
+    event_intervals_s: Sequence[EventInterval | tuple[float, float]] = (),
 ) -> tuple[DetectedEvent, ...]:
-    """Return predicted events that do not match an annotation."""
-    match = match_events(predicted_events, ground_truth_times_s, tolerance_s=tolerance_s)
-    unmatched = list(predicted_events)
-    for matched in match.matches:
-        match_index = next(
-            (
-                index
-                for index, event in enumerate(unmatched)
-                if event.time_s == matched.predicted_time_s
-            ),
-            None,
+    """Return confirmed false triggers, excluding predictions in interval interiors."""
+    intervals = event_intervals_s or tuple((time_s, time_s) for time_s in ground_truth_times_s)
+    return tuple(
+        item.prediction
+        for item in classify_prediction_outcomes(
+            predicted_events,
+            intervals,
+            tolerance_s=tolerance_s,
         )
-        if match_index is not None:
-            unmatched.pop(match_index)
-    return tuple(sorted(unmatched, key=lambda event: event.time_s))
+        if item.outcome == "confirmed_false_trigger"
+    )
 
 
 def _validate_probability_threshold(threshold: float) -> float:
@@ -207,12 +209,19 @@ def mine_hard_negatives_from_files(
             predicted_events,
             video.ground_truth_times_s,
             tolerance_s=selected_tolerance,
+            event_intervals_s=video.ground_truth_intervals_s,
+        )
+        intervals = video.ground_truth_intervals_s or tuple(
+            (time_s, time_s) for time_s in video.ground_truth_times_s
         )
         manifest_videos.append(
             {
                 "video": video.name,
                 "duration_s": video.duration_s,
                 "ground_truth_events_s": list(video.ground_truth_times_s),
+                "ground_truth_intervals_s": [
+                    {"start_s": start_s, "end_s": end_s} for start_s, end_s in intervals
+                ],
                 "predicted_events": [event.to_mapping() for event in predicted_events],
                 "hard_negatives": [
                     HardNegativeSample(

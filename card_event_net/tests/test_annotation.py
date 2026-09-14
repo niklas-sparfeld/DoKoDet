@@ -13,6 +13,7 @@ from cardevent.annotation import (
     Roi,
     VideoAnnotation,
     annotation_path_for_video,
+    confirmed_event_intervals,
     confirmed_events,
     load_annotation,
     load_annotation_proposals,
@@ -123,25 +124,63 @@ def test_validate_annotation_allows_v2_without_roi() -> None:
 def test_binary_target_collapses_confirmed_meaningful_types_and_excludes_unconfirmed() -> None:
     events = (
         AnnotationEvent(time_s=1.0, type=CARD_STATE_CHANGED_EVENT_TYPE),
-        AnnotationEvent(
-            time_s=2.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"
-        ),
-        AnnotationEvent(
-            time_s=3.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"
-        ),
-        AnnotationEvent(
-            time_s=4.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"
-        ),
-        AnnotationEvent(
-            time_s=5.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="uncertain"
-        ),
+        AnnotationEvent(time_s=2.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"),
+        AnnotationEvent(time_s=3.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"),
+        AnnotationEvent(time_s=4.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="confirmed"),
+        AnnotationEvent(time_s=5.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="uncertain"),
         AnnotationEvent(time_s=6.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="ignore"),
-        AnnotationEvent(
-            time_s=7.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="proposed"
-        ),
+        AnnotationEvent(time_s=7.0, type=CARD_STATE_CHANGED_EVENT_TYPE, confidence="proposed"),
     )
 
     assert tuple(event.time_s for event in confirmed_events(events)) == (1.0, 2.0, 3.0, 4.0)
+
+
+def test_interval_annotation_uses_stable_end_as_binary_target() -> None:
+    annotation = VideoAnnotation(
+        video="IMG_0090.mov",
+        events=(
+            AnnotationEvent(
+                time_s=2.0,
+                start_s=1.25,
+                end_s=2.0,
+                confidence="confirmed",
+            ),
+        ),
+    )
+
+    assert confirmed_event_intervals(annotation.events)[0].start_s == 1.25
+    assert confirmed_event_intervals(annotation.events)[0].end_s == 2.0
+    assert annotation.events[0].to_mapping() == {
+        "time_s": 2.0,
+        "type": CARD_STATE_CHANGED_EVENT_TYPE,
+        "start_s": 1.25,
+        "end_s": 2.0,
+        "confidence": "confirmed",
+    }
+
+
+def test_interval_annotation_requires_anchor_at_stable_end(tmp_path: Path) -> None:
+    path = tmp_path / "IMG_0090.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "cardevent-annotation/v2",
+                "video": "IMG_0090.mov",
+                "events": [
+                    {
+                        "time_s": 2.0,
+                        "type": CARD_STATE_CHANGED_EVENT_TYPE,
+                        "start_s": 1.25,
+                        "end_s": 1.9,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(AnnotationError, match="stable end"):
+        load_annotation(path)
 
 
 def test_annotation_session_resumes_existing_file(tmp_path: Path) -> None:

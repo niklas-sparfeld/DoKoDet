@@ -10,7 +10,12 @@ from math import isfinite
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from .annotation import AnnotationError, confirmed_events, load_annotation
+from .annotation import (
+    AnnotationError,
+    confirmed_event_intervals,
+    confirmed_events,
+    load_annotation,
+)
 from .cache import CacheError, load_cache_metadata
 from .evaluation import THRESHOLD_GRID as _THRESHOLD_GRID
 from .evaluation import (
@@ -153,6 +158,10 @@ def load_model_streams(
                 probabilities=tuple(probabilities),
                 ground_truth_types=tuple(event.type for event in positive_events),
                 annotation_version_hash=annotation_hash,
+                ground_truth_intervals_s=tuple(
+                    (interval.start_s, interval.end_s)
+                    for interval in confirmed_event_intervals(annotation.events)
+                ),
             )
         )
     return videos
@@ -719,6 +728,8 @@ def evaluate_checkpoint_from_files(
             validation_videos,
             threshold=selection.threshold,
             reviewed_hard_negative_manifest=reviewed_hard_negative_manifest,
+            merge_window_s=loaded.config.inference.merge_window_s,
+            event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
         )
     except TransitionDiagnosticError as exc:
         raise EvaluationError(f"Could not create transition diagnostics: {exc}") from exc

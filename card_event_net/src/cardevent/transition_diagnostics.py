@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .evaluation import ScoredVideo
-from .events import ProbabilitySample
+from .events import ProbabilitySample, classify_prediction_outcomes, probabilities_to_events
 
 
 class TransitionDiagnosticError(ValueError):
@@ -55,6 +55,7 @@ def load_validation_stream(path: str | Path) -> tuple[ScoredVideo, ...]:
         timestamps = video_payload.get("decision_timestamps_s")
         probabilities = video_payload.get("probabilities")
         events = video_payload.get("ground_truth_events_s")
+        intervals_payload = video_payload.get("ground_truth_intervals_s")
         if not isinstance(name, str) or not name:
             raise TransitionDiagnosticError(f"Validation stream video {index} has an invalid name.")
         if not isinstance(timestamps, list) or not isinstance(probabilities, list):
@@ -73,12 +74,37 @@ def load_validation_stream(path: str | Path) -> tuple[ScoredVideo, ...]:
         event_times = tuple(
             _require_number(time_s, context=f"event time for {name}") for time_s in events
         )
+        if intervals_payload is None:
+            event_intervals = tuple((time_s, time_s) for time_s in event_times)
+        else:
+            if not isinstance(intervals_payload, list) or len(intervals_payload) != len(
+                event_times
+            ):
+                raise TransitionDiagnosticError(
+                    f"Validation stream video {name} has invalid event intervals."
+                )
+            event_intervals = tuple(
+                (
+                    _require_number(item.get("start_s"), context=f"interval start for {name}"),
+                    _require_number(item.get("end_s"), context=f"interval end for {name}"),
+                )
+                for item in intervals_payload
+                if isinstance(item, Mapping)
+            )
+            if len(event_intervals) != len(intervals_payload) or any(
+                start_s > end_s or end_s != event_time_s
+                for (start_s, end_s), event_time_s in zip(event_intervals, event_times, strict=True)
+            ):
+                raise TransitionDiagnosticError(
+                    f"Validation stream video {name} has unordered event intervals."
+                )
         videos.append(
             ScoredVideo(
                 name=name,
                 duration_s=max((sample.time_s for sample in samples), default=0.0),
                 ground_truth_times_s=event_times,
                 probabilities=samples,
+                ground_truth_intervals_s=event_intervals,
             )
         )
     return tuple(videos)
@@ -145,10 +171,21 @@ def transition_diagnostics(
     *,
     threshold: float,
     reviewed_hard_negative_manifest: str | Path | None = None,
+    merge_window_s: float = 0.6,
+    event_match_tolerance_s: float = 0.75,
 ) -> dict[str, Any]:
     """Score post-event probability tails and reviewed validation negatives."""
     if not isfinite(threshold) or not 0.0 <= threshold <= 1.0:
         raise TransitionDiagnosticError("threshold must be finite and between 0 and 1.")
+    if (
+        not isfinite(merge_window_s)
+        or merge_window_s < 0.0
+        or not isfinite(event_match_tolerance_s)
+        or event_match_tolerance_s < 0.0
+    ):
+        raise TransitionDiagnosticError(
+            "Diagnostic timing settings must be finite and non-negative."
+        )
     names = {video.name for video in videos}
     if len(names) != len(videos):
         raise TransitionDiagnosticError("Validation stream video names must be unique.")
@@ -164,6 +201,45 @@ def transition_diagnostics(
     for video in videos:
         tail_samples = _tail_samples(video)
         all_tail_samples.extend(tail_samples)
+        intervals = video.ground_truth_intervals_s or tuple(
+            (time_s, time_s) for time_s in video.ground_truth_times_s
+        )
+        predicted_events = probabilities_to_events(
+            video.probabilities,
+            threshold=threshold,
+            merge_window_s=merge_window_s,
+        )
+        prediction_outcomes = classify_prediction_outcomes(
+            predicted_events,
+            intervals,
+            tolerance_s=event_match_tolerance_s,
+        )
+        outcome_counts = {
+            "point_matches": sum(item.outcome == "point_match" for item in prediction_outcomes),
+            "stable_end_matches": sum(
+                item.outcome == "stable_end_match" for item in prediction_outcomes
+            ),
+            "in_progress_detections": sum(
+                item.outcome == "in_progress_detection" for item in prediction_outcomes
+            ),
+            "confirmed_false_triggers": sum(
+                item.outcome == "confirmed_false_trigger" for item in prediction_outcomes
+            ),
+        }
+        outcome_details = [
+            {
+                "predicted_time_s": item.prediction.time_s,
+                "probability": item.prediction.probability,
+                "outcome": item.outcome,
+                "anchor_time_s": item.anchor_time_s,
+                "interval_start_s": item.interval_start_s,
+                "interval_end_s": item.interval_end_s,
+            }
+            for item in prediction_outcomes
+        ]
+        outcome_counts["misses"] = len(intervals) - (
+            outcome_counts["point_matches"] + outcome_counts["stable_end_matches"]
+        )
         video_scores: list[dict[str, float | str]] = []
         for review_time_s in reviewed.get(video.name, ()):
             if not video.probabilities:
@@ -196,12 +272,30 @@ def transition_diagnostics(
                     ),
                     "nearest_stream_scores": video_scores,
                 },
+                "event_diagnostics": {
+                    **outcome_counts,
+                    "predictions": outcome_details,
+                },
             }
         )
+    event_diagnostics = {
+        key: sum(video["event_diagnostics"][key] for video in per_video)
+        for key in (
+            "point_matches",
+            "stable_end_matches",
+            "in_progress_detections",
+            "confirmed_false_triggers",
+            "misses",
+        )
+    }
 
     return {
         "method": "cardevent-transition-diagnostics-v1",
         "threshold": threshold,
+        "diagnostic_timing": {
+            "merge_window_s": merge_window_s,
+            "event_match_tolerance_s": event_match_tolerance_s,
+        },
         "post_event_tail_definition": {
             "start_after_event_s": TAIL_START_S,
             "end_after_event_s": TAIL_END_S,
@@ -214,6 +308,7 @@ def transition_diagnostics(
             else None
         ),
         "aggregate": {
+            "event_diagnostics": event_diagnostics,
             "post_event_tail": {
                 "eligible_sample_count": len(all_tail_samples),
                 "threshold_exceedance_count": sum(
