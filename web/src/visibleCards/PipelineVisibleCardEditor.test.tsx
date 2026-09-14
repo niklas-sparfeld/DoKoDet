@@ -705,6 +705,47 @@ describe("PipelineVisibleCardEditor", () => {
     ).toBeInTheDocument();
   });
 
+  it("loads maintained frames when an older reference omits ignore regions", async () => {
+    const legacyReference = structuredClone(reference()) as unknown as {
+      draft: { items: Array<{ item: Record<string, unknown> }> };
+    };
+    legacyReference.draft.items = legacyReference.draft.items.map((item) => {
+      const legacyItem = Object.fromEntries(
+        Object.entries(item.item).filter(([key]) => key !== "ignored_regions"),
+      );
+      return { ...item, item: legacyItem };
+    });
+    const railItems = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(legacyReference))),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+        onRailItemsChange={railItems}
+      />,
+    );
+
+    expect(
+      await screen.findByAltText("Selected visible-card source frame"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(railItems).toHaveBeenLastCalledWith([
+        expect.objectContaining({
+          itemId: ITEM_ID,
+          proposalCount: 1,
+          timeUs: FRAME_IDENTITY.requested_time_us,
+        }),
+      ]),
+    );
+  });
+
   it("edits stored polygons after starting review when derived box data is also present", async () => {
     const segmentedReference = referenceWithSegmentedGeometry();
     const fetchImplementation = vi.fn<typeof fetch>((input, init) => {

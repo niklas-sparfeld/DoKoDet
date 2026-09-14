@@ -1561,7 +1561,7 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
     typeof eventId !== "string" ||
     !["detected", "empty", "failed"].includes(String(status)) ||
     !Array.isArray(rawCandidates) ||
-    !Array.isArray(rawIgnoredRegions)
+    (rawIgnoredRegions !== undefined && !Array.isArray(rawIgnoredRegions))
   )
     return null;
   const frame = rawFrame === null ? null : readFrameIdentity(rawFrame);
@@ -1569,7 +1569,7 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
   const candidates = rawCandidates
     .map(readCandidate)
     .filter((candidate): candidate is Candidate => candidate !== null);
-  const ignoredRegions = rawIgnoredRegions
+  const ignoredRegions = (rawIgnoredRegions ?? [])
     .map(readIgnoreRegion)
     .filter((region): region is IgnoreRegion => region !== null);
   return {
