@@ -87,6 +87,10 @@ from .rfdetr_segmentation_campaign import (
     render_rfdetr_segmentation_human,
     write_rfdetr_segmentation_manifest,
 )
+from .rfdetr_segmentation_materialization import (
+    RfdetrSegmentationMaterializationError,
+    materialize_rfdetr_segmentation_dataset,
+)
 from .round_reconstruction_contract import RoundReconstructionContractError
 from .round_reconstruction_execution import run_round_reconstruction
 from .status import render_human, render_json
@@ -316,6 +320,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rfdetr.add_argument("--format", choices=("human", "json"), default="human")
     rfdetr.add_argument("--json", action="store_true", help="Alias for --format json.")
+    rfdetr_materialize = data_commands.add_parser(
+        "rfdetr-segmentation-materialize",
+        aliases=("rfdetr-segmentation-view",),
+        help="Materialize a frozen RF-DETR visible-region COCO trainer view.",
+        description="Materialize a frozen RF-DETR visible-region COCO trainer view.",
+    )
+    _add_path_options(rfdetr_materialize, suppress_defaults=True)
+    rfdetr_materialize.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+        help="Frozen M0 RF-DETR segmentation manifest.",
+    )
+    rfdetr_materialize.add_argument(
+        "--output",
+        type=Path,
+        default=Path(".runtime/rfdetr-segmentation-0067"),
+        help="Disposable trainer-view directory.",
+    )
+    rfdetr_materialize.add_argument("--format", choices=("human", "json"), default="human")
+    rfdetr_materialize.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
     comparison = data_commands.add_parser(
         "resilience-comparison",
         help="Run the frozen paired visible-region resilience comparison.",
@@ -939,6 +966,39 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(render_rfdetr_segmentation_human(manifest))
         return 0 if manifest["freeze_state"] == "frozen" else 1
+    if args.command == "data" and args.data_command in {
+        "rfdetr-segmentation-materialize",
+        "rfdetr-segmentation-view",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
+            manifest_path = args.manifest
+            if not manifest_path.is_absolute():
+                manifest_path = config.repository_root / manifest_path
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            result = materialize_rfdetr_segmentation_dataset(
+                manifest_path,
+                repository_root=config.repository_root,
+                output_root=output_path,
+            )
+        except (ConfigurationError, OSError, RfdetrSegmentationMaterializationError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(result.to_mapping(), indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(
+                "RF-DETR segmentation trainer view materialized\n"
+                f"view: {result.view_root}\n"
+                f"images: {result.image_count}\n"
+                f"annotations: {result.annotation_count}\n"
+                f"excluded frames: {result.excluded_frame_count}\n"
+                f"ineligible outcomes: {result.ineligible_outcome_count}\n"
+                f"manifest: {result.materialization_digest}\n"
+            )
+        return 0
     if args.command == "data" and args.data_command == "resilience-comparison":
         try:
             manifest_path = args.manifest.expanduser()

@@ -238,6 +238,20 @@ Pass `--pretrained-checkpoint <path>` to record the checkpoint digest. Use
 accepted bundle's declared source digest. The audit records failed or unusable outcomes as
 ineligible evidence and does not create background negatives.
 
+Materialize the frozen M0 manifest into the disposable RF-DETR COCO trainer view:
+
+```bash
+mise exec -- uv run --project operations doko data rfdetr-segmentation-materialize \
+  --repository-root . \
+  --manifest data/operations/rfdetr-segmentation-0067-m0-manifest.json \
+  --output .runtime/rfdetr-segmentation-0067
+```
+
+The materializer extracts and verifies each exact frame, writes `train/` and `valid/` COCO
+instance-segmentation views, and records the frozen frame exclusions plus failed or unusable
+outcomes in `exclusions.json`. It reads only a frozen M0 manifest and replaces only the named
+disposable output directory.
+
 ## CardEventNet frozen trainer views
 
 The CardEventNet campaign consumes a frozen dataset from shared operations data. Materialize its

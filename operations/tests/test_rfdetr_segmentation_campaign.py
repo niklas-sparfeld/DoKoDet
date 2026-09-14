@@ -8,6 +8,11 @@ import pytest
 
 import doko_operations.rfdetr_segmentation_campaign as campaign
 from doko_operations.cli import main
+from doko_operations.rfdetr_segmentation_materialization import (
+    RfdetrSegmentationMaterializationError,
+    load_rfdetr_segmentation_materialization,
+    materialize_rfdetr_segmentation_dataset,
+)
 
 
 def _digest(value: bytes) -> str:
@@ -343,3 +348,165 @@ def test_cli_does_not_write_an_immutable_manifest_when_preflight_is_blocked(
 
     assert result == 1
     assert not output.exists()
+
+
+def _frozen_m0_manifest(
+    root: Path,
+    *,
+    ignored_recording: str | None = None,
+    unusable_recording: str | None = None,
+) -> Path:
+    corpus = _fixture_corpus(
+        root,
+        ignored_recording=ignored_recording,
+        unusable_recording=unusable_recording,
+    )
+    checkpoint = root / "checkpoint.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    manifest = campaign.build_rfdetr_segmentation_manifest(
+        corpus,
+        pretrained_checkpoint=checkpoint,
+        verify_source_bytes=True,
+        api_probe=_available_api(),
+    )
+    path = root / "data" / "operations" / "rfdetr-segmentation-0067-m0-manifest.json"
+    campaign.write_rfdetr_segmentation_manifest(path, manifest)
+    return path
+
+
+def _fixture_frame_extractor(_video_path: Path, frame: dict[str, object]) -> bytes:
+    return f"frame-{frame['frame_index']}".encode()
+
+
+def _view_files(root: Path) -> dict[str, bytes]:
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_m1_materialization_is_reproducible_and_preserves_lineage_and_exclusions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        campaign,
+        "EXPECTED_COUNTS",
+        {
+            "train": {"reviewed_frames": 6, "retained_frames": 5, "targets": 5},
+            "validation": {"reviewed_frames": 3, "retained_frames": 2, "targets": 2},
+        },
+    )
+    monkeypatch.setattr(
+        campaign,
+        "EXPECTED_TOTALS",
+        {"reviewed_frames": 9, "retained_frames": 7, "targets": 7},
+    )
+    manifest_path = _frozen_m0_manifest(
+        tmp_path,
+        ignored_recording=campaign.TRAIN_RECORDING_IDS[0],
+        unusable_recording=campaign.VALIDATION_RECORDING_IDS[0],
+    )
+    output = tmp_path / "view"
+    first = materialize_rfdetr_segmentation_dataset(
+        manifest_path,
+        repository_root=tmp_path,
+        output_root=output,
+        frame_extractor=_fixture_frame_extractor,
+    )
+    first_files = _view_files(output)
+    second = materialize_rfdetr_segmentation_dataset(
+        manifest_path,
+        repository_root=tmp_path,
+        output_root=output,
+        frame_extractor=_fixture_frame_extractor,
+    )
+
+    assert first.to_mapping() == second.to_mapping()
+    assert first_files == _view_files(output)
+    assert first.image_count == 7
+    assert first.annotation_count == 7
+    assert first.excluded_frame_count == 1
+    assert first.ineligible_outcome_count == 1
+    loaded = load_rfdetr_segmentation_materialization(output)
+    assert loaded["campaign_manifest"]["manifest_digest"] == first.campaign_manifest_digest
+
+    train = json.loads((output / "train" / "_annotations.coco.json").read_text())
+    valid = json.loads((output / "valid" / "_annotations.coco.json").read_text())
+    assert len(train["images"]) == 5
+    assert len(valid["images"]) == 2
+    assert train["categories"] == [{"id": 1, "name": "visible_card", "supercategory": "card"}]
+    assert train["annotations"][0]["bbox"] == [1, 1, 1, 1]
+    assert train["annotations"][0]["recording_id"] in campaign.TRAIN_RECORDING_IDS
+    assert train["annotations"][0]["reference_revision_id"]
+    exclusions = json.loads((output / "exclusions.json").read_text())
+    assert len(exclusions["excluded_frames"]) == 1
+    assert len(exclusions["ineligible_outcomes"]) == 1
+    assert exclusions["ineligible_outcomes"][0]["status"] == "failed"
+
+
+def test_m1_rejects_a_changed_extracted_frame_digest(
+    tmp_path: Path, fixture_expected_counts: None
+) -> None:
+    manifest_path = _frozen_m0_manifest(tmp_path)
+
+    def changed_frame(_video_path: Path, _frame: dict[str, object]) -> bytes:
+        return b"not-the-recorded-frame"
+
+    with pytest.raises(RfdetrSegmentationMaterializationError, match="frame digest differs"):
+        materialize_rfdetr_segmentation_dataset(
+            manifest_path,
+            repository_root=tmp_path,
+            output_root=tmp_path / "view",
+            frame_extractor=changed_frame,
+        )
+    assert not (tmp_path / "view").exists()
+
+
+def test_m1_rejects_malformed_polygon_after_m0_digest_is_recomputed(
+    tmp_path: Path, fixture_expected_counts: None
+) -> None:
+    manifest_path = _frozen_m0_manifest(tmp_path)
+    manifest = json.loads(manifest_path.read_text())
+    manifest["samples"][0]["targets"][0]["geometry"]["visible_region"]["polygons"] = [
+        [{"x": 10, "y": 10}, {"x": 20, "y": 10}]
+    ]
+    core = {key: value for key, value in manifest.items() if key != "manifest_digest"}
+    manifest["manifest_digest"] = campaign.sha256_json(core)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RfdetrSegmentationMaterializationError, match="too few points"):
+        materialize_rfdetr_segmentation_dataset(
+            manifest_path,
+            repository_root=tmp_path,
+            output_root=tmp_path / "view",
+            frame_extractor=_fixture_frame_extractor,
+        )
+
+
+def test_m1_cli_materializes_a_frozen_manifest(
+    tmp_path: Path, fixture_expected_counts: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest_path = _frozen_m0_manifest(tmp_path)
+    output = tmp_path / "cli-view"
+    monkeypatch.setattr(
+        "doko_operations.rfdetr_segmentation_materialization._default_frame_extractor",
+        lambda: _fixture_frame_extractor,
+    )
+
+    result = main(
+        [
+            "data",
+            "rfdetr-segmentation-materialize",
+            "--repository-root",
+            str(tmp_path),
+            "--manifest",
+            str(manifest_path),
+            "--output",
+            str(output),
+            "--json",
+        ]
+    )
+
+    assert result == 0
+    assert load_rfdetr_segmentation_materialization(output)["counts"]["images"] == 9

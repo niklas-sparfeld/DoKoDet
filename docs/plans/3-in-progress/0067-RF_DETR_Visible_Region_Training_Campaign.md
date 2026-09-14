@@ -23,7 +23,8 @@
 - **M0:** Complete — audit the reviewed corpus and freeze the PoC question, split, recipe, and
   stop rules. The live audit report records missing runtime inputs as blockers and does not start
   training.
-- **M1:** Not started — materialize the frozen instance-segmentation trainer view.
+- **M1:** Complete (2026-09-14) — materialize the frozen instance-segmentation trainer view with
+  exact-frame verification, reviewed visible-region COCO targets, and exclusion receipts.
 - **M2:** Not started — add the RF-DETR segmentation adapter and pass a representative local smoke
   run.
 - **M3:** Not started — run the one-candidate training and locked validation campaign.
@@ -153,6 +154,19 @@ Acceptance:
 - COCO validation accepts every polygon, area, derived box, and category;
 - train and validation directories contain only their frozen source groups; and
 - fixture, malformed-input, digest, ignore-region, and reproducibility tests pass.
+
+#### M1 implementation evidence — 2026-09-14
+
+- Added `doko data rfdetr-segmentation-materialize`. It accepts only a frozen M0 manifest and
+  writes a disposable RF-DETR `train/` and `valid/` COCO view with extracted JPEG frames.
+- The materializer verifies each accepted source video and each recorded exact-frame digest. It
+  converts the reviewed visible-region polygons to one `visible_card` instance-segmentation
+  category and derives the tight pixel box from the same polygon.
+- `exclusions.json` preserves every M0 `exclude_frame` receipt and failed or unusable outcome.
+  Empty or ineligible outcomes never become background targets. The view records source, event,
+  frame, reference revision, card, split, and digest lineage for every annotation.
+- Cold and warm fixture materialization has identical generated-file digests. Malformed geometry,
+  changed frame bytes, and the CLI path have regression coverage.
 
 ### M2 — Prove the segmentation training path
 
