@@ -330,10 +330,13 @@ def _candidate_thresholds(
         for video in videos
         for event in candidate_peaks(video.probabilities, min_event_gap_s=merge_window_s)
     }
-    # Include one value above all scores to represent an empty event set.
+    # Include one value above all scores to represent an empty event set. Keep
+    # the candidate inside the probability threshold contract when a score is
+    # already exactly one.
     if not scores:
         return (1.0,)
-    return tuple(sorted(scores | {math.nextafter(max(scores), math.inf)}, reverse=True))
+    above_max = min(math.nextafter(max(scores), math.inf), 1.0)
+    return tuple(sorted(scores | {above_max}, reverse=True))
 
 
 def select_threshold(

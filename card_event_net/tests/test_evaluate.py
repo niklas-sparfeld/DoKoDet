@@ -152,6 +152,25 @@ def test_default_threshold_grid_can_select_below_point_one() -> None:
     assert len(selection.candidates) == 2
 
 
+def test_threshold_selection_accepts_a_peak_at_probability_one() -> None:
+    video = ScoredVideo(
+        name="sample",
+        duration_s=60.0,
+        ground_truth_times_s=(10.0,),
+        probabilities=(ProbabilitySample(10.0, 1.0),),
+    )
+
+    selection = select_threshold(
+        [video],
+        merge_window_s=0.6,
+        event_match_tolerance_s=0.75,
+        target_recall=0.98,
+    )
+
+    assert selection.threshold == 1.0
+    assert all(0.0 <= candidate["threshold"] <= 1.0 for candidate in selection.candidates)
+
+
 def test_threshold_selection_records_unmet_target_and_uses_f1_fallback() -> None:
     video = ScoredVideo(
         name="sample",
