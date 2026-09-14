@@ -9,8 +9,8 @@
 - **Readiness:** Nine completed maintained visible-card references provide 425 reviewed source
   frames, 916 visible-card targets, and 137 visible-card ignore regions. M0 provides a
   deterministic read-only audit and immutable manifest contract. M1 provides the verified
-  304-image COCO view. M2 now proves the pinned local training and mask-provider path. M3 is
-  ready to run the one-candidate campaign.
+  304-image COCO view. M2 now proves the pinned local training and mask-provider path. The M3
+  full-training command is ready; the user-run candidate and locked validation remain pending.
 - **Outcome:** Produce one reproducible RF-DETR segmentation checkpoint and a locked validation
   report from source-group-separated human-reviewed data. Record whether fine-tuning learned useful
   visible-region localization. Do not promote or select a runtime default.
@@ -27,7 +27,9 @@
 - **M2:** Complete (2026-09-14) — add the distinct RF-DETR SegMedium adapter and segmentation
   bundle/provider path. The one-epoch six-image MPS smoke run passes with one validation batch,
   finite loss and metrics, checkpoint reload, and a valid mask-derived polygon and tight box.
-- **M3:** Not started — run the one-candidate training and locked validation campaign.
+- **M3:** In progress — the full-training command validates M0/M1 inputs, stages all 304 samples,
+  and runs the locked 40-epoch candidate recipe. User-run training, baseline, and locked
+  validation remain pending.
 - **M4:** Not started — publish the PoC decision and preserve the handoff to 0050.
 
 ## 1. Why this corpus is enough for a PoC
@@ -184,6 +186,18 @@ Acceptance:
   local provider.
 - Fixture, failure-record, bundle-integrity, provider-mask, full table-analyzer test, and Ruff
   checks pass. The smoke run is retained under the ignored `.runtime` root.
+
+### M3 implementation status — 2026-09-14
+
+- Added `table-analyzer train-rfdetr-segmentation-campaign`. It validates the immutable M0
+  manifest and checkpoint digest against the verified M1 materialization before it stages all 219
+  train images and 85 validation images.
+- The command uses the frozen one-candidate `RFDETRSegMedium` recipe: 432 input size, batch size
+  1, accumulation 4, seed 6701, up to 40 epochs, MPS by default, no mixed precision, frozen
+  augmentation defaults, and early stopping with patience 8 and minimum delta 0.001.
+- Fixture coverage verifies the complete staged dataset, exact model and training arguments,
+  checkpoint bundle, and completed-run reuse. The real candidate training and locked validation
+  have not been run yet.
 
 ### M2 — Prove the segmentation training path
 
