@@ -756,13 +756,9 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                     raise PipelineReferenceInputError(
                         f"ignore region was not found: {operation.region_id}"
                     )
-                if (
-                    region.source_candidates
-                    and region.source_candidates != target.source_candidates
-                ):
-                    raise PipelineReferenceInputError(
-                        "replace_ignore_region cannot change source-candidate lineage"
-                    )
+                # Source-candidate lineage belongs to the stored region. A client may submit a
+                # stale region snapshot while an earlier operation is still reflected in its
+                # editor state, but replacement must never rewrite that lineage.
                 updated_regions = [
                     replace(region, source_candidates=current.source_candidates)
                     if current.region_id == region.region_id

@@ -1071,6 +1071,9 @@ def test_visible_card_ignore_region_consumes_enclosed_candidates_on_create_not_r
                 ]
             ],
         },
+        "source_candidates": [
+            {"revision_id": source_revision_id, "card_id": "card-outside"}
+        ],
     }
     replaced = service.update_draft(
         "recording-01",
