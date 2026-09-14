@@ -18,7 +18,13 @@
   align-content: start;
   gap: 0.55rem;
   min-width: 0;
-  padding: 0.15rem 0.25rem 0.15rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 1.5%), transparent 28rem),
+    var(--panel);
+  box-shadow: 0 0.7rem 2rem var(--shadow);
 }
 
 .controlSidebar > .statusLabel {
@@ -215,7 +221,7 @@
     grid-column: 1;
     grid-row: 2;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    padding: 0;
+    padding: 1rem;
   }
 
   .controlSidebar > .statusLabel,
