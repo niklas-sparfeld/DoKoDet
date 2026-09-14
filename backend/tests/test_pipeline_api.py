@@ -291,6 +291,16 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         assert events["input_options"][0]["revision_id"] == revision_id
         assert events["input_options"][0]["origin"] == "processor"
 
+        catalog = client.get("/v1/recordings")
+        assert catalog.status_code == 200
+        assert catalog.json()["recordings"][0]["pipeline_status"]["stages"] == [
+            {"key": "events", "state": "generated-only"},
+            {"key": "visible_cards", "state": "empty"},
+            {"key": "visual_identities", "state": "empty"},
+            {"key": "table_observations", "state": "empty"},
+            {"key": "round_analyses", "state": "empty"},
+        ]
+
         reloaded = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert reloaded.json() == body
 

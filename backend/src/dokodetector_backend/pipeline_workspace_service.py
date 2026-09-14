@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -133,6 +133,108 @@ class RecordingPipelineWorkspaceService:
             "stages": stages,
             "diagnostics": diagnostics,
         }
+
+    def get_statuses(
+        self,
+        recording_ids: Collection[str],
+        *,
+        analyses_by_recording: Mapping[str, Collection[Any]] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        """Return compact stage states without reading revision content or review drafts."""
+
+        requested_ids = set(recording_ids)
+        if not requested_ids:
+            return {}
+
+        revisions_by_recording: dict[str, set[str]] = {}
+        for manifest in self.revision_store.list_manifests():
+            if manifest.recording_id in requested_ids:
+                revisions_by_recording.setdefault(manifest.recording_id, set()).add(
+                    manifest.content_type
+                )
+
+        runs_by_recording: dict[str, list[tuple[str, str]]] = {}
+        for run in self.run_store.list_statuses():
+            if run.recording_id in requested_ids:
+                runs_by_recording.setdefault(run.recording_id, []).append(
+                    (run.processor_type, run.status)
+                )
+
+        references_by_recording: dict[str, dict[str, Any]] = {}
+        for reference in self.reference_store.list_states():
+            if reference.recording_id in requested_ids:
+                references_by_recording.setdefault(reference.recording_id, {})[
+                    reference.content_type
+                ] = reference
+
+        if analyses_by_recording is None:
+            analyses = self.round_analysis_store.list()
+            analyses_by_recording = {}
+            for analysis in analyses:
+                analyses_by_recording.setdefault(analysis.recording_id, []).append(analysis)
+
+        statuses: dict[str, dict[str, Any]] = {}
+        for recording_id in requested_ids:
+            recording_revisions = revisions_by_recording.get(recording_id, set())
+            recording_runs = runs_by_recording.get(recording_id, ())
+            recording_references = references_by_recording.get(recording_id, {})
+            recording_analyses = analyses_by_recording.get(recording_id, ())
+            stages = [
+                {
+                    "key": definition.key,
+                    "state": self._compact_stage_state(
+                        definition,
+                        has_revision=definition.content_type in recording_revisions,
+                        runs=recording_runs,
+                        reference=recording_references.get(definition.content_type),
+                        analyses=recording_analyses,
+                    ),
+                }
+                for definition in _WORKSPACE_STAGES
+            ]
+            statuses[recording_id] = {
+                "schema_version": "recording-pipeline-status/v1",
+                "stages": stages,
+            }
+        return statuses
+
+    @staticmethod
+    def _compact_stage_state(
+        definition: _WorkspaceStageDefinition,
+        *,
+        has_revision: bool,
+        runs: Collection[tuple[str, str]],
+        reference: Any,
+        analyses: Collection[Any],
+    ) -> str:
+        stage_runs = [
+            status
+            for processor_type, status in runs
+            if processor_type == definition.processor_type
+        ]
+        if any(status in {"queued", "running"} for status in stage_runs):
+            return "active-run"
+        if definition.key == "round_analyses":
+            if any(
+                analysis.state in {"queued", "analyzing_evidence", "reconstructing"}
+                for analysis in analyses
+            ):
+                return "active-run"
+            if any(analysis.state == "complete" for analysis in analyses):
+                return "complete"
+            if any(analysis.state == "failed" for analysis in analyses):
+                return "failed"
+        if reference is not None:
+            if reference.draft_state == "completed":
+                return "complete"
+            return "draft"
+        if has_revision:
+            return "generated-only"
+        if any(status == "partial" for status in stage_runs):
+            return "partial"
+        if any(status == "failed" for status in stage_runs):
+            return "failed"
+        return "video-only" if definition.key == "events" else "empty"
 
     def _stage(
         self,

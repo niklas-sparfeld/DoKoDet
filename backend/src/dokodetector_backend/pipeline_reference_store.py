@@ -123,6 +123,40 @@ class PipelineReferenceStore:
                 self._log_invalid(state_path, error)
                 return None
 
+    def list_states(self) -> tuple[PipelineReferenceState, ...]:
+        """Return reference state documents without reading potentially large drafts."""
+
+        if self.root.is_symlink() or not self.root.is_dir():
+            return ()
+        states: list[PipelineReferenceState] = []
+        for path in sorted(self.root.glob("*/*/state.json"), key=lambda item: item.as_posix()):
+            try:
+                if (
+                    path.is_symlink()
+                    or not path.is_file()
+                    or path.parent.parent.is_symlink()
+                    or path.parent.is_symlink()
+                ):
+                    raise OSError("pipeline reference state is unavailable")
+                recording_id = path.parent.parent.name
+                content_type = path.parent.name
+                _safe_id(recording_id, "recording_id")
+                _content_type(content_type)
+                raw = path.read_bytes()
+                state = parse_reference_state_bytes(raw)
+                if raw != canonical_reference_state_bytes(state):
+                    raise PipelineReferenceContractError(
+                        "pipeline reference state is not canonical JSON"
+                    )
+                if state.recording_id != recording_id or state.content_type != content_type:
+                    raise PipelineReferenceContractError(
+                        "pipeline reference state identity differs from its path"
+                    )
+                states.append(state)
+            except (OSError, TypeError, UnicodeError, ValueError) as error:
+                self._log_invalid(path, error)
+        return tuple(states)
+
     def require(self, recording_id: str, content_type: str) -> StoredPipelineReference:
         reference = self.get(recording_id, content_type)
         if reference is None:

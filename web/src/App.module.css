@@ -1709,31 +1709,96 @@ progress {
   overflow-wrap: anywhere;
 }
 
-.recordingStatus {
-  padding: 0.25rem 0.5rem;
+.recordingPipelineProgress {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+  margin: 0.1rem 0 0;
+  padding: 0;
+  color: var(--muted-ink);
+  list-style: none;
+}
+
+.recordingPipelineStep {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--faint-ink);
   font-size: 0.65rem;
-  letter-spacing: 0.07em;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
-.recordingStatus[data-state="intake"] {
-  --status-surface: var(--panel-raised);
-  --status-ink: var(--muted-ink);
+.recordingPipelineStep:not(:last-child)::after {
+  flex: 1 1 auto;
+  min-width: 0.45rem;
+  height: 1px;
+  margin: 0 0.5rem;
+  background: var(--line);
+  content: "";
 }
 
-.recordingStatus[data-state="analyzing"],
-.recordingStatus[data-state="review"] {
-  --status-surface: var(--warning-surface);
-  --status-ink: var(--warning);
+.recordingPipelineMarker {
+  z-index: 1;
+  display: grid;
+  flex: 0 0 1.35rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--panel-raised);
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 850;
 }
 
-.recordingStatus[data-state="reviewed"] {
-  --status-surface: var(--success-surface);
-  --status-ink: var(--success);
+.recordingPipelineLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.recordingStatus[data-state="failed"] {
-  --status-surface: var(--danger-surface);
-  --status-ink: var(--danger);
+.recordingPipelineStep[data-state="complete"] {
+  color: var(--success);
+}
+
+.recordingPipelineStep[data-state="complete"]::after {
+  background: color-mix(in srgb, var(--success) 50%, var(--line));
+}
+
+.recordingPipelineStep[data-state="complete"] .recordingPipelineMarker {
+  border-color: var(--success);
+  background: var(--success-surface);
+  color: var(--success);
+}
+
+.recordingPipelineStep[data-state="active"] {
+  color: var(--accent-bright);
+}
+
+.recordingPipelineStep[data-state="active"] .recordingPipelineMarker {
+  border-color: var(--accent);
+  background: var(--warning-surface);
+  color: var(--accent-bright);
+  box-shadow: 0 0 0 0.2rem rgb(240 179 74 / 10%);
+}
+
+.recordingPipelineStep[data-state="failed"] {
+  color: var(--danger);
+}
+
+.recordingPipelineStep[data-state="failed"] .recordingPipelineMarker {
+  border-color: var(--danger);
+  background: var(--danger-surface);
+  color: var(--danger);
 }
 
 .recordingMetadata {
@@ -2003,6 +2068,27 @@ progress {
 
   .recordingThumbnail {
     min-height: 0;
+  }
+
+  .recordingPipelineStep {
+    display: grid;
+    justify-items: center;
+    gap: 0.25rem;
+    font-size: 0.58rem;
+    text-align: center;
+  }
+
+  .recordingPipelineStep:not(:last-child)::after {
+    position: absolute;
+    top: 0.67rem;
+    right: -0.1rem;
+    left: calc(50% + 0.7rem);
+    width: auto;
+    margin: 0;
+  }
+
+  .recordingPipelineLabel {
+    max-width: 100%;
   }
 
   .recordingContextBar {

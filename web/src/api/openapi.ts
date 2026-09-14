@@ -2247,6 +2247,35 @@ export interface components {
             width: number;
         };
         /**
+         * RecordingPipelineStageSummary
+         * @description One compact pipeline stage state for the recording catalog.
+         */
+        RecordingPipelineStageSummary: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "events" | "visible_cards" | "visual_identities" | "table_observations" | "round_analyses";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "generated-only" | "draft" | "complete";
+        };
+        /**
+         * RecordingPipelineStatusSummary
+         * @description The lightweight pipeline status embedded in each recording catalog entry.
+         */
+        RecordingPipelineStatusSummary: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "recording-pipeline-status/v1";
+            /** Stages */
+            stages: components["schemas"]["RecordingPipelineStageSummary"][];
+        };
+        /**
          * RecordingSourceResponse
          * @description Trusted metadata read from the immutable source record.
          */
@@ -2291,6 +2320,7 @@ export interface components {
             can_start_analysis: boolean;
             /** Evidence Package Ids */
             evidence_package_ids: string[];
+            pipeline_status: components["schemas"]["RecordingPipelineStatusSummary"];
             /**
              * Received At
              * Format: date-time

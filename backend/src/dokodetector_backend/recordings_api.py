@@ -9,7 +9,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.intake_contract import (
@@ -43,6 +43,41 @@ AnalysisState = Literal[
     "failed",
 ]
 ResultStatus = Literal["resolved", "ambiguous", "incomplete", "impossible"]
+PipelineStageKey = Literal[
+    "events",
+    "visible_cards",
+    "visual_identities",
+    "table_observations",
+    "round_analyses",
+]
+PipelineStageState = Literal[
+    "video-only",
+    "empty",
+    "active-run",
+    "partial",
+    "failed",
+    "generated-only",
+    "draft",
+    "complete",
+]
+
+
+class RecordingPipelineStageSummary(BaseModel):
+    """One compact pipeline stage state for the recording catalog."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: PipelineStageKey
+    state: PipelineStageState
+
+
+class RecordingPipelineStatusSummary(BaseModel):
+    """The lightweight pipeline status embedded in each recording catalog entry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["recording-pipeline-status/v1"]
+    stages: list[RecordingPipelineStageSummary] = Field(min_length=5, max_length=5)
 
 
 class RecordingAnalysisSummary(BaseModel):
@@ -78,6 +113,7 @@ class RecordingSummary(BaseModel):
     round_id: str
     evidence_package_ids: list[UUID]
     analyses: list[RecordingAnalysisSummary]
+    pipeline_status: RecordingPipelineStatusSummary
     can_start_analysis: bool
     analysis_blocker: str | None
 
@@ -175,6 +211,13 @@ def list_recordings(request: Request) -> RecordingListResponse:
     """List accepted recordings with linked packages and analyses."""
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
+    entries = service.recording_catalog()
+    pipeline_statuses = request.app.state.pipeline_workspace_service.get_statuses(
+        [entry.recording.recording_id for entry in entries],
+        analyses_by_recording={
+            entry.recording.recording_id: entry.analyses for entry in entries
+        },
+    )
     return RecordingListResponse(
         recordings=[
             RecordingSummary(
@@ -188,6 +231,7 @@ def list_recordings(request: Request) -> RecordingListResponse:
                 round_id=entry.round_id,
                 evidence_package_ids=list(entry.evidence_package_ids),
                 analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
+                pipeline_status=pipeline_statuses[entry.recording.recording_id],
                 can_start_analysis=entry.can_start_analysis,
                 analysis_blocker=entry.analysis_blocker,
             )

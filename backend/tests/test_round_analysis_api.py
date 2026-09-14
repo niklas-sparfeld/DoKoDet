@@ -246,6 +246,16 @@ def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> 
     assert recording["round_id"] == "round-round-analysis"
     assert recording["evidence_package_ids"] == [package_id]
     assert recording["analyses"] == []
+    assert recording["pipeline_status"] == {
+        "schema_version": "recording-pipeline-status/v1",
+        "stages": [
+            {"key": "events", "state": "video-only"},
+            {"key": "visible_cards", "state": "empty"},
+            {"key": "visual_identities", "state": "empty"},
+            {"key": "table_observations", "state": "empty"},
+            {"key": "round_analyses", "state": "empty"},
+        ],
+    }
     assert recording["can_start_analysis"] is True
 
     started = client.post(f"/v1/recordings/{RECORDING_ID}/round-analyses")

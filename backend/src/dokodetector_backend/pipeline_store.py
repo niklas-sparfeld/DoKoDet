@@ -38,6 +38,7 @@ from doko_operations.pipeline_data import (
     canonical_processor_run_request_bytes,
     canonical_processor_run_state_bytes,
     parse_data_revision_bytes,
+    parse_data_revision_manifest_bytes,
     parse_event_data_bytes,
     parse_pipeline_selection_bytes,
     parse_processor_run_request_bytes,
@@ -150,6 +151,16 @@ class StoredProcessorRun:
     @property
     def run_id(self) -> str:
         return self.request.run_id
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessorRunStatus:
+    """The small mutable state projection needed by recording catalogs."""
+
+    run_id: str
+    recording_id: str
+    processor_type: str
+    status: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -288,6 +299,42 @@ class PipelineRevisionStore:
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)
         return tuple(sorted(revisions, key=lambda item: item.manifest.revision_id))
+
+    def list_manifests(self) -> tuple[DataRevision, ...]:
+        """Return valid revision manifests without reading revision content."""
+
+        enumeration = enumerate_resource_directories(self.root)
+        for diagnostic in enumeration.diagnostics:
+            self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
+
+        manifests: list[DataRevision] = []
+        for path in enumeration.paths:
+            try:
+                members = list(path.rglob("*"))
+                if any(member.is_symlink() for member in members) or any(
+                    member.is_dir() for member in members
+                ):
+                    raise ValueError("pipeline revision members must be regular files")
+                if {member.relative_to(path).as_posix() for member in members} != {
+                    "manifest.json",
+                    "content.json",
+                }:
+                    raise ValueError(
+                        "pipeline revision must contain only manifest.json and content.json"
+                    )
+                manifest_bytes = (path / "manifest.json").read_bytes()
+                manifest = parse_data_revision_manifest_bytes(manifest_bytes)
+                _strict_json_file(
+                    manifest_bytes,
+                    canonical_data_revision_bytes(manifest),
+                    "revision manifest",
+                )
+                if manifest.revision_id != path.name:
+                    raise ValueError("revision ID differs from its directory name")
+                manifests.append(manifest)
+            except (OSError, TypeError, UnicodeError, ValueError) as error:
+                self._log_invalid(path, error)
+        return tuple(sorted(manifests, key=lambda item: item.revision_id))
 
     def publish(
         self,
@@ -653,6 +700,54 @@ class ProcessorRunStore:
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)
         return tuple(sorted(runs, key=lambda item: item.run_id))
+
+    def list_statuses(self) -> tuple[ProcessorRunStatus, ...]:
+        """Return run identity and state without validating output revisions."""
+
+        enumeration = enumerate_resource_directories(self.root)
+        for diagnostic in enumeration.diagnostics:
+            self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
+
+        statuses: list[ProcessorRunStatus] = []
+        for path in enumeration.paths:
+            try:
+                members = list(path.rglob("*"))
+                if any(member.is_symlink() for member in members) or any(
+                    member.is_dir() for member in members
+                ):
+                    raise ValueError("processor run members must be regular files")
+                if {member.relative_to(path).as_posix() for member in members} != {
+                    "request.json",
+                    "state.json",
+                }:
+                    raise ValueError("processor run must contain only request.json and state.json")
+                request_bytes = (path / "request.json").read_bytes()
+                state_bytes = (path / "state.json").read_bytes()
+                request = parse_processor_run_request_bytes(request_bytes)
+                state = parse_processor_run_state_bytes(state_bytes)
+                _strict_json_file(
+                    request_bytes,
+                    canonical_processor_run_request_bytes(request),
+                    "processor run request",
+                )
+                _strict_json_file(
+                    state_bytes,
+                    canonical_processor_run_state_bytes(state),
+                    "run state",
+                )
+                if request.run_id != state.run_id or request.run_id != path.name:
+                    raise ValueError("processor run IDs differ")
+                statuses.append(
+                    ProcessorRunStatus(
+                        run_id=request.run_id,
+                        recording_id=request.source.recording_id,
+                        processor_type=request.processor_type,
+                        status=state.status,
+                    )
+                )
+            except (OSError, TypeError, UnicodeError, ValueError) as error:
+                self._log_invalid(path, error)
+        return tuple(sorted(statuses, key=lambda item: item.run_id))
 
     def create(
         self,
@@ -1268,6 +1363,7 @@ __all__ = [
     "PipelineSelectionStore",
     "PipelineStateError",
     "PipelineStoreError",
+    "ProcessorRunStatus",
     "ProcessorRunStore",
     "StoredPipelineRevision",
     "StoredProcessorRun",

@@ -82,6 +82,19 @@ function response(value: unknown, status = 200) {
   });
 }
 
+function pipelineStatus(eventState = "video-only") {
+  return {
+    schema_version: "recording-pipeline-status/v1",
+    stages: [
+      { key: "events", state: eventState },
+      { key: "visible_cards", state: "empty" },
+      { key: "visual_identities", state: "empty" },
+      { key: "table_observations", state: "empty" },
+      { key: "round_analyses", state: "empty" },
+    ],
+  };
+}
+
 describe("App", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -119,6 +132,7 @@ describe("App", () => {
                 round_id: "round-7",
                 evidence_package_ids: [],
                 analyses: [],
+                pipeline_status: pipelineStatus(),
                 can_start_analysis: false,
                 analysis_blocker: "The pipeline is not ready.",
               },
@@ -132,7 +146,9 @@ describe("App", () => {
 
     const row = await screen.findByRole("link", { name: "Open round-7" });
     expect(row).toHaveAttribute("href", `/recordings/${recordingId}`);
-    expect(row).toHaveTextContent("Intake");
+    expect(row).toHaveTextContent("Events");
+    expect(row).toHaveTextContent("Visible cards");
+    expect(row).toHaveTextContent("Identities");
     expect(row).toHaveTextContent("Received");
     expect(row).toHaveTextContent("Session");
     expect(row).toHaveTextContent("session-fixture");
@@ -153,7 +169,7 @@ describe("App", () => {
     expect(screen.queryByText("Analyses")).not.toBeInTheDocument();
   });
 
-  it("shows the furthest reviewed pipeline stage in the recording status", async () => {
+  it("shows the completed pipeline stage in the recording progress", async () => {
     const recording = {
       recording_id: recordingId,
       source_asset_id: "source-fixture",
@@ -165,44 +181,33 @@ describe("App", () => {
       round_id: "round-7",
       evidence_package_ids: [],
       analyses: [],
+      pipeline_status: pipelineStatus("complete"),
       can_start_analysis: false,
       analysis_blocker: "The pipeline is not ready.",
     };
-    const reviewedEvents = workspace({
-      stages: [
-        stage("events", {
-          state: "complete",
-          reference: {
-            state: "complete",
-            draft_revision: 1,
-            selected_completion: "events-reference-1",
-            source_revision_id: "events-generated-1",
-            coverage: {},
-            coverage_state: "complete",
-            affected_count: 0,
-            updated_at: "2026-09-06T12:01:00Z",
-          },
-        }),
-        stage("visible_cards"),
-        stage("visual_identities"),
-        stage("table_observations"),
-        stage("round_analyses"),
-      ],
-    });
     const fetchMock = vi.fn<typeof fetch>((input) => {
-      if (String(input) === "/v1/recordings") {
-        return Promise.resolve(response({ recordings: [recording] }));
-      }
-      expect(String(input)).toBe(`/api/recordings/${recordingId}/pipeline`);
-      return Promise.resolve(response(reviewedEvents));
+      expect(String(input)).toBe("/v1/recordings");
+      return Promise.resolve(response({ recordings: [recording] }));
     });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<App />);
 
     const row = await screen.findByRole("link", { name: "Open round-7" });
-    expect(await within(row).findByText("Events reviewed")).toBeInTheDocument();
-    expect(row).not.toHaveTextContent("Intake");
+    expect(await within(row).findByText("Events")).toBeInTheDocument();
+    expect(row).toHaveTextContent("Visible cards");
+    const progress = within(row).getByRole("list", {
+      name: "Pipeline progress",
+    });
+    expect(
+      within(progress).getByRole("listitem", { name: "Events: complete" }),
+    ).toHaveAttribute("data-state", "complete");
+    expect(
+      within(progress).getByRole("listitem", {
+        name: "Visible cards: next",
+      }),
+    ).toHaveAttribute("data-state", "active");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("enters the recording pipeline without loading retired review routes", async () => {
