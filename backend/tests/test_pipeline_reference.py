@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -29,7 +30,10 @@ from dokodetector_backend.pipeline_reference_errors import (
 from dokodetector_backend.pipeline_reference_service import (
     PipelineReferenceService,
 )
-from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
+from dokodetector_backend.pipeline_reference_store import (
+    PipelineReferenceStore,
+    StoredPipelineReference,
+)
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
@@ -976,6 +980,62 @@ def test_visible_card_ignore_region_create_replace_delete_preserves_lineage_and_
         },
     )
     assert deleted.draft.items[0].item["ignored_regions"] == []
+
+
+def test_visible_card_ignore_region_edit_migrates_missing_legacy_regions(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    current = service.get_reference("recording-01", "visible_cards")
+    legacy_item = dict(current.draft.items[0].item)
+    legacy_item.pop("ignored_regions")
+    legacy = StoredPipelineReference(
+        state=current.state,
+        draft=replace(
+            current.draft,
+            items=(replace(current.draft.items[0], item=legacy_item),),
+        ),
+    )
+    with service.reference_store.locked("recording-01", "visible_cards"):
+        service.reference_store.write_locked(legacy)
+
+    region = {
+        "region_id": "ignore-region-legacy",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 100, "y": 100},
+                    {"x": 700, "y": 100},
+                    {"x": 700, "y": 700},
+                    {"x": 100, "y": 700},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+
+    updated = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {"operation": "create_ignore_region", "item_id": "event-01", "region": region}
+            ],
+        },
+    )
+
+    assert updated.draft.items[0].item["ignored_regions"] == [region]
 
 
 def test_visible_card_ignore_only_coverage_and_rebase_preserve_region(tmp_path: Path) -> None:

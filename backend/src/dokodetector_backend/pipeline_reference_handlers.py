@@ -825,7 +825,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
 
     @staticmethod
     def _regions(item: ReferenceDraftItem) -> list[VisibleCardIgnoreRegion]:
-        raw_regions = item.item.get("ignored_regions")
+        raw_regions = item.item.get("ignored_regions", [])
         if not isinstance(raw_regions, list):
             raise PipelineReferenceInputError("visible-card ignored_regions must be a list")
         try:
