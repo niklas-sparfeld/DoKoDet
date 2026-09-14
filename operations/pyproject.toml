@@ -12,6 +12,7 @@ dependencies = [
   "doko-game-engine",
   "opencv-python>=4.10",
   "pyyaml>=6.0,<7",
+  "rfdetr==1.9.4",
   "table-evidence-analyzer",
 ]
 
