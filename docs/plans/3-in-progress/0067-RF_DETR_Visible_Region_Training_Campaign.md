@@ -4,13 +4,14 @@
 
 - **Summary:** Fine-tune one RF-DETR instance-segmentation model on the current human-reviewed
   visible regions and decide whether the result is useful enough for a later provider comparison.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0037, 0048, 0049, and 0065 complete
 - **Readiness:** Nine completed maintained visible-card references currently provide 425 reviewed
-  source frames, 1,123 visible-card targets, and 137 visible-card ignore regions. The repository
-  already pins `rfdetr==1.9.4`, proves local MPS training, and accepts segmentation masks in the
-  local provider. The maintained-reference dataset path and trainer still need an
-  instance-segmentation campaign adapter.
+  source frames, 916 visible-card targets, and 137 visible-card ignore regions. M0 now provides a
+  deterministic read-only audit and immutable manifest contract. The live audit reproduces the
+  425/304/916 snapshot, but remains blocked until the optional `rfdetr==1.9.4` runtime and the
+  explicit RF-DETR segmentation pretrained checkpoint are mounted. A blocked run does not write
+  the final immutable manifest.
 - **Outcome:** Produce one reproducible RF-DETR segmentation checkpoint and a locked validation
   report from source-group-separated human-reviewed data. Record whether fine-tuning learned useful
   visible-region localization. Do not promote or select a runtime default.
@@ -19,8 +20,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — audit the reviewed corpus and freeze the PoC question, split, recipe, and
-  stop rules.
+- **M0:** Complete — audit the reviewed corpus and freeze the PoC question, split, recipe, and
+  stop rules. The live audit report records missing runtime inputs as blockers and does not start
+  training.
 - **M1:** Not started — materialize the frozen instance-segmentation trainer view.
 - **M2:** Not started — add the RF-DETR segmentation adapter and pass a representative local smoke
   run.

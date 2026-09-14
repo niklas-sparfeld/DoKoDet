@@ -25,8 +25,8 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 The retained `doko` commands are grouped by owner:
 
 - `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `resilience-baseline`,
-  `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`, `impact`, and
-  `source retire`.
+  `rfdetr-segmentation`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
+  `impact`, and `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
 - `doko reconstruct`: `round`.
 
@@ -218,6 +218,25 @@ doko model promote <campaign-id> \
 
 The promotion receipt records the old and new bundle digests. A repeated confirmed invocation
 reads the receipt and does not rerun the test or export.
+
+## RF-DETR visible-region segmentation campaign
+
+Epic 0067 M0 audits the nine selected recording bundles and their completed maintained
+`visible_cards` references. It freezes the source-group split, reviewed visible-region masks,
+frame exclusions, RF-DETR segmentation recipe, and coverage counts in one immutable manifest. The
+command writes the manifest only when the audit can freeze and exits with `1` without writing it
+when the campaign is blocked:
+
+```bash
+doko data rfdetr-segmentation \
+  --repository-root . \
+  --output data/operations/rfdetr-segmentation-0067-m0-manifest.json
+```
+
+Pass `--pretrained-checkpoint <path>` to record the checkpoint digest. Use
+`--verify-source-bytes` when a full source-video hash check is required in addition to the
+accepted bundle's declared source digest. The audit records failed or unusable outcomes as
+ineligible evidence and does not create background negatives.
 
 ## CardEventNet frozen trainer views
 
