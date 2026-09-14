@@ -8,9 +8,9 @@
 - **Depends on:** 0037, 0048, 0049, and 0065 complete
 - **Readiness:** Nine completed maintained visible-card references provide 425 reviewed source
   frames, 916 visible-card targets, and 137 visible-card ignore regions. M0 provides a
-  deterministic read-only audit and immutable manifest contract. The live audit reproduces the
-  425/304/916 snapshot with `rfdetr==1.9.4` and the explicit RF-DETR segmentation checkpoint
-  mounted. The frozen manifest is ready for M2.
+  deterministic read-only audit and immutable manifest contract. M1 provides the verified
+  304-image COCO view. M2 now proves the pinned local training and mask-provider path. M3 is
+  ready to run the one-candidate campaign.
 - **Outcome:** Produce one reproducible RF-DETR segmentation checkpoint and a locked validation
   report from source-group-separated human-reviewed data. Record whether fine-tuning learned useful
   visible-region localization. Do not promote or select a runtime default.
@@ -24,8 +24,9 @@
   immutable manifest.
 - **M1:** Complete (2026-09-14) — materialize the frozen instance-segmentation trainer view with
   exact-frame verification, reviewed visible-region COCO targets, and exclusion receipts.
-- **M2:** Not started — add the RF-DETR segmentation adapter and pass a representative local smoke
-  run.
+- **M2:** Complete (2026-09-14) — add the distinct RF-DETR SegMedium adapter and segmentation
+  bundle/provider path. The one-epoch six-image MPS smoke run passes with one validation batch,
+  finite loss and metrics, checkpoint reload, and a valid mask-derived polygon and tight box.
 - **M3:** Not started — run the one-candidate training and locked validation campaign.
 - **M4:** Not started — publish the PoC decision and preserve the handoff to 0050.
 
@@ -166,6 +167,23 @@ Acceptance:
   frame, reference revision, card, split, and digest lineage for every annotation.
 - Cold and warm fixture materialization has identical generated-file digests. Malformed geometry,
   changed frame bytes, and the CLI path have regression coverage.
+
+#### M2 implementation evidence — 2026-09-14
+
+- Added `table-analyzer train-rfdetr-segmentation`. It consumes only the verified M1 view, selects
+  one deterministic image per train recording, and runs the frozen one-class
+  `RFDETRSegMedium` recipe for one epoch with explicit MPS, batch, accumulation, seed, and
+  augmentation arguments.
+- Segmentation runs use `rfdetr-segmentation-training-run/v1` and
+  `rfdetr-segmentation-bundle/v1`. The existing RF-DETR Large detection bundle and provider
+  contracts remain unchanged. The segmentation provider accepts the RF-DETR one-class category
+  ID and derives the normalized tight box from the predicted mask polygon.
+- The real MPS smoke run used six train images and one validation image. It recorded finite loss
+  and validation metrics, wrote a checkpoint different from the pretrained input, reloaded it as
+  `RFDETRSegMedium`, and returned one valid segmentation polygon with a tight box through the
+  local provider.
+- Fixture, failure-record, bundle-integrity, provider-mask, full table-analyzer test, and Ruff
+  checks pass. The smoke run is retained under the ignored `.runtime` root.
 
 ### M2 — Prove the segmentation training path
 
