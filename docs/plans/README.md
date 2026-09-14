@@ -54,7 +54,7 @@ The shared target architecture is
 | --- | --- | --- |
 | [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M4 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings with complete coverage. Its deterministic disposable trainer view is lineage-aware, and the CPU smoke path writes a loadable checkpoint plus validation report. M5 remains next. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. Untidy stacks in `IMG_0661` must use 0065 ignore regions before they enter the frozen comparison. |
-| [0066 — Card-state change interval annotation](3-in-progress/0066-Card_State_Change_Interval_Annotation.md) | 0049, 0062, and 0064 complete | M0 is complete: interval semantics, stable-end anchoring, fixtures, and preservation checks are locked. M1 remains next. |
+| [0066 — Card-state change interval annotation](3-in-progress/0066-Card_State_Change_Interval_Annotation.md) | 0049, 0062, and 0064 complete | M0–M1 complete: interval semantics, stable-end anchoring, fixtures, preservation checks, and CardEvent viewer interval editing are in place. M2 remains next. |
 
 ### Blocked
 

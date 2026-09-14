@@ -8,8 +8,9 @@
 - **Depends on:** None
 - **Builds on:** 0049, 0062, and 0064 complete; 0063 supplies reviewed failure evidence but does
   not block this work.
-- **Readiness:** M0 is complete. The interval semantics, stable-end policy, contract fixtures, and
-  preservation checks are in place. M1 is ready to add interval editing to the CardEvent viewer.
+- **Readiness:** M0 and M1 are complete. The interval semantics, stable-end policy, contract
+  fixtures, preservation checks, and CardEvent viewer editing controls are in place. M2 is ready
+  to make intervals understandable in review.
 - **Outcome:** A reviewed event can remain a point or become a nonzero card-state change interval.
   The editor makes both bounds clear. CardEventNet uses the stable end as the event anchor and does
   not treat the interval interior as a hard negative or ordinary negative sample.
@@ -67,7 +68,7 @@ This epic does not include:
 - **M0:** Complete (2026-09-14) — define the card-state change interval in the glossary and
   labeling guide, publish the stable-end and diagnostic policy, add point and interval contract
   fixtures, and verify validation, ordering, comparison, and maintained-reference preservation.
-- **M1:** Not started — add interval editing to the CardEvent viewer.
+- **M1:** Complete (2026-09-14) — add interval editing to the CardEvent viewer.
 - **M2:** Not started — make intervals understandable in review.
 - **M3:** Not started — keep interval interiors out of negative evidence.
 - **M4:** Not started — run a bounded trick-clear review pilot.
@@ -92,15 +93,16 @@ Acceptance:
 
 ### M1 — Add interval editing to the CardEvent viewer
 
-- Add visible, accessible actions to mark a selected event start at the playhead and mark its stable
-  end at the playhead.
-- Keep `N` as the existing point-event action. Add non-conflicting shortcuts for marking the start
-  and stable end, with the same actions available as buttons.
-- Show both bounds, duration, and the selected bound in the existing CardEvent review inspector.
-- Reject an end before its start. Allow an operator to return an interval to a point by setting both
-  bounds to the same source frame.
-- Reuse the current ordered command queue, exact source-frame surface, Timeline Rail seek, and
-  conflict recovery path.
+- Complete — add visible, accessible actions to mark a selected event start at the playhead and
+  mark its stable end at the playhead.
+- Complete — keep `N` as the existing point-event action and add `S` and `E` shortcuts for marking
+  the start and stable end, with the same actions available as buttons.
+- Complete — show both bounds, duration, and the selected bound in the existing CardEvent review
+  inspector.
+- Complete — reject an end before its start and allow an operator to return an interval to a point
+  by setting both bounds to the same source frame.
+- Complete — reuse the current ordered command queue, exact source-frame surface, Timeline Rail
+  seek, and conflict recovery path.
 
 Acceptance:
 

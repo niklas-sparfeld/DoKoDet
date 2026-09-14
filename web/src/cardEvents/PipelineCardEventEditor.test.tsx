@@ -213,6 +213,141 @@ describe("PipelineCardEventEditor", () => {
     expect(putCalls(fetchMock)).toHaveLength(4);
   });
 
+  it("marks a point event start and stable end, then reloads the interval", async () => {
+    let server = referenceResponse([]);
+    const savedBodies: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+      if (init?.method !== "PUT") return response(server);
+      const payload = JSON.parse(String(init.body)) as {
+        operations: Array<Record<string, unknown>>;
+      };
+      savedBodies.push(payload);
+      const operation = payload.operations[0];
+      const itemId = operation.item_id;
+      const correctedItem = isRecord(operation.item) ? operation.item : null;
+      let items = server.draft.items;
+      if (operation.operation === "add" && isRecord(operation.item)) {
+        items = [
+          ...items,
+          eventItem({
+            item_id: String(operation.item.event_id),
+            base_item_id: null,
+            review_state: "added",
+            item: operation.item,
+          }),
+        ];
+      } else if (
+        operation.operation === "correct" &&
+        typeof itemId === "string" &&
+        correctedItem !== null
+      ) {
+        items = items.map((item) =>
+          item.item_id === itemId
+            ? { ...item, review_state: "corrected", item: correctedItem }
+            : item,
+        );
+      }
+      server = referenceResponse(items, server.draft.revision + 1);
+      return response(server);
+    });
+
+    const rendered = renderReviewed(fetchMock, 5_000_000, 1_500_000);
+    const controls = await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("region", { name: "CardEvent review source frame" }),
+      ).toHaveAttribute("data-requested-time-us", "1500000"),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add event at playhead" }),
+    );
+    await waitFor(() => expect(savedBodies).toHaveLength(1));
+    fireEvent.keyDown(window, { key: "s" });
+    await waitFor(() => expect(savedBodies).toHaveLength(2));
+    expect(savedBodies[1]?.operations).toEqual([
+      {
+        operation: "correct",
+        item_id: expect.any(String),
+        item: expect.objectContaining({
+          start_us: 1_500_000,
+          end_us: 1_500_000,
+        }),
+      },
+    ]);
+
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Seek right" }),
+    );
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Mark stable end E" }),
+    );
+    await waitFor(() => expect(savedBodies).toHaveLength(3));
+    expect(savedBodies[2]?.operations).toEqual([
+      {
+        operation: "correct",
+        item_id: expect.any(String),
+        item: expect.objectContaining({
+          start_us: 1_500_000,
+          end_us: 1_750_000,
+        }),
+      },
+    ]);
+    const interval = screen.getByLabelText("Selected event interval");
+    expect(within(interval).getByText("0:01.500000")).toBeInTheDocument();
+    expect(within(interval).getByText("0:01.750000")).toBeInTheDocument();
+    expect(within(interval).getByText("0:00.250000")).toBeInTheDocument();
+    expect(within(interval).getAllByText("Stable end")).toHaveLength(2);
+
+    rendered.unmount();
+    renderReviewed(fetchMock, 5_000_000, 1_500_000);
+    const reloadedInterval = await screen.findByLabelText(
+      "Selected event interval",
+    );
+    expect(
+      within(reloadedInterval).getByText("0:01.500000"),
+    ).toBeInTheDocument();
+    expect(
+      within(reloadedInterval).getByText("0:01.750000"),
+    ).toBeInTheDocument();
+  });
+
+  it("rejects a stable end before the start without changing the draft", async () => {
+    const server = referenceResponse([
+      eventItem({
+        item: {
+          event_id: "event-1",
+          event_type: "card_state_changed",
+          start_us: 2_000_000,
+          end_us: 2_500_000,
+          model_scores: [],
+        },
+      }),
+    ]);
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(response(server)),
+    );
+
+    renderReviewed(fetchMock, 5_000_000, 1_500_000);
+    const controls = await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Mark stable end E" }),
+    );
+
+    expect(
+      await screen.findAllByText(
+        "Stable end must be at or after the event start.",
+      ),
+    ).not.toHaveLength(0);
+    expect(putCalls(fetchMock)).toHaveLength(0);
+    const interval = screen.getByLabelText("Selected event interval");
+    expect(within(interval).getByText("0:02.500000")).toBeInTheDocument();
+  });
+
   it("retries a transient save with the same command and resumes after a revision conflict", async () => {
     let server = referenceResponse([eventItem()]);
     let putCount = 0;
@@ -455,6 +590,8 @@ describe("PipelineCardEventEditor", () => {
       "Seek right",
       "Nudge earlier ,",
       "Nudge later .",
+      "Mark start S",
+      "Mark stable end E",
       "Accept A",
       "Dismiss D",
       "Add event N",

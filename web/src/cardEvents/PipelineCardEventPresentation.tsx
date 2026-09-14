@@ -169,6 +169,8 @@ export function CardEventReviewControls({
   onNext,
   onSeek,
   onNudge,
+  onMarkStart,
+  onMarkStableEnd,
   onAccept,
   onDismiss,
   onAddEvent,
@@ -180,6 +182,8 @@ export function CardEventReviewControls({
   onNext: () => void;
   onSeek: (deltaUs: number) => void;
   onNudge: (delta: -1 | 1) => void;
+  onMarkStart: () => void;
+  onMarkStableEnd: () => void;
   onAccept: () => void;
   onDismiss: () => void;
   onAddEvent: () => void;
@@ -267,6 +271,24 @@ export function CardEventReviewControls({
             disabled={!canNudge}
             disabledReason="Select an event before nudging its time."
             onClick={() => onNudge(1)}
+          />
+        </div>
+        <div className={eventStyles.controlGroup}>
+          <ShortcutButton
+            label="Mark start"
+            shortcut="S"
+            ariaShortcut="S"
+            disabled={!canNudge}
+            disabledReason="Select an event before marking its start."
+            onClick={onMarkStart}
+          />
+          <ShortcutButton
+            label="Mark stable end"
+            shortcut="E"
+            ariaShortcut="E"
+            disabled={!canNudge}
+            disabledReason="Select an event before marking its stable end."
+            onClick={onMarkStableEnd}
           />
         </div>
         <div className={eventStyles.controlGroup}>

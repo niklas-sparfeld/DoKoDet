@@ -95,6 +95,7 @@ export function PipelineCardEventEditor({
   const [generatedEvents, setGeneratedEvents] = useState<PipelineEvent[]>([]);
   const [events, setEvents] = useState<EditableEvent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedBound, setSelectedBound] = useState<"start" | "end">("start");
   const [playheadUs, setPlayheadUs] = useState(0);
   const [watchedThroughUs, setWatchedThroughUs] = useState(0);
   const [loading, setLoading] = useState(view === "reviewed");
@@ -132,8 +133,10 @@ export function PipelineCardEventEditor({
   }, []);
 
   const setSelected = useCallback((eventId: string | null) => {
+    const changed = eventId !== selectedIdRef.current;
     selectedIdRef.current = eventId;
     setSelectedId(eventId);
+    if (changed) setSelectedBound("start");
   }, []);
 
   const setCurrentTime = useCallback(
@@ -456,13 +459,12 @@ export function PipelineCardEventEditor({
       event: EditableEvent,
       changes: Partial<PipelineEvent>,
       noticeText: string,
+      invalidNotice = "Event times must be inside the recording and end at or after start.",
     ) => {
       const nextEvent = { ...event.event, ...changes };
       if (!validEvent(nextEvent, durationUs)) {
-        setError(
-          "Event times must be inside the recording and end at or after start.",
-        );
-        return;
+        setError(invalidNotice);
+        return false;
       }
       enqueue(
         {
@@ -478,6 +480,7 @@ export function PipelineCardEventEditor({
               : candidate,
           ),
       );
+      return true;
     },
     [durationUs, enqueue],
   );
@@ -570,6 +573,27 @@ export function PipelineCardEventEditor({
       );
     },
     [durationUs, selectedEvent, setCurrentTime, updateEvent],
+  );
+
+  const markSelectedBound = useCallback(
+    (bound: "start" | "end") => {
+      if (selectedEvent === undefined) return;
+      const value = clampMicroseconds(playheadUsRef.current, durationUs);
+      const invalidNotice =
+        bound === "end"
+          ? "Stable end must be at or after the event start."
+          : "Event start must be at or before the stable end.";
+      const changed = updateEvent(
+        selectedEvent,
+        bound === "start" ? { start_us: value } : { end_us: value },
+        bound === "start"
+          ? "Event start marked at the playhead."
+          : "Stable end marked at the playhead.",
+        invalidNotice,
+      );
+      if (changed) setSelectedBound(bound);
+    },
+    [durationUs, selectedEvent, updateEvent],
   );
 
   const removeSelected = useCallback(() => {
@@ -746,6 +770,18 @@ export function PipelineCardEventEditor({
       } else if (event.key === "n" || event.key === "N") {
         event.preventDefault();
         addEvent();
+      } else if (
+        view === "reviewed" &&
+        (event.key === "s" || event.key === "S")
+      ) {
+        event.preventDefault();
+        markSelectedBound("start");
+      } else if (
+        view === "reviewed" &&
+        (event.key === "e" || event.key === "E")
+      ) {
+        event.preventDefault();
+        markSelectedBound("end");
       } else if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
         removeSelected();
@@ -770,6 +806,7 @@ export function PipelineCardEventEditor({
     addEvent,
     decideEvent,
     dismissSelected,
+    markSelectedBound,
     nudgeSelected,
     removeSelected,
     selectedEvent,
@@ -830,6 +867,7 @@ export function PipelineCardEventEditor({
       generatedRevisionId={generatedRevisionId}
       generatedLoading={generatedLoading}
       selectedEvent={selectedEvent}
+      selectedBound={selectedBound}
       selectedGeneratedEvent={selectedGeneratedEvent}
       pendingCount={pendingCount}
       acceptedCount={acceptedCount}
@@ -929,6 +967,8 @@ export function PipelineCardEventEditor({
             onNext={() => selectAdjacent(1)}
             onSeek={seekBy}
             onNudge={nudgeSelected}
+            onMarkStart={() => markSelectedBound("start")}
+            onMarkStableEnd={() => markSelectedBound("end")}
             onAccept={() => {
               if (selectedEvent !== undefined)
                 decideEvent(selectedEvent, "accept");

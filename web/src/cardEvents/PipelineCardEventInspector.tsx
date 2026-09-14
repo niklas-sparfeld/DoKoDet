@@ -30,6 +30,7 @@ export type EventInspectorProps = {
   generatedRevisionId: string | null;
   generatedLoading: boolean;
   selectedEvent: EditableEvent | undefined;
+  selectedBound: "start" | "end";
   selectedGeneratedEvent: PipelineEvent | undefined;
   pendingCount: number;
   acceptedCount: number;
@@ -277,6 +278,7 @@ function EventInspectorSelection({
   view,
   reference,
   selectedEvent,
+  selectedBound,
   selectedGeneratedEvent,
   pendingCount,
   acceptedCount,
@@ -305,6 +307,33 @@ function EventInspectorSelection({
             ? "Select a proposal from the Timeline Rail."
             : `Card-state change at ${formatMicroseconds(selectedGeneratedEvent.start_us)}`}
       </p>
+      {view === "reviewed" && selectedEvent !== undefined ? (
+        <dl
+          className={styles.pipelineInspectorFacts}
+          aria-label="Selected event interval"
+        >
+          <div>
+            <dt>Start</dt>
+            <dd>{formatMicroseconds(selectedEvent.event.start_us)}</dd>
+          </div>
+          <div>
+            <dt>Stable end</dt>
+            <dd>{formatMicroseconds(selectedEvent.event.end_us)}</dd>
+          </div>
+          <div>
+            <dt>Duration</dt>
+            <dd>
+              {formatMicroseconds(
+                selectedEvent.event.end_us - selectedEvent.event.start_us,
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Selected bound</dt>
+            <dd>{selectedBound === "start" ? "Start" : "Stable end"}</dd>
+          </div>
+        </dl>
+      ) : null}
       {view === "reviewed" && reference !== null && slots !== null ? (
         <>
           <button
