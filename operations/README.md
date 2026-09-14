@@ -285,6 +285,28 @@ sealed `test` partition or the system holdout. Repeat the same command to resume
 The campaign retains the resolved recipe, command logs, champion and candidate evaluations,
 diagnostics, comparison, and candidate run references below `data/model-campaigns/`.
 
+## Epic 0066 interval-review pilot
+
+M4 publishes one bounded trick-clear review as a corrected event revision, then derives a
+disposable CardEventNet dataset and trainer view from the 0063 frozen dataset. The request must
+contain full-recording coverage, source-frame evidence for each interval bound, and candidate
+decisions. The command compares the 0063 and pilot `sampling.json` reports and separates stable-end
+matches, in-progress trick-clear detections, and confirmed no-event triggers:
+
+```bash
+mise exec -- uv run --project operations doko data cardevent interval-pilot \
+  --repository-root . \
+  --baseline-dataset data/operations/cardevent-datasets/<0063-dataset-version> \
+  --review <interval-pilot-request.json> \
+  --baseline-sampling <0063-sampling.json> \
+  --pilot-sampling <pilot-sampling.json> \
+  --output .runtime/cardevent/interval-pilot
+```
+
+The pilot refuses a sealed-test recording, verifies the base revision digests, and records the
+new revision, dataset, materialization, sampling deltas, diagnostic outcomes, and unchanged 0063
+artifact digests in `report.json`. It never edits the frozen 0063 artifacts.
+
 M5 adds a read-only composed evaluation on the plan 0027 system holdout. Both component campaigns
 must have a candidate lock. Pass the frozen dataset and split manifests for each component:
 

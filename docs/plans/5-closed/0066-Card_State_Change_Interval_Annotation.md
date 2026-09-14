@@ -4,14 +4,15 @@
 
 - **Summary:** Let an operator mark the start and stable end of a long card-state change in the
   CardEvent review editor.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** None
 - **Builds on:** 0049, 0062, and 0064 complete; 0063 supplies reviewed failure evidence but does
   not block this work.
-- **Readiness:** M0–M3 are complete. The interval semantics, stable-end policy, contract
+- **Readiness:** M0–M4 are complete. The interval semantics, stable-end policy, contract
   fixtures, preservation checks, CardEvent viewer editing controls, range-aware Timeline Rail,
-  bound navigation, interval-aware targets, negative evidence exclusion, and diagnostics are in
-  place. M4 is ready for the bounded review pilot.
+  bound navigation, interval-aware targets, negative evidence exclusion, diagnostics, and the
+  bounded review pilot are in place.
 - **Outcome:** A reviewed event can remain a point or become a nonzero card-state change interval.
   The editor makes both bounds clear. CardEventNet uses the stable end as the event anchor and does
   not treat the interval interior as a hard negative or ordinary negative sample.
@@ -72,7 +73,9 @@ This epic does not include:
 - **M1:** Complete (2026-09-14) — add interval editing to the CardEvent viewer.
 - **M2:** Complete (2026-09-14) — make intervals understandable in review.
 - **M3:** Complete (2026-09-14) — keep interval interiors out of negative evidence.
-- **M4:** Not started — run a bounded trick-clear review pilot.
+- **M4:** Complete (2026-09-14) — run a bounded trick-clear review pilot with source-frame
+  evidence, immutable revision lineage, disposable materialization, sampling comparison, and
+  interval-aware diagnostic counts.
 
 ## Delivery milestones
 
@@ -149,18 +152,22 @@ Acceptance:
 
 ### M4 — Run a bounded trick-clear review pilot
 
-- Review the current uncertain and missed hard-negative candidates that occur during trick clears.
-- Publish one new reviewed event revision with a small, explicit set of card-state change intervals.
-- Materialize a new disposable training view and compare its sampling counts with the 0063 view.
-- Record whether interval-aware annotations reduce ambiguous hard-negative candidates without using
-  sealed test data.
+- Complete — review the current uncertain and missed hard-negative candidates that occur during
+  trick clears.
+- Complete — publish one new reviewed event revision with a small, explicit set of card-state
+  change intervals.
+- Complete — materialize a new disposable training view and compare its sampling counts with the
+  0063 view.
+- Complete — record whether interval-aware annotations reduce ambiguous hard-negative candidates
+  without using sealed test data.
 
 Acceptance:
 
-- the pilot records reviewed intervals with source-frame evidence and review coverage;
-- a new training view has immutable lineage to that reviewed revision;
-- the report distinguishes confirmed no-event triggers from in-progress trick-clear detections; and
-- no existing frozen dataset or sealed test artifact changes.
+- Complete — the pilot records reviewed intervals with source-frame evidence and review coverage;
+- Complete — a new training view has immutable lineage to that reviewed revision;
+- Complete — the report distinguishes confirmed no-event triggers from in-progress trick-clear
+  detections; and
+- Complete — no existing frozen dataset or sealed test artifact changes.
 
 ## Verification
 
