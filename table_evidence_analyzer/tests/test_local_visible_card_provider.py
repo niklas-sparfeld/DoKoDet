@@ -201,6 +201,71 @@ def test_local_provider_uses_segmentation_polygon_and_derives_its_tight_box(
     ]
 
 
+def test_local_provider_keeps_largest_component_of_disconnected_mask(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        visible_cards,
+        "_mask_to_polygons",
+        lambda _mask: [
+            [[2, 2], [18, 2], [18, 18], [2, 18]],
+            [[0, 0], [1, 0], [1, 1]],
+        ],
+    )
+    detector = _Detector(
+        _detections(
+            [[1.0, 1.0, 19.0, 19.0]],
+            [0.75],
+            [0],
+            masks=[[[False, True]]],
+        )
+    )
+    provider = LocalVisibleCardProvider(_bundle(tmp_path), detector=detector)
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    assert len(result.proposals) == 1
+    assert result.proposals[0].box_2d.to_mapping() == {
+        "x_min": 100,
+        "y_min": 100,
+        "x_max": 900,
+        "y_max": 900,
+    }
+    detection = result.raw_response["detections"][0]
+    assert detection["mask_component_count"] == 2
+    assert detection["mask_repaired"] is True
+    assert detection["selected_component_area_px"] == 256.0
+    assert detection["discarded_component_area_px"] == 0.5
+    assert result.raw_response["skipped_detections"] == []
+
+
+def test_local_provider_returns_ok_empty_prediction_for_empty_mask(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(visible_cards, "_mask_to_polygons", lambda _mask: [])
+    detector = _Detector(
+        _detections(
+            [[1.0, 1.0, 19.0, 19.0]],
+            [0.75],
+            [0],
+            masks=[[[False, False]]],
+        )
+    )
+    provider = LocalVisibleCardProvider(_bundle(tmp_path), detector=detector)
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    assert result.proposals == ()
+    assert result.raw_response["detections"] == []
+    assert result.raw_response["detector_scores"] == []
+    assert result.raw_response["skipped_detections"][0]["geometry_source"] == (
+        "segmentation_mask_empty"
+    )
+    assert result.raw_response["skipped_detections"][0]["mask_component_count"] == 0
+
+
 def test_local_provider_returns_unavailable_for_invalid_input_and_inference_failure(
     tmp_path: Path,
 ) -> None:

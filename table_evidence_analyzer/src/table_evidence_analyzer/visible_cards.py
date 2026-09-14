@@ -976,16 +976,52 @@ def _mask_to_polygons(mask: Any) -> Any:
         raise VisibleCardError(f"detector output mask could not be polygonized: {error}") from error
 
 
+def _polygon_area(polygon: Any) -> float:
+    """Return the absolute shoelace area of one pixel polygon."""
+
+    raw_points = _sequence(polygon, "mask polygon")
+    points: list[tuple[float, float]] = []
+    for raw_point in raw_points:
+        coordinates = _sequence(raw_point, "mask polygon point")
+        if len(coordinates) != 2:
+            raise VisibleCardError("detector output mask polygon points must contain x and y")
+        try:
+            x_pixel, y_pixel = (float(value) for value in coordinates)
+        except (TypeError, ValueError) as error:
+            raise VisibleCardError("detector output mask polygon points must be numeric") from error
+        if not all(math.isfinite(value) for value in (x_pixel, y_pixel)):
+            raise VisibleCardError("detector output mask polygon points must be finite")
+        points.append((x_pixel, y_pixel))
+    if len(points) < 3:
+        return 0.0
+    return abs(
+        sum(
+            x_left * y_right - x_right * y_left
+            for (x_left, y_left), (x_right, y_right) in zip(
+                points, points[1:] + points[:1], strict=True
+            )
+        )
+        / 2.0
+    )
+
+
 def _normalised_polygon_from_mask(
     mask: Any, *, width: int, height: int
-) -> tuple[NormalizedPoint, ...]:
+) -> tuple[tuple[NormalizedPoint, ...] | None, dict[str, Any]]:
     polygons = _mask_to_polygons(mask)
     polygons = _sequence(polygons, "mask polygons")
-    if len(polygons) != 1:
-        raise VisibleCardError(
-            "detector output mask must contain exactly one connected visible-card region"
-        )
-    polygon = _sequence(polygons[0], "mask polygon")
+    areas = [_polygon_area(polygon) for polygon in polygons]
+    if not areas or max(areas) <= 0:
+        return None, {
+            "mask_component_count": len(polygons),
+            "selected_component_area_px": 0.0,
+            "discarded_component_area_px": round(sum(areas), 3),
+            "mask_repaired": False,
+        }
+    selected_index = max(range(len(areas)), key=areas.__getitem__)
+    polygon = _sequence(polygons[selected_index], "mask polygon")
+    selected_area = areas[selected_index]
+    discarded_area = sum(area for index, area in enumerate(areas) if index != selected_index)
     points: list[NormalizedPoint] = []
     for raw_point in polygon:
         coordinates = _sequence(raw_point, "mask polygon point")
@@ -1011,7 +1047,12 @@ def _normalised_polygon_from_mask(
         _tight_box_for_polygon(points)
     except VisibleCardValidationError as error:
         raise VisibleCardError("detector output mask polygon must have positive area") from error
-    return tuple(points)
+    return tuple(points), {
+        "mask_component_count": len(polygons),
+        "selected_component_area_px": round(selected_area, 3),
+        "discarded_component_area_px": round(discarded_area, 3),
+        "mask_repaired": len(polygons) > 1,
+    }
 
 
 def _local_bundle_identity(bundle: Any) -> dict[str, Any]:
@@ -1157,6 +1198,7 @@ class LocalVisibleCardProvider:
                 raise VisibleCardError("detector output mask field has a different length")
             proposals: list[VisibleCardProposal] = []
             output_detections: list[dict[str, Any]] = []
+            skipped_detections: list[dict[str, Any]] = []
             for detection_index, (coordinates, raw_score, raw_class_id) in enumerate(
                 zip(boxes, confidence, class_ids, strict=True)
             ):
@@ -1171,6 +1213,7 @@ class LocalVisibleCardProvider:
                 box, pixel_box = _normalised_box_from_pixels(
                     coordinates, width=request.width, height=request.height
                 )
+                mask_diagnostics: dict[str, Any] = {}
                 if mask_rows is None:
                     polygon = (
                         NormalizedPoint(x=box.x_min, y=box.y_min),
@@ -1180,19 +1223,23 @@ class LocalVisibleCardProvider:
                     )
                     geometry_source = "detector_box"
                 else:
-                    polygon = _normalised_polygon_from_mask(
+                    polygon, mask_diagnostics = _normalised_polygon_from_mask(
                         mask_rows[detection_index], width=request.width, height=request.height
                     )
+                    if polygon is None:
+                        skipped_detections.append(
+                            {
+                                "class_id": class_id,
+                                "score": score,
+                                "box_xyxy": pixel_box,
+                                "geometry_source": "segmentation_mask_empty",
+                                "visible_polygon": [],
+                                **mask_diagnostics,
+                            }
+                        )
+                        continue
                     box = _tight_box_for_polygon(polygon)
                     geometry_source = "segmentation_mask"
-                proposals.append(
-                    VisibleCardProposal(
-                        box_2d=box,
-                        polygon=polygon,
-                        side="unknown",
-                        label="visible_card",
-                    )
-                )
                 output_detections.append(
                     {
                         "class_id": class_id,
@@ -1200,7 +1247,16 @@ class LocalVisibleCardProvider:
                         "box_xyxy": pixel_box,
                         "geometry_source": geometry_source,
                         "visible_polygon": [point.to_mapping() for point in polygon],
+                        **mask_diagnostics,
                     }
+                )
+                proposals.append(
+                    VisibleCardProposal(
+                        box_2d=box,
+                        polygon=polygon,
+                        side="unknown",
+                        label="visible_card",
+                    )
                 )
         except Exception as error:
             return self._unavailable(f"local visible-card inference failed: {error}", started)
@@ -1216,6 +1272,7 @@ class LocalVisibleCardProvider:
                 "confidence_threshold": self.confidence_threshold,
                 "detector_scores": [detection["score"] for detection in output_detections],
                 "detections": output_detections,
+                "skipped_detections": skipped_detections,
             },
             latency_ms=_elapsed_ms(started),
         )
