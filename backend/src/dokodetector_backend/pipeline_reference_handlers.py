@@ -530,6 +530,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
 
     def human_item(self, item: Mapping[str, Any]) -> dict[str, Any]:
         value = super().human_item(item)
+        value.setdefault("ignored_regions", [])
         for candidate in value.get("candidates", []):
             candidate.pop("model_scores", None)
         return value

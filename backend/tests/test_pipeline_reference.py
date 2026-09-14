@@ -1038,6 +1038,52 @@ def test_visible_card_ignore_region_edit_migrates_missing_legacy_regions(
     assert updated.draft.items[0].item["ignored_regions"] == [region]
 
 
+def test_visible_card_completion_migrates_missing_legacy_regions(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    current = service.get_reference("recording-01", "visible_cards")
+    legacy_item = dict(current.draft.items[0].item)
+    legacy_item.pop("ignored_regions")
+    legacy = StoredPipelineReference(
+        state=current.state,
+        draft=replace(
+            current.draft,
+            items=(replace(current.draft.items[0], review_state="accepted", item=legacy_item),),
+        ),
+    )
+    with service.reference_store.locked("recording-01", "visible_cards"):
+        service.reference_store.write_locked(legacy)
+
+    completed = service.complete_reference(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": legacy_item["frame_identity"],
+                        "decision": "cards",
+                    }
+                ],
+            },
+        },
+    )
+
+    revision_id = completed.state.selected_completed_revision_id
+    assert revision_id is not None
+    stored = revision_store.require(revision_id)
+    assert stored.content.outcomes[0].ignored_regions == ()
+    assert completed.draft.items[0].item["ignored_regions"] == []
+
+
 def test_visible_card_ignore_only_coverage_and_rebase_preserve_region(tmp_path: Path) -> None:
     service, revision_store = _service(tmp_path)
     first_revision = _vision_source_revision(revision_store, "visible_cards")
