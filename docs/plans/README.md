@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0066 — Card-state change interval annotation](2-ready/0066-Card_State_Change_Interval_Annotation.md) | None | Let an operator review and save nonzero card-state change intervals, then keep interval interiors out of CardEventNet negative evidence. |
 
 ### In Progress
 

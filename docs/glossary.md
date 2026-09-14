@@ -172,6 +172,16 @@ multi-card change. It does not assert a card play, a face side, or another gamep
 
 Use `card_state_changed` as the event type for a generic CardEventNet proposal.
 
+### Card-state change interval
+
+A reviewed card-state change with different start and end times. It starts when a persistent
+table-state change begins and ends when the new table state is stable. A trick clear can be a
+card-state change interval. Its intermediate frames are part of the same change, not separate
+card-state changes or ordinary negative evidence.
+
+Use the end time as the CardEventNet event anchor unless a declared data task specifies another
+anchor. A point card-state change has equal start and end times.
+
 ### Event proposal
 
 A possible event reported by a person or model before review. An event proposal is not ground
