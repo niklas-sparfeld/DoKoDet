@@ -1,4 +1,4 @@
-"""Train and bundle the epic 0067 RF-DETR instance-segmentation smoke candidate.
+"""Train and bundle the epic 0067 RF-DETR instance-segmentation candidates.
 
 The adapter consumes only the disposable COCO view emitted by the operations materializer.  It
 keeps the detection-only RF-DETR bundle contract separate from the segmentation contract and
@@ -24,6 +24,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
 RFDETR_SEGMENTATION_TRAINING_RUN_SCHEMA = "rfdetr-segmentation-training-run/v1"
+RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA = "rfdetr-segmentation-campaign-training-run/v1"
+RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA = "rfdetr-segmentation-campaign-dataset/v1"
 RFDETR_SEGMENTATION_BUNDLE_SCHEMA = "rfdetr-segmentation-bundle/v1"
 RFDETR_SEGMENTATION_MODEL_CLASS = "RFDETRSegMedium"
 RFDETR_SEGMENTATION_MODEL_VARIANT = "rfdetr-seg-medium"
@@ -67,6 +69,24 @@ class RfdetrSegmentationTrainingConfig:
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise RfdetrSegmentationTrainingError(f"{name} must be a positive integer")
+
+
+@dataclass(frozen=True, slots=True)
+class RfdetrSegmentationCampaignTrainingConfig:
+    """Inputs for the full M3 candidate training run."""
+
+    dataset_dir: Path
+    campaign_manifest: Path
+    pretrained_checkpoint: Path
+    output_dir: Path
+    runner: Literal["fixture", "rfdetr"] = "rfdetr"
+    device: Literal["cpu", "mps", "cuda"] = "mps"
+
+    def __post_init__(self) -> None:
+        if self.runner not in _RUNNERS:
+            raise RfdetrSegmentationTrainingError("runner must be fixture or rfdetr")
+        if self.device not in _DEVICES:
+            raise RfdetrSegmentationTrainingError("device must be cpu, mps, or cuda")
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,19 +261,16 @@ def _representative_images(images: Sequence[Mapping[str, Any]], count: int) -> l
     return selected[:count]
 
 
-def _subset_annotation(annotation: Mapping[str, Any], image_name: str) -> dict[str, Any]:
-    return dict(annotation)
-
-
 def _stage_smoke_dataset(
     view: Mapping[str, Any],
     destination: Path,
     *,
     train_count: int,
     validation_count: int,
+    subset_schema: str = "rfdetr-segmentation-smoke-subset/v1",
 ) -> dict[str, Any]:
     if destination.exists():
-        raise RfdetrSegmentationTrainingError(f"smoke dataset already exists: {destination}")
+        raise RfdetrSegmentationTrainingError(f"staged dataset already exists: {destination}")
     root = view["root"]
     partitions = view["partitions"]
     selected = {
@@ -299,7 +316,7 @@ def _stage_smoke_dataset(
             },
         )
     subset_core = {
-        "schema_version": "rfdetr-segmentation-smoke-subset/v1",
+        "schema_version": subset_schema,
         "materialization_digest": view["manifest"]["materialization_digest"],
         "train_image_count": len(selected["train"]),
         "validation_image_count": len(selected["valid"]),
@@ -320,6 +337,18 @@ def _stage_smoke_dataset(
         "annotations": subset_annotations,
         "validation_frame": selected["valid"][0],
     }
+
+
+def _stage_campaign_dataset(view: Mapping[str, Any], destination: Path) -> dict[str, Any]:
+    """Stage every reviewed M1 image for the one-candidate M3 training run."""
+
+    return _stage_smoke_dataset(
+        view,
+        destination,
+        train_count=len(view["partitions"]["train"]),
+        validation_count=len(view["partitions"]["valid"]),
+        subset_schema=RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA,
+    )
 
 
 def _environment() -> dict[str, Any]:
@@ -350,6 +379,110 @@ def _model_arguments(checkpoint: Path) -> dict[str, Any]:
     }
 
 
+def _verify_campaign_manifest(
+    view: Mapping[str, Any], campaign_manifest_path: Path, pretrained_sha256: str
+) -> dict[str, Any]:
+    """Verify that the M1 view and the supplied frozen M0 manifest are the same input."""
+
+    path = campaign_manifest_path.expanduser().resolve()
+    if not path.is_file():
+        raise RfdetrSegmentationTrainingError(f"campaign manifest does not exist: {path}")
+    manifest = _read_json(path, "M0 campaign manifest")
+    declared_digest = _assert_sha256(manifest.get("manifest_digest"), "M0 manifest_digest")
+    core = {key: value for key, value in manifest.items() if key != "manifest_digest"}
+    if declared_digest != _digest(core):
+        raise RfdetrSegmentationTrainingError("M0 campaign manifest digest does not match contents")
+    if manifest.get("schema_version") != "rfdetr-segmentation-campaign-manifest/v1":
+        raise RfdetrSegmentationTrainingError("M0 campaign manifest schema is unsupported")
+    if manifest.get("campaign_id") != "0067-m0-rfdetr-segmentation":
+        raise RfdetrSegmentationTrainingError("M0 campaign manifest belongs to another campaign")
+    if (
+        manifest.get("milestone") != "M0"
+        or manifest.get("read_only") is not True
+        or manifest.get("freeze_state") != "frozen"
+    ):
+        raise RfdetrSegmentationTrainingError("M0 campaign manifest is not frozen")
+    recipe = manifest.get("recipe")
+    if not isinstance(recipe, Mapping):
+        raise RfdetrSegmentationTrainingError("M0 campaign manifest has no recipe")
+    if manifest.get("recipe_sha256") != _digest(recipe):
+        raise RfdetrSegmentationTrainingError("M0 recipe digest does not match contents")
+    if recipe.get("package") != {
+        "name": "rfdetr",
+        "version": RFDETR_SEGMENTATION_PACKAGE_VERSION,
+    }:
+        raise RfdetrSegmentationTrainingError("M0 RF-DETR package pin changed")
+    model = recipe.get("model")
+    if not isinstance(model, Mapping):
+        raise RfdetrSegmentationTrainingError("M0 model recipe is invalid")
+    if (
+        model.get("class") != RFDETR_SEGMENTATION_MODEL_CLASS
+        or model.get("variant") != RFDETR_SEGMENTATION_MODEL_VARIANT
+    ):
+        raise RfdetrSegmentationTrainingError("M0 RF-DETR segmentation model pin changed")
+    if model.get("resolution") != [
+        RFDETR_SEGMENTATION_INPUT_SIZE,
+        RFDETR_SEGMENTATION_INPUT_SIZE,
+    ]:
+        raise RfdetrSegmentationTrainingError("M0 RF-DETR input resolution pin changed")
+    checkpoint = recipe.get("pretrained_checkpoint")
+    if not isinstance(checkpoint, Mapping) or checkpoint.get("sha256") != pretrained_sha256:
+        raise RfdetrSegmentationTrainingError(
+            "pretrained checkpoint does not match the frozen M0 checkpoint digest"
+        )
+    training = recipe.get("training")
+    if not isinstance(training, Mapping) or {
+        "batch_size": training.get("batch_size"),
+        "grad_accum_steps": training.get("grad_accum_steps"),
+        "epochs": training.get("epochs"),
+        "seed": training.get("seed"),
+        "num_workers": training.get("num_workers"),
+        "mixed_precision": training.get("mixed_precision"),
+    } != {
+        "batch_size": 1,
+        "grad_accum_steps": 4,
+        "epochs": 40,
+        "seed": 6701,
+        "num_workers": 0,
+        "mixed_precision": False,
+    }:
+        raise RfdetrSegmentationTrainingError(
+            "M0 training recipe is not the locked campaign recipe"
+        )
+    augmentation = recipe.get("augmentation")
+    if not isinstance(augmentation, Mapping) or {
+        key: augmentation.get(key)
+        for key in ("multi_scale", "expanded_scales", "do_random_resize_via_padding", "use_ema")
+    } != {
+        "multi_scale": True,
+        "expanded_scales": True,
+        "do_random_resize_via_padding": False,
+        "use_ema": True,
+    }:
+        raise RfdetrSegmentationTrainingError("M0 augmentation recipe is not locked")
+    early_stopping = recipe.get("early_stopping")
+    if not isinstance(early_stopping, Mapping) or {
+        "enabled": early_stopping.get("enabled"),
+        "patience": early_stopping.get("patience"),
+        "min_delta": early_stopping.get("min_delta"),
+    } != {"enabled": True, "patience": 8, "min_delta": 0.001}:
+        raise RfdetrSegmentationTrainingError("M0 early-stopping recipe is not locked")
+    campaign_reference = view["manifest"].get("campaign_manifest")
+    if not isinstance(campaign_reference, Mapping):
+        raise RfdetrSegmentationTrainingError("M1 materialization has no M0 manifest receipt")
+    if campaign_reference.get("manifest_digest") != declared_digest:
+        raise RfdetrSegmentationTrainingError("M1 materialization points to another M0 manifest")
+    recorded_file_digest = campaign_reference.get("file_sha256")
+    if not isinstance(recorded_file_digest, str) or recorded_file_digest != _file_digest(path):
+        raise RfdetrSegmentationTrainingError("M0 campaign manifest file digest does not match M1")
+    return {
+        "path": str(path),
+        "manifest_digest": declared_digest,
+        "file_sha256": _file_digest(path),
+        "recipe_sha256": manifest["recipe_sha256"],
+    }
+
+
 def _training_arguments(staged_dataset: Path, output: Path, device: str) -> dict[str, Any]:
     return {
         "dataset_dir": str(staged_dataset),
@@ -371,6 +504,46 @@ def _training_arguments(staged_dataset: Path, output: Path, device: str) -> dict
         "tensorboard": False,
         "wandb": False,
         "progress_bar": None,
+    }
+
+
+def _campaign_model_arguments(checkpoint: Path) -> dict[str, Any]:
+    """Return model arguments that implement the frozen no-mixed-precision recipe."""
+
+    return {
+        **_model_arguments(checkpoint),
+        "amp": False,
+    }
+
+
+def _campaign_training_arguments(staged_dataset: Path, output: Path, device: str) -> dict[str, Any]:
+    """Return the exact RF-DETR arguments for the one-candidate M3 run."""
+
+    return {
+        "dataset_dir": str(staged_dataset),
+        "dataset_file": "roboflow",
+        "output_dir": str(output),
+        "epochs": 40,
+        "batch_size": 1,
+        "grad_accum_steps": 4,
+        "num_workers": 0,
+        "seed": 6701,
+        "resolution": RFDETR_SEGMENTATION_INPUT_SIZE,
+        "device": device,
+        "class_names": ["visible_card"],
+        "run_test": False,
+        "use_ema": True,
+        "multi_scale": True,
+        "expanded_scales": True,
+        "do_random_resize_via_padding": False,
+        "early_stopping": True,
+        "early_stopping_patience": 8,
+        "early_stopping_min_delta": 0.001,
+        "tensorboard": False,
+        "wandb": False,
+        "progress_bar": None,
+        "eval_interval": 1,
+        "save_dataset_grids": False,
     }
 
 
@@ -612,6 +785,40 @@ def _base_record(config: RfdetrSegmentationTrainingConfig, started: float) -> di
     }
 
 
+def _campaign_base_record(
+    config: RfdetrSegmentationCampaignTrainingConfig, started: float
+) -> dict[str, Any]:
+    output = config.output_dir.expanduser().resolve()
+    return {
+        "schema_version": RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA,
+        "run_id": f"rfdetr-segmentation-m3-training-{int(started)}",
+        "status": "failed",
+        "runner": config.runner,
+        "device": config.device,
+        "config": {
+            "dataset_dir": str(config.dataset_dir.expanduser().resolve()),
+            "campaign_manifest": str(config.campaign_manifest.expanduser().resolve()),
+            "pretrained_checkpoint": str(config.pretrained_checkpoint.expanduser().resolve()),
+            "output_dir": str(output),
+        },
+        "stages": {
+            "inputs": "pending",
+            "dataset": "pending",
+            "training": "pending",
+            "metrics": "pending",
+            "bundle": "pending",
+        },
+        "started_at": datetime.fromtimestamp(started, tz=UTC).isoformat(),
+        "environment": _environment(),
+        "code_revision": _code_revision(),
+        "resumable": {
+            "supported": True,
+            "run_path": str(output / "run.json"),
+            "next_stage": "inputs",
+        },
+    }
+
+
 def _mark_stage(record: dict[str, Any], stage: str, status: str) -> None:
     record["stages"][stage] = status
     pending = next(
@@ -813,6 +1020,141 @@ def run_rfdetr_segmentation_training(
     return record
 
 
+def run_rfdetr_segmentation_campaign_training(
+    config: RfdetrSegmentationCampaignTrainingConfig,
+) -> dict[str, Any]:
+    """Run the full M3 candidate training operation on every M1 training sample."""
+
+    started = time.time()
+    output = config.output_dir.expanduser().resolve()
+    if output.exists() and any(output.iterdir()):
+        existing_run = output / "run.json"
+        if existing_run.is_file():
+            record = _read_json(existing_run, "M3 campaign run record")
+            expected_config = {
+                "dataset_dir": str(config.dataset_dir.expanduser().resolve()),
+                "campaign_manifest": str(config.campaign_manifest.expanduser().resolve()),
+                "pretrained_checkpoint": str(config.pretrained_checkpoint.expanduser().resolve()),
+                "output_dir": str(output),
+            }
+            if (
+                record.get("schema_version") == RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA
+                and record.get("status") == "completed"
+                and record.get("runner") == config.runner
+                and record.get("device") == config.device
+                and record.get("config") == expected_config
+            ):
+                bundle_path = record.get("bundle", {}).get("path")
+                if isinstance(bundle_path, str):
+                    load_rfdetr_segmentation_bundle(bundle_path)
+                    return record
+        raise RfdetrSegmentationTrainingError(f"output directory is not empty: {output}")
+    output.mkdir(parents=True, exist_ok=True)
+    record = _campaign_base_record(config, started)
+    run_path = output / "run.json"
+    try:
+        view = _load_materialization_view(config.dataset_dir)
+        pretrained = config.pretrained_checkpoint.expanduser().resolve()
+        if not pretrained.is_file():
+            raise RfdetrSegmentationTrainingError(
+                f"pretrained checkpoint does not exist: {pretrained}"
+            )
+        pretrained_sha256 = _file_digest(pretrained)
+        campaign_receipt = _verify_campaign_manifest(
+            view, config.campaign_manifest, pretrained_sha256
+        )
+        _mark_stage(record, "inputs", "completed")
+        staged_dataset = output / "campaign-dataset"
+        staged = _stage_campaign_dataset(view, staged_dataset)
+        _mark_stage(record, "dataset", "completed")
+        training_output = output / "rfdetr"
+        model_arguments = _campaign_model_arguments(pretrained)
+        training_arguments = _campaign_training_arguments(
+            staged_dataset, training_output, config.device
+        )
+        inputs = {
+            "runner": config.runner,
+            "device": config.device,
+            "materialization_digest": view["manifest"]["materialization_digest"],
+            "pretrained_sha256": pretrained_sha256,
+            "subset": staged["subset"],
+            "model": {
+                "class": RFDETR_SEGMENTATION_MODEL_CLASS,
+                "variant": RFDETR_SEGMENTATION_MODEL_VARIANT,
+                "num_classes": 1,
+                "resolution": RFDETR_SEGMENTATION_INPUT_SIZE,
+            },
+            "model_arguments": model_arguments,
+            "training_arguments": training_arguments,
+        }
+        checkpoint = (
+            _run_fixture(inputs, staged_dataset, training_output)
+            if config.runner == "fixture"
+            else _run_rfdetr(inputs, staged_dataset, training_output)
+        )
+        _mark_stage(record, "training", "completed")
+        if _file_digest(checkpoint) == pretrained_sha256:
+            raise RfdetrSegmentationTrainingError(
+                "trained segmentation checkpoint is identical to pretrained input"
+            )
+        losses = _metric_evidence(training_output, keywords=("loss",))
+        metrics = _metric_evidence(
+            training_output,
+            keywords=("map", "ap", "recall", "false", "duplicate", "empty"),
+        )
+        _mark_stage(record, "metrics", "completed")
+        checkpoint_sha256 = _file_digest(checkpoint)
+        bundle_manifest = _write_bundle(
+            output / "bundle",
+            inputs=inputs,
+            checkpoint=checkpoint,
+            checkpoint_sha256=checkpoint_sha256,
+            run_id=record["run_id"],
+        )
+        bundle = load_rfdetr_segmentation_bundle(output / "bundle")
+        _mark_stage(record, "bundle", "completed")
+        record.update(
+            {
+                "status": "completed",
+                "duration_seconds": round(time.time() - started, 3),
+                "budget_seconds": 7200,
+                "campaign_manifest": campaign_receipt,
+                "model": inputs["model"],
+                "model_arguments": model_arguments,
+                "training_arguments": training_arguments,
+                "materialization_digest": inputs["materialization_digest"],
+                "pretrained_checkpoint": {
+                    "path": str(pretrained),
+                    "name": RFDETR_SEGMENTATION_CHECKPOINT_NAME,
+                    "sha256": pretrained_sha256,
+                },
+                "dataset": staged["subset"],
+                "loss_confirmation": losses,
+                "validation_metrics": metrics,
+                "checkpoint": {
+                    "file": checkpoint.name,
+                    "sha256": checkpoint_sha256,
+                    "pretrained_sha256": pretrained_sha256,
+                    "weights_differ": True,
+                },
+                "bundle": {
+                    "path": str(bundle.root),
+                    "schema_version": bundle_manifest["schema_version"],
+                    "bundle_digest": bundle_manifest["bundle_digest"],
+                    "manifest_sha256": _file_digest(bundle.root / "manifest.json"),
+                },
+            }
+        )
+        record["resumable"]["next_stage"] = None
+    except Exception as error:
+        record["failure"] = {"type": type(error).__name__, "message": str(error)}
+    record["finished_at"] = datetime.now(UTC).isoformat()
+    _write_json(run_path, record)
+    if record["status"] != "completed":
+        raise RfdetrSegmentationTrainingError(record["failure"]["message"])
+    return record
+
+
 def load_rfdetr_segmentation_bundle(path: str | Path) -> RfdetrSegmentationBundle:
     """Validate a segmentation bundle before a provider loads its native checkpoint."""
 
@@ -873,6 +1215,8 @@ def load_rfdetr_segmentation_bundle(path: str | Path) -> RfdetrSegmentationBundl
 
 __all__ = [
     "RFDETR_SEGMENTATION_BUNDLE_SCHEMA",
+    "RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA",
+    "RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA",
     "RFDETR_SEGMENTATION_CHECKPOINT_NAME",
     "RFDETR_SEGMENTATION_CONFIDENCE_THRESHOLD",
     "RFDETR_SEGMENTATION_FINAL_CHECKPOINT",
@@ -882,8 +1226,10 @@ __all__ = [
     "RFDETR_SEGMENTATION_PACKAGE_VERSION",
     "RFDETR_SEGMENTATION_TRAINING_RUN_SCHEMA",
     "RfdetrSegmentationBundle",
+    "RfdetrSegmentationCampaignTrainingConfig",
     "RfdetrSegmentationTrainingConfig",
     "RfdetrSegmentationTrainingError",
     "load_rfdetr_segmentation_bundle",
+    "run_rfdetr_segmentation_campaign_training",
     "run_rfdetr_segmentation_training",
 ]

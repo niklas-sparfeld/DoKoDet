@@ -59,7 +59,7 @@ mise exec -- uv sync
 ## Command line
 
 The `table-analyzer` command exposes the local visible-card baseline and the bounded training
-command. The local RF-DETR provider is a Python adapter; backend provider selection is a later
+commands. The local RF-DETR provider is a Python adapter; backend provider selection is a later
 milestone.
 
 ```bash
@@ -71,6 +71,7 @@ table-analyzer export-dinov3-identity --help
 table-analyzer classify-dinov3-identity --help
 table-analyzer train-visible-card-detector --help
 table-analyzer train-rfdetr-segmentation --help
+table-analyzer train-rfdetr-segmentation-campaign --help
 table-analyzer train --help
 table-analyzer evaluate --help
 table-analyzer export --help
@@ -90,6 +91,24 @@ table-analyzer evaluate-visible-card-targeted-round --help
 table-analyzer visible-card-prompt-pilot --help
 table-analyzer render-visible-card-prompt-pilot --help
 ```
+
+Run the full epic 0067 candidate training operation on the frozen MPS recipe. This command uses
+all 219 train images and all 85 validation images from the M1 view, trains one SegMedium candidate
+for up to 40 epochs, and writes the run record, logs, checkpoint, and bundle below the output path.
+Run it only after the M2 smoke path passes:
+
+```bash
+mise exec -- uv run --project table_evidence_analyzer --group training table-analyzer \
+  train-rfdetr-segmentation-campaign \
+  --dataset-dir .runtime/rfdetr-segmentation-0067 \
+  --manifest data/operations/rfdetr-segmentation-0067-m0-manifest.json \
+  --pretrained-checkpoint .runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt \
+  --output-dir .runtime/rfdetr-segmentation-0067-m3-training \
+  --device mps
+```
+
+The campaign command validates the M0 digest and checkpoint pin before training. It refuses a
+non-empty output directory; rerunning a completed output verifies and reuses its bundle.
 
 Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
 `GEMINI_API_KEY` is present in the process environment. The fake provider is deterministic and

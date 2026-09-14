@@ -243,6 +243,28 @@ def build_parser() -> argparse.ArgumentParser:
     segmentation_train_parser.add_argument("--train-image-count", type=int, default=6)
     segmentation_train_parser.add_argument("--validation-image-count", type=int, default=1)
 
+    segmentation_campaign_parser = commands.add_parser(
+        "train-rfdetr-segmentation-campaign",
+        help="Train and bundle the full RF-DETR visible-region campaign candidate.",
+        description=(
+            "Validate the frozen M0 manifest, stage the complete M1 COCO view, and train one "
+            "RF-DETR SegMedium candidate with the locked 40-epoch recipe."
+        ),
+    )
+    segmentation_campaign_parser.add_argument("--dataset-dir", type=Path, required=True)
+    segmentation_campaign_parser.add_argument("--manifest", type=Path, required=True)
+    segmentation_campaign_parser.add_argument("--pretrained-checkpoint", type=Path, required=True)
+    segmentation_campaign_parser.add_argument("--output-dir", type=Path, required=True)
+    segmentation_campaign_parser.add_argument(
+        "--runner",
+        choices=("rfdetr", "fixture"),
+        default="rfdetr",
+        help="Use rfdetr for the real campaign or fixture for contract tests.",
+    )
+    segmentation_campaign_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="mps"
+    )
+
     evaluate_parser = commands.add_parser(
         "evaluate",
         help="Evaluate a frozen run or exported bundle.",
@@ -651,6 +673,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                     device=args.device,
                     train_image_count=args.train_image_count,
                     validation_image_count=args.validation_image_count,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "train-rfdetr-segmentation-campaign":
+        from .rfdetr_segmentation_training import (
+            RfdetrSegmentationCampaignTrainingConfig,
+            run_rfdetr_segmentation_campaign_training,
+        )
+
+        try:
+            report = run_rfdetr_segmentation_campaign_training(
+                RfdetrSegmentationCampaignTrainingConfig(
+                    dataset_dir=args.dataset_dir,
+                    campaign_manifest=args.manifest,
+                    pretrained_checkpoint=args.pretrained_checkpoint,
+                    output_dir=args.output_dir,
+                    runner=args.runner,
+                    device=args.device,
                 )
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:

@@ -12,10 +12,14 @@ from PIL import Image
 import table_evidence_analyzer.visible_cards as visible_cards
 from table_evidence_analyzer.rfdetr_segmentation_training import (
     RFDETR_SEGMENTATION_BUNDLE_SCHEMA,
+    RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA,
+    RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA,
     RFDETR_SEGMENTATION_TRAINING_RUN_SCHEMA,
+    RfdetrSegmentationCampaignTrainingConfig,
     RfdetrSegmentationTrainingConfig,
     RfdetrSegmentationTrainingError,
     load_rfdetr_segmentation_bundle,
+    run_rfdetr_segmentation_campaign_training,
     run_rfdetr_segmentation_training,
 )
 from table_evidence_analyzer.visible_cards import (
@@ -182,6 +186,79 @@ def _config(tmp_path: Path, *, runner: str = "fixture") -> tuple[Path, Path, Pat
     return view, pretrained, output
 
 
+def _campaign_manifest(view: Path, pretrained: Path) -> Path:
+    recipe = {
+        "schema_version": "rfdetr-segmentation-recipe/v1",
+        "model": {
+            "class": "RFDETRSegMedium",
+            "variant": "rfdetr-seg-medium",
+            "class_names": ["visible_card"],
+            "num_classes": 1,
+            "resolution": [432, 432],
+        },
+        "package": {"name": "rfdetr", "version": "1.9.4"},
+        "pretrained_checkpoint": {
+            "name": "rf-detr-seg-medium.pt",
+            "path": str(pretrained),
+            "sha256": hashlib.sha256(pretrained.read_bytes()).hexdigest(),
+        },
+        "augmentation": {
+            "policy_id": "rfdetr-default-v1",
+            "multi_scale": True,
+            "expanded_scales": True,
+            "do_random_resize_via_padding": False,
+            "use_ema": True,
+        },
+        "training": {
+            "batch_size": 1,
+            "grad_accum_steps": 4,
+            "effective_batch_size": 4,
+            "epochs": 40,
+            "seed": 6701,
+            "num_workers": 0,
+            "device": "mps",
+            "mixed_precision": False,
+            "output_dir_name": "rfdetr-segmentation-0067",
+        },
+        "early_stopping": {
+            "enabled": True,
+            "monitor": "val/mask_ap_50_95",
+            "patience": 8,
+            "min_delta": 0.001,
+        },
+    }
+    manifest_core = {
+        "schema_version": "rfdetr-segmentation-campaign-manifest/v1",
+        "campaign_id": "0067-m0-rfdetr-segmentation",
+        "milestone": "M0",
+        "read_only": True,
+        "freeze_state": "frozen",
+        "recipe": recipe,
+        "recipe_sha256": _digest(recipe),
+    }
+    manifest = {
+        **manifest_core,
+        "manifest_digest": _digest(manifest_core),
+    }
+    manifest_path = view.parent / "m0-manifest.json"
+    manifest_path.write_bytes(_canonical(manifest) + b"\n")
+    materialization_path = view / "materialization.json"
+    materialization = json.loads(materialization_path.read_text())
+    materialization_core = {
+        key: value for key, value in materialization.items() if key != "materialization_digest"
+    }
+    materialization_core["campaign_manifest"] = {
+        "manifest_digest": manifest["manifest_digest"],
+        "file_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    }
+    materialization = {
+        **materialization_core,
+        "materialization_digest": _digest(materialization_core),
+    }
+    materialization_path.write_bytes(_canonical(materialization) + b"\n")
+    return manifest_path
+
+
 def test_fixture_training_freezes_segmentation_identity_and_arguments(tmp_path: Path) -> None:
     view, pretrained, output = _config(tmp_path)
 
@@ -225,6 +302,72 @@ def test_fixture_training_freezes_segmentation_identity_and_arguments(tmp_path: 
     assert bundle.manifest["model"]["class"] == "RFDETRSegMedium"
     assert bundle.checkpoint_path.name == "checkpoint_best_total.pth"
     assert view.joinpath("train/images").is_dir()
+
+
+def test_campaign_fixture_uses_all_m1_images_and_frozen_training_recipe(tmp_path: Path) -> None:
+    view = _write_view(tmp_path / "view")
+    pretrained = tmp_path / "rf-detr-seg-medium.pt"
+    pretrained.write_bytes(b"fixture pretrained weights")
+    manifest = _campaign_manifest(view, pretrained)
+    output = tmp_path / "campaign"
+    config = RfdetrSegmentationCampaignTrainingConfig(
+        dataset_dir=view,
+        campaign_manifest=manifest,
+        pretrained_checkpoint=pretrained,
+        output_dir=output,
+        runner="fixture",
+        device="cpu",
+    )
+
+    report = run_rfdetr_segmentation_campaign_training(config)
+    record = json.loads((output / "run.json").read_text())
+
+    assert report["run_id"] == record["run_id"]
+    assert record["schema_version"] == RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA
+    assert record["status"] == "completed"
+    manifest_data = json.loads(manifest.read_text())
+    assert record["campaign_manifest"]["manifest_digest"] == manifest_data["manifest_digest"]
+    assert record["dataset"]["schema_version"] == RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA
+    assert record["dataset"]["train_image_count"] == 2
+    assert record["dataset"]["validation_image_count"] == 1
+    assert record["training_arguments"] == {
+        "dataset_dir": str((output / "campaign-dataset").resolve()),
+        "dataset_file": "roboflow",
+        "output_dir": str((output / "rfdetr").resolve()),
+        "epochs": 40,
+        "batch_size": 1,
+        "grad_accum_steps": 4,
+        "num_workers": 0,
+        "seed": 6701,
+        "resolution": 432,
+        "device": "cpu",
+        "class_names": ["visible_card"],
+        "run_test": False,
+        "use_ema": True,
+        "multi_scale": True,
+        "expanded_scales": True,
+        "do_random_resize_via_padding": False,
+        "early_stopping": True,
+        "early_stopping_patience": 8,
+        "early_stopping_min_delta": 0.001,
+        "tensorboard": False,
+        "wandb": False,
+        "progress_bar": None,
+        "eval_interval": 1,
+        "save_dataset_grids": False,
+    }
+    assert record["model_arguments"] == {
+        "num_classes": 1,
+        "pretrain_weights": str(pretrained.resolve()),
+        "resolution": 432,
+        "amp": False,
+    }
+    assert len(list((output / "campaign-dataset" / "train" / "images").iterdir())) == 2
+    assert len(list((output / "campaign-dataset" / "valid" / "images").iterdir())) == 1
+    assert record["bundle"]["schema_version"] == RFDETR_SEGMENTATION_BUNDLE_SCHEMA
+
+    rerun = run_rfdetr_segmentation_campaign_training(config)
+    assert rerun["run_id"] == record["run_id"]
 
 
 def test_failure_writes_resumable_segmentation_run_record(tmp_path: Path) -> None:

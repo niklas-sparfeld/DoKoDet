@@ -149,11 +149,15 @@ from table_evidence_analyzer.repository_intake import (
 )
 from table_evidence_analyzer.rfdetr_segmentation_training import (
     RFDETR_SEGMENTATION_BUNDLE_SCHEMA,
+    RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA,
+    RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA,
     RFDETR_SEGMENTATION_TRAINING_RUN_SCHEMA,
     RfdetrSegmentationBundle,
+    RfdetrSegmentationCampaignTrainingConfig,
     RfdetrSegmentationTrainingConfig,
     RfdetrSegmentationTrainingError,
     load_rfdetr_segmentation_bundle,
+    run_rfdetr_segmentation_campaign_training,
     run_rfdetr_segmentation_training,
 )
 from table_evidence_analyzer.table_observation import (
@@ -561,11 +565,15 @@ __all__ = [
     "load_visible_card_detector_bundle",
     "run_visible_card_training",
     "RFDETR_SEGMENTATION_BUNDLE_SCHEMA",
+    "RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA",
+    "RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA",
     "RFDETR_SEGMENTATION_TRAINING_RUN_SCHEMA",
     "RfdetrSegmentationBundle",
+    "RfdetrSegmentationCampaignTrainingConfig",
     "RfdetrSegmentationTrainingConfig",
     "RfdetrSegmentationTrainingError",
     "load_rfdetr_segmentation_bundle",
+    "run_rfdetr_segmentation_campaign_training",
     "run_rfdetr_segmentation_training",
     "MAX_TARGETED_BATCH_FRAMES",
     "VISIBLE_CARD_TARGETED_BATCH_SCHEMA",
