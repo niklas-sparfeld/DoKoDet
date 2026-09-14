@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0067 — RF-DETR visible-region training campaign](2-ready/0067-RF_DETR_Visible_Region_Training_Campaign.md) | 0037, 0048, 0049, and 0065 complete | Fine-tune one RF-DETR instance-segmentation model on the nine completed maintained visible-card references, run locked source-group-separated validation, and publish a PoC decision without promotion. |
 
 ### In Progress
 
@@ -127,39 +128,42 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M5 for the new CardEventNet model.** Use the frozen dataset and
+1. **Start 0067 with M0 for the RF-DETR segmentation PoC.** Audit and freeze the nine completed
+   visible-card references before materialization or training. Keep the PoC separate from the
+   composed provider comparison in 0050.
+2. **Continue 0063 with M5 for the new CardEventNet model.** Use the frozen dataset and
    lineage-aware trainer view to define and run the bounded validation campaign.
-2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
+3. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.
-3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
+4. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
-4. **Reconcile 0051 M0 with the current data architecture and the completed 0062 and 0065
+5. **Reconcile 0051 M0 with the current data architecture and the completed 0062 and 0065
    contracts.** Read
    durable revisions from
    `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
    defaults, use explicit development and validation groups, and preflight the complete experiment
    matrix against its budget. Apply the 0065 mask or frame-exclusion policy to affected `IMG_0661`
    items.
-5. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
+6. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
    `IMG_0091` as one visually similar development comparison group. With 0065 complete, revise
    affected visible-card frames and complete visual identity review for the different `IMG_0661`
    validation recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group
    gate. Keep sealed holdouts intact.
-6. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
+7. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
    and classifier executor, run development before validation, and measure the frozen simple
    exclusion policies. Use the decision to specify one response in 0052 or close 0052 as not
    required.
-7. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+8. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-8. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+9. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-9. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+10. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-10. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+11. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
