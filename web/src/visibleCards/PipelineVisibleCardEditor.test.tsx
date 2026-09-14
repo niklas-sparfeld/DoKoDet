@@ -1336,7 +1336,7 @@ describe("PipelineVisibleCardEditor", () => {
     ).toHaveLength(2);
   });
 
-  it("saves a polygon drag without leaving edit mode", async () => {
+  it("commits the clamped edge point and ends the drag when the pointer leaves", async () => {
     const responses = [reference(), reference("corrected")];
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
       if (init?.method === "PUT") {
@@ -1404,6 +1404,21 @@ describe("PipelineVisibleCardEditor", () => {
         name: "Polygon 1, point 1 at 0, 500",
       }),
     ).toBeInTheDocument();
+    fireEvent.pointerMove(canvas, {
+      clientX: 80,
+      clientY: 80,
+      pointerId: 3,
+    });
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 0, 500",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Polygon 1, point 1 at 800, 800",
+      }),
+    ).not.toBeInTheDocument();
     fireEvent.pointerUp(canvas, { pointerId: 3 });
 
     await waitFor(() =>

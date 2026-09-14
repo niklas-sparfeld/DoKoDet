@@ -1024,15 +1024,21 @@ export function PipelineVisibleCardEditor({
       if (drag === null || drag.pointerId !== event.pointerId) return;
       const point = pointFromEvent(event);
       if (point === null) return;
+      const currentEditor = editorRef.current;
+      const polygon = currentEditor?.polygons[drag.polygonIndex];
+      if (polygon?.[drag.pointIndex] === undefined) return;
+      drag.dirty = true;
       setEditor((current) => {
         if (current === null) return current;
         const polygons = current.polygons.map((polygon) => [...polygon]);
         const polygon = polygons[drag.polygonIndex];
         if (polygon?.[drag.pointIndex] === undefined) return current;
         polygon[drag.pointIndex] = point;
-        drag.dirty = true;
         return { ...current, polygons };
       });
+      dragRef.current = null;
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      window.setTimeout(() => void saveEditorRef.current?.(false), 0);
     },
     [],
   );
