@@ -394,7 +394,7 @@ public struct EvidenceFrameManifest: Codable, Equatable, Sendable {
         self.targetOffsetMs = targetOffsetMs
         self.actualOffsetMs = actualOffsetMs
         self.sessionElapsedMs = sessionElapsedMs
-        self.capturedAtUTC = capturedAtUTC
+        self.capturedAtUTC = Self.millisecondDate(capturedAtUTC)
         self.width = width
         self.height = height
         self.byteLength = byteLength
@@ -446,6 +446,10 @@ public struct EvidenceFrameManifest: Codable, Equatable, Sendable {
         case byteLength = "byte_length"
         case contentType = "content_type"
         case sha256
+    }
+
+    private static func millisecondDate(_ date: Date) -> Date {
+        Date(timeIntervalSince1970: (date.timeIntervalSince1970 * 1_000.0).rounded() / 1_000.0)
     }
 }
 
@@ -546,6 +550,33 @@ public struct EvidenceVideoSnippetManifest: Codable, Equatable, Sendable {
         sha256 = try container.decodeIfPresent(String.self, forKey: .sha256)
         failureReason = try container.decodeIfPresent(String.self, forKey: .failureReason)
         try validate()
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        func encodeOptional<T: Encodable>(_ value: T?, forKey key: CodingKeys) throws {
+            if let value {
+                try container.encode(value, forKey: key)
+            } else {
+                try container.encodeNil(forKey: key)
+            }
+        }
+
+        try container.encode(captureComplete, forKey: .captureComplete)
+        try encodeOptional(partName, forKey: .partName)
+        try encodeOptional(startOffsetMs, forKey: .startOffsetMs)
+        try encodeOptional(endOffsetMs, forKey: .endOffsetMs)
+        try container.encode(durationMs, forKey: .durationMs)
+        try encodeOptional(self.container, forKey: .container)
+        try encodeOptional(videoCodec, forKey: .videoCodec)
+        try container.encode(width, forKey: .width)
+        try container.encode(height, forKey: .height)
+        try encodeOptional(nominalFrameRate, forKey: .nominalFrameRate)
+        try container.encode(byteLength, forKey: .byteLength)
+        try encodeOptional(contentType, forKey: .contentType)
+        try encodeOptional(sha256, forKey: .sha256)
+        try encodeOptional(failureReason, forKey: .failureReason)
     }
 
     private func validate() throws {
@@ -689,9 +720,9 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
     }
 
     public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let rawContainer = try decoder.container(keyedBy: AnyCodingKey.self)
         let knownKeys = Set(CodingKeys.allCases.map(\.stringValue))
-        guard container.allKeys.allSatisfy({ knownKeys.contains($0.stringValue) }) else {
+        guard rawContainer.allKeys.allSatisfy({ knownKeys.contains($0.stringValue) }) else {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(
                     codingPath: decoder.codingPath,
@@ -699,6 +730,7 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
                 )
             )
         }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
         packageID = try container.decode(UUID.self, forKey: .packageID)
         session = try container.decode(EvidenceSessionMetadata.self, forKey: .session)
@@ -760,6 +792,21 @@ public struct EvidencePackageManifest: Codable, Equatable, Sendable {
         case missingFrameTargetsMs = "missing_frame_targets_ms"
         case scoreTrace = "score_trace"
         case client
+    }
+
+    private struct AnyCodingKey: CodingKey {
+        let stringValue: String
+        let intValue: Int?
+
+        init?(stringValue: String) {
+            self.stringValue = stringValue
+            intValue = nil
+        }
+
+        init?(intValue: Int) {
+            stringValue = String(intValue)
+            self.intValue = intValue
+        }
     }
 
     private static func validate(

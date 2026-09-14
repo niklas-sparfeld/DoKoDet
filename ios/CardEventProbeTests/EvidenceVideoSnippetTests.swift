@@ -144,7 +144,10 @@ final class EvidenceVideoSnippetTests: XCTestCase {
             configuration: configuration,
             minimumCoverageStartOffsetMs: -100,
             maximumCoverageEndOffsetMs: 100,
-            temporaryByteCapacity: 320 * 180 * 4 * 20
+            // The fixture feeds a full second at once. Reserve enough pending slots
+            // for the background converter to retain the requested coverage.
+            temporaryByteCapacity: 320 * 180 * 4 * 20,
+            maximumPendingConversionCount: 8
         )
 
         for index in 0...10 {

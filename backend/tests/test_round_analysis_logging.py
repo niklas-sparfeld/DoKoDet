@@ -196,18 +196,16 @@ def test_startup_recovery_logs_a_warning_for_interrupted_analysis(caplog, tmp_pa
             },
         }
     )
-    runtime_root = tmp_path / "runtime"
-    store = RoundAnalysisStore(RoundAnalysisArtifactStorage(runtime_root))
+    settings = Settings(
+        _env_file=None,
+        evidence_root=tmp_path / "runtime",
+        repository_intake_root=tmp_path / "recordings",
+        evidence_package_intake_root=tmp_path / "evidence-packages",
+    )
+    store = RoundAnalysisStore(RoundAnalysisArtifactStorage(settings.operations_root))
     store.create(request)
 
-    create_test_app(
-        Settings(
-            _env_file=None,
-            evidence_root=runtime_root,
-            repository_intake_root=tmp_path / "recordings",
-            evidence_package_intake_root=tmp_path / "evidence-packages",
-        )
-    )
+    create_test_app(settings)
 
     recovered = _events(caplog, "round_analysis_recovery_failed")
     assert len(recovered) == 1

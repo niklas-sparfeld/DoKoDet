@@ -545,6 +545,8 @@ def _observation_fixture(
         cards.append(
             {
                 "observed_card_id": "fixture-observed-card",
+                "side": "face_up",
+                "identity_status": "classified",
                 "identity_candidates": [
                     candidate.model_dump(mode="json") for candidate in candidates
                 ],
