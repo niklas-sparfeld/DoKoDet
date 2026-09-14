@@ -809,7 +809,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             candidates = [
                 candidate for candidate in candidates if candidate["card_id"] not in selected
             ]
-        if operation.operation != "delete_ignore_region":
+        if operation.operation in {"create_ignore_region", "convert_to_ignore_region"}:
             candidates, updated_regions = self._consume_candidates_in_regions(
                 candidates, updated_regions, source_revision_id
             )

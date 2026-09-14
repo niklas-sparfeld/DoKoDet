@@ -989,7 +989,7 @@ def test_visible_card_ignore_region_create_replace_delete_preserves_lineage_and_
     assert deleted.draft.items[0].item["ignored_regions"] == []
 
 
-def test_visible_card_ignore_region_consumes_enclosed_candidates_on_create_and_replace(
+def test_visible_card_ignore_region_consumes_enclosed_candidates_on_create_not_replace(
     tmp_path: Path,
 ) -> None:
     service, revision_store = _service(tmp_path)
@@ -1089,10 +1089,11 @@ def test_visible_card_ignore_region_consumes_enclosed_candidates_on_create_and_r
         },
     )
     replaced_outcome = replaced.draft.items[0].item
-    assert replaced_outcome["candidates"] == []
+    assert [candidate["card_id"] for candidate in replaced_outcome["candidates"]] == [
+        "card-outside"
+    ]
     assert replaced_outcome["ignored_regions"][0]["source_candidates"] == [
         {"revision_id": source_revision_id, "card_id": "card-inside"},
-        {"revision_id": source_revision_id, "card_id": "card-outside"},
     ]
 
 
