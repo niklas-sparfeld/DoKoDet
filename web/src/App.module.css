@@ -2700,6 +2700,37 @@ progress {
   z-index: 1;
 }
 
+.recordingTimelineItem[data-time-kind="interval"] {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 30%, var(--panel)),
+    color-mix(in srgb, var(--accent) 14%, var(--panel))
+  );
+}
+
+.recordingTimelineItem[data-time-kind="interval"]::after {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 0.16rem;
+  border-left: 1px solid var(--accent-bright);
+  background: color-mix(in srgb, var(--accent-bright) 65%, transparent);
+  content: "";
+}
+
+.recordingTimelineItem[data-time-kind="point"] {
+  min-width: 0.65rem;
+  padding-right: 0.15rem;
+  padding-left: 0.15rem;
+}
+
+.recordingTimelineItem[data-time-kind="point"]::after {
+  position: absolute;
+  inset: 0 0.15rem;
+  border-right: 2px solid var(--accent-bright);
+  border-left: 2px solid var(--accent-bright);
+  content: "";
+}
+
 .recordingTimelineItem:hover,
 .recordingTimelineItem:focus-visible,
 .recordingTimelineItem[data-selected="true"] {

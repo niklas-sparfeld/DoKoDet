@@ -8,9 +8,9 @@
 - **Depends on:** None
 - **Builds on:** 0049, 0062, and 0064 complete; 0063 supplies reviewed failure evidence but does
   not block this work.
-- **Readiness:** M0 and M1 are complete. The interval semantics, stable-end policy, contract
-  fixtures, preservation checks, and CardEvent viewer editing controls are in place. M2 is ready
-  to make intervals understandable in review.
+- **Readiness:** M0–M2 are complete. The interval semantics, stable-end policy, contract
+  fixtures, preservation checks, CardEvent viewer editing controls, range-aware Timeline Rail,
+  and bound navigation are in place. M3 is ready to define interval-aware negative evidence.
 - **Outcome:** A reviewed event can remain a point or become a nonzero card-state change interval.
   The editor makes both bounds clear. CardEventNet uses the stable end as the event anchor and does
   not treat the interval interior as a hard negative or ordinary negative sample.
@@ -69,7 +69,7 @@ This epic does not include:
   labeling guide, publish the stable-end and diagnostic policy, add point and interval contract
   fixtures, and verify validation, ordering, comparison, and maintained-reference preservation.
 - **M1:** Complete (2026-09-14) — add interval editing to the CardEvent viewer.
-- **M2:** Not started — make intervals understandable in review.
+- **M2:** Complete (2026-09-14) — make intervals understandable in review.
 - **M3:** Not started — keep interval interiors out of negative evidence.
 - **M4:** Not started — run a bounded trick-clear review pilot.
 
@@ -114,19 +114,20 @@ Acceptance:
 
 ### M2 — Make intervals understandable in review
 
-- Render a selected interval as a range in the Timeline Rail and distinguish it from a point marker.
-- Let the source-frame surface switch directly between the start and stable-end frames.
-- State the selected bound, full range, duration, and stable-end anchor in visible and accessible
-  review text.
-- Add desktop and narrow browser coverage for point, interval, pending, accepted, corrected, save
-  retry, and revision-conflict states.
+- Complete — render a selected interval as a range in the Timeline Rail and distinguish it from a
+  point marker.
+- Complete — let the source-frame surface switch directly between the start and stable-end frames.
+- Complete — state the selected bound, full range, duration, and stable-end anchor in visible and
+  accessible review text.
+- Complete — add desktop and narrow browser coverage for point, interval, pending, accepted,
+  corrected, save retry, and revision-conflict states.
 
 Acceptance:
 
-- a reviewer can see the full interval, navigate to either bound, and identify the stable-end
-  anchor without calculating times manually;
-- the view remains usable at the existing desktop and narrow breakpoints; and
-- point markers retain their current rail and frame behavior.
+- Complete — a reviewer can see the full interval, navigate to either bound, and identify the
+  stable-end anchor without calculating times manually;
+- Complete — the view remains usable at the existing desktop and narrow breakpoints; and
+- Complete — point markers retain their current rail and frame behavior.
 
 ### M3 — Keep interval interiors out of negative evidence
 

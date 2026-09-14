@@ -297,9 +297,31 @@ describe("PipelineCardEventEditor", () => {
     ]);
     const interval = screen.getByLabelText("Selected event interval");
     expect(within(interval).getByText("0:01.500000")).toBeInTheDocument();
-    expect(within(interval).getByText("0:01.750000")).toBeInTheDocument();
+    expect(within(interval).getAllByText("0:01.750000")).not.toHaveLength(0);
     expect(within(interval).getByText("0:00.250000")).toBeInTheDocument();
     expect(within(interval).getAllByText("Stable end")).toHaveLength(2);
+    expect(
+      screen.getByText(/Stable-end anchor: 0:01.750000\./),
+    ).toBeInTheDocument();
+
+    const boundNavigation = screen.getByRole("group", {
+      name: "Selected event frame navigation",
+    });
+    fireEvent.click(
+      within(boundNavigation).getByRole("button", {
+        name: "Stable end 0:01.750000",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("region", { name: "CardEvent review source frame" }),
+      ).toHaveAttribute("data-requested-time-us", "1750000"),
+    );
+    expect(
+      within(boundNavigation).getByRole("button", {
+        name: "Stable end 0:01.750000",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     rendered.unmount();
     renderReviewed(fetchMock, 5_000_000, 1_500_000);
@@ -310,7 +332,10 @@ describe("PipelineCardEventEditor", () => {
       within(reloadedInterval).getByText("0:01.500000"),
     ).toBeInTheDocument();
     expect(
-      within(reloadedInterval).getByText("0:01.750000"),
+      within(reloadedInterval).getAllByText("0:01.750000"),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getByRole("group", { name: "Selected event frame navigation" }),
     ).toBeInTheDocument();
   });
 
@@ -345,7 +370,7 @@ describe("PipelineCardEventEditor", () => {
     ).not.toHaveLength(0);
     expect(putCalls(fetchMock)).toHaveLength(0);
     const interval = screen.getByLabelText("Selected event interval");
-    expect(within(interval).getByText("0:02.500000")).toBeInTheDocument();
+    expect(within(interval).getAllByText("0:02.500000")).not.toHaveLength(0);
   });
 
   it("retries a transient save with the same command and resumes after a revision conflict", async () => {

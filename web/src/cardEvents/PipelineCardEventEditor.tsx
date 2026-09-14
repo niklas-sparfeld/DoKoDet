@@ -595,6 +595,18 @@ export function PipelineCardEventEditor({
     },
     [durationUs, selectedEvent, updateEvent],
   );
+  const seekSelectedBound = useCallback(
+    (bound: "start" | "end") => {
+      if (selectedEvent === undefined) return;
+      setSelectedBound(bound);
+      setCurrentTime(
+        bound === "start"
+          ? selectedEvent.event.start_us
+          : selectedEvent.event.end_us,
+      );
+    },
+    [selectedEvent, setCurrentTime],
+  );
 
   const removeSelected = useCallback(() => {
     if (selectedEvent !== undefined) decideEvent(selectedEvent, "reject");
@@ -937,6 +949,9 @@ export function PipelineCardEventEditor({
           onAddEvent={addEvent}
           onMarkCoverage={() => setCoverageComplete(true)}
           showCoverageControls={onRailItemsChange === undefined}
+          selectedEvent={selectedEvent}
+          selectedBound={selectedBound}
+          onSelectBound={seekSelectedBound}
         />
         <section
           className={eventStyles.reviewPanel}
@@ -986,6 +1001,9 @@ export function PipelineCardEventEditor({
             onAddEvent={addEvent}
             onMarkCoverage={() => setCoverageComplete(true)}
             showCoverageControls={onRailItemsChange === undefined}
+            selectedEvent={selectedEvent}
+            selectedBound={selectedBound}
+            onSelectBound={seekSelectedBound}
           />
         </div>
 

@@ -546,6 +546,7 @@ export function RecordingTimelineRail({
                       data-selected={item.id === selectedItemId}
                       data-state={item.state}
                       data-no-time={item.timeRange === null}
+                      data-time-kind={timeRangeKind(item)}
                       style={itemStyle(item, durationUs)}
                       aria-pressed={item.id === selectedItemId}
                       aria-label={`${item.label}, ${formatItemTime(item, durationUs)}, ${item.state}`}
@@ -616,6 +617,13 @@ function itemStyle(
     left: `${start}%`,
     width: `${Math.max(end - start, 1.5)}%`,
   };
+}
+
+function timeRangeKind(
+  item: RecordingTimelineRailItem,
+): "point" | "interval" | "none" {
+  if (item.timeRange === null) return "none";
+  return item.timeRange.startUs < item.timeRange.endUs ? "interval" : "point";
 }
 
 function formatItemTime(

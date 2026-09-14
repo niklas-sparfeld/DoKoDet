@@ -48,6 +48,35 @@
   gap: 0.7rem;
 }
 
+.intervalNavigation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--surface) 55%, var(--panel));
+}
+
+.intervalNavigation p {
+  margin: 0;
+}
+
+.intervalSummary {
+  color: var(--muted-ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.intervalNavigationButtons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
 .frameSurface {
   display: grid;
   min-width: 0;
@@ -244,6 +273,14 @@
 }
 
 @media (max-width: 600px) {
+  .intervalNavigation {
+    grid-template-columns: 1fr;
+  }
+
+  .intervalNavigationButtons {
+    justify-content: flex-start;
+  }
+
   .coverage {
     align-items: start;
     flex-direction: column;

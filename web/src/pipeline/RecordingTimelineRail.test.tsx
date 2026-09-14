@@ -35,10 +35,12 @@ let sourceVideo: HTMLVideoElement | null = null;
 
 function renderRail({
   currentTimeUs = 0,
+  items = ITEMS,
   onTimeChange = vi.fn(),
   onItemSelect = vi.fn(),
 }: {
   currentTimeUs?: number;
+  items?: RecordingTimelineRailItem[];
   onTimeChange?: (timeUs: number) => void;
   onItemSelect?: (item: RecordingTimelineRailItem) => void;
 } = {}) {
@@ -49,7 +51,7 @@ function renderRail({
       currentTimeUs={currentTimeUs}
       selectedItemId={null}
       lanes={LANES}
-      items={ITEMS}
+      items={items}
       onTimeChange={onTimeChange}
       onItemSelect={onItemSelect}
     />,
@@ -96,11 +98,28 @@ describe("RecordingTimelineRail", () => {
       name: "Card-state change, 0:01–0:02, pending",
     });
     expect(first).toHaveAttribute("aria-pressed", "false");
+    expect(first).toHaveAttribute("data-time-kind", "interval");
 
     fireEvent.click(first);
 
     expect(onItemSelect).toHaveBeenCalledWith(ITEMS[0]);
     expect(onTimeChange).toHaveBeenCalledWith(1_000_000);
+  });
+
+  it("keeps point events as narrow point markers", () => {
+    const point: RecordingTimelineRailItem = {
+      ...ITEMS[0],
+      id: "run-1:point",
+      itemId: "point",
+      timeRange: { startUs: 1_000_000, endUs: 1_000_000 },
+    };
+    renderRail({ items: [point] });
+
+    expect(
+      screen.getByRole("button", {
+        name: "Card-state change, 0:01–0:01, pending",
+      }),
+    ).toHaveAttribute("data-time-kind", "point");
   });
 
   it("supports keyboard item stepping and pointer-captured scrubbing", () => {

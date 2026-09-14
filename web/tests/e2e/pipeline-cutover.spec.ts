@@ -13,7 +13,14 @@ const RETIRED_ROUTE_MARKERS = [
 
 type Scenario = "fresh" | "generated" | "failed" | "affected" | "reviewed";
 type ReviewFixtureState =
-  "pending" | "accepted" | "dismissed" | "manual" | "no-selection";
+  | "pending"
+  | "accepted"
+  | "corrected"
+  | "dismissed"
+  | "manual"
+  | "no-selection";
+type ReviewFixtureShape = "point" | "interval";
+type ReviewSaveMode = "retry" | "conflict";
 type FrameFixtureState = "ready" | "loading" | "failed";
 
 const REVIEW_RECORDING_ID = "recording-card-event-browser-fixture";
@@ -177,8 +184,10 @@ function workspace(scenario: Scenario) {
 function reviewEventItem(
   state: ReviewFixtureState,
   index: number,
+  shape: ReviewFixtureShape = "point",
 ): Record<string, unknown> {
   const itemId = `event-${index}`;
+  const startUs = index * 1_000_000;
   return {
     item_id: itemId,
     base_item_id: state === "manual" ? null : `generated-event-${index}`,
@@ -187,8 +196,8 @@ function reviewEventItem(
     item: {
       event_id: `generated-event-${index}`,
       event_type: "card_state_changed",
-      start_us: index * 1_000_000,
-      end_us: index * 1_000_000 + 200_000,
+      start_us: startUs,
+      end_us: shape === "interval" ? startUs + 1_000_000 : startUs,
       model_scores: [],
     },
   };
@@ -223,10 +232,11 @@ function reviewReference(items: Array<Record<string, unknown>>, revision = 1) {
 function reviewWorkspace(
   state: ReviewFixtureState,
   eventCount = state === "no-selection" ? 0 : 2,
+  shape: ReviewFixtureShape = "point",
 ) {
   const body = workspace("fresh");
   const items = Array.from({ length: eventCount }, (_, index) =>
-    reviewEventItem(state, index + 1),
+    reviewEventItem(state, index + 1, shape),
   );
   const generatedRevision = {
     revision_id: "events-revision-2",
@@ -312,7 +322,9 @@ async function stubPipeline(
   scenario: Scenario,
   reviewOptions: {
     state?: ReviewFixtureState;
+    shape?: ReviewFixtureShape;
     frame?: FrameFixtureState;
+    saveMode?: ReviewSaveMode;
     eventCount?: number;
   } = {},
 ) {
@@ -321,13 +333,15 @@ async function stubPipeline(
   let workspaceRequests = 0;
   let conflictOnSelection = true;
   const reviewState = reviewOptions.state ?? "pending";
+  const reviewShape = reviewOptions.shape ?? "point";
   const frameState = reviewOptions.frame ?? "ready";
+  let saveMode = reviewOptions.saveMode ?? null;
   let reviewItems = Array.from(
     {
       length:
         reviewOptions.eventCount ?? (reviewState === "no-selection" ? 0 : 2),
     },
-    (_, index) => reviewEventItem(reviewState, index + 1),
+    (_, index) => reviewEventItem(reviewState, index + 1, reviewShape),
   );
   let reviewRevision = 1;
   await page.route("**/api/**", async (route: Route) => {
@@ -353,6 +367,7 @@ async function stubPipeline(
             reviewState,
             reviewOptions.eventCount ??
               (reviewState === "no-selection" ? 0 : 2),
+            reviewShape,
           ),
         ),
       );
@@ -375,6 +390,17 @@ async function stubPipeline(
         operations?: Array<Record<string, unknown>>;
       };
       const operation = payload.operations?.[0];
+      if (saveMode === "retry") {
+        saveMode = null;
+        await route.abort("failed");
+        return;
+      }
+      if (saveMode === "conflict") {
+        saveMode = null;
+        reviewRevision = 2;
+        await route.fulfill(json({ error: "review revision changed" }, 409));
+        return;
+      }
       if (operation?.operation === "add" && isRecord(operation.item)) {
         reviewItems = [
           ...reviewItems,
@@ -661,6 +687,7 @@ test("does not route retired batch URLs into a review workspace", async ({
 for (const fixture of [
   { state: "pending" as const, railState: "pending" },
   { state: "accepted" as const, railState: "accepted" },
+  { state: "corrected" as const, railState: "corrected" },
   { state: "dismissed" as const, railState: "rejected" },
   { state: "manual" as const, railState: "added" },
   { state: "no-selection" as const, railState: null },
@@ -709,7 +736,7 @@ for (const fixture of [
         page.getByText("Select an event from the Timeline Rail."),
       ).toBeVisible();
       await expect(
-        controls.getByRole("button", { name: "Previous Alt+Left" }),
+        page.getByRole("button", { name: "Previous event" }),
       ).toBeDisabled();
       await expect(
         controls.getByRole("button", { name: "Accept A" }),
@@ -835,33 +862,42 @@ test("keeps shortcut pills, focus order, frame announcements, and review command
   });
   await expect(controls).toBeVisible();
   const focusOrder = [
-    ["Next Alt+Right", "Alt+Right"],
-    ["Seek earlier Left", "Left"],
-    ["Seek later Right", "Right"],
-    ["Nudge earlier ,", ","],
-    ["Nudge later .", "."],
-    ["Accept A", "A"],
-    ["Dismiss D", "D"],
-    ["Add event N", "N"],
+    { name: "Next event", shortcut: "ArrowRight", pill: false },
+    { name: "Seek left", shortcut: "Alt+ArrowLeft", pill: false },
+    { name: "Seek right", shortcut: "Alt+ArrowRight", pill: false },
+    { name: "Nudge earlier ,", shortcut: ",", pill: true },
+    { name: "Nudge later .", shortcut: ".", pill: true },
+    { name: "Mark start S", shortcut: "S", pill: true },
+    { name: "Mark stable end E", shortcut: "E", pill: true },
+    { name: "Accept A", shortcut: "A", pill: true },
+    { name: "Dismiss D", shortcut: "D", pill: true },
+    { name: "Add event N", shortcut: "N", pill: true },
   ];
   for (let index = 0; index < focusOrder.length; index += 1) {
-    const [name, shortcut] = focusOrder[index];
-    const button = controls.getByRole("button", { name });
-    await expect(button.locator("kbd")).toHaveText(shortcut);
-    if (index === 0) await button.focus();
+    const { name, shortcut, pill } = focusOrder[index];
+    const button = page.getByRole("button", { name });
+    await expect(button).toHaveAttribute("aria-keyshortcuts", shortcut);
+    if (pill) await expect(button.locator("kbd")).toHaveText(shortcut);
+    await button.focus();
     await expect(page.locator(":focus")).toHaveAccessibleName(name);
-    if (index < focusOrder.length - 1) await page.keyboard.press("Tab");
   }
 
   await page.keyboard.press("ArrowRight");
-  await expect(page).toHaveURL(/t_us=1250000/);
-  await page.keyboard.press("Alt+ArrowRight");
   await expect(page).toHaveURL(/item=event-2&t_us=2000000/);
+  await page.keyboard.press("a");
+  await expect
+    .poll(
+      () =>
+        requests.requestedPaths.filter((path) => path.endsWith("/draft"))
+          .length,
+    )
+    .toBe(1);
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect(page).toHaveURL(/item=event-2&t_us=2250000/);
   await page.keyboard.press(".");
   await expect(page).toHaveURL(/t_us=2033333/);
   await page.keyboard.press("Alt+ArrowLeft");
-  await expect(page).toHaveURL(/item=event-1&t_us=1000000/);
-  await page.keyboard.press("a");
+  await expect(page).toHaveURL(/item=event-2&t_us=1783333/);
   await expect
     .poll(
       () =>
@@ -888,6 +924,94 @@ test("keeps shortcut pills, focus order, frame announcements, and review command
   expect(requests.requestedPaths).not.toContain(
     `/api/recordings/${REVIEW_RECORDING_ID}/pipeline/references/events/retired`,
   );
+});
+
+test("shows an event interval, navigates to both bounds, and names its stable-end anchor", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPipeline(page, "reviewed", {
+    state: "pending",
+    shape: "interval",
+    eventCount: 1,
+  });
+  await page.goto(
+    `/recordings/${REVIEW_RECORDING_ID}/pipeline/events?view=reviewed&item=event-1&t_us=1000000`,
+  );
+
+  await expect(
+    page.getByRole("button", {
+      name: "Card-state change, 0:01–0:02, pending",
+    }),
+  ).toHaveAttribute("data-time-kind", "interval");
+  const inspector = page.getByRole("complementary", {
+    name: "Workspace inspector",
+  });
+  await expect(inspector.getByText("Full range")).toBeVisible();
+  await expect(inspector.getByText("Stable-end anchor")).toBeVisible();
+  await expect(inspector.getByText("0:01.000000–0:02.000000")).toBeVisible();
+
+  const navigation = page.getByRole("group", {
+    name: "Selected event frame navigation",
+  });
+  await navigation
+    .getByRole("button", { name: "Stable end 0:02.000000" })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "CardEvent review source frame" }),
+  ).toHaveAttribute("data-requested-time-us", "2000000");
+  await expect(page).toHaveURL(/t_us=2000000/);
+
+  await navigation.getByRole("button", { name: "Start 0:01.000000" }).click();
+  await expect(
+    page.getByRole("region", { name: "CardEvent review source frame" }),
+  ).toHaveAttribute("data-requested-time-us", "1000000");
+  await expect(page).toHaveURL(/t_us=1000000/);
+});
+
+test("recovers reviewed interval edits after a save retry and revision conflict", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const retry = await stubPipeline(page, "reviewed", {
+    shape: "interval",
+    saveMode: "retry",
+    eventCount: 1,
+  });
+  await page.goto(
+    `/recordings/${REVIEW_RECORDING_ID}/pipeline/events?view=reviewed&item=event-1&t_us=1000000`,
+  );
+  await page.getByRole("button", { name: "Accept A" }).click();
+  await expect
+    .poll(
+      () =>
+        retry.requestedPaths.filter((path) => path.endsWith("/draft")).length,
+    )
+    .toBe(2);
+  await expect(page.getByRole("heading", { name: "Saved" })).toBeVisible();
+
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  const conflict = await stubPipeline(page, "reviewed", {
+    shape: "interval",
+    saveMode: "conflict",
+    eventCount: 1,
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Accept A" }).click();
+  await expect(
+    page.getByRole("button", { name: "Reload winning draft and retry" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Reload winning draft and retry" })
+    .click();
+  await expect
+    .poll(
+      () =>
+        conflict.requestedPaths.filter((path) => path.endsWith("/draft"))
+          .length,
+    )
+    .toBe(2);
+  await expect(page.getByRole("heading", { name: "Saved" })).toBeVisible();
 });
 
 test("announces loading and failed exact source-frame fixtures", async ({

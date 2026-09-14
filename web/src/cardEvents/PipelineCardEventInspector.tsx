@@ -321,6 +321,13 @@ function EventInspectorSelection({
             <dd>{formatMicroseconds(selectedEvent.event.end_us)}</dd>
           </div>
           <div>
+            <dt>Full range</dt>
+            <dd>
+              {formatMicroseconds(selectedEvent.event.start_us)}–
+              {formatMicroseconds(selectedEvent.event.end_us)}
+            </dd>
+          </div>
+          <div>
             <dt>Duration</dt>
             <dd>
               {formatMicroseconds(
@@ -331,6 +338,10 @@ function EventInspectorSelection({
           <div>
             <dt>Selected bound</dt>
             <dd>{selectedBound === "start" ? "Start" : "Stable end"}</dd>
+          </div>
+          <div>
+            <dt>Stable-end anchor</dt>
+            <dd>{formatMicroseconds(selectedEvent.event.end_us)}</dd>
           </div>
         </dl>
       ) : null}

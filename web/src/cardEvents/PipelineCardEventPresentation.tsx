@@ -1,6 +1,10 @@
 import type { RefObject } from "react";
 
-import type { EventState, PipelineEvent } from "./PipelineCardEventTypes";
+import type {
+  EditableEvent,
+  EventState,
+  PipelineEvent,
+} from "./PipelineCardEventTypes";
 import { CardEventFrameSurface } from "./CardEventFrameSurface";
 import {
   formatDuration,
@@ -26,6 +30,9 @@ export function EventSourceSurface({
   onAddEvent,
   onMarkCoverage,
   showCoverageControls,
+  selectedEvent,
+  selectedBound,
+  onSelectBound,
 }: {
   recordingId: string;
   requestedTimeUs: number;
@@ -36,6 +43,9 @@ export function EventSourceSurface({
   onAddEvent: () => void;
   onMarkCoverage: () => void;
   showCoverageControls: boolean;
+  selectedEvent?: EditableEvent;
+  selectedBound?: "start" | "end";
+  onSelectBound?: (bound: "start" | "end") => void;
 }) {
   return (
     <div className={eventStyles.sourceSurface}>
@@ -43,6 +53,56 @@ export function EventSourceSurface({
         recordingId={recordingId}
         requestedTimeUs={requestedTimeUs}
       />
+      {selectedEvent !== undefined && onSelectBound !== undefined ? (
+        <div
+          className={eventStyles.intervalNavigation}
+          aria-label="Selected event frame navigation"
+          role="group"
+        >
+          <div>
+            <p className={styles.statusLabel}>Selected event interval</p>
+            <p className={eventStyles.intervalSummary}>
+              {formatMicroseconds(selectedEvent.event.start_us)}–
+              {formatMicroseconds(selectedEvent.event.end_us)} · duration{" "}
+              {formatMicroseconds(
+                selectedEvent.event.end_us - selectedEvent.event.start_us,
+              )}
+              . Stable-end anchor:{" "}
+              {formatMicroseconds(selectedEvent.event.end_us)}.
+            </p>
+          </div>
+          <div
+            className={eventStyles.intervalNavigationButtons}
+            role="group"
+            aria-label="Selected event bounds"
+          >
+            <button
+              className={
+                selectedBound === "start"
+                  ? styles.pipelineToggleActive
+                  : styles.pipelineToggle
+              }
+              type="button"
+              aria-pressed={selectedBound === "start"}
+              onClick={() => onSelectBound("start")}
+            >
+              Start {formatMicroseconds(selectedEvent.event.start_us)}
+            </button>
+            <button
+              className={
+                selectedBound === "end"
+                  ? styles.pipelineToggleActive
+                  : styles.pipelineToggle
+              }
+              type="button"
+              aria-pressed={selectedBound === "end"}
+              onClick={() => onSelectBound("end")}
+            >
+              Stable end {formatMicroseconds(selectedEvent.event.end_us)}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {showCoverageControls ? (
         <div className={eventStyles.coverage}>
           <span>Full-recording coverage</span>
