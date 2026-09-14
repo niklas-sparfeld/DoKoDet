@@ -17,6 +17,7 @@ from doko_operations.pipeline_data import (
 )
 from fastapi.testclient import TestClient
 from table_evidence_analyzer.pipeline_data import (
+    VisibleCardData,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
 )
@@ -980,6 +981,113 @@ def test_visible_card_ignore_region_create_replace_delete_preserves_lineage_and_
         },
     )
     assert deleted.draft.items[0].item["ignored_regions"] == []
+
+
+def test_visible_card_ignore_region_consumes_enclosed_candidates_on_create_and_replace(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(
+        revision_store,
+        "visible_cards",
+        visible_candidate_ids=("card-inside", "card-outside"),
+    )
+    source = revision_store.require(source_revision_id)
+    source_mapping = source.content.to_mapping()
+    source_mapping["outcomes"][0]["candidates"][0]["geometry"] = {
+        "kind": "detector-box/v1",
+        "box_2d": {"x_min": 200, "y_min": 200, "x_max": 400, "y_max": 400},
+    }
+    source_mapping["outcomes"][0]["candidates"][1]["geometry"] = {
+        "kind": "detector-box/v1",
+        "box_2d": {"x_min": 700, "y_min": 700, "x_max": 900, "y_max": 900},
+    }
+    content = VisibleCardData.from_mapping(source_mapping)
+    source_revision_id = "generated-visible-cards-geometry"
+    revision_store.publish(
+        replace(
+            source.manifest,
+            revision_id=source_revision_id,
+            content_sha256=sha256_bytes(canonical_visible_card_data_bytes(content)),
+        ),
+        content,
+    )
+
+    service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    region = {
+        "region_id": "ignore-region-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 100, "y": 100},
+                    {"x": 500, "y": 100},
+                    {"x": 500, "y": 500},
+                    {"x": 100, "y": 500},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+    created = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {"operation": "create_ignore_region", "item_id": "event-01", "region": region}
+            ],
+        },
+    )
+    created_outcome = created.draft.items[0].item
+    assert [candidate["card_id"] for candidate in created_outcome["candidates"]] == ["card-outside"]
+    assert created_outcome["ignored_regions"][0]["source_candidates"] == [
+        {"revision_id": source_revision_id, "card_id": "card-inside"}
+    ]
+
+    expanded = {
+        **region,
+        "geometry": {
+            **region["geometry"],
+            "polygons": [
+                [
+                    {"x": 0, "y": 0},
+                    {"x": 1000, "y": 0},
+                    {"x": 1000, "y": 1000},
+                    {"x": 0, "y": 1000},
+                ]
+            ],
+        },
+    }
+    replaced = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "operations": [
+                {
+                    "operation": "replace_ignore_region",
+                    "item_id": "event-01",
+                    "region_id": "ignore-region-01",
+                    "region": expanded,
+                }
+            ],
+        },
+    )
+    replaced_outcome = replaced.draft.items[0].item
+    assert replaced_outcome["candidates"] == []
+    assert replaced_outcome["ignored_regions"][0]["source_candidates"] == [
+        {"revision_id": source_revision_id, "card_id": "card-inside"},
+        {"revision_id": source_revision_id, "card_id": "card-outside"},
+    ]
 
 
 def test_visible_card_ignore_region_edit_migrates_missing_legacy_regions(

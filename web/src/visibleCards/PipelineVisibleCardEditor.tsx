@@ -728,6 +728,13 @@ export function PipelineVisibleCardEditor({
                   ...candidate.outcome,
                   status: "detected",
                   ignored_regions: ignoredRegions,
+                  candidates: candidate.outcome.candidates.filter(
+                    (currentCandidate) =>
+                      !candidateIsWithinIgnoreRegions(
+                        currentCandidate,
+                        ignoredRegions,
+                      ),
+                  ),
                   error: null,
                 },
               };
@@ -851,8 +858,29 @@ export function PipelineVisibleCardEditor({
             if (candidate.itemId !== frame.itemId) return candidate;
             const remainingCandidates = candidate.outcome.candidates.filter(
               (currentCandidate) =>
-                !selectedCandidateIds.includes(currentCandidate.card_id),
+                !selectedCandidateIds.includes(currentCandidate.card_id) &&
+                !candidateIsWithinIgnoreRegions(currentCandidate, [
+                  ...candidate.outcome.ignored_regions,
+                  {
+                    ...region,
+                    geometry: {
+                      kind: "reviewed-ignore-region/v1",
+                      polygons: selected.flatMap((currentCandidate) =>
+                        geometryPolygons(currentCandidate.geometry),
+                      ),
+                    },
+                  },
+                ]),
             );
+            const ignoredRegion = {
+              ...region,
+              geometry: {
+                kind: "reviewed-ignore-region/v1" as const,
+                polygons: selected.flatMap((currentCandidate) =>
+                  geometryPolygons(currentCandidate.geometry),
+                ),
+              },
+            };
             return {
               ...candidate,
               reviewState:
@@ -865,15 +893,7 @@ export function PipelineVisibleCardEditor({
                 candidates: remainingCandidates,
                 ignored_regions: [
                   ...candidate.outcome.ignored_regions,
-                  {
-                    ...region,
-                    geometry: {
-                      kind: "reviewed-ignore-region/v1",
-                      polygons: selected.flatMap((currentCandidate) =>
-                        geometryPolygons(currentCandidate.geometry),
-                      ),
-                    },
-                  },
+                  ignoredRegion,
                 ],
                 error: null,
               },
@@ -963,6 +983,13 @@ export function PipelineVisibleCardEditor({
                     ...candidate.outcome,
                     status: "detected",
                     ignored_regions: copiedRegions,
+                    candidates: candidate.outcome.candidates.filter(
+                      (currentCandidate) =>
+                        !candidateIsWithinIgnoreRegions(
+                          currentCandidate,
+                          copiedRegions,
+                        ),
+                    ),
                     error: null,
                   },
                 },
@@ -1844,6 +1871,147 @@ function geometryPolygons(geometry: Geometry): Point[][] {
           { x: box.x_min, y: box.y_max },
         ],
       ];
+}
+
+const GEOMETRY_EPSILON = 1e-9;
+
+function candidateIsWithinIgnoreRegions(
+  candidate: Candidate,
+  regions: IgnoreRegion[],
+): boolean {
+  const containers = regions.flatMap((region) => region.geometry.polygons);
+  return (
+    containers.length > 0 &&
+    geometryPolygons(candidate.geometry).every((polygon) =>
+      polygonIsWithin(polygon, containers),
+    )
+  );
+}
+
+function polygonIsWithin(candidate: Point[], containers: Point[][]): boolean {
+  if (candidate.length < 3) return false;
+  if (!candidate.every((point) => pointInPolygonUnion(point, containers)))
+    return false;
+  return candidate.every((start, index) =>
+    segmentIsWithin(
+      start,
+      candidate[(index + 1) % candidate.length],
+      containers,
+    ),
+  );
+}
+
+function segmentIsWithin(
+  start: Point,
+  end: Point,
+  containers: Point[][],
+): boolean {
+  if (start.x === end.x && start.y === end.y) return true;
+  const parameters = [0, 1];
+  for (const polygon of containers) {
+    for (let index = 0; index < polygon.length; index += 1) {
+      parameters.push(
+        ...segmentIntersectionParameters(
+          start,
+          end,
+          polygon[index],
+          polygon[(index + 1) % polygon.length],
+        ),
+      );
+    }
+  }
+  const ordered = [
+    ...new Set(
+      parameters
+        .filter(
+          (parameter) =>
+            parameter >= -GEOMETRY_EPSILON && parameter <= 1 + GEOMETRY_EPSILON,
+        )
+        .map((parameter) =>
+          Math.max(0, Math.min(1, Math.round(parameter * 1e12) / 1e12)),
+        ),
+    ),
+  ].sort((left, right) => left - right);
+  return ordered.slice(0, -1).every((left, index) => {
+    const right = ordered[index + 1];
+    if (right - left <= GEOMETRY_EPSILON) return true;
+    const parameter = (left + right) / 2;
+    return pointInPolygonUnion(
+      {
+        x: start.x + (end.x - start.x) * parameter,
+        y: start.y + (end.y - start.y) * parameter,
+      },
+      containers,
+    );
+  });
+}
+
+function segmentIntersectionParameters(
+  start: Point,
+  end: Point,
+  otherStart: Point,
+  otherEnd: Point,
+): number[] {
+  const rayX = end.x - start.x;
+  const rayY = end.y - start.y;
+  const edgeX = otherEnd.x - otherStart.x;
+  const edgeY = otherEnd.y - otherStart.y;
+  const denominator = rayX * edgeY - rayY * edgeX;
+  const offsetX = otherStart.x - start.x;
+  const offsetY = otherStart.y - start.y;
+  if (denominator === 0) {
+    if (offsetX * rayY - offsetY * rayX !== 0) return [];
+    const lengthSquared = rayX * rayX + rayY * rayY;
+    if (lengthSquared === 0) return [];
+    return [
+      (offsetX * rayX + offsetY * rayY) / lengthSquared,
+      ((otherEnd.x - start.x) * rayX + (otherEnd.y - start.y) * rayY) /
+        lengthSquared,
+    ];
+  }
+  const parameter = (offsetX * edgeY - offsetY * edgeX) / denominator;
+  const otherParameter = (offsetX * rayY - offsetY * rayX) / denominator;
+  return parameter >= -GEOMETRY_EPSILON &&
+    parameter <= 1 + GEOMETRY_EPSILON &&
+    otherParameter >= -GEOMETRY_EPSILON &&
+    otherParameter <= 1 + GEOMETRY_EPSILON
+    ? [parameter]
+    : [];
+}
+
+function pointInPolygonUnion(point: Point, polygons: Point[][]): boolean {
+  return polygons.some((polygon) => pointInPolygon(point.x, point.y, polygon));
+}
+
+function pointInPolygon(x: number, y: number, polygon: Point[]): boolean {
+  let inside = false;
+  for (let index = 0; index < polygon.length; index += 1) {
+    const first = polygon[index];
+    const second = polygon[(index + 1) % polygon.length];
+    if (pointOnSegment(x, y, first, second)) return true;
+    if (first.y > y === second.y > y) continue;
+    const intersectionX =
+      first.x + ((y - first.y) * (second.x - first.x)) / (second.y - first.y);
+    if (x < intersectionX) inside = !inside;
+  }
+  return inside;
+}
+
+function pointOnSegment(
+  x: number,
+  y: number,
+  start: Point,
+  end: Point,
+): boolean {
+  const cross =
+    (x - start.x) * (end.y - start.y) - (y - start.y) * (end.x - start.x);
+  if (Math.abs(cross) > GEOMETRY_EPSILON) return false;
+  return (
+    Math.min(start.x, end.x) - GEOMETRY_EPSILON <= x &&
+    x <= Math.max(start.x, end.x) + GEOMETRY_EPSILON &&
+    Math.min(start.y, end.y) - GEOMETRY_EPSILON <= y &&
+    y <= Math.max(start.y, end.y) + GEOMETRY_EPSILON
+  );
 }
 
 function reviewedGeometry(polygons: Point[][]): Geometry {

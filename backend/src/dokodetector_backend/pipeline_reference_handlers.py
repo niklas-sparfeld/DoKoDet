@@ -19,6 +19,7 @@ from doko_operations.pipeline_reference import (
     PipelineReferenceOperation,
     ReferenceDraftItem,
 )
+from doko_operations.visible_card_ignore import geometry_is_within
 from table_evidence_analyzer.pipeline_data import (
     PipelineDataError,
     VisibleCardData,
@@ -27,6 +28,7 @@ from table_evidence_analyzer.pipeline_data import (
     VisualIdentityData,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
+    parse_pipeline_geometry,
 )
 
 from dokodetector_backend.pipeline_reference_errors import (
@@ -565,19 +567,15 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             regions = [
                 VisibleCardIgnoreRegion.from_mapping(
                     region, f"items.{item.item_id}.ignored_regions[{index}]"
-                ).to_mapping()
+                )
                 for index, region in enumerate(raw_regions)
             ]
-            consumed_card_ids = {
-                source["card_id"] for region in regions for source in region["source_candidates"]
-            }
+            candidates, regions = self._consume_candidates_in_regions(
+                self._candidates(item), regions, source_revision_id
+            )
             updated = dict(item.item)
-            updated["ignored_regions"] = regions
-            updated["candidates"] = [
-                candidate
-                for candidate in updated["candidates"]
-                if candidate.get("card_id") not in consumed_card_ids
-            ]
+            updated["ignored_regions"] = [region.to_mapping() for region in regions]
+            updated["candidates"] = candidates
             self.validate_item(updated, source_revision_id, recording_id)
             preserved.append(self._replace(item, item=updated))
         return preserved
@@ -711,6 +709,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             )
 
         current_regions = self._regions(existing)
+        candidates = self._candidates(existing)
         if operation.operation == "delete_ignore_region":
             assert operation.region_id is not None
             if not any(region.region_id == operation.region_id for region in current_regions):
@@ -804,16 +803,20 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 )
                 updated_regions = [*current_regions, region]
 
-        updated = dict(existing.item)
-        updated["ignored_regions"] = [region.to_mapping() for region in updated_regions]
         if operation.operation == "convert_to_ignore_region":
             assert operation.candidate_ids is not None
             selected = set(operation.candidate_ids)
-            updated["candidates"] = [
-                candidate
-                for candidate in self._candidates(existing)
-                if candidate["card_id"] not in selected
+            candidates = [
+                candidate for candidate in candidates if candidate["card_id"] not in selected
             ]
+        if operation.operation != "delete_ignore_region":
+            candidates, updated_regions = self._consume_candidates_in_regions(
+                candidates, updated_regions, source_revision_id
+            )
+
+        updated = dict(existing.item)
+        updated["ignored_regions"] = [region.to_mapping() for region in updated_regions]
+        updated["candidates"] = candidates
         self.validate_item(updated, source_revision_id)
         state = existing.review_state
         if operation.operation == "convert_to_ignore_region" and not updated["candidates"]:
@@ -823,6 +826,57 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             + [self._replace(existing, review_state=state, item=updated)]
             + items[index + 1 :]
         )
+
+    @staticmethod
+    def _consume_candidates_in_regions(
+        candidates: list[dict[str, Any]],
+        regions: list[VisibleCardIgnoreRegion],
+        source_revision_id: str | None,
+    ) -> tuple[list[dict[str, Any]], list[VisibleCardIgnoreRegion]]:
+        """Remove active candidates fully enclosed by any reviewed ignore region."""
+
+        if not regions:
+            return candidates, regions
+        source_card_ids = {
+            source.card_id for region in regions for source in region.source_candidates
+        }
+        remaining: list[dict[str, Any]] = []
+        updated_regions = list(regions)
+        for candidate in candidates:
+            try:
+                geometry = parse_pipeline_geometry(
+                    candidate["geometry"], f"candidate.{candidate['card_id']}.geometry"
+                )
+            except (KeyError, PipelineDataError, TypeError, ValueError) as error:
+                raise PipelineReferenceInputError(
+                    f"candidate {candidate.get('card_id', 'unknown')} geometry is invalid"
+                ) from error
+            region_index = next(
+                (
+                    index
+                    for index, region in enumerate(updated_regions)
+                    if geometry_is_within(region.geometry, geometry)
+                ),
+                None,
+            )
+            if region_index is None and candidate["card_id"] not in source_card_ids:
+                remaining.append(candidate)
+                continue
+            if source_revision_id is None or candidate["card_id"] in source_card_ids:
+                continue
+            region = updated_regions[region_index]
+            updated_regions[region_index] = replace(
+                region,
+                source_candidates=(
+                    *region.source_candidates,
+                    VisibleCardIgnoreSourceCandidate(
+                        revision_id=source_revision_id,
+                        card_id=candidate["card_id"],
+                    ),
+                ),
+            )
+            source_card_ids.add(candidate["card_id"])
+        return remaining, updated_regions
 
     @staticmethod
     def _regions(item: ReferenceDraftItem) -> list[VisibleCardIgnoreRegion]:

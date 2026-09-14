@@ -407,6 +407,7 @@ function referenceAfterCopyingPreviousIgnoreRegion() {
                     region_id: `ignore-${SECOND_ITEM_ID}-copied-1`,
                   },
                 ],
+                candidates: [],
               },
             }
           : item,
@@ -1051,9 +1052,9 @@ describe("PipelineVisibleCardEditor", () => {
 
   it("draws, reshapes, and deletes an ignore region with dedicated operations", async () => {
     const responses = [
-      reference(),
-      referenceWithIgnoreRegion(),
-      referenceWithIgnoreRegion(),
+      referenceWithTwoCandidates(),
+      referenceWithIgnoreRegion([]),
+      referenceWithIgnoreRegion([]),
       reference(),
     ];
     let putCount = 0;
@@ -1083,7 +1084,9 @@ describe("PipelineVisibleCardEditor", () => {
     await user.click(
       screen.getByRole("button", { name: "Draw ignore region" }),
     );
-    const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
+    const canvas = screen.getByRole("img", {
+      name: "2 visible-card proposals",
+    });
     vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
       bottom: 100,
       height: 100,
@@ -1128,7 +1131,7 @@ describe("PipelineVisibleCardEditor", () => {
       name: "Polygon 1, point 1 at 100, 100",
     });
     const regionCanvas = screen.getByRole("img", {
-      name: "1 visible-card proposal and 1 ignore region",
+      name: "0 visible-card proposals and 1 ignore region",
     });
     vi.spyOn(regionCanvas, "getBoundingClientRect").mockReturnValue({
       bottom: 100,
@@ -1191,7 +1194,7 @@ describe("PipelineVisibleCardEditor", () => {
     const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
       if (init?.method === "PUT") {
         putCount += 1;
-        return Promise.resolve(jsonResponse(referenceWithIgnoreRegion()));
+        return Promise.resolve(jsonResponse(referenceWithIgnoreRegion([])));
       }
       return Promise.resolve(jsonResponse(reference()));
     });
