@@ -1018,6 +1018,25 @@ export function PipelineVisibleCardEditor({
     [],
   );
 
+  const handleCanvasPointerLeave = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      const drag = dragRef.current;
+      if (drag === null || drag.pointerId !== event.pointerId) return;
+      const point = pointFromEvent(event);
+      if (point === null) return;
+      setEditor((current) => {
+        if (current === null) return current;
+        const polygons = current.polygons.map((polygon) => [...polygon]);
+        const polygon = polygons[drag.polygonIndex];
+        if (polygon?.[drag.pointIndex] === undefined) return current;
+        polygon[drag.pointIndex] = point;
+        drag.dirty = true;
+        return { ...current, polygons };
+      });
+    },
+    [],
+  );
+
   const addVisibleRegionPoint = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
       const point = pointFromEvent(event);
@@ -1628,6 +1647,7 @@ export function PipelineVisibleCardEditor({
                     : undefined
                 }
                 onPointerMove={handleCanvasPointerMove}
+                onPointerLeave={handleCanvasPointerLeave}
                 onCanvasPointerDown={addVisibleRegionPoint}
                 onPointerUp={stopCanvasPointer}
                 onPointPointerDown={startPointDrag}

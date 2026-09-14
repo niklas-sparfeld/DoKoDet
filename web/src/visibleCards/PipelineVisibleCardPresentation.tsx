@@ -214,6 +214,7 @@ export function VisibleCardFramePanel({
   onCancelEditor,
   onRemoveCard,
   onPointerMove,
+  onPointerLeave,
   onCanvasPointerDown,
   onPointerUp,
   onPointPointerDown,
@@ -242,6 +243,7 @@ export function VisibleCardFramePanel({
   onCancelEditor?: () => void;
   onRemoveCard?: (cardId: string) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerLeave: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onCanvasPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerUp: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointPointerDown: (
@@ -284,6 +286,7 @@ export function VisibleCardFramePanel({
               role="img"
               aria-label={`${frame.outcome.candidates.length} visible-card proposal${frame.outcome.candidates.length === 1 ? "" : "s"}${frame.outcome.ignored_regions.length > 0 ? ` and ${frame.outcome.ignored_regions.length} ignore region${frame.outcome.ignored_regions.length === 1 ? "" : "s"}` : ""}`}
               onPointerMove={onPointerMove}
+              onPointerLeave={onPointerLeave}
               onPointerDown={onCanvasPointerDown}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}

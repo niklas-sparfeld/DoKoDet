@@ -1394,6 +1394,16 @@ describe("PipelineVisibleCardEditor", () => {
     expect(point).toHaveAttribute("stroke", "#ffd24f");
     expect(point).toHaveAttribute("r", "1");
     fireEvent.pointerMove(canvas, { clientX: 15, clientY: 20, pointerId: 3 });
+    fireEvent.pointerLeave(canvas, {
+      clientX: -10,
+      clientY: 50,
+      pointerId: 3,
+    });
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 0, 500",
+      }),
+    ).toBeInTheDocument();
     fireEvent.pointerUp(canvas, { pointerId: 3 });
 
     await waitFor(() =>
@@ -1420,12 +1430,16 @@ describe("PipelineVisibleCardEditor", () => {
         status: "detected",
       },
     });
+    expect(
+      requestBody.operations[0].item.candidates[0].geometry.visible_region
+        .polygons[0][0],
+    ).toEqual({ x: 0, y: 500 });
     expect(requestBody.operations[0].item.candidates[0].geometry.kind).toBe(
       "reviewed-visible-region/v1",
     );
     expect(
       screen.getByRole("button", {
-        name: "Polygon 1, point 1 at 150, 200",
+        name: "Polygon 1, point 1 at 0, 500",
       }),
     ).toBeInTheDocument();
     expect(
