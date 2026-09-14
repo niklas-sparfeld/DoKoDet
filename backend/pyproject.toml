@@ -25,6 +25,7 @@ dependencies = [
 dokodetector-backend = "dokodetector_backend.server:run"
 dokodetector-consolidate-storage = "dokodetector_backend.storage_consolidation:main"
 dokodetector-canonicalize-cardeventnet = "dokodetector_backend.cardeventnet_canonicalization:main"
+dokodetector-migrate-visible-card-data = "dokodetector_backend.visible_card_data_migration:main"
 
 [dependency-groups]
 dev = [
