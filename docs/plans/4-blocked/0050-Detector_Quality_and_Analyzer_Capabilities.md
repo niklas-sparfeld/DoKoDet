@@ -22,6 +22,14 @@
 - **M2:** Not started — specify one bounded response to the measured gap.
 - **M3:** Not started — implement and evaluate only that selected response, if justified.
 
+## Handoff from 0067
+
+Epic 0067 completed a fixed-recipe visible-region PoC. Its RF-DETR SegMedium checkpoint is a
+`poc_candidate`, not a promoted provider. When this epic becomes ready, M0 can choose it as one
+provider in its frozen paired comparison. Reuse only the candidate and its recorded facts from the
+[0067 decision report](../../reports/0067-RF_DETR_Visible_Region_PoC_Decision.md). This handoff
+does not change this epic's blockers, coverage requirements, or composed-observation scope.
+
 ## 1. Keep the useful evidence questions
 
 The old 0022 cloud-first implementation sequence is superseded. Local detection, identity models,

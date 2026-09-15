@@ -52,8 +52,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M4 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings with complete coverage. Its deterministic disposable trainer view is lineage-aware, and the CPU smoke path writes a loadable checkpoint plus validation report. M5 remains next. |
-| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M1 and M2 are complete. M0 needs reconciliation with durable operations storage, shared bundle validation, current classifier and crop defaults, explicit partitions, and a preflight experiment budget. M3 has retained-row validation and metrics but no materializer or classifier executor. Untidy stacks in `IMG_0661` must use 0065 ignore regions before they enter the frozen comparison. |
-| [0067 — RF-DETR visible-region training campaign](3-in-progress/0067-RF_DETR_Visible_Region_Training_Campaign.md) | 0037, 0048, 0049, and 0065 complete | M0–M3 complete. The retained MPS candidate passed locked CPU validation against the unchanged pretrained baseline, with item-level predictions and aggregate/per-recording metrics. M4 is next. |
+| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M2 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, and a 4,920-request preflight. The coverage gate remains closed because `IMG_0661` has no completed visual identity reference. M3 has retained-row validation and metrics but no materializer or classifier executor. |
 
 ### Blocked
 
@@ -62,12 +61,13 @@ The shared target architecture is
 | [0052 — Selected response to visible-region identity failures](4-blocked/0052-Selected_Visible_Region_Identity_Response.md) | 0051 selects one follow-up identity response | Implement and evaluate at most one response to the measured 0051 failure. Close as not required for any other 0051 conclusion. M0–M3 not started. |
 | [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, 0049, and 0051 complete; resolve 0052 if required; plus declared real reviewed coverage | Compare at most two DINOv3 candidates with the fixed resilient identity input contract; lock at most one without changing the backend default. M0–M3 not started. |
 | [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
-| [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and 0051 complete; resolve 0052 if required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against the fixed resilient identifier, then select at most one justified capability response. M0–M3 not started. |
+| [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and 0051 complete; resolve 0052 if required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against the fixed resilient identifier, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
 
 ### Closed
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0067 — RF-DETR visible-region training campaign](5-closed/0067-RF_DETR_Visible_Region_Training_Campaign.md) | Complete | M0–M4 complete: a fixed RF-DETR SegMedium recipe produced an unpromoted `poc_candidate`. The locked validation gate passed against the unchanged pretrained baseline. The decision report retains corpus limits, source-linked errors, and the optional 0050 handoff. |
 | [0062 — Canonical card-state data and face-down identity](5-closed/0062-Canonical_Card_State_and_Face_Down_Identity.md) | Complete | M0–M4 complete: active event data and contracts use the singleton `card_state_changed` value, immutable history remains readable, review and comparison surfaces use one canonical label, `FACE_DOWN` remains outside legal card identities, and the pre-reconstruction observation plus game-engine boundary preserves face-down status, exact visual outcome diagnostics, and source lineage without changing reconstruction. |
 | [0064 — CardEvent frame-review editor](5-closed/0064-CardEvent_Frame_Review_Editor.md) | Complete | M0–M2 complete: the reviewed CardEvent editor uses the recording-owned exact source-frame surface, compact left review controls, responsive desktop and narrow layouts, and browser accessibility regression coverage while the right inspector remains unchanged. |
 | [0065 — Visible-card ignore regions](5-closed/0065-Visible_Card_Ignore_Regions.md) | Complete | M0–M3 complete: reviewed ignore regions preserve generated lineage, remain separate from card targets, materialize deterministic masks or exact frame exclusions, and neutralize ignored predictions with explicit comparison counts. |
@@ -128,42 +128,35 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0067 with M4 for the RF-DETR segmentation PoC.** Publish the fixed-recipe decision
-   report from the retained M3 baseline and candidate artifacts. Keep the PoC separate from the
-   composed provider comparison in 0050.
-2. **Continue 0063 with M5 for the new CardEventNet model.** Use the frozen dataset and
+1. **Continue 0063 with M5 for the new CardEventNet model.** Use the frozen dataset and
    lineage-aware trainer view to define and run the bounded validation campaign.
-3. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
+2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.
-4. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
+3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
-5. **Reconcile 0051 M0 with the current data architecture and the completed 0062 and 0065
-   contracts.** Read
-   durable revisions from
-   `data/operations`, reuse shared bundle validation, freeze the current classifier and polygon crop
-   defaults, use explicit development and validation groups, and preflight the complete experiment
-   matrix against its budget. Apply the 0065 mask or frame-exclusion policy to affected `IMG_0661`
-   items.
-6. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
+4. **Use the reconciled 0051 M0 manifest as the next review gate.** Keep its explicit
+   development/validation partition and 4,920-request preflight fixed. Apply the 0065 mask or
+   frame-exclusion policy to affected `IMG_0661` items before they enter the validation freeze.
+5. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
    `IMG_0091` as one visually similar development comparison group. With 0065 complete, revise
    affected visible-card frames and complete visual identity review for the different `IMG_0661`
    validation recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group
    gate. Keep sealed holdouts intact.
-7. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
+6. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
    and classifier executor, run development before validation, and measure the frozen simple
    exclusion policies. Use the decision to specify one response in 0052 or close 0052 as not
    required.
-8. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+7. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-9. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+8. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-10. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+9. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-11. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+10. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
@@ -266,6 +259,15 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   the complete frame explicitly. They must never learn ignored pixels as ordinary background.
 - Complete 0065 before 0051 freezes affected `IMG_0661` items. Keep segmenter training and provider
   selection in later epic 0050.
+
+### Planning decisions — 2026-09-15
+
+- Complete 0051 M0 reconciliation against the shared repository validator and durable
+  `data/operations` revision store. Freeze `cardeventnet-IMG_0090` and `cardeventnet-IMG_0091` as
+  development and `cardeventnet-IMG_0661` as validation.
+- Keep the M0 coverage gate closed until `IMG_0661` has a completed visual identity maintained
+  reference. The generated M0 artifact records 200 available development pairs, zero validation
+  pairs, and a bounded 4,920-request preflight without classifying any crop.
 
 ## Closed-epic policy
 

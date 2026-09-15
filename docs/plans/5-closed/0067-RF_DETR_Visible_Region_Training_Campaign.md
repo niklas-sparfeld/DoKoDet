@@ -4,13 +4,15 @@
 
 - **Summary:** Fine-tune one RF-DETR instance-segmentation model on the current human-reviewed
   visible regions and decide whether the result is useful enough for a later provider comparison.
-- **Status:** In Progress
+- **Status:** Complete
+- **Closure reason:** Complete
 - **Depends on:** 0037, 0048, 0049, and 0065 complete
 - **Readiness:** Nine completed maintained visible-card references provide 425 reviewed source
   frames, 916 visible-card targets, and 137 visible-card ignore regions. M0 provides a
   deterministic read-only audit and immutable manifest contract. M1 provides the verified
   304-image COCO view. M2 now proves the pinned local training and mask-provider path. M3 now
-  provides the retained MPS candidate and locked CPU validation report. M4 is next.
+  provides the retained MPS candidate and locked CPU validation report. M4 publishes a
+  `poc_candidate` decision without promotion.
 - **Outcome:** Produce one reproducible RF-DETR segmentation checkpoint and a locked validation
   report from source-group-separated human-reviewed data. Record whether fine-tuning learned useful
   visible-region localization. Do not promote or select a runtime default.
@@ -30,7 +32,8 @@
 - **M3:** Complete (2026-09-15) — the full 219-image train and 85-image validation view produced
   one MPS candidate within budget. The locked CPU baseline and candidate validation report passes
   the frozen PoC gate with retained item-level predictions and aggregate/per-recording metrics.
-- **M4:** Not started — publish the PoC decision and preserve the handoff to 0050.
+- **M4:** Complete (2026-09-15) — publish the locked PoC decision, keep harmful examples linked
+  to original recordings, and hand the unpromoted `poc_candidate` to a later 0050 comparison.
 
 ## 1. Why this corpus is enough for a PoC
 
@@ -208,6 +211,18 @@ Acceptance:
   baseline had zero mask AP and zero recall. The candidate achieved mask AP 0.860661, mask AP50
   0.989772, box AP 0.875382, and recall 0.995305 over 213 targets. Each validation recording had
   nonzero recall. The frozen gate passes.
+
+### M4 decision evidence — 2026-09-15
+
+- The [PoC decision report](../../reports/0067-RF_DETR_Visible_Region_PoC_Decision.md) classifies
+  the retained checkpoint as `poc_candidate`. It does not promote the checkpoint or change a
+  runtime default.
+- The report retains the fixed-recipe gate, corpus limits, exclusions, runtime facts, baseline and
+  candidate metrics, artifact digests, and source-linked examples of the five false predictions and
+  one duplicate prediction.
+- The report states that the corpus has no reviewed background-only frames and no sealed test
+  partition. It hands the candidate to 0050 only as an optional later visible-region provider; it
+  does not make 0050 a dependency of this completed campaign.
 
 ### M2 — Prove the segmentation training path
 
