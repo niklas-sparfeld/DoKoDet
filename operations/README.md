@@ -124,6 +124,10 @@ doko data resilience-baseline --format json \
 The command exits with `1` when the paired-reference coverage gate is not met. It requires paired
 completed maintained visible-card and visual identity references from at least two source-lineage
 groups and the frozen validation sample minimum before validation classification is allowed.
+The current frozen partition assigns `cardeventnet-IMG_0090` and `cardeventnet-IMG_0091` to
+development and `cardeventnet-IMG_0661` to validation. The manifest records the current Gemini 3.8
+classifier request, runtime crop defaults, sample-condition-corruption matrix, and request/cost
+preflight before the gate is evaluated.
 
 M2 provides the shared deterministic crop boundary used by the later paired run. It supports raw,
 predicted-region, oracle, and generated or reviewed neighboring-region exclusion conditions. It

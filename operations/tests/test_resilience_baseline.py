@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -38,6 +40,13 @@ def test_measurement_contract_freezes_all_m0_conditions_and_gates() -> None:
     assert contract["classifier"]["score_calibration"] == (
         "uncalibrated_single_candidate_is_not_probability"
     )
+    assert contract["classifier"]["provider"] == "gemini"
+    assert contract["classifier"]["model"] == "gemini-3.8-flash"
+    assert contract["classifier"]["classifier_version"] == "gemini-card-classification/v2"
+    assert contract["classifier"]["request"]["api_version"] == "v1beta"
+    assert contract["classifier"]["request"]["thinking_level"] == "low"
+    assert contract["conditions"][1]["condition_id"] == "predicted_visible_region"
+    assert contract["conditions"][-1]["condition_id"] == "oracle_visible_region"
 
 
 def test_m0_reports_missing_paired_references_without_classification(tmp_path: Path) -> None:
@@ -53,7 +62,7 @@ def test_m0_reports_missing_paired_references_without_classification(tmp_path: P
         "validation_sample_count": 0,
     }
     assert any("recording intake root is missing" in gap for gap in manifest["coverage_gaps"])
-    assert any("at least two source-lineage groups" in gap for gap in manifest["coverage_gaps"])
+    assert any("explicit development and validation" in gap for gap in manifest["coverage_gaps"])
     assert any("validation coverage needs" in gap for gap in manifest["coverage_gaps"])
     assert "validation classification: not allowed" in render_resilience_baseline_human(manifest)
 
@@ -74,30 +83,24 @@ def test_m0_manifest_validator_rejects_contract_mutation(tmp_path: Path) -> None
 
 
 def test_m0_accepts_relative_roots_and_reads_complete_recording_inventory(tmp_path: Path) -> None:
-    intake = tmp_path / "fixture-intake" / "recording-01"
-    intake.mkdir(parents=True)
-    (intake / "manifest.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "repository-bundle/v1",
-                "state": "complete",
-                "recording_id": "recording-01",
-                "session_id": "session-01",
-                "source_asset_id": "source-01",
-                "source_sha256": "a" * 64,
-            }
-        ),
-        encoding="utf-8",
+    intake = tmp_path / "fixture-intake"
+    shutil.copytree(
+        Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both",
+        intake / "recording-both",
     )
 
-    manifest = build_resilience_baseline_manifest(tmp_path, intake_root="fixture-intake")
+    manifest = build_resilience_baseline_manifest(
+        tmp_path,
+        intake_root="fixture-intake",
+        partition_recording_ids={"development": ["recording-both"], "validation": []},
+    )
 
     assert manifest["inventory"]["recording_count"] == 1
     assert manifest["source_groups"] == [
         {
-            "source_lineage_group": "session-01",
+            "source_lineage_group": "session-both",
             "group_key": "session_id",
-            "recording_ids": ["recording-01"],
+            "recording_ids": ["recording-both"],
             "paired_sample_count": 0,
             "system_holdout": False,
         }
@@ -105,9 +108,11 @@ def test_m0_accepts_relative_roots_and_reads_complete_recording_inventory(tmp_pa
 
 
 def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path) -> None:
+    video_bytes = b"fixture-video"
+    video_sha256 = hashlib.sha256(video_bytes).hexdigest()
     frame = {
         "schema_version": "exact-event/v1",
-        "source_video_sha256": "a" * 64,
+        "source_video_sha256": video_sha256,
         "requested_time_us": 1_000,
         "frame_index": 3,
         "presentation_timestamp_us": 1_000,
@@ -181,7 +186,7 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
         producer: dict[str, object],
         recording_id: str,
     ) -> None:
-        directory = tmp_path / ".runtime" / "pipeline" / "revisions" / revision_id
+        directory = tmp_path / "data" / "operations" / "pipeline" / "revisions" / revision_id
         directory.mkdir(parents=True)
         (directory / "content.json").write_bytes(canonical_json_bytes(content))
         (directory / "manifest.json").write_text(
@@ -201,19 +206,87 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
     def write_recording(recording_id: str, session_id: str) -> None:
         bundle = tmp_path / "data" / "intake" / "recordings" / recording_id
         bundle.mkdir(parents=True)
-        (bundle / "manifest.json").write_text(
-            json.dumps(
+        source = {
+            "schema_version": "source-record/v1",
+            "source_asset_id": f"source-{recording_id}",
+            "sha256": video_sha256,
+            "byte_length": len(video_bytes),
+            "media_type": "video/quicktime",
+            "original_filename": f"video-{recording_id}.mov",
+            "acquisition_method": "local_fixture",
+            "source_permission": "training_and_evaluation",
+            "allowed_uses": ["train", "validation", "evaluation"],
+            "session_id": session_id,
+            "recording_id": recording_id,
+            "video_id": f"video-{recording_id}",
+            "game_id": f"game-{recording_id}",
+            "round_id": None,
+            "table_setup": f"setup-{recording_id}",
+            "content_type": "real_game",
+            "retention_state": "active",
+            "notes": "resilience baseline fixture",
+        }
+        source_bytes = json.dumps(source).encode("utf-8")
+        enrollment = {
+            "schema_version": "task-enrollment/v1",
+            "source_asset_id": f"source-{recording_id}",
+            "enrollments": [
                 {
-                    "schema_version": "repository-bundle/v1",
-                    "state": "complete",
-                    "recording_id": recording_id,
-                    "session_id": session_id,
-                    "source_asset_id": f"source-{recording_id}",
-                    "source_sha256": "a" * 64,
+                    "task_enrollment_id": f"enrollment-{recording_id}",
+                    "task": "cardevent_event_detection",
+                    "disposition": "selected",
+                    "lifecycle_state": "intake",
+                    "operator": "fixture",
+                    "created_at_utc": "2026-09-01T00:00:00Z",
+                    "reason": None,
+                },
+                {
+                    "task_enrollment_id": f"enrollment-table-{recording_id}",
+                    "task": "table_evidence_analysis",
+                    "disposition": "selected",
+                    "lifecycle_state": "intake",
+                    "operator": "fixture",
+                    "created_at_utc": "2026-09-01T00:00:00Z",
+                    "reason": None,
                 }
-            ),
-            encoding="utf-8",
-        )
+            ],
+        }
+        enrollment_bytes = json.dumps(enrollment).encode("utf-8")
+        (bundle / "source-record.json").write_bytes(source_bytes)
+        (bundle / "initial-task-enrollment.json").write_bytes(enrollment_bytes)
+        (bundle / "videos").mkdir()
+        (bundle / f"videos/video-{recording_id}.mov").write_bytes(video_bytes)
+        manifest = {
+            "schema_version": "repository-bundle/v1",
+            "source_asset_id": f"source-{recording_id}",
+            "recording_id": recording_id,
+            "video_id": f"video-{recording_id}",
+            "session_id": session_id,
+            "state": "complete",
+            "source_sha256": video_sha256,
+            "files": {
+                "video": {
+                    "relative_path": f"videos/video-{recording_id}.mov",
+                    "type": "video/quicktime",
+                    "byte_length": len(video_bytes),
+                    "sha256": video_sha256,
+                },
+                "source_record": {
+                    "relative_path": "source-record.json",
+                    "type": "application/json",
+                    "byte_length": len(source_bytes),
+                    "sha256": hashlib.sha256(source_bytes).hexdigest(),
+                },
+                "task_enrollment": {
+                    "relative_path": "initial-task-enrollment.json",
+                    "type": "application/json",
+                    "byte_length": len(enrollment_bytes),
+                    "sha256": hashlib.sha256(enrollment_bytes).hexdigest(),
+                },
+                "proposal_generator_runs": [],
+            },
+        }
+        (bundle / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
     def write_reference(
         recording_id: str,
@@ -297,7 +370,7 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
             "event-01",
             reviewed_visible["outcomes"][0],
             "event-01",
-            generated_id,
+            visible_id,
         )
         write_reference(
             recording_id,
@@ -308,7 +381,13 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
             "card-01",
         )
 
-    manifest = build_resilience_baseline_manifest(tmp_path)
+    manifest = build_resilience_baseline_manifest(
+        tmp_path,
+        partition_recording_ids={
+            "development": ["recording-01"],
+            "validation": ["recording-02"],
+        },
+    )
 
     assert manifest["inventory"]["paired_sample_count"] == 2
     assert {
@@ -318,4 +397,12 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
         "session-01",
         "session-02",
     }
+    assert {sample["partition"] for sample in manifest["paired_samples"]} == {
+        "development",
+        "validation",
+    }
+    assert manifest["experiment_plan"]["requests_per_sample"] == 120
+    assert manifest["experiment_plan"]["planned_classifier_request_count"] == 240
+    assert len(manifest["experiment_plan"]["matrix"]) == 240
+    validate_resilience_baseline_manifest(manifest)
     assert "at least two source-lineage groups" not in "\n".join(manifest["coverage_gaps"])

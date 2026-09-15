@@ -7,11 +7,11 @@
   identity-model change.
 - **Status:** In Progress
 - **Depends on:** 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items
-- **Readiness:** M1 and M2 are complete. Reconcile the M0 measurement contract with durable
-  operations storage, the current classifier and crop defaults, and the current reference
-  lifecycle before classification. Complete 0065 before ambiguous `IMG_0661` stacks enter the
-  freeze. Completed paired maintained visible-card and visual identity references from the frozen
-  development and validation groups remain required.
+- **Readiness:** M0–M2 are complete. The M0 manifest is reconciled with durable operations storage,
+  shared bundle validation, the current classifier and crop defaults, and the current reference
+  lifecycle. Complete 0065 before ambiguous `IMG_0661` stacks enter the freeze. Completed paired
+  maintained visible-card and visual identity references from the frozen development and validation
+  groups remain required.
 - **Builds on:** 0038 crop-policy evidence and the 0048 visual identity outcome, derived-view, and
   observation-assembly contracts
 - **Outcome:** Publish a reproducible risk-versus-coverage baseline for the current identifier under
@@ -23,9 +23,11 @@
 
 ## Milestone status
 
-- **M0:** In progress — the frozen manifest and coverage gate exist, but their revision path,
-  classifier identity, bundle validation, reference-lineage checks, partitions, and request budget
-  need reconciliation with the current data contracts before the freeze is valid.
+- **M0:** Complete — the manifest reads durable revisions, uses shared bundle validation, follows
+  completed-reference producer lineage, freezes the current Gemini 3.8 request and runtime crop
+  contract, assigns explicit development and validation recordings, and records the full
+  sample-condition-corruption request and cost preflight. The coverage gate remains closed because
+  `IMG_0661` has no completed visual identity reference.
 - **M1:** Complete — preserve every visible-card proposal across classified, unusable, and failed
   visual identity outcomes. Empty successful classifier output is normalized to unusable, and
   reconstruction treats empty identity evidence as neutral.
@@ -34,31 +36,30 @@
   every input, every decision, and the original target geometry. Corruption generation records
   family, severity, seed, source digest, output digest, and transform version.
 - **M3:** Blocked — retained-row validation, paired metrics, and immutable output exist. Crop
-  materialization and classifier execution do not. Do not classify until M0 is reconciled and the
-  paired maintained-reference coverage gate passes.
+  materialization and classifier execution do not. Do not classify until the paired
+  maintained-reference coverage gate passes.
 - **M4:** Not started — publish the decision and resolve the scope of 0052 and later detector work.
 
-## Current evidence and partition intent — 2026-09-11
+## Current evidence and partition intent — 2026-09-15
 
-The durable intake contains 12 recording bundle directories after importing `IMG_0661`. The shared
-data validator accepts eight bundles and rejects four older `.m4v` bundles because their video
-descriptors do not use the current `.mov` path contract. The M0 inventory currently accepts all 12
-without applying that shared validation. Reconcile these readers before publishing another corpus
-count.
+The reconciled M0 scan accepts 44 recording bundles through the shared repository validator. It
+reads 164 pipeline revisions from `data/operations/pipeline/revisions` and 53 completed maintained
+references. It does not read the retired `.runtime/pipeline/revisions` path.
 
-`IMG_0090` and `IMG_0091` each have a completed visible-card maintained reference with 100 visible
-cards. `IMG_0090` has an identity draft with 3 accepted and 97 pending items. `IMG_0091` has a
-completed identity processor result but no identity maintained reference. Treat these visually
-similar recordings as one development comparison group. They must not satisfy the
-independent validation-group gate by themselves.
+`IMG_0090` and `IMG_0091` are one visually similar development comparison group. The manifest
+assigns their recording IDs explicitly to development and preserves their separate source-lineage
+groups for reporting. `IMG_0661` is the different validation recording and is assigned explicitly
+to validation. The manifest does not infer validation from identifier order.
 
-`IMG_0661` is imported with 55 completed human event references and a completed maintained
-visible-card reference. Its different capture date and setup make it the intended validation
-recording after the affected visible-card frames are revised through 0065 and visual identity
-review is complete. Freeze `IMG_0090` and `IMG_0091` as development and `IMG_0661` as validation
-before reading validation classification results. Confirm the source-lineage grouping from
-recording metadata and operator knowledge rather than selecting a validation group by identifier
-sort order.
+The development partition currently provides 200 paired samples. `IMG_0661` has a completed
+visible-card reference but no completed visual identity reference, so it provides zero validation
+samples. The coverage gate therefore remains closed and no validation classification request is
+allowed. Ignore-only regions from completed 0065 work are not card samples.
+
+The frozen matrix contains six crop conditions and 19 corruption variants for each selected sample.
+The request budget selects 41 development samples, for 4,920 planned classifier requests and an
+estimated cost of $4.7232. The full sample-linked coverage and preflight report is
+`data/operations/visible-region-identity-resilience-m0.json`.
 
 Untidy face-down stacks in `IMG_0661` do not support reliable card-instance geometry. Epic 0065
 adds reviewed ignore regions for these pixels. Do not accept a stack polygon as one card, require
@@ -295,7 +296,8 @@ Implementation note: the local M3 comparison boundary validates retained rows, p
 `classified`, `unusable`, and `failed` outcomes, calculates deterministic paired metrics, and
 writes immutable item-level row artifacts. It does not yet materialize crops or call the classifier.
 It refuses to aggregate while `validation_classification_allowed` is false. The current M0
-manifest has no eligible paired maintained references, so classification remains stopped.
+manifest has no eligible validation paired maintained references, so classification remains
+stopped.
 
 Acceptance:
 

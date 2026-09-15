@@ -69,6 +69,8 @@ from .model_improvement import (
 )
 from .pending_video import PendingVideoCompletionError, complete_pending_video
 from .resilience_baseline import (
+    DEFAULT_CLASSIFIER_MODEL,
+    DEFAULT_CLASSIFIER_PROVIDER,
     ResilienceBaselineError,
     build_resilience_baseline_manifest,
     render_resilience_baseline_human,
@@ -263,7 +265,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--runtime-root",
         type=Path,
         default=None,
-        help="Pipeline runtime root (default: .runtime).",
+        help="Pipeline revision root (default: data/operations).",
     )
     baseline.add_argument(
         "--holdout-registry",
@@ -271,8 +273,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to the shared system holdout registry.",
     )
-    baseline.add_argument("--classifier-provider", default="gemini")
-    baseline.add_argument("--classifier-model", default="gemini-3.6-flash")
+    baseline.add_argument("--classifier-provider", default=DEFAULT_CLASSIFIER_PROVIDER)
+    baseline.add_argument("--classifier-model", default=DEFAULT_CLASSIFIER_MODEL)
     baseline.add_argument(
         "--output", type=Path, default=None, help="Optional manifest output path."
     )

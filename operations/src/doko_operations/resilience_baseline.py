@@ -10,15 +10,58 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from table_evidence_analyzer.card_classification import (
+    CARD_CLASSIFICATION_SCHEMA,
+    PROMPT,
+    RESPONSE_SCHEMA,
+)
+from table_evidence_analyzer.cards import CARD_IDENTITIES
+from table_evidence_analyzer.visible_cards import (
+    DEFAULT_MODEL,
+    GEMINI_API_VERSION,
+    GEMINI_THINKING_LEVEL,
+)
+
 from .holdout import load_system_holdout_registry, sealed_group_keys
+from .intake import inspect_repository
 
 RESILIENCE_BASELINE_SCHEMA_VERSION = "visible-region-identity-resilience-manifest/v1"
 MEASUREMENT_CONTRACT_SCHEMA_VERSION = "visible-region-identity-measurement/v1"
 MINIMUM_VALIDATION_SAMPLES = 24
+DEFAULT_CLASSIFIER_PROVIDER = "gemini"
+DEFAULT_CLASSIFIER_MODEL = DEFAULT_MODEL
+
+# These are operator-selected partitions.  They are deliberately explicit because the two
+# visually similar 0090/0091 recordings must remain development material, while 0661 is the
+# different validation capture.  Do not infer these partitions from identifier ordering.
+DEFAULT_PARTITION_RECORDING_IDS = {
+    "development": (
+        "cardeventnet-IMG_0090",
+        "cardeventnet-IMG_0091",
+    ),
+    "validation": ("cardeventnet-IMG_0661",),
+}
+
+CLASSIFIER_IMPLEMENTATION = "visual-identity-classifier-adapter/v1"
+RUNTIME_CROP_DEFAULTS = {
+    "detector_box": {"policy_id": "raw_rectangular", "output_encoding": "ppm"},
+    "predicted_visible_region": {
+        "policy_id": "predicted_visible_region",
+        "output_encoding": "ppm",
+    },
+    "reviewed_visible_region": {
+        "policy_id": "oracle_visible_region",
+        "output_encoding": "ppm",
+    },
+}
+GEMINI_INPUT_TOKENS_PER_REQUEST = 1_200
+GEMINI_OUTPUT_TOKENS_PER_REQUEST = 16
+GEMINI_INPUT_USD_PER_MILLION_TOKENS = 0.75
+GEMINI_OUTPUT_USD_PER_MILLION_TOKENS = 3.75
 
 CONDITION_IDS = (
     "raw_rectangular",
@@ -118,8 +161,8 @@ def _resolve(root: Path, value: str | Path | None, default: Path) -> Path:
 
 def default_measurement_contract(
     *,
-    classifier_provider: str = "gemini",
-    classifier_model: str = "gemini-3.6-flash",
+    classifier_provider: str = DEFAULT_CLASSIFIER_PROVIDER,
+    classifier_model: str = DEFAULT_CLASSIFIER_MODEL,
 ) -> dict[str, Any]:
     """Return the immutable M0 contract used by every later baseline run."""
 
@@ -227,13 +270,34 @@ def default_measurement_contract(
         "classifier": {
             "provider": provider,
             "model": model,
-            "implementation": "configured-visual-identity-classifier/v1",
+            "implementation": CLASSIFIER_IMPLEMENTATION,
+            "classifier_version": (
+                CARD_CLASSIFICATION_SCHEMA
+                if provider == DEFAULT_CLASSIFIER_PROVIDER
+                else "configured"
+            ),
             "score_calibration": "uncalibrated_single_candidate_is_not_probability",
+            "request": {
+                "schema_version": CARD_CLASSIFICATION_SCHEMA,
+                "api_version": GEMINI_API_VERSION,
+                "thinking_level": GEMINI_THINKING_LEVEL,
+                "prompt_sha256": hashlib.sha256(PROMPT.encode("utf-8")).hexdigest(),
+                "response_schema_sha256": sha256_json(RESPONSE_SCHEMA),
+            },
+        },
+        "runtime_crop_defaults": {
+            key: dict(value) for key, value in RUNTIME_CROP_DEFAULTS.items()
         },
         "budget": {
             "max_classifier_requests": 5000,
             "max_estimated_cost_usd": 25.0,
             "max_wall_clock_seconds": 7200,
+            "cost_estimate": {
+                "input_tokens_per_request": GEMINI_INPUT_TOKENS_PER_REQUEST,
+                "output_tokens_per_request": GEMINI_OUTPUT_TOKENS_PER_REQUEST,
+                "input_usd_per_million_tokens": GEMINI_INPUT_USD_PER_MILLION_TOKENS,
+                "output_usd_per_million_tokens": GEMINI_OUTPUT_USD_PER_MILLION_TOKENS,
+            },
         },
         "metrics": list(METRICS),
         "decision_gates": {
@@ -251,53 +315,61 @@ def default_measurement_contract(
 
 
 def _recording_inventory(
-    intake_root: Path, repository_root: Path
+    intake_root: Path,
+    repository_root: Path,
+    *,
+    operations_root: Path,
 ) -> tuple[list[dict[str, Any]], list[str]]:
+    """Read complete bundles through the shared repository intake validator."""
+
     recordings: list[dict[str, Any]] = []
     gaps: list[str] = []
     if not intake_root.is_dir():
         return recordings, [
             f"recording intake root is missing: {_relative(intake_root, repository_root)}"
         ]
-    for directory in sorted(intake_root.iterdir(), key=lambda item: item.name):
-        if not directory.is_dir() or directory.is_symlink() or directory.name.startswith("."):
+    try:
+        inspection = inspect_repository(
+            repository_root,
+            bundle_root=intake_root,
+            artifacts_root=operations_root,
+        )
+    except (OSError, ValueError) as error:
+        return recordings, [f"shared recording-bundle validation failed: {error}"]
+
+    for bundle in inspection.bundles:
+        if bundle.state != "complete":
+            details = "; ".join(bundle.errors) or "bundle is not complete"
+            gaps.append(f"shared recording bundle rejected: {bundle.path}: {details}")
             continue
-        manifest_path = directory / "manifest.json"
-        if not manifest_path.is_file():
+        if not all(
+            isinstance(value, str) and value
+            for value in (
+                bundle.recording_id,
+                bundle.session_id,
+                bundle.source_asset_id,
+                bundle.source_sha256,
+            )
+        ):
+            gaps.append(f"shared recording bundle has incomplete lineage: {bundle.path}")
             continue
+        manifest_path = repository_root / bundle.path / "manifest.json"
         try:
             manifest = _read_json(manifest_path, "recording bundle manifest")
+            _digest(bundle.source_sha256, f"{bundle.path}.source_sha256")
         except ResilienceBaselineError as error:
             gaps.append(str(error))
             continue
-        if (
-            manifest.get("schema_version") != "repository-bundle/v1"
-            or manifest.get("state") != "complete"
-        ):
-            continue
-        recording_id = manifest.get("recording_id")
-        session_id = manifest.get("session_id")
-        source_asset_id = manifest.get("source_asset_id")
-        source_sha256 = manifest.get("source_sha256")
-        if not all(
-            isinstance(value, str) and value
-            for value in (recording_id, session_id, source_asset_id, source_sha256)
-        ):
-            gaps.append(
-                "recording bundle has incomplete lineage: "
-                f"{_relative(manifest_path, repository_root)}"
-            )
-            continue
-        if recording_id != directory.name:
-            gaps.append(f"recording bundle directory does not match recording_id: {directory}")
+        if manifest.get("recording_id") != bundle.recording_id:
+            gaps.append(f"recording bundle directory does not match recording_id: {bundle.path}")
             continue
         recordings.append(
             {
-                "recording_id": recording_id,
-                "session_id": session_id,
-                "source_lineage_group": session_id,
-                "source_asset_id": source_asset_id,
-                "source_video_sha256": source_sha256,
+                "recording_id": bundle.recording_id,
+                "session_id": bundle.session_id,
+                "source_lineage_group": bundle.session_id,
+                "source_asset_id": bundle.source_asset_id,
+                "source_video_sha256": bundle.source_sha256,
                 "manifest_path": _relative(manifest_path, repository_root),
                 "manifest_sha256": _file_json_digest(manifest_path, "recording bundle manifest"),
             }
@@ -452,6 +524,47 @@ def _reference_items(
     return result
 
 
+def _generated_visible_revision_id(
+    visible_revision_id: str,
+    revisions: Mapping[str, Mapping[str, Any]],
+) -> tuple[str | None, list[str]]:
+    """Follow maintained-reference producers to the immutable generated proposal revision."""
+
+    gaps: list[str] = []
+    current_id: str | None = visible_revision_id
+    visited: set[str] = set()
+    while isinstance(current_id, str):
+        if current_id in visited:
+            gaps.append(f"visible reference lineage contains a cycle: {visible_revision_id}")
+            return None, gaps
+        visited.add(current_id)
+        revision = revisions.get(current_id)
+        if revision is None:
+            gaps.append(f"completed reference revision is missing: {current_id}")
+            return None, gaps
+        manifest = revision["manifest"]
+        origin = manifest.get("origin")
+        producer = manifest.get("producer")
+        if (
+            origin in {"processor", "import"}
+            and isinstance(producer, Mapping)
+            and producer.get("kind") in {"processor", "import"}
+        ):
+            if manifest.get("content_type") != "visible_cards":
+                gaps.append(f"generated proposal revision is not visible-card data: {current_id}")
+                return None, gaps
+            return current_id, gaps
+        if origin not in {"manual", "corrected"} or not isinstance(producer, Mapping):
+            gaps.append(f"visible reference has no generated proposal lineage: {current_id}")
+            return None, gaps
+        base_revision_id = producer.get("base_revision_id")
+        if not isinstance(base_revision_id, str) or not base_revision_id:
+            gaps.append(f"visible reference has no generated proposal base revision: {current_id}")
+            return None, gaps
+        current_id = base_revision_id
+    return None, gaps
+
+
 def _paired_samples(
     recording: Mapping[str, Any],
     visible_reference: Mapping[str, Any],
@@ -480,6 +593,11 @@ def _paired_samples(
             if expected_type == "visible_cards"
             else identity_revision["manifest"]
         )
+        if manifest.get("recording_id") != recording["recording_id"]:
+            gaps.append(
+                "reference revision belongs to another recording: "
+                f"{reference['selected_revision_id']}"
+            )
         if manifest.get("content_type") != expected_type:
             gaps.append(
                 f"reference revision has wrong content type: {reference['selected_revision_id']}"
@@ -500,20 +618,25 @@ def _paired_samples(
         for item in identity_items
         if isinstance(item["item"].get("card_id"), str)
     }
-    source_revision_id = visible_revision["manifest"].get("producer", {}).get("base_revision_id")
-    if visible_reference["draft"].get("source_revision_id") != source_revision_id:
-        gaps.append(
-            f"visible maintained reference does not preserve generated source lineage: "
-            f"{visible_reference['selected_revision_id']}"
-        )
-    generated_revision = (
-        revisions.get(source_revision_id) if isinstance(source_revision_id, str) else None
+    source_revision_id, lineage_gaps = _generated_visible_revision_id(
+        visible_reference["selected_revision_id"], revisions
     )
+    gaps.extend(lineage_gaps)
+    generated_revision = revisions.get(source_revision_id) if source_revision_id else None
+    if source_revision_id is None or generated_revision is None:
+        return [], gaps
     generated_content = generated_revision["content"] if generated_revision is not None else None
     generated_outcomes = {
         item.get("event_id"): item
         for item in (generated_content or {}).get("outcomes", [])
         if isinstance(item, Mapping) and isinstance(item.get("event_id"), str)
+    }
+    generated_cards = {
+        candidate.get("card_id"): outcome.get("event_id")
+        for outcome in (generated_content or {}).get("outcomes", [])
+        if isinstance(outcome, Mapping)
+        for candidate in outcome.get("candidates", [])
+        if isinstance(candidate, Mapping) and isinstance(candidate.get("card_id"), str)
     }
     samples: list[dict[str, Any]] = []
     for visible in visible_items:
@@ -526,11 +649,21 @@ def _paired_samples(
             gaps.append(f"visible reference item has invalid candidates: {item.get('event_id')}")
             continue
         generated_item_id = draft.get("base_item_id")
+        if not isinstance(generated_item_id, str):
+            generated_item_id = None
+            for candidate in candidates:
+                if isinstance(candidate, Mapping):
+                    generated_item_id = generated_cards.get(candidate.get("card_id"))
+                    if generated_item_id is not None:
+                        break
         generated_item = (
             generated_outcomes.get(generated_item_id)
             if isinstance(generated_item_id, str)
             else None
         )
+        if generated_item is None:
+            gaps.append(f"generated proposal item is missing: {generated_item_id}")
+            continue
         for candidate in candidates:
             if not isinstance(candidate, Mapping) or not isinstance(candidate.get("card_id"), str):
                 gaps.append(
@@ -585,6 +718,12 @@ def _paired_samples(
                     f"visual identity has no reviewed target candidate: {candidate['card_id']}"
                 )
                 continue
+            target_identity = identity_item["candidates"][0].get("identity")
+            if not isinstance(target_identity, str) or target_identity not in CARD_IDENTITIES:
+                gaps.append(
+                    f"visual identity target has no canonical identity: {candidate['card_id']}"
+                )
+                continue
             sample_id = (
                 "sample-"
                 + sha256_json(
@@ -612,31 +751,103 @@ def _paired_samples(
                     "generated_visible_card_revision_id": source_revision_id,
                     "generated_visible_card_item_id": generated_item_id,
                     "generated_geometry_is_prediction": True,
-                    "generated_item_present": generated_item is not None,
+                    "generated_item_present": True,
                     "frame_identity_digest": sha256_json(item["frame_identity"]),
                     "reviewed_visible_geometry_digest": sha256_json(candidate["geometry"]),
                     "reviewed_identity_geometry_digest": sha256_json(identity_item.get("geometry")),
-                    "reviewed_target_identity": identity_item["candidates"][0].get("identity"),
+                    "reviewed_target_identity": target_identity,
                 }
             )
-    if not isinstance(source_revision_id, str) or generated_revision is None:
-        gaps.append(
-            "visible reference "
-            f"{visible_reference['selected_revision_id']} has no recorded generated "
-            "proposal lineage"
-        )
-    elif generated_revision["manifest"].get("origin") not in {"processor", "import"}:
-        gaps.append(
-            f"generated visible revision is not processor/import output: {source_revision_id}"
-        )
-    elif generated_revision["manifest"].get("content_type") != "visible_cards":
-        gaps.append(f"generated proposal revision is not visible-card data: {source_revision_id}")
-    for sample in samples:
-        if not sample["generated_item_present"]:
-            gaps.append(
-                f"generated proposal item is missing: {sample['generated_visible_card_item_id']}"
-            )
     return samples, gaps
+
+
+def _partition_recording_ids(
+    recordings: Sequence[Mapping[str, Any]],
+    requested: Mapping[str, Sequence[str]] | None,
+) -> tuple[dict[str, list[str]], list[str]]:
+    """Resolve the operator-selected recording partition without sorting into validation."""
+
+    source = DEFAULT_PARTITION_RECORDING_IDS if requested is None else requested
+    gaps: list[str] = []
+    if set(source) != {"development", "validation"}:
+        raise ResilienceBaselineError(
+            "partition_recording_ids must contain development and validation only"
+        )
+    available = {recording["recording_id"] for recording in recordings}
+    result: dict[str, list[str]] = {}
+    seen: dict[str, str] = {}
+    for partition in ("development", "validation"):
+        recording_ids = source[partition]
+        if isinstance(recording_ids, (str, bytes)):
+            raise ResilienceBaselineError(f"partition_recording_ids.{partition} must be a list")
+        result[partition] = []
+        for recording_id in recording_ids:
+            _identifier(recording_id, f"partition_recording_ids.{partition}[]")
+            previous = seen.get(recording_id)
+            if previous is not None:
+                gaps.append(
+                    f"recording {recording_id} is assigned to both {previous} and {partition}"
+                )
+                continue
+            seen[recording_id] = partition
+            result[partition].append(recording_id)
+            if recording_id not in available:
+                gaps.append(
+                    f"partition recording is not an accepted shared bundle: {recording_id}"
+                )
+    if not result["development"]:
+        gaps.append("the explicit development partition has no recording")
+    if not result["validation"]:
+        gaps.append("the explicit validation partition has no recording")
+    return result, gaps
+
+
+def _work_matrix(
+    samples: Sequence[Mapping[str, Any]], contract: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Expand selected samples into the immutable condition/corruption request matrix."""
+
+    corruptions: list[dict[str, Any] | None] = [None]
+    for corruption in contract["corruptions"]:
+        for severity in corruption["severities"]:
+            corruptions.append(
+                {
+                    "family": corruption["family"],
+                    "severity": severity,
+                    "seed": corruption["seed"],
+                }
+            )
+    matrix: list[dict[str, Any]] = []
+    for sample in sorted(samples, key=lambda item: str(item["sample_id"])):
+        partition = str(sample["partition"])
+        for condition in contract["conditions"]:
+            condition_id = condition["condition_id"]
+            for corruption in corruptions:
+                matrix.append(
+                    {
+                        "sample_id": sample["sample_id"],
+                        "partition": partition,
+                        "condition_id": condition_id,
+                        "corruption": corruption,
+                    }
+                )
+    return matrix
+
+
+def _estimated_cost_usd(request_count: int, contract: Mapping[str, Any]) -> float:
+    estimate = _mapping(contract["budget"], "measurement_contract.budget")["cost_estimate"]
+    return round(
+        request_count
+        * (
+            estimate["input_tokens_per_request"]
+            * estimate["input_usd_per_million_tokens"]
+            / 1_000_000
+            + estimate["output_tokens_per_request"]
+            * estimate["output_usd_per_million_tokens"]
+            / 1_000_000
+        ),
+        10,
+    )
 
 
 def build_resilience_baseline_manifest(
@@ -646,14 +857,15 @@ def build_resilience_baseline_manifest(
     operations_root: str | Path | None = None,
     intake_root: str | Path | None = None,
     holdout_registry_path: str | Path | None = None,
-    classifier_provider: str = "gemini",
-    classifier_model: str = "gemini-3.6-flash",
+    classifier_provider: str = DEFAULT_CLASSIFIER_PROVIDER,
+    classifier_model: str = DEFAULT_CLASSIFIER_MODEL,
+    partition_recording_ids: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, Any]:
     """Build the deterministic M0 manifest and coverage report."""
 
     repository = Path(repository_root).expanduser().resolve()
-    runtime = _resolve(repository, runtime_root, repository / ".runtime")
     operations = _resolve(repository, operations_root, repository / "data" / "operations")
+    revisions_root = _resolve(repository, runtime_root, operations)
     intake = _resolve(repository, intake_root, repository / "data" / "intake" / "recordings")
     holdout_path = _resolve(
         repository, holdout_registry_path, operations / "system-holdout-registry.json"
@@ -662,8 +874,10 @@ def build_resilience_baseline_manifest(
         classifier_provider=classifier_provider,
         classifier_model=classifier_model,
     )
-    recordings, recording_gaps = _recording_inventory(intake, repository)
-    revisions, revision_gaps = _revision_inventory(runtime)
+    recordings, recording_gaps = _recording_inventory(
+        intake, repository, operations_root=operations
+    )
+    revisions, revision_gaps = _revision_inventory(revisions_root)
     references, reference_gaps = _reference_inventory(operations)
     try:
         holdout_registry = load_system_holdout_registry(holdout_path)
@@ -671,12 +885,19 @@ def build_resilience_baseline_manifest(
     except (OSError, ValueError) as error:
         raise ResilienceBaselineError(f"could not load system holdout registry: {error}") from error
     by_recording = {recording["recording_id"]: recording for recording in recordings}
+    partition_ids, partition_gaps = _partition_recording_ids(recordings, partition_recording_ids)
     references_by_key = {
         (reference["recording_id"], reference["content_type"]): reference
         for reference in references
     }
+    partition_recording_set = {
+        recording_id
+        for recording_ids in partition_ids.values()
+        for recording_id in recording_ids
+    }
     samples: list[dict[str, Any]] = []
     gaps = [*recording_gaps, *revision_gaps, *reference_gaps]
+    selected_partition_pair_gaps: list[str] = []
     for recording in recordings:
         recording_id = recording["recording_id"]
         visible_reference = references_by_key.get((recording_id, "visible_cards"))
@@ -710,26 +931,103 @@ def build_resilience_baseline_manifest(
             paired, pair_gaps = [], [str(error)]
         samples.extend(paired)
         gaps.extend(pair_gaps)
+        if recording_id in partition_recording_set:
+            selected_partition_pair_gaps.extend(pair_gaps)
     referenced_recording_ids = {reference["recording_id"] for reference in references}
     for recording_id in sorted(referenced_recording_ids - set(by_recording)):
         gaps.append(f"maintained references point to an unknown recording bundle: {recording_id}")
-    groups = sorted({sample["source_lineage_group"] for sample in samples})
-    validation_group = groups[-1] if len(groups) >= 2 else None
-    development_groups = groups[:-1] if validation_group is not None else []
-    validation_samples = [
-        sample for sample in samples if sample["source_lineage_group"] == validation_group
+    gaps.extend(partition_gaps)
+    partition_for_recording = {
+        recording_id: partition
+        for partition, recording_ids in partition_ids.items()
+        for recording_id in recording_ids
+        if recording_id in by_recording
+    }
+    partitioned_samples: list[dict[str, Any]] = []
+    for sample in samples:
+        partition = partition_for_recording.get(sample["recording_id"])
+        if partition is None:
+            continue
+        partitioned_samples.append({**sample, "partition": partition})
+    development_samples = [
+        sample for sample in partitioned_samples if sample["partition"] == "development"
     ]
+    validation_samples = [
+        sample for sample in partitioned_samples if sample["partition"] == "validation"
+    ]
+    development_groups = sorted(
+        {
+            by_recording[recording_id]["source_lineage_group"]
+            for recording_id in partition_ids["development"]
+            if recording_id in by_recording
+        }
+    )
+    validation_groups = sorted(
+        {
+            by_recording[recording_id]["source_lineage_group"]
+            for recording_id in partition_ids["validation"]
+            if recording_id in by_recording
+        }
+    )
     blocking_gaps: list[str] = []
-    if len(groups) < 2:
+    blocking_gaps.extend(selected_partition_pair_gaps)
+    held_out_partition_recordings = [
+        recording_id
+        for partition_recording_ids in partition_ids.values()
+        for recording_id in partition_recording_ids
+        if recording_id in by_recording
+        and ("session_id", by_recording[recording_id]["source_lineage_group"]) in held_out
+    ]
+    if held_out_partition_recordings:
+        blocking_gaps.append(
+            "partition recordings must not be in the sealed system holdout: "
+            + ", ".join(sorted(held_out_partition_recordings))
+        )
+    overlapping_groups = sorted(
+        set(development_groups).intersection(validation_groups)
+    )
+    if overlapping_groups:
+        blocking_gaps.append(
+            "development and validation partitions share source-lineage groups: "
+            + ", ".join(overlapping_groups)
+        )
+    if not development_groups or not validation_groups:
         blocking_gaps.append(
             "need paired completed maintained visible-card and visual identity references "
-            "from at least two "
-            f"source-lineage groups; found {len(groups)}"
+            "in explicit development and validation source-lineage groups"
         )
     if len(validation_samples) < MINIMUM_VALIDATION_SAMPLES:
         blocking_gaps.append(
             f"validation coverage needs {MINIMUM_VALIDATION_SAMPLES} paired samples; "
             f"found {len(validation_samples)}"
+        )
+    gaps.extend(blocking_gaps)
+
+    budget = _mapping(contract["budget"], "measurement_contract.budget")
+    requests_per_sample = len(CONDITION_IDS) * (
+        1 + sum(len(item["severities"]) for item in contract["corruptions"])
+    )
+    max_requests = budget["max_classifier_requests"]
+    max_samples = max_requests // requests_per_sample
+    selected_validation = sorted(validation_samples, key=lambda item: item["sample_id"])[
+        : min(len(validation_samples), max_samples)
+    ]
+    remaining_capacity = max(0, max_samples - len(selected_validation))
+    selected_development = sorted(development_samples, key=lambda item: item["sample_id"])[
+        :remaining_capacity
+    ]
+    selected_samples = [*selected_development, *selected_validation]
+    matrix = _work_matrix(selected_samples, contract)
+    planned_cost = _estimated_cost_usd(len(matrix), contract)
+    if max_samples < MINIMUM_VALIDATION_SAMPLES:
+        blocking_gaps.append(
+            "classifier request budget cannot fit the minimum validation sample count: "
+            f"{max_samples} samples at {requests_per_sample} requests per sample"
+        )
+    if planned_cost > budget["max_estimated_cost_usd"]:
+        blocking_gaps.append(
+            "classifier cost estimate exceeds the frozen budget: "
+            f"${planned_cost:.4f} > ${budget['max_estimated_cost_usd']:.4f}"
         )
     gaps.extend(blocking_gaps)
     source_groups = []
@@ -744,7 +1042,7 @@ def build_resilience_baseline_manifest(
                     if recording["source_lineage_group"] == group
                 ),
                 "paired_sample_count": sum(
-                    sample["source_lineage_group"] == group for sample in samples
+                    sample["source_lineage_group"] == group for sample in partitioned_samples
                 ),
                 "system_holdout": ("session_id", group) in held_out,
             }
@@ -758,10 +1056,9 @@ def build_resilience_baseline_manifest(
         "measurement_contract_sha256": sha256_json(contract),
         "source_groups": source_groups,
         "partitions": {
+            "recording_ids": partition_ids,
             "development_source_lineage_groups": development_groups,
-            "validation_source_lineage_groups": []
-            if validation_group is None
-            else [validation_group],
+            "validation_source_lineage_groups": validation_groups,
             "system_holdout_excluded_groups": sorted(
                 group for name, group in held_out if name == "session_id"
             ),
@@ -773,7 +1070,33 @@ def build_resilience_baseline_manifest(
             "paired_sample_count": len(samples),
             "validation_sample_count": len(validation_samples),
         },
-        "paired_samples": samples,
+        "experiment_plan": {
+            "schema_version": "visible-region-identity-resilience-matrix/v1",
+            "available_paired_sample_count": len(partitioned_samples),
+            "selected_paired_sample_count": len(selected_samples),
+            "requests_per_sample": requests_per_sample,
+            "planned_classifier_request_count": len(matrix),
+            "estimated_cost_usd": planned_cost,
+            "estimated_wall_clock_seconds": budget["max_wall_clock_seconds"],
+            "matrix_sha256": sha256_json(matrix),
+            "matrix": matrix,
+        },
+        "coverage_report": {
+            "available_sample_ids": sorted(sample["sample_id"] for sample in partitioned_samples),
+            "selected_sample_ids": sorted(sample["sample_id"] for sample in selected_samples),
+            "available_by_partition": {
+                "development": len(development_samples),
+                "validation": len(validation_samples),
+            },
+            "selected_by_partition": {
+                "development": len(selected_development),
+                "validation": len(selected_validation),
+            },
+            "required_validation_samples": MINIMUM_VALIDATION_SAMPLES,
+            "validation_classification_allowed": not blocking_gaps,
+            "gaps": sorted(set(gaps)),
+        },
+        "paired_samples": selected_samples,
         "coverage_gaps": sorted(set(gaps)),
         "required_review_actions": sorted(
             gap for gap in set(gaps) if "needs completed maintained reference" in gap
@@ -801,6 +1124,8 @@ def validate_resilience_baseline_manifest(raw: Mapping[str, Any]) -> None:
         "source_groups",
         "partitions",
         "inventory",
+        "experiment_plan",
+        "coverage_report",
         "paired_samples",
         "coverage_gaps",
         "required_review_actions",
@@ -844,12 +1169,50 @@ def validate_resilience_baseline_manifest(raw: Mapping[str, Any]) -> None:
         raise ResilienceBaselineError("measurement contract corruption families are incomplete")
     if contract.get("exclusion", {}).get("recursive_exclusion") is not False:
         raise ResilienceBaselineError("measurement contract permits recursive exclusion")
+    classifier = _mapping(contract.get("classifier"), "measurement_contract.classifier")
+    if classifier.get("provider") == DEFAULT_CLASSIFIER_PROVIDER:
+        if classifier.get("model") != DEFAULT_CLASSIFIER_MODEL:
+            raise ResilienceBaselineError("measurement contract classifier model is not frozen")
+        if classifier.get("implementation") != CLASSIFIER_IMPLEMENTATION:
+            raise ResilienceBaselineError(
+                "measurement contract classifier implementation is not frozen"
+            )
+        request = _mapping(classifier.get("request"), "measurement_contract.classifier.request")
+        expected_request = {
+            "schema_version": CARD_CLASSIFICATION_SCHEMA,
+            "api_version": GEMINI_API_VERSION,
+            "thinking_level": GEMINI_THINKING_LEVEL,
+            "prompt_sha256": hashlib.sha256(PROMPT.encode("utf-8")).hexdigest(),
+            "response_schema_sha256": sha256_json(RESPONSE_SCHEMA),
+        }
+        if dict(request) != expected_request:
+            raise ResilienceBaselineError("measurement contract classifier request is not frozen")
+    if contract.get("runtime_crop_defaults") != RUNTIME_CROP_DEFAULTS:
+        raise ResilienceBaselineError("measurement contract runtime crop defaults are not frozen")
     if data["measurement_contract_sha256"] != sha256_json(contract):
         raise ResilienceBaselineError("measurement_contract_sha256 does not match its content")
-    for field in ("source_groups", "paired_samples", "coverage_gaps", "required_review_actions"):
+    for field in (
+        "source_groups",
+        "paired_samples",
+        "coverage_gaps",
+        "required_review_actions",
+    ):
         if not isinstance(data[field], list):
             raise ResilienceBaselineError(f"{field} must be a list")
     partitions = _mapping(data["partitions"], "partitions")
+    if set(partitions) != {
+        "recording_ids",
+        "development_source_lineage_groups",
+        "validation_source_lineage_groups",
+        "system_holdout_excluded_groups",
+    }:
+        raise ResilienceBaselineError("partitions has invalid fields")
+    recording_ids = _mapping(partitions["recording_ids"], "partitions.recording_ids")
+    if set(recording_ids) != {"development", "validation"}:
+        raise ResilienceBaselineError("partitions.recording_ids has invalid fields")
+    for partition in ("development", "validation"):
+        if not isinstance(recording_ids[partition], list):
+            raise ResilienceBaselineError(f"partitions.recording_ids.{partition} must be a list")
     for field in (
         "development_source_lineage_groups",
         "validation_source_lineage_groups",
@@ -857,6 +1220,120 @@ def validate_resilience_baseline_manifest(raw: Mapping[str, Any]) -> None:
     ):
         if not isinstance(partitions.get(field), list):
             raise ResilienceBaselineError(f"partitions.{field} must be a list")
+    if set(recording_ids["development"]).intersection(recording_ids["validation"]):
+        raise ResilienceBaselineError("partitions assign one recording to both partitions")
+    if set(partitions["development_source_lineage_groups"]).intersection(
+        partitions["validation_source_lineage_groups"]
+    ):
+        raise ResilienceBaselineError("partitions share a source-lineage group")
+    experiment = _mapping(data["experiment_plan"], "experiment_plan")
+    if set(experiment) != {
+        "schema_version",
+        "available_paired_sample_count",
+        "selected_paired_sample_count",
+        "requests_per_sample",
+        "planned_classifier_request_count",
+        "estimated_cost_usd",
+        "estimated_wall_clock_seconds",
+        "matrix_sha256",
+        "matrix",
+    }:
+        raise ResilienceBaselineError("experiment_plan has invalid fields")
+    if experiment["schema_version"] != "visible-region-identity-resilience-matrix/v1":
+        raise ResilienceBaselineError("experiment_plan has an unsupported schema")
+    for field in (
+        "available_paired_sample_count",
+        "selected_paired_sample_count",
+        "requests_per_sample",
+        "planned_classifier_request_count",
+    ):
+        if isinstance(experiment[field], bool) or not isinstance(experiment[field], int):
+            raise ResilienceBaselineError(f"experiment_plan.{field} must be an integer")
+        if experiment[field] < 0:
+            raise ResilienceBaselineError(f"experiment_plan.{field} must not be negative")
+    matrix = experiment["matrix"]
+    if not isinstance(matrix, list):
+        raise ResilienceBaselineError("experiment_plan.matrix must be a list")
+    if experiment["planned_classifier_request_count"] != len(matrix):
+        raise ResilienceBaselineError("experiment_plan request count does not match its matrix")
+    if experiment["matrix_sha256"] != sha256_json(matrix):
+        raise ResilienceBaselineError("experiment_plan.matrix_sha256 does not match its matrix")
+    if experiment["selected_paired_sample_count"] != len(data["paired_samples"]):
+        raise ResilienceBaselineError(
+            "experiment_plan selected sample count does not match paired_samples"
+        )
+    expected_requests_per_sample = len(CONDITION_IDS) * (
+        1 + sum(len(item["severities"]) for item in contract["corruptions"])
+    )
+    if experiment["requests_per_sample"] != expected_requests_per_sample:
+        raise ResilienceBaselineError("experiment_plan requests per sample are not frozen")
+    if experiment["planned_classifier_request_count"] != (
+        experiment["selected_paired_sample_count"] * expected_requests_per_sample
+    ):
+        raise ResilienceBaselineError("experiment_plan matrix is incomplete")
+    if matrix != _work_matrix(data["paired_samples"], contract):
+        raise ResilienceBaselineError("experiment_plan matrix does not match frozen inputs")
+    if experiment["estimated_cost_usd"] != _estimated_cost_usd(len(matrix), contract):
+        raise ResilienceBaselineError("experiment_plan cost estimate does not match its matrix")
+    budget = _mapping(contract["budget"], "measurement_contract.budget")
+    if experiment["planned_classifier_request_count"] > budget["max_classifier_requests"]:
+        raise ResilienceBaselineError("experiment_plan exceeds the classifier request budget")
+    if experiment["estimated_cost_usd"] > budget["max_estimated_cost_usd"]:
+        raise ResilienceBaselineError("experiment_plan exceeds the estimated cost budget")
+    coverage = _mapping(data["coverage_report"], "coverage_report")
+    if set(coverage) != {
+        "available_sample_ids",
+        "selected_sample_ids",
+        "available_by_partition",
+        "selected_by_partition",
+        "required_validation_samples",
+        "validation_classification_allowed",
+        "gaps",
+    }:
+        raise ResilienceBaselineError("coverage_report has invalid fields")
+    for field in ("available_sample_ids", "selected_sample_ids", "gaps"):
+        if not isinstance(coverage[field], list):
+            raise ResilienceBaselineError(f"coverage_report.{field} must be a list")
+    if not isinstance(coverage["validation_classification_allowed"], bool):
+        raise ResilienceBaselineError(
+            "coverage_report.validation_classification_allowed must be boolean"
+        )
+    if coverage["validation_classification_allowed"] != data["validation_classification_allowed"]:
+        raise ResilienceBaselineError(
+            "coverage_report validation status does not match the manifest"
+        )
+    sample_ids: list[str] = []
+    for index, sample in enumerate(data["paired_samples"]):
+        sample_data = _mapping(sample, f"paired_samples[{index}]")
+        sample_id = sample_data.get("sample_id")
+        if not isinstance(sample_id, str) or not sample_id:
+            raise ResilienceBaselineError(f"paired_samples[{index}] has no sample_id")
+        sample_ids.append(sample_id)
+    if coverage["selected_sample_ids"] != sorted(sample_ids):
+        raise ResilienceBaselineError("coverage_report selected samples do not match the manifest")
+    if coverage["required_validation_samples"] != MINIMUM_VALIDATION_SAMPLES:
+        raise ResilienceBaselineError("coverage_report validation minimum is not frozen")
+    for field in ("available_by_partition", "selected_by_partition"):
+        counts = _mapping(coverage[field], f"coverage_report.{field}")
+        if set(counts) != {"development", "validation"} or any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in counts.values()
+        ):
+            raise ResilienceBaselineError(f"coverage_report.{field} is invalid")
+    selected_counts = {
+        partition: sum(
+            sample.get("partition") == partition for sample in data["paired_samples"]
+        )
+        for partition in ("development", "validation")
+    }
+    if dict(coverage["selected_by_partition"]) != selected_counts:
+        raise ResilienceBaselineError("coverage_report selected partition counts are stale")
+    if any(
+        coverage["selected_by_partition"][partition]
+        > coverage["available_by_partition"][partition]
+        for partition in ("development", "validation")
+    ):
+        raise ResilienceBaselineError("coverage_report selects more samples than available")
     for index, sample in enumerate(data["paired_samples"]):
         sample_data = _mapping(sample, f"paired_samples[{index}]")
         if sample_data.get("generated_geometry_is_prediction") is not True:
@@ -866,6 +1343,18 @@ def validate_resilience_baseline_manifest(raw: Mapping[str, Any]) -> None:
         if not isinstance(sample_data.get("generated_visible_card_revision_id"), str):
             raise ResilienceBaselineError(
                 f"paired_samples[{index}] has no generated visible-card lineage"
+            )
+        if sample_data.get("generated_item_present") is not True:
+            raise ResilienceBaselineError(
+                f"paired_samples[{index}] has no generated visible-card item"
+            )
+        if sample_data.get("partition") not in {"development", "validation"}:
+            raise ResilienceBaselineError(
+                f"paired_samples[{index}] has no frozen partition"
+            )
+        if sample_data.get("reviewed_target_identity") not in CARD_IDENTITIES:
+            raise ResilienceBaselineError(
+                f"paired_samples[{index}] has no canonical reviewed identity"
             )
 
 
@@ -884,6 +1373,7 @@ def render_resilience_baseline_human(manifest: Mapping[str, Any]) -> str:
 
     inventory = manifest["inventory"]
     partitions = manifest["partitions"]
+    experiment = manifest["experiment_plan"]
     status = (
         "ready for validation classification"
         if manifest["validation_classification_allowed"]
@@ -899,6 +1389,9 @@ def render_resilience_baseline_human(manifest: Mapping[str, Any]) -> str:
         f"{', '.join(partitions['development_source_lineage_groups']) or 'none'}",
         f"validation groups: {', '.join(partitions['validation_source_lineage_groups']) or 'none'}",
         f"validation samples: {inventory['validation_sample_count']}",
+        "planned classifier requests: "
+        f"{experiment['planned_classifier_request_count']} "
+        f"(estimated ${experiment['estimated_cost_usd']:.4f})",
         "validation classification: "
         f"{'allowed' if manifest['validation_classification_allowed'] else 'not allowed'}",
     ]
@@ -910,6 +1403,9 @@ def render_resilience_baseline_human(manifest: Mapping[str, Any]) -> str:
 
 __all__ = [
     "CONDITION_IDS",
+    "DEFAULT_CLASSIFIER_MODEL",
+    "DEFAULT_CLASSIFIER_PROVIDER",
+    "DEFAULT_PARTITION_RECORDING_IDS",
     "MEASUREMENT_CONTRACT_SCHEMA_VERSION",
     "METRICS",
     "MINIMUM_VALIDATION_SAMPLES",
