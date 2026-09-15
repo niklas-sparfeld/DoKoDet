@@ -9,8 +9,8 @@
 - **Readiness:** Nine completed maintained visible-card references provide 425 reviewed source
   frames, 916 visible-card targets, and 137 visible-card ignore regions. M0 provides a
   deterministic read-only audit and immutable manifest contract. M1 provides the verified
-  304-image COCO view. M2 now proves the pinned local training and mask-provider path. The M3
-  full-training command is ready; the user-run candidate and locked validation remain pending.
+  304-image COCO view. M2 now proves the pinned local training and mask-provider path. M3 now
+  provides the retained MPS candidate and locked CPU validation report. M4 is next.
 - **Outcome:** Produce one reproducible RF-DETR segmentation checkpoint and a locked validation
   report from source-group-separated human-reviewed data. Record whether fine-tuning learned useful
   visible-region localization. Do not promote or select a runtime default.
@@ -27,9 +27,9 @@
 - **M2:** Complete (2026-09-14) — add the distinct RF-DETR SegMedium adapter and segmentation
   bundle/provider path. The one-epoch six-image MPS smoke run passes with one validation batch,
   finite loss and metrics, checkpoint reload, and a valid mask-derived polygon and tight box.
-- **M3:** In progress — the full-training command validates M0/M1 inputs, stages all 304 samples,
-  and runs the locked 40-epoch candidate recipe. User-run training, baseline, and locked
-  validation remain pending.
+- **M3:** Complete (2026-09-15) — the full 219-image train and 85-image validation view produced
+  one MPS candidate within budget. The locked CPU baseline and candidate validation report passes
+  the frozen PoC gate with retained item-level predictions and aggregate/per-recording metrics.
 - **M4:** Not started — publish the PoC decision and preserve the handoff to 0050.
 
 ## 1. Why this corpus is enough for a PoC
@@ -187,17 +187,27 @@ Acceptance:
 - Fixture, failure-record, bundle-integrity, provider-mask, full table-analyzer test, and Ruff
   checks pass. The smoke run is retained under the ignored `.runtime` root.
 
-### M3 implementation status — 2026-09-14
+### M3 implementation evidence — 2026-09-15
 
-- Added `table-analyzer train-rfdetr-segmentation-campaign`. It validates the immutable M0
-  manifest and checkpoint digest against the verified M1 materialization before it stages all 219
-  train images and 85 validation images.
-- The command uses the frozen one-candidate `RFDETRSegMedium` recipe: 432 input size, batch size
-  1, accumulation 4, seed 6701, up to 40 epochs, MPS by default, no mixed precision, frozen
-  augmentation defaults, and early stopping with patience 8 and minimum delta 0.001.
-- Fixture coverage verifies the complete staged dataset, exact model and training arguments,
-  checkpoint bundle, and completed-run reuse. The real candidate training and locked validation
-  have not been run yet.
+- `table-analyzer train-rfdetr-segmentation-campaign` validated the immutable M0 manifest and
+  checkpoint digest against the verified M1 materialization. It staged all 219 train images and
+  85 validation images, then trained the one frozen `RFDETRSegMedium` candidate on MPS for
+  6,721.232 seconds, within the 7,200-second budget.
+- The retained candidate bundle is
+  `.runtime/rfdetr-segmentation-0067-m3-training/bundle` with checkpoint digest
+  `1a47791cb381725e5af4673f94e821b02e282bc11f9f16cc66347b59f5bb021c`.
+- Added `table-analyzer evaluate-rfdetr-segmentation-campaign`. It validates the M0, M1,
+  pretrained-checkpoint, and candidate-bundle digests, then retains exact baseline and candidate
+  predictions for every validation frame. It calculates the frozen metrics from those predictions
+  overall and by recording. A completed report is reused only when both prediction digests match.
+- The MPS device was unavailable for the locked inference process. The report records CPU
+  validation as an explicit runtime fact. It does not change the MPS-trained candidate or frozen
+  recipe.
+- The locked report is
+  `.runtime/rfdetr-segmentation-0067-m3-validation-cpu/report.json`. The unchanged pretrained
+  baseline had zero mask AP and zero recall. The candidate achieved mask AP 0.860661, mask AP50
+  0.989772, box AP 0.875382, and recall 0.995305 over 213 targets. Each validation recording had
+  nonzero recall. The frozen gate passes.
 
 ### M2 — Prove the segmentation training path
 

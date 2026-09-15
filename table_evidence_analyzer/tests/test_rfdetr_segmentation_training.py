@@ -10,6 +10,7 @@ import pytest
 from PIL import Image
 
 import table_evidence_analyzer.visible_cards as visible_cards
+from table_evidence_analyzer.rfdetr_segmentation_evaluation import calculate_metrics
 from table_evidence_analyzer.rfdetr_segmentation_training import (
     RFDETR_SEGMENTATION_BUNDLE_SCHEMA,
     RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA,
@@ -440,3 +441,41 @@ def test_segmentation_provider_uses_mask_and_distinct_bundle(
         "y_max": 625,
     }
     assert result.raw_response["detections"][0]["geometry_source"] == "segmentation_mask"
+
+
+def test_locked_metrics_count_mask_matches_false_duplicates_and_empty_frames() -> None:
+    target = {
+        "annotation_id": 1,
+        "card_id": "card-1",
+        "polygons": [[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]],
+        "box_xywh": [0.0, 0.0, 10.0, 10.0],
+        "width": 40,
+        "height": 40,
+    }
+    prediction = {
+        "score": 0.9,
+        "polygons": target["polygons"],
+        "box_xywh": target["box_xywh"],
+        "width": 40,
+        "height": 40,
+    }
+    metrics = calculate_metrics(
+        [
+            {
+                "image_id": 1,
+                "targets": [target],
+                "predictions": [prediction, {**prediction, "score": 0.8}],
+            },
+            {
+                "image_id": 2,
+                "targets": [{**target, "annotation_id": 2, "card_id": "card-2"}],
+                "predictions": [],
+            },
+        ]
+    )
+
+    assert metrics["recall"] == 0.5
+    assert metrics["false_predictions"] == 1
+    assert metrics["duplicate_predictions"] == 1
+    assert metrics["empty_prediction_rate"] == 0.5
+    assert metrics["mask_ap50"] == pytest.approx(0.50495)
