@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M4 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings with complete coverage. Its deterministic disposable trainer view is lineage-aware, and the CPU smoke path writes a loadable checkpoint plus validation report. M5 remains next. |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M5 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings. Campaign `cardeventnet-0063-m5-validation-20260915` retained a loadable candidate checkpoint and validation diagnostics, but recorded `human_review_required` because the app champion is not a PyTorch checkpoint and the candidate fails the declared gates. M6 awaits an operator decision and candidate lock. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M2 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, and a 4,920-request preflight. The coverage gate remains closed because `IMG_0661` has no completed visual identity reference. M3 has retained-row validation and metrics but no materializer or classifier executor. |
 
 ### Blocked
@@ -128,8 +128,8 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M5 for the new CardEventNet model.** Use the frozen dataset and
-   lineage-aware trainer view to define and run the bounded validation campaign.
+1. **Continue 0063 with M6 only after the M5 review is resolved.** Lock a suitable candidate
+   explicitly before the one-time sealed-test evaluation and export.
 2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.

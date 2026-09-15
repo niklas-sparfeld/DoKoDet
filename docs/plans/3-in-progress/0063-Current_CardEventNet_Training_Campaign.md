@@ -11,7 +11,7 @@
   split, model campaign runner, and canonical `card_state_changed` event contract exist. The
   imported CardEventNet annotations are accepted and published as completed full-recording
   references. The frozen dataset, disposable trainer view, and lineage-aware smoke path are
-  complete. M5 is ready to define the bounded validation campaign.
+  complete. M5 produced a bounded validation result and M6 waits for human review.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze one leakage-safe train/validation/test dataset, run a
   reproducible campaign, and retain a new `best.pt` and model bundle with complete lineage.
@@ -39,10 +39,18 @@
 - **M4:** Complete (2026-09-13) — materialize the frozen shared dataset into a deterministic
   disposable run view, route CardEventNet prepare/train/evaluate/diagnose and campaign execution
   through that view, retain complete run lineage, and prove the path with a CPU smoke run.
-- **M5:** Not started — prepare and run one bounded validation campaign, then lock one candidate or
-  record why no candidate is suitable.
+- **M5:** Complete (2026-09-15) — campaign
+  `cardeventnet-0063-m5-validation-20260915` used the frozen dataset and validation partition only.
+  Candidate `candidate-transition-label-v2` produced a loadable `best.pt`, comparison, and
+  diagnostics. Validation was recall 0.811, precision 0.846, F1 0.828, 149.316 false events per
+  hour, worst-recording F1 0.591, and 86.6 ms median timing delay. The current app champion is a
+  Core ML bundle, not a loadable PyTorch checkpoint, so the champion comparison was unavailable.
+  The candidate failed the declared recall, precision, F1, false-event, worst-recording, latency,
+  Core ML export, and device-parity gates. The campaign recorded `human_review_required` and did
+  not create a candidate lock or read the sealed test partition.
 - **M6:** Not started — evaluate the locked candidate once on test, export it, and retain the new
-  model and campaign handoff.
+  model and campaign handoff after an operator resolves the M5 review and locks a suitable
+  candidate.
 
 ## 1. Current evidence
 
