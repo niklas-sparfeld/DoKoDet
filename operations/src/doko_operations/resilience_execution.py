@@ -13,6 +13,8 @@ import os
 import tempfile
 import time
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
+from itertools import groupby
 from pathlib import Path
 from typing import Any
 
@@ -548,6 +550,17 @@ def _receipt_matches(item: Mapping[str, Any], receipt: Mapping[str, Any], crop_p
         return False
 
 
+def _resolve_crop(frame: ResolvedFrame, item: Mapping[str, Any]) -> Any:
+    geometry = parse_geometry(item["target_geometry"])
+    return resolve_visible_region_crop(
+        frame,
+        geometry,
+        crop_policy=str(item["crop_policy"]),
+        output_encoding="ppm",
+        exclusion_inputs=item["exclusion_inputs"],
+    )
+
+
 def materialize_resilience_work(
     manifest: Mapping[str, Any],
     *,
@@ -574,90 +587,108 @@ def materialize_resilience_work(
     unusable = 0
     failed = 0
     samples = {str(sample["sample_id"]): sample for sample in data["paired_samples"]}
-    for plan_item in plan["items"]:
-        item = dict(plan_item)
-        sample = samples[str(item["matrix_entry"]["sample_id"])]
-        crop_path = destination / item["crop_path"]
-        receipt_path = destination / "receipts" / f"{item['work_id']}.json"
-        if receipt_path.is_file() and crop_path.is_file():
-            try:
-                cached = _read_json(receipt_path, "crop receipt")
-            except ResilienceExecutionError:
-                cached = {}
-            if _receipt_matches(item, cached, crop_path):
-                receipts.append(cached)
-                reused += 1
+    with ThreadPoolExecutor(max_workers=min(8, os.cpu_count() or 1)) as workers:
+        for _sample_id, group in groupby(
+            plan["items"], key=lambda item: item["matrix_entry"]["sample_id"]
+        ):
+            group_items = [dict(item) for item in group]
+            ready_items: list[dict[str, Any]] = []
+            for item in group_items:
+                crop_path = destination / item["crop_path"]
+                receipt_path = destination / "receipts" / f"{item['work_id']}.json"
+                if receipt_path.is_file() and crop_path.is_file():
+                    try:
+                        cached = _read_json(receipt_path, "crop receipt")
+                    except ResilienceExecutionError:
+                        cached = {}
+                    if _receipt_matches(item, cached, crop_path):
+                        receipts.append(cached)
+                        reused += 1
+                        continue
+                if item["preflight_status"] != "ready":
+                    status = "failed"
+                    reason = str(item["preflight_error"] or "crop preflight failed")
+                    failed += 1
+                    receipt = _crop_receipt(
+                        item, status, None, _empty_crop_sha(item, status, reason), reason
+                    )
+                    _write_json_atomic(receipt_path, receipt)
+                    receipts.append(receipt)
+                    continue
+                ready_items.append(item)
+
+            if not ready_items:
                 continue
-        if item["preflight_status"] != "ready":
-            status = "failed"
-            reason = str(item["preflight_error"] or "crop preflight failed")
-            failed += 1
-            receipt = _crop_receipt(
-                item, status, None, _empty_crop_sha(item, status, reason), reason
-            )
-            _write_json_atomic(receipt_path, receipt)
-            receipts.append(receipt)
-            continue
-        try:
-            frame_key = str(sample["frame_identity_digest"])
-            if frame_key not in frame_cache:
-                source = _source_for_sample(sample)
-                video_path = repository / source.relative_path
-                frame = (
-                    resolver(video_path, source, sample["frame_identity"])
-                    if resolver is not None
-                    else _default_frame_resolver(
-                        video_path,
-                        source,
-                        sample["frame_identity"],
-                        cache_root=destination / "frame-cache",
-                        validate_source=source.recording_id not in validated_recordings,
+            sample = samples[str(ready_items[0]["matrix_entry"]["sample_id"])]
+            try:
+                frame_key = str(sample["frame_identity_digest"])
+                if frame_key not in frame_cache:
+                    source = _source_for_sample(sample)
+                    video_path = repository / source.relative_path
+                    frame = (
+                        resolver(video_path, source, sample["frame_identity"])
+                        if resolver is not None
+                        else _default_frame_resolver(
+                            video_path,
+                            source,
+                            sample["frame_identity"],
+                            cache_root=destination / "frame-cache",
+                            validate_source=source.recording_id not in validated_recordings,
+                        )
                     )
-                )
-                if resolver is None:
-                    validated_recordings.add(source.recording_id)
-                if frame.identity_mapping() != dict(sample["frame_identity"]):
-                    raise ResilienceExecutionError(
-                        f"resolved frame identity differs for {sample['sample_id']}"
+                    if resolver is None:
+                        validated_recordings.add(source.recording_id)
+                    if frame.identity_mapping() != dict(sample["frame_identity"]):
+                        raise ResilienceExecutionError(
+                            f"resolved frame identity differs for {sample['sample_id']}"
+                        )
+                    frame_cache[frame_key] = frame
+                frame = frame_cache[frame_key]
+            except (OSError, TypeError, ValueError, KeyError) as error:
+                for item in ready_items:
+                    status = "failed"
+                    reason = str(error)
+                    crop_path = destination / item["crop_path"]
+                    receipt_path = destination / "receipts" / f"{item['work_id']}.json"
+                    failed += 1
+                    receipt = _crop_receipt(
+                        item, status, None, _empty_crop_sha(item, status, reason), reason
                     )
-                frame_cache[frame_key] = frame
-            frame = frame_cache[frame_key]
-            geometry = parse_geometry(item["target_geometry"])
-            crop = resolve_visible_region_crop(
-                frame,
-                geometry,
-                crop_policy=str(item["crop_policy"]),
-                output_encoding="ppm",
-                exclusion_inputs=item["exclusion_inputs"],
-            )
-            crop_identity = crop.identity_mapping()
-            if crop.status == "usable" and crop.image_bytes is not None and crop.image_sha256:
-                _write_bytes_atomic(crop_path, crop.image_bytes)
-                status = "usable"
-                reason = None
-                crop_sha = crop.image_sha256
-                materialized += 1
-            else:
-                status = "unusable"
-                reason = crop.unusable_reason or "crop is unusable"
-                crop_sha = _empty_crop_sha(item, status, reason)
-                unusable += 1
-                crop_identity = crop.identity_mapping()
-            receipt = _crop_receipt(
-                item,
-                status,
-                crop_identity,
-                crop_sha,
-                reason,
-            )
-        except (OSError, TypeError, ValueError, KeyError) as error:
-            status = "failed"
-            reason = str(error)
-            crop_sha = _empty_crop_sha(item, status, reason)
-            failed += 1
-            receipt = _crop_receipt(item, status, None, crop_sha, reason)
-        _write_json_atomic(receipt_path, receipt)
-        receipts.append(receipt)
+                    _write_json_atomic(receipt_path, receipt)
+                    receipts.append(receipt)
+                continue
+
+            futures = [(item, workers.submit(_resolve_crop, frame, item)) for item in ready_items]
+            for item, future in futures:
+                crop_path = destination / item["crop_path"]
+                receipt_path = destination / "receipts" / f"{item['work_id']}.json"
+                try:
+                    crop = future.result()
+                    crop_identity = crop.identity_mapping()
+                    if (
+                        crop.status == "usable"
+                        and crop.image_bytes is not None
+                        and crop.image_sha256
+                    ):
+                        _write_bytes_atomic(crop_path, crop.image_bytes)
+                        status = "usable"
+                        reason = None
+                        crop_sha = crop.image_sha256
+                        materialized += 1
+                    else:
+                        status = "unusable"
+                        reason = crop.unusable_reason or "crop is unusable"
+                        crop_sha = _empty_crop_sha(item, status, reason)
+                        unusable += 1
+                except (OSError, TypeError, ValueError, KeyError) as error:
+                    status = "failed"
+                    reason = str(error)
+                    crop_sha = _empty_crop_sha(item, status, reason)
+                    failed += 1
+                    crop_identity = None
+                receipt = _crop_receipt(item, status, crop_identity, crop_sha, reason)
+                _write_json_atomic(receipt_path, receipt)
+                receipts.append(receipt)
     receipts.sort(key=lambda item: str(item["work_id"]))
     core = {
         "schema_version": RESILIENCE_MATERIALIZATION_SCHEMA_VERSION,
