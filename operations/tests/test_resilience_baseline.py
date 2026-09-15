@@ -11,6 +11,7 @@ from doko_operations.resilience_baseline import (
     CONDITION_IDS,
     MINIMUM_VALIDATION_SAMPLES,
     ResilienceBaselineError,
+    _paired_samples,
     build_resilience_baseline_manifest,
     canonical_json_bytes,
     default_measurement_contract,
@@ -406,3 +407,96 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
     assert len(manifest["experiment_plan"]["matrix"]) == 240
     validate_resilience_baseline_manifest(manifest)
     assert "at least two source-lineage groups" not in "\n".join(manifest["coverage_gaps"])
+
+
+def test_m0_excludes_face_down_identity_items_from_the_sample_matrix() -> None:
+    source_video_sha256 = "a" * 64
+    frame = {
+        "source_video_sha256": source_video_sha256,
+        "requested_time_us": 1_000,
+        "frame_index": 3,
+        "presentation_timestamp_us": 1_000,
+    }
+    geometry = {"kind": "visible-region/v1", "polygons": []}
+    visible_item = {
+        "event_id": "event-01",
+        "frame_identity": frame,
+        "status": "detected",
+        "candidates": [{"card_id": "card-01", "geometry": geometry}],
+    }
+    identity_item = {
+        "card_id": "card-01",
+        "frame_identity": frame,
+        "status": "face_down",
+        "candidates": [],
+    }
+    revisions = {
+        "generated-visible": {
+            "manifest": {
+                "origin": "processor",
+                "content_type": "visible_cards",
+                "producer": {"kind": "processor"},
+            },
+            "content": {"outcomes": [visible_item]},
+        },
+        "reviewed-visible": {
+            "manifest": {
+                "origin": "corrected",
+                "content_type": "visible_cards",
+                "recording_id": "recording-01",
+                "producer": {"kind": "human", "base_revision_id": "generated-visible"},
+            },
+            "content": {"outcomes": [visible_item]},
+        },
+        "reviewed-identity": {
+            "manifest": {
+                "origin": "corrected",
+                "content_type": "visual_identities",
+                "recording_id": "recording-01",
+                "producer": {"kind": "human", "base_revision_id": "generated-identity"},
+            },
+            "content": {"outcomes": [identity_item]},
+        },
+    }
+    visible_reference = {
+        "selected_revision_id": "reviewed-visible",
+        "content_type": "visible_cards",
+        "draft": {
+            "items": [
+                {
+                    "item_id": "event-01",
+                    "base_item_id": "event-01",
+                    "review_state": "corrected",
+                }
+            ]
+        },
+    }
+    identity_reference = {
+        "selected_revision_id": "reviewed-identity",
+        "content_type": "visual_identities",
+        "draft": {
+            "items": [
+                {
+                    "item_id": "card-01",
+                    "review_state": "accepted",
+                }
+            ]
+        },
+    }
+
+    samples, gaps = _paired_samples(
+        {
+            "recording_id": "recording-01",
+            "source_lineage_group": "session-01",
+            "source_asset_id": "source-01",
+            "source_video_sha256": source_video_sha256,
+        },
+        visible_reference,
+        identity_reference,
+        revisions,
+    )
+
+    assert samples == []
+    assert gaps == [
+        "excluded from identity sample matrix (face-down card): card-01",
+    ]

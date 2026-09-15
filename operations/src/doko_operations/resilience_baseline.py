@@ -357,6 +357,20 @@ def _recording_inventory(
         try:
             manifest = _read_json(manifest_path, "recording bundle manifest")
             _digest(bundle.source_sha256, f"{bundle.path}.source_sha256")
+            files = _mapping(manifest.get("files"), f"{bundle.path}.files")
+            video = _mapping(files.get("video"), f"{bundle.path}.files.video")
+            relative_video_path = video.get("relative_path")
+            video_byte_length = video.get("byte_length")
+            if not isinstance(relative_video_path, str) or not relative_video_path:
+                raise ResilienceBaselineError(
+                    f"{bundle.path}.files.video.relative_path is invalid"
+                )
+            if (
+                isinstance(video_byte_length, bool)
+                or not isinstance(video_byte_length, int)
+                or video_byte_length <= 0
+            ):
+                raise ResilienceBaselineError(f"{bundle.path}.files.video.byte_length is invalid")
         except ResilienceBaselineError as error:
             gaps.append(str(error))
             continue
@@ -370,6 +384,10 @@ def _recording_inventory(
                 "source_lineage_group": bundle.session_id,
                 "source_asset_id": bundle.source_asset_id,
                 "source_video_sha256": bundle.source_sha256,
+                "source_video_path": _relative(
+                    repository_root / bundle.path / relative_video_path, repository_root
+                ),
+                "source_video_byte_length": video_byte_length,
                 "manifest_path": _relative(manifest_path, repository_root),
                 "manifest_sha256": _file_json_digest(manifest_path, "recording bundle manifest"),
             }
@@ -706,6 +724,20 @@ def _paired_samples(
                 identity_draft.get("review_state") not in {"accepted", "corrected"}
                 or identity_item.get("status") != "classified"
             ):
+                if identity_item.get("status") == "face_down" and not identity_item.get(
+                    "candidates"
+                ):
+                    gaps.append(
+                        "excluded from identity sample matrix (face-down card): "
+                        f"{candidate['card_id']}"
+                    )
+                    continue
+                if identity_draft.get("review_state") == "source_problem":
+                    gaps.append(
+                        "excluded from identity sample matrix (source problem): "
+                        f"{candidate['card_id']}"
+                    )
+                    continue
                 gaps.append(
                     f"visual identity is not completed as classified: {candidate['card_id']}"
                 )
@@ -716,6 +748,23 @@ def _paired_samples(
             ):
                 gaps.append(
                     f"visual identity has no reviewed target candidate: {candidate['card_id']}"
+                )
+                continue
+            generated_candidate = next(
+                (
+                    generated_candidate
+                    for generated_candidate in generated_item.get("candidates", [])
+                    if isinstance(generated_candidate, Mapping)
+                    and generated_candidate.get("card_id") == candidate["card_id"]
+                ),
+                None,
+            )
+            if generated_candidate is None or not isinstance(
+                generated_candidate.get("geometry"), Mapping
+            ):
+                gaps.append(
+                    "generated visible card has no target geometry: "
+                    f"{candidate['card_id']}"
                 )
                 continue
             target_identity = identity_item["candidates"][0].get("identity")
@@ -752,6 +801,31 @@ def _paired_samples(
                     "generated_visible_card_item_id": generated_item_id,
                     "generated_geometry_is_prediction": True,
                     "generated_item_present": True,
+                    "source_video_path": recording["source_video_path"],
+                    "source_video_byte_length": recording["source_video_byte_length"],
+                    "frame_identity": dict(item["frame_identity"]),
+                    "reviewed_visible_geometry": dict(candidate["geometry"]),
+                    "generated_visible_geometry": dict(generated_candidate["geometry"]),
+                    "reviewed_neighbor_geometries": [
+                        {
+                            "proposal_id": neighbor.get("card_id"),
+                            "geometry": dict(neighbor["geometry"]),
+                        }
+                        for neighbor in candidates
+                        if isinstance(neighbor, Mapping)
+                        and neighbor.get("card_id") != candidate["card_id"]
+                        and isinstance(neighbor.get("geometry"), Mapping)
+                    ],
+                    "generated_neighbor_geometries": [
+                        {
+                            "proposal_id": neighbor.get("card_id"),
+                            "geometry": dict(neighbor["geometry"]),
+                        }
+                        for neighbor in generated_item.get("candidates", [])
+                        if isinstance(neighbor, Mapping)
+                        and neighbor.get("card_id") != candidate["card_id"]
+                        and isinstance(neighbor.get("geometry"), Mapping)
+                    ],
                     "frame_identity_digest": sha256_json(item["frame_identity"]),
                     "reviewed_visible_geometry_digest": sha256_json(candidate["geometry"]),
                     "reviewed_identity_geometry_digest": sha256_json(identity_item.get("geometry")),
@@ -932,7 +1006,11 @@ def build_resilience_baseline_manifest(
         samples.extend(paired)
         gaps.extend(pair_gaps)
         if recording_id in partition_recording_set:
-            selected_partition_pair_gaps.extend(pair_gaps)
+            selected_partition_pair_gaps.extend(
+                gap
+                for gap in pair_gaps
+                if not gap.startswith("excluded from identity sample matrix")
+            )
     referenced_recording_ids = {reference["recording_id"] for reference in references}
     for recording_id in sorted(referenced_recording_ids - set(by_recording)):
         gaps.append(f"maintained references point to an unknown recording bundle: {recording_id}")
@@ -1009,10 +1087,11 @@ def build_resilience_baseline_manifest(
     )
     max_requests = budget["max_classifier_requests"]
     max_samples = max_requests // requests_per_sample
+    validation_quota = min(len(validation_samples), MINIMUM_VALIDATION_SAMPLES, max_samples)
     selected_validation = sorted(validation_samples, key=lambda item: item["sample_id"])[
-        : min(len(validation_samples), max_samples)
+        :validation_quota
     ]
-    remaining_capacity = max(0, max_samples - len(selected_validation))
+    remaining_capacity = max(0, max_samples - validation_quota)
     selected_development = sorted(development_samples, key=lambda item: item["sample_id"])[
         :remaining_capacity
     ]
@@ -1356,6 +1435,42 @@ def validate_resilience_baseline_manifest(raw: Mapping[str, Any]) -> None:
             raise ResilienceBaselineError(
                 f"paired_samples[{index}] has no canonical reviewed identity"
             )
+        for field in (
+            "source_video_path",
+            "frame_identity",
+            "reviewed_visible_geometry",
+            "generated_visible_geometry",
+            "reviewed_neighbor_geometries",
+            "generated_neighbor_geometries",
+        ):
+            if field not in sample_data:
+                raise ResilienceBaselineError(
+                    f"paired_samples[{index}] has no frozen {field}"
+                )
+        source_path = sample_data["source_video_path"]
+        if (
+            not isinstance(source_path, str)
+            or not source_path
+            or source_path.startswith("/")
+            or "\\" in source_path
+            or ".." in source_path.split("/")
+        ):
+            raise ResilienceBaselineError(
+                f"paired_samples[{index}].source_video_path is unsafe"
+            )
+        if (
+            isinstance(sample_data.get("source_video_byte_length"), bool)
+            or not isinstance(sample_data.get("source_video_byte_length"), int)
+            or sample_data["source_video_byte_length"] <= 0
+        ):
+            raise ResilienceBaselineError(
+                f"paired_samples[{index}].source_video_byte_length is invalid"
+            )
+        if not isinstance(sample_data["frame_identity"], Mapping):
+            raise ResilienceBaselineError(f"paired_samples[{index}].frame_identity is invalid")
+        for field in ("reviewed_neighbor_geometries", "generated_neighbor_geometries"):
+            if not isinstance(sample_data[field], list):
+                raise ResilienceBaselineError(f"paired_samples[{index}].{field} is invalid")
 
 
 def write_resilience_baseline_manifest(path: str | Path, manifest: Mapping[str, Any]) -> Path:
