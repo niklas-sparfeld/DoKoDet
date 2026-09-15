@@ -452,14 +452,15 @@ class PipelineReferenceService:
                 )
             )
             source = self._source_for(recording_id, current.draft.source_revision_id)
+            handler = self._handler(content_type)
+            ordered_items = handler.order_items(current.draft.items)
             coverage = self._validate_coverage(
                 content_type,
                 payload.get("coverage"),
-                current.draft.items,
+                ordered_items,
                 source,
             )
-            active_items = [item for item in current.draft.items if item.review_state != "rejected"]
-            handler = self._handler(content_type)
+            active_items = [item for item in ordered_items if item.review_state != "rejected"]
             content = handler.human_content(active_items)
             content_bytes = handler.canonical_content_bytes(content)
             content_sha256 = sha256_bytes(content_bytes)
@@ -504,7 +505,7 @@ class PipelineReferenceService:
                     replace(item, item=handler.human_item(item.item))
                     if item.review_state != "rejected"
                     else item
-                    for item in current.draft.items
+                    for item in ordered_items
                 ),
                 coverage={**coverage, "impact": list(current.draft.impact)},
                 updated_at=timestamp,

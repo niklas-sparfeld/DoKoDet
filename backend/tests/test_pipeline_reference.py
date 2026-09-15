@@ -368,6 +368,64 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
     )
 
 
+def test_event_reference_completion_orders_added_events_by_time(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _source_revision(revision_store)
+
+    service.create_reference(
+        "recording-01",
+        "events",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    accepted = service.update_draft(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "accept", "item_id": "event-01"}],
+        },
+    )
+    added = service.update_draft(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": accepted.draft.revision,
+            "operations": [
+                {
+                    "operation": "add",
+                    "item": {
+                        "event_id": "manual-01",
+                        "event_type": "card_state_changed",
+                        "start_us": 0,
+                        "end_us": 0,
+                    },
+                }
+            ],
+        },
+    )
+
+    completed = service.complete_reference(
+        "recording-01",
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": added.draft.revision,
+            "coverage": {"kind": "full_recording"},
+        },
+    )
+
+    revision_id = completed.state.selected_completed_revision_id
+    assert revision_id is not None
+    published = revision_store.require(revision_id)
+    assert [event.event_id for event in published.content.events] == [
+        "manual-01",
+        "event-01",
+    ]
+    assert [item.item_id for item in completed.draft.items] == ["manual-01", "event-01"]
+
+
 def test_stale_reference_edit_returns_current_revision_without_losing_newer_draft(
     tmp_path: Path,
 ) -> None:
@@ -1087,9 +1145,7 @@ def test_visible_card_ignore_region_consumes_enclosed_candidates_on_create_not_r
                 ]
             ],
         },
-        "source_candidates": [
-            {"revision_id": source_revision_id, "card_id": "card-outside"}
-        ],
+        "source_candidates": [{"revision_id": source_revision_id, "card_id": "card-outside"}],
     }
     replaced = service.update_draft(
         "recording-01",

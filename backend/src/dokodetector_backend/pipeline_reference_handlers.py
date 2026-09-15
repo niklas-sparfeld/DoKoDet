@@ -224,6 +224,9 @@ class ReferenceContentHandler:
             self.content_key: [self.human_item(item.item) for item in items],
         }
 
+    def order_items(self, items: tuple[ReferenceDraftItem, ...]) -> tuple[ReferenceDraftItem, ...]:
+        return items
+
     def human_item(self, item: Mapping[str, Any]) -> dict[str, Any]:
         value = json.loads(json.dumps(item))
         return value
@@ -381,6 +384,18 @@ class EventReferenceHandler(ReferenceContentHandler):
         value = super().human_item(item)
         value.pop("model_scores", None)
         return value
+
+    def order_items(self, items: tuple[ReferenceDraftItem, ...]) -> tuple[ReferenceDraftItem, ...]:
+        return tuple(
+            sorted(
+                items,
+                key=lambda item: (
+                    item.item["start_us"],
+                    item.item["end_us"],
+                    item.item["event_id"],
+                ),
+            )
+        )
 
     def _canonical_content_bytes(self, content: Mapping[str, Any]) -> bytes:
         return canonical_event_data_bytes(EventData.from_mapping(content))
