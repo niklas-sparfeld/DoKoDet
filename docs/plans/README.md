@@ -52,7 +52,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M5 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings. Campaign `cardeventnet-0063-m5-validation-20260915` retained a loadable candidate checkpoint and validation diagnostics, but recorded `human_review_required` because the app champion is not a PyTorch checkpoint and the candidate fails the declared gates. M6 awaits an operator decision and candidate lock. |
-| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M2 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, and a 4,920-request preflight. The coverage gate remains closed because `IMG_0661` has no completed visual identity reference. M3 has retained-row validation and metrics but no materializer or classifier executor. |
+| [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
 
@@ -135,18 +135,14 @@ The shared target architecture is
    evidence. Do not create an `untidy_stack` model class.
 3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
-4. **Use the reconciled 0051 M0 manifest as the next review gate.** Keep its explicit
-   development/validation partition and 4,920-request preflight fixed. Apply the 0065 mask or
-   frame-exclusion policy to affected `IMG_0661` items before they enter the validation freeze.
-5. **Complete the selected 0051 review corpus.** Finish visual identity review for `IMG_0090` and
-   `IMG_0091` as one visually similar development comparison group. With 0065 complete, revise
-   affected visible-card frames and complete visual identity review for the different `IMG_0661`
-   validation recording. Do not let `IMG_0090` and `IMG_0091` alone satisfy the independent-group
-   gate. Keep sealed holdouts intact.
-6. **Finish and run 0051 M3 after the coverage gate passes.** Add the resumable crop materializer
-   and classifier executor, run development before validation, and measure the frozen simple
-   exclusion policies. Use the decision to specify one response in 0052 or close 0052 as not
-   required.
+4. **Use the reconciled 0051 M0 manifest as the fixed M3 input.** Keep its explicit
+   development/validation partition and 4,920-request preflight fixed. The completed 0065 policy
+   leaves four face-down and one source-problem item as explicit identity exclusions.
+5. **Run 0051 M3 through its resumable work directory.** Review the dry-run report, materialize
+   crops, and execute the pinned classifier with the explicit provider budget. Keep development and
+   validation outputs separate and sealed after execution.
+6. **Publish the 0051 M4 decision after M3 execution.** Use the retained paired comparison to
+   select one conclusion and specify one response in 0052, or close 0052 as not required.
 7. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
 8. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
@@ -265,9 +261,12 @@ context. Check dependencies again before changing a Blocked epic to Ready.
 - Complete 0051 M0 reconciliation against the shared repository validator and durable
   `data/operations` revision store. Freeze `cardeventnet-IMG_0090` and `cardeventnet-IMG_0091` as
   development and `cardeventnet-IMG_0661` as validation.
-- Keep the M0 coverage gate closed until `IMG_0661` has a completed visual identity maintained
-  reference. The generated M0 artifact records 200 available development pairs, zero validation
-  pairs, and a bounded 4,920-request preflight without classifying any crop.
+- The completed `IMG_0661` visual identity reference opens the M0 coverage gate. The generated M0
+  artifact records 200 available development pairs, 100 validation pairs, a bounded 4,920-request
+  preflight, and five explicit identity exclusions without classifying any crop.
+- Complete 0051 M3 implementation with a dry-run planner, resumable crop receipts, pinned
+  classifier-result receipts, and retained paired comparison output. Keep the live provider run as
+  an explicit operator action within the frozen budget.
 
 ## Closed-epic policy
 

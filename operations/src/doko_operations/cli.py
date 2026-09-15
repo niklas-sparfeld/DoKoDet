@@ -83,6 +83,11 @@ from .resilience_comparison import (
     run_resilience_comparison,
     write_resilience_comparison,
 )
+from .resilience_execution import (
+    build_resilience_work_plan,
+    execute_resilience_work,
+    materialize_resilience_work,
+)
 from .rfdetr_segmentation_campaign import (
     RfdetrSegmentationCampaignError,
     build_rfdetr_segmentation_manifest,
@@ -361,6 +366,39 @@ def build_parser() -> argparse.ArgumentParser:
     comparison.add_argument("--elapsed-wall-clock-seconds", type=float, default=0)
     comparison.add_argument("--format", choices=("human", "json"), default="human")
     comparison.add_argument("--json", action="store_true", help="Alias for --format json.")
+    resilience_materialize = data_commands.add_parser(
+        "resilience-materialize",
+        help="Plan or materialize the frozen visible-region resilience work matrix.",
+        description="Plan or materialize the frozen visible-region resilience work matrix.",
+    )
+    _add_path_options(resilience_materialize, suppress_defaults=True)
+    resilience_materialize.add_argument("--manifest", type=Path, required=True)
+    resilience_materialize.add_argument(
+        "--output",
+        type=Path,
+        default=Path(".runtime/visible-region-identity-resilience-m3"),
+        help="Resumable M3 work directory.",
+    )
+    resilience_materialize.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report the complete matrix and cache reuse without extracting frames.",
+    )
+    resilience_materialize.add_argument("--format", choices=("human", "json"), default="human")
+    resilience_materialize.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    resilience_execute = data_commands.add_parser(
+        "resilience-execute",
+        help="Execute the pinned classifier over retained M3 crops.",
+        description="Execute the pinned classifier over retained M3 crops.",
+    )
+    _add_path_options(resilience_execute, suppress_defaults=True)
+    resilience_execute.add_argument("--work", type=Path, required=True)
+    resilience_execute.add_argument("--format", choices=("human", "json"), default="human")
+    resilience_execute.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
     complete = data_commands.add_parser(
         "complete-video",
         help="Complete one pending video and publish a recording bundle.",
@@ -999,6 +1037,92 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"excluded frames: {result.excluded_frame_count}\n"
                 f"ineligible outcomes: {result.ineligible_outcome_count}\n"
                 f"manifest: {result.materialization_digest}\n"
+            )
+        return 0
+    if args.command == "data" and args.data_command == "resilience-materialize":
+        try:
+            config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
+            manifest_path = args.manifest.expanduser()
+            if not manifest_path.is_absolute():
+                manifest_path = config.repository_root / manifest_path
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            output_path = args.output.expanduser()
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            result = (
+                build_resilience_work_plan(manifest, output_root=output_path)
+                if args.dry_run
+                else materialize_resilience_work(
+                    manifest,
+                    repository_root=config.repository_root,
+                    output_root=output_path,
+                )
+            )
+        except (
+            ConfigurationError,
+            OSError,
+            UnicodeError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        elif args.dry_run:
+            sys.stdout.write(
+                "Visible-region identity resilience M3 work plan\n"
+                f"work items: {result['planned_classifier_request_count']}\n"
+                f"reusable crops: {result['cache_reusable_crop_count']}\n"
+                f"estimated cost: ${result['estimated_cost_usd']:.4f}\n"
+                "classifier execution: not started\n"
+            )
+        else:
+            counts = result["counts"]
+            sys.stdout.write(
+                "Visible-region identity resilience M3 crops materialized\n"
+                f"work items: {counts['planned_work_count']}\n"
+                f"new crops: {counts['materialized_crop_count']}\n"
+                f"reused crops: {counts['reused_crop_count']}\n"
+                f"unusable crops: {counts['unusable_crop_count']}\n"
+                f"failed crops: {counts['failed_crop_count']}\n"
+                f"work manifest: {output_path / 'work.json'}\n"
+            )
+        return 0
+    if args.command == "data" and args.data_command == "resilience-execute":
+        try:
+            config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
+            work_path = args.work.expanduser()
+            if not work_path.is_absolute():
+                work_path = config.repository_root / work_path
+            from table_evidence_analyzer.card_classification import (
+                CachedCardClassifier,
+                GeminiCardClassifier,
+            )
+
+            classifier = CachedCardClassifier(
+                GeminiCardClassifier.from_environment(), work_path.parent / "classifier-cache"
+            )
+            result = execute_resilience_work(work_path, classifier=classifier)
+        except (
+            ConfigurationError,
+            OSError,
+            UnicodeError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        else:
+            summary = result["summary"]
+            sys.stdout.write(
+                "Visible-region identity resilience M3 comparison complete\n"
+                f"rows: {summary['retained_row_count']}\n"
+                f"classifier requests: {summary['classifier_request_count']}\n"
+                f"cached results: {summary['classifier_cache_reused_count']}\n"
+                f"comparison: {result['comparison_path']}\n"
             )
         return 0
     if args.command == "data" and args.data_command == "resilience-comparison":

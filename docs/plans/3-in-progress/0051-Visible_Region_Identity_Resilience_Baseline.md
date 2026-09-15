@@ -7,7 +7,7 @@
   identity-model change.
 - **Status:** In Progress
 - **Depends on:** 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items
-- **Readiness:** M0–M2 are complete. The M0 manifest is reconciled with durable operations storage,
+- **Readiness:** M0–M3 are complete. The M0 manifest is reconciled with durable operations storage,
   shared bundle validation, the current classifier and crop defaults, and the current reference
   lifecycle. Complete 0065 before ambiguous `IMG_0661` stacks enter the freeze. Completed paired
   maintained visible-card and visual identity references from the frozen development and validation
@@ -25,9 +25,10 @@
 
 - **M0:** Complete — the manifest reads durable revisions, uses shared bundle validation, follows
   completed-reference producer lineage, freezes the current Gemini 3.8 request and runtime crop
-  contract, assigns explicit development and validation recordings, and records the full
-  sample-condition-corruption request and cost preflight. The coverage gate remains closed because
-  `IMG_0661` has no completed visual identity reference.
+  contract, assigns explicit development and validation recordings, records the full
+  sample-condition-corruption request and cost preflight, and freezes the exact frame and geometry
+  inputs needed by M3. The coverage gate is open after the completed `IMG_0661` visual identity
+  review; four face-down items and one source-problem item remain explicit exclusions.
 - **M1:** Complete — preserve every visible-card proposal across classified, unusable, and failed
   visual identity outcomes. Empty successful classifier output is normalized to unusable, and
   reconstruction treats empty identity evidence as neutral.
@@ -35,9 +36,10 @@
   conditions without changing stored geometry. Crop lineage records the frozen exclusion policy,
   every input, every decision, and the original target geometry. Corruption generation records
   family, severity, seed, source digest, output digest, and transform version.
-- **M3:** Blocked — retained-row validation, paired metrics, and immutable output exist. Crop
-  materialization and classifier execution do not. Do not classify until the paired
-  maintained-reference coverage gate passes.
+- **M3:** Complete — the dry-run planner, resumable crop materializer, classifier-result receipts,
+  pinned-classifier executor, paired metrics, and immutable item-level output are implemented.
+  Crop and classifier reuse require matching request and crop digests. The live Gemini execution is
+  an explicit operator action because it consumes the frozen provider budget.
 - **M4:** Not started — publish the decision and resolve the scope of 0052 and later detector work.
 
 ## Current evidence and partition intent — 2026-09-15
@@ -51,14 +53,14 @@ assigns their recording IDs explicitly to development and preserves their separa
 groups for reporting. `IMG_0661` is the different validation recording and is assigned explicitly
 to validation. The manifest does not infer validation from identifier order.
 
-The development partition currently provides 200 paired samples. `IMG_0661` has a completed
-visible-card reference but no completed visual identity reference, so it provides zero validation
-samples. The coverage gate therefore remains closed and no validation classification request is
-allowed. Ignore-only regions from completed 0065 work are not card samples.
+The development partition currently provides 200 paired samples. Completed `IMG_0661` review adds
+100 validation samples. Four face-down cards and one source-problem card are excluded from the
+identity matrix and remain explicit coverage gaps. Ignore-only regions from completed 0065 work are
+not card samples.
 
 The frozen matrix contains six crop conditions and 19 corruption variants for each selected sample.
-The request budget selects 41 development samples, for 4,920 planned classifier requests and an
-estimated cost of $4.7232. The full sample-linked coverage and preflight report is
+The request budget selects 17 development samples and 24 validation samples, for 4,920 planned
+classifier requests and an estimated cost of $4.7232. The full sample-linked coverage and preflight report is
 `data/operations/visible-region-identity-resilience-m0.json`.
 
 Untidy face-down stacks in `IMG_0661` do not support reliable card-instance geometry. Epic 0065
@@ -292,12 +294,11 @@ Acceptance:
 - Retain item-level crops, outcomes, and diagnostics for UI inspection through 0049.
 - Do not tune a condition after reading validation results.
 
-Implementation note: the local M3 comparison boundary validates retained rows, preserves
-`classified`, `unusable`, and `failed` outcomes, calculates deterministic paired metrics, and
-writes immutable item-level row artifacts. It does not yet materialize crops or call the classifier.
-It refuses to aggregate while `validation_classification_allowed` is false. The current M0
-manifest has no eligible validation paired maintained references, so classification remains
-stopped.
+Implementation note: the local M3 executor validates the frozen M0 manifest, reports the complete
+work matrix before extraction, resolves exact source frames, writes item-level PPM crops and
+resumable receipts, invokes the current classifier only for uncached usable crops, and calculates
+deterministic paired metrics. It refuses to execute while `validation_classification_allowed` is
+false. The implementation does not perform the live Gemini call automatically.
 
 Acceptance:
 
@@ -306,7 +307,8 @@ Acceptance:
   execution;
 - failures and unusable evidence stay in the denominator required by each metric;
 - actual Gemini regions and synthetic corruptions are reported separately; and
-- reviewed-region conditions are clearly marked as non-deployable upper bounds.
+- reviewed-region conditions are clearly marked as non-deployable upper bounds;
+- crop and classifier receipts survive restart and reject changed request or crop digests.
 
 ### M4 — Publish the bounded decision
 

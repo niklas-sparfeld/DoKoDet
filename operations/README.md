@@ -25,7 +25,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 The retained `doko` commands are grouped by owner:
 
 - `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `resilience-baseline`,
-  `rfdetr-segmentation`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
+  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
   `impact`, and `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
 - `doko reconstruct`: `round`.
@@ -123,7 +123,9 @@ doko data resilience-baseline --format json \
 
 The command exits with `1` when the paired-reference coverage gate is not met. It requires paired
 completed maintained visible-card and visual identity references from at least two source-lineage
-groups and the frozen validation sample minimum before validation classification is allowed.
+groups and the frozen validation sample minimum before validation classification is allowed. The
+current `IMG_0661` review satisfies this gate with 100 validation samples. Four face-down items and
+one source-problem item remain explicit coverage exclusions.
 The current frozen partition assigns `cardeventnet-IMG_0090` and `cardeventnet-IMG_0091` to
 development and `cardeventnet-IMG_0661` to validation. The manifest records the current Gemini 3.8
 classifier request, runtime crop defaults, sample-condition-corruption matrix, and request/cost
@@ -134,10 +136,32 @@ predicted-region, oracle, and generated or reviewed neighboring-region exclusion
 keeps source geometry immutable, records exclusion decisions, and generates seeded corruptions with
 source and output geometry digests. It does not classify crops or change the runtime default.
 
-M3 provides the guarded paired comparison boundary. It keeps `classified`, `unusable`, and
-`failed` outcomes in their required denominators, reports actual Gemini regions separately from
-synthetic corruptions, calculates paired recovery and harm, and writes item-level row artifacts for
-local inspection:
+M3 provides the guarded paired comparison executor. First plan the complete matrix without frame
+extraction, then materialize resumable crops from the M0 manifest:
+
+```bash
+doko data resilience-materialize \
+  --manifest data/operations/visible-region-identity-resilience-m0.json \
+  --output .runtime/visible-region-identity-resilience-m3 \
+  --dry-run
+doko data resilience-materialize \
+  --manifest data/operations/visible-region-identity-resilience-m0.json \
+  --output .runtime/visible-region-identity-resilience-m3
+```
+
+Execute the pinned Gemini classifier only as an explicit operator action. The command uses the
+frozen work receipts and the classifier cache:
+
+```bash
+doko data resilience-execute \
+  --work .runtime/visible-region-identity-resilience-m3/work.json
+```
+
+M3 keeps `classified`, `unusable`, and `failed` outcomes in their required denominators, reports
+actual Gemini regions separately from synthetic corruptions, calculates paired recovery and harm,
+and writes item-level crop, outcome, diagnostic, and comparison artifacts for local inspection.
+The executor does not tune a condition or change the configured identifier. The older rows-based
+comparison command remains available for validating independently retained rows:
 
 ```bash
 doko data resilience-comparison \
