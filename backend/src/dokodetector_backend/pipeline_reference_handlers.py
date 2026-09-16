@@ -651,7 +651,9 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             )
         if operation.operation == "set_frame_review":
             assert operation.item is not None
-            if operation.item.get("ignored_regions") != existing.item.get("ignored_regions"):
+            if operation.item.get("ignored_regions", []) != existing.item.get(
+                "ignored_regions", []
+            ):
                 raise PipelineReferenceInputError(
                     "set_frame_review cannot change ignore regions; use an ignore-region operation"
                 )
