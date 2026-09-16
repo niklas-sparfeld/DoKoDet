@@ -9,10 +9,12 @@
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
 - **Readiness:** The shared recording intake, maintained event references, group-safe development
   split, model campaign runner, canonical `card_state_changed` event contract, and interval-aware
-  sampling policy exist. M5 produced a bounded validation result. A new human interval pass is in
-  progress. Three references remain drafts, and six recordings have no nonzero interval. M6 must
-  resolve or explicitly accept these gaps before a second dataset freeze. Long training commands
-  are operator-run and are never started or monitored by an implementation agent.
+  sampling policy exist. M5 produced a bounded validation result. The new interval pass is complete
+  for the recordings that remain eligible. `IMG_2777` through `IMG_2781` are old-phone recordings
+  that the operator excluded from future datasets and retained only for optional legacy-device
+  diagnostics. M6 must publish this repository-wide exclusion before a second dataset freeze. Long
+  training commands are operator-run and are never started or monitored by an implementation
+  agent.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze a leakage-safe train/validation/test dataset, run a
   reproducible manual campaign, and retain a new `best.pt` and model bundle with complete lineage.
@@ -49,9 +51,8 @@
   The candidate failed the declared recall, precision, F1, false-event, worst-recording, latency,
   Core ML export, and device-parity gates. The campaign recorded `human_review_required` and did
   not create a candidate lock or read the sealed test partition.
-- **M6:** Not started — audit the interval pass, complete the three remaining drafts, and record an
-  explicit operator decision for each recording that legitimately has no card-state change
-  interval.
+- **M6:** Not started — audit the completed interval pass and publish a durable diagnostic-only
+  exclusion for `IMG_2777` through `IMG_2781`.
 - **M7:** Not started — freeze and materialize a second interval-aware dataset, then publish its
   sampling and clean-negative report.
 - **M8:** Not started — prepare the single-axis interval-aware validation campaign and hand its
@@ -63,28 +64,20 @@
 
 ## 1. Current evidence
 
-The tracked legacy corpus contains 43 source videos and 43 matching annotation files under
-`card_event_net/data`. The annotation files are useful human evidence, but the current dataset
-index states that they are a metadata baseline and not proof of complete full-recording review.
-Five kitchen recordings are unassigned pending review. Historical diagnostics also identify
-possible missed annotations. Do not equate “annotation file exists” with “human review is
-complete.”
+M0 found 43 legacy source videos and 43 matching annotation files. M1 migrated the accepted corpus,
+and M2 completed its original full-recording review. M3 froze 43 recordings as 28 train, 10
+validation, and five test recordings. Keep these historical artifacts immutable.
 
-The local shared store currently contains 12 recording directories. Eleven use legacy
-`cardeventnet-<video-id>` identities and one is a newer recording. The legacy import is incomplete:
-32 of the 43 legacy videos are not yet present in shared intake. Some imported older recordings
-also fail the shared bundle validator because their stored video descriptors do not use the current
-path contract. Treat these counts as M0 observations. Recalculate them from the selected repository
-root during implementation.
+The later interval pass now has completed maintained references for `IMG_0635`, `IMG_0652`,
+`IMG_0671`, and `IMG_0674`. Their current interval counts are 10, 10, six, and six. The operator
+does not require interval completion for `IMG_2777` through `IMG_2781`: these five recordings came
+from an old phone and are excluded from every future CardEventNet dataset. Their source assets and
+existing evidence remain available for optional legacy-device diagnostics.
 
-The previous full-frame development split has train and validation partitions but no test
-partition. `IMG_2781` was already exposed to the earlier ROI evaluation and is now development
-data. It is not a valid new final test. A new independent, reviewed source-lineage group is required
-if the current shared data has no eligible sealed test group.
-
-The model campaign runner exists, but its CardEventNet defaults still resolve split, cache, and
-annotations below `card_event_net/data`. A new campaign must not restore that directory as a second
-data authority.
+The M3 split placed `IMG_2781` in train and `IMG_2777` through `IMG_2780` in validation. A new split
+and dataset must remove all five. Based on the unchanged assignments, the expected eligible counts
+become 27 train, six validation, and five test recordings. M7 must recalculate the counts and stop
+if group safety or minimum validation coverage does not hold.
 
 ## 2. Decisions and boundaries
 
@@ -238,6 +231,20 @@ runs, and short smoke checks. They must not start, wait for, poll, or monitor fu
 validation inference, sealed-test inference, or export commands. Each execution milestone writes
 one exact copy-and-paste command and the expected output paths, then stops. The operator runs the
 command and starts the next phase after it exits.
+
+### 2.9 Old-phone recordings are diagnostic only
+
+Retain `IMG_2777`, `IMG_2778`, `IMG_2779`, `IMG_2780`, and `IMG_2781` as source and historical
+review evidence. Publish one repository-wide diagnostic-only exclusion that names their source
+asset IDs, digests, common reason, and operator decision. Future dataset builders for every task
+must honor it. Do not rewrite immutable source records, old splits, old frozen datasets, or old
+campaign results.
+
+Future freezes, training, validation selection, clean-negative pools, hard-negative mining, sealed
+tests, metric gates, and promotion decisions must exclude all five recordings. They can be
+evaluated only after a relevant campaign decision as a separately named
+`legacy_device_diagnostic`. Its result is informational. It cannot change a candidate, threshold,
+gate result, or promotion decision.
 
 ## 3. Operator workflow
 
@@ -410,26 +417,33 @@ Acceptance:
 - Add a deterministic `interval-readiness` report over the current maintained event references.
 - Report recording ID, partition, content type, reference state, selected revision, point count,
   interval count, reviewed duration, and revision digest.
-- Fail readiness while any selected recording has a draft reference. Do not publish a new revision
-  or complete a human draft automatically.
+- Fail readiness while any future-eligible recording has a draft reference. Do not publish a new
+  revision or complete a human draft automatically.
 - Require an explicit operator decision for each zero-interval recording: complete another interval
   review or attest that no card-state change interval is present. Bind each attestation to the
   selected revision digest so a later revision invalidates it.
-- Seed focused tests from the current gaps: `IMG_0635`, `IMG_0652`, `IMG_0671`, `IMG_2778`,
-  `IMG_2780`, and `IMG_2781` have zero intervals; `IMG_0674`, `IMG_2777`, and `IMG_2779` remain
-  drafts at the time of this plan.
+- Publish a repository-wide diagnostic-only exclusion receipt for `IMG_2777` through `IMG_2781`.
+  Record `legacy_device_diagnostic` as their only future role. Make shared dataset eligibility
+  checks reject the five source assets for train, validation, test, and promotion-gate datasets. A
+  draft or zero-interval reference in this excluded set is not an interval-readiness blocker.
+- Seed focused tests from the completed changes to `IMG_0635`, `IMG_0652`, `IMG_0671`, and
+  `IMG_0674`, plus the five-recording exclusion.
 
 Acceptance:
 
-- all 43 campaign recordings appear exactly once in the report;
+- all 43 historical campaign recordings appear exactly once as eligible or diagnostic-only;
 - the report cannot mistake a completed point-only reference for an interval review decision;
-- every draft and zero-interval decision has one exact operator action; and
+- every eligible draft and zero-interval decision has one exact operator action;
+- the diagnostic-only receipt is bound to all five source digests and blocks their future dataset
+  eligibility across tasks; and
 - M6 stops for the operator when human review is still required.
 
 ### M7 — Freeze the interval-aware dataset
 
 - Freeze a new immutable dataset from the completed maintained references. Preserve the M3 group
-  and partition assignments unless a validator finds a leakage violation.
+  and partition assignments for eligible recordings unless a validator finds a leakage violation.
+- Exclude `IMG_2777` through `IMG_2781` before split validation and record their exclusion receipt
+  in dataset lineage. Expect 27 train, six validation, and five test recordings before validation.
 - Seal the new test partition before any new model output is read. Do not modify the M3 dataset.
 - Materialize the disposable trainer view and verify the `stable-end-anchor-v1` policy.
 - Publish per-recording and per-partition counts for point targets, interval targets, positive
@@ -439,7 +453,7 @@ Acceptance:
 Acceptance:
 
 - every dataset entry resolves to the completed revision or zero-interval attestation accepted in
-  M6;
+  M6, and no diagnostic-only recording has an entry;
 - the materialized annotations retain all `start_us` and `end_us` values;
 - no interval-interior sample is an ordinary or confirmed hard negative;
 - train, validation, and sealed test remain group-safe; and
@@ -477,8 +491,8 @@ Acceptance:
 - From the locked recipe's training partition only, write a ranked, deduplicated hard-negative
   candidate manifest from unmatched high-score predictions in clean-negative regions.
 - Exclude interval interiors, positive windows, point-event exclusion buffers, validation, test,
-  and system holdout. Mark the manifest `training_input: false` until a later human review and
-  separate ablation.
+  system holdout, and the legacy-device diagnostic set. Mark the manifest `training_input: false`
+  until a later human review and separate ablation.
 
 Acceptance:
 
@@ -499,6 +513,9 @@ Acceptance:
   digests. Retain the checkpoint, decoder settings, model bundle, and prior champion rollback
   information under campaign-owned paths.
 - Promote only when the operator confirms and every hard gate passes.
+- After the campaign decision is immutable, optionally write one separate manual
+  `legacy_device_diagnostic` command for `IMG_2777` through `IMG_2781`. Do not run it by default and
+  do not merge its result into the campaign comparison or gate report.
 
 Acceptance:
 
@@ -506,6 +523,7 @@ Acceptance:
 - each long-running action has an explicit operator handoff and no agent polling;
 - the checkpoint and bundle load locally and trace to source and annotation digests;
 - promotion is atomic, explicit, and recoverable; and
+- an optional old-phone diagnostic is visibly non-gating and runs only after the decision; and
 - the final report names the retained model, campaign outcome, remaining gaps, and the next manual
   command when one remains.
 
