@@ -924,9 +924,21 @@ h2 {
 }
 
 .status[data-state="ambiguous"],
-.status[data-state="incomplete"] {
+.status[data-state="incomplete"],
+.status[data-state="partial"],
+.status[data-state="affected"],
+.status[data-state="incomplete-coverage"],
+.status[data-state="active-run"],
+.status[data-state="generated-only"],
+.status[data-state="draft"] {
   --status-surface: var(--warning-surface);
   --status-ink: var(--warning);
+}
+
+.status[data-state="video-only"],
+.status[data-state="empty"] {
+  --status-surface: var(--surface-raised);
+  --status-ink: var(--muted-ink);
 }
 
 .rowControls {
