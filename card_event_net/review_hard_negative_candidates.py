@@ -43,17 +43,32 @@ def candidate_id(video: str, time_s: float) -> str:
 def load_candidates(path: Path) -> tuple[list[dict[str, Any]], str]:
     source = path.read_bytes()
     payload = json.loads(source)
-    if payload.get("format") != "cardevent-hard-negatives-v1":
-        raise ValueError("--manifest must be a cardevent-hard-negatives-v1 file")
+    manifest_format = payload.get("format")
+    accepted_formats = {"cardevent-hard-negatives-v1", "cardevent-hard-negative-candidates-v1"}
+    if manifest_format not in accepted_formats:
+        raise ValueError(
+            "--manifest must be a cardevent-hard-negatives-v1 or "
+            "cardevent-hard-negative-candidates-v1 file"
+        )
     if payload.get("partition") != "train":
         raise ValueError("--manifest must contain train-partition candidates")
+    if (
+        manifest_format == "cardevent-hard-negative-candidates-v1"
+        and payload.get("training_input") is not False
+    ):
+        raise ValueError("M9 candidate manifests must set training_input: false")
 
     candidates: list[dict[str, Any]] = []
     for video_entry in payload.get("videos", []):
         video = video_entry.get("video")
         if not isinstance(video, str):
             raise ValueError("manifest has a candidate without a video name")
-        for sample in video_entry.get("hard_negatives", []):
+        samples_key = (
+            "candidates"
+            if manifest_format == "cardevent-hard-negative-candidates-v1"
+            else "hard_negatives"
+        )
+        for sample in video_entry.get(samples_key, []):
             time_s = sample.get("time_s")
             probability = sample.get("probability")
             if not isinstance(time_s, (int, float)) or not isinstance(probability, (int, float)):
