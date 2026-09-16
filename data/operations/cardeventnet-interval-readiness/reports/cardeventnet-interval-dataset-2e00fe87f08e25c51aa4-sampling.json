@@ -1,0 +1,2901 @@
+{
+  "comparison": {
+    "baseline_dataset": {
+      "dataset_version_digest": "bfbeeec4c72905f6b545eaa782b427daee6a2756373fc823bd33936fef6d28a0",
+      "dataset_version_id": "cardeventnet-dataset-babc3dca31acd0c3631c",
+      "path": "data/operations/cardevent-datasets/cardeventnet-dataset-babc3dca31acd0c3631c",
+      "split_version_digest": "410c888ffe6bf080bcef13f5107e41c7950387f4e95c5650fb046ac8153b7279",
+      "split_version_id": "cardeventnet-split-b5c0a89b89b515b87fed"
+    },
+    "baseline_materialization": {
+      "file_sha256": "5707e1b6c26c6f3ba2527817027014029701bf1f8c0aa303e94bdecd172c1bbf",
+      "manifest_digest": "46d6cc38f55c0d27de5826e5fa138257885f4b5ff7c7cae601a81f35a37d0eae",
+      "path": ".runtime/cardevent/datasets/cardeventnet-dataset-babc3dca31acd0c3631c"
+    },
+    "changed_recordings": [
+      "cardeventnet-IMG_0090",
+      "cardeventnet-IMG_0091",
+      "cardeventnet-IMG_0092",
+      "cardeventnet-IMG_0095",
+      "cardeventnet-IMG_0096",
+      "cardeventnet-IMG_0097",
+      "cardeventnet-IMG_0635",
+      "cardeventnet-IMG_0636",
+      "cardeventnet-IMG_0637",
+      "cardeventnet-IMG_0638",
+      "cardeventnet-IMG_0639",
+      "cardeventnet-IMG_0640",
+      "cardeventnet-IMG_0641",
+      "cardeventnet-IMG_0642",
+      "cardeventnet-IMG_0643",
+      "cardeventnet-IMG_0644",
+      "cardeventnet-IMG_0645",
+      "cardeventnet-IMG_0646",
+      "cardeventnet-IMG_0648",
+      "cardeventnet-IMG_0649",
+      "cardeventnet-IMG_0650",
+      "cardeventnet-IMG_0651",
+      "cardeventnet-IMG_0652",
+      "cardeventnet-IMG_0653",
+      "cardeventnet-IMG_0654",
+      "cardeventnet-IMG_0655",
+      "cardeventnet-IMG_0656",
+      "cardeventnet-IMG_0657",
+      "cardeventnet-IMG_0658",
+      "cardeventnet-IMG_0659",
+      "cardeventnet-IMG_0660",
+      "cardeventnet-IMG_0661",
+      "cardeventnet-IMG_0662",
+      "cardeventnet-IMG_0669",
+      "cardeventnet-IMG_0670",
+      "cardeventnet-IMG_0671",
+      "cardeventnet-IMG_0673",
+      "cardeventnet-IMG_0674",
+      "cardeventnet-IMG_2777",
+      "cardeventnet-IMG_2778",
+      "cardeventnet-IMG_2779",
+      "cardeventnet-IMG_2780",
+      "cardeventnet-IMG_2781"
+    ],
+    "recordings": [
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 1122,
+            "cache_metadata_sha256": "d97cc28bb99ee829ef7c4a0f1c1736b7076d3de5e8292f41eb092166639940e6",
+            "eligible_clean_negatives": 814,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 176,
+            "partition": "validation",
+            "point_targets": 51,
+            "positive_samples": 132,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 396,
+            "selected_positive_samples": 132,
+            "selected_samples": 528
+          },
+          "event_revision_content_sha256": "bf751fd1e541231babf9438af93a085597e37c25cbde881a683e7229fbb9b3d3",
+          "event_revision_id": "canonical-card-state-reference-events-2ed0b47f508f52db005229d2a38121c1",
+          "event_revision_manifest_sha256": "1ecef88d1138c598348354a1cda6314666a3f3b5c8462a56e5d64492562cd392",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 1122,
+            "cache_metadata_sha256": "d97cc28bb99ee829ef7c4a0f1c1736b7076d3de5e8292f41eb092166639940e6",
+            "eligible_clean_negatives": 651,
+            "event_targets": 51,
+            "ignored_interval_samples": 163,
+            "interval_targets": 10,
+            "other_ignored_samples": 176,
+            "partition": "validation",
+            "point_targets": 41,
+            "positive_samples": 132,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 396,
+            "selected_positive_samples": 132,
+            "selected_samples": 528
+          },
+          "event_revision_content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+          "event_revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef",
+          "event_revision_manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+          "partition": "validation"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0090"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 1009,
+            "cache_metadata_sha256": "55f9a4649ffe44e81b17fde019055f6a687ac8811480b2e9d7d58a553d950df9",
+            "eligible_clean_negatives": 709,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 178,
+            "partition": "validation",
+            "point_targets": 50,
+            "positive_samples": 122,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 366,
+            "selected_positive_samples": 122,
+            "selected_samples": 488
+          },
+          "event_revision_content_sha256": "10bc9f93e63c014538d202fbfc5434063dc6035f8ee301cf4dfa81ae0157318f",
+          "event_revision_id": "canonical-card-state-reference-events-477f9579121386f9c00ca31ed58a50cd",
+          "event_revision_manifest_sha256": "5a765c4a330a60b5199acb355cb447cc2971416a8727545dfa5a80aedcc0b8ac",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 1009,
+            "cache_metadata_sha256": "55f9a4649ffe44e81b17fde019055f6a687ac8811480b2e9d7d58a553d950df9",
+            "eligible_clean_negatives": 493,
+            "event_targets": 50,
+            "ignored_interval_samples": 216,
+            "interval_targets": 10,
+            "other_ignored_samples": 173,
+            "partition": "validation",
+            "point_targets": 40,
+            "positive_samples": 127,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 381,
+            "selected_positive_samples": 127,
+            "selected_samples": 508
+          },
+          "event_revision_content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+          "event_revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+          "event_revision_manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+          "partition": "validation"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0091"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 950,
+            "cache_metadata_sha256": "b9fa379dbaa455c2ac498347e30e915f39578d58c93aba606c8c691a9bc13a1e",
+            "eligible_clean_negatives": 644,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 176,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 130,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 390,
+            "selected_positive_samples": 130,
+            "selected_samples": 520
+          },
+          "event_revision_content_sha256": "66d15a7d41dfe5d0dd98f3b491871d69135b57318701f65ad8dd5737cafae858",
+          "event_revision_id": "canonical-card-state-reference-events-7843a579c5ef2e9ab6dcce00e2312b62",
+          "event_revision_manifest_sha256": "3c75b3cbd4fa9d6a1b3cfdfd04420b9b9e37217252976cef10425fc03315f39e",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 950,
+            "cache_metadata_sha256": "b9fa379dbaa455c2ac498347e30e915f39578d58c93aba606c8c691a9bc13a1e",
+            "eligible_clean_negatives": 462,
+            "event_targets": 51,
+            "ignored_interval_samples": 184,
+            "interval_targets": 10,
+            "other_ignored_samples": 174,
+            "partition": "train",
+            "point_targets": 41,
+            "positive_samples": 130,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 390,
+            "selected_positive_samples": 130,
+            "selected_samples": 520
+          },
+          "event_revision_content_sha256": "0b960b96d8951e3b5dece39dc5a1ea4d842f2f55dc999b979014ab6fe15b3e42",
+          "event_revision_id": "reference-events-b76ee6895345ec9d9799c3eb01826a30",
+          "event_revision_manifest_sha256": "d83d85202ed811a73c6dc4d92c55cd42a2561237d91513f057b453736098f95d",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0092"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 707,
+            "cache_metadata_sha256": "50c34167ad5a7f2d1f963a777c126547334ebcd4e15d6528ae7aee1047d42821",
+            "eligible_clean_negatives": 375,
+            "event_targets": 53,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 189,
+            "partition": "train",
+            "point_targets": 53,
+            "positive_samples": 143,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 375,
+            "selected_positive_samples": 143,
+            "selected_samples": 518
+          },
+          "event_revision_content_sha256": "c07f645fd779f1287e9c31e300a5c244605d43ed7535f116efb9f9652dafd3b6",
+          "event_revision_id": "canonical-card-state-reference-events-6165dc8a4db48eca896ce805e3185821",
+          "event_revision_manifest_sha256": "a73939a2b435ecaabe646085381bc5792e9609c78f08b49c8c42fa875905e1fa",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 707,
+            "cache_metadata_sha256": "50c34167ad5a7f2d1f963a777c126547334ebcd4e15d6528ae7aee1047d42821",
+            "eligible_clean_negatives": 272,
+            "event_targets": 53,
+            "ignored_interval_samples": 106,
+            "interval_targets": 10,
+            "other_ignored_samples": 189,
+            "partition": "train",
+            "point_targets": 43,
+            "positive_samples": 140,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 272,
+            "selected_positive_samples": 140,
+            "selected_samples": 412
+          },
+          "event_revision_content_sha256": "f703e2470ee5a44eb7ad7b33e5ea37d0bff154e3c8428de686724e0c9718c88f",
+          "event_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
+          "event_revision_manifest_sha256": "4368892c0735f9b6552da19bdb5333588bafc60c5b2a7bd925de5ee8ef4d7dec",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0095"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 682,
+            "cache_metadata_sha256": "3c0ad9d52a1bb6ff3d699d16ab021e4a41852b795fdaedbd14f867ba01b97b91",
+            "eligible_clean_negatives": 369,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 177,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 136,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 369,
+            "selected_positive_samples": 136,
+            "selected_samples": 505
+          },
+          "event_revision_content_sha256": "7b2c6b8f197cb4a683017e9f3a721fce114b07006120f924bc12094734becf7f",
+          "event_revision_id": "canonical-card-state-reference-events-17df57bebcb916a209d1d74574bd0f9c",
+          "event_revision_manifest_sha256": "4d261e7ade95ed529b9d047c1b78f484c5454f134409e234527d4fda4f618090",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 682,
+            "cache_metadata_sha256": "3c0ad9d52a1bb6ff3d699d16ab021e4a41852b795fdaedbd14f867ba01b97b91",
+            "eligible_clean_negatives": 273,
+            "event_targets": 50,
+            "ignored_interval_samples": 105,
+            "interval_targets": 10,
+            "other_ignored_samples": 169,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 135,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 273,
+            "selected_positive_samples": 135,
+            "selected_samples": 408
+          },
+          "event_revision_content_sha256": "32f248fa149fb6c451214151eeacba0cbe9f5991fb1964f56dde435d914bf19c",
+          "event_revision_id": "reference-events-4643e6f10607988627190cc59ee064b3",
+          "event_revision_manifest_sha256": "0a63838e64bcb4d0da48e965e35b1fd0d41f0ce3de9ab0c24590df067788a7a9",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0096"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 640,
+            "cache_metadata_sha256": "faf8468bfb47b036cd23ea24a9bde6e13895f027169c3e1fc89d32a736d3e122",
+            "eligible_clean_negatives": 316,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 183,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 141,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 316,
+            "selected_positive_samples": 141,
+            "selected_samples": 457
+          },
+          "event_revision_content_sha256": "5f2f09a6516e169fc4fce435f13908328701e6a55a33e7bcf425db06e1bbfb9c",
+          "event_revision_id": "canonical-card-state-reference-events-570e225c1762370434597c1804347e5d",
+          "event_revision_manifest_sha256": "7c8ef4ffa72c562705e14f24eb11e1d54732fd1d30f0bf58ccc35a3846b55157",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 640,
+            "cache_metadata_sha256": "faf8468bfb47b036cd23ea24a9bde6e13895f027169c3e1fc89d32a736d3e122",
+            "eligible_clean_negatives": 179,
+            "event_targets": 50,
+            "ignored_interval_samples": 142,
+            "interval_targets": 10,
+            "other_ignored_samples": 179,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 140,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 179,
+            "selected_positive_samples": 140,
+            "selected_samples": 319
+          },
+          "event_revision_content_sha256": "94b943228fdf5ad6e5583d9b1ea1e799ce467a905308082c2743a0cfd40122f7",
+          "event_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+          "event_revision_manifest_sha256": "399f13e6b9dcfc027c608d45d1e8cedac441048be39ee990463f51ca452c0ae2",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0097"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 1004,
+            "cache_metadata_sha256": "854ef6d5401d248345c2093884b9d4dffe29784b335e3667aa8a9eaf7d00b4cf",
+            "eligible_clean_negatives": 710,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 173,
+            "partition": "validation",
+            "point_targets": 51,
+            "positive_samples": 121,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 363,
+            "selected_positive_samples": 121,
+            "selected_samples": 484
+          },
+          "event_revision_content_sha256": "7213cd71f50c08e504222e7fe2f5f991e97a68694d84b079821a9924addc2a05",
+          "event_revision_id": "reference-events-d9fee518275d66c184c7f0220699eb86",
+          "event_revision_manifest_sha256": "93070e5f1e86562978adfd952f1fd5dfc358da8e70ae16505f8f8e7f8f93bc6c",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 1004,
+            "cache_metadata_sha256": "854ef6d5401d248345c2093884b9d4dffe29784b335e3667aa8a9eaf7d00b4cf",
+            "eligible_clean_negatives": 584,
+            "event_targets": 51,
+            "ignored_interval_samples": 128,
+            "interval_targets": 10,
+            "other_ignored_samples": 171,
+            "partition": "validation",
+            "point_targets": 41,
+            "positive_samples": 121,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 363,
+            "selected_positive_samples": 121,
+            "selected_samples": 484
+          },
+          "event_revision_content_sha256": "10fc63da8f479b952b37dbe6b43f58390bd24fa1799bc2c9dde8530bcfc42644",
+          "event_revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64",
+          "event_revision_manifest_sha256": "68a58b16a3bb5cdbe2a0cda7650b7e49d8545e55af2eb2b62c63df3355f77440",
+          "partition": "validation"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0635"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 885,
+            "cache_metadata_sha256": "6a1c6ec5667c240273475d88658da5563b72d0b2387e8f3baa7c4f74e6d23e56",
+            "eligible_clean_negatives": 593,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 169,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 123,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 369,
+            "selected_positive_samples": 123,
+            "selected_samples": 492
+          },
+          "event_revision_content_sha256": "2fb76d1bb1b011f2f22c914d500df5eaacd5e28cfcfe41df0f5bcecf465f596a",
+          "event_revision_id": "reference-events-0eec857bae1122bcbd31114bd0f24fb6",
+          "event_revision_manifest_sha256": "f0be5bf7bd640c087b1125021e63ba0f05b22035204eadb2e072c1f0fc5b28dd",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 885,
+            "cache_metadata_sha256": "6a1c6ec5667c240273475d88658da5563b72d0b2387e8f3baa7c4f74e6d23e56",
+            "eligible_clean_negatives": 397,
+            "event_targets": 50,
+            "ignored_interval_samples": 196,
+            "interval_targets": 10,
+            "other_ignored_samples": 171,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 121,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 363,
+            "selected_positive_samples": 121,
+            "selected_samples": 484
+          },
+          "event_revision_content_sha256": "e90b32470ceb2fedf611602caaab78de63417369c11fe08138f2b02f403ebcb4",
+          "event_revision_id": "reference-events-0332acf97aeef7dcc7db5e3b5774e183",
+          "event_revision_manifest_sha256": "1d40b725f7263177a421e4b4f45d0a77cdcb5693cb95ae4ec331e8c152a27d6c",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0636"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 776,
+            "cache_metadata_sha256": "0b6cadf3bb336fcc1397d64c3d9de1318acd2be98a1faddb4cc2d336b1d3d9a5",
+            "eligible_clean_negatives": 483,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 170,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 123,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 369,
+            "selected_positive_samples": 123,
+            "selected_samples": 492
+          },
+          "event_revision_content_sha256": "9a3e6780e8c8b0780cee637e7ba022237c0b20b51f2dfb5143f7af5c2b1a20bf",
+          "event_revision_id": "reference-events-06a45330e2d498725e11a06c90a53e75",
+          "event_revision_manifest_sha256": "353a72e22bb384c37991a41253b99e8ee373fb145fbef0682f4fc32adafc744f",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 776,
+            "cache_metadata_sha256": "0b6cadf3bb336fcc1397d64c3d9de1318acd2be98a1faddb4cc2d336b1d3d9a5",
+            "eligible_clean_negatives": 301,
+            "event_targets": 50,
+            "ignored_interval_samples": 181,
+            "interval_targets": 10,
+            "other_ignored_samples": 171,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 123,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 301,
+            "selected_positive_samples": 123,
+            "selected_samples": 424
+          },
+          "event_revision_content_sha256": "7985d1c370dc6d25e182a32e326a8e54f3d9f14437ce6f2de30206bab03cbbc7",
+          "event_revision_id": "reference-events-95021e1921249e2f04315178295fa34a",
+          "event_revision_manifest_sha256": "4649b35fa82e6f02bdbdf9a3611e474112e43a33c12b2d5e507e89a8ff8659b0",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0637"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 968,
+            "cache_metadata_sha256": "7a38454ffe8023d728fffd65c384880db4d919a9ea6b71c2c6baa132619bb02e",
+            "eligible_clean_negatives": 672,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 179,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 117,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 351,
+            "selected_positive_samples": 117,
+            "selected_samples": 468
+          },
+          "event_revision_content_sha256": "73fbbff99af1fd09d82fcf0375cebccfd9dcbffdf03249d4dfce2028adf0ebe2",
+          "event_revision_id": "reference-events-e1b4d6193bc8f6e969a2ccf8dd70619f",
+          "event_revision_manifest_sha256": "fdd9cf246258adbe8e6a7e4639d574c38ae6bf15c6a60e953eee9d9375d14cbf",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 968,
+            "cache_metadata_sha256": "7a38454ffe8023d728fffd65c384880db4d919a9ea6b71c2c6baa132619bb02e",
+            "eligible_clean_negatives": 535,
+            "event_targets": 51,
+            "ignored_interval_samples": 134,
+            "interval_targets": 10,
+            "other_ignored_samples": 179,
+            "partition": "train",
+            "point_targets": 41,
+            "positive_samples": 120,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 360,
+            "selected_positive_samples": 120,
+            "selected_samples": 480
+          },
+          "event_revision_content_sha256": "619d360a90d6da36a19732b8003d68e0695044d09e9a90bf36ee918c111d62f4",
+          "event_revision_id": "reference-events-96a83274f0a2c7673332e117aa4634a4",
+          "event_revision_manifest_sha256": "c4bdc399462fa8bc662adfc4ea64570e69d09d946ec417fa1fe99af01c351e50",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0638"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 797,
+            "cache_metadata_sha256": "993b558a0b1324d95b3b08fba6c8979dd18213acec9cef4c34cb3e045454baf5",
+            "eligible_clean_negatives": 504,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 174,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 119,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 357,
+            "selected_positive_samples": 119,
+            "selected_samples": 476
+          },
+          "event_revision_content_sha256": "91a33aeeac1b1130a424b5494b3ddce2ab151440c755db51bbfd6af3ca9cbae3",
+          "event_revision_id": "reference-events-b1d8feff0e539be644125ebc0a1cbf6f",
+          "event_revision_manifest_sha256": "37c831ee6577963193bd484cd8f9acf9df191f39a92288af94a865549984a686",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 797,
+            "cache_metadata_sha256": "993b558a0b1324d95b3b08fba6c8979dd18213acec9cef4c34cb3e045454baf5",
+            "eligible_clean_negatives": 348,
+            "event_targets": 50,
+            "ignored_interval_samples": 157,
+            "interval_targets": 10,
+            "other_ignored_samples": 173,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 119,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 348,
+            "selected_positive_samples": 119,
+            "selected_samples": 467
+          },
+          "event_revision_content_sha256": "a4ffedd1f8ae062baa9f68d9921f3b4f73d8582a7a4cd66357245ce28a35218f",
+          "event_revision_id": "reference-events-cb2ed8f6119ff32735a45da28a189a7a",
+          "event_revision_manifest_sha256": "449c6c8e7c3fb225adb784e1cc3bb594e0e525d62a8f5f90fb37d65e8795de34",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0639"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 889,
+            "cache_metadata_sha256": "fb912102b2281c52c59285c340b6d6f987725fd7f7e693ee02dddd0965d2ee9f",
+            "eligible_clean_negatives": 596,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 169,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 124,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 372,
+            "selected_positive_samples": 124,
+            "selected_samples": 496
+          },
+          "event_revision_content_sha256": "ae0ff6461e4ab5e01840f5eb48b62b1f94d7647bcf834a59169cb4b9b0650fe6",
+          "event_revision_id": "reference-events-a9aac6ade1074b0025b40d7b6ca2e121",
+          "event_revision_manifest_sha256": "eb4ddd1379fd0cf9afb76df330cb54408eee2c52a1ba3bcb7ed65fca919de12d",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 889,
+            "cache_metadata_sha256": "fb912102b2281c52c59285c340b6d6f987725fd7f7e693ee02dddd0965d2ee9f",
+            "eligible_clean_negatives": 463,
+            "event_targets": 50,
+            "ignored_interval_samples": 132,
+            "interval_targets": 10,
+            "other_ignored_samples": 167,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 127,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 381,
+            "selected_positive_samples": 127,
+            "selected_samples": 508
+          },
+          "event_revision_content_sha256": "ce30cc7b74954a3c864e6a8de334adfaec382e2572d42ef29773c595a935ea01",
+          "event_revision_id": "reference-events-e7b2713881051baff4e7670071adb2a3",
+          "event_revision_manifest_sha256": "d672ab5e7b56f8c2cba01bd3f6509b0a64572c3f227f22855fdbe7f99451a7ae",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0640"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 965,
+            "cache_metadata_sha256": "e8eedea951666d11d4bb3cd74265f5a96ac3846fd4823108320764be229e25a2",
+            "eligible_clean_negatives": 664,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 174,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 127,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 381,
+            "selected_positive_samples": 127,
+            "selected_samples": 508
+          },
+          "event_revision_content_sha256": "70149549350181c7641f9bb1056a3064348694ba977a8e20a62376325592d139",
+          "event_revision_id": "reference-events-75268d58f30b58a714c0f3e728b88b35",
+          "event_revision_manifest_sha256": "8823dc10c6fcce8788848e3d1f7e39a36446ec6df83f169d5822ebad666a72cf",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 965,
+            "cache_metadata_sha256": "e8eedea951666d11d4bb3cd74265f5a96ac3846fd4823108320764be229e25a2",
+            "eligible_clean_negatives": 402,
+            "event_targets": 53,
+            "ignored_interval_samples": 258,
+            "interval_targets": 11,
+            "other_ignored_samples": 172,
+            "partition": "train",
+            "point_targets": 42,
+            "positive_samples": 133,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 399,
+            "selected_positive_samples": 133,
+            "selected_samples": 532
+          },
+          "event_revision_content_sha256": "344ef5ec9a8b2903f21860de69a24866e6a3b4033290e2bcd3ee46b108d1661f",
+          "event_revision_id": "reference-events-2a160b004691519b79550b24f9bcb08c",
+          "event_revision_manifest_sha256": "d75b81f97a167726282326d0b0f1d857fa837fbc8d2d369a1b9627923be6d086",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0641"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 960,
+            "cache_metadata_sha256": "3c75f82b45c262286a6f780417505cdc245ae3cb1a568859e17898ad9cd97d7f",
+            "eligible_clean_negatives": 670,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 168,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 122,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 366,
+            "selected_positive_samples": 122,
+            "selected_samples": 488
+          },
+          "event_revision_content_sha256": "dda5696c3218ae3031501ba22f69c8dfaef472e76f989d4edf0484d629a755d6",
+          "event_revision_id": "reference-events-bcd1b3e88e7a4d5ef51f3cc4dc75905a",
+          "event_revision_manifest_sha256": "6fb73bb179a775fdbc1aac95b55cab828899b8d54fcdbae04dc7bcd9602fa74b",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 960,
+            "cache_metadata_sha256": "3c75f82b45c262286a6f780417505cdc245ae3cb1a568859e17898ad9cd97d7f",
+            "eligible_clean_negatives": 450,
+            "event_targets": 50,
+            "ignored_interval_samples": 224,
+            "interval_targets": 10,
+            "other_ignored_samples": 162,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 124,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 372,
+            "selected_positive_samples": 124,
+            "selected_samples": 496
+          },
+          "event_revision_content_sha256": "4ec6d85bd6c48b0ebb3539e42267fbb92ec920aeb070ecd5e3a9a18ced903c1c",
+          "event_revision_id": "reference-events-fcc734f9ba43827938d76753ccb30f8b",
+          "event_revision_manifest_sha256": "ada2b7778ad8c15772d3c8615efdcd93f21ce3afe90d9dfd663e59cc4c0a57fb",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0642"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 980,
+            "cache_metadata_sha256": "de0505d22e02206788fe6e24f917160031cf2cda73f2f5f741ff3bca9f5f2b77",
+            "eligible_clean_negatives": 676,
+            "event_targets": 52,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 178,
+            "partition": "train",
+            "point_targets": 52,
+            "positive_samples": 126,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 378,
+            "selected_positive_samples": 126,
+            "selected_samples": 504
+          },
+          "event_revision_content_sha256": "e83a480ac687757951144d093de637c269fefa2d94487b1f634d4d0f949e0ae3",
+          "event_revision_id": "reference-events-0b8b89b087904b031c643b92b3ee8a77",
+          "event_revision_manifest_sha256": "c50b3dfe3972b7dbb692e1da0d2450a71a75023a34e285627767d24206a4ddac",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 980,
+            "cache_metadata_sha256": "de0505d22e02206788fe6e24f917160031cf2cda73f2f5f741ff3bca9f5f2b77",
+            "eligible_clean_negatives": 571,
+            "event_targets": 52,
+            "ignored_interval_samples": 104,
+            "interval_targets": 10,
+            "other_ignored_samples": 178,
+            "partition": "train",
+            "point_targets": 42,
+            "positive_samples": 127,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 381,
+            "selected_positive_samples": 127,
+            "selected_samples": 508
+          },
+          "event_revision_content_sha256": "25b0fb8dfd565a8db5e8e8c8de5768932572884db3abdc7ee78c252df95f9fe1",
+          "event_revision_id": "reference-events-e091761f4d4d7dbbf586b250dfb5a4f9",
+          "event_revision_manifest_sha256": "c27ab9283d2f956bd71f52fdc96b852dee13c8b8016362ce49e1f995beb7363f",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0643"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 994,
+            "cache_metadata_sha256": "cbc189086e25cccdde400a1a801a4b744cb985a6223d602830b1de23e1f46311",
+            "eligible_clean_negatives": 679,
+            "event_targets": 54,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 181,
+            "partition": "validation",
+            "point_targets": 54,
+            "positive_samples": 134,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 402,
+            "selected_positive_samples": 134,
+            "selected_samples": 536
+          },
+          "event_revision_content_sha256": "7d5aee47f8bd0f2ff87237e7a9e57d5ede78080cbfb2c2fe4f1cfb6faab45723",
+          "event_revision_id": "reference-events-668a3d5806adb3b77d0481a74531c299",
+          "event_revision_manifest_sha256": "79226df27b685be26b7a3c4526db96df2a3cd0af76e4245df396afb45b3b0c0e",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 994,
+            "cache_metadata_sha256": "cbc189086e25cccdde400a1a801a4b744cb985a6223d602830b1de23e1f46311",
+            "eligible_clean_negatives": 567,
+            "event_targets": 54,
+            "ignored_interval_samples": 114,
+            "interval_targets": 10,
+            "other_ignored_samples": 180,
+            "partition": "validation",
+            "point_targets": 44,
+            "positive_samples": 133,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 399,
+            "selected_positive_samples": 133,
+            "selected_samples": 532
+          },
+          "event_revision_content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+          "event_revision_id": "reference-events-5fc93d276770219df14e46bf4212b218",
+          "event_revision_manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+          "partition": "validation"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0644"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 1010,
+            "cache_metadata_sha256": "636eeb6fec246a02ef1732ecfc4b32640adea2657c1d2f6d46d411a3d4191b05",
+            "eligible_clean_negatives": 717,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 169,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 124,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 372,
+            "selected_positive_samples": 124,
+            "selected_samples": 496
+          },
+          "event_revision_content_sha256": "4bd0c3cc597f583ea82d8e3d9b4c75b017042d4ea43e0be64bac07616a52fa34",
+          "event_revision_id": "reference-events-cb6249c59fe07e053df1ea7979269712",
+          "event_revision_manifest_sha256": "4bceb259deda2547a935246c4804884489a8f2ca57aea7bf3340cb785a060fa6",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 1010,
+            "cache_metadata_sha256": "636eeb6fec246a02ef1732ecfc4b32640adea2657c1d2f6d46d411a3d4191b05",
+            "eligible_clean_negatives": 559,
+            "event_targets": 51,
+            "ignored_interval_samples": 157,
+            "interval_targets": 9,
+            "other_ignored_samples": 169,
+            "partition": "train",
+            "point_targets": 42,
+            "positive_samples": 125,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 375,
+            "selected_positive_samples": 125,
+            "selected_samples": 500
+          },
+          "event_revision_content_sha256": "cda9228d3aa052863441dbeaca08de14fa73eb0430fd3c1548da38ded70a58b4",
+          "event_revision_id": "reference-events-585f9c640a0f08acd383b9d2fd8b8b2f",
+          "event_revision_manifest_sha256": "e761faf594a4ea5607bb9845b1c59c248dd087f2c4e8c2b49f0240830ef219d4",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0645"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 1051,
+            "cache_metadata_sha256": "1d0b7a06c9979f8993c6952b4b28a4283b4792901798187a5d9f5130c1db0612",
+            "eligible_clean_negatives": 762,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 169,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 120,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 360,
+            "selected_positive_samples": 120,
+            "selected_samples": 480
+          },
+          "event_revision_content_sha256": "b3993f9265311562920964f14fe1a41c511cf3a2d4a4d502dbb50bae6ce8492f",
+          "event_revision_id": "reference-events-3d73751ceef5ea16d0e0b9da25c0c572",
+          "event_revision_manifest_sha256": "556a92d57ff159d469716622366f8a44b489dbb29db71b214237838cef3c51cd",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 1051,
+            "cache_metadata_sha256": "1d0b7a06c9979f8993c6952b4b28a4283b4792901798187a5d9f5130c1db0612",
+            "eligible_clean_negatives": 582,
+            "event_targets": 51,
+            "ignored_interval_samples": 182,
+            "interval_targets": 10,
+            "other_ignored_samples": 164,
+            "partition": "train",
+            "point_targets": 41,
+            "positive_samples": 123,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 369,
+            "selected_positive_samples": 123,
+            "selected_samples": 492
+          },
+          "event_revision_content_sha256": "8e5868bb63857c13baedab46ecb8417f00ab2647fee707f1469deaaf03e0977e",
+          "event_revision_id": "reference-events-a1af76872facf447b6d82de10e530818",
+          "event_revision_manifest_sha256": "bd42b8a28cb8033b9cb9b6f6a3c570a3407d5ceb779375a32c3c27e18d726996",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0646"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 1036,
+            "cache_metadata_sha256": "bb02e3606bf8d297b2539b079bbf10bf8b854969b9489cf33f925cc9c58ede8e",
+            "eligible_clean_negatives": 733,
+            "event_targets": 52,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 178,
+            "partition": "train",
+            "point_targets": 52,
+            "positive_samples": 125,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 375,
+            "selected_positive_samples": 125,
+            "selected_samples": 500
+          },
+          "event_revision_content_sha256": "e01868ef0657c465cbb33554f43a810225b1ba0466cdc72edc08f929e6fa8e41",
+          "event_revision_id": "reference-events-37d7ee62eb71b111b08bc823766f50e4",
+          "event_revision_manifest_sha256": "9297cca3b6ef1924b92402e0a36cb9072a4d2528a40b0b2f7f869aeb26e1f052",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 1036,
+            "cache_metadata_sha256": "bb02e3606bf8d297b2539b079bbf10bf8b854969b9489cf33f925cc9c58ede8e",
+            "eligible_clean_negatives": 531,
+            "event_targets": 52,
+            "ignored_interval_samples": 200,
+            "interval_targets": 10,
+            "other_ignored_samples": 178,
+            "partition": "train",
+            "point_targets": 42,
+            "positive_samples": 127,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 381,
+            "selected_positive_samples": 127,
+            "selected_samples": 508
+          },
+          "event_revision_content_sha256": "eac7d85eced250c4fe831a8db6b65181fd57f1ed12f943a3e32e45891492fc56",
+          "event_revision_id": "reference-events-1e4ec9bdaf89a9899b15422126bd55f9",
+          "event_revision_manifest_sha256": "3b9f9716f80139f651f2dbd30461d2c129e756ff4a88118934650a64a2bae039",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0648"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 1098,
+            "cache_metadata_sha256": "858239912ec2db5ff06e767a098f78c9e7c410bed19a6a8e1e05e288fdb70422",
+            "eligible_clean_negatives": 781,
+            "event_targets": 54,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 187,
+            "partition": "train",
+            "point_targets": 54,
+            "positive_samples": 130,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 390,
+            "selected_positive_samples": 130,
+            "selected_samples": 520
+          },
+          "event_revision_content_sha256": "05e1baf1f4910921ee006227d2680cd13236aadd41c0622fb8b564c4f8cf190f",
+          "event_revision_id": "reference-events-1ed48beb029daf0d4ac76d9f8da4c968",
+          "event_revision_manifest_sha256": "d7431963102e3c1853605203232ae2f4d495e9bce2e1c47460bfec420711f5b4",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 1098,
+            "cache_metadata_sha256": "858239912ec2db5ff06e767a098f78c9e7c410bed19a6a8e1e05e288fdb70422",
+            "eligible_clean_negatives": 524,
+            "event_targets": 54,
+            "ignored_interval_samples": 256,
+            "interval_targets": 10,
+            "other_ignored_samples": 183,
+            "partition": "train",
+            "point_targets": 44,
+            "positive_samples": 135,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 405,
+            "selected_positive_samples": 135,
+            "selected_samples": 540
+          },
+          "event_revision_content_sha256": "e1bb4f9e195a5073328c434deac0c21a29228851f2993d6ee3125aa2736a1709",
+          "event_revision_id": "reference-events-f00fda54352eef72ccc6996d6d82cbe3",
+          "event_revision_manifest_sha256": "fb7771f813a5c7c34ac3e689f21e5c57ea9e7bf457c3ab2073604151034fa323",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0649"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 764,
+            "cache_metadata_sha256": "f358995633483b8dd3adf247370355b1998e187525e8162fc93a59279e7c0d1b",
+            "eligible_clean_negatives": 556,
+            "event_targets": 36,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 123,
+            "partition": "train",
+            "point_targets": 36,
+            "positive_samples": 85,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 255,
+            "selected_positive_samples": 85,
+            "selected_samples": 340
+          },
+          "event_revision_content_sha256": "ddf0a0e7548011b7cd59636a75259649919a52fc2f222726a2591c3ea66c733a",
+          "event_revision_id": "reference-events-4f1c2a511afe8a78b6f52aedb5377acb",
+          "event_revision_manifest_sha256": "54fce7a3eeeff64cb73c0d86add13602e801dbef43a6954023ff9a853ca09295",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 764,
+            "cache_metadata_sha256": "f358995633483b8dd3adf247370355b1998e187525e8162fc93a59279e7c0d1b",
+            "eligible_clean_negatives": 390,
+            "event_targets": 36,
+            "ignored_interval_samples": 163,
+            "interval_targets": 7,
+            "other_ignored_samples": 125,
+            "partition": "train",
+            "point_targets": 29,
+            "positive_samples": 86,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 258,
+            "selected_positive_samples": 86,
+            "selected_samples": 344
+          },
+          "event_revision_content_sha256": "dd27729e0e29845c329866de36f3318d77d2ebd0359c50217ed5fcc734888816",
+          "event_revision_id": "reference-events-69ca04143d361f6529379023b4c4cc88",
+          "event_revision_manifest_sha256": "2c708fd806419fca466fcdca4e719681256e219e1c61589758b54074780f7f29",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0650"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 955,
+            "cache_metadata_sha256": "e81312446e89644a8bbd538c7de2048423d0f79249597a2c7ad2d5e883e00595",
+            "eligible_clean_negatives": 653,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 174,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 128,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 384,
+            "selected_positive_samples": 128,
+            "selected_samples": 512
+          },
+          "event_revision_content_sha256": "c13b9e3e722eea7e4b158f970a560639a4d7fee20af6df5d0e22fddb348f84b3",
+          "event_revision_id": "reference-events-6c643951ab0745765426e75d31b9d3f3",
+          "event_revision_manifest_sha256": "2b6d371c298b55806ca0fafbb6a028975d59d5ea8895332c534ed6f2403997f5",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 955,
+            "cache_metadata_sha256": "e81312446e89644a8bbd538c7de2048423d0f79249597a2c7ad2d5e883e00595",
+            "eligible_clean_negatives": 360,
+            "event_targets": 51,
+            "ignored_interval_samples": 294,
+            "interval_targets": 10,
+            "other_ignored_samples": 176,
+            "partition": "train",
+            "point_targets": 41,
+            "positive_samples": 125,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 360,
+            "selected_positive_samples": 125,
+            "selected_samples": 485
+          },
+          "event_revision_content_sha256": "538025e40adc198061696a67e041ac859415a11cc9df8c58d2e5c3f063a41b0d",
+          "event_revision_id": "reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3",
+          "event_revision_manifest_sha256": "235f95da08b86b0e12bbbb36f50b07dda763592f00291a9c8ff512d88050a1a3",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0651"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 781,
+            "cache_metadata_sha256": "af212fc82474425c0cce6d150ad5d37381964e030ec4645a7c8d66e52b034b93",
+            "eligible_clean_negatives": 485,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 173,
+            "partition": "validation",
+            "point_targets": 51,
+            "positive_samples": 123,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 369,
+            "selected_positive_samples": 123,
+            "selected_samples": 492
+          },
+          "event_revision_content_sha256": "59699b373637746c40c4aa1bab5c6322ea4ea7ae814e7d44e456c5c682943849",
+          "event_revision_id": "reference-events-7d7cb73ad7194f20a46855c7501966b1",
+          "event_revision_manifest_sha256": "aba06973f4c88ab5ee0413d52ad5711a0d33cc645ea1bce3fea9d715d64b1739",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 781,
+            "cache_metadata_sha256": "af212fc82474425c0cce6d150ad5d37381964e030ec4645a7c8d66e52b034b93",
+            "eligible_clean_negatives": 323,
+            "event_targets": 51,
+            "ignored_interval_samples": 162,
+            "interval_targets": 10,
+            "other_ignored_samples": 170,
+            "partition": "validation",
+            "point_targets": 41,
+            "positive_samples": 126,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 323,
+            "selected_positive_samples": 126,
+            "selected_samples": 449
+          },
+          "event_revision_content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+          "event_revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+          "event_revision_manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+          "partition": "validation"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0652"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 986,
+            "cache_metadata_sha256": "6eca564de43feb527c172d99cbd1aeb344af76638dd37ec06ce3c543a49053a0",
+            "eligible_clean_negatives": 693,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 167,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 126,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 378,
+            "selected_positive_samples": 126,
+            "selected_samples": 504
+          },
+          "event_revision_content_sha256": "4048ef90bd5569ecce42a97dab84a4848b6660ec8c58016d2f566d205824c3ea",
+          "event_revision_id": "reference-events-8d9ceb7a8ee90cc92efb2c310878833b",
+          "event_revision_manifest_sha256": "ae0538d7ca4652b87873d40a98d94adb1362d0164c73d2d38b44887e38622cff",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 986,
+            "cache_metadata_sha256": "6eca564de43feb527c172d99cbd1aeb344af76638dd37ec06ce3c543a49053a0",
+            "eligible_clean_negatives": 505,
+            "event_targets": 50,
+            "ignored_interval_samples": 189,
+            "interval_targets": 10,
+            "other_ignored_samples": 168,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 124,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 372,
+            "selected_positive_samples": 124,
+            "selected_samples": 496
+          },
+          "event_revision_content_sha256": "c92653b4bee14595b001c9ab1a1d03e2505b24f9712f1f5927ec4bc893cccc8f",
+          "event_revision_id": "reference-events-726d441f95a2cd301ebdc0968532fa21",
+          "event_revision_manifest_sha256": "7b3d954667eab1bf3c13188aa569146ca4311c5002a4e5d129f802a39b62bf32",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0653"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 813,
+            "cache_metadata_sha256": "c03ae5ed51d1514ca8784aa02954dc024c8af92008f77a01acc056d9a4f5e3cf",
+            "eligible_clean_negatives": 517,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 167,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 129,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 387,
+            "selected_positive_samples": 129,
+            "selected_samples": 516
+          },
+          "event_revision_content_sha256": "25c916f53835ae7801b2c1e3cb3efd9fced294816af42cfc6abbe66dcf9a673d",
+          "event_revision_id": "reference-events-00320416f63b4de6ddb342c1647025f0",
+          "event_revision_manifest_sha256": "ce041e45c45dd16ffc777c771c74caee6b7d375fee5047ba9ef15ed5e6082eed",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 813,
+            "cache_metadata_sha256": "c03ae5ed51d1514ca8784aa02954dc024c8af92008f77a01acc056d9a4f5e3cf",
+            "eligible_clean_negatives": 342,
+            "event_targets": 51,
+            "ignored_interval_samples": 176,
+            "interval_targets": 10,
+            "other_ignored_samples": 170,
+            "partition": "train",
+            "point_targets": 41,
+            "positive_samples": 125,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 342,
+            "selected_positive_samples": 125,
+            "selected_samples": 467
+          },
+          "event_revision_content_sha256": "988d3991a428658338f650903906f3c2fb8126a8607e16a0f7f3f90421178e1b",
+          "event_revision_id": "reference-events-4fbcfe0c14e734b5431eaec5f8395e15",
+          "event_revision_manifest_sha256": "f5625f4126675b717b22c7d04314dc30f462620c70e07992de4c6f43e73923c0",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0654"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 879,
+            "cache_metadata_sha256": "2e64bb4a16accb99a83a4caf761ce67f3b7a5b95f2a21d64f3a8f2ed95c4990c",
+            "eligible_clean_negatives": 580,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 177,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 122,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 366,
+            "selected_positive_samples": 122,
+            "selected_samples": 488
+          },
+          "event_revision_content_sha256": "86ea8b33b43ab3f41d07fab7f9ceb690025638accd5e840eee60ed6c1e19ffde",
+          "event_revision_id": "reference-events-b795183519f21c61987ca69264263336",
+          "event_revision_manifest_sha256": "d08888ea5f712c972930821a450dedf0083b713c25505e41f229e6498fdfa215",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 879,
+            "cache_metadata_sha256": "2e64bb4a16accb99a83a4caf761ce67f3b7a5b95f2a21d64f3a8f2ed95c4990c",
+            "eligible_clean_negatives": 403,
+            "event_targets": 51,
+            "ignored_interval_samples": 175,
+            "interval_targets": 10,
+            "other_ignored_samples": 178,
+            "partition": "train",
+            "point_targets": 41,
+            "positive_samples": 123,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 369,
+            "selected_positive_samples": 123,
+            "selected_samples": 492
+          },
+          "event_revision_content_sha256": "156069aceef8af6e6cf041f877e9d927b78d1d38bf6a1c84fc5ebab92bd7e216",
+          "event_revision_id": "reference-events-6fe976245fbbc3452c14decde7d85976",
+          "event_revision_manifest_sha256": "e0c7ff75b6df834f7722c7009ac41a7c9d1e39553218976e48728dca10781bea",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0655"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 854,
+            "cache_metadata_sha256": "9a6d7df3afdfdc673513acb2ff5cf176c1c4ddcd382a1ae8bc0aa75b7f0a2a30",
+            "eligible_clean_negatives": 554,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 176,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 124,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 372,
+            "selected_positive_samples": 124,
+            "selected_samples": 496
+          },
+          "event_revision_content_sha256": "05278d788b5dc8792a7807d51592a00e82c76d483ba55b31ecfe6f64a21b45c1",
+          "event_revision_id": "reference-events-9ce0970029135ce07da81813446afb69",
+          "event_revision_manifest_sha256": "a7429f469d4642ea02a25e1d900ee5d9f592380cf16ebda792624dc99a90925a",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 854,
+            "cache_metadata_sha256": "9a6d7df3afdfdc673513acb2ff5cf176c1c4ddcd382a1ae8bc0aa75b7f0a2a30",
+            "eligible_clean_negatives": 370,
+            "event_targets": 51,
+            "ignored_interval_samples": 183,
+            "interval_targets": 10,
+            "other_ignored_samples": 175,
+            "partition": "train",
+            "point_targets": 41,
+            "positive_samples": 126,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 370,
+            "selected_positive_samples": 126,
+            "selected_samples": 496
+          },
+          "event_revision_content_sha256": "a8c9e43fda9716e4fe5f78c423a740765962166eaf83b7420e52bc47e2b267fe",
+          "event_revision_id": "reference-events-4e2126dc36ea31fc69de0981e6176a12",
+          "event_revision_manifest_sha256": "340afa7ed3959741aa2d2b5d64f33070a17fd934734232dcafcd49763018cda0",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0656"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 895,
+            "cache_metadata_sha256": "b2cfd3c6a9cc2dd5e91b3572289226d033b79a5d4d91d8038d7d8a6b6b424ef0",
+            "eligible_clean_negatives": 594,
+            "event_targets": 51,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 179,
+            "partition": "train",
+            "point_targets": 51,
+            "positive_samples": 122,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 366,
+            "selected_positive_samples": 122,
+            "selected_samples": 488
+          },
+          "event_revision_content_sha256": "a61ba8efbb275b38129b503f50f8ed0b911a78194267d7847a69930aa8328755",
+          "event_revision_id": "reference-events-3a7ce6bc652941ddce82eea3d3b112ff",
+          "event_revision_manifest_sha256": "c3af010594a884fcbf8c46eea1a1bb27ff652761c811c0986842e46f7b216319",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 895,
+            "cache_metadata_sha256": "b2cfd3c6a9cc2dd5e91b3572289226d033b79a5d4d91d8038d7d8a6b6b424ef0",
+            "eligible_clean_negatives": 416,
+            "event_targets": 51,
+            "ignored_interval_samples": 176,
+            "interval_targets": 10,
+            "other_ignored_samples": 180,
+            "partition": "train",
+            "point_targets": 41,
+            "positive_samples": 123,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 369,
+            "selected_positive_samples": 123,
+            "selected_samples": 492
+          },
+          "event_revision_content_sha256": "b7b928f5e1738af2343dba68e83a4edee10c2e7dcd7141d03282b9d4971fa4f3",
+          "event_revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
+          "event_revision_manifest_sha256": "6bad2154676cc410d72131dcb0f6bc49212f329f6015e8e4b2bed2c01f453082",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0657"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 788,
+            "cache_metadata_sha256": "56c1a930a083ea9479c860df97744da966d84cbe57efa8251df43cec71932d16",
+            "eligible_clean_negatives": 495,
+            "event_targets": 50,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 167,
+            "partition": "train",
+            "point_targets": 50,
+            "positive_samples": 126,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 378,
+            "selected_positive_samples": 126,
+            "selected_samples": 504
+          },
+          "event_revision_content_sha256": "4335b635db4e9fd901dac32d6fc6ee6c0ba680e6fcbefafa7f6aa5abc77765c0",
+          "event_revision_id": "reference-events-c6291bd78ace34e3018ba26b8a55482d",
+          "event_revision_manifest_sha256": "b3afb436cda682eef9ed6cdab967cd9f637f1939370b40a050494b03fe6f1831",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 788,
+            "cache_metadata_sha256": "56c1a930a083ea9479c860df97744da966d84cbe57efa8251df43cec71932d16",
+            "eligible_clean_negatives": 358,
+            "event_targets": 50,
+            "ignored_interval_samples": 139,
+            "interval_targets": 10,
+            "other_ignored_samples": 161,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 130,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 358,
+            "selected_positive_samples": 130,
+            "selected_samples": 488
+          },
+          "event_revision_content_sha256": "488c17855d168da02d32fc5735148c66e25c9a3fc6a07a185f96321464f58702",
+          "event_revision_id": "reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7",
+          "event_revision_manifest_sha256": "b63967b266f203456bac6288f91f851ddb0443c274f0e0eb215d22d5b483dfa1",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0658"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 824,
+            "cache_metadata_sha256": "9a1d33517b818783c4e7fa78308e544b2d2efec78adbbdde5132fc76be09f5af",
+            "eligible_clean_negatives": 520,
+            "event_targets": 52,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 179,
+            "partition": "train",
+            "point_targets": 52,
+            "positive_samples": 125,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 375,
+            "selected_positive_samples": 125,
+            "selected_samples": 500
+          },
+          "event_revision_content_sha256": "73c71187dc6e3bed3d3caf1d3e99c13acb0e589a66a5913a4db3f6e3bfb8fd37",
+          "event_revision_id": "reference-events-c9ba6c8d2f44fc45b97025e9b817f5b4",
+          "event_revision_manifest_sha256": "ca901c0e69160b0ca62c01a3a81408b55e5c840eca854dd7b37ccebe95952bda",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 824,
+            "cache_metadata_sha256": "9a1d33517b818783c4e7fa78308e544b2d2efec78adbbdde5132fc76be09f5af",
+            "eligible_clean_negatives": 408,
+            "event_targets": 52,
+            "ignored_interval_samples": 117,
+            "interval_targets": 10,
+            "other_ignored_samples": 170,
+            "partition": "train",
+            "point_targets": 42,
+            "positive_samples": 129,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 387,
+            "selected_positive_samples": 129,
+            "selected_samples": 516
+          },
+          "event_revision_content_sha256": "29bee4070c2554e307de97702281888589bd37be81006e67953c36c74c58cbad",
+          "event_revision_id": "reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d",
+          "event_revision_manifest_sha256": "1fa92c3240a1172b131f5629676fa4dee91374b9e0d3268827e9e19f37b88472",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0659"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 828,
+            "cache_metadata_sha256": "6ffc78d39e62374a221448096e85474ddb636b2929476f8904ec07706b8c8f05",
+            "eligible_clean_negatives": 540,
+            "event_targets": 49,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 164,
+            "partition": "train",
+            "point_targets": 49,
+            "positive_samples": 124,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 372,
+            "selected_positive_samples": 124,
+            "selected_samples": 496
+          },
+          "event_revision_content_sha256": "6455afdca56be6a4312f044bd15d0d5d021a9f4266d1a6e97393dc128ba51d42",
+          "event_revision_id": "reference-events-c64b44aa8e7b9da7be3b3f07cc77d90f",
+          "event_revision_manifest_sha256": "5028d3ffc97fa94156003239730972d94fe39412f0489275a2b075b74bd865bd",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 828,
+            "cache_metadata_sha256": "6ffc78d39e62374a221448096e85474ddb636b2929476f8904ec07706b8c8f05",
+            "eligible_clean_negatives": 400,
+            "event_targets": 49,
+            "ignored_interval_samples": 142,
+            "interval_targets": 9,
+            "other_ignored_samples": 160,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 126,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 378,
+            "selected_positive_samples": 126,
+            "selected_samples": 504
+          },
+          "event_revision_content_sha256": "84ce6ac3e302325eb6427bf8f33b3e1ca02adf51e21a094dfadcc2354cfd3a16",
+          "event_revision_id": "reference-events-964d49a8d059082ea0ae3017c4dd69d7",
+          "event_revision_manifest_sha256": "0505c4f926c2f74b47ea886bd122e1f2ff3a0e58aa389fb6f10a313e6c256ce0",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0660"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 908,
+            "cache_metadata_sha256": "70b66b36e0be06e781ec28db5a2ee743a31e07c267c3efd029fd779b1bb477ff",
+            "eligible_clean_negatives": 591,
+            "event_targets": 55,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 182,
+            "partition": "validation",
+            "point_targets": 55,
+            "positive_samples": 135,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 405,
+            "selected_positive_samples": 135,
+            "selected_samples": 540
+          },
+          "event_revision_content_sha256": "8d4ad05642841591c8f8babd64854cfa94b6dbc080403d141c6a3980676e3b09",
+          "event_revision_id": "reference-events-9b050ada6ebdbecf6c0c1d3ef98ea17f",
+          "event_revision_manifest_sha256": "8dc96834837250f77839457ea9ea4dd0f4e8a2be0715f78f7b89e541e7ddadff",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 908,
+            "cache_metadata_sha256": "70b66b36e0be06e781ec28db5a2ee743a31e07c267c3efd029fd779b1bb477ff",
+            "eligible_clean_negatives": 380,
+            "event_targets": 55,
+            "ignored_interval_samples": 216,
+            "interval_targets": 10,
+            "other_ignored_samples": 176,
+            "partition": "validation",
+            "point_targets": 45,
+            "positive_samples": 136,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 380,
+            "selected_positive_samples": 136,
+            "selected_samples": 516
+          },
+          "event_revision_content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+          "event_revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24",
+          "event_revision_manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+          "partition": "validation"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0661"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 949,
+            "cache_metadata_sha256": "3fd45cd32b950c976f7a83f67e7b6d1b7c53a7a4e14eacc9f2fc7d403bec5a6c",
+            "eligible_clean_negatives": 663,
+            "event_targets": 49,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 162,
+            "partition": "train",
+            "point_targets": 49,
+            "positive_samples": 124,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 372,
+            "selected_positive_samples": 124,
+            "selected_samples": 496
+          },
+          "event_revision_content_sha256": "b5cce870c7dfea604cf8d54e3a1ea77d9772bb42bc08fc89313ebb21d8bfe332",
+          "event_revision_id": "reference-events-710e710c8c5fdf8238c989197f256945",
+          "event_revision_manifest_sha256": "b0121b51ea3a3ba1f30996e8117adefdc087535c75f3b880378adcf10d7cf84b",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 949,
+            "cache_metadata_sha256": "3fd45cd32b950c976f7a83f67e7b6d1b7c53a7a4e14eacc9f2fc7d403bec5a6c",
+            "eligible_clean_negatives": 443,
+            "event_targets": 50,
+            "ignored_interval_samples": 216,
+            "interval_targets": 11,
+            "other_ignored_samples": 165,
+            "partition": "train",
+            "point_targets": 39,
+            "positive_samples": 125,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 375,
+            "selected_positive_samples": 125,
+            "selected_samples": 500
+          },
+          "event_revision_content_sha256": "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5",
+          "event_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+          "event_revision_manifest_sha256": "445dfe37c166eb3b6c76761a30fee13838761ed71acd4e59d1bebf3317b6bf91",
+          "partition": "train"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0662"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 4251,
+            "cache_metadata_sha256": "fccdda8a1e2dba43ae06e4e72e9980d0c155d6747ed4ec8bf36ee9c3abe72a18",
+            "eligible_clean_negatives": 3904,
+            "event_targets": 61,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 212,
+            "partition": "test",
+            "point_targets": 61,
+            "positive_samples": 135,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 405,
+            "selected_positive_samples": 135,
+            "selected_samples": 540
+          },
+          "event_revision_content_sha256": "c3fda2857ffea307abcd8f5d82fc3ce364a18896c9a028c64a666848e2fe1aa3",
+          "event_revision_id": "reference-events-e8c2c1fa2dae370f2e57a5753fa7721f",
+          "event_revision_manifest_sha256": "1f1872ffccec9aa2e538759d678b581dc792f638091a72c93f129409c64d2d99",
+          "partition": "test"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 4251,
+            "cache_metadata_sha256": "fccdda8a1e2dba43ae06e4e72e9980d0c155d6747ed4ec8bf36ee9c3abe72a18",
+            "eligible_clean_negatives": 3712,
+            "event_targets": 61,
+            "ignored_interval_samples": 200,
+            "interval_targets": 10,
+            "other_ignored_samples": 207,
+            "partition": "test",
+            "point_targets": 51,
+            "positive_samples": 132,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 396,
+            "selected_positive_samples": 132,
+            "selected_samples": 528
+          },
+          "event_revision_content_sha256": "af27b82edd0fa2fb9e506fd2ab397ec9a9ed6af6d68b4639cfd6b562fea9a066",
+          "event_revision_id": "reference-events-d3f30c4175781edf8312682c9fabe4fd",
+          "event_revision_manifest_sha256": "fac3a22f445f9ed6abe588bcfb2604ec7b85aac700f56cb2410f561d6565c920",
+          "partition": "test"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0669"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 5208,
+            "cache_metadata_sha256": "b4a1964e0adcd943ca02d75e1447ebb641211627388ddf00689e4808a031061c",
+            "eligible_clean_negatives": 4893,
+            "event_targets": 55,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 188,
+            "partition": "test",
+            "point_targets": 55,
+            "positive_samples": 127,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 381,
+            "selected_positive_samples": 127,
+            "selected_samples": 508
+          },
+          "event_revision_content_sha256": "739b0a174da0339afa2a600b0c4539e59ded6123a32faab6e2426c6abc9e96e6",
+          "event_revision_id": "reference-events-cef5e5cca82d6e7f2624512dae6d2d6d",
+          "event_revision_manifest_sha256": "59aa4094ccf36f5203577d41edab9fa0a07b867060199ae4216bc8c31a798e71",
+          "partition": "test"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 5208,
+            "cache_metadata_sha256": "b4a1964e0adcd943ca02d75e1447ebb641211627388ddf00689e4808a031061c",
+            "eligible_clean_negatives": 4744,
+            "event_targets": 55,
+            "ignored_interval_samples": 151,
+            "interval_targets": 10,
+            "other_ignored_samples": 185,
+            "partition": "test",
+            "point_targets": 45,
+            "positive_samples": 128,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 384,
+            "selected_positive_samples": 128,
+            "selected_samples": 512
+          },
+          "event_revision_content_sha256": "1193221a4a091f8bdabe2d039e67c39e737114ee3f33c34e8a95d0a7f021a687",
+          "event_revision_id": "reference-events-661ac3f29c7f5a4757421991868d7650",
+          "event_revision_manifest_sha256": "7b05a84254a8173f7bf4c1f54c79e766e8109aae974f2c7efe8cd932977bbf06",
+          "partition": "test"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0670"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 2153,
+            "cache_metadata_sha256": "031e6de6bf5abc8f7c6dfd2ab2547e7ac663465e056356a776a906f62e807b23",
+            "eligible_clean_negatives": 1958,
+            "event_targets": 33,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 113,
+            "partition": "test",
+            "point_targets": 33,
+            "positive_samples": 82,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 246,
+            "selected_positive_samples": 82,
+            "selected_samples": 328
+          },
+          "event_revision_content_sha256": "e0917f7bb4a42c28c549e98cb7b486a9999f371d011ab0aba98ad2f79fc66ffa",
+          "event_revision_id": "reference-events-3a5adb79324dabc9ac96a11b1ed2bef8",
+          "event_revision_manifest_sha256": "b274722e180b30e7a1a6b0e81cd656fc024979d8a7ece2047e17098a4638b97e",
+          "partition": "test"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 2153,
+            "cache_metadata_sha256": "031e6de6bf5abc8f7c6dfd2ab2547e7ac663465e056356a776a906f62e807b23",
+            "eligible_clean_negatives": 1900,
+            "event_targets": 33,
+            "ignored_interval_samples": 61,
+            "interval_targets": 6,
+            "other_ignored_samples": 105,
+            "partition": "test",
+            "point_targets": 27,
+            "positive_samples": 87,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 261,
+            "selected_positive_samples": 87,
+            "selected_samples": 348
+          },
+          "event_revision_content_sha256": "16836be1126832a7e37dd6a6ee8ef58e51e6055fa8236c65cf4d6f1c645bfe33",
+          "event_revision_id": "reference-events-9a3fb1cf734515438cffb6bf5cae5882",
+          "event_revision_manifest_sha256": "fb5353ea1485fbeb4785a0d4513d9cf4d372d170ae735a9bf90426d68bd074e0",
+          "partition": "test"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0671"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 3085,
+            "cache_metadata_sha256": "47dc951e3c3ef37935ea31dd0b85bf500ff06d13add3f4b87db1b9b894250713",
+            "eligible_clean_negatives": 2796,
+            "event_targets": 49,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 163,
+            "partition": "test",
+            "point_targets": 49,
+            "positive_samples": 126,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 378,
+            "selected_positive_samples": 126,
+            "selected_samples": 504
+          },
+          "event_revision_content_sha256": "5c7cff6fb7a6e213cd543170ce100068af3d6d2197df256097a75559ded03ed0",
+          "event_revision_id": "reference-events-f99ba5c56b8bb76dd0917be007af081a",
+          "event_revision_manifest_sha256": "7bb2308c07a92158cfa32fa3b05784ba4bb2ecca8bdd5cd5d5bc53613068eb1d",
+          "partition": "test"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 3085,
+            "cache_metadata_sha256": "47dc951e3c3ef37935ea31dd0b85bf500ff06d13add3f4b87db1b9b894250713",
+            "eligible_clean_negatives": 2648,
+            "event_targets": 50,
+            "ignored_interval_samples": 147,
+            "interval_targets": 9,
+            "other_ignored_samples": 164,
+            "partition": "test",
+            "point_targets": 41,
+            "positive_samples": 126,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 378,
+            "selected_positive_samples": 126,
+            "selected_samples": 504
+          },
+          "event_revision_content_sha256": "659b4b3496ba8f184497631c13bc23937e042eda3a2222e9f71cc2e48a461910",
+          "event_revision_id": "reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc",
+          "event_revision_manifest_sha256": "00386be16a9ed771b02e395b683cf1a940372de568d687473cea8902da3bbd06",
+          "partition": "test"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0673"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 2494,
+            "cache_metadata_sha256": "f68a68449dbf541e4cb511ef7d36b017c0c8110ebf483e9f1b9d6ac2d96ef985",
+            "eligible_clean_negatives": 2312,
+            "event_targets": 32,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 109,
+            "partition": "test",
+            "point_targets": 32,
+            "positive_samples": 73,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 219,
+            "selected_positive_samples": 73,
+            "selected_samples": 292
+          },
+          "event_revision_content_sha256": "9806e371c9efb652a9df51909dce919ed39c58731a7f9f45ba5a1d3a5cd0a9f2",
+          "event_revision_id": "reference-events-0ace290a8f88b1aeff2d740f04d82175",
+          "event_revision_manifest_sha256": "9789152ef0bbe2202880ab66d57ae6cbbe30dd0eaa86e49d02a28b83c0663969",
+          "partition": "test"
+        },
+        "changed": true,
+        "current": {
+          "counts": {
+            "available_decision_times": 2494,
+            "cache_metadata_sha256": "f68a68449dbf541e4cb511ef7d36b017c0c8110ebf483e9f1b9d6ac2d96ef985",
+            "eligible_clean_negatives": 2258,
+            "event_targets": 34,
+            "ignored_interval_samples": 43,
+            "interval_targets": 6,
+            "other_ignored_samples": 110,
+            "partition": "test",
+            "point_targets": 28,
+            "positive_samples": 83,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 249,
+            "selected_positive_samples": 83,
+            "selected_samples": 332
+          },
+          "event_revision_content_sha256": "bfb81b35f60494a2504ddcbb43490e42a8769988e599b54213d2f1f617b1dcce",
+          "event_revision_id": "reference-events-81a51db94227767a839e5af4387b1cc2",
+          "event_revision_manifest_sha256": "9025dec385f013518eddd240922f46644625b0d9b3ad76368772390c0ba4d391",
+          "partition": "test"
+        },
+        "reasons": [
+          "selected_maintained_reference_changed",
+          "target_counts_changed"
+        ],
+        "recording_id": "cardeventnet-IMG_0674"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 3171,
+            "cache_metadata_sha256": "f767e05160665a342a7ad2442def6916335ba81831d7fe12717d356b98c66187",
+            "eligible_clean_negatives": 2880,
+            "event_targets": 52,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 164,
+            "partition": "validation",
+            "point_targets": 52,
+            "positive_samples": 127,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 381,
+            "selected_positive_samples": 127,
+            "selected_samples": 508
+          },
+          "event_revision_content_sha256": "5c0475b6b60b0d3def46d984d76b7e6c12d994cd219c359e034c45c3663ffe8f",
+          "event_revision_id": "canonical-card-state-reference-events-642c109a91bd3d878cd1bbfb37d9228d",
+          "event_revision_manifest_sha256": "5fc22d9f52f00b09a38d6c77c43f2dd1e943280fbaa1ce0e11abd8b281ba6f43",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": null,
+        "reasons": [
+          "excluded_by_legacy_device_diagnostic_receipt"
+        ],
+        "recording_id": "cardeventnet-IMG_2777"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 2623,
+            "cache_metadata_sha256": "1bef0a1cfbcb3c80f2136a4afbf1a22c8cd240ed4c9e6d55eddbef7a41851801",
+            "eligible_clean_negatives": 2322,
+            "event_targets": 53,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 173,
+            "partition": "validation",
+            "point_targets": 53,
+            "positive_samples": 128,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 384,
+            "selected_positive_samples": 128,
+            "selected_samples": 512
+          },
+          "event_revision_content_sha256": "fddf33e4cd800e7a5e0c2e86eb212cda09eecc02dc3a6d705eebac949e9fbbed",
+          "event_revision_id": "canonical-card-state-reference-events-eced60eb8798234e694b056a71a392c0",
+          "event_revision_manifest_sha256": "9022cd8511c0d480c000e2183aaa4c8af3f9acd480da55f03d9dae1ecbe702d9",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": null,
+        "reasons": [
+          "excluded_by_legacy_device_diagnostic_receipt"
+        ],
+        "recording_id": "cardeventnet-IMG_2778"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 2947,
+            "cache_metadata_sha256": "e8ea7ec2469f588bf24570c4ae72fa57a1d32a8f263c4ff8c61637569ce2247a",
+            "eligible_clean_negatives": 2647,
+            "event_targets": 52,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 172,
+            "partition": "validation",
+            "point_targets": 52,
+            "positive_samples": 128,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 384,
+            "selected_positive_samples": 128,
+            "selected_samples": 512
+          },
+          "event_revision_content_sha256": "76a10ff8579c54219a00c8092b7d4adf061fece744a99a8b2c081c6d47771b5c",
+          "event_revision_id": "canonical-card-state-reference-events-74e1b70dda0e2624705e86c31990db5e",
+          "event_revision_manifest_sha256": "8fc4b1032db6a33e91b1d890723c7b1fff53c43a958e813f429e8de3248258fe",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": null,
+        "reasons": [
+          "excluded_by_legacy_device_diagnostic_receipt"
+        ],
+        "recording_id": "cardeventnet-IMG_2779"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 3768,
+            "cache_metadata_sha256": "f3b54eac48a5e1e0531254b414cba54ea7f5a0e03168c1e99978b11efae837cd",
+            "eligible_clean_negatives": 3508,
+            "event_targets": 44,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 149,
+            "partition": "validation",
+            "point_targets": 44,
+            "positive_samples": 111,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 333,
+            "selected_positive_samples": 111,
+            "selected_samples": 444
+          },
+          "event_revision_content_sha256": "d6eef9ce769fb5b161dcf9d4f9bd7791e30bdd3d642e116ddf92fca208c1b06b",
+          "event_revision_id": "canonical-card-state-reference-events-18c788f8ae0053bb803b4dfe73a06d79",
+          "event_revision_manifest_sha256": "d7cbf0aea14eb3041c5209f6b88aa1f5c0cd385905deebc113a818a340f11b54",
+          "partition": "validation"
+        },
+        "changed": true,
+        "current": null,
+        "reasons": [
+          "excluded_by_legacy_device_diagnostic_receipt"
+        ],
+        "recording_id": "cardeventnet-IMG_2780"
+      },
+      {
+        "baseline": {
+          "counts": {
+            "available_decision_times": 1846,
+            "cache_metadata_sha256": "479e5d966e6e1ce9f57812463e14ca01cc09242334b7fd6d603664db706734cf",
+            "eligible_clean_negatives": 1612,
+            "event_targets": 40,
+            "ignored_interval_samples": 0,
+            "interval_targets": 0,
+            "other_ignored_samples": 134,
+            "partition": "train",
+            "point_targets": 40,
+            "positive_samples": 100,
+            "sampling_seed": 42,
+            "selected_clean_negatives": 300,
+            "selected_positive_samples": 100,
+            "selected_samples": 400
+          },
+          "event_revision_content_sha256": "232087400a54c25451835c1eef4e0757379b6fb09dcfbcd014e3aebc05ee5746",
+          "event_revision_id": "reference-events-e483ee237e50bff675875e13f72225b5",
+          "event_revision_manifest_sha256": "f5775f1b3452ad4acc0bfa83e6b32dfae3bb2a1605db1523f91065fd34e17620",
+          "partition": "train"
+        },
+        "changed": true,
+        "current": null,
+        "reasons": [
+          "excluded_by_legacy_device_diagnostic_receipt"
+        ],
+        "recording_id": "cardeventnet-IMG_2781"
+      }
+    ]
+  },
+  "dataset": {
+    "dataset_version_digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+    "dataset_version_id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+    "path": "data/operations/cardevent-datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4"
+  },
+  "materialization": {
+    "file_sha256": "d723dcde4d3f5c77103b22d471ea4cccfb1e10eb5bffe70410f038ec60bbc3d5",
+    "manifest_digest": "20ba8415e8cccbfb790ae19a9ec7c6f695be8050f8544a2d45b2d251ec82f293",
+    "path": ".runtime/cardevent/datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4"
+  },
+  "partitions": {
+    "test": {
+      "available_decision_times": 17191,
+      "eligible_clean_negatives": 15262,
+      "event_targets": 233,
+      "ignored_interval_samples": 602,
+      "interval_targets": 41,
+      "other_ignored_samples": 771,
+      "point_targets": 192,
+      "positive_samples": 556,
+      "selected_clean_negatives": 1668,
+      "selected_positive_samples": 556,
+      "selected_samples": 2224
+    },
+    "train": {
+      "available_decision_times": 23929,
+      "eligible_clean_negatives": 11244,
+      "event_targets": 1360,
+      "ignored_interval_samples": 4688,
+      "interval_targets": 267,
+      "other_ignored_samples": 4606,
+      "point_targets": 1093,
+      "positive_samples": 3391,
+      "selected_clean_negatives": 9487,
+      "selected_positive_samples": 3391,
+      "selected_samples": 12878
+    },
+    "validation": {
+      "available_decision_times": 5818,
+      "eligible_clean_negatives": 2998,
+      "event_targets": 312,
+      "ignored_interval_samples": 999,
+      "interval_targets": 60,
+      "other_ignored_samples": 1046,
+      "point_targets": 252,
+      "positive_samples": 775,
+      "selected_clean_negatives": 2242,
+      "selected_positive_samples": 775,
+      "selected_samples": 3017
+    }
+  },
+  "recordings": [
+    {
+      "available_decision_times": 1122,
+      "cache_metadata_sha256": "d97cc28bb99ee829ef7c4a0f1c1736b7076d3de5e8292f41eb092166639940e6",
+      "eligible_clean_negatives": 651,
+      "event_targets": 51,
+      "ignored_interval_samples": 163,
+      "interval_targets": 10,
+      "other_ignored_samples": 176,
+      "partition": "validation",
+      "point_targets": 41,
+      "positive_samples": 132,
+      "recording_id": "cardeventnet-IMG_0090",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 396,
+      "selected_positive_samples": 132,
+      "selected_samples": 528
+    },
+    {
+      "available_decision_times": 1009,
+      "cache_metadata_sha256": "55f9a4649ffe44e81b17fde019055f6a687ac8811480b2e9d7d58a553d950df9",
+      "eligible_clean_negatives": 493,
+      "event_targets": 50,
+      "ignored_interval_samples": 216,
+      "interval_targets": 10,
+      "other_ignored_samples": 173,
+      "partition": "validation",
+      "point_targets": 40,
+      "positive_samples": 127,
+      "recording_id": "cardeventnet-IMG_0091",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 381,
+      "selected_positive_samples": 127,
+      "selected_samples": 508
+    },
+    {
+      "available_decision_times": 950,
+      "cache_metadata_sha256": "b9fa379dbaa455c2ac498347e30e915f39578d58c93aba606c8c691a9bc13a1e",
+      "eligible_clean_negatives": 462,
+      "event_targets": 51,
+      "ignored_interval_samples": 184,
+      "interval_targets": 10,
+      "other_ignored_samples": 174,
+      "partition": "train",
+      "point_targets": 41,
+      "positive_samples": 130,
+      "recording_id": "cardeventnet-IMG_0092",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 390,
+      "selected_positive_samples": 130,
+      "selected_samples": 520
+    },
+    {
+      "available_decision_times": 707,
+      "cache_metadata_sha256": "50c34167ad5a7f2d1f963a777c126547334ebcd4e15d6528ae7aee1047d42821",
+      "eligible_clean_negatives": 272,
+      "event_targets": 53,
+      "ignored_interval_samples": 106,
+      "interval_targets": 10,
+      "other_ignored_samples": 189,
+      "partition": "train",
+      "point_targets": 43,
+      "positive_samples": 140,
+      "recording_id": "cardeventnet-IMG_0095",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 272,
+      "selected_positive_samples": 140,
+      "selected_samples": 412
+    },
+    {
+      "available_decision_times": 682,
+      "cache_metadata_sha256": "3c0ad9d52a1bb6ff3d699d16ab021e4a41852b795fdaedbd14f867ba01b97b91",
+      "eligible_clean_negatives": 273,
+      "event_targets": 50,
+      "ignored_interval_samples": 105,
+      "interval_targets": 10,
+      "other_ignored_samples": 169,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 135,
+      "recording_id": "cardeventnet-IMG_0096",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 273,
+      "selected_positive_samples": 135,
+      "selected_samples": 408
+    },
+    {
+      "available_decision_times": 640,
+      "cache_metadata_sha256": "faf8468bfb47b036cd23ea24a9bde6e13895f027169c3e1fc89d32a736d3e122",
+      "eligible_clean_negatives": 179,
+      "event_targets": 50,
+      "ignored_interval_samples": 142,
+      "interval_targets": 10,
+      "other_ignored_samples": 179,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 140,
+      "recording_id": "cardeventnet-IMG_0097",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 179,
+      "selected_positive_samples": 140,
+      "selected_samples": 319
+    },
+    {
+      "available_decision_times": 1004,
+      "cache_metadata_sha256": "854ef6d5401d248345c2093884b9d4dffe29784b335e3667aa8a9eaf7d00b4cf",
+      "eligible_clean_negatives": 584,
+      "event_targets": 51,
+      "ignored_interval_samples": 128,
+      "interval_targets": 10,
+      "other_ignored_samples": 171,
+      "partition": "validation",
+      "point_targets": 41,
+      "positive_samples": 121,
+      "recording_id": "cardeventnet-IMG_0635",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 363,
+      "selected_positive_samples": 121,
+      "selected_samples": 484
+    },
+    {
+      "available_decision_times": 885,
+      "cache_metadata_sha256": "6a1c6ec5667c240273475d88658da5563b72d0b2387e8f3baa7c4f74e6d23e56",
+      "eligible_clean_negatives": 397,
+      "event_targets": 50,
+      "ignored_interval_samples": 196,
+      "interval_targets": 10,
+      "other_ignored_samples": 171,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 121,
+      "recording_id": "cardeventnet-IMG_0636",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 363,
+      "selected_positive_samples": 121,
+      "selected_samples": 484
+    },
+    {
+      "available_decision_times": 776,
+      "cache_metadata_sha256": "0b6cadf3bb336fcc1397d64c3d9de1318acd2be98a1faddb4cc2d336b1d3d9a5",
+      "eligible_clean_negatives": 301,
+      "event_targets": 50,
+      "ignored_interval_samples": 181,
+      "interval_targets": 10,
+      "other_ignored_samples": 171,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 123,
+      "recording_id": "cardeventnet-IMG_0637",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 301,
+      "selected_positive_samples": 123,
+      "selected_samples": 424
+    },
+    {
+      "available_decision_times": 968,
+      "cache_metadata_sha256": "7a38454ffe8023d728fffd65c384880db4d919a9ea6b71c2c6baa132619bb02e",
+      "eligible_clean_negatives": 535,
+      "event_targets": 51,
+      "ignored_interval_samples": 134,
+      "interval_targets": 10,
+      "other_ignored_samples": 179,
+      "partition": "train",
+      "point_targets": 41,
+      "positive_samples": 120,
+      "recording_id": "cardeventnet-IMG_0638",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 360,
+      "selected_positive_samples": 120,
+      "selected_samples": 480
+    },
+    {
+      "available_decision_times": 797,
+      "cache_metadata_sha256": "993b558a0b1324d95b3b08fba6c8979dd18213acec9cef4c34cb3e045454baf5",
+      "eligible_clean_negatives": 348,
+      "event_targets": 50,
+      "ignored_interval_samples": 157,
+      "interval_targets": 10,
+      "other_ignored_samples": 173,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 119,
+      "recording_id": "cardeventnet-IMG_0639",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 348,
+      "selected_positive_samples": 119,
+      "selected_samples": 467
+    },
+    {
+      "available_decision_times": 889,
+      "cache_metadata_sha256": "fb912102b2281c52c59285c340b6d6f987725fd7f7e693ee02dddd0965d2ee9f",
+      "eligible_clean_negatives": 463,
+      "event_targets": 50,
+      "ignored_interval_samples": 132,
+      "interval_targets": 10,
+      "other_ignored_samples": 167,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 127,
+      "recording_id": "cardeventnet-IMG_0640",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 381,
+      "selected_positive_samples": 127,
+      "selected_samples": 508
+    },
+    {
+      "available_decision_times": 965,
+      "cache_metadata_sha256": "e8eedea951666d11d4bb3cd74265f5a96ac3846fd4823108320764be229e25a2",
+      "eligible_clean_negatives": 402,
+      "event_targets": 53,
+      "ignored_interval_samples": 258,
+      "interval_targets": 11,
+      "other_ignored_samples": 172,
+      "partition": "train",
+      "point_targets": 42,
+      "positive_samples": 133,
+      "recording_id": "cardeventnet-IMG_0641",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 399,
+      "selected_positive_samples": 133,
+      "selected_samples": 532
+    },
+    {
+      "available_decision_times": 960,
+      "cache_metadata_sha256": "3c75f82b45c262286a6f780417505cdc245ae3cb1a568859e17898ad9cd97d7f",
+      "eligible_clean_negatives": 450,
+      "event_targets": 50,
+      "ignored_interval_samples": 224,
+      "interval_targets": 10,
+      "other_ignored_samples": 162,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 124,
+      "recording_id": "cardeventnet-IMG_0642",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 372,
+      "selected_positive_samples": 124,
+      "selected_samples": 496
+    },
+    {
+      "available_decision_times": 980,
+      "cache_metadata_sha256": "de0505d22e02206788fe6e24f917160031cf2cda73f2f5f741ff3bca9f5f2b77",
+      "eligible_clean_negatives": 571,
+      "event_targets": 52,
+      "ignored_interval_samples": 104,
+      "interval_targets": 10,
+      "other_ignored_samples": 178,
+      "partition": "train",
+      "point_targets": 42,
+      "positive_samples": 127,
+      "recording_id": "cardeventnet-IMG_0643",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 381,
+      "selected_positive_samples": 127,
+      "selected_samples": 508
+    },
+    {
+      "available_decision_times": 994,
+      "cache_metadata_sha256": "cbc189086e25cccdde400a1a801a4b744cb985a6223d602830b1de23e1f46311",
+      "eligible_clean_negatives": 567,
+      "event_targets": 54,
+      "ignored_interval_samples": 114,
+      "interval_targets": 10,
+      "other_ignored_samples": 180,
+      "partition": "validation",
+      "point_targets": 44,
+      "positive_samples": 133,
+      "recording_id": "cardeventnet-IMG_0644",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 399,
+      "selected_positive_samples": 133,
+      "selected_samples": 532
+    },
+    {
+      "available_decision_times": 1010,
+      "cache_metadata_sha256": "636eeb6fec246a02ef1732ecfc4b32640adea2657c1d2f6d46d411a3d4191b05",
+      "eligible_clean_negatives": 559,
+      "event_targets": 51,
+      "ignored_interval_samples": 157,
+      "interval_targets": 9,
+      "other_ignored_samples": 169,
+      "partition": "train",
+      "point_targets": 42,
+      "positive_samples": 125,
+      "recording_id": "cardeventnet-IMG_0645",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 375,
+      "selected_positive_samples": 125,
+      "selected_samples": 500
+    },
+    {
+      "available_decision_times": 1051,
+      "cache_metadata_sha256": "1d0b7a06c9979f8993c6952b4b28a4283b4792901798187a5d9f5130c1db0612",
+      "eligible_clean_negatives": 582,
+      "event_targets": 51,
+      "ignored_interval_samples": 182,
+      "interval_targets": 10,
+      "other_ignored_samples": 164,
+      "partition": "train",
+      "point_targets": 41,
+      "positive_samples": 123,
+      "recording_id": "cardeventnet-IMG_0646",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 369,
+      "selected_positive_samples": 123,
+      "selected_samples": 492
+    },
+    {
+      "available_decision_times": 1036,
+      "cache_metadata_sha256": "bb02e3606bf8d297b2539b079bbf10bf8b854969b9489cf33f925cc9c58ede8e",
+      "eligible_clean_negatives": 531,
+      "event_targets": 52,
+      "ignored_interval_samples": 200,
+      "interval_targets": 10,
+      "other_ignored_samples": 178,
+      "partition": "train",
+      "point_targets": 42,
+      "positive_samples": 127,
+      "recording_id": "cardeventnet-IMG_0648",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 381,
+      "selected_positive_samples": 127,
+      "selected_samples": 508
+    },
+    {
+      "available_decision_times": 1098,
+      "cache_metadata_sha256": "858239912ec2db5ff06e767a098f78c9e7c410bed19a6a8e1e05e288fdb70422",
+      "eligible_clean_negatives": 524,
+      "event_targets": 54,
+      "ignored_interval_samples": 256,
+      "interval_targets": 10,
+      "other_ignored_samples": 183,
+      "partition": "train",
+      "point_targets": 44,
+      "positive_samples": 135,
+      "recording_id": "cardeventnet-IMG_0649",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 405,
+      "selected_positive_samples": 135,
+      "selected_samples": 540
+    },
+    {
+      "available_decision_times": 764,
+      "cache_metadata_sha256": "f358995633483b8dd3adf247370355b1998e187525e8162fc93a59279e7c0d1b",
+      "eligible_clean_negatives": 390,
+      "event_targets": 36,
+      "ignored_interval_samples": 163,
+      "interval_targets": 7,
+      "other_ignored_samples": 125,
+      "partition": "train",
+      "point_targets": 29,
+      "positive_samples": 86,
+      "recording_id": "cardeventnet-IMG_0650",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 258,
+      "selected_positive_samples": 86,
+      "selected_samples": 344
+    },
+    {
+      "available_decision_times": 955,
+      "cache_metadata_sha256": "e81312446e89644a8bbd538c7de2048423d0f79249597a2c7ad2d5e883e00595",
+      "eligible_clean_negatives": 360,
+      "event_targets": 51,
+      "ignored_interval_samples": 294,
+      "interval_targets": 10,
+      "other_ignored_samples": 176,
+      "partition": "train",
+      "point_targets": 41,
+      "positive_samples": 125,
+      "recording_id": "cardeventnet-IMG_0651",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 360,
+      "selected_positive_samples": 125,
+      "selected_samples": 485
+    },
+    {
+      "available_decision_times": 781,
+      "cache_metadata_sha256": "af212fc82474425c0cce6d150ad5d37381964e030ec4645a7c8d66e52b034b93",
+      "eligible_clean_negatives": 323,
+      "event_targets": 51,
+      "ignored_interval_samples": 162,
+      "interval_targets": 10,
+      "other_ignored_samples": 170,
+      "partition": "validation",
+      "point_targets": 41,
+      "positive_samples": 126,
+      "recording_id": "cardeventnet-IMG_0652",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 323,
+      "selected_positive_samples": 126,
+      "selected_samples": 449
+    },
+    {
+      "available_decision_times": 986,
+      "cache_metadata_sha256": "6eca564de43feb527c172d99cbd1aeb344af76638dd37ec06ce3c543a49053a0",
+      "eligible_clean_negatives": 505,
+      "event_targets": 50,
+      "ignored_interval_samples": 189,
+      "interval_targets": 10,
+      "other_ignored_samples": 168,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 124,
+      "recording_id": "cardeventnet-IMG_0653",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 372,
+      "selected_positive_samples": 124,
+      "selected_samples": 496
+    },
+    {
+      "available_decision_times": 813,
+      "cache_metadata_sha256": "c03ae5ed51d1514ca8784aa02954dc024c8af92008f77a01acc056d9a4f5e3cf",
+      "eligible_clean_negatives": 342,
+      "event_targets": 51,
+      "ignored_interval_samples": 176,
+      "interval_targets": 10,
+      "other_ignored_samples": 170,
+      "partition": "train",
+      "point_targets": 41,
+      "positive_samples": 125,
+      "recording_id": "cardeventnet-IMG_0654",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 342,
+      "selected_positive_samples": 125,
+      "selected_samples": 467
+    },
+    {
+      "available_decision_times": 879,
+      "cache_metadata_sha256": "2e64bb4a16accb99a83a4caf761ce67f3b7a5b95f2a21d64f3a8f2ed95c4990c",
+      "eligible_clean_negatives": 403,
+      "event_targets": 51,
+      "ignored_interval_samples": 175,
+      "interval_targets": 10,
+      "other_ignored_samples": 178,
+      "partition": "train",
+      "point_targets": 41,
+      "positive_samples": 123,
+      "recording_id": "cardeventnet-IMG_0655",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 369,
+      "selected_positive_samples": 123,
+      "selected_samples": 492
+    },
+    {
+      "available_decision_times": 854,
+      "cache_metadata_sha256": "9a6d7df3afdfdc673513acb2ff5cf176c1c4ddcd382a1ae8bc0aa75b7f0a2a30",
+      "eligible_clean_negatives": 370,
+      "event_targets": 51,
+      "ignored_interval_samples": 183,
+      "interval_targets": 10,
+      "other_ignored_samples": 175,
+      "partition": "train",
+      "point_targets": 41,
+      "positive_samples": 126,
+      "recording_id": "cardeventnet-IMG_0656",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 370,
+      "selected_positive_samples": 126,
+      "selected_samples": 496
+    },
+    {
+      "available_decision_times": 895,
+      "cache_metadata_sha256": "b2cfd3c6a9cc2dd5e91b3572289226d033b79a5d4d91d8038d7d8a6b6b424ef0",
+      "eligible_clean_negatives": 416,
+      "event_targets": 51,
+      "ignored_interval_samples": 176,
+      "interval_targets": 10,
+      "other_ignored_samples": 180,
+      "partition": "train",
+      "point_targets": 41,
+      "positive_samples": 123,
+      "recording_id": "cardeventnet-IMG_0657",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 369,
+      "selected_positive_samples": 123,
+      "selected_samples": 492
+    },
+    {
+      "available_decision_times": 788,
+      "cache_metadata_sha256": "56c1a930a083ea9479c860df97744da966d84cbe57efa8251df43cec71932d16",
+      "eligible_clean_negatives": 358,
+      "event_targets": 50,
+      "ignored_interval_samples": 139,
+      "interval_targets": 10,
+      "other_ignored_samples": 161,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 130,
+      "recording_id": "cardeventnet-IMG_0658",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 358,
+      "selected_positive_samples": 130,
+      "selected_samples": 488
+    },
+    {
+      "available_decision_times": 824,
+      "cache_metadata_sha256": "9a1d33517b818783c4e7fa78308e544b2d2efec78adbbdde5132fc76be09f5af",
+      "eligible_clean_negatives": 408,
+      "event_targets": 52,
+      "ignored_interval_samples": 117,
+      "interval_targets": 10,
+      "other_ignored_samples": 170,
+      "partition": "train",
+      "point_targets": 42,
+      "positive_samples": 129,
+      "recording_id": "cardeventnet-IMG_0659",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 387,
+      "selected_positive_samples": 129,
+      "selected_samples": 516
+    },
+    {
+      "available_decision_times": 828,
+      "cache_metadata_sha256": "6ffc78d39e62374a221448096e85474ddb636b2929476f8904ec07706b8c8f05",
+      "eligible_clean_negatives": 400,
+      "event_targets": 49,
+      "ignored_interval_samples": 142,
+      "interval_targets": 9,
+      "other_ignored_samples": 160,
+      "partition": "train",
+      "point_targets": 40,
+      "positive_samples": 126,
+      "recording_id": "cardeventnet-IMG_0660",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 378,
+      "selected_positive_samples": 126,
+      "selected_samples": 504
+    },
+    {
+      "available_decision_times": 908,
+      "cache_metadata_sha256": "70b66b36e0be06e781ec28db5a2ee743a31e07c267c3efd029fd779b1bb477ff",
+      "eligible_clean_negatives": 380,
+      "event_targets": 55,
+      "ignored_interval_samples": 216,
+      "interval_targets": 10,
+      "other_ignored_samples": 176,
+      "partition": "validation",
+      "point_targets": 45,
+      "positive_samples": 136,
+      "recording_id": "cardeventnet-IMG_0661",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 380,
+      "selected_positive_samples": 136,
+      "selected_samples": 516
+    },
+    {
+      "available_decision_times": 949,
+      "cache_metadata_sha256": "3fd45cd32b950c976f7a83f67e7b6d1b7c53a7a4e14eacc9f2fc7d403bec5a6c",
+      "eligible_clean_negatives": 443,
+      "event_targets": 50,
+      "ignored_interval_samples": 216,
+      "interval_targets": 11,
+      "other_ignored_samples": 165,
+      "partition": "train",
+      "point_targets": 39,
+      "positive_samples": 125,
+      "recording_id": "cardeventnet-IMG_0662",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 375,
+      "selected_positive_samples": 125,
+      "selected_samples": 500
+    },
+    {
+      "available_decision_times": 4251,
+      "cache_metadata_sha256": "fccdda8a1e2dba43ae06e4e72e9980d0c155d6747ed4ec8bf36ee9c3abe72a18",
+      "eligible_clean_negatives": 3712,
+      "event_targets": 61,
+      "ignored_interval_samples": 200,
+      "interval_targets": 10,
+      "other_ignored_samples": 207,
+      "partition": "test",
+      "point_targets": 51,
+      "positive_samples": 132,
+      "recording_id": "cardeventnet-IMG_0669",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 396,
+      "selected_positive_samples": 132,
+      "selected_samples": 528
+    },
+    {
+      "available_decision_times": 5208,
+      "cache_metadata_sha256": "b4a1964e0adcd943ca02d75e1447ebb641211627388ddf00689e4808a031061c",
+      "eligible_clean_negatives": 4744,
+      "event_targets": 55,
+      "ignored_interval_samples": 151,
+      "interval_targets": 10,
+      "other_ignored_samples": 185,
+      "partition": "test",
+      "point_targets": 45,
+      "positive_samples": 128,
+      "recording_id": "cardeventnet-IMG_0670",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 384,
+      "selected_positive_samples": 128,
+      "selected_samples": 512
+    },
+    {
+      "available_decision_times": 2153,
+      "cache_metadata_sha256": "031e6de6bf5abc8f7c6dfd2ab2547e7ac663465e056356a776a906f62e807b23",
+      "eligible_clean_negatives": 1900,
+      "event_targets": 33,
+      "ignored_interval_samples": 61,
+      "interval_targets": 6,
+      "other_ignored_samples": 105,
+      "partition": "test",
+      "point_targets": 27,
+      "positive_samples": 87,
+      "recording_id": "cardeventnet-IMG_0671",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 261,
+      "selected_positive_samples": 87,
+      "selected_samples": 348
+    },
+    {
+      "available_decision_times": 3085,
+      "cache_metadata_sha256": "47dc951e3c3ef37935ea31dd0b85bf500ff06d13add3f4b87db1b9b894250713",
+      "eligible_clean_negatives": 2648,
+      "event_targets": 50,
+      "ignored_interval_samples": 147,
+      "interval_targets": 9,
+      "other_ignored_samples": 164,
+      "partition": "test",
+      "point_targets": 41,
+      "positive_samples": 126,
+      "recording_id": "cardeventnet-IMG_0673",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 378,
+      "selected_positive_samples": 126,
+      "selected_samples": 504
+    },
+    {
+      "available_decision_times": 2494,
+      "cache_metadata_sha256": "f68a68449dbf541e4cb511ef7d36b017c0c8110ebf483e9f1b9d6ac2d96ef985",
+      "eligible_clean_negatives": 2258,
+      "event_targets": 34,
+      "ignored_interval_samples": 43,
+      "interval_targets": 6,
+      "other_ignored_samples": 110,
+      "partition": "test",
+      "point_targets": 28,
+      "positive_samples": 83,
+      "recording_id": "cardeventnet-IMG_0674",
+      "sampling_seed": 42,
+      "selected_clean_negatives": 249,
+      "selected_positive_samples": 83,
+      "selected_samples": 332
+    }
+  ],
+  "report_digest": "bdc754fe144f5b78752f650eac08ec293f331f92a1423c0520ca85d8bb0931f8",
+  "sampling_policy": {
+    "anchor": "end_us",
+    "confirmed_hard_negatives": "not_used",
+    "interval_interior": "exclude_from_negative_evidence",
+    "negative_future_exclusion_s": 0.1,
+    "negative_past_exclusion_s": 0.35,
+    "negative_to_positive_ratio": 3,
+    "positive_window_s": 0.25,
+    "seed": 42,
+    "version": "stable-end-anchor-v1"
+  },
+  "schema_version": "cardeventnet-interval-sampling/v1"
+}

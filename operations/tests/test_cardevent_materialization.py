@@ -12,7 +12,10 @@ from doko_operations.cardevent_dataset import (
     _coverage,
     _digest,
 )
-from doko_operations.cardevent_materialization import materialize_cardeventnet_dataset
+from doko_operations.cardevent_materialization import (
+    _load_events,
+    materialize_cardeventnet_dataset,
+)
 
 
 def _sha256(value: bytes) -> str:
@@ -188,3 +191,19 @@ def test_materialization_replaces_changed_derived_files(tmp_path: Path) -> None:
 
     assert rebuilt.manifest_digest == result.manifest_digest
     assert '"card_state_changed"' in annotation.read_text(encoding="utf-8")
+
+
+def test_materialization_orders_overlapping_events_by_stable_end(tmp_path: Path) -> None:
+    content = {
+        "events": [
+            {"event_type": "card_state_changed", "start_us": 2_000_000, "end_us": 3_000_000},
+            {"event_type": "card_state_changed", "start_us": 2_500_000, "end_us": 2_500_000},
+        ]
+    }
+    path = tmp_path / "content.json"
+    path.write_text(json.dumps(content), encoding="utf-8")
+
+    assert _load_events(path, "recording-overlap") == [
+        (2_500_000, 2_500_000),
+        (2_000_000, 3_000_000),
+    ]

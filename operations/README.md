@@ -24,7 +24,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 
 The retained `doko` commands are grouped by owner:
 
-- `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `resilience-baseline`,
+- `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `cardevent interval-readiness`, `cardevent interval-freeze`, `resilience-baseline`,
   `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
   `impact`, and `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
@@ -346,6 +346,42 @@ Use repeated `--attest-no-interval <recording-id>` options only after a person c
 recording coverage and no card-state-change interval. The five old-phone recordings are retained
 as separately named `legacy_device_diagnostic` evidence and are rejected by future dataset
 builders.
+
+## Epic 0063 M7 interval-aware dataset
+
+Freeze and materialize the second CardEventNet dataset after M6 interval readiness. The command
+preserves eligible M3 group and partition assignments, removes the five old-phone diagnostics,
+seals the new test partition, and writes the immutable dataset artifacts below
+`data/operations/cardevent-datasets/`:
+
+```bash
+mise exec -- uv run --project operations doko data cardevent interval-freeze \
+  --repository-root . \
+  --baseline-dataset data/operations/cardevent-datasets/cardeventnet-dataset-babc3dca31acd0c3631c \
+  --baseline-view .runtime/cardevent/datasets/cardeventnet-dataset-babc3dca31acd0c3631c \
+  --cache-source .runtime/cardevent/datasets/cardeventnet-dataset-babc3dca31acd0c3631c \
+  --operator <name>
+```
+
+For the checked-in M7 dataset, the command writes
+`cardeventnet-interval-dataset-2e00fe87f08e25c51aa4` with 27 train, six validation, and five
+sealed-test recordings. It publishes per-recording and per-partition interval sampling counts,
+uses `stable-end-anchor-v1`, and compares every recording with the M3 materialization. The
+sampling report includes the full M3 comparison; the sampling report and combined report are under
+`data/operations/cardeventnet-interval-readiness/reports/`.
+
+The M3 materialization intentionally has no sealed-test caches. If the new disposable view needs
+them for the report, prepare only that data cache before rerunning the freeze:
+
+```bash
+mise exec -- uv run --project card_event_net cardevent prepare \
+  --dataset-view .runtime/cardevent/datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4 \
+  --partition test
+```
+
+This is a data-only preparation step. It does not train, evaluate, export, or read model output.
+The M7 dataset digest is
+`2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca`.
 
 ## Epic 0066 interval-review pilot
 

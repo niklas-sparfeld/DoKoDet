@@ -1,0 +1,60 @@
+{
+  "dataset_version_digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+  "dataset_version_id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+  "group_key_names": [
+    "game_id",
+    "session_id",
+    "source_lineage",
+    "table_setup"
+  ],
+  "schema_version": "cardeventnet-split/v1",
+  "split_version_digest": "99ff7cb84e5484c7b4a16fda24e2b1d4812f598b0dc876c52b8e0bd25298ad24",
+  "split_version_id": "cardeventnet-interval-split-99ff7cb84e5484c7b4a1",
+  "task": "cardevent_event_detection",
+  "test": [
+    "cardeventnet-IMG_0669",
+    "cardeventnet-IMG_0670",
+    "cardeventnet-IMG_0671",
+    "cardeventnet-IMG_0673",
+    "cardeventnet-IMG_0674"
+  ],
+  "test_sealed": true,
+  "train": [
+    "cardeventnet-IMG_0092",
+    "cardeventnet-IMG_0095",
+    "cardeventnet-IMG_0096",
+    "cardeventnet-IMG_0097",
+    "cardeventnet-IMG_0636",
+    "cardeventnet-IMG_0637",
+    "cardeventnet-IMG_0638",
+    "cardeventnet-IMG_0639",
+    "cardeventnet-IMG_0640",
+    "cardeventnet-IMG_0641",
+    "cardeventnet-IMG_0642",
+    "cardeventnet-IMG_0643",
+    "cardeventnet-IMG_0645",
+    "cardeventnet-IMG_0646",
+    "cardeventnet-IMG_0648",
+    "cardeventnet-IMG_0649",
+    "cardeventnet-IMG_0650",
+    "cardeventnet-IMG_0651",
+    "cardeventnet-IMG_0653",
+    "cardeventnet-IMG_0654",
+    "cardeventnet-IMG_0655",
+    "cardeventnet-IMG_0656",
+    "cardeventnet-IMG_0657",
+    "cardeventnet-IMG_0658",
+    "cardeventnet-IMG_0659",
+    "cardeventnet-IMG_0660",
+    "cardeventnet-IMG_0662"
+  ],
+  "unassigned": [],
+  "validation": [
+    "cardeventnet-IMG_0090",
+    "cardeventnet-IMG_0091",
+    "cardeventnet-IMG_0635",
+    "cardeventnet-IMG_0644",
+    "cardeventnet-IMG_0652",
+    "cardeventnet-IMG_0661"
+  ]
+}

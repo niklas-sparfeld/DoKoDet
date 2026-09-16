@@ -1,0 +1,71 @@
+{
+  "coverage_digest": "509157a9af7e39e7c88c1fae07ceeb811e599da773c1ccd5a68e2fc86e69397a",
+  "dataset_version_digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+  "dataset_version_id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+  "partitions": {
+    "test": {
+      "duration_us": 1719004000,
+      "event_count": 233,
+      "full_recording_coverage": true,
+      "recording_count": 5,
+      "recording_ids": [
+        "cardeventnet-IMG_0669",
+        "cardeventnet-IMG_0670",
+        "cardeventnet-IMG_0671",
+        "cardeventnet-IMG_0673",
+        "cardeventnet-IMG_0674"
+      ]
+    },
+    "train": {
+      "duration_us": 2392187000,
+      "event_count": 1360,
+      "full_recording_coverage": true,
+      "recording_count": 27,
+      "recording_ids": [
+        "cardeventnet-IMG_0092",
+        "cardeventnet-IMG_0095",
+        "cardeventnet-IMG_0096",
+        "cardeventnet-IMG_0097",
+        "cardeventnet-IMG_0636",
+        "cardeventnet-IMG_0637",
+        "cardeventnet-IMG_0638",
+        "cardeventnet-IMG_0639",
+        "cardeventnet-IMG_0640",
+        "cardeventnet-IMG_0641",
+        "cardeventnet-IMG_0642",
+        "cardeventnet-IMG_0643",
+        "cardeventnet-IMG_0645",
+        "cardeventnet-IMG_0646",
+        "cardeventnet-IMG_0648",
+        "cardeventnet-IMG_0649",
+        "cardeventnet-IMG_0650",
+        "cardeventnet-IMG_0651",
+        "cardeventnet-IMG_0653",
+        "cardeventnet-IMG_0654",
+        "cardeventnet-IMG_0655",
+        "cardeventnet-IMG_0656",
+        "cardeventnet-IMG_0657",
+        "cardeventnet-IMG_0658",
+        "cardeventnet-IMG_0659",
+        "cardeventnet-IMG_0660",
+        "cardeventnet-IMG_0662"
+      ]
+    },
+    "validation": {
+      "duration_us": 581553000,
+      "event_count": 312,
+      "full_recording_coverage": true,
+      "recording_count": 6,
+      "recording_ids": [
+        "cardeventnet-IMG_0090",
+        "cardeventnet-IMG_0091",
+        "cardeventnet-IMG_0635",
+        "cardeventnet-IMG_0644",
+        "cardeventnet-IMG_0652",
+        "cardeventnet-IMG_0661"
+      ]
+    }
+  },
+  "schema_version": "cardeventnet-coverage/v1",
+  "task": "cardevent_event_detection"
+}

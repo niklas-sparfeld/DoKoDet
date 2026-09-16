@@ -1,0 +1,45 @@
+{
+  "inputs": [
+    {
+      "digest": "bfbeeec4c72905f6b545eaa782b427daee6a2756373fc823bd33936fef6d28a0",
+      "id": "cardeventnet-dataset-babc3dca31acd0c3631c",
+      "kind": "baseline_dataset"
+    },
+    {
+      "digest": "267c384dda2579bda8953fca581520ed40f52b0601b8a5090c4f7b0d2fc01cf2",
+      "file_sha256": "77e962a480d76458455161cb15463a14462901e6899889234e0052ac61f143a9",
+      "kind": "interval_readiness_report"
+    },
+    {
+      "digest": "754334c0e723a908b1e0e30393377e584bc802b365f48544e171ce2e526c5a3d",
+      "file_sha256": "f2d05900eb7dd24b4f70ba6babaeb866e96bfc9748af83ab88e32fd632ea6743",
+      "kind": "diagnostic_only_source_exclusion"
+    },
+    {
+      "digest": "410c888ffe6bf080bcef13f5107e41c7950387f4e95c5650fb046ac8153b7279",
+      "id": "cardeventnet-split-b5c0a89b89b515b87fed",
+      "kind": "baseline_split"
+    }
+  ],
+  "operator": "epic-0063-m7",
+  "outputs": [
+    {
+      "digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+      "id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+      "kind": "dataset"
+    },
+    {
+      "digest": "99ff7cb84e5484c7b4a16fda24e2b1d4812f598b0dc876c52b8e0bd25298ad24",
+      "id": "cardeventnet-interval-split-99ff7cb84e5484c7b4a1",
+      "kind": "split"
+    },
+    {
+      "digest": "509157a9af7e39e7c88c1fae07ceeb811e599da773c1ccd5a68e2fc86e69397a",
+      "kind": "coverage"
+    }
+  ],
+  "receipt_digest": "716aebbaa82f879fdaefad4dbb0ba26dc82e4d45ddfdec07d290c622f0927d72",
+  "receipt_id": "receipt-cardeventnet-interval-freeze-716aebbaa82f879fdaef",
+  "receipt_type": "cardeventnet_interval_dataset_freeze",
+  "schema_version": "cardeventnet-freeze-receipt/v1"
+}

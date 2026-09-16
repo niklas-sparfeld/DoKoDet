@@ -1,0 +1,105 @@
+{
+  "dataset": {
+    "digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+    "excluded_recordings": [
+      "cardeventnet-IMG_2777",
+      "cardeventnet-IMG_2778",
+      "cardeventnet-IMG_2779",
+      "cardeventnet-IMG_2780",
+      "cardeventnet-IMG_2781"
+    ],
+    "id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+    "partition_counts": {
+      "test": 5,
+      "train": 27,
+      "validation": 6
+    },
+    "path": "data/operations/cardevent-datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+    "test_sealed": true
+  },
+  "lineage": {
+    "diagnostic_exclusion": {
+      "file_sha256": "f2d05900eb7dd24b4f70ba6babaeb866e96bfc9748af83ab88e32fd632ea6743",
+      "path": "data/operations/source-exclusions/legacy-device-diagnostic.json",
+      "receipt_digest": "754334c0e723a908b1e0e30393377e584bc802b365f48544e171ce2e526c5a3d",
+      "recording_ids": [
+        "cardeventnet-IMG_2777",
+        "cardeventnet-IMG_2778",
+        "cardeventnet-IMG_2779",
+        "cardeventnet-IMG_2780",
+        "cardeventnet-IMG_2781"
+      ]
+    },
+    "interval_readiness": {
+      "file_sha256": "77e962a480d76458455161cb15463a14462901e6899889234e0052ac61f143a9",
+      "path": "data/operations/cardeventnet-interval-readiness/reports/interval-readiness.json",
+      "report_digest": "267c384dda2579bda8953fca581520ed40f52b0601b8a5090c4f7b0d2fc01cf2"
+    },
+    "source_dataset": {
+      "artifact_sha256": {
+        "coverage.json": "30b739ab8784aaaea042ef0aebc23e000c654f0bbe3d5a27a7d2c3efd5dc47b3",
+        "dataset.json": "70089f91617016a2b6e67241c4975b493e828c260efaddc9a07d0dd83c12cac2",
+        "receipt.json": "649af187ad6863f03871c9aad4dfb3d9a4f8b4a1ffbe2027bbfea9894d8ee879",
+        "split.json": "058221ab335d675330f12cb4b55eb52342c19230ce5fd09166ffab70b4499df1"
+      },
+      "dataset_version_digest": "bfbeeec4c72905f6b545eaa782b427daee6a2756373fc823bd33936fef6d28a0",
+      "dataset_version_id": "cardeventnet-dataset-babc3dca31acd0c3631c",
+      "path": "data/operations/cardevent-datasets/cardeventnet-dataset-babc3dca31acd0c3631c"
+    }
+  },
+  "materialization": {
+    "dataset_version_digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+    "dataset_version_id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+    "manifest_digest": "20ba8415e8cccbfb790ae19a9ec7c6f695be8050f8544a2d45b2d251ec82f293",
+    "split_version_digest": "99ff7cb84e5484c7b4a16fda24e2b1d4812f598b0dc876c52b8e0bd25298ad24",
+    "split_version_id": "cardeventnet-interval-split-99ff7cb84e5484c7b4a1",
+    "view_root": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/cardevent/datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4"
+  },
+  "report_digest": "1ea7ef92a6c13156d5f92c080d57b3ea5120ed8286f48bc61844ac6be8cf779b",
+  "sampling": {
+    "partition_counts": {
+      "test": {
+        "available_decision_times": 17191,
+        "eligible_clean_negatives": 15262,
+        "event_targets": 233,
+        "ignored_interval_samples": 602,
+        "interval_targets": 41,
+        "other_ignored_samples": 771,
+        "point_targets": 192,
+        "positive_samples": 556,
+        "selected_clean_negatives": 1668,
+        "selected_positive_samples": 556,
+        "selected_samples": 2224
+      },
+      "train": {
+        "available_decision_times": 23929,
+        "eligible_clean_negatives": 11244,
+        "event_targets": 1360,
+        "ignored_interval_samples": 4688,
+        "interval_targets": 267,
+        "other_ignored_samples": 4606,
+        "point_targets": 1093,
+        "positive_samples": 3391,
+        "selected_clean_negatives": 9487,
+        "selected_positive_samples": 3391,
+        "selected_samples": 12878
+      },
+      "validation": {
+        "available_decision_times": 5818,
+        "eligible_clean_negatives": 2998,
+        "event_targets": 312,
+        "ignored_interval_samples": 999,
+        "interval_targets": 60,
+        "other_ignored_samples": 1046,
+        "point_targets": 252,
+        "positive_samples": 775,
+        "selected_clean_negatives": 2242,
+        "selected_positive_samples": 775,
+        "selected_samples": 3017
+      }
+    },
+    "report_digest": "bdc754fe144f5b78752f650eac08ec293f331f92a1423c0520ca85d8bb0931f8"
+  },
+  "schema_version": "cardeventnet-interval-dataset-report/v1",
+  "state": "ready"
+}

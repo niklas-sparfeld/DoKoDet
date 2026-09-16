@@ -56,8 +56,12 @@
   for future work, five old-phone recordings diagnostic-only, and no recordings blocked. The
   repository-wide exclusion receipt is bound to source digests and the report digest is
   `267c384dda2579bda8953fca581520ed40f52b0601b8a5090c4f7b0d2fc01cf2`.
-- **M7:** Not started — freeze and materialize a second interval-aware dataset, then publish its
-  sampling and clean-negative report.
+- **M7:** Complete (2026-09-16) — freeze
+  `cardeventnet-interval-dataset-2e00fe87f08e25c51aa4` contains 27 train, six validation, and
+  five sealed-test recordings. It excludes the five old-phone diagnostics, retains 38 eligible
+  recording entries, and publishes the stable-end sampling report with 1,537 point targets, 368
+  interval targets, 3,391 train positives, and 11,244 train eligible clean negatives. The dataset
+  digest is `2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca`.
 - **M8:** Not started — prepare the single-axis interval-aware validation campaign and hand its
   exact training command to the operator without starting it.
 - **M9:** Not started — validate and compare the operator-produced run, then publish a separate
@@ -89,6 +93,17 @@ diagnostic-only exclusion at
 dataset as its population and partition authority while binding each result to the currently
 selected maintained event revision. A zero-interval result is eligible only with an immutable
 attestation bound to that revision's manifest and content digests.
+
+M7 freezes the interval-aware dataset at
+`data/operations/cardevent-datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4/`. Its
+split is 27 train, six validation, and five sealed test recordings. The five diagnostic recordings
+have no dataset entries. The materialized view retains every event start and end bound and uses
+`stable-end-anchor-v1`. The sampling report is
+`data/operations/cardeventnet-interval-readiness/reports/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4-sampling.json`;
+the combined report is beside it. The sampling report includes the M3 comparison and explains all
+43 recording changes with old and new revision, manifest, content, and target-count values. The
+combined report records the resulting dataset, materialization, lineage, and partition summary.
+The sampling digest is `bdc754fe144f5b78752f650eac08ec293f331f92a1423c0520ca85d8bb0931f8`.
 
 ## 2. Decisions and boundaries
 
@@ -469,6 +484,11 @@ Acceptance:
 - no interval-interior sample is an ordinary or confirmed hard negative;
 - train, validation, and sealed test remain group-safe; and
 - rebuilding the view yields the same manifest and sampling report.
+
+Result: M7 is complete. The new dataset, split, coverage, freeze receipt, materialized view, and
+sampling reports were written as new artifacts. The historical M3 dataset remains unchanged. A
+data-only preparation pass created the five disposable sealed-test caches required for deterministic
+sampling; no training, validation inference, export, or model output was started.
 
 ### M8 — Prepare the manual interval-only validation campaign
 

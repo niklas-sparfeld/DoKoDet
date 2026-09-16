@@ -55,11 +55,13 @@ def materialize_cardeventnet_dataset(
     *,
     repository_root: str | Path,
     output_root: str | Path | None = None,
+    cache_source_root: str | Path | None = None,
 ) -> CardEventNetMaterializationResult:
     """Build one deterministic, disposable CardEventNet run view.
 
     Source videos stay in canonical intake. The view links to those immutable bytes and creates
-    only derived annotations, a split, and a manifest under ``.runtime/cardevent``.
+    only derived annotations, a split, and a manifest under ``.runtime/cardevent``. When a
+    compatible disposable cache is available, ``cache_source_root`` links it into the new view.
     """
 
     repository = Path(repository_root).expanduser().resolve()
@@ -82,6 +84,7 @@ def materialize_cardeventnet_dataset(
         output_root,
         dataset_id,
     )
+    cache_source = _cache_source_directory(repository, cache_source_root)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     staging_parent = Path(
@@ -213,6 +216,11 @@ def materialize_cardeventnet_dataset(
                     "sha256": _sha256_file(annotation_destination),
                 }
             )
+            if cache_source is not None:
+                source_cache = cache_source / recording_id
+                cache_destination = cache_dir / recording_id
+                if source_cache.is_dir() and not source_cache.is_symlink():
+                    os.symlink(source_cache, cache_destination, target_is_directory=True)
             split_key = "val" if partition == "validation" else partition
             split_values[split_key].append(recording_id)
 
@@ -297,6 +305,19 @@ def _output_directory(repository: Path, output_root: str | Path | None, dataset_
     return (repository / candidate if not candidate.is_absolute() else candidate).resolve()
 
 
+def _cache_source_directory(repository: Path, value: str | Path | None) -> Path | None:
+    if value is None:
+        return None
+    candidate = Path(value).expanduser()
+    resolved = (repository / candidate if not candidate.is_absolute() else candidate).resolve()
+    cache = resolved / "cache"
+    if cache.is_dir():
+        return cache
+    if resolved.is_dir():
+        return resolved
+    raise CardEventNetMaterializationError(f"cache source directory does not exist: {resolved}")
+
+
 def _required_object(path: Path, name: str) -> dict[str, Any]:
     value = _read_object(path)
     if value is None:
@@ -362,17 +383,14 @@ def _load_events(path: Path, recording_id: str) -> list[tuple[int, int]]:
                 f"event reference {recording_id}[{index}] has invalid interval"
             )
         result.append((start_us, end_us))
-    end_times = [end_us for _, end_us in result]
-    if (
-        result != sorted(result)
-        or len(result) != len({start_us for start_us, _ in result})
-        or end_times != sorted(end_times)
-        or len(end_times) != len(set(end_times))
-    ):
+    if result != sorted(result):
         raise CardEventNetMaterializationError(
             f"event reference {recording_id} is not strictly ordered"
         )
-    return result
+    # Pipeline event content is ordered by interval start.  Overlapping reviewed events can have
+    # a stable end inside another interval, while the CardEventNet annotation contract is ordered
+    # by its stable end anchor.
+    return sorted(result, key=lambda item: (item[1], item[0]))
 
 
 def _annotation_event(start_us: int, end_us: int) -> dict[str, Any]:

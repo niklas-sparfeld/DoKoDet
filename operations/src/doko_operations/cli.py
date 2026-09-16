@@ -18,6 +18,13 @@ from .cardevent_dataset import (
     freeze_cardeventnet_dataset,
     render_cardeventnet_freeze_human,
 )
+from .cardevent_interval_dataset import (
+    CardEventNetIntervalDatasetError,
+    build_cardeventnet_interval_dataset_report,
+    build_cardeventnet_interval_sampling_report,
+    freeze_cardeventnet_interval_dataset,
+    write_cardeventnet_interval_report,
+)
 from .cardevent_interval_pilot import (
     CardEventNetIntervalPilotError,
     render_cardeventnet_interval_pilot_human,
@@ -304,6 +311,51 @@ def build_parser() -> argparse.ArgumentParser:
     )
     interval_readiness.add_argument("--format", choices=("human", "json"), default="human")
     interval_readiness.add_argument("--json", action="store_true", help="Alias for --format json.")
+    interval_freeze = cardevent_commands.add_parser(
+        "interval-freeze",
+        help="Freeze and audit the interval-aware CardEventNet dataset.",
+        description="Freeze and audit the interval-aware CardEventNet dataset.",
+    )
+    _add_path_options(interval_freeze, suppress_defaults=True)
+    interval_freeze.add_argument(
+        "--baseline-dataset",
+        type=Path,
+        default=None,
+        help="M3 frozen dataset directory or dataset.json.",
+    )
+    interval_freeze.add_argument(
+        "--interval-readiness", type=Path, default=None, help="M6 interval-readiness report."
+    )
+    interval_freeze.add_argument(
+        "--exclusion-receipt", type=Path, default=None, help="M6 diagnostic-only exclusion receipt."
+    )
+    interval_freeze.add_argument(
+        "--operations-root", type=Path, default=None, help="Shared operations root."
+    )
+    interval_freeze.add_argument(
+        "--baseline-view",
+        type=Path,
+        default=None,
+        help="M3 disposable trainer view for cache reuse.",
+    )
+    interval_freeze.add_argument(
+        "--cache-source",
+        type=Path,
+        default=None,
+        help="Disposable cache view to link into the new view.",
+    )
+    interval_freeze.add_argument(
+        "--view-output", type=Path, default=None, help="Disposable interval-aware trainer view."
+    )
+    interval_freeze.add_argument(
+        "--sampling-report", type=Path, default=None, help="Immutable sampling report output path."
+    )
+    interval_freeze.add_argument(
+        "--report", type=Path, default=None, help="Immutable combined M7 report output path."
+    )
+    interval_freeze.add_argument("--operator", required=True)
+    interval_freeze.add_argument("--format", choices=("human", "json"), default="human")
+    interval_freeze.add_argument("--json", action="store_true", help="Alias for --format json.")
     baseline = data_commands.add_parser(
         "resilience-baseline",
         help="Freeze the visible-region identity resilience contract and report coverage.",
@@ -391,9 +443,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disposable trainer-view directory.",
     )
     rfdetr_materialize.add_argument("--format", choices=("human", "json"), default="human")
-    rfdetr_materialize.add_argument(
-        "--json", action="store_true", help="Alias for --format json."
-    )
+    rfdetr_materialize.add_argument("--json", action="store_true", help="Alias for --format json.")
     comparison = data_commands.add_parser(
         "resilience-comparison",
         help="Run the frozen paired visible-region resilience comparison.",
@@ -440,9 +490,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_path_options(resilience_execute, suppress_defaults=True)
     resilience_execute.add_argument("--work", type=Path, required=True)
     resilience_execute.add_argument("--format", choices=("human", "json"), default="human")
-    resilience_execute.add_argument(
-        "--json", action="store_true", help="Alias for --format json."
-    )
+    resilience_execute.add_argument("--json", action="store_true", help="Alias for --format json.")
     complete = data_commands.add_parser(
         "complete-video",
         help="Complete one pending video and publish a recording bundle.",
@@ -761,6 +809,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "materialize",
             "interval-pilot",
             "interval-readiness",
+            "interval-freeze",
         }:
             data_parser = next(
                 action for action in parser._subparsers._group_actions if action.dest == "command"
@@ -985,6 +1034,101 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for item in written:
                     sys.stdout.write(f"written: {item['path']}\n")
             return 0 if report["state"] == "ready" else 1
+        if args.cardevent_command == "interval-freeze":
+            try:
+                config = RepositoryConfig.from_environment(
+                    getattr(args, "repository_root", None),
+                    intake_root=getattr(args, "intake_root", None),
+                    artifacts_root=getattr(args, "artifacts_root", None),
+                )
+                operations_root = args.operations_root or config.derived_artifact_root
+                freeze_result = freeze_cardeventnet_interval_dataset(
+                    config.repository_root,
+                    operator=args.operator,
+                    baseline_dataset_path=args.baseline_dataset,
+                    interval_readiness_path=args.interval_readiness,
+                    exclusion_receipt_path=args.exclusion_receipt,
+                    operations_root=operations_root,
+                )
+                dataset_path = config.repository_root / freeze_result["path"]
+                baseline_view = args.baseline_view
+                if baseline_view is None:
+                    baseline_view = (
+                        config.repository_root
+                        / ".runtime"
+                        / "cardevent"
+                        / "datasets"
+                        / str(freeze_result["baseline_dataset"]["id"])
+                    )
+                cache_source = args.cache_source or baseline_view
+                materialization = materialize_cardeventnet_dataset(
+                    dataset_path,
+                    repository_root=config.repository_root,
+                    output_root=args.view_output,
+                    cache_source_root=cache_source,
+                )
+                sampling = build_cardeventnet_interval_sampling_report(
+                    config.repository_root,
+                    dataset_path=dataset_path,
+                    materialized_view_path=materialization.view_root,
+                    baseline_dataset_path=args.baseline_dataset,
+                    baseline_view_path=baseline_view,
+                )
+                sampling_path = args.sampling_report or (
+                    config.repository_root
+                    / "data"
+                    / "operations"
+                    / "cardeventnet-interval-readiness"
+                    / "reports"
+                    / f"{freeze_result['dataset_version_id']}-sampling.json"
+                )
+                sampling_artifact = write_cardeventnet_interval_report(
+                    config.repository_root, sampling, sampling_path
+                )
+                combined = build_cardeventnet_interval_dataset_report(
+                    freeze_result, materialization, sampling
+                )
+                report_path = args.report or (
+                    config.repository_root
+                    / "data"
+                    / "operations"
+                    / "cardeventnet-interval-readiness"
+                    / "reports"
+                    / f"{freeze_result['dataset_version_id']}.json"
+                )
+                report_artifact = write_cardeventnet_interval_report(
+                    config.repository_root, combined, report_path
+                )
+            except (
+                ConfigurationError,
+                OSError,
+                CardEventNetIntervalDatasetError,
+                CardEventNetMaterializationError,
+            ) as error:
+                print(f"error: {error}", file=sys.stderr)
+                return 2
+            output = {
+                **freeze_result,
+                "materialization": materialization.to_mapping(),
+                "sampling_report": sampling_artifact,
+                "report": report_artifact,
+            }
+            if args.json or args.format == "json":
+                sys.stdout.write(json.dumps(output, indent=2, sort_keys=True) + "\n")
+            else:
+                sys.stdout.write(
+                    "CardEventNet interval-aware dataset\n"
+                    f"state: {output['state']}\n"
+                    f"dataset: {output['dataset_version_id']}\n"
+                    f"train recordings: {output['partition_counts']['train']}\n"
+                    f"validation recordings: {output['partition_counts']['validation']}\n"
+                    f"sealed test recordings: {output['partition_counts']['test']}\n"
+                    f"excluded diagnostic recordings: {len(output['excluded_recordings'])}\n"
+                    f"view: {output['materialization']['view_root']}\n"
+                    f"sampling report: {output['sampling_report']['path']}\n"
+                    f"report: {output['report']['path']}\n"
+                )
+            return 0
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
             report = audit_cardeventnet(
