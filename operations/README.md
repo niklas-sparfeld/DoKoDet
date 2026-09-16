@@ -327,6 +327,26 @@ sealed `test` partition or the system holdout. Repeat the same command to resume
 The campaign retains the resolved recipe, command logs, champion and candidate evaluations,
 diagnostics, comparison, and candidate run references below `data/model-campaigns/`.
 
+## Epic 0063 M6 interval readiness
+
+Audit the current maintained event revisions and publish the repository-wide old-phone exclusion
+before freezing another CardEventNet dataset:
+
+```bash
+mise exec -- uv run --project operations doko data cardevent interval-readiness \
+  --repository-root . \
+  --publish-exclusion \
+  --operator <name> \
+  --report data/operations/cardeventnet-interval-readiness/reports/interval-readiness.json
+```
+
+The report records the selected revision, manifest and content digests, reference state, point and
+interval counts, reviewed duration, partition, and deterministic report digest for each recording.
+Use repeated `--attest-no-interval <recording-id>` options only after a person confirms full
+recording coverage and no card-state-change interval. The five old-phone recordings are retained
+as separately named `legacy_device_diagnostic` evidence and are rejected by future dataset
+builders.
+
 ## Epic 0066 interval-review pilot
 
 M4 publishes one bounded trick-clear review as a corrected event revision, then derives a

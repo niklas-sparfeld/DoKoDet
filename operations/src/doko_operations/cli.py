@@ -23,6 +23,14 @@ from .cardevent_interval_pilot import (
     render_cardeventnet_interval_pilot_human,
     run_cardeventnet_interval_pilot,
 )
+from .cardevent_interval_readiness import (
+    CardEventNetIntervalReadinessError,
+    build_cardeventnet_interval_readiness,
+    render_cardeventnet_interval_readiness_human,
+    write_cardeventnet_interval_readiness_report,
+    write_cardeventnet_zero_interval_attestation,
+    write_legacy_device_exclusion_receipt,
+)
 from .cardevent_inventory import (
     CardEventNetInventoryError,
     audit_cardeventnet,
@@ -260,6 +268,42 @@ def build_parser() -> argparse.ArgumentParser:
     interval_pilot.add_argument("--tolerance-s", type=float, default=0.5)
     interval_pilot.add_argument("--format", choices=("human", "json"), default="human")
     interval_pilot.add_argument("--json", action="store_true", help="Alias for --format json.")
+    interval_readiness = cardevent_commands.add_parser(
+        "interval-readiness",
+        help="Report CardEventNet interval-review readiness and diagnostic exclusions.",
+        description="Report CardEventNet interval-review readiness and diagnostic exclusions.",
+    )
+    _add_path_options(interval_readiness, suppress_defaults=True)
+    interval_readiness.add_argument(
+        "--dataset", type=Path, default=None, help="Frozen dataset directory or dataset.json."
+    )
+    interval_readiness.add_argument(
+        "--operations-root", type=Path, default=None, help="Shared operations root."
+    )
+    interval_readiness.add_argument(
+        "--exclusion-receipt", type=Path, default=None, help="Diagnostic-only receipt path."
+    )
+    interval_readiness.add_argument(
+        "--report", type=Path, default=None, help="Optional immutable JSON report output path."
+    )
+    interval_readiness.add_argument(
+        "--attest-no-interval",
+        dest="attest_no_intervals",
+        action="append",
+        default=[],
+        metavar="RECORDING_ID",
+        help="Record an explicit no-interval decision; requires --operator.",
+    )
+    interval_readiness.add_argument(
+        "--operator", default=None, help="Operator ID for attestations or receipt publication."
+    )
+    interval_readiness.add_argument(
+        "--publish-exclusion",
+        action="store_true",
+        help="Publish the immutable five-recording diagnostic-only exclusion receipt.",
+    )
+    interval_readiness.add_argument("--format", choices=("human", "json"), default="human")
+    interval_readiness.add_argument("--json", action="store_true", help="Alias for --format json.")
     baseline = data_commands.add_parser(
         "resilience-baseline",
         help="Freeze the visible-region identity resilience contract and report coverage.",
@@ -716,6 +760,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "freeze",
             "materialize",
             "interval-pilot",
+            "interval-readiness",
         }:
             data_parser = next(
                 action for action in parser._subparsers._group_actions if action.dest == "command"
@@ -880,6 +925,66 @@ def main(argv: Sequence[str] | None = None) -> int:
             else:
                 sys.stdout.write(render_cardeventnet_interval_pilot_human(result))
             return 0
+        if args.cardevent_command == "interval-readiness":
+            try:
+                config = RepositoryConfig.from_environment(
+                    getattr(args, "repository_root", None),
+                    intake_root=getattr(args, "intake_root", None),
+                    artifacts_root=getattr(args, "artifacts_root", None),
+                )
+                if (args.attest_no_intervals or args.publish_exclusion) and args.operator is None:
+                    raise CardEventNetIntervalReadinessError(
+                        "--operator is required for attestations or --publish-exclusion"
+                    )
+                operations_root = args.operations_root or config.derived_artifact_root
+                written: list[dict[str, object]] = []
+                for recording_id in args.attest_no_intervals:
+                    written.append(
+                        write_cardeventnet_zero_interval_attestation(
+                            config.repository_root,
+                            recording_id,
+                            operator=args.operator,
+                            dataset_path=args.dataset,
+                            operations_root=operations_root,
+                        )
+                    )
+                if args.publish_exclusion:
+                    written.append(
+                        write_legacy_device_exclusion_receipt(
+                            config.repository_root,
+                            operator=args.operator,
+                            dataset_path=args.dataset,
+                            output_path=args.exclusion_receipt,
+                        )
+                    )
+                report = build_cardeventnet_interval_readiness(
+                    config.repository_root,
+                    dataset_path=args.dataset,
+                    operations_root=operations_root,
+                    exclusion_receipt_path=args.exclusion_receipt,
+                )
+                report_receipt = None
+                if args.report is not None:
+                    report_receipt = write_cardeventnet_interval_readiness_report(
+                        config.repository_root, report, args.report
+                    )
+            except (ConfigurationError, OSError, CardEventNetIntervalReadinessError) as error:
+                print(f"error: {error}", file=sys.stderr)
+                return 2
+            if args.json or args.format == "json":
+                output = dict(report)
+                if written:
+                    output["written"] = written
+                if report_receipt is not None:
+                    output["report_artifact"] = report_receipt
+                sys.stdout.write(
+                    json.dumps(output, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+                )
+            else:
+                sys.stdout.write(render_cardeventnet_interval_readiness_human(report))
+                for item in written:
+                    sys.stdout.write(f"written: {item['path']}\n")
+            return 0 if report["state"] == "ready" else 1
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
             report = audit_cardeventnet(

@@ -51,8 +51,11 @@
   The candidate failed the declared recall, precision, F1, false-event, worst-recording, latency,
   Core ML export, and device-parity gates. The campaign recorded `human_review_required` and did
   not create a candidate lock or read the sealed test partition.
-- **M6:** Not started — audit the completed interval pass and publish a durable diagnostic-only
-  exclusion for `IMG_2777` through `IMG_2781`.
+- **M6:** Complete (2026-09-16) — the deterministic interval-readiness report records 1,778 point
+  events and 368 interval events across 43 historical recordings. It marks 38 recordings eligible
+  for future work, five old-phone recordings diagnostic-only, and no recordings blocked. The
+  repository-wide exclusion receipt is bound to source digests and the report digest is
+  `267c384dda2579bda8953fca581520ed40f52b0601b8a5090c4f7b0d2fc01cf2`.
 - **M7:** Not started — freeze and materialize a second interval-aware dataset, then publish its
   sampling and clean-negative report.
 - **M8:** Not started — prepare the single-axis interval-aware validation campaign and hand its
@@ -78,6 +81,14 @@ The M3 split placed `IMG_2781` in train and `IMG_2777` through `IMG_2780` in val
 and dataset must remove all five. Based on the unchanged assignments, the expected eligible counts
 become 27 train, six validation, and five test recordings. M7 must recalculate the counts and stop
 if group safety or minimum validation coverage does not hold.
+
+M6 records the interval-readiness audit at
+`data/operations/cardeventnet-interval-readiness/reports/interval-readiness.json` and publishes the
+diagnostic-only exclusion at
+`data/operations/source-exclusions/legacy-device-diagnostic.json`. The report uses the M3 frozen
+dataset as its population and partition authority while binding each result to the currently
+selected maintained event revision. A zero-interval result is eligible only with an immutable
+attestation bound to that revision's manifest and content digests.
 
 ## 2. Decisions and boundaries
 

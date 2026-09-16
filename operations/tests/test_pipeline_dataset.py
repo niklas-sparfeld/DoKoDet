@@ -356,6 +356,40 @@ def test_generated_revision_is_allowed_only_as_explicit_robustness_input(
         )
 
 
+def test_legacy_device_source_is_rejected_before_future_dataset_publication(
+    tmp_path: Path,
+) -> None:
+    legacy_source = replace(
+        SOURCE,
+        recording_id="cardeventnet-IMG_2777",
+        video_sha256="c" * 64,
+    )
+    reference = _revision(
+        "legacy-reference-01",
+        origin="manual",
+        source=legacy_source,
+        coverage={
+            "schema_version": "pipeline-reference-coverage/v1",
+            "kind": "event_intervals",
+            "intervals": [{"start_us": 0, "end_us": 10}],
+            "source_duration_us": 10,
+        },
+    )
+    source_group = replace(
+        _source_group(recording_id=legacy_source.recording_id),
+        source_asset_id="source-cardeventnet-IMG_2777",
+        source_sha256=legacy_source.video_sha256,
+    )
+
+    with pytest.raises(PipelineDatasetError, match="legacy-device diagnostic-only"):
+        materialize_pipeline_dataset(
+            RevisionCatalog(reference),
+            _request("legacy-reference-01", source_groups=(source_group,)),
+            tmp_path / "legacy-diagnostic",
+        )
+    assert not (tmp_path / "legacy-diagnostic" / "dataset-manifest.json").exists()
+
+
 @pytest.mark.parametrize(
     "dataset_request",
     [

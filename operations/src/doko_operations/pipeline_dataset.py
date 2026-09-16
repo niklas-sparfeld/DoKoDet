@@ -29,6 +29,7 @@ from .pipeline_data import (
     RecordingVideoSource,
     canonical_data_revision_bytes,
 )
+from .source_exclusion import SourceExclusionError, ensure_source_allowed
 from .visible_card_ignore import (
     mask_count,
     mask_digest,
@@ -418,6 +419,14 @@ def _source_for(
         raise PipelineDatasetError("dataset source is not active")
     if not source_group.task_selected:
         raise PipelineDatasetError("dataset source task enrollment is not selected")
+    try:
+        ensure_source_allowed(
+            source_asset_id=source_group.source_asset_id,
+            source_sha256=source_group.source_sha256,
+            recording_id=manifest.recording_id,
+        )
+    except SourceExclusionError as error:
+        raise PipelineDatasetError(str(error)) from error
     if request.partition not in source_group.allowed_uses:
         raise PipelineDatasetError(
             f"dataset source does not permit the {request.partition} partition"

@@ -1,0 +1,43 @@
+{
+  "created_at_utc": "2026-09-16T15:38:01Z",
+  "dataset_population": "cardeventnet-dataset-babc3dca31acd0c3631c",
+  "decision": "exclude_from_future_datasets_and_promotion_gates",
+  "operator": "epic-0063-m6",
+  "reason": "old-phone recordings are retained as diagnostic evidence only; their capture characteristics are not representative of future training or promotion decisions",
+  "receipt_digest": "754334c0e723a908b1e0e30393377e584bc802b365f48544e171ce2e526c5a3d",
+  "receipt_type": "legacy_device_diagnostic",
+  "role": "legacy_device_diagnostic",
+  "schema_version": "legacy-device-exclusion/v1",
+  "sources": [
+    {
+      "recording_id": "cardeventnet-IMG_2777",
+      "role": "legacy_device_diagnostic",
+      "source_asset_id": "source-cardeventnet-IMG_2777",
+      "source_sha256": "ccb1c0ca78558691af4a37c18eaac76a64d782aadc105cd0c779a5296e311e81"
+    },
+    {
+      "recording_id": "cardeventnet-IMG_2778",
+      "role": "legacy_device_diagnostic",
+      "source_asset_id": "source-cardeventnet-IMG_2778",
+      "source_sha256": "9a9ccbdf365bd2addd919617fb28513e9700395b83b0b8b913713cb21da4a029"
+    },
+    {
+      "recording_id": "cardeventnet-IMG_2779",
+      "role": "legacy_device_diagnostic",
+      "source_asset_id": "source-cardeventnet-IMG_2779",
+      "source_sha256": "3c4e2da8d5381aa5648e832ebc31efea09e20008cd7f72fc9b4e33a719660f93"
+    },
+    {
+      "recording_id": "cardeventnet-IMG_2780",
+      "role": "legacy_device_diagnostic",
+      "source_asset_id": "source-cardeventnet-IMG_2780",
+      "source_sha256": "1c801078b400622dd91d43fd57f209ab5f364169dd07b0b6d4487d71dab9f046"
+    },
+    {
+      "recording_id": "cardeventnet-IMG_2781",
+      "role": "legacy_device_diagnostic",
+      "source_asset_id": "source-cardeventnet-IMG_2781",
+      "source_sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee"
+    }
+  ]
+}

@@ -38,9 +38,7 @@ def test_freeze_preflight_reports_exact_test_and_group_gaps() -> None:
         {"report_digest": "a" * 64, "recordings": [missing_lineage]},
         split,
     )
-    assert "recording recording-a is missing group metadata: source_lineage" in report[
-        "blockers"
-    ]
+    assert "recording recording-a is missing group metadata: source_lineage" in report["blockers"]
 
 
 def test_freeze_preflight_rejects_group_crossing_and_accepts_three_independent_partitions() -> None:
@@ -81,6 +79,27 @@ def test_freeze_preflight_rejects_group_crossing_and_accepts_three_independent_p
         "validation",
         "test",
     }
+
+
+def test_future_freeze_preflight_excludes_legacy_device_recordings() -> None:
+    records = [
+        _record("recording-train", session_id="session-train"),
+        _record("recording-validation", session_id="session-validation"),
+        _record("recording-test", session_id="session-test"),
+        _record("cardeventnet-IMG_2777", session_id="session-legacy"),
+    ]
+    report = build_cardeventnet_freeze_report(
+        {"report_digest": "a" * 64, "recordings": records},
+        _split(
+            train=["recording-train"],
+            validation=["recording-validation"],
+            test=["recording-test"],
+        ),
+    )
+
+    assert report["state"] == "ready"
+    assert "cardeventnet-IMG_2777" not in report["eligible_recordings"]
+    assert "cardeventnet-IMG_2777" not in {item["recording_id"] for item in report["entries"]}
 
 
 def test_freeze_publication_is_immutable_and_idempotent(tmp_path: Path, monkeypatch) -> None:

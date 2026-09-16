@@ -12,6 +12,13 @@ from typing import Any
 
 from .cardevent_readiness import build_cardeventnet_readiness
 from .holdout import load_system_holdout_registry, sealed_group_keys
+from .source_exclusion import (
+    LEGACY_DEVICE_RECORDING_ID_SET,
+    LEGACY_DEVICE_SOURCE_ASSET_ID_SET,
+    SourceExclusionError,
+    ensure_source_allowed,
+    read_legacy_device_exclusion,
+)
 
 CARD_EVENTNET_DATASET_SCHEMA_VERSION = "cardeventnet-dataset/v1"
 CARD_EVENTNET_SPLIT_SCHEMA_VERSION = "cardeventnet-split/v1"
@@ -49,6 +56,12 @@ def build_cardeventnet_freeze_report(
 
     raw_records = readiness.get("recordings", [])
     records = [dict(item) for item in raw_records if isinstance(item, Mapping)]
+    records = [
+        item
+        for item in records
+        if item.get("recording_id") not in LEGACY_DEVICE_RECORDING_ID_SET
+        and item.get("source_asset_id") not in LEGACY_DEVICE_SOURCE_ASSET_ID_SET
+    ]
     records.sort(key=lambda item: str(item.get("recording_id", "")))
     by_id = {
         item["recording_id"]: item
@@ -255,6 +268,21 @@ def build_cardeventnet_freeze(
         for item in readiness.get("recordings", [])
         if isinstance(item, Mapping) and item.get("migration_state") == "migrated"
     ]
+    try:
+        exclusion, exclusion_digest = read_legacy_device_exclusion(repository, None)
+    except SourceExclusionError as error:
+        raise CardEventNetDatasetFreezeError(str(error)) from error
+    diagnostic_records = [
+        item
+        for item in records
+        if item.get("recording_id") in LEGACY_DEVICE_RECORDING_ID_SET
+        or item.get("source_asset_id") in LEGACY_DEVICE_SOURCE_ASSET_ID_SET
+    ]
+    if diagnostic_records and exclusion is None:
+        raise CardEventNetDatasetFreezeError(
+            "legacy-device diagnostic-only exclusion receipt is required before a new freeze"
+        )
+    records = [item for item in records if item not in diagnostic_records]
     migrated_ids = {
         item["recording_id"]
         for item in records
@@ -276,11 +304,22 @@ def build_cardeventnet_freeze(
     readiness["recordings"] = records
     split = _load_active_split(operations)
     holdout_groups = _load_holdout_groups(operations)
-    return build_cardeventnet_freeze_report(
+    report = build_cardeventnet_freeze_report(
         readiness,
         split,
         holdout_groups=holdout_groups,
     )
+    if exclusion is not None:
+        report["diagnostic_exclusion"] = {
+            "path": "data/operations/source-exclusions/legacy-device-diagnostic.json",
+            "receipt_digest": exclusion.get("receipt_digest"),
+            "file_sha256": exclusion_digest,
+            "recording_ids": sorted(LEGACY_DEVICE_RECORDING_ID_SET),
+        }
+        report["report_digest"] = _digest(
+            {key: value for key, value in report.items() if key != "report_digest"}
+        )
+    return report
 
 
 def freeze_cardeventnet_dataset(
@@ -315,6 +354,11 @@ def freeze_cardeventnet_dataset(
         "test_sealed": True,
         "entries": entries,
     }
+    diagnostic_exclusion = report.get("diagnostic_exclusion")
+    if isinstance(diagnostic_exclusion, Mapping):
+        dataset_core["diagnostic_exclusion_receipt_sha256"] = diagnostic_exclusion.get(
+            "receipt_digest"
+        )
     dataset_digest = _digest(dataset_core)
     dataset_id = f"cardeventnet-dataset-{dataset_digest[:20]}"
     dataset = {
@@ -370,6 +414,13 @@ def freeze_cardeventnet_dataset(
             {"kind": "coverage", "digest": coverage_digest},
         ],
     }
+    if isinstance(diagnostic_exclusion, Mapping):
+        receipt_core["inputs"].append(
+            {
+                "kind": "diagnostic_only_source_exclusion",
+                "digest": diagnostic_exclusion.get("receipt_digest"),
+            }
+        )
     receipt_digest = _digest(receipt_core)
     receipt = {
         **receipt_core,
@@ -783,7 +834,12 @@ def _validate_dataset(
             entry = entries_by_id[recording_id]
             if entry.get("partition") != partition:
                 raise CardEventNetDatasetFreezeError("dataset entry partition is invalid")
-            _validate_published_entry(entry, repository)
+            _validate_published_entry(
+                entry,
+                repository,
+                enforce_source_exclusion=dataset.get("diagnostic_exclusion_receipt_sha256")
+                is not None,
+            )
     if assigned != set(entries_by_id):
         raise CardEventNetDatasetFreezeError("dataset contains unassigned entries")
     if split.get("test_sealed") is not True or dataset.get("test_sealed") is not True:
@@ -803,7 +859,9 @@ def _validate_dataset(
                 group_partition[key] = partition
 
 
-def _validate_published_entry(entry: Mapping[str, Any], repository: Path) -> None:
+def _validate_published_entry(
+    entry: Mapping[str, Any], repository: Path, *, enforce_source_exclusion: bool = False
+) -> None:
     source_path = entry.get("source_path")
     if not isinstance(source_path, str) or not _resolve(repository, source_path).is_file():
         raise CardEventNetDatasetFreezeError(
@@ -817,6 +875,15 @@ def _validate_published_entry(entry: Mapping[str, Any], repository: Path) -> Non
         raise CardEventNetDatasetFreezeError(
             f"source digest is invalid for recording {entry.get('recording_id')}"
         )
+    if enforce_source_exclusion:
+        try:
+            ensure_source_allowed(
+                source_asset_id=entry.get("source_asset_id"),
+                source_sha256=source_digest,
+                recording_id=entry.get("recording_id"),
+            )
+        except SourceExclusionError as error:
+            raise CardEventNetDatasetFreezeError(str(error)) from error
     artifact_digests = {
         "event_revision_manifest_path": entry.get("event_revision_manifest_sha256"),
         "event_revision_content_path": entry.get("event_revision_content_sha256"),
