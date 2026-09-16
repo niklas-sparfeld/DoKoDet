@@ -2,19 +2,20 @@
 
 ## Plan status
 
-- **Summary:** Move the remaining legacy CardEventNet corpus into shared repository data, expose
-  human-review gaps, freeze a current train/validation/test dataset, and run one bounded campaign
-  that produces a new CardEventNet model.
+- **Summary:** Move the remaining legacy CardEventNet corpus into shared repository data, use the
+  reviewed card-state change intervals in a second frozen dataset, and run a bounded manual
+  training campaign that produces a new CardEventNet model.
 - **Status:** In Progress
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
 - **Readiness:** The shared recording intake, maintained event references, group-safe development
-  split, model campaign runner, and canonical `card_state_changed` event contract exist. The
-  imported CardEventNet annotations are accepted and published as completed full-recording
-  references. The frozen dataset, disposable trainer view, and lineage-aware smoke path are
-  complete. M5 produced a bounded validation result and M6 waits for human review.
+  split, model campaign runner, canonical `card_state_changed` event contract, and interval-aware
+  sampling policy exist. M5 produced a bounded validation result. A new human interval pass is in
+  progress. Three references remain drafts, and six recordings have no nonzero interval. M6 must
+  resolve or explicitly accept these gaps before a second dataset freeze. Long training commands
+  are operator-run and are never started or monitored by an implementation agent.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
-  finish every human event-review gap, freeze one leakage-safe train/validation/test dataset, run a
-  reproducible campaign, and retain a new `best.pt` and model bundle with complete lineage.
+  finish every human event-review gap, freeze a leakage-safe train/validation/test dataset, run a
+  reproducible manual campaign, and retain a new `best.pt` and model bundle with complete lineage.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -48,9 +49,17 @@
   The candidate failed the declared recall, precision, F1, false-event, worst-recording, latency,
   Core ML export, and device-parity gates. The campaign recorded `human_review_required` and did
   not create a candidate lock or read the sealed test partition.
-- **M6:** Not started — evaluate the locked candidate once on test, export it, and retain the new
-  model and campaign handoff after an operator resolves the M5 review and locks a suitable
-  candidate.
+- **M6:** Not started — audit the interval pass, complete the three remaining drafts, and record an
+  explicit operator decision for each recording that legitimately has no card-state change
+  interval.
+- **M7:** Not started — freeze and materialize a second interval-aware dataset, then publish its
+  sampling and clean-negative report.
+- **M8:** Not started — prepare the single-axis interval-aware validation campaign and hand its
+  exact training command to the operator without starting it.
+- **M9:** Not started — validate and compare the operator-produced run, then publish a separate
+  training-only hard-negative candidate manifest for later review.
+- **M10:** Not started — hand the locked candidate's sealed-test and export commands to the
+  operator, then validate and retain their completed artifacts without monitoring either run.
 
 ## 1. Current evidence
 
@@ -193,6 +202,43 @@ The operator can keep the current champion when no candidate passes. Do not tune
 test result. Do not overwrite the prior champion or call a candidate `best.pt` the repository
 champion without a promotion receipt.
 
+### 2.7 Interval labels do not make transitions negative
+
+Use one target and three non-target regions for every reviewed event:
+
+```text
+reviewed interval interior [start_us, end_us)       ignore
+stable end and its configured positive window      positive
+configured exclusion buffers around point targets ignore
+other fully reviewed times                         clean negative
+```
+
+The model gets no negative loss from a trick-taking transition. It learns the stable state at the
+interval end as the positive target. Evaluation reports a prediction inside the interval as an
+in-progress detection, not as a false event. Keep in-progress detections visible as a separate
+metric because an early runtime trigger can still produce a poor table observation.
+
+Use the new annotations as the only experiment axis in the next validation campaign. Keep the
+architecture, clip construction, configuration, seed, decoder, and partition groups fixed. Score
+the M5 checkpoint and the new checkpoint against the same new validation references. This makes
+the effect of the reviewed intervals measurable.
+
+The completed full-recording review also defines a larger clean-negative pool. A time is eligible
+only when it is inside reviewed coverage and outside every event interval, positive window, and
+exclusion buffer. The first interval-aware run uses ordinary negative sampling only. After that
+run, mine high-scoring unmatched predictions from the training partition into a separate candidate
+manifest. Never mine from validation or test. Never place an interval-interior prediction in that
+manifest. Do not train from the candidate manifest until an operator confirms it and a later
+single-axis hard-negative ablation is declared.
+
+### 2.8 The operator runs long commands
+
+Implementation agents can run unit tests, data validation, deterministic materialization, dry
+runs, and short smoke checks. They must not start, wait for, poll, or monitor full training, full
+validation inference, sealed-test inference, or export commands. Each execution milestone writes
+one exact copy-and-paste command and the expected output paths, then stops. The operator runs the
+command and starts the next phase after it exits.
+
 ## 3. Operator workflow
 
 Extend the existing `doko` command surface. Final option names can follow the current CLI style,
@@ -206,6 +252,9 @@ mise exec -- uv run --project operations doko data cardevent migrate \
   --repository-root . --legacy-root card_event_net/data --operator <name>
 
 mise exec -- uv run --project operations doko data cardevent readiness \
+  --repository-root .
+
+mise exec -- uv run --project operations doko data cardevent interval-readiness \
   --repository-root .
 
 mise exec -- uv run --project operations doko data cardevent freeze \
@@ -222,7 +271,9 @@ mise exec -- uv run --project operations doko model promote <campaign-id> \
 
 `audit`, `readiness`, and `compare` are read-only. `migrate` writes canonical intake, revisions,
 draft references, and receipts. `freeze` refuses incomplete review or unsafe partitions. Campaign
-resume keeps the existing idempotent behavior.
+resume keeps the existing idempotent behavior. `interval-readiness` reports point and interval
+counts, incomplete drafts, zero-interval decisions, selected revision IDs, and revision digests.
+It does not infer that a recording must contain a trick clear from its event count alone.
 
 The concise readiness output must answer:
 
@@ -354,24 +405,109 @@ Acceptance:
 - the comparison reports overall and worst-recording recall, precision, F1, false events per hour,
   timing delay, and hard-negative behavior.
 
-### M6 — Test, export, and handoff
+### M6 — Complete the interval review set
 
-- With explicit operator confirmation, evaluate only the locked candidate on the sealed test once.
-- Apply the existing promotion gates without starting another candidate or changing a threshold.
-- Export and validate the Core ML bundle, preprocessing fixture, runtime load, and parity.
-- Retain the new `best.pt`, resolved decoder settings, model bundle, reports, digests, and prior
-  champion rollback information under campaign-owned paths.
-- Promote only when the operator confirms and every hard gate passes. Otherwise retain the new
-  candidate and finish with a clear human-review or keep-champion result.
-- Update the CardEventNet operator documentation with the exact normal campaign and resume flow.
+- Add a deterministic `interval-readiness` report over the current maintained event references.
+- Report recording ID, partition, content type, reference state, selected revision, point count,
+  interval count, reviewed duration, and revision digest.
+- Fail readiness while any selected recording has a draft reference. Do not publish a new revision
+  or complete a human draft automatically.
+- Require an explicit operator decision for each zero-interval recording: complete another interval
+  review or attest that no card-state change interval is present. Bind each attestation to the
+  selected revision digest so a later revision invalidates it.
+- Seed focused tests from the current gaps: `IMG_0635`, `IMG_0652`, `IMG_0671`, `IMG_2778`,
+  `IMG_2780`, and `IMG_2781` have zero intervals; `IMG_0674`, `IMG_2777`, and `IMG_2779` remain
+  drafts at the time of this plan.
 
 Acceptance:
 
-- the test evaluation is tied to the locked checkpoint and frozen test partition;
-- the new checkpoint and bundle can be loaded locally and traced to source and annotation digests;
+- all 43 campaign recordings appear exactly once in the report;
+- the report cannot mistake a completed point-only reference for an interval review decision;
+- every draft and zero-interval decision has one exact operator action; and
+- M6 stops for the operator when human review is still required.
+
+### M7 — Freeze the interval-aware dataset
+
+- Freeze a new immutable dataset from the completed maintained references. Preserve the M3 group
+  and partition assignments unless a validator finds a leakage violation.
+- Seal the new test partition before any new model output is read. Do not modify the M3 dataset.
+- Materialize the disposable trainer view and verify the `stable-end-anchor-v1` policy.
+- Publish per-recording and per-partition counts for point targets, interval targets, positive
+  samples, ignored interval samples, other ignored samples, and eligible clean negatives.
+- Compare the counts with the M3 materialization. Explain every changed recording and digest.
+
+Acceptance:
+
+- every dataset entry resolves to the completed revision or zero-interval attestation accepted in
+  M6;
+- the materialized annotations retain all `start_us` and `end_us` values;
+- no interval-interior sample is an ordinary or confirmed hard negative;
+- train, validation, and sealed test remain group-safe; and
+- rebuilding the view yields the same manifest and sampling report.
+
+### M8 — Prepare the manual interval-only validation campaign
+
+- Add one bounded recipe that uses the M7 dataset and the M5 checkpoint as the loadable comparison
+  baseline.
+- Keep the M5 architecture, full causal clip, training configuration, seed, decoder, and budgets
+  fixed. The reviewed interval dataset is the only experiment axis.
+- Add fixture tests that prove the recipe cannot read test, system holdout, or a hard-negative
+  manifest during selection.
+- Add a read-only preflight that validates inputs, estimates sample counts and command outputs, and
+  writes the exact manual command to a campaign handoff file.
+- Stop after the preflight. Do not start or monitor the training command.
+
+Acceptance:
+
+- the handoff names the recipe, dataset and split digests, checkpoint baseline, expected campaign
+  directory, resume command, and completion artifacts;
+- the command runs one candidate with one seed and ordinary negatives only;
+- the command can resume without creating a second campaign identity; and
+- no implementation agent starts the command.
+
+### M9 — Compare the manual run and harvest negative candidates
+
+- After the operator finishes the M8 command, validate artifact completeness and lineage before
+  reading metrics.
+- Compare the M5 checkpoint and new checkpoint on the same M7 validation references. Report stable
+  end matches, point matches, in-progress detections, misses, confirmed false triggers, overall and
+  worst-recording metrics, false events per hour, and timing delay.
+- Apply the declared gates and lock one candidate or retain `human_review_required`. Do not tune a
+  threshold or recipe after this decision.
+- From the locked recipe's training partition only, write a ranked, deduplicated hard-negative
+  candidate manifest from unmatched high-score predictions in clean-negative regions.
+- Exclude interval interiors, positive windows, point-event exclusion buffers, validation, test,
+  and system holdout. Mark the manifest `training_input: false` until a later human review and
+  separate ablation.
+
+Acceptance:
+
+- comparison inputs have exact dataset, checkpoint, decoder, and code lineage;
+- an in-progress interval detection never counts as a confirmed false trigger;
+- every negative candidate resolves to full review coverage and a clean-negative sample; and
+- the campaign decision does not use sealed-test output.
+
+### M10 — Manual sealed test, export, and handoff
+
+- With explicit operator confirmation, write the exact one-time sealed-test command for the locked
+  candidate and stop. Do not start or monitor it.
+- After the operator finishes the test command, validate the result and apply the existing gates
+  without changing the candidate or threshold.
+- If the gates permit export, write the exact Core ML export and parity command and stop again. Do
+  not start or monitor it.
+- Validate the operator-produced bundle, preprocessing fixture, runtime load, parity, reports, and
+  digests. Retain the checkpoint, decoder settings, model bundle, and prior champion rollback
+  information under campaign-owned paths.
+- Promote only when the operator confirms and every hard gate passes.
+
+Acceptance:
+
+- test evaluation is tied to the locked checkpoint and new sealed test partition;
+- each long-running action has an explicit operator handoff and no agent polling;
+- the checkpoint and bundle load locally and trace to source and annotation digests;
 - promotion is atomic, explicit, and recoverable; and
-- the final report names the new model artifact, campaign outcome, remaining data gaps, and the
-  command needed for the next campaign.
+- the final report names the retained model, campaign outcome, remaining gaps, and the next manual
+  command when one remains.
 
 ## 5. Out of scope
 

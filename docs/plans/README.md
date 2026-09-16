@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M5 complete. The frozen dataset has 28 train, 10 validation, and five sealed test recordings. Campaign `cardeventnet-0063-m5-validation-20260915` retained a loadable candidate checkpoint and validation diagnostics, but recorded `human_review_required` because the app champion is not a PyTorch checkpoint and the candidate fails the declared gates. M6 awaits an operator decision and candidate lock. |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M5 complete. The first campaign retained a loadable checkpoint but failed its gates. M6 audits the new interval review pass before a second freeze. Six recordings have zero intervals and three references remain drafts. Later milestones isolate the interval-data change, make all long training commands operator-run, and keep hard-negative training as a separate later ablation. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -128,8 +128,10 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M6 only after the M5 review is resolved.** Lock a suitable candidate
-   explicitly before the one-time sealed-test evaluation and export.
+1. **Continue 0063 with M6.** Audit the new interval review pass, complete the three remaining
+   drafts, and resolve the six zero-interval recordings before the second dataset freeze. Keep
+   transition interiors out of negative evidence. The operator runs all long training, test, and
+   export commands; agents only prepare commands and consume completed artifacts.
 2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.
