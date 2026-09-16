@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 
+import cv2
 import pytest
 
 
@@ -66,3 +67,30 @@ def test_load_candidates_rejects_m9_training_input_manifest(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="training_input: false"):
         module.load_candidates(path)
+
+
+def test_read_frame_falls_back_to_last_frame_after_video_end() -> None:
+    module = _reviewer_module()
+
+    class FakeCapture:
+        def __init__(self) -> None:
+            self.positions: list[tuple[int, float]] = []
+
+        def set(self, property_id: int, value: float) -> bool:
+            self.positions.append((property_id, value))
+            return True
+
+        def get(self, property_id: int) -> float:
+            if property_id == cv2.CAP_PROP_FRAME_COUNT:
+                return 10.0
+            return 0.0
+
+        def read(self) -> tuple[bool, object | None]:
+            if self.positions[-1][0] == cv2.CAP_PROP_POS_FRAMES:
+                return True, "last frame"
+            return False, None
+
+    capture = FakeCapture()
+
+    assert module.read_frame(capture, 99.0) == "last frame"
+    assert capture.positions[-1] == (cv2.CAP_PROP_POS_FRAMES, 9)

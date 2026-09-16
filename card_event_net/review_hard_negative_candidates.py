@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -150,11 +151,21 @@ def resolve_video(video_name: str, videos: dict[str, Path]) -> Path:
 
 
 def read_frame(capture: cv2.VideoCapture, time_s: float) -> Any:
-    capture.set(cv2.CAP_PROP_POS_MSEC, max(0.0, time_s) * 1000.0)
+    requested_time_s = max(0.0, time_s)
+    capture.set(cv2.CAP_PROP_POS_MSEC, requested_time_s * 1000.0)
     ok, frame = capture.read()
-    if not ok or frame is None:
-        raise ValueError(f"Could not decode video frame at {time_s:.3f}s")
-    return frame
+    if ok and frame is not None:
+        return frame
+
+    # A trailing evidence frame can be outside the video. Use the last frame
+    # when the decoder exposes a usable frame count.
+    frame_count = capture.get(cv2.CAP_PROP_FRAME_COUNT)
+    if math.isfinite(frame_count) and frame_count >= 1:
+        capture.set(cv2.CAP_PROP_POS_FRAMES, int(frame_count) - 1)
+        ok, frame = capture.read()
+        if ok and frame is not None:
+            return frame
+    raise ValueError(f"Could not decode video frame at {time_s:.3f}s")
 
 
 def resize(frame: Any, width: int) -> Any:
