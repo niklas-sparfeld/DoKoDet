@@ -14,7 +14,7 @@ from cardevent.evaluate import (
     save_validation_stream,
     select_threshold,
 )
-from cardevent.events import CARD_STATE_CHANGED_EVENT_TYPE, ProbabilitySample
+from cardevent.events import CARD_STATE_CHANGED_EVENT_TYPE, EventInterval, ProbabilitySample
 from cardevent.splits import VideoSplit
 from cardevent.transition_diagnostics import (
     TransitionDiagnosticError,
@@ -365,6 +365,7 @@ def test_transition_diagnostics_reads_a_saved_validation_stream(tmp_path) -> Non
         duration_s=20.0,
         ground_truth_times_s=(10.0,),
         probabilities=(ProbabilitySample(10.5, 0.2),),
+        ground_truth_intervals_s=(EventInterval(9.5, 10.0),),
     )
     stream_path = save_validation_stream([video], tmp_path / "validation.json.gz")
     output_path = tmp_path / "transition-diagnostics.json"

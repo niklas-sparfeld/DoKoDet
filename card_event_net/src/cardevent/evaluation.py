@@ -13,6 +13,7 @@ import numpy as np
 
 from .events import (
     DetectedEvent,
+    EventInterval,
     EventMatchResult,
     ProbabilitySample,
     candidate_peaks,
@@ -40,7 +41,7 @@ class ScoredVideo:
     probabilities: tuple[ProbabilitySample, ...]
     ground_truth_types: tuple[str, ...] = ()
     annotation_version_hash: str | None = None
-    ground_truth_intervals_s: tuple[tuple[float, float], ...] = ()
+    ground_truth_intervals_s: tuple[EventInterval | tuple[float, float], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -581,6 +582,12 @@ def save_validation_stream(
     output_path: str | Path,
 ) -> Path:
     """Persist a decoder-ready, gzip-compressed validation stream artifact."""
+    def interval_mapping(interval: EventInterval | tuple[float, float]) -> dict[str, float]:
+        if isinstance(interval, EventInterval):
+            return {"start_s": interval.start_s, "end_s": interval.end_s}
+        start_s, end_s = interval
+        return {"start_s": start_s, "end_s": end_s}
+
     payload = {
         "format": "cardevent-validation-stream-v1",
         "videos": [
@@ -591,8 +598,8 @@ def save_validation_stream(
                 "probabilities": [sample.probability for sample in video.probabilities],
                 "ground_truth_events_s": list(video.ground_truth_times_s),
                 "ground_truth_intervals_s": [
-                    {"start_s": start_s, "end_s": end_s}
-                    for start_s, end_s in (
+                    interval_mapping(interval)
+                    for interval in (
                         video.ground_truth_intervals_s
                         or tuple((time_s, time_s) for time_s in video.ground_truth_times_s)
                     )
