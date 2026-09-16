@@ -383,6 +383,26 @@ This is a data-only preparation step. It does not train, evaluate, export, or re
 The M7 dataset digest is
 `2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca`.
 
+## Epic 0063 M8 interval-only campaign handoff
+
+Prepare the bounded single-axis recipe and write its exact operator command without starting
+training:
+
+```bash
+mise exec -- uv run --project operations doko model improve card-event-net \
+  --repository-root . \
+  --recipe experiments/cardevent/0063-m8-interval-validation.yaml \
+  --preflight
+```
+
+The preflight validates the M7 dataset and materialized view, the loadable M5 checkpoint, the
+fixed full causal configuration, and the stable-end sampling policy. It writes
+`data/model-campaigns/cardeventnet-0063-m8-interval-validation-df1dddc98bbb/handoff.json` with
+the manual and resume commands, expected outputs, and train/validation sample estimates. The
+handoff uses one candidate and seed 42 with ordinary negatives only. It does not read the sealed
+test partition, system holdout, or any hard-negative manifest. The operator runs the handoff
+command once and repeats it to resume; implementation agents do not start or monitor it.
+
 ## Epic 0066 interval-review pilot
 
 M4 publishes one bounded trick-clear review as a corrected event revision, then derives a

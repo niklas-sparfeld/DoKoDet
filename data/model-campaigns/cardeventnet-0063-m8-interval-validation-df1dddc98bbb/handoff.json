@@ -1,0 +1,156 @@
+{
+  "baseline": {
+    "bundle": {
+      "digest": "030465d3d7edd2e8fb0feb4d03253c3242d9968123b8c5d451a275d851a2f2a9",
+      "id": "cardeventnet-supplied-champion"
+    },
+    "checkpoint": {
+      "digest": "c1bbb28561d0e0fee3539bdafc3b8f2f57336dc3ef42622c493abc8175b0670c",
+      "id": "checkpoint-cardeventnet-0063-m5-validation-20260915-candidate-transition-label-v2",
+      "path": "data/model-campaigns/cardeventnet-0063-m5-validation-20260915/runs/candidate-transition-label-v2/best.pt"
+    }
+  },
+  "campaign_id": "cardeventnet-0063-m8-interval-validation-df1dddc98bbb",
+  "commands": {
+    "manual": "mise exec -- uv run --project operations doko model improve card-event-net --repository-root . --recipe experiments/cardevent/0063-m8-interval-validation.yaml --campaign-id cardeventnet-0063-m8-interval-validation-df1dddc98bbb --dataset data/operations/cardevent-datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4 --device mps --precision fp32",
+    "resume": "mise exec -- uv run --project operations doko model improve card-event-net --repository-root . --recipe experiments/cardevent/0063-m8-interval-validation.yaml --campaign-id cardeventnet-0063-m8-interval-validation-df1dddc98bbb --dataset data/operations/cardevent-datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4 --device mps --precision fp32",
+    "training": "mise exec -- uv run --project /Users/niklas.sparfeld/Developer/doko_detector/card_event_net cardevent train --config /Users/niklas.sparfeld/Developer/doko_detector/card_event_net/configs/transition-label-v2.yaml --output-dir /Users/niklas.sparfeld/Developer/doko_detector/data/model-campaigns/cardeventnet-0063-m8-interval-validation-df1dddc98bbb/runs --run-name candidate-interval-label-v1 --seed 42 --dataset-view /Users/niklas.sparfeld/Developer/doko_detector/.runtime/cardevent/datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4 --device mps --precision fp32"
+  },
+  "completion_artifacts": [
+    "cardeventnet-0063-m8-interval-validation-df1dddc98bbb/runs/candidate-interval-label-v1/best.pt",
+    "cardeventnet-0063-m8-interval-validation-df1dddc98bbb/comparison.json",
+    "cardeventnet-0063-m8-interval-validation-df1dddc98bbb/report.md"
+  ],
+  "data": {
+    "dataset": {
+      "digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+      "id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4"
+    },
+    "dataset_path": "data/operations/cardevent-datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+    "materialized_view": ".runtime/cardevent/datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+    "sampling_report": "data/operations/cardeventnet-interval-readiness/reports/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4-sampling.json",
+    "sampling_report_digest": "bdc754fe144f5b78752f650eac08ec293f331f92a1423c0520ca85d8bb0931f8",
+    "split": {
+      "digest": "99ff7cb84e5484c7b4a16fda24e2b1d4812f598b0dc876c52b8e0bd25298ad24",
+      "id": "cardeventnet-interval-split-99ff7cb84e5484c7b4a1"
+    }
+  },
+  "expected_campaign_directory": "data/model-campaigns/cardeventnet-0063-m8-interval-validation-df1dddc98bbb",
+  "expected_outputs": [
+    "campaign.json",
+    "resolved-recipe.yaml",
+    "comparison.json",
+    "report.md",
+    "champion-evaluation.json",
+    "champion-run.json",
+    "candidates/candidate-interval-label-v1/evaluation.json",
+    "candidates/candidate-interval-label-v1/cardevent-evaluation.json",
+    "candidates/candidate-interval-label-v1/diagnostics.json",
+    "runs/candidate-interval-label-v1/best.pt",
+    "runs/candidate-interval-label-v1/model-improvement.json"
+  ],
+  "fixed_axis": {
+    "candidate_id": "candidate-interval-label-v1",
+    "config_path": "card_event_net/configs/transition-label-v2.yaml",
+    "config_sha256": "819ed9a5b5523edfff9b704e85d118ba50eff62abc56533232c78d16d3b9dec6",
+    "decoder": {
+      "min_event_gap_s": 0.625,
+      "peak_confirmation_s": 0.125
+    },
+    "device": "mps",
+    "identity": {
+      "architecture": {
+        "backbone": "mobilenet_v3_small",
+        "dropout": 0.1,
+        "feature_dim": 128,
+        "pretrained": true,
+        "temporal_head": "full_clip_v2",
+        "temporal_hidden_1": 64,
+        "temporal_hidden_2": 32
+      },
+      "clip_offsets_s": [
+        -1.4,
+        -1.2,
+        -1.0,
+        -0.8,
+        -0.6,
+        -0.4,
+        -0.2,
+        0.0
+      ],
+      "decoder": {
+        "min_event_gap_s": 0.625,
+        "peak_confirmation_s": 0.125
+      },
+      "inference_stride_s": 0.125,
+      "labels": {
+        "negative_future_exclusion_s": 0.1,
+        "negative_past_exclusion_s": 0.35,
+        "negative_to_positive_ratio": 3,
+        "positive_window_s": 0.25
+      },
+      "training": {
+        "batch_size": 16,
+        "device": "auto",
+        "early_stopping": {
+          "metric": "validation_event_f1",
+          "min_delta": 0.005,
+          "patience": 3
+        },
+        "finetune_epochs": 15,
+        "finetune_lr": 0.0001,
+        "hard_negative_repeat": 3,
+        "warmup_epochs": 5,
+        "warmup_lr": 0.001,
+        "weight_decay": 0.0001
+      }
+    },
+    "name": "interval-labels-only-v1",
+    "precision": "fp32",
+    "seed": 42
+  },
+  "handoff_digest": "7f8e66fbeff0be4ab42fbf70f7d322e38f1c384db2003d0e21dd4e60c6eeda8c",
+  "operator_action": "Run the manual command once. Resume with the same command after interruption.",
+  "recipe": {
+    "digest": "df1dddc98bbba5c9ee1671a676fd67a7df20632299055c7bece0f1320b44d521",
+    "id": "cardeventnet-0063-m8-interval-validation",
+    "path": "experiments/cardevent/0063-m8-interval-validation.yaml"
+  },
+  "schema_version": "cardeventnet-campaign-handoff/v1",
+  "selection": {
+    "hard_negatives": "not_used",
+    "sample_estimate": {
+      "train": {
+        "available_decision_times": 23929,
+        "eligible_clean_negatives": 11244,
+        "event_targets": 1360,
+        "ignored_interval_samples": 4688,
+        "interval_targets": 267,
+        "other_ignored_samples": 4606,
+        "point_targets": 1093,
+        "positive_samples": 3391,
+        "selected_clean_negatives": 9487,
+        "selected_positive_samples": 3391,
+        "selected_samples": 12878
+      },
+      "validation": {
+        "available_decision_times": 5818,
+        "eligible_clean_negatives": 2998,
+        "event_targets": 312,
+        "ignored_interval_samples": 999,
+        "interval_targets": 60,
+        "other_ignored_samples": 1046,
+        "point_targets": 252,
+        "positive_samples": 775,
+        "selected_clean_negatives": 2242,
+        "selected_positive_samples": 775,
+        "selected_samples": 3017
+      }
+    },
+    "system_holdout": "not_read",
+    "test_partition": "sealed_not_read",
+    "training_partition": "train",
+    "validation_partition": "val"
+  },
+  "status": "ready"
+}

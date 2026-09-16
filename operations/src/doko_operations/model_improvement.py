@@ -204,6 +204,30 @@ class ArtifactReference:
 
 
 @dataclass(frozen=True, slots=True)
+class CheckpointReference:
+    """An immutable repository checkpoint used as a comparison baseline."""
+
+    id: str
+    path: str
+    digest: str
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "checkpoint"
+    ) -> "CheckpointReference":
+        data = _object(raw, context)
+        _strict(data, {"id", "path", "digest"}, context)
+        return cls(
+            _identifier(data["id"], f"{context}.id"),
+            _safe_relative_path(data["path"], f"{context}.path"),
+            _digest(data["digest"], f"{context}.digest"),
+        )
+
+    def to_mapping(self) -> dict[str, str]:
+        return {"id": self.id, "path": self.path, "digest": self.digest}
+
+
+@dataclass(frozen=True, slots=True)
 class DataContext:
     """The frozen data contract shared by champion and candidate evaluations."""
 
@@ -538,6 +562,7 @@ class ModelRecipe:
     capability: str
     task: str
     baseline_bundle: ArtifactReference
+    baseline_checkpoint: CheckpointReference | None
     data: DataContext
     experiment_axes: tuple[str, ...]
     candidates: tuple[CandidateSpec, ...]
@@ -553,30 +578,36 @@ class ModelRecipe:
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "ModelRecipe":
         data = _object(raw, "model recipe")
-        _strict(
-            data,
-            {
-                "schema_version",
-                "recipe_id",
-                "recipe_version",
-                "component",
-                "capability",
-                "task",
-                "baseline_bundle",
-                "data",
-                "experiment_axes",
-                "candidates",
-                "seeds",
-                "repeat_policy",
-                "budget",
-                "execution",
-                "selection_metrics",
-                "gate_profile_id",
-                "export_compatibility",
-                "sealed_test_authorized",
-            },
-            "model recipe",
-        )
+        required_fields = {
+            "schema_version",
+            "recipe_id",
+            "recipe_version",
+            "component",
+            "capability",
+            "task",
+            "baseline_bundle",
+            "data",
+            "experiment_axes",
+            "candidates",
+            "seeds",
+            "repeat_policy",
+            "budget",
+            "execution",
+            "selection_metrics",
+            "gate_profile_id",
+            "export_compatibility",
+            "sealed_test_authorized",
+        }
+        allowed_fields = required_fields | {"baseline_checkpoint"}
+        missing = required_fields - set(data)
+        unknown = set(data) - allowed_fields
+        if missing or unknown:
+            details: list[str] = []
+            if missing:
+                details.append(f"missing fields: {', '.join(sorted(missing))}")
+            if unknown:
+                details.append(f"unknown fields: {', '.join(sorted(unknown))}")
+            raise ModelImprovementError(f"model recipe has invalid fields ({'; '.join(details)}).")
         if data["schema_version"] != MODEL_RECIPE_SCHEMA_VERSION:
             raise ModelImprovementError("model recipe has an unsupported schema_version.")
         candidates = tuple(
@@ -625,6 +656,13 @@ class ModelRecipe:
             baseline_bundle=ArtifactReference.from_mapping(
                 data["baseline_bundle"], "baseline_bundle"
             ),
+            baseline_checkpoint=(
+                None
+                if data.get("baseline_checkpoint") is None
+                else CheckpointReference.from_mapping(
+                    data["baseline_checkpoint"], "baseline_checkpoint"
+                )
+            ),
             data=DataContext.from_mapping(data["data"]),
             experiment_axes=experiment_axes,
             candidates=candidates,
@@ -641,7 +679,7 @@ class ModelRecipe:
         )
 
     def to_mapping(self) -> dict[str, Any]:
-        return {
+        result = {
             "schema_version": MODEL_RECIPE_SCHEMA_VERSION,
             "recipe_id": self.recipe_id,
             "recipe_version": self.recipe_version,
@@ -661,6 +699,9 @@ class ModelRecipe:
             "export_compatibility": self.export_compatibility,
             "sealed_test_authorized": self.sealed_test_authorized,
         }
+        if self.baseline_checkpoint is not None:
+            result["baseline_checkpoint"] = self.baseline_checkpoint.to_mapping()
+        return result
 
     @property
     def digest(self) -> str:
@@ -2162,6 +2203,7 @@ def render_model_status_human(status: Mapping[str, Any]) -> str:
 
 __all__ = [
     "ArtifactReference",
+    "CheckpointReference",
     "CandidateLock",
     "CandidateRunReference",
     "CandidateSpec",

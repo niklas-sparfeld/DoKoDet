@@ -62,8 +62,14 @@
   recording entries, and publishes the stable-end sampling report with 1,537 point targets, 368
   interval targets, 3,391 train positives, and 11,244 train eligible clean negatives. The dataset
   digest is `2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca`.
-- **M8:** Not started — prepare the single-axis interval-aware validation campaign and hand its
-  exact training command to the operator without starting it.
+- **M8:** Complete (2026-09-16) — the bounded recipe
+  `cardeventnet-0063-m8-interval-validation` keeps the M5 full causal architecture, decoder,
+  seed 42, MPS/FP32 execution, and 120-minute budget fixed. Its preflight validates the M7
+  dataset, split, stable-end materialization, M5 checkpoint digest, and sampling policy, then
+  writes the operator handoff for campaign
+  `cardeventnet-0063-m8-interval-validation-df1dddc98bbb`. The handoff estimates 12,878 train and
+  3,017 validation samples, uses ordinary negatives only, and records test and system-holdout
+  inputs as unread. No training, validation inference, export, or model output was started.
 - **M9:** Not started — validate and compare the operator-produced run, then publish a separate
   training-only hard-negative candidate manifest for later review.
 - **M10:** Not started — hand the locked candidate's sealed-test and export commands to the
@@ -490,6 +496,21 @@ sampling reports were written as new artifacts. The historical M3 dataset remain
 data-only preparation pass created the five disposable sealed-test caches required for deterministic
 sampling; no training, validation inference, export, or model output was started.
 
+M8 publishes the operator-only handoff at
+`data/model-campaigns/cardeventnet-0063-m8-interval-validation-df1dddc98bbb/handoff.json` with
+digest `7f8e66fbeff0be4ab42fbf70f7d322e38f1c384db2003d0e21dd4e60c6eeda8c`. Prepare it with:
+
+```bash
+mise exec -- uv run --project operations doko model improve card-event-net \
+  --repository-root . \
+  --recipe experiments/cardevent/0063-m8-interval-validation.yaml \
+  --preflight
+```
+
+The preflight is read-only apart from the handoff file. The handoff command is the only next
+operator action. Repeat that same command to resume after an interrupted run. Do not run it from
+an implementation agent.
+
 ### M8 — Prepare the manual interval-only validation campaign
 
 - Add one bounded recipe that uses the M7 dataset and the M5 checkpoint as the loadable comparison
@@ -509,6 +530,11 @@ Acceptance:
 - the command runs one candidate with one seed and ordinary negatives only;
 - the command can resume without creating a second campaign identity; and
 - no implementation agent starts the command.
+
+Result: M8 is complete. The recipe, preflight, fixture guards, and operator handoff are checked
+in. The handoff fixes the M7 dataset and split digests, the M5 checkpoint digest, one candidate,
+seed 42, ordinary negatives, and the expected campaign outputs. The operator remains responsible
+for the long training and validation run.
 
 ### M9 — Compare the manual run and harvest negative candidates
 

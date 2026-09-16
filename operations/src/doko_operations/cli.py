@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .cardevent_campaign import (
     FixtureCommandRunner,
+    preflight_card_event_campaign,
     promote_card_event_campaign,
     run_card_event_campaign,
 )
@@ -591,6 +592,17 @@ def build_parser() -> argparse.ArgumentParser:
     improve.add_argument("component", choices=("card-event-net", "table-evidence-analyzer"))
     improve.add_argument("--recipe", type=Path, required=True)
     improve.add_argument("--campaign-id", default=None)
+    improve.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Validate inputs and write an operator handoff without starting the campaign.",
+    )
+    improve.add_argument(
+        "--handoff",
+        type=Path,
+        default=None,
+        help="Handoff JSON path for --preflight (default: campaign directory/handoff.json).",
+    )
     improve.add_argument(
         "--runner",
         choices=("cardevent", "table-evidence-analyzer", "fixture"),
@@ -1560,6 +1572,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             config = RepositoryConfig.from_environment(args.repository_root)
             if args.model_command == "improve":
+                if args.preflight:
+                    if args.component != "card-event-net":
+                        raise ValueError("--preflight is supported only for card-event-net")
+                    handoff = preflight_card_event_campaign(
+                        args.recipe,
+                        repository_root=config.repository_root,
+                        registry_path=args.model_registry,
+                        campaign_root=args.campaign_root,
+                        campaign_id=args.campaign_id,
+                        project_root=args.project_root,
+                        dataset_path=args.dataset,
+                        device=args.device,
+                        precision=args.precision,
+                        handoff_path=args.handoff,
+                    )
+                    if args.json or args.format == "json":
+                        sys.stdout.write(json.dumps(handoff, indent=2, sort_keys=True) + "\n")
+                    else:
+                        sys.stdout.write(
+                            "CardEventNet campaign preflight\n"
+                            f"campaign: {handoff['campaign_id']}\n"
+                            f"state: {handoff['status']}\n"
+                            f"handoff: {handoff['handoff_path']}\n"
+                            f"manual command: {handoff['commands']['manual']}\n"
+                        )
+                    return 0
                 if args.component == "table-evidence-analyzer":
                     command_runner = (
                         TableEvidenceFixtureCommandRunner() if args.runner == "fixture" else None

@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+from .cardevent_dataset import CardEventNetDatasetFreezeError, _read_object, _validate_dataset
 from .cardevent_materialization import (
     CardEventNetMaterializationError,
     materialize_cardeventnet_dataset,
@@ -958,6 +959,348 @@ def render_card_event_campaign_report(
     return "\n".join(lines)
 
 
+def _relative_handoff_path(root: Path, path: Path, field: str) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError as error:
+        raise CardEventCampaignError(f"{field} must be inside the repository root") from error
+
+
+def _validate_interval_selection_configuration(configuration: Mapping[str, object]) -> None:
+    """Reject selection inputs that would make the M8 comparison multi-axis."""
+    forbidden = {
+        "hard_negative_manifest": "hard-negative manifest",
+        "system_holdout": "system holdout",
+        "system_holdout_path": "system holdout",
+        "test_partition": "test partition",
+        "test_split": "test partition",
+    }
+    for key, label in forbidden.items():
+        if key in configuration and configuration[key] is not None:
+            raise CardEventCampaignError(f"interval-only selection cannot use a {label} ({key})")
+    if configuration.get("mine_hard_negatives") is True:
+        raise CardEventCampaignError(
+            "interval-only selection cannot mine or read a hard-negative manifest"
+        )
+    for key in ("partition", "evaluation_partition"):
+        if key in configuration and configuration[key] not in {None, "train", "val"}:
+            raise CardEventCampaignError(
+                f"interval-only selection cannot select partition {configuration[key]!r}"
+            )
+
+
+def _load_yaml_mapping(path: Path, context: str) -> dict[str, object]:
+    try:
+        import yaml
+    except ImportError as error:
+        raise CardEventCampaignError(
+            "YAML CardEventNet configs require the operations package YAML dependency"
+        ) from error
+    try:
+        value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, TypeError, ValueError, yaml.YAMLError) as error:
+        raise CardEventCampaignError(f"Could not read {context} {path}: {error}") from error
+    if not isinstance(value, Mapping):
+        raise CardEventCampaignError(f"{context} {path} must contain an object")
+    return dict(value)
+
+
+def _preflight_config_identity(config: Mapping[str, object]) -> dict[str, object]:
+    input_config = config.get("input")
+    inference_config = config.get("inference")
+    if not isinstance(input_config, Mapping) or not isinstance(inference_config, Mapping):
+        raise CardEventCampaignError("CardEventNet config must declare input and inference objects")
+    expected_offsets = [-1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0]
+    if list(input_config.get("clip_offsets_s", ())) != expected_offsets:
+        raise CardEventCampaignError("M8 requires the fixed full causal clip offsets")
+    if input_config.get("inference_stride_s") != 0.125:
+        raise CardEventCampaignError("M8 requires the fixed 0.125 second inference stride")
+    expected_decoder = {"peak_confirmation_s": 0.125, "min_event_gap_s": 0.625}
+    if {key: inference_config.get(key) for key in expected_decoder} != expected_decoder:
+        raise CardEventCampaignError("M8 requires the fixed causal decoder settings")
+    labels = config.get("labels")
+    if not isinstance(labels, Mapping):
+        raise CardEventCampaignError("CardEventNet config must declare labels")
+    expected_labels = {
+        "positive_window_s": 0.25,
+        "negative_past_exclusion_s": 0.35,
+        "negative_future_exclusion_s": 0.1,
+        "negative_to_positive_ratio": 3,
+    }
+    if {key: labels.get(key) for key in expected_labels} != expected_labels:
+        raise CardEventCampaignError("M8 config does not match the frozen interval sampling policy")
+    return {
+        "clip_offsets_s": expected_offsets,
+        "inference_stride_s": input_config["inference_stride_s"],
+        "decoder": expected_decoder,
+        "labels": expected_labels,
+        "architecture": config.get("model"),
+        "training": config.get("training"),
+    }
+
+
+def preflight_card_event_campaign(
+    recipe_path: str | Path,
+    *,
+    repository_root: str | Path,
+    registry_path: str | Path | None = None,
+    campaign_root: str | Path | None = None,
+    campaign_id: str | None = None,
+    project_root: str | Path | None = None,
+    dataset_path: str | Path | None = None,
+    device: str | None = None,
+    precision: str | None = None,
+    handoff_path: str | Path | None = None,
+) -> dict[str, object]:
+    """Validate M8 inputs and write a deterministic operator-only campaign handoff."""
+    root = Path(repository_root).resolve()
+    recipe_file = _resolve(root, recipe_path)
+    recipe = load_model_recipe(recipe_file)
+    if recipe.component != "card-event-net":
+        raise CardEventCampaignError("CardEventNet campaign recipes must use card-event-net")
+    if recipe.baseline_checkpoint is None:
+        raise CardEventCampaignError("M8 requires a loadable comparison baseline checkpoint")
+    if len(recipe.candidates) != 1 or recipe.budget.max_candidates != 1:
+        raise CardEventCampaignError("M8 must contain exactly one candidate")
+    if len(recipe.seeds) != 1 or recipe.repeat_policy != "single":
+        raise CardEventCampaignError("M8 must contain exactly one seed and one repeat")
+    if recipe.sealed_test_authorized:
+        raise CardEventCampaignError("M8 must not authorize sealed-test evaluation")
+
+    candidate = recipe.candidates[0]
+    configuration = _candidate_configuration(candidate)
+    _validate_interval_selection_configuration(configuration)
+    selected_device = device or recipe.execution.device
+    selected_precision = precision or recipe.execution.precision
+    if selected_device != "mps" or selected_precision != "fp32":
+        raise CardEventCampaignError("M8 keeps the M5 mps/fp32 execution contract fixed")
+
+    registry_file = _resolve(root, registry_path or root / "data" / "model-registry.json")
+    registry = load_model_registry(registry_file)
+    champion = registry.champion_for(recipe.component, recipe.capability)
+    if champion is None:
+        raise CardEventCampaignError(
+            f"model registry has no {recipe.component}/{recipe.capability} champion"
+        )
+    if champion.champion_bundle != recipe.baseline_bundle:
+        raise CardEventCampaignError("recipe baseline bundle differs from the registry champion")
+
+    checkpoint = _resolve(root, recipe.baseline_checkpoint.path)
+    if not checkpoint.is_file():
+        raise CardEventCampaignError(f"comparison baseline checkpoint is missing: {checkpoint}")
+    checkpoint_digest = _file_digest(checkpoint)
+    if checkpoint_digest != recipe.baseline_checkpoint.digest:
+        raise CardEventCampaignError("comparison baseline checkpoint digest differs")
+
+    dataset_directory = _resolve(
+        root,
+        dataset_path
+        or root / "data" / "operations" / "cardevent-datasets" / recipe.data.dataset.id,
+    )
+    artifacts = {
+        name: _read_object(dataset_directory / f"{name}.json")
+        for name in ("dataset", "split", "coverage", "receipt")
+    }
+    if any(value is None for value in artifacts.values()):
+        raise CardEventCampaignError(f"M8 dataset artifacts are incomplete: {dataset_directory}")
+    try:
+        _validate_dataset(
+            artifacts["dataset"] or {},
+            artifacts["split"] or {},
+            artifacts["coverage"] or {},
+            artifacts["receipt"] or {},
+            root,
+        )
+    except (CardEventNetDatasetFreezeError, OSError, ValueError) as error:
+        raise CardEventCampaignError(f"M8 dataset validation failed: {error}") from error
+    dataset = artifacts["dataset"] or {}
+    split = artifacts["split"] or {}
+    if dataset.get("dataset_version_id") != recipe.data.dataset.id:
+        raise CardEventCampaignError("M8 dataset ID differs from the recipe")
+    if dataset.get("dataset_version_digest") != recipe.data.dataset.digest:
+        raise CardEventCampaignError("M8 dataset digest differs from the recipe")
+    if split.get("split_version_id") != recipe.data.split.id:
+        raise CardEventCampaignError("M8 split ID differs from the recipe")
+    if split.get("split_version_digest") != recipe.data.split.digest:
+        raise CardEventCampaignError("M8 split digest differs from the recipe")
+    if dataset.get("target_policy") != {
+        "version": "stable-end-anchor-v1",
+        "anchor": "end_us",
+        "interval_interior": "exclude_from_negative_evidence",
+    }:
+        raise CardEventCampaignError("M8 dataset does not use stable-end interval targets")
+
+    dataset_view = root / ".runtime" / "cardevent" / "datasets" / recipe.data.dataset.id
+    materialization = _read_json(dataset_view / "materialization.json", "M8 materialization")
+    if (
+        materialization.get("dataset")
+        != {
+            "id": recipe.data.dataset.id,
+            "digest": recipe.data.dataset.digest,
+        }
+        or materialization.get("split", {}).get("id") != recipe.data.split.id
+    ):
+        raise CardEventCampaignError("M8 materialization does not match the recipe data")
+    policy = materialization.get("event_target_policy")
+    if not isinstance(policy, Mapping) or policy.get("version") != "stable-end-anchor-v1":
+        raise CardEventCampaignError("M8 materialization does not use stable-end interval targets")
+
+    sampling_path = (
+        root
+        / "data"
+        / "operations"
+        / "cardeventnet-interval-readiness"
+        / "reports"
+        / f"{recipe.data.dataset.id}-sampling.json"
+    )
+    sampling = _read_json(sampling_path, "M8 sampling report")
+    if sampling.get("dataset", {}).get("dataset_version_digest") != recipe.data.dataset.digest:
+        raise CardEventCampaignError("M8 sampling report does not match the dataset")
+    sampling_policy = sampling.get("sampling_policy")
+    expected_policy = {
+        "version": "stable-end-anchor-v1",
+        "anchor": "end_us",
+        "interval_interior": "exclude_from_negative_evidence",
+        "positive_window_s": 0.25,
+        "negative_past_exclusion_s": 0.35,
+        "negative_future_exclusion_s": 0.1,
+        "negative_to_positive_ratio": 3,
+        "confirmed_hard_negatives": "not_used",
+        "seed": 42,
+    }
+    if sampling_policy != expected_policy:
+        raise CardEventCampaignError("M8 sampling report does not match the fixed policy")
+    partition_counts = sampling.get("partitions")
+    if not isinstance(partition_counts, Mapping):
+        raise CardEventCampaignError("M8 sampling report has no partition counts")
+    train_counts = partition_counts.get("train")
+    validation_counts = partition_counts.get("validation")
+    if not isinstance(train_counts, Mapping) or not isinstance(validation_counts, Mapping):
+        raise CardEventCampaignError("M8 sampling report must contain train and validation counts")
+
+    project = _resolve(root, project_root or root / "card_event_net")
+    config_path = _path_from_configuration(
+        configuration,
+        "config_path",
+        project / "configs" / "base.yaml",
+        root,
+    )
+    if not config_path.is_file():
+        raise CardEventCampaignError(f"M8 CardEventNet config is missing: {config_path}")
+    config_identity = _preflight_config_identity(_load_yaml_mapping(config_path, "M8 config"))
+    campaign_root_path = _resolve(root, campaign_root or root / "data" / "model-campaigns")
+    selected_id = _campaign_id(recipe, campaign_id)
+    campaign_directory = campaign_root_path / selected_id
+    run_directory = campaign_directory / "runs" / candidate.candidate_id
+    train_command = _candidate_command_options(
+        configuration,
+        root=root,
+        project_root=project,
+        default_config=config_path,
+        default_split=dataset_view / "split.yaml",
+        default_cache=dataset_view / "cache",
+        default_annotations=dataset_view / "annotations",
+        output_dir=run_directory.parent,
+        run_name=run_directory.name,
+        dataset_view=dataset_view,
+        device=selected_device,
+        precision=selected_precision,
+        seed=_seed_from_configuration(configuration, recipe.seeds[0]),
+    )
+    forbidden_command_tokens = {"test", "system-holdout", "hard-negative", "hard_negatives"}
+    if any(any(token in part for token in forbidden_command_tokens) for part in train_command):
+        raise CardEventCampaignError("M8 training command contains a forbidden selection input")
+    recipe_relative = _relative_handoff_path(root, recipe_file, "recipe")
+    dataset_relative = _relative_handoff_path(root, dataset_directory, "dataset")
+    top_level_command = (
+        "mise exec -- uv run --project operations doko model improve card-event-net "
+        f"--repository-root . --recipe {recipe_relative} --campaign-id {selected_id} "
+        f"--dataset {dataset_relative} --device {selected_device} --precision {selected_precision}"
+    )
+    expected_outputs = [
+        "campaign.json",
+        "resolved-recipe.yaml",
+        "comparison.json",
+        "report.md",
+        "champion-evaluation.json",
+        "champion-run.json",
+        f"candidates/{candidate.candidate_id}/evaluation.json",
+        f"candidates/{candidate.candidate_id}/cardevent-evaluation.json",
+        f"candidates/{candidate.candidate_id}/diagnostics.json",
+        f"runs/{candidate.candidate_id}/best.pt",
+        f"runs/{candidate.candidate_id}/model-improvement.json",
+    ]
+    core: dict[str, object] = {
+        "schema_version": "cardeventnet-campaign-handoff/v1",
+        "status": "ready",
+        "campaign_id": selected_id,
+        "recipe": {
+            "path": recipe_relative,
+            "id": recipe.recipe_id,
+            "digest": recipe.digest,
+        },
+        "baseline": {
+            "bundle": recipe.baseline_bundle.to_mapping(),
+            "checkpoint": recipe.baseline_checkpoint.to_mapping(),
+        },
+        "data": {
+            "dataset": recipe.data.dataset.to_mapping(),
+            "split": recipe.data.split.to_mapping(),
+            "dataset_path": dataset_relative,
+            "materialized_view": _relative_handoff_path(root, dataset_view, "materialized view"),
+            "sampling_report": _relative_handoff_path(root, sampling_path, "sampling report"),
+            "sampling_report_digest": sampling.get("report_digest"),
+        },
+        "fixed_axis": {
+            "name": "interval-labels-only-v1",
+            "candidate_id": candidate.candidate_id,
+            "config_path": _relative_handoff_path(root, config_path, "config"),
+            "config_sha256": _file_digest(config_path),
+            "identity": config_identity,
+            "seed": recipe.seeds[0],
+            "device": selected_device,
+            "precision": selected_precision,
+            "decoder": configuration.get("decoder_settings"),
+        },
+        "selection": {
+            "training_partition": "train",
+            "validation_partition": "val",
+            "test_partition": "sealed_not_read",
+            "system_holdout": "not_read",
+            "hard_negatives": "not_used",
+            "sample_estimate": {
+                "train": dict(train_counts),
+                "validation": dict(validation_counts),
+            },
+        },
+        "commands": {
+            "manual": top_level_command,
+            "resume": top_level_command,
+            "training": shlex.join(train_command),
+        },
+        "expected_campaign_directory": _relative_handoff_path(
+            root, campaign_directory, "campaign directory"
+        ),
+        "expected_outputs": expected_outputs,
+        "completion_artifacts": [
+            f"{selected_id}/runs/{candidate.candidate_id}/best.pt",
+            f"{selected_id}/comparison.json",
+            f"{selected_id}/report.md",
+        ],
+        "operator_action": (
+            "Run the manual command once. Resume with the same command after interruption."
+        ),
+    }
+    payload = {**core, "handoff_digest": sha256_mapping(core)}
+    target = _resolve(
+        root,
+        handoff_path or campaign_directory / "handoff.json",
+    )
+    _write_json(target, payload)
+    payload["handoff_path"] = _relative_handoff_path(root, target, "handoff")
+    return payload
+
+
 def run_card_event_campaign(
     recipe_path: str | Path,
     *,
@@ -1105,7 +1448,18 @@ def run_card_event_campaign(
     champion_evaluation_file = campaign_dir / "champion-evaluation.json"
     champion_evaluation: ModelEvaluation
     champion_payload: dict[str, object]
-    champion_checkpoint = _resolve(root, champion.bundle_path)
+    if recipe.baseline_checkpoint is not None:
+        champion_checkpoint = _resolve(root, recipe.baseline_checkpoint.path)
+        if not champion_checkpoint.is_file():
+            raise CardEventCampaignError(
+                f"recipe comparison baseline checkpoint is missing: {champion_checkpoint}"
+            )
+        if _file_digest(champion_checkpoint) != recipe.baseline_checkpoint.digest:
+            raise CardEventCampaignError(
+                f"recipe comparison baseline checkpoint digest differs: {champion_checkpoint}"
+            )
+    else:
+        champion_checkpoint = _resolve(root, champion.bundle_path)
     if champion_evaluation_file.exists():
         champion_payload = _read_json(champion_evaluation_file, "champion evaluation")
         champion_evaluation = ModelEvaluation.from_mapping(champion_payload)
@@ -1152,6 +1506,11 @@ def run_card_event_campaign(
                     "recipe_digest": recipe.digest,
                     "data": recipe.data.to_mapping(),
                     "data_identity": data_identity,
+                    "comparison_baseline_checkpoint": (
+                        recipe.baseline_checkpoint.to_mapping()
+                        if recipe.baseline_checkpoint is not None
+                        else None
+                    ),
                     "validation_partition": "val",
                 },
             )
@@ -1178,6 +1537,11 @@ def run_card_event_campaign(
                     "recipe_digest": recipe.digest,
                     "data": recipe.data.to_mapping(),
                     "data_identity": data_identity,
+                    "comparison_baseline_checkpoint": (
+                        recipe.baseline_checkpoint.to_mapping()
+                        if recipe.baseline_checkpoint is not None
+                        else None
+                    ),
                     "validation_partition": "val",
                     "state": "skipped",
                     "failure_reason": reason,
@@ -2163,6 +2527,7 @@ __all__ = [
     "CommandRunner",
     "FixtureCommandRunner",
     "SubprocessCommandRunner",
+    "preflight_card_event_campaign",
     "render_card_event_campaign_report",
     "promote_card_event_campaign",
     "run_card_event_campaign",

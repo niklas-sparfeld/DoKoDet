@@ -24,3 +24,21 @@ The recipe baseline digest is the digest of the supplied
 the current champion entry with this digest before the command can run. If that champion is not a
 loadable CardEventNet training checkpoint, the campaign records the incompatibility and ends with
 `human_review_required`; it does not replace the champion.
+
+`0063-m8-interval-validation.yaml` is the bounded single-axis recipe for epic 0063 M8. It keeps
+the M5 architecture, full causal clip, decoder, seed, and budget fixed. Its `baseline_checkpoint`
+is the loadable M5 `best.pt`; the registry champion remains the application baseline.
+
+Prepare the operator handoff without starting training:
+
+```bash
+mise exec -- uv run --project operations doko model improve card-event-net \
+  --repository-root . \
+  --recipe experiments/cardevent/0063-m8-interval-validation.yaml \
+  --preflight
+```
+
+The preflight writes `handoff.json` below the deterministic campaign directory. The handoff has
+the exact manual and resume commands, expected artifacts, M7 data digests, and train/validation
+sample estimates. It does not read the sealed test partition, system holdout, or a hard-negative
+manifest, and it does not start the campaign.
