@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M9 complete. The first campaign retained a loadable checkpoint but failed its gates. M7 freezes `cardeventnet-interval-dataset-2e00fe87f08e25c51aa4` with 27 train, six validation, and five sealed-test recordings, excludes the five old-phone diagnostics, and publishes deterministic interval sampling and M3 comparison reports. M8 publishes the bounded operator handoff. M9 compares the completed candidate, retains `human_review_required`, and publishes 68 non-training hard-negative candidates. M10 remains operator-gated. |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M9 complete. The first campaign retained a loadable checkpoint but failed its gates. M7 freezes `cardeventnet-interval-dataset-2e00fe87f08e25c51aa4` with 27 train, six validation, and five sealed-test recordings, excludes the five old-phone diagnostics, and publishes deterministic interval sampling and M3 comparison reports. M8 publishes the bounded operator handoff. M9 compares the completed candidate, retains `human_review_required`, and publishes 68 reviewed candidates. The approved 63-item hard-negative ablation handoff is ready; M10 is blocked until a candidate lock exists. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -128,11 +128,12 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M10.** After the M9 review, use explicit operator confirmation to validate
-   the locked candidate's sealed-test and export path. Keep the five old-phone
-   recordings out of future datasets, negative mining, gates, and promotion decisions. The
-   operator runs all long training, test, export, and optional diagnostic commands; agents only
-   prepare commands and consume completed artifacts.
+1. **Continue 0063 with the hard-negative ablation handoff.** Run the prepared training command,
+   then the validation and diagnostics commands. Keep the five `missed_event` samples out of the
+   manifest and keep the five old-phone recordings out of future datasets, negative mining, gates,
+   and promotion decisions. M10 remains blocked until a candidate passes the hard gates and is
+   locked. The operator runs all long training, test, export, and optional diagnostic commands;
+   agents only prepare commands and consume completed artifacts.
 2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.

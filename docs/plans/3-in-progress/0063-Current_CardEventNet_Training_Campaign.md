@@ -79,10 +79,12 @@
   232 point matches, 29 in-progress detections, 30 misses, and 22 confirmed false triggers. The
   candidate remains `human_review_required` because the false-event, inference-latency, Core ML,
   device-parity, and regression-fixture gates are not all satisfied. No candidate lock or sealed
-  test read was created. The review publishes 68 ranked, deduplicated training-only hard-negative
-  candidates with `training_input: false`.
-- **M10:** Not started — hand the locked candidate's sealed-test and export commands to the
-  operator, then validate and retain their completed artifacts without monitoring either run.
+  test read was created. The operator reviewed all 68 hard-negative candidates: 63 are
+  `no_event` and five are `missed_event`. A separate 63-item, `training_input: true` manifest and
+  operator-only hard-negative ablation handoff are ready; the original M9 manifest remains
+  unchanged.
+- **M10:** Not started — blocked because M9 created no candidate lock. The separate hard-negative
+  ablation must run and be evaluated before any sealed-test or export handoff.
 
 ## 1. Current evidence
 
@@ -572,7 +574,10 @@ then wrote `m9-review.json`, `m9-report.md`, and `m9-hard-negative-candidates.js
 campaign directory. It promoted the mechanical `no_valid_candidate` result to the final
 `human_review_required` campaign state without changing the threshold, decoder, recipe, or
 sealed-test state. The candidate manifest contains only clean-negative samples from the frozen
-training partition and remains outside training until separate human review.
+training partition and remained outside training until the operator reviewed it. The completed
+review produced 63 approved `no_event` samples and excluded five `missed_event` samples. The
+separate ablation manifest and operator handoff are under
+`data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/`; no long command was started.
 
 ### M10 — Manual sealed test, export, and handoff
 
