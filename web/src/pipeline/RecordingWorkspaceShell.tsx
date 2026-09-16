@@ -26,6 +26,7 @@ import { actionHref, isModifiedClick } from "./recordingWorkspaceNavigation";
 import {
   formatDuration,
   formatIdentifier,
+  formatPipelineStageState,
 } from "./recordingWorkspaceFormatting";
 import type {
   PipelinePrimaryAction,
@@ -134,7 +135,13 @@ export function RecordingWorkspaceShell({
                     }}
                   >
                     <span>{STAGE_LABELS[candidate.key]}</span>
-                    <RecordingWorkspaceStatusBadge value={candidate.state} />
+                    <RecordingWorkspaceStatusBadge
+                      value={candidate.state}
+                      label={formatPipelineStageState(
+                        candidate.key,
+                        candidate.state,
+                      )}
+                    />
                   </a>
                 </li>
               ))}

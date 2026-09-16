@@ -1759,11 +1759,25 @@ progress {
   font-weight: 850;
 }
 
+.recordingPipelineCopy {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
 .recordingPipelineLabel {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.recordingPipelineStatus {
+  color: var(--faint-ink);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
 }
 
 .recordingPipelineStep[data-state="complete"] {
@@ -1798,6 +1812,21 @@ progress {
 .recordingPipelineStep[data-state="failed"] .recordingPipelineMarker {
   border-color: var(--danger);
   background: var(--danger-surface);
+  color: var(--danger);
+}
+
+.recordingPipelineStep[data-stage-state="video-only"] .recordingPipelineStatus,
+.recordingPipelineStep[data-stage-state="empty"] .recordingPipelineStatus {
+  color: var(--muted-ink);
+}
+
+.recordingPipelineStep[data-stage-state="generated-only"]
+  .recordingPipelineStatus,
+.recordingPipelineStep[data-stage-state="draft"] .recordingPipelineStatus {
+  color: var(--accent-bright);
+}
+
+.recordingPipelineStep[data-stage-state="failed"] .recordingPipelineStatus {
   color: var(--danger);
 }
 
@@ -2089,6 +2118,15 @@ progress {
 
   .recordingPipelineLabel {
     max-width: 100%;
+  }
+
+  .recordingPipelineCopy {
+    width: 100%;
+  }
+
+  .recordingPipelineStatus {
+    max-width: 100%;
+    white-space: normal;
   }
 
   .recordingContextBar {

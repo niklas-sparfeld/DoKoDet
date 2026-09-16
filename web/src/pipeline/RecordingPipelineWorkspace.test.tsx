@@ -242,6 +242,11 @@ describe("recording pipeline workspace", () => {
       screen.getByRole("navigation", { name: "Recording pipeline stages" }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("link", {
+        name: /Visible cards.*No processor output/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
       screen.getAllByRole("link", { name: /Events/ }).length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Generated" })).toHaveAttribute(

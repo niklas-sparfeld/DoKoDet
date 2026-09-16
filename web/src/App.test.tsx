@@ -200,14 +200,79 @@ describe("App", () => {
       name: "Pipeline progress",
     });
     expect(
-      within(progress).getByRole("listitem", { name: "Events: complete" }),
+      within(progress).getByRole("listitem", { name: "Events: Reviewed" }),
     ).toHaveAttribute("data-state", "complete");
     expect(
       within(progress).getByRole("listitem", {
-        name: "Visible cards: next",
+        name: "Visible cards: No processor output",
       }),
     ).toHaveAttribute("data-state", "active");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows whether each pipeline stage has output to review", async () => {
+    const status = pipelineStatus("complete");
+    status.stages[1].state = "generated-only";
+    status.stages[2].state = "draft";
+    status.stages[3].state = "active-run";
+    status.stages[4].state = "failed";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          response({
+            recordings: [
+              {
+                recording_id: recordingId,
+                source_asset_id: "source-fixture",
+                video_id: "video-fixture",
+                session_id: "session-fixture",
+                state: "accepted",
+                source_sha256: "a".repeat(64),
+                received_at: "2026-09-06T12:00:00Z",
+                round_id: "round-7",
+                evidence_package_ids: [],
+                analyses: [],
+                pipeline_status: status,
+                can_start_analysis: false,
+                analysis_blocker: "The pipeline is not ready.",
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    render(<App />);
+
+    const progress = within(
+      await screen.findByRole("link", { name: "Open round-7" }),
+    ).getByRole("list", { name: "Pipeline progress" });
+    expect(
+      within(progress).getByRole("listitem", {
+        name: "Events: Reviewed",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(progress).getByRole("listitem", {
+        name: "Visible cards: Ready for review",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(progress).getByRole("listitem", {
+        name: "Identities: Review in progress",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(progress).getByRole("listitem", {
+        name: "Observations: Processor running",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(progress).getByRole("listitem", {
+        name: "Analysis: Processor failed",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("enters the recording pipeline without loading retired review routes", async () => {

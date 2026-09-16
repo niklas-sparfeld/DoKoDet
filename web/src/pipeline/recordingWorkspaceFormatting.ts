@@ -1,9 +1,48 @@
+import type { PipelineStageKey } from "../api/client";
+
 export function formatIdentifier(value: string): string {
   return value
     .replaceAll("_", " ")
     .replaceAll("-", " ")
     .toLowerCase()
     .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
+}
+
+export function formatPipelineStageState(
+  stageKey: PipelineStageKey,
+  state: string,
+): string {
+  switch (state) {
+    case "video-only":
+    case "empty":
+      return "No processor output";
+    case "active-run":
+      return "Processor running";
+    case "generated-only":
+      return "Ready for review";
+    case "draft":
+      return "Review in progress";
+    case "complete":
+      return isHumanReviewStage(stageKey) ? "Reviewed" : "Complete";
+    case "partial":
+      return "Partial output";
+    case "failed":
+      return "Processor failed";
+    case "affected":
+      return "Review needs attention";
+    case "incomplete-coverage":
+      return "Review incomplete";
+    default:
+      return formatIdentifier(state);
+  }
+}
+
+function isHumanReviewStage(stageKey: PipelineStageKey): boolean {
+  return (
+    stageKey === "events" ||
+    stageKey === "visible_cards" ||
+    stageKey === "visual_identities"
+  );
 }
 
 export function formatDuration(durationUs: number): string {

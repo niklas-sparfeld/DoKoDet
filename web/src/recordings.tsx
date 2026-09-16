@@ -11,6 +11,7 @@ import {
   type PipelineStageKey,
 } from "./pipeline/RecordingPipelineWorkspace";
 import { ProfileControl } from "./profile/ProfileControl";
+import { formatPipelineStageState } from "./pipeline/recordingWorkspaceFormatting";
 import styles from "./App.module.css";
 
 export function RecordingListView() {
@@ -157,15 +158,13 @@ function RecordingPipelineProgress({
           status.stages,
         );
         const label = PIPELINE_PROGRESS_LABELS[stage.key];
-        const stateLabel = pipelineProgressStateLabel(
-          stage.state,
-          progressState,
-        );
+        const stateLabel = formatPipelineStageState(stage.key, stage.state);
         return (
           <li
             key={stage.key}
             className={styles.recordingPipelineStep}
             data-state={progressState}
+            data-stage-state={stage.state}
             aria-current={progressState === "active" ? "step" : undefined}
             aria-label={`${label}: ${stateLabel}`}
             title={`${label}: ${stateLabel}`}
@@ -173,7 +172,12 @@ function RecordingPipelineProgress({
             <span className={styles.recordingPipelineMarker} aria-hidden="true">
               {pipelineProgressMarker(progressState, index)}
             </span>
-            <span className={styles.recordingPipelineLabel}>{label}</span>
+            <span className={styles.recordingPipelineCopy}>
+              <span className={styles.recordingPipelineLabel}>{label}</span>
+              <span className={styles.recordingPipelineStatus}>
+                {stateLabel}
+              </span>
+            </span>
           </li>
         );
       })}
@@ -195,20 +199,6 @@ function pipelineProgressState(
     return "active";
   }
   return "pending";
-}
-
-function pipelineProgressStateLabel(
-  stageState: RecordingSummary["pipeline_status"]["stages"][number]["state"],
-  progressState: PipelineProgressState,
-): string {
-  if (progressState === "complete") return "complete";
-  if (progressState === "failed") return "failed";
-  if (stageState === "active-run") return "running";
-  if (stageState === "generated-only" || stageState === "draft") {
-    return "needs review";
-  }
-  if (progressState === "active") return "next";
-  return "waiting";
 }
 
 function pipelineProgressMarker(
