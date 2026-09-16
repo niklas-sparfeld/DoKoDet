@@ -69,9 +69,18 @@
   writes the operator handoff for campaign
   `cardeventnet-0063-m8-interval-validation-df1dddc98bbb`. The handoff estimates 12,878 train and
   3,017 validation samples, uses ordinary negatives only, and records test and system-holdout
-  inputs as unread. No training, validation inference, export, or model output was started.
-- **M9:** Not started — validate and compare the operator-produced run, then publish a separate
-  training-only hard-negative candidate manifest for later review.
+  inputs as unread. The implementation agent did not start the command; the operator later
+  completed the training and validation run without reading test or system-holdout inputs.
+- **M9:** Complete (2026-09-16) — review campaign
+  `cardeventnet-0063-m8-interval-validation-df1dddc98bbb` validates the M8 handoff, M5 baseline,
+  M7 dataset and split, checkpoint digests, validation streams, and diagnostic lineage before
+  reading metrics. The candidate improves validation F1 from 0.883 to 0.917 and reduces false
+  events per hour from 167.1 to 136.2. Interval-aware diagnostics report 50 stable-end matches,
+  232 point matches, 29 in-progress detections, 30 misses, and 22 confirmed false triggers. The
+  candidate remains `human_review_required` because the false-event, inference-latency, Core ML,
+  device-parity, and regression-fixture gates are not all satisfied. No candidate lock or sealed
+  test read was created. The review publishes 68 ranked, deduplicated training-only hard-negative
+  candidates with `training_input: false`.
 - **M10:** Not started — hand the locked candidate's sealed-test and export commands to the
   operator, then validate and retain their completed artifacts without monitoring either run.
 
@@ -557,6 +566,13 @@ Acceptance:
 - an in-progress interval detection never counts as a confirmed false trigger;
 - every negative candidate resolves to full review coverage and a clean-negative sample; and
 - the campaign decision does not use sealed-test output.
+
+Result: M9 is complete. The review command consumed only completed M8 artifacts and
+then wrote `m9-review.json`, `m9-report.md`, and `m9-hard-negative-candidates.json` below the
+campaign directory. It promoted the mechanical `no_valid_candidate` result to the final
+`human_review_required` campaign state without changing the threshold, decoder, recipe, or
+sealed-test state. The candidate manifest contains only clean-negative samples from the frozen
+training partition and remains outside training until separate human review.
 
 ### M10 — Manual sealed test, export, and handoff
 

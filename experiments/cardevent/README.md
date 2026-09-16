@@ -42,3 +42,18 @@ The preflight writes `handoff.json` below the deterministic campaign directory. 
 the exact manual and resume commands, expected artifacts, M7 data digests, and train/validation
 sample estimates. It does not read the sealed test partition, system holdout, or a hard-negative
 manifest, and it does not start the campaign.
+
+After the operator completes the M8 command, review its artifacts without starting another model
+command:
+
+```bash
+mise exec -- uv run --project operations doko model review-card-event-net \
+  cardeventnet-0063-m8-interval-validation-df1dddc98bbb \
+  --repository-root .
+```
+
+The review validates the checkpoint and data lineage, compares the M5 checkpoint and M8 candidate
+on the same validation references, and writes `m9-review.json`, `m9-report.md`, and
+`m9-hard-negative-candidates.json` below the campaign directory. The candidate manifest uses only
+the training partition, excludes interval and label-exclusion regions, and remains
+`training_input: false` until human review. The review never reads the sealed test partition.

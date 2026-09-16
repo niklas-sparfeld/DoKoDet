@@ -45,6 +45,7 @@ from .cardevent_inventory import (
     render_cardevent_inventory_human,
     render_cardevent_inventory_json,
 )
+from .cardevent_m9 import review_cardeventnet_m9
 from .cardevent_materialization import (
     CardEventNetMaterializationError,
     materialize_cardeventnet_dataset,
@@ -584,6 +585,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_path_options(compare, suppress_defaults=True)
     _add_model_options(compare)
     compare.add_argument("campaign_id")
+    review = model_commands.add_parser(
+        "review-card-event-net",
+        help="Validate one completed CardEventNet campaign and publish its M9 review artifacts.",
+    )
+    _add_path_options(review, suppress_defaults=True)
+    _add_model_options(review)
+    review.add_argument("campaign_id")
     improve = model_commands.add_parser(
         "improve", help="Run or resume a bounded component improvement campaign."
     )
@@ -1658,6 +1666,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                         f"artifacts: {result['campaign_path']}\n"
                     )
                 return 1 if campaign.state == "failed" else 0
+            if args.model_command == "review-card-event-net":
+                review = review_cardeventnet_m9(
+                    args.campaign_id,
+                    repository_root=config.repository_root,
+                    campaign_root=args.campaign_root,
+                )
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(review, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(
+                        "CardEventNet M9 review\n"
+                        f"campaign: {review['campaign_id']}\n"
+                        f"decision: {review['decision']['recommendation']}\n"
+                        f"hard-negative candidates: "
+                        f"{review['hard_negative_manifest']['candidate_count']}\n"
+                        f"report: {review['report_path']}\n"
+                    )
+                return 0
             if args.model_command == "promote":
                 campaign_root = (
                     args.campaign_root or config.repository_root / "data" / "model-campaigns"
