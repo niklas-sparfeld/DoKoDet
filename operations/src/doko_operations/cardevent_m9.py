@@ -496,9 +496,9 @@ def review_cardeventnet_m9(
         campaigns = root / campaigns
     campaign_dir = campaigns / campaign_id
     campaign = load_campaign(campaigns, campaign_id)
-    comparison = load_campaign_comparison(campaigns, campaign)
     handoff = _validate_handoff(root, campaign_id, campaign_dir)
     recipe, view, dataset, _split = _validate_recipe_and_data(root, campaign, handoff, campaign_dir)
+    comparison = load_campaign_comparison(campaigns, campaign)
     if len(comparison.candidates) != 1:
         raise CardEventM9Error("M9 requires exactly one completed candidate")
     candidate_evaluation = comparison.candidates[0]
