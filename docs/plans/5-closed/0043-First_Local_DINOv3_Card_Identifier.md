@@ -4,7 +4,12 @@
 
 - **Summary:** Train one local DINOv3 visual card classifier from the latest completed human
   references and prove that its exported bundle runs locally.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M3 are complete. The exported local candidate reloads, reproduces the
+  checkpoint predictions, and runs through the local classifier and backend fixture boundaries.
+  It remains an unpromoted development candidate because the first corpus does not measure the
+  four `NINE` identities or `FACE_DOWN`. Gemini remains the backend default.
 - **Depends on:** Plans 0041, 0042, 0048, 0049, and 0062 complete
 - **Builds on:** The DINOv3 training and bundle capability from 0041, the maintained references and
   dataset boundary from 0048/0049, and the 25-class visual-classification contract from 0062
@@ -18,8 +23,8 @@
 
 - **M0:** Complete — add a read-only current-corpus readiness and prerequisite preflight.
 - **M1:** Complete — freeze and materialize the latest eligible reviewed corpus.
-- **M2:** Ready for operator — validate one frozen campaign and run one bounded local training command.
-- **M3:** Not started — export, evaluate, and run the first local bundle.
+- **M2:** Complete — validate one frozen campaign and run one bounded local training command.
+- **M3:** Complete — export, evaluate, and run the first local bundle.
 
 ## Planning decision — 2026-09-17
 
@@ -116,7 +121,47 @@ implementation phase.
 The frozen real-data campaign is ready at
 `data/operations/dinov3-identity-campaigns/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/`.
 The short handoff check passed with no gaps and printed the exact operator command. No training
-was started. A real M2 run remains pending for the operator.
+was started by the agent. The operator completed run `dinov3-m1-1789675071` on MPS after 20
+epochs and 1,380 steps. It contains 552 training samples and 301 validation samples. The best
+validation top-1 accuracy is 0.9402, with train top-1 accuracy 0.9946 and validation loss
+0.4319. The run has no error and retains both best and last checkpoints. Its recorded quality
+state remains `unusable_smoke_artifact`, so the result is not a promotion decision.
+
+### M3 progress — 2026-09-17
+
+M3 is complete. The best checkpoint was exported to the verified bundle below. Bundle loading
+checks every recorded file digest and the source checkpoint digest:
+
+`data/operations/dinov3-identity-bundles/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/`
+
+The bundle digest is
+`d83c50780a9f4332b4767d6c396a416e4d0210ee4915902917caecc06ac2aa9c`. The evaluation report is
+`evaluation.json` in that directory. It re-runs all 301 validation crops from the frozen crop
+cache and reproduces the recorded checkpoint predictions with zero mismatches and a maximum
+absolute probability difference of `8.0031e-7` against the declared `1e-5` tolerance.
+
+The measured validation result is:
+
+| Measure | Result |
+| --- | ---: |
+| Samples | 301 |
+| Top-1 accuracy | 0.9402 |
+| Top-3 accuracy | 0.9801 |
+| Macro F1 | 0.9394 |
+| Scored classes | 20 |
+| Mean / median / p95 latency | 41.120 / 39.605 / 44.760 ms |
+| Bundle load latency | 1,733.013 ms |
+
+The four `NINE` identities have support zero and are marked not measured because they are absent
+from the frozen corpus. `FACE_DOWN` is also marked not measured because it was intentionally
+excluded. The report does not score either group as a failure or a success.
+
+The local `CardIdentityClassifier` boundary was exercised on MPS through
+`CardIdentityClassifierProvider`. A retained validation crop returned `CLUBS_JACK` at 0.7192,
+and a newly materialized train crop returned `HEARTS_KING` at 0.8406. Both successful results
+contain the bundle digest and full ranked probability metadata. The backend fixture recording
+also passed through local identity mode in four focused tests; the normal Gemini default remains
+unchanged.
 
 ## 2. Fixed first-run recipe
 

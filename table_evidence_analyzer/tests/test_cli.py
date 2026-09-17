@@ -16,6 +16,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "train-dinov3-identity" in help_text
     assert "export-dinov3-identity" in help_text
     assert "classify-dinov3-identity" in help_text
+    assert "evaluate-dinov3-identity" in help_text
     assert "evaluate" in help_text
     assert "export" in help_text
     assert "classify-crop" in help_text

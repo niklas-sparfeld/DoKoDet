@@ -8,12 +8,22 @@ from types import SimpleNamespace
 import pytest
 
 from table_evidence_analyzer.card_classification import CardIdentityClassifier
-from table_evidence_analyzer.data import build_smoke_fixture
+from table_evidence_analyzer.data import (
+    build_smoke_fixture,
+    load_artifact_index,
+    load_dataset_manifest,
+    load_split_manifest,
+    materialize_crops,
+)
 from table_evidence_analyzer.dinov3_bundle import (
     DINOV3_HEAD_SCHEMA,
     DinoV3BundleError,
     export_dinov3_identity_bundle,
     load_dinov3_identity_bundle,
+)
+from table_evidence_analyzer.dinov3_evaluation import (
+    DinoV3EvaluationConfig,
+    evaluate_dinov3_identity_bundle,
 )
 from table_evidence_analyzer.dinov3_inference import (
     DinoV3IdentityClassifier,
@@ -150,6 +160,9 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     )
     assert first.raw_response["device"] == "cpu"
     assert first.raw_response["bundle_digest"] == bundle.manifest["bundle_digest"]
+    assert first.raw_response["ranked_targets"][0] == first.candidates[0].card
+    assert first.raw_response["ranked_probabilities"][0] == first.candidates[0].probability
+    assert len(first.raw_response["probabilities"]) == 25
 
     with torch.no_grad():
         classifier._head.weight.zero_()
@@ -175,6 +188,49 @@ def test_corrupt_weight_is_rejected_before_encoder_construction(tmp_path: Path) 
     with pytest.raises(DinoV3BundleError, match="hash"):
         DinoV3IdentityClassifier(bundle_path, encoder_loader=loader)
     assert constructed is False
+
+
+def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(tmp_path: Path) -> None:
+    fixture, identity, run = _train_run(tmp_path)
+    dataset = load_dataset_manifest(fixture.dataset_path)
+    split = load_split_manifest(fixture.split_path)
+    artifacts = load_artifact_index(fixture.artifact_index_path)
+    campaign_root = tmp_path / "campaign"
+    cache = materialize_crops(dataset, split, artifacts, campaign_root / "crop-cache")
+    campaign_manifest = campaign_root / "manifest.json"
+    campaign_manifest.write_text(
+        json.dumps(
+            {
+                "state": "frozen",
+                "campaign_id": "campaign-01",
+                "manifest_digest": "d" * 64,
+                "dataset": {"digest": dataset.digest},
+                "split": {"digest": split.digest},
+                "crop_inventory": {
+                    "path": "crop-cache/crop-manifest.json",
+                    "digest": cache.digest,
+                },
+                "unsupported_identities": ["CLUBS_NINE"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    run_path = run / "run.json"
+    run_record = json.loads(run_path.read_text(encoding="utf-8"))
+    run_record["config"]["campaign_manifest"] = str(campaign_manifest)
+    run_record["campaign"] = {"campaign_id": "campaign-01", "manifest_digest": "d" * 64}
+    run_path.write_text(json.dumps(run_record), encoding="utf-8")
+    bundle_path = export_dinov3_identity_bundle(run, tmp_path / "bundle", identity_config=identity)
+
+    report = evaluate_dinov3_identity_bundle(
+        DinoV3EvaluationConfig(run=run, bundle=bundle_path, output=tmp_path / "evaluation.json"),
+        encoder_loader=_factory,
+    )
+
+    assert report["state"] == "completed"
+    assert report["checkpoint_reproduction"]["state"] == "passed"
+    assert report["summary"]["sample_count"] > 0
+    assert report["summary"]["unsupported_class_count"] == 1
 
 
 def test_target_map_mismatch_is_explicit_even_when_file_digests_are_rewritten(

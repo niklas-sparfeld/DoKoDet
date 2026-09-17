@@ -203,6 +203,25 @@ def build_parser() -> argparse.ArgumentParser:
     dinov3_classify_parser.add_argument("--image", type=Path, required=True)
     dinov3_classify_parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="cpu")
 
+    dinov3_evaluate_parser = commands.add_parser(
+        "evaluate-dinov3-identity",
+        aliases=("evaluate-local-identity",),
+        help="Evaluate an exported local DINOv3 identity bundle.",
+        description=(
+            "Re-run every frozen validation crop through an exported DINOv3 bundle and "
+            "publish metrics plus checkpoint reproducibility."
+        ),
+    )
+    dinov3_evaluate_parser.add_argument("--run", type=Path, required=True)
+    dinov3_evaluate_parser.add_argument("--bundle", type=Path, required=True)
+    dinov3_evaluate_parser.add_argument("--output", type=Path, required=True)
+    dinov3_evaluate_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="cpu"
+    )
+    dinov3_evaluate_parser.add_argument(
+        "--probability-tolerance", type=float, default=1e-5
+    )
+
     visible_card_train_parser = commands.add_parser(
         "train-visible-card-detector",
         aliases=("train-visible-card",),
@@ -844,6 +863,33 @@ def main(argv: Sequence[str] | None = None) -> int:
         if result.status == "unavailable":
             parser.exit(1, f"error: {result.error or 'DINOv3 inference was unavailable'}\n")
         print(json.dumps([candidate.model_dump(mode="json") for candidate in result.candidates]))
+        return 0
+    if args.command in {"evaluate-dinov3-identity", "evaluate-local-identity"}:
+        from .dinov3_evaluation import DinoV3EvaluationConfig, evaluate_dinov3_identity_bundle
+
+        try:
+            report = evaluate_dinov3_identity_bundle(
+                DinoV3EvaluationConfig(
+                    run=args.run,
+                    bundle=args.bundle,
+                    output=args.output,
+                    device=args.device,
+                    probability_tolerance=args.probability_tolerance,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(
+            json.dumps(
+                {
+                    "output": str(args.output.expanduser().resolve()),
+                    "state": report["state"],
+                    "summary": report["summary"],
+                    "checkpoint_reproduction": report["checkpoint_reproduction"],
+                },
+                sort_keys=True,
+            )
+        )
         return 0
     from .training import evaluate, load_config, train
 

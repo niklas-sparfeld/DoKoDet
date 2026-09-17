@@ -233,6 +233,9 @@ class DinoV3IdentityClassifier:
                     "bundle_identity": self.bundle_identity,
                     "bundle_digest": self.bundle.manifest["bundle_digest"],
                     "input_tensor_digest": transformed.tensor_digest,
+                    "probabilities": probabilities,
+                    "ranked_targets": [identity_from_target_index(index) for index in ranked],
+                    "ranked_probabilities": [probabilities[index] for index in ranked],
                 },
             )
         except DinoV3InferenceError as error:

@@ -31,6 +31,13 @@ from table_evidence_analyzer.dinov3_bundle import (
     export_dinov3_identity_bundle,
     load_dinov3_identity_bundle,
 )
+from table_evidence_analyzer.dinov3_evaluation import (
+    DINOV3_EVALUATION_SCHEMA,
+    DINOV3_REPRODUCTION_TOLERANCE,
+    DinoV3EvaluationConfig,
+    DinoV3EvaluationError,
+    evaluate_dinov3_identity_bundle,
+)
 from table_evidence_analyzer.dinov3_inference import (
     DINOV3_RUNTIME_DEVICES,
     DINOV3_RUNTIME_VERSION,
@@ -528,13 +535,18 @@ __all__ = [
     "validate_identity_target_map",
     "validate_materialized_dinov3_weights",
     "verify_materialized_dinov3_weights",
+    "DINOV3_EVALUATION_SCHEMA",
+    "DINOV3_REPRODUCTION_TOLERANCE",
     "DINOV3_HEAD_SCHEMA",
     "DINOV3_RUNTIME_DEVICES",
     "DINOV3_RUNTIME_VERSION",
     "DinoV3BundleError",
+    "DinoV3EvaluationConfig",
+    "DinoV3EvaluationError",
     "DinoV3IdentityBundle",
     "DinoV3IdentityClassifier",
     "DinoV3InferenceError",
+    "evaluate_dinov3_identity_bundle",
     "export_dinov3_identity_bundle",
     "load_dinov3_identity_bundle",
     "DEFAULT_ANALYZER_NAME",

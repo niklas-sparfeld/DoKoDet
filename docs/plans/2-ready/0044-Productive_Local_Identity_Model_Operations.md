@@ -4,7 +4,7 @@
 
 - **Summary:** Make reviewed identity data, bounded training, comparison, promotion, and local
   runtime status productive in the web app after the first local candidate is measured.
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** Plan 0043 exports a local development candidate and publishes its measured limits,
   and plans 0048 and 0049 provide retained processor results, maintained references, comparison,
   and dataset boundaries
