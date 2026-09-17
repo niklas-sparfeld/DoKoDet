@@ -71,6 +71,11 @@ from .cardevent_m14 import (
     prepare_cardeventnet_m14_integration_handoff,
     render_cardeventnet_m14_human,
 )
+from .cardevent_m15 import (
+    CardEventM15Error,
+    render_cardeventnet_m15_human,
+    validate_cardeventnet_m15_integration,
+)
 from .cardevent_materialization import (
     CardEventNetMaterializationError,
     materialize_cardeventnet_dataset,
@@ -652,6 +657,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_path_options(m14_prepare, suppress_defaults=True)
     _add_model_options(m14_prepare)
     m14_prepare.add_argument("campaign_id")
+    m15_close = model_commands.add_parser(
+        "close-card-event-net-m15",
+        help="Validate M14 outputs and close the CardEventNet campaign.",
+    )
+    _add_path_options(m15_close, suppress_defaults=True)
+    _add_model_options(m15_close)
+    m15_close.add_argument("campaign_id")
     improve = model_commands.add_parser(
         "improve", help="Run or resume a bounded component improvement campaign."
     )
@@ -1799,6 +1811,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else:
                     sys.stdout.write(render_cardeventnet_m14_human(result))
                 return 0
+            if args.model_command == "close-card-event-net-m15":
+                result = validate_cardeventnet_m15_integration(
+                    args.campaign_id,
+                    repository_root=config.repository_root,
+                    campaign_root=args.campaign_root,
+                )
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(render_cardeventnet_m15_human(result))
+                return 0
             if args.model_command == "promote":
                 campaign_root = (
                     args.campaign_root or config.repository_root / "data" / "model-campaigns"
@@ -1930,6 +1953,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             CardEventM12Error,
             CardEventM13Error,
             CardEventM14Error,
+            CardEventM15Error,
             ModelImprovementError,
             SystemHoldoutError,
             SystemHoldoutEvaluationError,

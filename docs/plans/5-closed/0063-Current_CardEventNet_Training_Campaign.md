@@ -5,15 +5,19 @@
 - **Summary:** Move the remaining legacy CardEventNet corpus into shared repository data, use
   reviewed card-state change intervals, resolve the measured stable-end timing errors, and run a
   bounded manual training campaign that produces a new CardEventNet model.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
-- **Readiness:** M0–M14 and the operator-run campaigns are complete. The M12 timing response did
+- **Closure reason:** M15 validated the one-time sealed-test output, Core ML integration bundle,
+  preprocessing fixture, local runtime load, deterministic parity, lineage, and unchanged
+  champion registry. M9 remains the development-only integration baseline. No promotion receipt
+  was written.
+- **Readiness:** M0–M15 and the operator-run campaigns are complete. The M12 timing response did
   not improve overall event coverage enough to replace the M9 hard-negative checkpoint. The
   operator accepts M9 as the development baseline so that end-to-end pipeline work can measure
   the cost of its remaining errors. M14 created an immutable integration lock and exact sealed-test
-  and Core ML export/parity handoffs. The sealed test remains unread. Long test,
-  export, and optional diagnostic commands are operator-run and are never started or monitored by
-  an implementation agent.
+  and Core ML export/parity handoffs. M15 validated the sealed test and retained integration
+  contract. Long test, export, and optional diagnostic commands are operator-run and are never
+  started or monitored by an implementation agent.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze a leakage-safe train/validation/test dataset, run a
   reproducible manual campaign, and retain a new `best.pt` and model bundle with complete lineage.
@@ -118,9 +122,14 @@
   revision and environment, and unchanged champion registry. One sealed-test evaluation and one
   Core ML export/parity handoff are ready. No long command, sealed-test read, export, promotion,
   or champion change occurred.
-- **M15:** Not started — blocked until the operator completes the M14 handoffs. Validate the sealed
-  test and export/parity outputs, retain the integration bundle, publish the final campaign report,
-  and close the epic without promoting M9 as the production champion.
+- **M15:** Complete (2026-09-17) — the one-time sealed-test evaluation is tied to the M14 lock and
+  sealed successor test partition. It reports 82.83% recall, 34.65% precision, 48.86% F1, and
+  762.30 false events per hour across five recordings. The Core ML integration bundle loads with
+  the `clips` to `logit` runtime contract, uses the full-frame preprocessing fixture, and passes
+  deterministic parity with maximum absolute error `1.33514e-05`. The closeout retains checkpoint,
+  decoder, lineage, bundle digests, and current champion identity in the integration contract.
+  M9 remains development-only; no promotion receipt or champion change was written. The optional
+  old-phone diagnostic was not run.
 
 ## 1. Current evidence
 

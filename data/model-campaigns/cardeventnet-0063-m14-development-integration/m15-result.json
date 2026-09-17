@@ -1,0 +1,206 @@
+{
+  "campaign_id": "cardeventnet-0063-m14-development-integration",
+  "checkpoint": {
+    "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+    "sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4"
+  },
+  "current_champion": {
+    "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/current-champion.json",
+    "sha256": "52c8bf31bf593d212dd649eff9cea181f60e71604759dc9f268a82bd09f6829d"
+  },
+  "current_champion_changed": false,
+  "decoder": {
+    "algorithm": "causal_peak",
+    "event_match_tolerance_s": 0.75,
+    "min_event_gap_s": 0.625,
+    "peak_confirmation_s": 0.125
+  },
+  "integration_contract": {
+    "digest": "f6b76e5443fe1e4c0495ed4595595be806b9b41be4bb954695b051f4161a4c26",
+    "model_bundle": {
+      "bundle_digest": "9c9dab5f293e6108154c0b72141fbe2f43d79c9425501219a44c6759786bdbc3",
+      "files": [
+        {
+          "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-model/CardEventNet.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+          "sha256": "49c7d074b91ad17d55130c59872f84506b12f4f3868bf2515826756ccedfcc59"
+        },
+        {
+          "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-model/CardEventNet.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+          "sha256": "7a5775b56d42301c296e02a673602dd14aecc290b6a3c6af883f3bef76a96dda"
+        },
+        {
+          "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-model/CardEventNet.mlpackage/Manifest.json",
+          "sha256": "8324ecc6e1e738623643931f5edecce19de26594319c709905024bae339e80d4"
+        }
+      ],
+      "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-model/CardEventNet.mlpackage",
+      "runtime_contract_version": "runtime/v1"
+    },
+    "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-contract.json",
+    "sha256": "df4ceadf3e30f778a37d568810e0a865c7162df67336f03ffc253145c5d6c158"
+  },
+  "legacy_device_diagnostic": {
+    "gating": false,
+    "recordings": [
+      "cardeventnet-IMG_2777",
+      "cardeventnet-IMG_2778",
+      "cardeventnet-IMG_2779",
+      "cardeventnet-IMG_2780",
+      "cardeventnet-IMG_2781"
+    ],
+    "status": "not_run"
+  },
+  "outcome": "m9_retained_as_development_integration_baseline",
+  "production_gates": {
+    "application": "informational_only",
+    "gates": {
+      "causal_emission_delay_p95_s": {
+        "comparison": "maximum",
+        "limit": 0.75,
+        "passed": true,
+        "value": 0.7263832000000008
+      },
+      "confirmed_no_event_triggers": {
+        "comparison": "maximum",
+        "limit": 20.0,
+        "passed": false,
+        "value": 25
+      },
+      "duplicate_detections_per_reviewed_change": {
+        "comparison": "maximum",
+        "limit": 32.0,
+        "passed": true,
+        "value": 32
+      },
+      "event_presence_recall": {
+        "comparison": "minimum",
+        "limit": 0.98,
+        "passed": false,
+        "value": 0.8935483870967742
+      },
+      "stable_end_matches": {
+        "comparison": "minimum",
+        "limit": 60.0,
+        "passed": false,
+        "value": 49
+      }
+    },
+    "source": "M14 lock decision and M12 gate profile"
+  },
+  "production_promotion_eligible": false,
+  "promotion_receipt_written": false,
+  "result_digest": "3853fa11473be5d91baa747f0f4930a8fe9f991286efab2f54c02e1df8c083ad",
+  "runtime_checks": {
+    "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/runtime-checks.json",
+    "result": {
+      "atol": 0.001,
+      "expected_logit": -8.65000057220459,
+      "input_name": "clips",
+      "input_shape": [
+        1,
+        8,
+        3,
+        224,
+        224
+      ],
+      "max_abs_error": 1.33514404296875e-05,
+      "method": "coremltools.MLModel_and_deterministic_sample",
+      "output_name": "logit",
+      "preprocessing": "full_frame_letterbox_v1",
+      "rtol": 0.001,
+      "schema_version": "cardeventnet-m15-runtime-checks/v1",
+      "status": "passed"
+    },
+    "sha256": "997b3afc9d293649db30b371b5be495334188cc2333bbbde65a3f6277117ac7a"
+  },
+  "schema_version": "cardeventnet-m15-integration-closeout/v1",
+  "sealed_test": {
+    "evaluation": {
+      "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation.json",
+      "sha256": "cbd778190891700d93e7b926f522332bc692257051d86005e09e3e3cf896d4ba"
+    },
+    "metrics": {
+      "detected_true_events": 193.0,
+      "duration_hours": 0.47750185185185184,
+      "duration_s": 1719.0066666666667,
+      "emission_latency_median_s": 0.23281899999999922,
+      "emission_latency_p95_s": 0.42351299999999126,
+      "event_f1": 0.48860759493670886,
+      "event_precision": 0.3464991023339318,
+      "event_recall": 0.8283261802575107,
+      "false_events": 364.0,
+      "false_events_per_hour": 762.3007085487355,
+      "in_progress_detections": 12.0,
+      "latency_median_s": 0.10781899999999922,
+      "latency_p95_s": 0.29851299999999126,
+      "missed_events": 40.0,
+      "peak_confirmation_s": 0.125,
+      "real_events": 233.0,
+      "timestamp_error_median_s": 0.10781899999999922,
+      "timestamp_error_p95_s": 0.29851299999999126,
+      "videos": 5.0
+    },
+    "outputs": [
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation.json",
+        "sha256": "cbd778190891700d93e7b926f522332bc692257051d86005e09e3e3cf896d4ba"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-transition-diagnostics.json",
+        "sha256": "00c9a8fdf9149b5bdfe5c63f3d67eb988e47969abee55190bd02d95876941a1c"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/validation-streams/evaluation.json.gz",
+        "sha256": "b5b3b57cbe79265b421ec7908371cb3c8a7c1207382886c89a44b7534f4e7f7a"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-plots/cardeventnet-IMG_0669-probabilities.png",
+        "sha256": "d558c8c7ba56ad9600ebf12fd800076f246dee00a8652a5d6b6f5e6fee87842e"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-plots/cardeventnet-IMG_0670-probabilities.png",
+        "sha256": "6c381fa5344cf5edf698e3f64c1ec348d7bf7d02de9be438aaa1fa66057b58c4"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-plots/cardeventnet-IMG_0671-probabilities.png",
+        "sha256": "34661c9ce4eeb7ee153a524df770a2ffb7323d64500ad0f64d737858c4e4b9cc"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-plots/cardeventnet-IMG_0673-probabilities.png",
+        "sha256": "413424225fac233a6ce783e17872ec652387c47eee51ce46de3938c553a6f523"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-plots/cardeventnet-IMG_0674-probabilities.png",
+        "sha256": "50e8048e3b355eb8a6e2fddbbf5947455bde9abfd5bc89bc7c4560d3d4848067"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-plots/precision-recall.png",
+        "sha256": "3c89c94f59cec4fb582b2a869e8dbc39db1cef9dbc8da0282dc82e561d90eb58"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-plots/recall-false-events.png",
+        "sha256": "a2ec013054872ba9941f62860ed0de89ed402968e8a5e008163be97476738047"
+      },
+      {
+        "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/evaluation-plots/threshold-tradeoff.png",
+        "sha256": "53597b8e4c3e8c05deb085a848ff9d08473ec97715cd830d52667b34cb5bc435"
+      }
+    ],
+    "partition": "test",
+    "recordings": [
+      "cardeventnet-IMG_0669",
+      "cardeventnet-IMG_0670",
+      "cardeventnet-IMG_0671",
+      "cardeventnet-IMG_0673",
+      "cardeventnet-IMG_0674"
+    ],
+    "status": "validated_once",
+    "validation_stream": {
+      "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test/validation-streams/evaluation.json.gz",
+      "sha256": "b5b3b57cbe79265b421ec7908371cb3c8a7c1207382886c89a44b7534f4e7f7a"
+    }
+  },
+  "source_campaign_id": "cardeventnet-0063-m9-hard-negative-ablation",
+  "state": "closed",
+  "system_holdout_read": false
+}

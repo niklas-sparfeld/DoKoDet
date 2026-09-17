@@ -1,0 +1,40 @@
+{
+  "bundle_manifest": {
+    "path": "card_event_net/CardEventNet.mlpackage/Manifest.json",
+    "sha256": "f218940776c46eeb0211d86fdab0638173636bece5af4e61c21ee5dae503cd9a"
+  },
+  "champion": {
+    "annotation_version_digest": null,
+    "annotation_version_id": null,
+    "bundle_path": "card_event_net/CardEventNet.mlpackage",
+    "capability": "event-detection",
+    "champion_bundle_digest": "030465d3d7edd2e8fb0feb4d03253c3242d9968123b8c5d451a275d851a2f2a9",
+    "champion_bundle_id": "cardeventnet-supplied-champion",
+    "component": "card-event-net",
+    "dataset_version_digest": "e6fc105421816c857cd729c6a8760b0a16ba2b85ceae513370a531ab7402a444",
+    "dataset_version_id": "legacy-cardeventnet-dataset-manifest-v1",
+    "decision_note": "Supplied current app package. PyTorch training lineage is required for M5 comparison.",
+    "export": {
+      "compatibility": "runtime/v1",
+      "environment": {
+        "format": "Core ML ML Program",
+        "source": "supplied-model-package"
+      }
+    },
+    "input_contract_version": "input/v1",
+    "promotion_receipt_id": "supplied-model-package",
+    "review_version_digest": null,
+    "review_version_id": null,
+    "runtime_contract_version": "runtime/v1",
+    "sealed_test_report_id": null,
+    "split_version_digest": "b6b502506cbae6d4651a8fa7a5572cb8b4254f11cd3a5d9d5d356d3f982e8369",
+    "split_version_id": "legacy-cardeventnet-batch-2026-08-24",
+    "validation_report_id": "historical-cardeventnet-validation"
+  },
+  "registry": {
+    "path": "data/model-registry.json",
+    "sha256": "a6897d1f173bde001f601140f544e048fb5764da5f3158c0b974b59dcc77f642"
+  },
+  "schema_version": "cardeventnet-m15-current-champion/v1",
+  "snapshot_digest": "417cd23cc6cd663a347950726d029dd405e936a86284a26467c48e8a9861c71e"
+}

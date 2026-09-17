@@ -1,0 +1,19 @@
+{
+  "atol": 0.001,
+  "expected_logit": -8.65000057220459,
+  "input_name": "clips",
+  "input_shape": [
+    1,
+    8,
+    3,
+    224,
+    224
+  ],
+  "max_abs_error": 1.33514404296875e-05,
+  "method": "coremltools.MLModel_and_deterministic_sample",
+  "output_name": "logit",
+  "preprocessing": "full_frame_letterbox_v1",
+  "rtol": 0.001,
+  "schema_version": "cardeventnet-m15-runtime-checks/v1",
+  "status": "passed"
+}

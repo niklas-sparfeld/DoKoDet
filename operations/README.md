@@ -501,6 +501,26 @@ the configuration and may run once only. The export command keeps parity enabled
 development integration model, not a production champion. M14 does not start, wait for, poll, or
 monitor either operator command. M15 validates their outputs.
 
+## Epic 0063 M15 integration closeout
+
+After the operator completes both M14 handoffs, validate the sealed-test result and integration
+bundle, then close the campaign:
+
+```bash
+mise exec -- uv run --project operations doko model close-card-event-net-m15 \
+  cardeventnet-0063-m14-development-integration \
+  --repository-root .
+```
+
+The command checks the one-time test output against the immutable lock and the sealed successor
+split. It checks the preprocessing fixture, Core ML package load, deterministic checkpoint parity,
+bundle digests, source and annotation lineage, and unchanged champion registry. It writes
+`current-champion.json`, `runtime-checks.json`, `integration-contract.json`, `m15-result.json`,
+and `m15-report.md` below
+`data/model-campaigns/cardeventnet-0063-m14-development-integration/`. The closeout keeps M9 as a
+development-only integration model, does not write a promotion receipt, and does not run the
+optional `legacy_device_diagnostic` population.
+
 ## Epic 0066 interval-review pilot
 
 M4 publishes one bounded trick-clear review as a corrected event revision, then derives a

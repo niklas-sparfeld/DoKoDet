@@ -1,0 +1,2769 @@
+{
+  "method": "cardevent-transition-diagnostics-v1",
+  "threshold": 0.4271905720233917,
+  "diagnostic_timing": {
+    "merge_window_s": 0.625,
+    "event_match_tolerance_s": 0.75
+  },
+  "post_event_tail_definition": {
+    "start_after_event_s": 0.5,
+    "end_after_event_s": 1.0,
+    "exclude_before_next_event_s": 0.1,
+    "boundaries": "inclusive tail bounds; next-event exclusion includes its start"
+  },
+  "reviewed_hard_negative_manifest": null,
+  "aggregate": {
+    "event_diagnostics": {
+      "point_matches": 228,
+      "stable_end_matches": 49,
+      "in_progress_detections": 24,
+      "confirmed_false_triggers": 25,
+      "misses": 33
+    },
+    "post_event_tail": {
+      "eligible_sample_count": 1181,
+      "threshold_exceedance_count": 126
+    },
+    "reviewed_hard_negatives": {
+      "count": 0,
+      "at_or_above_threshold_count": 0,
+      "nearest_stream_scores": []
+    }
+  },
+  "videos": [
+    {
+      "video": "cardeventnet-IMG_0090",
+      "post_event_tail": {
+        "eligible_sample_count": 199,
+        "threshold_exceedance_count": 57
+      },
+      "reviewed_hard_negatives": {
+        "count": 0,
+        "at_or_above_threshold_count": 0,
+        "nearest_stream_scores": []
+      },
+      "event_diagnostics": {
+        "point_matches": 32,
+        "stable_end_matches": 9,
+        "in_progress_detections": 3,
+        "confirmed_false_triggers": 14,
+        "misses": 9,
+        "predictions": [
+          {
+            "predicted_time_s": 3.375,
+            "probability": 0.9718206524848938,
+            "outcome": "point_match",
+            "anchor_time_s": 3.004766,
+            "interval_start_s": 3.004766,
+            "interval_end_s": 3.004766
+          },
+          {
+            "predicted_time_s": 5.125,
+            "probability": 0.9973428845405579,
+            "outcome": "point_match",
+            "anchor_time_s": 4.523816,
+            "interval_start_s": 4.523816,
+            "interval_end_s": 4.523816
+          },
+          {
+            "predicted_time_s": 6.375,
+            "probability": 0.9997968077659607,
+            "outcome": "point_match",
+            "anchor_time_s": 6.004085,
+            "interval_start_s": 6.004085,
+            "interval_end_s": 6.004085
+          },
+          {
+            "predicted_time_s": 8.0,
+            "probability": 0.9996832609176636,
+            "outcome": "point_match",
+            "anchor_time_s": 7.523135,
+            "interval_start_s": 7.523135,
+            "interval_end_s": 7.523135
+          },
+          {
+            "predicted_time_s": 9.75,
+            "probability": 0.9632717967033386,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 11.272802,
+            "interval_start_s": 8.272802,
+            "interval_end_s": 11.272802
+          },
+          {
+            "predicted_time_s": 11.5,
+            "probability": 0.5585150718688965,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 11.272802,
+            "interval_start_s": 8.272802,
+            "interval_end_s": 11.272802
+          },
+          {
+            "predicted_time_s": 13.5,
+            "probability": 0.5211213231086731,
+            "outcome": "point_match",
+            "anchor_time_s": 13.255109,
+            "interval_start_s": 13.255109,
+            "interval_end_s": 13.255109
+          },
+          {
+            "predicted_time_s": 15.125,
+            "probability": 0.9997871518135071,
+            "outcome": "point_match",
+            "anchor_time_s": 14.504771,
+            "interval_start_s": 14.504771,
+            "interval_end_s": 14.504771
+          },
+          {
+            "predicted_time_s": 16.625,
+            "probability": 0.7358638048171997,
+            "outcome": "point_match",
+            "anchor_time_s": 16.021097,
+            "interval_start_s": 16.021097,
+            "interval_end_s": 16.021097
+          },
+          {
+            "predicted_time_s": 17.875,
+            "probability": 0.9893386960029602,
+            "outcome": "point_match",
+            "anchor_time_s": 17.268035,
+            "interval_start_s": 17.268035,
+            "interval_end_s": 17.268035
+          },
+          {
+            "predicted_time_s": 20.0,
+            "probability": 0.9999459981918335,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 19.517702,
+            "interval_start_s": 18.017702,
+            "interval_end_s": 19.517702
+          },
+          {
+            "predicted_time_s": 22.0,
+            "probability": 0.9998602867126465,
+            "outcome": "point_match",
+            "anchor_time_s": 21.250352,
+            "interval_start_s": 21.250352,
+            "interval_end_s": 21.250352
+          },
+          {
+            "predicted_time_s": 23.375,
+            "probability": 0.9999237060546875,
+            "outcome": "point_match",
+            "anchor_time_s": 22.763955,
+            "interval_start_s": 22.763955,
+            "interval_end_s": 22.763955
+          },
+          {
+            "predicted_time_s": 24.875,
+            "probability": 0.9173526167869568,
+            "outcome": "point_match",
+            "anchor_time_s": 25.529943,
+            "interval_start_s": 25.529943,
+            "interval_end_s": 25.529943
+          },
+          {
+            "predicted_time_s": 26.25,
+            "probability": 0.5327183604240417,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 28.25,
+            "probability": 0.9931619167327881,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 27.776886,
+            "interval_start_s": 26.276886,
+            "interval_end_s": 27.776886
+          },
+          {
+            "predicted_time_s": 31.625,
+            "probability": 0.9942120909690857,
+            "outcome": "point_match",
+            "anchor_time_s": 32.003413,
+            "interval_start_s": 32.003413,
+            "interval_end_s": 32.003413
+          },
+          {
+            "predicted_time_s": 34.0,
+            "probability": 0.9968966245651245,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 35.875,
+            "probability": 0.7867562770843506,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 36.500019,
+            "interval_start_s": 34.000019,
+            "interval_end_s": 36.500019
+          },
+          {
+            "predicted_time_s": 36.75,
+            "probability": 0.7484087347984314,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 39.625,
+            "probability": 0.9999760389328003,
+            "outcome": "point_match",
+            "anchor_time_s": 40.03199,
+            "interval_start_s": 40.03199,
+            "interval_end_s": 40.03199
+          },
+          {
+            "predicted_time_s": 41.0,
+            "probability": 0.9944446682929993,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 42.625,
+            "probability": 0.9999889135360718,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 43.875,
+            "probability": 0.9845792055130005,
+            "outcome": "point_match",
+            "anchor_time_s": 43.506142,
+            "interval_start_s": 43.506142,
+            "interval_end_s": 43.506142
+          },
+          {
+            "predicted_time_s": 45.875,
+            "probability": 0.9998838901519775,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 47.625,
+            "probability": 0.9971851706504822,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 47.505466,
+            "interval_start_s": 46.005466,
+            "interval_end_s": 47.505466
+          },
+          {
+            "predicted_time_s": 48.5,
+            "probability": 0.6223573684692383,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 50.75,
+            "probability": 0.9994089603424072,
+            "outcome": "point_match",
+            "anchor_time_s": 51.023829,
+            "interval_start_s": 51.023829,
+            "interval_end_s": 51.023829
+          },
+          {
+            "predicted_time_s": 52.0,
+            "probability": 0.9999573230743408,
+            "outcome": "point_match",
+            "anchor_time_s": 52.273491,
+            "interval_start_s": 52.273491,
+            "interval_end_s": 52.273491
+          },
+          {
+            "predicted_time_s": 53.25,
+            "probability": 0.9989469647407532,
+            "outcome": "point_match",
+            "anchor_time_s": 53.52043,
+            "interval_start_s": 53.52043,
+            "interval_end_s": 53.52043
+          },
+          {
+            "predicted_time_s": 54.625,
+            "probability": 0.9997771382331848,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 56.625,
+            "probability": 0.9760619401931763,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 56.020092,
+            "interval_start_s": 54.770092,
+            "interval_end_s": 56.020092
+          },
+          {
+            "predicted_time_s": 61.0,
+            "probability": 0.43025144934654236,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 62.375,
+            "probability": 0.9033035635948181,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 64.125,
+            "probability": 0.9957291483879089,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 64.875,
+            "probability": 0.8296810388565063,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 71.125,
+            "probability": 0.7353420257568359,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 75.625,
+            "probability": 0.8493792414665222,
+            "outcome": "point_match",
+            "anchor_time_s": 75.00139,
+            "interval_start_s": 75.00139,
+            "interval_end_s": 75.00139
+          },
+          {
+            "predicted_time_s": 77.375,
+            "probability": 0.9957192540168762,
+            "outcome": "point_match",
+            "anchor_time_s": 76.756494,
+            "interval_start_s": 76.756494,
+            "interval_end_s": 76.756494
+          },
+          {
+            "predicted_time_s": 78.875,
+            "probability": 0.9272331595420837,
+            "outcome": "point_match",
+            "anchor_time_s": 78.27282,
+            "interval_start_s": 78.27282,
+            "interval_end_s": 78.27282
+          },
+          {
+            "predicted_time_s": 80.375,
+            "probability": 0.9346615672111511,
+            "outcome": "point_match",
+            "anchor_time_s": 79.755813,
+            "interval_start_s": 79.755813,
+            "interval_end_s": 79.755813
+          },
+          {
+            "predicted_time_s": 82.0,
+            "probability": 0.9993751645088196,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 81.75548,
+            "interval_start_s": 80.50548,
+            "interval_end_s": 81.75548
+          },
+          {
+            "predicted_time_s": 85.125,
+            "probability": 0.9949787259101868,
+            "outcome": "point_match",
+            "anchor_time_s": 85.018401,
+            "interval_start_s": 85.018401,
+            "interval_end_s": 85.018401
+          },
+          {
+            "predicted_time_s": 86.75,
+            "probability": 0.9793033599853516,
+            "outcome": "point_match",
+            "anchor_time_s": 86.501394,
+            "interval_start_s": 86.501394,
+            "interval_end_s": 86.501394
+          },
+          {
+            "predicted_time_s": 88.125,
+            "probability": 0.9999605417251587,
+            "outcome": "point_match",
+            "anchor_time_s": 88.01772,
+            "interval_start_s": 88.01772,
+            "interval_end_s": 88.01772
+          },
+          {
+            "predicted_time_s": 89.75,
+            "probability": 0.4345000684261322,
+            "outcome": "point_match",
+            "anchor_time_s": 89.267382,
+            "interval_start_s": 89.267382,
+            "interval_end_s": 89.267382
+          },
+          {
+            "predicted_time_s": 91.5,
+            "probability": 0.989118218421936,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 92.697655,
+            "interval_start_s": 90.447655,
+            "interval_end_s": 92.697655
+          },
+          {
+            "predicted_time_s": 92.625,
+            "probability": 0.9862388968467712,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 92.697655,
+            "interval_start_s": 90.447655,
+            "interval_end_s": 92.697655
+          },
+          {
+            "predicted_time_s": 94.625,
+            "probability": 0.9102777242660522,
+            "outcome": "point_match",
+            "anchor_time_s": 94.25786,
+            "interval_start_s": 94.25786,
+            "interval_end_s": 94.25786
+          },
+          {
+            "predicted_time_s": 95.875,
+            "probability": 0.9962318539619446,
+            "outcome": "point_match",
+            "anchor_time_s": 95.774186,
+            "interval_start_s": 95.774186,
+            "interval_end_s": 95.774186
+          },
+          {
+            "predicted_time_s": 97.375,
+            "probability": 0.9858368635177612,
+            "outcome": "point_match",
+            "anchor_time_s": 97.006856,
+            "interval_start_s": 97.006856,
+            "interval_end_s": 97.006856
+          },
+          {
+            "predicted_time_s": 98.875,
+            "probability": 0.993921160697937,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 100.75,
+            "probability": 0.8861402869224548,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 101.025896,
+            "interval_start_s": 99.525896,
+            "interval_end_s": 101.025896
+          },
+          {
+            "predicted_time_s": 102.875,
+            "probability": 0.4800584316253662,
+            "outcome": "point_match",
+            "anchor_time_s": 102.755822,
+            "interval_start_s": 102.755822,
+            "interval_end_s": 102.755822
+          },
+          {
+            "predicted_time_s": 104.5,
+            "probability": 0.9984795451164246,
+            "outcome": "point_match",
+            "anchor_time_s": 104.269425,
+            "interval_start_s": 104.269425,
+            "interval_end_s": 104.269425
+          },
+          {
+            "predicted_time_s": 106.125,
+            "probability": 0.9748849272727966,
+            "outcome": "point_match",
+            "anchor_time_s": 105.755141,
+            "interval_start_s": 105.755141,
+            "interval_end_s": 105.755141
+          },
+          {
+            "predicted_time_s": 107.375,
+            "probability": 0.952018678188324,
+            "outcome": "point_match",
+            "anchor_time_s": 107.00208,
+            "interval_start_s": 107.00208,
+            "interval_end_s": 107.00208
+          },
+          {
+            "predicted_time_s": 110.0,
+            "probability": 0.6266893744468689,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 110.871133,
+            "interval_start_s": 108.121133,
+            "interval_end_s": 110.871133
+          }
+        ]
+      }
+    },
+    {
+      "video": "cardeventnet-IMG_0091",
+      "post_event_tail": {
+        "eligible_sample_count": 200,
+        "threshold_exceedance_count": 2
+      },
+      "reviewed_hard_negatives": {
+        "count": 0,
+        "at_or_above_threshold_count": 0,
+        "nearest_stream_scores": []
+      },
+      "event_diagnostics": {
+        "point_matches": 40,
+        "stable_end_matches": 5,
+        "in_progress_detections": 9,
+        "confirmed_false_triggers": 0,
+        "misses": 5,
+        "predictions": [
+          {
+            "predicted_time_s": 1.875,
+            "probability": 0.9872831106185913,
+            "outcome": "point_match",
+            "anchor_time_s": 1.866852,
+            "interval_start_s": 1.866852,
+            "interval_end_s": 1.866852
+          },
+          {
+            "predicted_time_s": 3.625,
+            "probability": 0.9898888468742371,
+            "outcome": "point_match",
+            "anchor_time_s": 3.500347,
+            "interval_start_s": 3.500347,
+            "interval_end_s": 3.500347
+          },
+          {
+            "predicted_time_s": 5.0,
+            "probability": 0.9996517896652222,
+            "outcome": "point_match",
+            "anchor_time_s": 4.900486,
+            "interval_start_s": 4.900486,
+            "interval_end_s": 4.900486
+          },
+          {
+            "predicted_time_s": 6.375,
+            "probability": 0.9996135830879211,
+            "outcome": "point_match",
+            "anchor_time_s": 6.300625,
+            "interval_start_s": 6.300625,
+            "interval_end_s": 6.300625
+          },
+          {
+            "predicted_time_s": 8.0,
+            "probability": 0.9063103199005127,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 9.217407,
+            "interval_start_s": 6.967407,
+            "interval_end_s": 9.217407
+          },
+          {
+            "predicted_time_s": 14.125,
+            "probability": 0.9739223122596741,
+            "outcome": "point_match",
+            "anchor_time_s": 14.001388,
+            "interval_start_s": 14.001388,
+            "interval_end_s": 14.001388
+          },
+          {
+            "predicted_time_s": 15.5,
+            "probability": 0.9987528324127197,
+            "outcome": "point_match",
+            "anchor_time_s": 15.401527,
+            "interval_start_s": 15.401527,
+            "interval_end_s": 15.401527
+          },
+          {
+            "predicted_time_s": 17.25,
+            "probability": 0.9992807507514954,
+            "outcome": "point_match",
+            "anchor_time_s": 17.268379,
+            "interval_start_s": 17.268379,
+            "interval_end_s": 17.268379
+          },
+          {
+            "predicted_time_s": 19.125,
+            "probability": 0.9999765157699585,
+            "outcome": "point_match",
+            "anchor_time_s": 18.901874,
+            "interval_start_s": 18.901874,
+            "interval_end_s": 18.901874
+          },
+          {
+            "predicted_time_s": 20.75,
+            "probability": 0.9610244035720825,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 22.268726,
+            "interval_start_s": 19.518726,
+            "interval_end_s": 22.268726
+          },
+          {
+            "predicted_time_s": 24.875,
+            "probability": 0.9962253570556641,
+            "outcome": "point_match",
+            "anchor_time_s": 24.735786,
+            "interval_start_s": 24.735786,
+            "interval_end_s": 24.735786
+          },
+          {
+            "predicted_time_s": 26.375,
+            "probability": 0.9999738931655884,
+            "outcome": "point_match",
+            "anchor_time_s": 26.135925,
+            "interval_start_s": 26.135925,
+            "interval_end_s": 26.135925
+          },
+          {
+            "predicted_time_s": 27.625,
+            "probability": 0.8848466277122498,
+            "outcome": "point_match",
+            "anchor_time_s": 27.302707,
+            "interval_start_s": 27.302707,
+            "interval_end_s": 27.302707
+          },
+          {
+            "predicted_time_s": 29.25,
+            "probability": 0.9047316908836365,
+            "outcome": "point_match",
+            "anchor_time_s": 28.936203,
+            "interval_start_s": 28.936203,
+            "interval_end_s": 28.936203
+          },
+          {
+            "predicted_time_s": 31.0,
+            "probability": 0.9994274377822876,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 30.819698,
+            "interval_start_s": 29.569698,
+            "interval_end_s": 30.819698
+          },
+          {
+            "predicted_time_s": 33.0,
+            "probability": 0.9868854284286499,
+            "outcome": "point_match",
+            "anchor_time_s": 32.903263,
+            "interval_start_s": 32.903263,
+            "interval_end_s": 32.903263
+          },
+          {
+            "predicted_time_s": 34.25,
+            "probability": 0.8318204283714294,
+            "outcome": "point_match",
+            "anchor_time_s": 34.303402,
+            "interval_start_s": 34.303402,
+            "interval_end_s": 34.303402
+          },
+          {
+            "predicted_time_s": 35.75,
+            "probability": 0.9990978240966797,
+            "outcome": "point_match",
+            "anchor_time_s": 35.470184,
+            "interval_start_s": 35.470184,
+            "interval_end_s": 35.470184
+          },
+          {
+            "predicted_time_s": 37.5,
+            "probability": 0.9991438388824463,
+            "outcome": "point_match",
+            "anchor_time_s": 37.337036,
+            "interval_start_s": 37.337036,
+            "interval_end_s": 37.337036
+          },
+          {
+            "predicted_time_s": 39.125,
+            "probability": 0.7851094007492065,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 40.420601,
+            "interval_start_s": 38.170601,
+            "interval_end_s": 40.420601
+          },
+          {
+            "predicted_time_s": 40.375,
+            "probability": 0.9999474287033081,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 40.420601,
+            "interval_start_s": 38.170601,
+            "interval_end_s": 40.420601
+          },
+          {
+            "predicted_time_s": 42.5,
+            "probability": 0.9977174997329712,
+            "outcome": "point_match",
+            "anchor_time_s": 42.470878,
+            "interval_start_s": 42.470878,
+            "interval_end_s": 42.470878
+          },
+          {
+            "predicted_time_s": 43.75,
+            "probability": 0.99552321434021,
+            "outcome": "point_match",
+            "anchor_time_s": 43.637661,
+            "interval_start_s": 43.637661,
+            "interval_end_s": 43.637661
+          },
+          {
+            "predicted_time_s": 45.125,
+            "probability": 0.9999452829360962,
+            "outcome": "point_match",
+            "anchor_time_s": 45.037799,
+            "interval_start_s": 45.037799,
+            "interval_end_s": 45.037799
+          },
+          {
+            "predicted_time_s": 46.625,
+            "probability": 0.9783006310462952,
+            "outcome": "point_match",
+            "anchor_time_s": 46.671295,
+            "interval_start_s": 46.671295,
+            "interval_end_s": 46.671295
+          },
+          {
+            "predicted_time_s": 48.75,
+            "probability": 0.9994747042655945,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 49.321434,
+            "interval_start_s": 47.071434,
+            "interval_end_s": 49.321434
+          },
+          {
+            "predicted_time_s": 52.125,
+            "probability": 0.9836265444755554,
+            "outcome": "point_match",
+            "anchor_time_s": 52.038494,
+            "interval_start_s": 52.038494,
+            "interval_end_s": 52.038494
+          },
+          {
+            "predicted_time_s": 53.5,
+            "probability": 0.9781373739242554,
+            "outcome": "point_match",
+            "anchor_time_s": 53.438633,
+            "interval_start_s": 53.438633,
+            "interval_end_s": 53.438633
+          },
+          {
+            "predicted_time_s": 54.875,
+            "probability": 0.9852349758148193,
+            "outcome": "point_match",
+            "anchor_time_s": 54.605415,
+            "interval_start_s": 54.605415,
+            "interval_end_s": 54.605415
+          },
+          {
+            "predicted_time_s": 56.25,
+            "probability": 0.9638882875442505,
+            "outcome": "point_match",
+            "anchor_time_s": 56.23891,
+            "interval_start_s": 56.23891,
+            "interval_end_s": 56.23891
+          },
+          {
+            "predicted_time_s": 59.125,
+            "probability": 0.9970976114273071,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 60.139049,
+            "interval_start_s": 56.639049,
+            "interval_end_s": 60.139049
+          },
+          {
+            "predicted_time_s": 62.75,
+            "probability": 0.9998561143875122,
+            "outcome": "point_match",
+            "anchor_time_s": 62.539535,
+            "interval_start_s": 62.539535,
+            "interval_end_s": 62.539535
+          },
+          {
+            "predicted_time_s": 64.125,
+            "probability": 0.999255359172821,
+            "outcome": "point_match",
+            "anchor_time_s": 64.17303,
+            "interval_start_s": 64.17303,
+            "interval_end_s": 64.17303
+          },
+          {
+            "predicted_time_s": 65.625,
+            "probability": 0.9974324107170105,
+            "outcome": "point_match",
+            "anchor_time_s": 65.339813,
+            "interval_start_s": 65.339813,
+            "interval_end_s": 65.339813
+          },
+          {
+            "predicted_time_s": 67.125,
+            "probability": 0.6864902973175049,
+            "outcome": "point_match",
+            "anchor_time_s": 66.973308,
+            "interval_start_s": 66.973308,
+            "interval_end_s": 66.973308
+          },
+          {
+            "predicted_time_s": 68.625,
+            "probability": 0.9691041111946106,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 69.873447,
+            "interval_start_s": 67.623447,
+            "interval_end_s": 69.873447
+          },
+          {
+            "predicted_time_s": 69.875,
+            "probability": 0.9999678134918213,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 69.873447,
+            "interval_start_s": 67.623447,
+            "interval_end_s": 69.873447
+          },
+          {
+            "predicted_time_s": 72.625,
+            "probability": 0.5842844247817993,
+            "outcome": "point_match",
+            "anchor_time_s": 72.573863,
+            "interval_start_s": 72.573863,
+            "interval_end_s": 72.573863
+          },
+          {
+            "predicted_time_s": 74.0,
+            "probability": 0.9749366044998169,
+            "outcome": "point_match",
+            "anchor_time_s": 73.974002,
+            "interval_start_s": 73.974002,
+            "interval_end_s": 73.974002
+          },
+          {
+            "predicted_time_s": 75.25,
+            "probability": 0.9737661480903625,
+            "outcome": "point_match",
+            "anchor_time_s": 75.374141,
+            "interval_start_s": 75.374141,
+            "interval_end_s": 75.374141
+          },
+          {
+            "predicted_time_s": 76.875,
+            "probability": 0.9992008805274963,
+            "outcome": "point_match",
+            "anchor_time_s": 76.540923,
+            "interval_start_s": 76.540923,
+            "interval_end_s": 76.540923
+          },
+          {
+            "predicted_time_s": 78.5,
+            "probability": 0.9972189664840698,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 80.141132,
+            "interval_start_s": 77.641132,
+            "interval_end_s": 80.141132
+          },
+          {
+            "predicted_time_s": 79.375,
+            "probability": 0.9993269443511963,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 80.141132,
+            "interval_start_s": 77.641132,
+            "interval_end_s": 80.141132
+          },
+          {
+            "predicted_time_s": 80.25,
+            "probability": 0.767443835735321,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 80.141132,
+            "interval_start_s": 77.641132,
+            "interval_end_s": 80.141132
+          },
+          {
+            "predicted_time_s": 82.75,
+            "probability": 0.9999408721923828,
+            "outcome": "point_match",
+            "anchor_time_s": 82.608192,
+            "interval_start_s": 82.608192,
+            "interval_end_s": 82.608192
+          },
+          {
+            "predicted_time_s": 84.0,
+            "probability": 0.9991586208343506,
+            "outcome": "point_match",
+            "anchor_time_s": 83.774974,
+            "interval_start_s": 83.774974,
+            "interval_end_s": 83.774974
+          },
+          {
+            "predicted_time_s": 85.375,
+            "probability": 0.9936193823814392,
+            "outcome": "point_match",
+            "anchor_time_s": 85.408469,
+            "interval_start_s": 85.408469,
+            "interval_end_s": 85.408469
+          },
+          {
+            "predicted_time_s": 87.0,
+            "probability": 0.9998663663864136,
+            "outcome": "point_match",
+            "anchor_time_s": 86.808608,
+            "interval_start_s": 86.808608,
+            "interval_end_s": 86.808608
+          },
+          {
+            "predicted_time_s": 89.0,
+            "probability": 0.959613025188446,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 90.442104,
+            "interval_start_s": 87.692104,
+            "interval_end_s": 90.442104
+          },
+          {
+            "predicted_time_s": 92.625,
+            "probability": 0.9997656941413879,
+            "outcome": "point_match",
+            "anchor_time_s": 92.64252,
+            "interval_start_s": 92.64252,
+            "interval_end_s": 92.64252
+          },
+          {
+            "predicted_time_s": 94.0,
+            "probability": 0.9979530572891235,
+            "outcome": "point_match",
+            "anchor_time_s": 93.809302,
+            "interval_start_s": 93.809302,
+            "interval_end_s": 93.809302
+          },
+          {
+            "predicted_time_s": 95.125,
+            "probability": 0.9694840312004089,
+            "outcome": "point_match",
+            "anchor_time_s": 94.976085,
+            "interval_start_s": 94.976085,
+            "interval_end_s": 94.976085
+          },
+          {
+            "predicted_time_s": 96.375,
+            "probability": 0.999904990196228,
+            "outcome": "point_match",
+            "anchor_time_s": 96.376224,
+            "interval_start_s": 96.376224,
+            "interval_end_s": 96.376224
+          },
+          {
+            "predicted_time_s": 98.5,
+            "probability": 0.732281506061554,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 99.526363,
+            "interval_start_s": 97.026363,
+            "interval_end_s": 99.526363
+          }
+        ]
+      }
+    },
+    {
+      "video": "cardeventnet-IMG_0635",
+      "post_event_tail": {
+        "eligible_sample_count": 200,
+        "threshold_exceedance_count": 18
+      },
+      "reviewed_hard_negatives": {
+        "count": 0,
+        "at_or_above_threshold_count": 0,
+        "nearest_stream_scores": []
+      },
+      "event_diagnostics": {
+        "point_matches": 35,
+        "stable_end_matches": 10,
+        "in_progress_detections": 2,
+        "confirmed_false_triggers": 1,
+        "misses": 6,
+        "predictions": [
+          {
+            "predicted_time_s": 1.75,
+            "probability": 0.9999557733535767,
+            "outcome": "point_match",
+            "anchor_time_s": 1.267616,
+            "interval_start_s": 1.267616,
+            "interval_end_s": 1.267616
+          },
+          {
+            "predicted_time_s": 2.875,
+            "probability": 0.8133946061134338,
+            "outcome": "point_match",
+            "anchor_time_s": 2.518405,
+            "interval_start_s": 2.518405,
+            "interval_end_s": 2.518405
+          },
+          {
+            "predicted_time_s": 4.875,
+            "probability": 0.9999997615814209,
+            "outcome": "point_match",
+            "anchor_time_s": 4.519667,
+            "interval_start_s": 4.519667,
+            "interval_end_s": 4.519667
+          },
+          {
+            "predicted_time_s": 6.625,
+            "probability": 0.9999517202377319,
+            "outcome": "point_match",
+            "anchor_time_s": 6.020614,
+            "interval_start_s": 6.020614,
+            "interval_end_s": 6.020614
+          },
+          {
+            "predicted_time_s": 8.0,
+            "probability": 0.9622634053230286,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 8.254733,
+            "interval_start_s": 7.004733,
+            "interval_end_s": 8.254733
+          },
+          {
+            "predicted_time_s": 10.625,
+            "probability": 0.9999189376831055,
+            "outcome": "point_match",
+            "anchor_time_s": 10.273296,
+            "interval_start_s": 10.273296,
+            "interval_end_s": 10.273296
+          },
+          {
+            "predicted_time_s": 11.75,
+            "probability": 0.8707884550094604,
+            "outcome": "point_match",
+            "anchor_time_s": 11.524085,
+            "interval_start_s": 11.524085,
+            "interval_end_s": 11.524085
+          },
+          {
+            "predicted_time_s": 13.625,
+            "probability": 0.9208428859710693,
+            "outcome": "point_match",
+            "anchor_time_s": 13.025031,
+            "interval_start_s": 13.025031,
+            "interval_end_s": 13.025031
+          },
+          {
+            "predicted_time_s": 14.75,
+            "probability": 0.9999480247497559,
+            "outcome": "point_match",
+            "anchor_time_s": 14.27582,
+            "interval_start_s": 14.27582,
+            "interval_end_s": 14.27582
+          },
+          {
+            "predicted_time_s": 16.75,
+            "probability": 0.9992639422416687,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 17.009782,
+            "interval_start_s": 14.759782,
+            "interval_end_s": 17.009782
+          },
+          {
+            "predicted_time_s": 19.375,
+            "probability": 0.9998780488967896,
+            "outcome": "point_match",
+            "anchor_time_s": 19.028818,
+            "interval_start_s": 19.028818,
+            "interval_end_s": 19.028818
+          },
+          {
+            "predicted_time_s": 20.875,
+            "probability": 0.8321889042854309,
+            "outcome": "point_match",
+            "anchor_time_s": 20.279607,
+            "interval_start_s": 20.279607,
+            "interval_end_s": 20.279607
+          },
+          {
+            "predicted_time_s": 22.375,
+            "probability": 0.4271905720233917,
+            "outcome": "point_match",
+            "anchor_time_s": 21.780554,
+            "interval_start_s": 21.780554,
+            "interval_end_s": 21.780554
+          },
+          {
+            "predicted_time_s": 23.625,
+            "probability": 0.999258816242218,
+            "outcome": "point_match",
+            "anchor_time_s": 23.031343,
+            "interval_start_s": 23.031343,
+            "interval_end_s": 23.031343
+          },
+          {
+            "predicted_time_s": 25.875,
+            "probability": 0.9890138506889343,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 26.448949,
+            "interval_start_s": 24.448949,
+            "interval_end_s": 26.448949
+          },
+          {
+            "predicted_time_s": 28.25,
+            "probability": 0.9104674458503723,
+            "outcome": "point_match",
+            "anchor_time_s": 27.751007,
+            "interval_start_s": 27.751007,
+            "interval_end_s": 27.751007
+          },
+          {
+            "predicted_time_s": 29.875,
+            "probability": 0.9995150566101074,
+            "outcome": "point_match",
+            "anchor_time_s": 29.502112,
+            "interval_start_s": 29.502112,
+            "interval_end_s": 29.502112
+          },
+          {
+            "predicted_time_s": 31.25,
+            "probability": 0.8826673030853271,
+            "outcome": "point_match",
+            "anchor_time_s": 30.752901,
+            "interval_start_s": 30.752901,
+            "interval_end_s": 30.752901
+          },
+          {
+            "predicted_time_s": 32.75,
+            "probability": 0.9991638660430908,
+            "outcome": "point_match",
+            "anchor_time_s": 32.253848,
+            "interval_start_s": 32.253848,
+            "interval_end_s": 32.253848
+          },
+          {
+            "predicted_time_s": 35.0,
+            "probability": 0.9624910354614258,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 34.771458,
+            "interval_start_s": 33.021458,
+            "interval_end_s": 34.771458
+          },
+          {
+            "predicted_time_s": 36.875,
+            "probability": 0.9995180368423462,
+            "outcome": "point_match",
+            "anchor_time_s": 36.50653,
+            "interval_start_s": 36.50653,
+            "interval_end_s": 36.50653
+          },
+          {
+            "predicted_time_s": 38.25,
+            "probability": 0.9919031262397766,
+            "outcome": "point_match",
+            "anchor_time_s": 37.757319,
+            "interval_start_s": 37.757319,
+            "interval_end_s": 37.757319
+          },
+          {
+            "predicted_time_s": 39.5,
+            "probability": 0.9806124567985535,
+            "outcome": "point_match",
+            "anchor_time_s": 39.258265,
+            "interval_start_s": 39.258265,
+            "interval_end_s": 39.258265
+          },
+          {
+            "predicted_time_s": 41.125,
+            "probability": 0.9883954524993896,
+            "outcome": "point_match",
+            "anchor_time_s": 40.509054,
+            "interval_start_s": 40.509054,
+            "interval_end_s": 40.509054
+          },
+          {
+            "predicted_time_s": 43.375,
+            "probability": 0.9825602173805237,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 43.276665,
+            "interval_start_s": 41.776665,
+            "interval_end_s": 43.276665
+          },
+          {
+            "predicted_time_s": 45.375,
+            "probability": 0.9999685287475586,
+            "outcome": "point_match",
+            "anchor_time_s": 45.011894,
+            "interval_start_s": 45.011894,
+            "interval_end_s": 45.011894
+          },
+          {
+            "predicted_time_s": 47.875,
+            "probability": 0.7579774260520935,
+            "outcome": "point_match",
+            "anchor_time_s": 47.513472,
+            "interval_start_s": 47.513472,
+            "interval_end_s": 47.513472
+          },
+          {
+            "predicted_time_s": 51.875,
+            "probability": 0.7009055614471436,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 52.032345,
+            "interval_start_s": 50.532345,
+            "interval_end_s": 52.032345
+          },
+          {
+            "predicted_time_s": 54.5,
+            "probability": 0.9998158812522888,
+            "outcome": "point_match",
+            "anchor_time_s": 54.017574,
+            "interval_start_s": 54.017574,
+            "interval_end_s": 54.017574
+          },
+          {
+            "predicted_time_s": 60.375,
+            "probability": 0.9992507100105286,
+            "outcome": "point_match",
+            "anchor_time_s": 59.754697,
+            "interval_start_s": 59.754697,
+            "interval_end_s": 59.754697
+          },
+          {
+            "predicted_time_s": 62.125,
+            "probability": 0.8996403217315674,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 61.788656,
+            "interval_start_s": 60.538656,
+            "interval_end_s": 61.788656
+          },
+          {
+            "predicted_time_s": 64.0,
+            "probability": 0.8138935565948486,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 67.806903,
+            "interval_start_s": 63.556903,
+            "interval_end_s": 67.806903
+          },
+          {
+            "predicted_time_s": 65.75,
+            "probability": 0.8917191624641418,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 67.806903,
+            "interval_start_s": 63.556903,
+            "interval_end_s": 67.806903
+          },
+          {
+            "predicted_time_s": 70.375,
+            "probability": 0.5039628148078918,
+            "outcome": "point_match",
+            "anchor_time_s": 69.777515,
+            "interval_start_s": 69.777515,
+            "interval_end_s": 69.777515
+          },
+          {
+            "predicted_time_s": 71.5,
+            "probability": 0.6413412690162659,
+            "outcome": "point_match",
+            "anchor_time_s": 71.278461,
+            "interval_start_s": 71.278461,
+            "interval_end_s": 71.278461
+          },
+          {
+            "predicted_time_s": 73.375,
+            "probability": 0.43013256788253784,
+            "outcome": "point_match",
+            "anchor_time_s": 72.779408,
+            "interval_start_s": 72.779408,
+            "interval_end_s": 72.779408
+          },
+          {
+            "predicted_time_s": 74.75,
+            "probability": 0.9845947027206421,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 74.763528,
+            "interval_start_s": 73.763528,
+            "interval_end_s": 74.763528
+          },
+          {
+            "predicted_time_s": 82.625,
+            "probability": 0.9994922876358032,
+            "outcome": "point_match",
+            "anchor_time_s": 82.268577,
+            "interval_start_s": 82.268577,
+            "interval_end_s": 82.268577
+          },
+          {
+            "predicted_time_s": 83.875,
+            "probability": 0.9635219573974609,
+            "outcome": "point_match",
+            "anchor_time_s": 83.519366,
+            "interval_start_s": 83.519366,
+            "interval_end_s": 83.519366
+          },
+          {
+            "predicted_time_s": 85.375,
+            "probability": 0.9983118772506714,
+            "outcome": "point_match",
+            "anchor_time_s": 85.020313,
+            "interval_start_s": 85.020313,
+            "interval_end_s": 85.020313
+          },
+          {
+            "predicted_time_s": 87.0,
+            "probability": 0.9760225415229797,
+            "outcome": "point_match",
+            "anchor_time_s": 86.254595,
+            "interval_start_s": 86.254595,
+            "interval_end_s": 86.254595
+          },
+          {
+            "predicted_time_s": 88.875,
+            "probability": 0.9999359846115112,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 88.855592,
+            "interval_start_s": 87.355592,
+            "interval_end_s": 88.855592
+          },
+          {
+            "predicted_time_s": 90.75,
+            "probability": 0.9510194659233093,
+            "outcome": "point_match",
+            "anchor_time_s": 90.25712,
+            "interval_start_s": 90.25712,
+            "interval_end_s": 90.25712
+          },
+          {
+            "predicted_time_s": 92.25,
+            "probability": 0.9991419315338135,
+            "outcome": "point_match",
+            "anchor_time_s": 91.758066,
+            "interval_start_s": 91.758066,
+            "interval_end_s": 91.758066
+          },
+          {
+            "predicted_time_s": 94.125,
+            "probability": 0.4656260013580322,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 95.625,
+            "probability": 0.9997088313102722,
+            "outcome": "point_match",
+            "anchor_time_s": 95.276782,
+            "interval_start_s": 95.276782,
+            "interval_end_s": 95.276782
+          },
+          {
+            "predicted_time_s": 96.875,
+            "probability": 0.9955785870552063,
+            "outcome": "point_match",
+            "anchor_time_s": 96.511064,
+            "interval_start_s": 96.511064,
+            "interval_end_s": 96.511064
+          },
+          {
+            "predicted_time_s": 98.75,
+            "probability": 0.9893025755882263,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 98.895078,
+            "interval_start_s": 97.395078,
+            "interval_end_s": 98.895078
+          }
+        ]
+      }
+    },
+    {
+      "video": "cardeventnet-IMG_0644",
+      "post_event_tail": {
+        "eligible_sample_count": 206,
+        "threshold_exceedance_count": 11
+      },
+      "reviewed_hard_negatives": {
+        "count": 0,
+        "at_or_above_threshold_count": 0,
+        "nearest_stream_scores": []
+      },
+      "event_diagnostics": {
+        "point_matches": 44,
+        "stable_end_matches": 9,
+        "in_progress_detections": 3,
+        "confirmed_false_triggers": 9,
+        "misses": 1,
+        "predictions": [
+          {
+            "predicted_time_s": 2.625,
+            "probability": 0.915410041809082,
+            "outcome": "point_match",
+            "anchor_time_s": 2.501553,
+            "interval_start_s": 2.501553,
+            "interval_end_s": 2.501553
+          },
+          {
+            "predicted_time_s": 3.875,
+            "probability": 0.9895269870758057,
+            "outcome": "point_match",
+            "anchor_time_s": 3.752329,
+            "interval_start_s": 3.752329,
+            "interval_end_s": 3.752329
+          },
+          {
+            "predicted_time_s": 5.125,
+            "probability": 0.997703492641449,
+            "outcome": "point_match",
+            "anchor_time_s": 5.003105,
+            "interval_start_s": 5.003105,
+            "interval_end_s": 5.003105
+          },
+          {
+            "predicted_time_s": 6.5,
+            "probability": 0.5365915894508362,
+            "outcome": "point_match",
+            "anchor_time_s": 6.504037,
+            "interval_start_s": 6.504037,
+            "interval_end_s": 6.504037
+          },
+          {
+            "predicted_time_s": 7.625,
+            "probability": 0.9848180413246155,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 8.504658,
+            "interval_start_s": 6.754658,
+            "interval_end_s": 8.504658
+          },
+          {
+            "predicted_time_s": 8.375,
+            "probability": 0.7944905757904053,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 8.504658,
+            "interval_start_s": 6.754658,
+            "interval_end_s": 8.504658
+          },
+          {
+            "predicted_time_s": 10.875,
+            "probability": 0.9931474328041077,
+            "outcome": "point_match",
+            "anchor_time_s": 10.756676,
+            "interval_start_s": 10.756676,
+            "interval_end_s": 10.756676
+          },
+          {
+            "predicted_time_s": 12.25,
+            "probability": 0.9684388637542725,
+            "outcome": "point_match",
+            "anchor_time_s": 12.257607,
+            "interval_start_s": 12.257607,
+            "interval_end_s": 12.257607
+          },
+          {
+            "predicted_time_s": 13.625,
+            "probability": 0.9973337650299072,
+            "outcome": "point_match",
+            "anchor_time_s": 13.508384,
+            "interval_start_s": 13.508384,
+            "interval_end_s": 13.508384
+          },
+          {
+            "predicted_time_s": 14.875,
+            "probability": 0.996654748916626,
+            "outcome": "point_match",
+            "anchor_time_s": 15.009315,
+            "interval_start_s": 15.009315,
+            "interval_end_s": 15.009315
+          },
+          {
+            "predicted_time_s": 16.625,
+            "probability": 0.9959520101547241,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 17.510402,
+            "interval_start_s": 15.260402,
+            "interval_end_s": 17.510402
+          },
+          {
+            "predicted_time_s": 19.375,
+            "probability": 0.4288072884082794,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 20.375,
+            "probability": 0.7884342670440674,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 21.25,
+            "probability": 0.8325899243354797,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 22.375,
+            "probability": 0.9950200319290161,
+            "outcome": "point_match",
+            "anchor_time_s": 22.263818,
+            "interval_start_s": 22.263818,
+            "interval_end_s": 22.263818
+          },
+          {
+            "predicted_time_s": 23.375,
+            "probability": 0.4605393409729004,
+            "outcome": "point_match",
+            "anchor_time_s": 23.514594,
+            "interval_start_s": 23.514594,
+            "interval_end_s": 23.514594
+          },
+          {
+            "predicted_time_s": 24.625,
+            "probability": 0.8460304141044617,
+            "outcome": "point_match",
+            "anchor_time_s": 24.515215,
+            "interval_start_s": 24.515215,
+            "interval_end_s": 24.515215
+          },
+          {
+            "predicted_time_s": 25.75,
+            "probability": 0.997218132019043,
+            "outcome": "point_match",
+            "anchor_time_s": 25.515836,
+            "interval_start_s": 25.515836,
+            "interval_end_s": 25.515836
+          },
+          {
+            "predicted_time_s": 27.0,
+            "probability": 0.9991095662117004,
+            "outcome": "point_match",
+            "anchor_time_s": 27.016767,
+            "interval_start_s": 27.016767,
+            "interval_end_s": 27.016767
+          },
+          {
+            "predicted_time_s": 29.0,
+            "probability": 0.9745842218399048,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 29.267699,
+            "interval_start_s": 27.767699,
+            "interval_end_s": 29.267699
+          },
+          {
+            "predicted_time_s": 31.5,
+            "probability": 0.9939224123954773,
+            "outcome": "point_match",
+            "anchor_time_s": 31.519562,
+            "interval_start_s": 31.519562,
+            "interval_end_s": 31.519562
+          },
+          {
+            "predicted_time_s": 32.625,
+            "probability": 0.9969461560249329,
+            "outcome": "point_match",
+            "anchor_time_s": 32.520183,
+            "interval_start_s": 32.520183,
+            "interval_end_s": 32.520183
+          },
+          {
+            "predicted_time_s": 33.75,
+            "probability": 0.8862074017524719,
+            "outcome": "point_match",
+            "anchor_time_s": 33.770959,
+            "interval_start_s": 33.770959,
+            "interval_end_s": 33.770959
+          },
+          {
+            "predicted_time_s": 34.875,
+            "probability": 0.9963129162788391,
+            "outcome": "point_match",
+            "anchor_time_s": 34.77158,
+            "interval_start_s": 34.77158,
+            "interval_end_s": 34.77158
+          },
+          {
+            "predicted_time_s": 36.0,
+            "probability": 0.49258196353912354,
+            "outcome": "point_match",
+            "anchor_time_s": 36.272512,
+            "interval_start_s": 36.272512,
+            "interval_end_s": 36.272512
+          },
+          {
+            "predicted_time_s": 37.625,
+            "probability": 0.9806061387062073,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 37.523133,
+            "interval_start_s": 36.523133,
+            "interval_end_s": 37.523133
+          },
+          {
+            "predicted_time_s": 39.5,
+            "probability": 0.9968481659889221,
+            "outcome": "point_match",
+            "anchor_time_s": 39.52453,
+            "interval_start_s": 39.52453,
+            "interval_end_s": 39.52453
+          },
+          {
+            "predicted_time_s": 40.625,
+            "probability": 0.9747081995010376,
+            "outcome": "point_match",
+            "anchor_time_s": 40.775306,
+            "interval_start_s": 40.775306,
+            "interval_end_s": 40.775306
+          },
+          {
+            "predicted_time_s": 41.75,
+            "probability": 0.9973939657211304,
+            "outcome": "point_match",
+            "anchor_time_s": 41.775927,
+            "interval_start_s": 41.775927,
+            "interval_end_s": 41.775927
+          },
+          {
+            "predicted_time_s": 42.875,
+            "probability": 0.9905937314033508,
+            "outcome": "point_match",
+            "anchor_time_s": 43.026704,
+            "interval_start_s": 43.026704,
+            "interval_end_s": 43.026704
+          },
+          {
+            "predicted_time_s": 43.875,
+            "probability": 0.9595009684562683,
+            "outcome": "point_match",
+            "anchor_time_s": 44.527635,
+            "interval_start_s": 44.527635,
+            "interval_end_s": 44.527635
+          },
+          {
+            "predicted_time_s": 45.875,
+            "probability": 0.6164981722831726,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 46.528567,
+            "interval_start_s": 45.278567,
+            "interval_end_s": 46.528567
+          },
+          {
+            "predicted_time_s": 49.375,
+            "probability": 0.9958029389381409,
+            "outcome": "point_match",
+            "anchor_time_s": 49.53074,
+            "interval_start_s": 49.53074,
+            "interval_end_s": 49.53074
+          },
+          {
+            "predicted_time_s": 50.25,
+            "probability": 0.9751099944114685,
+            "outcome": "point_match",
+            "anchor_time_s": 50.281206,
+            "interval_start_s": 50.281206,
+            "interval_end_s": 50.281206
+          },
+          {
+            "predicted_time_s": 51.5,
+            "probability": 0.9952360987663269,
+            "outcome": "point_match",
+            "anchor_time_s": 51.531982,
+            "interval_start_s": 51.531982,
+            "interval_end_s": 51.531982
+          },
+          {
+            "predicted_time_s": 52.625,
+            "probability": 0.9651650190353394,
+            "outcome": "point_match",
+            "anchor_time_s": 52.782758,
+            "interval_start_s": 52.782758,
+            "interval_end_s": 52.782758
+          },
+          {
+            "predicted_time_s": 54.125,
+            "probability": 0.9823107719421387,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 55.25,
+            "probability": 0.9791728258132935,
+            "outcome": "point_match",
+            "anchor_time_s": 55.034156,
+            "interval_start_s": 55.034156,
+            "interval_end_s": 55.034156
+          },
+          {
+            "predicted_time_s": 56.75,
+            "probability": 0.875644326210022,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 57.285243,
+            "interval_start_s": 56.035243,
+            "interval_end_s": 57.285243
+          },
+          {
+            "predicted_time_s": 60.0,
+            "probability": 0.9777137637138367,
+            "outcome": "point_match",
+            "anchor_time_s": 60.037261,
+            "interval_start_s": 60.037261,
+            "interval_end_s": 60.037261
+          },
+          {
+            "predicted_time_s": 61.375,
+            "probability": 0.9974837303161621,
+            "outcome": "point_match",
+            "anchor_time_s": 61.288037,
+            "interval_start_s": 61.288037,
+            "interval_end_s": 61.288037
+          },
+          {
+            "predicted_time_s": 62.625,
+            "probability": 0.9972012042999268,
+            "outcome": "point_match",
+            "anchor_time_s": 62.538813,
+            "interval_start_s": 62.538813,
+            "interval_end_s": 62.538813
+          },
+          {
+            "predicted_time_s": 63.875,
+            "probability": 0.9918690919876099,
+            "outcome": "point_match",
+            "anchor_time_s": 63.78959,
+            "interval_start_s": 63.78959,
+            "interval_end_s": 63.78959
+          },
+          {
+            "predicted_time_s": 65.75,
+            "probability": 0.9589738249778748,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 65.790521,
+            "interval_start_s": 64.540521,
+            "interval_end_s": 65.790521
+          },
+          {
+            "predicted_time_s": 68.5,
+            "probability": 0.5973742604255676,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 71.875,
+            "probability": 0.9780990481376648,
+            "outcome": "point_match",
+            "anchor_time_s": 71.794558,
+            "interval_start_s": 71.794558,
+            "interval_end_s": 71.794558
+          },
+          {
+            "predicted_time_s": 73.125,
+            "probability": 0.9740978479385376,
+            "outcome": "point_match",
+            "anchor_time_s": 73.045334,
+            "interval_start_s": 73.045334,
+            "interval_end_s": 73.045334
+          },
+          {
+            "predicted_time_s": 74.375,
+            "probability": 0.9813748598098755,
+            "outcome": "point_match",
+            "anchor_time_s": 74.546266,
+            "interval_start_s": 74.546266,
+            "interval_end_s": 74.546266
+          },
+          {
+            "predicted_time_s": 76.25,
+            "probability": 0.8781550526618958,
+            "outcome": "point_match",
+            "anchor_time_s": 76.047197,
+            "interval_start_s": 76.047197,
+            "interval_end_s": 76.047197
+          },
+          {
+            "predicted_time_s": 77.25,
+            "probability": 0.9592059254646301,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 78.0,
+            "probability": 0.8714755177497864,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 79.04875,
+            "interval_start_s": 77.79875,
+            "interval_end_s": 79.04875
+          },
+          {
+            "predicted_time_s": 78.875,
+            "probability": 0.9931862354278564,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 79.04875,
+            "interval_start_s": 77.79875,
+            "interval_end_s": 79.04875
+          },
+          {
+            "predicted_time_s": 81.25,
+            "probability": 0.6452674865722656,
+            "outcome": "point_match",
+            "anchor_time_s": 81.300457,
+            "interval_start_s": 81.300457,
+            "interval_end_s": 81.300457
+          },
+          {
+            "predicted_time_s": 82.375,
+            "probability": 0.8636963963508606,
+            "outcome": "point_match",
+            "anchor_time_s": 82.301078,
+            "interval_start_s": 82.301078,
+            "interval_end_s": 82.301078
+          },
+          {
+            "predicted_time_s": 83.75,
+            "probability": 0.971381425857544,
+            "outcome": "point_match",
+            "anchor_time_s": 83.551855,
+            "interval_start_s": 83.551855,
+            "interval_end_s": 83.551855
+          },
+          {
+            "predicted_time_s": 84.75,
+            "probability": 0.8348211646080017,
+            "outcome": "point_match",
+            "anchor_time_s": 84.552476,
+            "interval_start_s": 84.552476,
+            "interval_end_s": 84.552476
+          },
+          {
+            "predicted_time_s": 86.375,
+            "probability": 0.9959195852279663,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 86.303252,
+            "interval_start_s": 85.053252,
+            "interval_end_s": 86.303252
+          },
+          {
+            "predicted_time_s": 88.0,
+            "probability": 0.7369869947433472,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 90.0,
+            "probability": 0.4730773866176605,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          },
+          {
+            "predicted_time_s": 91.0,
+            "probability": 0.9899730682373047,
+            "outcome": "point_match",
+            "anchor_time_s": 90.806357,
+            "interval_start_s": 90.806357,
+            "interval_end_s": 90.806357
+          },
+          {
+            "predicted_time_s": 92.125,
+            "probability": 0.996527373790741,
+            "outcome": "point_match",
+            "anchor_time_s": 91.806978,
+            "interval_start_s": 91.806978,
+            "interval_end_s": 91.806978
+          },
+          {
+            "predicted_time_s": 93.125,
+            "probability": 0.8017802238464355,
+            "outcome": "point_match",
+            "anchor_time_s": 93.30791,
+            "interval_start_s": 93.30791,
+            "interval_end_s": 93.30791
+          },
+          {
+            "predicted_time_s": 94.25,
+            "probability": 0.9894139766693115,
+            "outcome": "point_match",
+            "anchor_time_s": 94.058375,
+            "interval_start_s": 94.058375,
+            "interval_end_s": 94.058375
+          },
+          {
+            "predicted_time_s": 95.375,
+            "probability": 0.8550103306770325,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 96.059152,
+            "interval_start_s": 94.809152,
+            "interval_end_s": 96.059152
+          },
+          {
+            "predicted_time_s": 97.5,
+            "probability": 0.6406537890434265,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          }
+        ]
+      }
+    },
+    {
+      "video": "cardeventnet-IMG_0652",
+      "post_event_tail": {
+        "eligible_sample_count": 179,
+        "threshold_exceedance_count": 20
+      },
+      "reviewed_hard_negatives": {
+        "count": 0,
+        "at_or_above_threshold_count": 0,
+        "nearest_stream_scores": []
+      },
+      "event_diagnostics": {
+        "point_matches": 37,
+        "stable_end_matches": 8,
+        "in_progress_detections": 1,
+        "confirmed_false_triggers": 0,
+        "misses": 6,
+        "predictions": [
+          {
+            "predicted_time_s": 2.625,
+            "probability": 0.9997965693473816,
+            "outcome": "point_match",
+            "anchor_time_s": 2.502405,
+            "interval_start_s": 2.502405,
+            "interval_end_s": 2.502405
+          },
+          {
+            "predicted_time_s": 3.75,
+            "probability": 0.9996552467346191,
+            "outcome": "point_match",
+            "anchor_time_s": 3.503368,
+            "interval_start_s": 3.503368,
+            "interval_end_s": 3.503368
+          },
+          {
+            "predicted_time_s": 4.625,
+            "probability": 0.78827303647995,
+            "outcome": "point_match",
+            "anchor_time_s": 4.75457,
+            "interval_start_s": 4.75457,
+            "interval_end_s": 4.75457
+          },
+          {
+            "predicted_time_s": 5.5,
+            "probability": 0.9969629645347595,
+            "outcome": "point_match",
+            "anchor_time_s": 5.255051,
+            "interval_start_s": 5.255051,
+            "interval_end_s": 5.255051
+          },
+          {
+            "predicted_time_s": 7.125,
+            "probability": 0.7511720061302185,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 7.756254,
+            "interval_start_s": 6.006254,
+            "interval_end_s": 7.756254
+          },
+          {
+            "predicted_time_s": 10.625,
+            "probability": 0.9997335076332092,
+            "outcome": "point_match",
+            "anchor_time_s": 10.510103,
+            "interval_start_s": 10.510103,
+            "interval_end_s": 10.510103
+          },
+          {
+            "predicted_time_s": 11.625,
+            "probability": 0.9932106137275696,
+            "outcome": "point_match",
+            "anchor_time_s": 11.511065,
+            "interval_start_s": 11.511065,
+            "interval_end_s": 11.511065
+          },
+          {
+            "predicted_time_s": 14.375,
+            "probability": 0.9924336671829224,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 14.762749,
+            "interval_start_s": 12.762749,
+            "interval_end_s": 14.762749
+          },
+          {
+            "predicted_time_s": 16.75,
+            "probability": 0.9937455654144287,
+            "outcome": "point_match",
+            "anchor_time_s": 16.515876,
+            "interval_start_s": 16.515876,
+            "interval_end_s": 16.515876
+          },
+          {
+            "predicted_time_s": 18.375,
+            "probability": 0.9905980229377747,
+            "outcome": "point_match",
+            "anchor_time_s": 18.267559,
+            "interval_start_s": 18.267559,
+            "interval_end_s": 18.267559
+          },
+          {
+            "predicted_time_s": 19.625,
+            "probability": 0.9993966817855835,
+            "outcome": "point_match",
+            "anchor_time_s": 19.518762,
+            "interval_start_s": 19.518762,
+            "interval_end_s": 19.518762
+          },
+          {
+            "predicted_time_s": 20.625,
+            "probability": 0.9999597072601318,
+            "outcome": "point_match",
+            "anchor_time_s": 20.519724,
+            "interval_start_s": 20.519724,
+            "interval_end_s": 20.519724
+          },
+          {
+            "predicted_time_s": 25.125,
+            "probability": 0.9994375109672546,
+            "outcome": "point_match",
+            "anchor_time_s": 25.024054,
+            "interval_start_s": 25.024054,
+            "interval_end_s": 25.024054
+          },
+          {
+            "predicted_time_s": 26.375,
+            "probability": 0.9939193725585938,
+            "outcome": "point_match",
+            "anchor_time_s": 26.025016,
+            "interval_start_s": 26.025016,
+            "interval_end_s": 26.025016
+          },
+          {
+            "predicted_time_s": 27.375,
+            "probability": 0.9999487400054932,
+            "outcome": "point_match",
+            "anchor_time_s": 27.276219,
+            "interval_start_s": 27.276219,
+            "interval_end_s": 27.276219
+          },
+          {
+            "predicted_time_s": 28.375,
+            "probability": 0.9997203946113586,
+            "outcome": "point_match",
+            "anchor_time_s": 28.277181,
+            "interval_start_s": 28.277181,
+            "interval_end_s": 28.277181
+          },
+          {
+            "predicted_time_s": 30.625,
+            "probability": 0.8246120810508728,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 30.528384,
+            "interval_start_s": 28.778384,
+            "interval_end_s": 30.528384
+          },
+          {
+            "predicted_time_s": 32.625,
+            "probability": 0.9984896183013916,
+            "outcome": "point_match",
+            "anchor_time_s": 32.53127,
+            "interval_start_s": 32.53127,
+            "interval_end_s": 32.53127
+          },
+          {
+            "predicted_time_s": 33.625,
+            "probability": 0.9993841648101807,
+            "outcome": "point_match",
+            "anchor_time_s": 33.532232,
+            "interval_start_s": 33.532232,
+            "interval_end_s": 33.532232
+          },
+          {
+            "predicted_time_s": 35.375,
+            "probability": 0.9821984171867371,
+            "outcome": "point_match",
+            "anchor_time_s": 35.283916,
+            "interval_start_s": 35.283916,
+            "interval_end_s": 35.283916
+          },
+          {
+            "predicted_time_s": 37.125,
+            "probability": 0.9602895975112915,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 37.284878,
+            "interval_start_s": 35.784878,
+            "interval_end_s": 37.284878
+          },
+          {
+            "predicted_time_s": 39.375,
+            "probability": 0.9994741082191467,
+            "outcome": "point_match",
+            "anchor_time_s": 39.287765,
+            "interval_start_s": 39.287765,
+            "interval_end_s": 39.287765
+          },
+          {
+            "predicted_time_s": 40.25,
+            "probability": 0.9994052648544312,
+            "outcome": "point_match",
+            "anchor_time_s": 40.038486,
+            "interval_start_s": 40.038486,
+            "interval_end_s": 40.038486
+          },
+          {
+            "predicted_time_s": 41.125,
+            "probability": 0.9991331696510315,
+            "outcome": "point_match",
+            "anchor_time_s": 41.039448,
+            "interval_start_s": 41.039448,
+            "interval_end_s": 41.039448
+          },
+          {
+            "predicted_time_s": 41.875,
+            "probability": 0.9990540146827698,
+            "outcome": "point_match",
+            "anchor_time_s": 41.79017,
+            "interval_start_s": 41.79017,
+            "interval_end_s": 41.79017
+          },
+          {
+            "predicted_time_s": 43.625,
+            "probability": 0.9337002038955688,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 44.291132,
+            "interval_start_s": 42.291132,
+            "interval_end_s": 44.291132
+          },
+          {
+            "predicted_time_s": 46.5,
+            "probability": 0.9984728693962097,
+            "outcome": "point_match",
+            "anchor_time_s": 46.2945,
+            "interval_start_s": 46.2945,
+            "interval_end_s": 46.2945
+          },
+          {
+            "predicted_time_s": 47.25,
+            "probability": 0.999924898147583,
+            "outcome": "point_match",
+            "anchor_time_s": 47.295462,
+            "interval_start_s": 47.295462,
+            "interval_end_s": 47.295462
+          },
+          {
+            "predicted_time_s": 48.25,
+            "probability": 0.9918469190597534,
+            "outcome": "point_match",
+            "anchor_time_s": 48.046183,
+            "interval_start_s": 48.046183,
+            "interval_end_s": 48.046183
+          },
+          {
+            "predicted_time_s": 49.125,
+            "probability": 0.8052979111671448,
+            "outcome": "point_match",
+            "anchor_time_s": 49.047146,
+            "interval_start_s": 49.047146,
+            "interval_end_s": 49.047146
+          },
+          {
+            "predicted_time_s": 51.625,
+            "probability": 0.962710976600647,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 51.548348,
+            "interval_start_s": 49.548348,
+            "interval_end_s": 51.548348
+          },
+          {
+            "predicted_time_s": 53.75,
+            "probability": 0.792249858379364,
+            "outcome": "point_match",
+            "anchor_time_s": 53.551475,
+            "interval_start_s": 53.551475,
+            "interval_end_s": 53.551475
+          },
+          {
+            "predicted_time_s": 54.625,
+            "probability": 0.9988960027694702,
+            "outcome": "point_match",
+            "anchor_time_s": 54.552437,
+            "interval_start_s": 54.552437,
+            "interval_end_s": 54.552437
+          },
+          {
+            "predicted_time_s": 55.75,
+            "probability": 0.9665593504905701,
+            "outcome": "point_match",
+            "anchor_time_s": 55.80364,
+            "interval_start_s": 55.80364,
+            "interval_end_s": 55.80364
+          },
+          {
+            "predicted_time_s": 56.75,
+            "probability": 0.6881958842277527,
+            "outcome": "point_match",
+            "anchor_time_s": 56.804602,
+            "interval_start_s": 56.804602,
+            "interval_end_s": 56.804602
+          },
+          {
+            "predicted_time_s": 58.75,
+            "probability": 0.9049214124679565,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 58.805324,
+            "interval_start_s": 57.055324,
+            "interval_end_s": 58.805324
+          },
+          {
+            "predicted_time_s": 60.875,
+            "probability": 0.9976862668991089,
+            "outcome": "point_match",
+            "anchor_time_s": 60.808451,
+            "interval_start_s": 60.808451,
+            "interval_end_s": 60.808451
+          },
+          {
+            "predicted_time_s": 61.75,
+            "probability": 0.9960500597953796,
+            "outcome": "point_match",
+            "anchor_time_s": 61.559173,
+            "interval_start_s": 61.559173,
+            "interval_end_s": 61.559173
+          },
+          {
+            "predicted_time_s": 62.625,
+            "probability": 0.9904503226280212,
+            "outcome": "point_match",
+            "anchor_time_s": 62.560135,
+            "interval_start_s": 62.560135,
+            "interval_end_s": 62.560135
+          },
+          {
+            "predicted_time_s": 63.625,
+            "probability": 0.9964691400527954,
+            "outcome": "point_match",
+            "anchor_time_s": 63.310856,
+            "interval_start_s": 63.310856,
+            "interval_end_s": 63.310856
+          },
+          {
+            "predicted_time_s": 65.375,
+            "probability": 0.6399892568588257,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 65.561818,
+            "interval_start_s": 63.811818,
+            "interval_end_s": 65.561818
+          },
+          {
+            "predicted_time_s": 67.625,
+            "probability": 0.9844107627868652,
+            "outcome": "point_match",
+            "anchor_time_s": 67.564945,
+            "interval_start_s": 67.564945,
+            "interval_end_s": 67.564945
+          },
+          {
+            "predicted_time_s": 68.625,
+            "probability": 0.9660566449165344,
+            "outcome": "point_match",
+            "anchor_time_s": 68.816148,
+            "interval_start_s": 68.816148,
+            "interval_end_s": 68.816148
+          },
+          {
+            "predicted_time_s": 70.25,
+            "probability": 0.9994620680809021,
+            "outcome": "point_match",
+            "anchor_time_s": 70.067351,
+            "interval_start_s": 70.067351,
+            "interval_end_s": 70.067351
+          },
+          {
+            "predicted_time_s": 71.125,
+            "probability": 0.9980702996253967,
+            "outcome": "point_match",
+            "anchor_time_s": 70.818072,
+            "interval_start_s": 70.818072,
+            "interval_end_s": 70.818072
+          },
+          {
+            "predicted_time_s": 72.75,
+            "probability": 0.7192403078079224,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 73.819275,
+            "interval_start_s": 71.569275,
+            "interval_end_s": 73.819275
+          }
+        ]
+      }
+    },
+    {
+      "video": "cardeventnet-IMG_0661",
+      "post_event_tail": {
+        "eligible_sample_count": 197,
+        "threshold_exceedance_count": 18
+      },
+      "reviewed_hard_negatives": {
+        "count": 0,
+        "at_or_above_threshold_count": 0,
+        "nearest_stream_scores": []
+      },
+      "event_diagnostics": {
+        "point_matches": 40,
+        "stable_end_matches": 8,
+        "in_progress_detections": 6,
+        "confirmed_false_triggers": 1,
+        "misses": 6,
+        "predictions": [
+          {
+            "predicted_time_s": 1.5,
+            "probability": 0.9810786247253418,
+            "outcome": "point_match",
+            "anchor_time_s": 1.501462,
+            "interval_start_s": 1.501462,
+            "interval_end_s": 1.501462
+          },
+          {
+            "predicted_time_s": 2.875,
+            "probability": 0.9269944429397583,
+            "outcome": "point_match",
+            "anchor_time_s": 2.75268,
+            "interval_start_s": 2.75268,
+            "interval_end_s": 2.75268
+          },
+          {
+            "predicted_time_s": 5.625,
+            "probability": 0.9982513785362244,
+            "outcome": "point_match",
+            "anchor_time_s": 5.50536,
+            "interval_start_s": 5.50536,
+            "interval_end_s": 5.50536
+          },
+          {
+            "predicted_time_s": 6.875,
+            "probability": 0.9999022483825684,
+            "outcome": "point_match",
+            "anchor_time_s": 6.756579,
+            "interval_start_s": 6.756579,
+            "interval_end_s": 6.756579
+          },
+          {
+            "predicted_time_s": 9.125,
+            "probability": 0.9995501637458801,
+            "outcome": "point_match",
+            "anchor_time_s": 9.008772,
+            "interval_start_s": 9.008772,
+            "interval_end_s": 9.008772
+          },
+          {
+            "predicted_time_s": 11.375,
+            "probability": 0.9994632601737976,
+            "outcome": "point_match",
+            "anchor_time_s": 11.260965,
+            "interval_start_s": 11.260965,
+            "interval_end_s": 11.260965
+          },
+          {
+            "predicted_time_s": 14.25,
+            "probability": 0.9987550973892212,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 15.012675,
+            "interval_start_s": 12.512675,
+            "interval_end_s": 15.012675
+          },
+          {
+            "predicted_time_s": 16.25,
+            "probability": 0.9732992053031921,
+            "outcome": "point_match",
+            "anchor_time_s": 16.265838,
+            "interval_start_s": 16.265838,
+            "interval_end_s": 16.265838
+          },
+          {
+            "predicted_time_s": 17.375,
+            "probability": 0.9673973321914673,
+            "outcome": "point_match",
+            "anchor_time_s": 17.517056,
+            "interval_start_s": 17.517056,
+            "interval_end_s": 17.517056
+          },
+          {
+            "predicted_time_s": 18.875,
+            "probability": 0.9541416168212891,
+            "outcome": "point_match",
+            "anchor_time_s": 19.268761,
+            "interval_start_s": 19.268761,
+            "interval_end_s": 19.268761
+          },
+          {
+            "predicted_time_s": 20.5,
+            "probability": 0.9980145692825317,
+            "outcome": "point_match",
+            "anchor_time_s": 20.269736,
+            "interval_start_s": 20.269736,
+            "interval_end_s": 20.269736
+          },
+          {
+            "predicted_time_s": 21.375,
+            "probability": 0.9997203946113586,
+            "outcome": "point_match",
+            "anchor_time_s": 21.270711,
+            "interval_start_s": 21.270711,
+            "interval_end_s": 21.270711
+          },
+          {
+            "predicted_time_s": 23.625,
+            "probability": 0.9953733086585999,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 23.755514,
+            "interval_start_s": 22.005514,
+            "interval_end_s": 23.755514
+          },
+          {
+            "predicted_time_s": 25.125,
+            "probability": 0.9627745151519775,
+            "outcome": "point_match",
+            "anchor_time_s": 25.024366,
+            "interval_start_s": 25.024366,
+            "interval_end_s": 25.024366
+          },
+          {
+            "predicted_time_s": 26.125,
+            "probability": 0.9796600937843323,
+            "outcome": "point_match",
+            "anchor_time_s": 26.02534,
+            "interval_start_s": 26.02534,
+            "interval_end_s": 26.02534
+          },
+          {
+            "predicted_time_s": 27.25,
+            "probability": 0.9977099895477295,
+            "outcome": "point_match",
+            "anchor_time_s": 27.276558,
+            "interval_start_s": 27.276558,
+            "interval_end_s": 27.276558
+          },
+          {
+            "predicted_time_s": 28.5,
+            "probability": 0.998477041721344,
+            "outcome": "point_match",
+            "anchor_time_s": 28.277533,
+            "interval_start_s": 28.277533,
+            "interval_end_s": 28.277533
+          },
+          {
+            "predicted_time_s": 30.875,
+            "probability": 0.9995325803756714,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 32.528995,
+            "interval_start_s": 29.278995,
+            "interval_end_s": 32.528995
+          },
+          {
+            "predicted_time_s": 32.75,
+            "probability": 0.7049576044082642,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 32.528995,
+            "interval_start_s": 29.278995,
+            "interval_end_s": 32.528995
+          },
+          {
+            "predicted_time_s": 34.125,
+            "probability": 0.9953296184539795,
+            "outcome": "point_match",
+            "anchor_time_s": 34.033137,
+            "interval_start_s": 34.033137,
+            "interval_end_s": 34.033137
+          },
+          {
+            "predicted_time_s": 35.125,
+            "probability": 0.9985383749008179,
+            "outcome": "point_match",
+            "anchor_time_s": 35.034112,
+            "interval_start_s": 35.034112,
+            "interval_end_s": 35.034112
+          },
+          {
+            "predicted_time_s": 36.375,
+            "probability": 0.99832683801651,
+            "outcome": "point_match",
+            "anchor_time_s": 36.28533,
+            "interval_start_s": 36.28533,
+            "interval_end_s": 36.28533
+          },
+          {
+            "predicted_time_s": 37.375,
+            "probability": 0.999737560749054,
+            "outcome": "point_match",
+            "anchor_time_s": 37.019641,
+            "interval_start_s": 37.019641,
+            "interval_end_s": 37.019641
+          },
+          {
+            "predicted_time_s": 39.375,
+            "probability": 0.9950934648513794,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 40.787523,
+            "interval_start_s": 38.037523,
+            "interval_end_s": 40.787523
+          },
+          {
+            "predicted_time_s": 41.25,
+            "probability": 0.8930254578590393,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 40.787523,
+            "interval_start_s": 38.037523,
+            "interval_end_s": 40.787523
+          },
+          {
+            "predicted_time_s": 42.75,
+            "probability": 0.998284637928009,
+            "outcome": "point_match",
+            "anchor_time_s": 42.541421,
+            "interval_start_s": 42.541421,
+            "interval_end_s": 42.541421
+          },
+          {
+            "predicted_time_s": 44.5,
+            "probability": 0.9970664381980896,
+            "outcome": "point_match",
+            "anchor_time_s": 44.293127,
+            "interval_start_s": 44.293127,
+            "interval_end_s": 44.293127
+          },
+          {
+            "predicted_time_s": 45.5,
+            "probability": 0.8137410283088684,
+            "outcome": "point_match",
+            "anchor_time_s": 45.544345,
+            "interval_start_s": 45.544345,
+            "interval_end_s": 45.544345
+          },
+          {
+            "predicted_time_s": 47.25,
+            "probability": 0.9918532967567444,
+            "outcome": "point_match",
+            "anchor_time_s": 47.296051,
+            "interval_start_s": 47.296051,
+            "interval_end_s": 47.296051
+          },
+          {
+            "predicted_time_s": 49.375,
+            "probability": 0.5659646987915039,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 51.048,
+            "interval_start_s": 48.548,
+            "interval_end_s": 51.048
+          },
+          {
+            "predicted_time_s": 51.125,
+            "probability": 0.8135207891464233,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 51.048,
+            "interval_start_s": 48.548,
+            "interval_end_s": 51.048
+          },
+          {
+            "predicted_time_s": 52.75,
+            "probability": 0.8409696221351624,
+            "outcome": "point_match",
+            "anchor_time_s": 52.551168,
+            "interval_start_s": 52.551168,
+            "interval_end_s": 52.551168
+          },
+          {
+            "predicted_time_s": 53.875,
+            "probability": 0.971369743347168,
+            "outcome": "point_match",
+            "anchor_time_s": 53.802386,
+            "interval_start_s": 53.802386,
+            "interval_end_s": 53.802386
+          },
+          {
+            "predicted_time_s": 55.125,
+            "probability": 0.9989746809005737,
+            "outcome": "point_match",
+            "anchor_time_s": 54.803361,
+            "interval_start_s": 54.803361,
+            "interval_end_s": 54.803361
+          },
+          {
+            "predicted_time_s": 57.625,
+            "probability": 0.987916886806488,
+            "outcome": "point_match",
+            "anchor_time_s": 57.806284,
+            "interval_start_s": 57.806284,
+            "interval_end_s": 57.806284
+          },
+          {
+            "predicted_time_s": 60.0,
+            "probability": 0.997307300567627,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 61.30799,
+            "interval_start_s": 58.80799,
+            "interval_end_s": 61.30799
+          },
+          {
+            "predicted_time_s": 62.75,
+            "probability": 0.9963098168373108,
+            "outcome": "point_match",
+            "anchor_time_s": 62.560914,
+            "interval_start_s": 62.560914,
+            "interval_end_s": 62.560914
+          },
+          {
+            "predicted_time_s": 64.125,
+            "probability": 0.9984951019287109,
+            "outcome": "point_match",
+            "anchor_time_s": 63.812132,
+            "interval_start_s": 63.812132,
+            "interval_end_s": 63.812132
+          },
+          {
+            "predicted_time_s": 65.625,
+            "probability": 0.9956372380256653,
+            "outcome": "point_match",
+            "anchor_time_s": 65.263841,
+            "interval_start_s": 65.263841,
+            "interval_end_s": 65.263841
+          },
+          {
+            "predicted_time_s": 68.75,
+            "probability": 0.9989097118377686,
+            "outcome": "in_progress_detection",
+            "anchor_time_s": 70.066031,
+            "interval_start_s": 67.066031,
+            "interval_end_s": 70.066031
+          },
+          {
+            "predicted_time_s": 70.125,
+            "probability": 0.9920246601104736,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 70.066031,
+            "interval_start_s": 67.066031,
+            "interval_end_s": 70.066031
+          },
+          {
+            "predicted_time_s": 71.375,
+            "probability": 0.9979548454284668,
+            "outcome": "point_match",
+            "anchor_time_s": 71.319442,
+            "interval_start_s": 71.319442,
+            "interval_end_s": 71.319442
+          },
+          {
+            "predicted_time_s": 72.25,
+            "probability": 0.9618937373161316,
+            "outcome": "point_match",
+            "anchor_time_s": 72.070173,
+            "interval_start_s": 72.070173,
+            "interval_end_s": 72.070173
+          },
+          {
+            "predicted_time_s": 73.75,
+            "probability": 0.9995844960212708,
+            "outcome": "point_match",
+            "anchor_time_s": 73.271638,
+            "interval_start_s": 73.271638,
+            "interval_end_s": 73.271638
+          },
+          {
+            "predicted_time_s": 77.0,
+            "probability": 0.9999563694000244,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 77.573828,
+            "interval_start_s": 75.073828,
+            "interval_end_s": 77.573828
+          },
+          {
+            "predicted_time_s": 78.375,
+            "probability": 0.998097836971283,
+            "outcome": "point_match",
+            "anchor_time_s": 78.326264,
+            "interval_start_s": 78.326264,
+            "interval_end_s": 78.326264
+          },
+          {
+            "predicted_time_s": 79.25,
+            "probability": 0.998468816280365,
+            "outcome": "point_match",
+            "anchor_time_s": 79.076995,
+            "interval_start_s": 79.076995,
+            "interval_end_s": 79.076995
+          },
+          {
+            "predicted_time_s": 80.25,
+            "probability": 0.999707043170929,
+            "outcome": "point_match",
+            "anchor_time_s": 80.328213,
+            "interval_start_s": 80.328213,
+            "interval_end_s": 80.328213
+          },
+          {
+            "predicted_time_s": 81.125,
+            "probability": 0.9960110187530518,
+            "outcome": "point_match",
+            "anchor_time_s": 81.078944,
+            "interval_start_s": 81.078944,
+            "interval_end_s": 81.078944
+          },
+          {
+            "predicted_time_s": 82.375,
+            "probability": 0.9815030097961426,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 83.079675,
+            "interval_start_s": 81.079675,
+            "interval_end_s": 83.079675
+          },
+          {
+            "predicted_time_s": 84.125,
+            "probability": 0.9980587363243103,
+            "outcome": "point_match",
+            "anchor_time_s": 83.764959,
+            "interval_start_s": 83.764959,
+            "interval_end_s": 83.764959
+          },
+          {
+            "predicted_time_s": 85.875,
+            "probability": 0.9999465942382812,
+            "outcome": "point_match",
+            "anchor_time_s": 85.500244,
+            "interval_start_s": 85.500244,
+            "interval_end_s": 85.500244
+          },
+          {
+            "predicted_time_s": 86.75,
+            "probability": 0.9652494192123413,
+            "outcome": "point_match",
+            "anchor_time_s": 86.267756,
+            "interval_start_s": 86.267756,
+            "interval_end_s": 86.267756
+          },
+          {
+            "predicted_time_s": 87.75,
+            "probability": 0.9972183704376221,
+            "outcome": "stable_end_match",
+            "anchor_time_s": 88.33528,
+            "interval_start_s": 86.83528,
+            "interval_end_s": 88.33528
+          },
+          {
+            "predicted_time_s": 89.25,
+            "probability": 0.5877784490585327,
+            "outcome": "confirmed_false_trigger",
+            "anchor_time_s": null,
+            "interval_start_s": null,
+            "interval_end_s": null
+          }
+        ]
+      }
+    }
+  ]
+}
