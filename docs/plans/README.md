@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0068 — Reviewed RF-DETR local visible-card detector](3-in-progress/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | M0–M2 implementation is complete; M0 is frozen from the local 24-recording source and review stores with source-group-safe train, validation, and sealed-test partitions. Live M1 materialization is next. |
+| [0068 — Reviewed RF-DETR local visible-card detector](3-in-progress/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | M0–M2 implementation is complete; M0 and M1 are live and reproducible from the local 24-recording source/review stores. Live M2 smoke is next. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked

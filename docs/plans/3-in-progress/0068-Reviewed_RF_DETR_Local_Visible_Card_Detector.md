@@ -24,12 +24,11 @@
   source-group-safe train, validation, and sealed-test partitions, and pin the RF-DETR recipe and
   held-out gate. The live manifest is frozen from the local 24-recording source and review stores.
 - **M1:** Complete — materialize the frozen reviewed instance-segmentation dataset into
-  deterministic train, validation, and sealed-test COCO views. The live run awaits the frozen
-  24-recording M0 snapshot, which is not present in this checkout.
+  deterministic train, validation, and sealed-test COCO views. The live view is materialized and
+  reproducible from the frozen M0 manifest.
 - **M2:** Complete — the reviewed-detector smoke and full-candidate run paths now verify matching
   M0 and M1 digests, record explicit device and resource facts, retain resumable failures, and
-  reuse verified completed bundles. The live run is blocked until the frozen 24-recording input
-  snapshot is available in this checkout.
+  reuse verified completed bundles. The live smoke run is next.
 - **M3:** Not started — evaluate the pretrained baseline and candidate on the frozen validation
   and sealed-test partitions.
 - **M4:** Not started — make the bounded local-provider decision and register a passing bundle.
@@ -177,8 +176,12 @@ Acceptance:
 - Fixture tests cover cold and warm digest equality, polygon and derived-box validation, changed
   frame bytes, stale reference lineage, stale source-group keys, ignore and unusable receipts,
   and the public CLI. Focused verification passes with 19 tests and Ruff checks.
-- A live materialization cannot run yet because the frozen 0068 M0 manifest and its 24 source
-  recording bundles are not available in this checkout.
+- The live materialization used the frozen M0 manifest and all 24 local recording bundles. It
+  produced 784 images and 2,203 annotations across `train`, `valid`, and `sealed_test`.
+- The cold and warm runs produced the same materialization digest:
+  `77917cb543dc6de02277219c970b2d529dfad4dfc8197944b7d4e514912839a0`.
+- The view preserves 259 ignored-frame exclusions and 137 ineligible outcomes, including the
+  duplicate source-frame receipt for `IMG_0646-029`.
 
 ### M2 — Run one bounded local candidate
 
