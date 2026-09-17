@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from .rfdetr_import import block_pyav_import
 from .visible_card_dataset import (
     DEFAULT_CHECKPOINT_NAME,
     DEFAULT_INPUT_SIZE,
@@ -392,7 +393,8 @@ def _run_rfdetr(
     inputs: Mapping[str, Any], staged_dataset: Path, training_output: Path
 ) -> dict[str, Any]:
     try:
-        from rfdetr import RFDETRLarge
+        with block_pyav_import():
+            from rfdetr import RFDETRLarge
     except ModuleNotFoundError as error:
         if error.name != "rfdetr":
             raise VisibleCardTrainingError(

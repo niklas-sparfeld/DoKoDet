@@ -32,6 +32,7 @@ from .evaluation import event_f1 as _event_f1
 from .events import probabilities_to_events
 from .infer import InferenceError, LoadedCheckpoint, infer_cached_video, load_checkpoint
 from .splits import SplitError, VideoSplit, load_split
+from .torchvision_import import block_pyav_import
 from .transition_diagnostics import TransitionDiagnosticError, transition_diagnostics
 
 _save_threshold_selection = save_threshold_selection
@@ -89,7 +90,8 @@ def _evaluation_environment(device: Any) -> dict[str, Any]:
     except ModuleNotFoundError:
         torch_version = None
     try:
-        import torchvision
+        with block_pyav_import():
+            import torchvision
 
         torchvision_version = torchvision.__version__
     except ModuleNotFoundError:

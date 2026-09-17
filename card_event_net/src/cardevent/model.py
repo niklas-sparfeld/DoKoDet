@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .torchvision_import import block_pyav_import
+
 try:
     import torch
     from torch import nn
@@ -16,7 +18,8 @@ class ModelError(RuntimeError):
 
 def _build_backbone(*, pretrained: bool) -> Any:
     try:
-        from torchvision.models import MobileNet_V3_Small_Weights, mobilenet_v3_small
+        with block_pyav_import():
+            from torchvision.models import MobileNet_V3_Small_Weights, mobilenet_v3_small
     except ModuleNotFoundError as exc:
         raise ModelError(
             "torchvision is not available. Run `uv sync` to install the project dependencies."

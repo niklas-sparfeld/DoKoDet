@@ -56,6 +56,7 @@ from .sampling import (
     sampling_report,
 )
 from .splits import SplitError, VideoSplit, load_split
+from .torchvision_import import block_pyav_import
 from .transforms import ClipTransform
 
 LOGGER = logging.getLogger(__name__)
@@ -246,7 +247,8 @@ def _git_commit() -> str | None:
 
 def _torchvision_version() -> str | None:
     try:
-        import torchvision
+        with block_pyav_import():
+            import torchvision
     except ModuleNotFoundError:
         return None
     return torchvision.__version__

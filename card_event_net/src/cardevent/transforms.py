@@ -4,6 +4,8 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
+from .torchvision_import import block_pyav_import
+
 
 class TransformError(ValueError):
     pass
@@ -25,7 +27,9 @@ class ClipTransform:
     def __call__(self, clip: Any) -> Any:
         try:
             import torch
-            import torchvision.transforms.functional as functional
+
+            with block_pyav_import():
+                import torchvision.transforms.functional as functional
         except ModuleNotFoundError as exc:
             raise RuntimeError(
                 "PyTorch and torchvision are required for clip transforms. "

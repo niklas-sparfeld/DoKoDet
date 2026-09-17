@@ -23,6 +23,8 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from .rfdetr_import import block_pyav_import
+
 RFDETR_SEGMENTATION_TRAINING_RUN_SCHEMA = "rfdetr-segmentation-training-run/v1"
 RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA = "rfdetr-segmentation-campaign-training-run/v1"
 RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA = "rfdetr-segmentation-campaign-dataset/v1"
@@ -563,7 +565,8 @@ def _requested_device_available(device: str) -> bool:
 
 def _import_segmentation_model() -> Any:
     try:
-        from rfdetr import RFDETRSegMedium
+        with block_pyav_import():
+            from rfdetr import RFDETRSegMedium
     except ImportError as error:
         raise RfdetrSegmentationTrainingError(
             "RF-DETR segmentation requires rfdetr 1.9.4 with training extras"

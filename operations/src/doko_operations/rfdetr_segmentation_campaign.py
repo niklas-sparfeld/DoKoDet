@@ -17,6 +17,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from table_evidence_analyzer.rfdetr_import import block_pyav_import
+
 from .holdout import load_system_holdout_registry, sealed_group_keys
 
 RFDETR_SEGMENTATION_MANIFEST_SCHEMA_VERSION = "rfdetr-segmentation-campaign-manifest/v1"
@@ -267,7 +269,8 @@ def probe_rfdetr_segmentation_api() -> dict[str, Any]:
             f"M0 requires {RFDETR_PACKAGE_VERSION!r}"
         )
     try:
-        from rfdetr import RFDETRSegMedium
+        with block_pyav_import():
+            from rfdetr import RFDETRSegMedium
 
         result["constructor_signature"] = str(inspect.signature(RFDETRSegMedium))
         train = getattr(RFDETRSegMedium, "train", None)

@@ -33,6 +33,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from PIL import Image, UnidentifiedImageError
 
 from .gemini_concurrency import GeminiRequestLimiter, get_shared_gemini_request_limiter
+from .rfdetr_import import block_pyav_import
 
 DEFAULT_MODEL = "gemini-3.8-flash"
 DEFAULT_TIMEOUT_S = 120.0
@@ -831,7 +832,8 @@ def _local_device_available(device: str, torch_module: Any) -> bool:
 
 def _load_local_rfdetr(bundle: Any, device: str) -> Any:
     try:
-        from rfdetr import RFDETRLarge
+        with block_pyav_import():
+            from rfdetr import RFDETRLarge
     except ImportError as error:
         raise VisibleCardError(
             f"local visible-card inference requires rfdetr {LOCAL_RFDETR_VERSION}; "
@@ -868,7 +870,8 @@ def _load_local_rfdetr(bundle: Any, device: str) -> Any:
 
 def _load_local_rfdetr_segmentation(bundle: Any, device: str) -> Any:
     try:
-        from rfdetr import RFDETRSegMedium
+        with block_pyav_import():
+            from rfdetr import RFDETRSegMedium
     except ImportError as error:
         raise VisibleCardError(
             f"local visible-card segmentation requires rfdetr {LOCAL_SEGMENTATION_RFDETR_VERSION}; "
