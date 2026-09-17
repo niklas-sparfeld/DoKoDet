@@ -133,7 +133,24 @@ mise exec -- uv run --project table_evidence_analyzer --group training table-ana
 ```
 
 Both commands verify the M0 and M1 digests before training. A completed output verifies and
-reuses its bundle. The runner records the requested device and does not fall back to CPU.
+reuses its bundle. If the campaign is interrupted after RF-DETR writes `last.ckpt`, resume it
+with the same output directory and checkpoint:
+
+```bash
+mise exec -- uv run --project table_evidence_analyzer --group training table-analyzer \
+  train-rfdetr-visible-card-detector-campaign \
+  --dataset-dir .runtime/rfdetr-segmentation-0068 \
+  --manifest data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json \
+  --pretrained-checkpoint .runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt \
+  --output-dir .runtime/rfdetr-visible-card-detector-0068-m2-training \
+  --device mps \
+  --resume .runtime/rfdetr-visible-card-detector-0068-m2-training/rfdetr/last.ckpt
+```
+
+The resume path must point to a full RF-DETR checkpoint inside the campaign output. The wrapper
+validates the existing staged dataset against the current M1 digest, then passes the checkpoint
+to RF-DETR without restaging it. The runner records the requested device and does not fall back
+to CPU.
 
 Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
 `GEMINI_API_KEY` is present in the process environment. The fake provider is deterministic and

@@ -28,7 +28,8 @@
   reproducible from the frozen M0 manifest.
 - **M2:** Complete — the reviewed-detector smoke and full-candidate run paths now verify matching
   M0 and M1 digests, record explicit device and resource facts, retain resumable failures, and
-  reuse verified completed bundles. The live smoke run is next.
+  reuse verified completed bundles. The live smoke passed. The full candidate remains to be
+  completed after the interrupted MPS run.
 - **M3:** Not started — evaluate the pretrained baseline and candidate on the frozen validation
   and sealed-test partitions.
 - **M4:** Not started — make the bounded local-provider decision and register a passing bundle.
@@ -212,10 +213,16 @@ Acceptance:
 - The fixture smoke and campaign tests pass. A completed fixture campaign verifies and reuses its
   existing bundle without retraining. The RF-DETR bundle keeps the existing local mask-provider
   contract and records the 0068 manifest receipt.
-- The live MPS smoke invocation stopped at the M1 input check because
-  `.runtime/rfdetr-segmentation-0068` is absent. It retained the failure at
-  `.runtime/rfdetr-visible-card-detector-0068-m2-smoke/run.json`. No candidate training or
-  sealed-test inspection occurred.
+- The live MPS smoke passed on the frozen M0 and M1 inputs. It selected MPS explicitly, changed
+  and reloaded the checkpoint, and returned one valid local segmentation-provider mask result.
+  Its bundle digest is `2f600a7b386174fce5db73d397459702cd65f302b8b38606375653d888dfe70e`.
+- The live full candidate started with all 537 train and 143 validation images. The operator
+  stopped it after the MPS unified-memory footprint grew above 40 GB. It retained epoch-5
+  RF-DETR checkpoints under `.runtime/rfdetr-visible-card-detector-0068-m2-training/rfdetr/`,
+  but no completed run record or bundle.
+- Added `--resume` to the campaign command. It validates the existing staged dataset against the
+  current M1 digest and passes a full checkpoint such as `rfdetr/last.ckpt` to RF-DETR without
+  restaging. The resume path has fixture coverage and the full analyzer suite passes.
 
 ### M3 — Lock validation and sealed-test evidence
 

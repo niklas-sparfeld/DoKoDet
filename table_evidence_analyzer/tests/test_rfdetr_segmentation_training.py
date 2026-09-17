@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -456,6 +458,48 @@ def test_campaign_fixture_uses_all_m1_images_and_frozen_training_recipe(tmp_path
 
     rerun = run_rfdetr_segmentation_campaign_training(config)
     assert rerun["run_id"] == record["run_id"]
+
+
+def test_campaign_resume_reuses_staged_dataset_and_records_checkpoint(tmp_path: Path) -> None:
+    view = _write_view(tmp_path / "view")
+    pretrained = tmp_path / "rf-detr-seg-medium.pt"
+    pretrained.write_bytes(b"fixture pretrained weights")
+    manifest = _campaign_manifest(view, pretrained)
+    output = tmp_path / "campaign"
+    initial_config = RfdetrSegmentationCampaignTrainingConfig(
+        dataset_dir=view,
+        campaign_manifest=manifest,
+        pretrained_checkpoint=pretrained,
+        output_dir=output,
+        runner="fixture",
+        device="cpu",
+    )
+
+    run_rfdetr_segmentation_campaign_training(initial_config)
+    staged_snapshot = {
+        path.relative_to(output / "campaign-dataset").as_posix(): path.read_bytes()
+        for path in (output / "campaign-dataset").rglob("*")
+        if path.is_file() and not path.is_symlink()
+    }
+    resume_checkpoint = output / "rfdetr" / "last.ckpt"
+    resume_checkpoint.write_bytes(b"fixture full resume checkpoint")
+    shutil.rmtree(output / "bundle")
+    (output / "run.json").unlink()
+
+    resumed = run_rfdetr_segmentation_campaign_training(
+        replace(initial_config, resume=resume_checkpoint)
+    )
+    record = json.loads((output / "run.json").read_text())
+    resumed_snapshot = {
+        path.relative_to(output / "campaign-dataset").as_posix(): path.read_bytes()
+        for path in (output / "campaign-dataset").rglob("*")
+        if path.is_file() and not path.is_symlink()
+    }
+
+    assert resumed["status"] == "completed"
+    assert record["resumed_from"] == str(resume_checkpoint.resolve())
+    assert record["training_arguments"]["resume"] == str(resume_checkpoint.resolve())
+    assert staged_snapshot == resumed_snapshot
 
 
 def test_reviewed_detector_smoke_records_matching_m0_m1_and_device_facts(tmp_path: Path) -> None:

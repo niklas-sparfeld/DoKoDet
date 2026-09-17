@@ -90,6 +90,7 @@ class RfdetrSegmentationCampaignTrainingConfig:
     output_dir: Path
     runner: Literal["fixture", "rfdetr"] = "rfdetr"
     device: Literal["cpu", "mps", "cuda"] = "mps"
+    resume: Path | None = None
 
     def __post_init__(self) -> None:
         if self.runner not in _RUNNERS:
@@ -374,6 +375,144 @@ def _stage_campaign_dataset(
         validation_count=len(view["partitions"]["valid"]),
         subset_schema=subset_schema,
     )
+
+
+def _load_staged_campaign_dataset(
+    view: Mapping[str, Any],
+    destination: Path,
+    *,
+    subset_schema: str,
+) -> dict[str, Any]:
+    """Validate and load a campaign dataset left by an interrupted run."""
+
+    if not destination.is_dir():
+        raise RfdetrSegmentationTrainingError(
+            f"resumed campaign dataset does not exist: {destination}"
+        )
+    subset = _read_json(destination / "subset.json", "resumed campaign subset")
+    if subset.get("schema_version") != subset_schema:
+        raise RfdetrSegmentationTrainingError(
+            "resumed campaign dataset uses a different subset schema"
+        )
+    if subset.get("materialization_digest") != view["manifest"]["materialization_digest"]:
+        raise RfdetrSegmentationTrainingError(
+            "resumed campaign dataset does not match the current M1 materialization"
+        )
+
+    expected_images = {
+        partition: _representative_images(
+            view["partitions"][partition], len(view["partitions"][partition])
+        )
+        for partition in ("train", "valid")
+    }
+    expected_ids = {
+        partition: {int(image["id"]) for image in images}
+        for partition, images in expected_images.items()
+    }
+    expected_annotation_ids: dict[str, list[int]] = {}
+    for partition in ("train", "valid"):
+        subset_prefix = "train" if partition == "train" else "validation"
+        subset_ids = {int(image_id) for image_id in subset.get(f"{subset_prefix}_image_ids", [])}
+        if subset_ids != expected_ids[partition]:
+            raise RfdetrSegmentationTrainingError(
+                f"resumed campaign subset has different {partition} image IDs"
+            )
+        if subset.get(f"{subset_prefix}_image_count") != len(expected_ids[partition]):
+            raise RfdetrSegmentationTrainingError(
+                f"resumed campaign subset has a different {partition} image count"
+            )
+
+        source_coco = _read_json(
+            view["root"] / partition / "_annotations.coco.json",
+            f"{partition} M1 COCO data",
+        )
+        staged_coco = _read_json(
+            destination / partition / "_annotations.coco.json",
+            f"resumed {partition} COCO data",
+        )
+        source_images = {int(image["id"]): image for image in source_coco.get("images", [])}
+        staged_images = staged_coco.get("images")
+        staged_annotations = staged_coco.get("annotations")
+        if not isinstance(staged_images, list) or not isinstance(staged_annotations, list):
+            raise RfdetrSegmentationTrainingError(f"resumed {partition} COCO data is incomplete")
+        if staged_coco.get("categories") != source_coco.get("categories"):
+            raise RfdetrSegmentationTrainingError(
+                f"resumed {partition} COCO categories differ from the M1 view"
+            )
+        if {int(image["id"]) for image in staged_images} != expected_ids[partition]:
+            raise RfdetrSegmentationTrainingError(
+                f"resumed {partition} COCO data has different image IDs"
+            )
+        source_annotations = [
+            annotation
+            for annotation in source_coco.get("annotations", [])
+            if int(annotation["image_id"]) in expected_ids[partition]
+        ]
+        expected_annotation_ids[partition] = [
+            int(annotation["id"]) for annotation in source_annotations
+        ]
+        staged_annotations_by_id = {
+            int(annotation["id"]): annotation for annotation in staged_annotations
+        }
+        source_annotations_by_id = {
+            int(annotation["id"]): annotation for annotation in source_annotations
+        }
+        if len(staged_annotations_by_id) != len(staged_annotations) or staged_annotations_by_id != (
+            source_annotations_by_id
+        ):
+            raise RfdetrSegmentationTrainingError(
+                f"resumed {partition} COCO annotations differ from the M1 view"
+            )
+        for image in staged_images:
+            image_id = int(image["id"])
+            source_image = source_images.get(image_id)
+            if source_image is None:
+                raise RfdetrSegmentationTrainingError(
+                    f"resumed {partition} COCO data references an unknown image"
+                )
+            for key, value in source_image.items():
+                if key != "file_name" and image.get(key) != value:
+                    raise RfdetrSegmentationTrainingError(
+                        f"resumed {partition} image {image_id} differs from the M1 view"
+                    )
+            relative = _safe_relative(image.get("file_name"), f"{partition} image.file_name")
+            staged_path = destination / partition / relative
+            if not staged_path.is_file() or _file_digest(staged_path) != image.get("sha256"):
+                raise RfdetrSegmentationTrainingError(
+                    f"resumed {partition} image {image_id} is missing or has a different digest"
+                )
+
+    expected_subset_core = {
+        "schema_version": subset_schema,
+        "materialization_digest": view["manifest"]["materialization_digest"],
+        "train_image_count": len(expected_images["train"]),
+        "validation_image_count": len(expected_images["valid"]),
+        "train_image_ids": [int(image["id"]) for image in expected_images["train"]],
+        "validation_image_ids": [int(image["id"]) for image in expected_images["valid"]],
+        "train_recording_ids": [
+            str(image.get("recording_id")) for image in expected_images["train"]
+        ],
+        "validation_recording_ids": [
+            str(image.get("recording_id")) for image in expected_images["valid"]
+        ],
+        "annotation_ids": expected_annotation_ids,
+    }
+    subset_core = {key: value for key, value in subset.items() if key != "subset_digest"}
+    if subset_core != expected_subset_core:
+        raise RfdetrSegmentationTrainingError(
+            "resumed campaign subset differs from the current M1 view"
+        )
+    if subset.get("subset_digest") != _digest(subset_core):
+        raise RfdetrSegmentationTrainingError("resumed campaign subset digest does not match")
+    valid_images = _read_json(
+        destination / "valid" / "_annotations.coco.json", "resumed valid COCO data"
+    )["images"]
+    return {
+        "subset": subset,
+        "images": {partition: expected_images[partition] for partition in ("train", "valid")},
+        "annotations": {},
+        "validation_frame": dict(valid_images[0]),
+    }
 
 
 def _environment() -> dict[str, Any]:
@@ -681,10 +820,16 @@ def _campaign_model_arguments(checkpoint: Path) -> dict[str, Any]:
     }
 
 
-def _campaign_training_arguments(staged_dataset: Path, output: Path, device: str) -> dict[str, Any]:
+def _campaign_training_arguments(
+    staged_dataset: Path,
+    output: Path,
+    device: str,
+    *,
+    resume: Path | None = None,
+) -> dict[str, Any]:
     """Return the exact RF-DETR arguments for the one-candidate M3 run."""
 
-    return {
+    arguments = {
         "dataset_dir": str(staged_dataset),
         "dataset_file": "roboflow",
         "output_dir": str(output),
@@ -710,6 +855,9 @@ def _campaign_training_arguments(staged_dataset: Path, output: Path, device: str
         "eval_interval": 1,
         "save_dataset_grids": False,
     }
+    if resume is not None:
+        arguments["resume"] = str(resume)
+    return arguments
 
 
 def _requested_device_available(device: str) -> bool:
@@ -749,7 +897,7 @@ def _import_segmentation_model() -> Any:
 
 
 def _run_fixture(inputs: Mapping[str, Any], staged_dataset: Path, training_output: Path) -> Path:
-    training_output.mkdir(parents=True)
+    training_output.mkdir(parents=True, exist_ok=True)
     seed_material = {
         "subset_digest": inputs["subset"]["subset_digest"],
         "pretrained_sha256": inputs["pretrained_sha256"],
@@ -781,7 +929,7 @@ def _run_rfdetr(inputs: Mapping[str, Any], staged_dataset: Path, training_output
             f"requested training device is unavailable: {inputs['device']}"
         )
     model_class = _import_segmentation_model()
-    training_output.mkdir(parents=True)
+    training_output.mkdir(parents=True, exist_ok=True)
     model = model_class(**inputs["model_arguments"])
     model.train(**inputs["training_arguments"])
     checkpoint = training_output / RFDETR_SEGMENTATION_FINAL_CHECKPOINT
@@ -984,12 +1132,7 @@ def _campaign_base_record(
         "status": "failed",
         "runner": config.runner,
         "device": config.device,
-        "config": {
-            "dataset_dir": str(config.dataset_dir.expanduser().resolve()),
-            "campaign_manifest": str(config.campaign_manifest.expanduser().resolve()),
-            "pretrained_checkpoint": str(config.pretrained_checkpoint.expanduser().resolve()),
-            "output_dir": str(output),
-        },
+        "config": _campaign_config(config, output),
         "stages": {
             "inputs": "pending",
             "dataset": "pending",
@@ -1008,6 +1151,40 @@ def _campaign_base_record(
             "next_stage": "inputs",
         },
     }
+
+
+def _campaign_config(
+    config: RfdetrSegmentationCampaignTrainingConfig, output: Path
+) -> dict[str, Any]:
+    values = {
+        "dataset_dir": str(config.dataset_dir.expanduser().resolve()),
+        "campaign_manifest": str(config.campaign_manifest.expanduser().resolve()),
+        "pretrained_checkpoint": str(config.pretrained_checkpoint.expanduser().resolve()),
+        "output_dir": str(output),
+    }
+    if config.resume is not None:
+        values["resume"] = str(config.resume.expanduser().resolve())
+    return values
+
+
+def _validate_campaign_resume(
+    config: RfdetrSegmentationCampaignTrainingConfig, output: Path
+) -> Path | None:
+    if config.resume is None:
+        return None
+    resume = config.resume.expanduser().resolve()
+    if not resume.is_file() or resume.stat().st_size == 0:
+        raise RfdetrSegmentationTrainingError(
+            f"resume checkpoint does not exist or is empty: {resume}"
+        )
+    training_output = (output / "rfdetr").resolve()
+    try:
+        resume.relative_to(training_output)
+    except ValueError as error:
+        raise RfdetrSegmentationTrainingError(
+            "resume checkpoint must be inside the campaign output's rfdetr directory"
+        ) from error
+    return resume
 
 
 def _mark_stage(record: dict[str, Any], stage: str, status: str) -> None:
@@ -1254,6 +1431,7 @@ def run_rfdetr_segmentation_campaign_training(
 
     started = time.time()
     output = config.output_dir.expanduser().resolve()
+    resume = _validate_campaign_resume(config, output)
     manifest_schema = None
     if config.campaign_manifest.expanduser().is_file():
         with contextlib.suppress(RfdetrSegmentationTrainingError):
@@ -1267,47 +1445,53 @@ def run_rfdetr_segmentation_campaign_training(
         else RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA
     )
     if output.exists() and any(output.iterdir()):
-        existing_run = output / "run.json"
-        if existing_run.is_file():
-            record = _read_json(existing_run, "RF-DETR campaign run record")
-            expected_config = {
-                "dataset_dir": str(config.dataset_dir.expanduser().resolve()),
-                "campaign_manifest": str(config.campaign_manifest.expanduser().resolve()),
-                "pretrained_checkpoint": str(config.pretrained_checkpoint.expanduser().resolve()),
-                "output_dir": str(output),
-            }
-            if (
-                record.get("schema_version") == expected_schema
-                and record.get("status") == "completed"
-                and record.get("runner") == config.runner
-                and record.get("device") == config.device
-                and record.get("config") == expected_config
-            ):
-                try:
-                    view = _load_materialization_view(config.dataset_dir)
-                    pretrained = config.pretrained_checkpoint.expanduser().resolve()
-                    current_receipt = _verify_campaign_manifest(
-                        view, config.campaign_manifest, _file_digest(pretrained)
+        if resume is not None:
+            existing_run = output / "run.json"
+            if existing_run.is_file():
+                existing_record = _read_json(existing_run, "RF-DETR campaign run record")
+                if existing_record.get("status") == "completed":
+                    raise RfdetrSegmentationTrainingError(
+                        "campaign output is already completed; omit --resume to reuse it"
                     )
-                    bundle_path = record.get("bundle", {}).get("path")
-                    bundle = load_rfdetr_segmentation_bundle(bundle_path)
-                    if (
-                        record.get("materialization_digest")
-                        == view["manifest"]["materialization_digest"]
-                        and record.get("campaign_manifest", {}).get("manifest_digest")
-                        == current_receipt["manifest_digest"]
-                        and record.get("pretrained_checkpoint", {}).get("sha256")
-                        == _file_digest(pretrained)
-                        and (
-                            not reviewed
-                            or bundle.manifest.get("campaign_manifest", {}).get("manifest_digest")
-                            == current_receipt["manifest_digest"]
+        else:
+            existing_run = output / "run.json"
+            if existing_run.is_file():
+                record = _read_json(existing_run, "RF-DETR campaign run record")
+                expected_config = _campaign_config(config, output)
+                if (
+                    record.get("schema_version") == expected_schema
+                    and record.get("status") == "completed"
+                    and record.get("runner") == config.runner
+                    and record.get("device") == config.device
+                    and record.get("config") == expected_config
+                ):
+                    try:
+                        view = _load_materialization_view(config.dataset_dir)
+                        pretrained = config.pretrained_checkpoint.expanduser().resolve()
+                        current_receipt = _verify_campaign_manifest(
+                            view, config.campaign_manifest, _file_digest(pretrained)
                         )
-                    ):
-                        return record
-                except (OSError, TypeError, ValueError, KeyError):
-                    pass
-        raise RfdetrSegmentationTrainingError(f"output directory is not empty: {output}")
+                        bundle_path = record.get("bundle", {}).get("path")
+                        bundle = load_rfdetr_segmentation_bundle(bundle_path)
+                        if (
+                            record.get("materialization_digest")
+                            == view["manifest"]["materialization_digest"]
+                            and record.get("campaign_manifest", {}).get("manifest_digest")
+                            == current_receipt["manifest_digest"]
+                            and record.get("pretrained_checkpoint", {}).get("sha256")
+                            == _file_digest(pretrained)
+                            and (
+                                not reviewed
+                                or bundle.manifest.get("campaign_manifest", {}).get(
+                                    "manifest_digest"
+                                )
+                                == current_receipt["manifest_digest"]
+                            )
+                        ):
+                            return record
+                    except (OSError, TypeError, ValueError, KeyError):
+                        pass
+            raise RfdetrSegmentationTrainingError(f"output directory is not empty: {output}")
     output.mkdir(parents=True, exist_ok=True)
     record = _campaign_base_record(config, started)
     run_path = output / "run.json"
@@ -1329,20 +1513,21 @@ def run_rfdetr_segmentation_campaign_training(
             record["campaign_id"] = RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID
         _mark_stage(record, "inputs", "completed")
         staged_dataset = output / "campaign-dataset"
-        staged = _stage_campaign_dataset(
-            view,
-            staged_dataset,
-            subset_schema=(
-                RFDETR_REVIEWED_DETECTOR_DATASET_SCHEMA
-                if reviewed
-                else RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA
-            ),
+        subset_schema = (
+            RFDETR_REVIEWED_DETECTOR_DATASET_SCHEMA
+            if reviewed
+            else RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA
+        )
+        staged = (
+            _load_staged_campaign_dataset(view, staged_dataset, subset_schema=subset_schema)
+            if resume is not None
+            else _stage_campaign_dataset(view, staged_dataset, subset_schema=subset_schema)
         )
         _mark_stage(record, "dataset", "completed")
         training_output = output / "rfdetr"
         model_arguments = _campaign_model_arguments(pretrained)
         training_arguments = _campaign_training_arguments(
-            staged_dataset, training_output, config.device
+            staged_dataset, training_output, config.device, resume=resume
         )
         inputs = {
             "runner": config.runner,
@@ -1360,6 +1545,8 @@ def run_rfdetr_segmentation_campaign_training(
             "training_arguments": training_arguments,
             "campaign_manifest": campaign_receipt,
         }
+        if resume is not None:
+            record["resumed_from"] = str(resume)
         checkpoint = (
             _run_fixture(inputs, staged_dataset, training_output)
             if config.runner == "fixture"

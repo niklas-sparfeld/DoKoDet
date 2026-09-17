@@ -269,6 +269,14 @@ def build_parser() -> argparse.ArgumentParser:
     segmentation_campaign_parser.add_argument(
         "--device", choices=("cpu", "mps", "cuda"), default="mps"
     )
+    segmentation_campaign_parser.add_argument(
+        "--resume",
+        type=Path,
+        help=(
+            "Resume an interrupted campaign from a full RF-DETR checkpoint inside "
+            "<output-dir>/rfdetr."
+        ),
+    )
 
     segmentation_validation_parser = commands.add_parser(
         "evaluate-rfdetr-segmentation-campaign",
@@ -720,6 +728,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     output_dir=args.output_dir,
                     runner=args.runner,
                     device=args.device,
+                    resume=args.resume,
                 )
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
