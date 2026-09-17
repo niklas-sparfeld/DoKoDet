@@ -1,4 +1,4 @@
-"""Materialize the frozen epic 0067 manifest into a disposable COCO view.
+"""Materialize a frozen RF-DETR campaign manifest into a disposable COCO view.
 
 The M0 manifest is the only annotation authority for this view.  This module extracts the
 recorded exact frames from accepted source videos, converts reviewed visible regions to COCO
@@ -15,13 +15,18 @@ import re
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .derived_view import ExactEventRequest, FFmpegFrameResolver
 from .pipeline_data import RecordingVideoSource
+from .reviewed_rfdetr_detector_campaign import (
+    RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION,
+    ReviewedRfdetrDetectorCampaignError,
+    validate_reviewed_rfdetr_detector_manifest,
+)
 from .rfdetr_segmentation_campaign import (
     RfdetrSegmentationCampaignError,
     canonical_json_bytes,
@@ -29,9 +34,7 @@ from .rfdetr_segmentation_campaign import (
     validate_rfdetr_segmentation_manifest,
 )
 
-RFDETR_SEGMENTATION_MATERIALIZATION_SCHEMA_VERSION = (
-    "rfdetr-segmentation-materialization/v1"
-)
+RFDETR_SEGMENTATION_MATERIALIZATION_SCHEMA_VERSION = "rfdetr-segmentation-materialization/v1"
 RFDETR_SEGMENTATION_MATERIALIZER_VERSION = "rfdetr-segmentation-materializer/v1"
 RFDETR_SEGMENTATION_SPLIT_SCHEMA_VERSION = "rfdetr-segmentation-split/v1"
 RFDETR_SEGMENTATION_EXCLUSIONS_SCHEMA_VERSION = "rfdetr-segmentation-exclusions/v1"
@@ -98,33 +101,39 @@ def materialize_rfdetr_segmentation_dataset(
     source_manifest_path = _resolve_input_path(manifest_path, repository, "M0 manifest")
     manifest = _read_json(source_manifest_path, "M0 manifest")
     try:
-        validate_rfdetr_segmentation_manifest(manifest)
-    except (RfdetrSegmentationCampaignError, TypeError, ValueError) as error:
-        raise RfdetrSegmentationMaterializationError(
-            f"M0 manifest is invalid: {error}"
-        ) from error
+        _validate_campaign_manifest(manifest)
+    except (
+        RfdetrSegmentationCampaignError,
+        ReviewedRfdetrDetectorCampaignError,
+        TypeError,
+        ValueError,
+    ) as error:
+        raise RfdetrSegmentationMaterializationError(f"M0 manifest is invalid: {error}") from error
     if manifest["freeze_state"] != "frozen":
         raise RfdetrSegmentationMaterializationError(
             "M1 requires a frozen M0 manifest; blocked manifests are not trainer inputs"
         )
 
+    partition_names = _partition_names(manifest)
+    partition_directories = _partition_directories(manifest)
     samples = _validated_samples(manifest)
     recordings = _recordings_by_id(manifest)
     source_inputs = _verify_source_videos(repository, recordings)
     extractor = frame_extractor or _default_frame_extractor()
-    destination = _output_directory(repository, output_root)
+    destination = _output_directory(repository, output_root, manifest=manifest)
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging_parent = Path(tempfile.mkdtemp(prefix=".rfdetr-segmentation-", dir=destination.parent))
     staging = staging_parent / destination.name
     try:
-        (staging / "train" / "images").mkdir(parents=True)
-        (staging / "valid" / "images").mkdir(parents=True)
+        for directory in partition_directories.values():
+            (staging / directory / "images").mkdir(parents=True)
 
-        partition_samples: dict[str, list[dict[str, Any]]] = {"train": [], "validation": []}
-        images_by_split: dict[str, list[dict[str, Any]]] = {"train": [], "validation": []}
+        partition_samples: dict[str, list[dict[str, Any]]] = {
+            split: [] for split in partition_names
+        }
+        images_by_split: dict[str, list[dict[str, Any]]] = {split: [] for split in partition_names}
         annotations_by_split: dict[str, list[dict[str, Any]]] = {
-            "train": [],
-            "validation": [],
+            split: [] for split in partition_names
         }
         generated_files: list[dict[str, Any]] = []
         image_id = 0
@@ -157,7 +166,7 @@ def materialize_rfdetr_segmentation_dataset(
 
             image_id += 1
             image_name = f"image-{image_id:06d}.jpg"
-            partition_name = "valid" if split == "validation" else "train"
+            partition_name = partition_directories[split]
             image_path = staging / partition_name / "images" / image_name
             image_path.write_bytes(image_bytes)
             image_record = _coco_image(
@@ -191,7 +200,8 @@ def materialize_rfdetr_segmentation_dataset(
             {"kind": "trainer_split", "path": "split.json", "sha256": _sha256_file(split_path)}
         )
 
-        for split, partition_name in (("train", "train"), ("validation", "valid")):
+        for split in partition_names:
+            partition_name = partition_directories[split]
             coco = _coco_payload(
                 manifest,
                 images_by_split[split],
@@ -260,10 +270,11 @@ def materialize_rfdetr_segmentation_dataset(
             "counts": {
                 "images": image_id,
                 "annotations": annotation_id,
-                "train_images": len(images_by_split["train"]),
-                "validation_images": len(images_by_split["validation"]),
-                "train_annotations": len(annotations_by_split["train"]),
-                "validation_annotations": len(annotations_by_split["validation"]),
+                **{f"{split}_images": len(images_by_split[split]) for split in partition_names},
+                **{
+                    f"{split}_annotations": len(annotations_by_split[split])
+                    for split in partition_names
+                },
             },
             "generated_files": generated_files,
         }
@@ -297,6 +308,23 @@ def materialize_rfdetr_segmentation_dataset(
         shutil.rmtree(staging_parent, ignore_errors=True)
 
 
+def materialize_reviewed_rfdetr_detector_dataset(
+    manifest_path: str | Path,
+    *,
+    repository_root: str | Path,
+    output_root: str | Path | None = None,
+    frame_extractor: FrameExtractor | None = None,
+) -> RfdetrSegmentationMaterializationResult:
+    """Materialize the frozen epic 0068 M0 manifest through the shared materializer."""
+
+    return materialize_rfdetr_segmentation_dataset(
+        manifest_path,
+        repository_root=repository_root,
+        output_root=output_root,
+        frame_extractor=frame_extractor,
+    )
+
+
 def load_rfdetr_segmentation_materialization(path: str | Path) -> dict[str, Any]:
     """Load and verify a generated RF-DETR segmentation trainer view."""
 
@@ -319,9 +347,7 @@ def load_rfdetr_segmentation_materialization(path: str | Path) -> dict[str, Any]
         "materialization_digest",
     }
     if set(manifest) != expected:
-        raise RfdetrSegmentationMaterializationError(
-            "materialization manifest has invalid fields"
-        )
+        raise RfdetrSegmentationMaterializationError("materialization manifest has invalid fields")
     if manifest["schema_version"] != RFDETR_SEGMENTATION_MATERIALIZATION_SCHEMA_VERSION:
         raise RfdetrSegmentationMaterializationError(
             "materialization manifest schema is unsupported"
@@ -345,7 +371,8 @@ def load_rfdetr_segmentation_materialization(path: str | Path) -> dict[str, Any]
             raise RfdetrSegmentationMaterializationError(
                 f"generated file is missing or has a different digest: {relative_path}"
             )
-    for partition in ("train", "valid"):
+    partition_directories = _materialization_partition_directories(manifest)
+    for partition in partition_directories.values():
         annotations_path = root / partition / "_annotations.coco.json"
         validate_rfdetr_coco_annotations(
             _read_json(annotations_path, f"{partition} COCO annotations")
@@ -354,8 +381,24 @@ def load_rfdetr_segmentation_materialization(path: str | Path) -> dict[str, Any]
             raise RfdetrSegmentationMaterializationError(
                 f"materialization is missing {partition}/images"
             )
-    _read_json(root / "split.json", "materialization split")
-    _read_json(root / "exclusions.json", "materialization exclusion receipt")
+    split = _read_json(root / "split.json", "materialization split")
+    split_core = {key: value for key, value in split.items() if key != "split_digest"}
+    if split.get("split_digest") != sha256_json(split_core):
+        raise RfdetrSegmentationMaterializationError(
+            "materialization split digest does not match its contents"
+        )
+    if manifest["split"].get("digest") != split.get("split_digest"):
+        raise RfdetrSegmentationMaterializationError(
+            "materialization split digest differs from its manifest"
+        )
+    exclusions = _read_json(root / "exclusions.json", "materialization exclusion receipt")
+    exclusions_core = {
+        key: value for key, value in exclusions.items() if key != "exclusions_digest"
+    }
+    if exclusions.get("exclusions_digest") != sha256_json(exclusions_core):
+        raise RfdetrSegmentationMaterializationError(
+            "materialization exclusion digest does not match its contents"
+        )
     return manifest
 
 
@@ -368,6 +411,10 @@ def validate_rfdetr_coco_annotations(raw: Mapping[str, Any]) -> None:
         raise RfdetrSegmentationMaterializationError("COCO annotations have invalid fields")
     if data["categories"] != [TARGET_CATEGORY]:
         raise RfdetrSegmentationMaterializationError("COCO category map is not visible_card")
+    info = _mapping(data["info"], "COCO info")
+    trainer_partition = info.get("trainer_partition")
+    if trainer_partition not in {"train", "valid", "sealed_test"}:
+        raise RfdetrSegmentationMaterializationError("COCO trainer partition is invalid")
     images = data["images"]
     annotations = data["annotations"]
     if not isinstance(images, list) or not isinstance(annotations, list):
@@ -382,6 +429,26 @@ def validate_rfdetr_coco_annotations(raw: Mapping[str, Any]) -> None:
         height = _positive_int(image_data.get("height"), f"COCO image {image_id}.height")
         _relative_path(image_data.get("file_name"), f"COCO image {image_id}.file_name")
         _digest(image_data.get("sha256"), f"COCO image {image_id}.sha256")
+        if image_data.get("trainer_partition") != trainer_partition:
+            raise RfdetrSegmentationMaterializationError(
+                f"COCO image {image_id} has the wrong trainer partition"
+            )
+        if image_data.get("split") not in {"train", "validation", "sealed_test"}:
+            raise RfdetrSegmentationMaterializationError(
+                f"COCO image {image_id} has an invalid campaign split"
+            )
+        if info.get("campaign_id") == "0068-m0-reviewed-rfdetr-local-visible-card-detector":
+            for field in (
+                "session_id",
+                "source_asset_id",
+                "video_id",
+                "table_setup",
+                "source_group_key",
+            ):
+                if not isinstance(image_data.get(field), str) or not image_data[field]:
+                    raise RfdetrSegmentationMaterializationError(
+                        f"COCO image {image_id} is missing {field} group lineage"
+                    )
         image_by_id[image_id] = {**image_data, "width": width, "height": height}
     annotation_ids: set[int] = set()
     for annotation in annotations:
@@ -401,8 +468,10 @@ def validate_rfdetr_coco_annotations(raw: Mapping[str, Any]) -> None:
                 f"COCO annotation {annotation_id} has an invalid category or crowd flag"
             )
         bbox = item.get("bbox")
-        if not isinstance(bbox, list) or len(bbox) != 4 or any(
-            not _finite_number(value) for value in bbox
+        if (
+            not isinstance(bbox, list)
+            or len(bbox) != 4
+            or any(not _finite_number(value) for value in bbox)
         ):
             raise RfdetrSegmentationMaterializationError(
                 f"COCO annotation {annotation_id} has an invalid bbox"
@@ -475,14 +544,182 @@ def validate_rfdetr_coco_annotations(raw: Mapping[str, Any]) -> None:
                 raise RfdetrSegmentationMaterializationError(
                     f"COCO annotation {annotation_id} is missing {field} lineage"
                 )
+        if item.get("split") not in {"train", "validation", "sealed_test"}:
+            raise RfdetrSegmentationMaterializationError(
+                f"COCO annotation {annotation_id} has an invalid campaign split"
+            )
+        if item.get("split") != image["split"]:
+            raise RfdetrSegmentationMaterializationError(
+                f"COCO annotation {annotation_id} has the wrong campaign split"
+            )
+        if info.get("campaign_id") == "0068-m0-reviewed-rfdetr-local-visible-card-detector":
+            for field in (
+                "session_id",
+                "source_asset_id",
+                "video_id",
+                "table_setup",
+                "source_group_key",
+            ):
+                if not isinstance(item.get(field), str) or not item[field]:
+                    raise RfdetrSegmentationMaterializationError(
+                        f"COCO annotation {annotation_id} is missing {field} group lineage"
+                    )
+                if item[field] != image.get(field):
+                    raise RfdetrSegmentationMaterializationError(
+                        f"COCO annotation {annotation_id} has inconsistent {field} group lineage"
+                    )
+
+
+def _validate_campaign_manifest(manifest: Mapping[str, Any]) -> None:
+    if manifest.get("schema_version") == RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION:
+        validate_reviewed_rfdetr_detector_manifest(manifest)
+    else:
+        validate_rfdetr_segmentation_manifest(manifest)
+
+
+def _partition_names(manifest: Mapping[str, Any]) -> tuple[str, ...]:
+    if manifest.get("schema_version") == RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION:
+        return ("train", "validation", "sealed_test")
+    return ("train", "validation")
+
+
+def _partition_directories(manifest: Mapping[str, Any]) -> dict[str, str]:
+    return {
+        "train": "train",
+        "validation": "valid",
+        **({"sealed_test": "sealed_test"} if "sealed_test" in _partition_names(manifest) else {}),
+    }
+
+
+def _materialization_partition_directories(manifest: Mapping[str, Any]) -> dict[str, str]:
+    split = _mapping(manifest.get("split"), "materialization.split")
+    if "sealed_test" in split:
+        return {"train": "train", "validation": "valid", "sealed_test": "sealed_test"}
+    return {"train": "train", "validation": "valid"}
+
+
+def _validate_sample_source_groups(
+    manifest: Mapping[str, Any],
+    samples: Sequence[Mapping[str, Any]],
+    recordings: Mapping[str, Mapping[str, Any]],
+) -> None:
+    if manifest.get("schema_version") != RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION:
+        return
+    groups = manifest.get("source_groups")
+    if not isinstance(groups, list):
+        raise RfdetrSegmentationMaterializationError("M0 source_groups must be a list")
+    group_fields = (
+        "recording_id",
+        "session_id",
+        "source_asset_id",
+        "video_id",
+        "source_sha256",
+        "table_setup",
+    )
+    groups_by_recording: dict[str, Mapping[str, Any]] = {}
+    for index, raw_group in enumerate(groups):
+        group = _mapping(raw_group, f"source_groups[{index}]")
+        recording_id = _identifier(group.get("recording_id"), "source group recording_id")
+        if recording_id in groups_by_recording:
+            raise RfdetrSegmentationMaterializationError(
+                "M0 source group recording IDs are not unique"
+            )
+        partition = group.get("partition")
+        if partition not in _partition_names(manifest):
+            raise RfdetrSegmentationMaterializationError(
+                f"source group {recording_id} has an invalid partition"
+            )
+        group_core = {field: group.get(field) for field in group_fields}
+        for field, value in group_core.items():
+            if not isinstance(value, str) or not value:
+                raise RfdetrSegmentationMaterializationError(
+                    f"source group {recording_id} is missing {field}"
+                )
+        if group.get("group_key") != sha256_json(group_core):
+            raise RfdetrSegmentationMaterializationError(
+                f"source group {recording_id} key does not match its fields"
+            )
+        recording = recordings.get(recording_id)
+        if recording is None:
+            raise RfdetrSegmentationMaterializationError(
+                f"source group {recording_id} has no recording"
+            )
+        for field in group_fields:
+            recording_value = recording_id if field == "recording_id" else recording.get(field)
+            if recording_value != group[field]:
+                raise RfdetrSegmentationMaterializationError(
+                    f"source group {recording_id} differs from its recording in {field}"
+                )
+        expected_partition = recording.get("split")
+        if expected_partition != partition:
+            raise RfdetrSegmentationMaterializationError(
+                f"source group {recording_id} differs from its recording partition"
+            )
+        groups_by_recording[recording_id] = group
+
+    if set(groups_by_recording) != set(recordings):
+        raise RfdetrSegmentationMaterializationError(
+            "M0 source groups do not cover every recording"
+        )
+    split_values: dict[str, dict[str, set[str]]] = {field: {} for field in group_fields}
+    for group in groups_by_recording.values():
+        for field in group_fields:
+            value = str(group[field])
+            split_values[field].setdefault(value, set()).add(str(group["partition"]))
+    for field, values in split_values.items():
+        if any(len(partitions) > 1 for partitions in values.values()):
+            raise RfdetrSegmentationMaterializationError(
+                f"source group field {field} crosses trainer partitions"
+            )
+
+    split_recordings = {
+        split: set(manifest["split"][split]["recording_ids"])
+        for split in _partition_names(manifest)
+    }
+    for sample in samples:
+        recording_id = str(sample["recording_id"])
+        group = _mapping(sample.get("source_group"), f"sample {sample['event_id']}.source_group")
+        expected = groups_by_recording.get(recording_id)
+        if expected is None:
+            raise RfdetrSegmentationMaterializationError(
+                f"sample {sample['event_id']} has no frozen source group"
+            )
+        if sample.get("source_group_key") != expected["group_key"]:
+            raise RfdetrSegmentationMaterializationError(
+                f"sample {sample['event_id']} source group key is stale"
+            )
+        for field in group_fields:
+            if group.get(field) != expected[field]:
+                raise RfdetrSegmentationMaterializationError(
+                    f"sample {sample['event_id']} source group differs in {field}"
+                )
+        if (
+            sample.get("split") != expected["partition"]
+            or recording_id not in split_recordings[str(sample["split"])]
+        ):
+            raise RfdetrSegmentationMaterializationError(
+                f"sample {sample['event_id']} is not in its frozen source group partition"
+            )
 
 
 def _validated_samples(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
     recordings = _recordings_by_id(manifest)
+    partition_names = _partition_names(manifest)
     split_recordings = {
         split: set(_mapping(manifest["split"][split], f"split.{split}").get("recording_ids", []))
-        for split in ("train", "validation")
+        for split in partition_names
     }
+    references_by_recording = {
+        str(reference["recording_id"]): reference
+        for reference in manifest.get("references", [])
+        if isinstance(reference, Mapping) and isinstance(reference.get("recording_id"), str)
+    }
+    reference_samples: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for reference in references_by_recording.values():
+        for raw_sample in reference.get("samples", []):
+            if isinstance(raw_sample, Mapping):
+                key = (str(reference["recording_id"]), str(raw_sample.get("event_id")))
+                reference_samples[key] = raw_sample
     result: list[dict[str, Any]] = []
     sample_keys: set[tuple[str, str]] = set()
     frame_keys: set[tuple[str, int]] = set()
@@ -490,7 +727,7 @@ def _validated_samples(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
         sample = _mapping(raw_sample, f"samples[{index}]")
         recording_id = _identifier(sample.get("recording_id"), f"samples[{index}].recording_id")
         split = sample.get("split")
-        if split not in {"train", "validation"} or recording_id not in split_recordings[split]:
+        if split not in partition_names or recording_id not in split_recordings[split]:
             raise RfdetrSegmentationMaterializationError(
                 f"sample {index} is not in its frozen recording split"
             )
@@ -511,18 +748,36 @@ def _validated_samples(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
             frame.get("source_video_sha256"), f"samples[{index}].source_video_sha256"
         )
         recording = recordings[recording_id]
-        if source_digest != recording.get("source_sha256") or sample.get(
-            "source_sha256"
-        ) != source_digest:
+        if (
+            source_digest != recording.get("source_sha256")
+            or sample.get("source_sha256") != source_digest
+        ):
             raise RfdetrSegmentationMaterializationError(
                 f"sample {event_id} source digest differs from its recording"
             )
         frame_key = (source_digest, frame_index)
         if frame_key in frame_keys:
-            raise RfdetrSegmentationMaterializationError(
-                f"sample {event_id} reuses a source frame"
-            )
+            raise RfdetrSegmentationMaterializationError(f"sample {event_id} reuses a source frame")
         frame_keys.add(frame_key)
+        reference_sample = reference_samples.get((recording_id, event_id))
+        if reference_sample is None:
+            raise RfdetrSegmentationMaterializationError(
+                f"sample {event_id} is missing from its M0 reference report"
+            )
+        if (
+            reference_sample.get("reference_revision_id") != sample.get("reference_revision_id")
+            or reference_sample.get("frame_identity") != frame
+            or (
+                manifest.get("schema_version") == RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION
+                and (
+                    reference_sample.get("item_id") != sample.get("item_id")
+                    or reference_sample.get("targets") != sample.get("targets")
+                )
+            )
+        ):
+            raise RfdetrSegmentationMaterializationError(
+                f"sample {event_id} has stale reference lineage"
+            )
         width = _positive_int(frame.get("width"), f"samples[{index}].width")
         height = _positive_int(frame.get("height"), f"samples[{index}].height")
         targets = sample.get("targets")
@@ -563,10 +818,12 @@ def _validated_samples(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "targets": normalized_targets,
             }
         )
+    _validate_sample_source_groups(manifest, result, recordings)
+    partition_order = {split: index for index, split in enumerate(partition_names)}
     return sorted(
         result,
         key=lambda sample: (
-            0 if sample["split"] == "train" else 1,
+            partition_order[sample["split"]],
             str(sample["recording_id"]),
             str(sample["event_id"]),
             int(sample["frame_identity"]["frame_index"]),
@@ -634,9 +891,12 @@ def _default_frame_extractor() -> FrameExtractor:
     def extract(video_path: Path, frame: Mapping[str, Any]) -> bytes:
         requested = frame.get("requested_time_us")
         presentation = frame.get("presentation_timestamp_us")
-        if isinstance(requested, int) and not isinstance(requested, bool) and isinstance(
-            presentation, int
-        ) and not isinstance(presentation, bool):
+        if (
+            isinstance(requested, int)
+            and not isinstance(requested, bool)
+            and isinstance(presentation, int)
+            and not isinstance(presentation, bool)
+        ):
             digest = _digest(frame.get("source_video_sha256"), "frame.source_video_sha256")
             source = RecordingVideoSource(
                 recording_id="rfdetr-segmentation-source",
@@ -706,6 +966,8 @@ def _coco_image(
     partition_name: str,
 ) -> dict[str, Any]:
     frame = sample["frame_identity"]
+    source_group = sample.get("source_group")
+    group = source_group if isinstance(source_group, Mapping) else {}
     return {
         "id": image_id,
         "file_name": f"images/{image_name}",
@@ -720,6 +982,11 @@ def _coco_image(
         "source_frame_sha256": frame_digest,
         "split": sample["split"],
         "trainer_partition": partition_name,
+        "session_id": sample.get("session_id", group.get("session_id")),
+        "source_asset_id": sample.get("source_asset_id", group.get("source_asset_id")),
+        "video_id": sample.get("video_id", group.get("video_id")),
+        "table_setup": sample.get("table_setup", group.get("table_setup")),
+        "source_group_key": sample.get("source_group_key"),
     }
 
 
@@ -731,6 +998,8 @@ def _coco_annotation(
 ) -> dict[str, Any]:
     frame = sample["frame_identity"]
     width, height = frame["width"], frame["height"]
+    source_group = sample.get("source_group")
+    group = source_group if isinstance(source_group, Mapping) else {}
     geometry = _mapping(target.get("geometry"), f"{sample['event_id']}.target.geometry")
     if geometry.get("kind") not in {"visible-region/v1", "reviewed-visible-region/v1"}:
         raise RfdetrSegmentationMaterializationError(
@@ -788,6 +1057,13 @@ def _coco_annotation(
         "source_video_sha256": sample["source_sha256"],
         "source_frame_sha256": frame_digest,
         "target_geometry_sha256": sha256_json(geometry),
+        "split": sample["split"],
+        "card_side": target.get("side", "unknown"),
+        "session_id": sample.get("session_id", group.get("session_id")),
+        "source_asset_id": sample.get("source_asset_id", group.get("source_asset_id")),
+        "video_id": sample.get("video_id", group.get("video_id")),
+        "table_setup": sample.get("table_setup", group.get("table_setup")),
+        "source_group_key": sample.get("source_group_key"),
     }
 
 
@@ -816,17 +1092,21 @@ def _coco_payload(
 def _split_payload(
     manifest: Mapping[str, Any], partition_samples: Mapping[str, list[Mapping[str, Any]]]
 ) -> dict[str, Any]:
+    partition_names = _partition_names(manifest)
     core = {
         "schema_version": RFDETR_SEGMENTATION_SPLIT_SCHEMA_VERSION,
         "campaign_manifest_digest": manifest["manifest_digest"],
         "train": list(manifest["split"]["train"]["recording_ids"]),
         "validation": list(manifest["split"]["validation"]["recording_ids"]),
-        "test": [],
-        "sample_counts": {
-            "train": len(partition_samples["train"]),
-            "validation": len(partition_samples["validation"]),
-        },
+        "test": (
+            list(manifest["split"]["sealed_test"]["recording_ids"])
+            if "sealed_test" in partition_names
+            else []
+        ),
+        "sample_counts": {split: len(partition_samples[split]) for split in partition_names},
     }
+    if "sealed_test" in partition_names:
+        core["sealed_test"] = list(manifest["split"]["sealed_test"]["recording_ids"])
     return {**core, "split_digest": sha256_json(core)}
 
 
@@ -850,9 +1130,20 @@ def _resolve_input_path(value: str | Path, repository: Path, field: str) -> Path
     return resolved
 
 
-def _output_directory(repository: Path, output_root: str | Path | None) -> Path:
+def _output_directory(
+    repository: Path,
+    output_root: str | Path | None,
+    *,
+    manifest: Mapping[str, Any] | None = None,
+) -> Path:
     if output_root is None:
-        return repository / ".runtime" / "rfdetr-segmentation-0067"
+        directory_name = (
+            "rfdetr-segmentation-0068"
+            if manifest is not None
+            and manifest.get("schema_version") == RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION
+            else "rfdetr-segmentation-0067"
+        )
+        return repository / ".runtime" / directory_name
     path = Path(output_root).expanduser()
     return (repository / path if not path.is_absolute() else path).resolve()
 
@@ -931,16 +1222,17 @@ def _finite_number(value: Any) -> bool:
 
 
 def _shoelace(points: list[tuple[float, float]]) -> float:
-    return sum(
-        points[index][0] * points[(index + 1) % len(points)][1]
-        - points[(index + 1) % len(points)][0] * points[index][1]
-        for index in range(len(points))
-    ) / 2.0
+    return (
+        sum(
+            points[index][0] * points[(index + 1) % len(points)][1]
+            - points[(index + 1) % len(points)][0] * points[index][1]
+            for index in range(len(points))
+        )
+        / 2.0
+    )
 
 
-def _tight_bbox(
-    points: list[tuple[float, float]], width: int, height: int
-) -> list[int | float]:
+def _tight_bbox(points: list[tuple[float, float]], width: int, height: int) -> list[int | float]:
     if not points:
         raise RfdetrSegmentationMaterializationError("polygon has no points")
     x_min = max(0, min(width - 1, math.floor(min(point[0] for point in points))))
@@ -976,6 +1268,12 @@ def _remove_destination(path: Path) -> None:
         shutil.rmtree(path)
 
 
+def load_reviewed_rfdetr_detector_materialization(path: str | Path) -> dict[str, Any]:
+    """Load a generated epic 0068 view through the shared materialization validator."""
+
+    return load_rfdetr_segmentation_materialization(path)
+
+
 __all__ = [
     "COCO_VERSION",
     "RFDETR_SEGMENTATION_EXCLUSIONS_SCHEMA_VERSION",
@@ -985,7 +1283,9 @@ __all__ = [
     "RfdetrSegmentationMaterializationError",
     "RfdetrSegmentationMaterializationResult",
     "FrameExtractor",
+    "load_reviewed_rfdetr_detector_materialization",
     "load_rfdetr_segmentation_materialization",
+    "materialize_reviewed_rfdetr_detector_dataset",
     "materialize_rfdetr_segmentation_dataset",
     "validate_rfdetr_coco_annotations",
 ]

@@ -25,7 +25,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 The retained `doko` commands are grouped by owner:
 
 - `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `cardevent interval-readiness`, `cardevent interval-freeze`, `resilience-baseline`,
-  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `rfdetr-visible-card-detector`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
+  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `rfdetr-visible-card-detector`, `rfdetr-visible-card-detector-materialize`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
   `impact`, and `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `review-card-event-net`,
   `review-card-event-net-timing`, `promote`, and `evaluate-system`.
@@ -37,6 +37,21 @@ lifecycle, model operations, resilience checks, and reconstruction orchestration
 [recording workspace](../web/README.md#local-development) for recording-pipeline review.
 
 M0 provides strict local contracts and read-only inspection for model-improvement campaigns.
+
+Epic 0068 M1 materializes the frozen reviewed RF-DETR detector manifest into a disposable COCO
+view. It extracts the recorded source frames, verifies their digests, writes `train/`, `valid/`,
+and `sealed_test/` partitions, and keeps reviewed visible-region polygons and tight derived boxes
+with their source-group lineage:
+
+```bash
+doko data rfdetr-visible-card-detector-materialize \
+  --manifest data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json \
+  --output .runtime/rfdetr-segmentation-0068
+```
+
+The materializer accepts only a frozen M0 manifest. Ignore-region frames and unusable outcomes
+remain in `exclusions.json`; they do not become background targets. The output is disposable and
+can be rebuilt from the same manifest with identical digests.
 
 Epic 0063 M0 provides a read-only audit of the legacy CardEventNet tree. It records every source,
 annotation, review, split, manifest, cache, and output path with its digest, intended disposition,

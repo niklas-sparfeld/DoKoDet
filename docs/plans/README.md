@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0068 — Reviewed RF-DETR local visible-card detector](3-in-progress/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | M0 is complete: the reviewed-reference audit scans corrected selections, records lineage and exclusions, and freezes explicit train, validation, and sealed-test source groups. M1 remains next. |
+| [0068 — Reviewed RF-DETR local visible-card detector](3-in-progress/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | M0–M1 are complete: the reviewed-reference audit freezes explicit source-group-safe train, validation, and sealed-test partitions, and the shared COCO materializer emits deterministic train, valid, and sealed-test views with lineage and exclusion receipts. Live materialization awaits the missing 24-recording snapshot and frozen M0 manifest. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -129,9 +129,9 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0068 with M1 for the reviewed RF-DETR detector.** Materialize the frozen
-   source-group-separated instance-segmentation view. Keep ignored and unusable outcomes in the
-   exclusion receipt and keep the sealed-test view separate from training and validation.
+1. **Continue 0068 with M2 for the reviewed RF-DETR detector.** Run the bounded local
+   RF-DETR SegMedium smoke test and candidate training only after the frozen M0 snapshot is
+   available. Reuse the verified M1 view and keep the sealed-test partition unread.
 2. **Continue 0063 with M15 only after the operator completes M14.** M14 created a development-only
    integration lock and exact one-time sealed-test and Core ML export/parity handoffs. Do not tune,
    promote, or treat M9 as the production champion.

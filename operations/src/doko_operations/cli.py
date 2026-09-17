@@ -524,6 +524,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rfdetr_materialize.add_argument("--format", choices=("human", "json"), default="human")
     rfdetr_materialize.add_argument("--json", action="store_true", help="Alias for --format json.")
+    reviewed_rfdetr_materialize = data_commands.add_parser(
+        "rfdetr-visible-card-detector-materialize",
+        aliases=("rfdetr-visible-card-detector-view",),
+        help="Materialize a frozen reviewed RF-DETR visible-card COCO view.",
+        description="Materialize a frozen reviewed RF-DETR visible-card COCO view.",
+    )
+    _add_path_options(reviewed_rfdetr_materialize, suppress_defaults=True)
+    reviewed_rfdetr_materialize.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+        help="Frozen M0 reviewed RF-DETR detector manifest.",
+    )
+    reviewed_rfdetr_materialize.add_argument(
+        "--output",
+        type=Path,
+        default=Path(".runtime/rfdetr-segmentation-0068"),
+        help="Disposable train, validation, and sealed-test view directory.",
+    )
+    reviewed_rfdetr_materialize.add_argument("--format", choices=("human", "json"), default="human")
+    reviewed_rfdetr_materialize.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
     comparison = data_commands.add_parser(
         "resilience-comparison",
         help="Run the frozen paired visible-region resilience comparison.",
@@ -1434,6 +1457,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "data" and args.data_command in {
         "rfdetr-segmentation-materialize",
         "rfdetr-segmentation-view",
+        "rfdetr-visible-card-detector-materialize",
+        "rfdetr-visible-card-detector-view",
     }:
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))

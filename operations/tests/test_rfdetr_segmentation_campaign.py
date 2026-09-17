@@ -554,6 +554,52 @@ def _authorize_reviewed_campaign_fixture(root: Path) -> None:
         source_record_path.write_text(json.dumps(source_record), encoding="utf-8")
 
 
+def _frozen_reviewed_m0_manifest(
+    root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    ignored_recording: str | None = None,
+    unusable_recording: str | None = None,
+) -> Path:
+    _configure_reviewed_campaign_fixture(monkeypatch)
+    if ignored_recording is not None or unusable_recording is not None:
+        monkeypatch.setattr(
+            reviewed_campaign,
+            "EXPECTED_INVENTORY",
+            {
+                "reviewed_frames": 9,
+                "retained_frames": 7,
+                "excluded_frames": 1,
+                "ineligible_outcomes": 1,
+                "ignored_regions": 1,
+                "targets": 7,
+            },
+        )
+        monkeypatch.setattr(
+            reviewed_campaign,
+            "EXPECTED_SIDE_COUNTS",
+            {"face_up": 0, "unknown": 7, "face_down": 0},
+        )
+    corpus = _fixture_corpus(
+        root,
+        ignored_recording=ignored_recording,
+        unusable_recording=unusable_recording,
+    )
+    _authorize_reviewed_campaign_fixture(corpus)
+    checkpoint = corpus / "checkpoint.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    manifest = reviewed_campaign.build_reviewed_rfdetr_detector_manifest(
+        corpus,
+        pretrained_checkpoint=checkpoint,
+        verify_source_bytes=True,
+        api_probe=_available_api(),
+    )
+    assert manifest["freeze_state"] == "frozen"
+    path = corpus / "data" / "operations" / "rfdetr-visible-card-detector-0068-m0.json"
+    reviewed_campaign.write_reviewed_rfdetr_detector_manifest(path, manifest)
+    return path
+
+
 def test_0068_recipe_pins_the_sealed_test_gate_and_supporting_slices() -> None:
     recipe = reviewed_campaign.default_reviewed_rfdetr_detector_recipe(device="mps")
 
@@ -688,3 +734,146 @@ def test_0068_m0_reports_missing_corrected_reference_as_unavailable(
         for item in result["selection"]["unavailable_references"]
     )
     assert any("selected recording set is incomplete" in gap for gap in result["coverage_gaps"])
+
+
+def test_0068_m1_materializes_train_validation_and_sealed_test_views(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest_path = _frozen_reviewed_m0_manifest(tmp_path, monkeypatch)
+    output = tmp_path / "view"
+    first = materialize_rfdetr_segmentation_dataset(
+        manifest_path,
+        repository_root=tmp_path,
+        output_root=output,
+        frame_extractor=_fixture_frame_extractor,
+    )
+    first_files = _view_files(output)
+    second = materialize_rfdetr_segmentation_dataset(
+        manifest_path,
+        repository_root=tmp_path,
+        output_root=output,
+        frame_extractor=_fixture_frame_extractor,
+    )
+
+    assert first.to_mapping() == second.to_mapping()
+    assert first_files == _view_files(output)
+    assert first.image_count == 9
+    assert first.annotation_count == 9
+    assert (output / "train" / "_annotations.coco.json").is_file()
+    assert (output / "valid" / "_annotations.coco.json").is_file()
+    assert (output / "sealed_test" / "_annotations.coco.json").is_file()
+    materialization = load_rfdetr_segmentation_materialization(output)
+    assert materialization["campaign_id"] == reviewed_campaign.RFDETR_DETECTOR_CAMPAIGN_ID
+    assert materialization["counts"] == {
+        "images": 9,
+        "annotations": 9,
+        "train_images": 3,
+        "validation_images": 3,
+        "sealed_test_images": 3,
+        "train_annotations": 3,
+        "validation_annotations": 3,
+        "sealed_test_annotations": 3,
+    }
+    split = json.loads((output / "split.json").read_text())
+    assert split["sealed_test"] == [
+        "cardeventnet-IMG_0090",
+        "cardeventnet-IMG_0091",
+        "cardeventnet-IMG_0661",
+    ]
+    sealed = json.loads((output / "sealed_test" / "_annotations.coco.json").read_text())
+    assert sealed["info"]["trainer_partition"] == "sealed_test"
+    assert sealed["images"][0]["source_group_key"]
+    assert sealed["annotations"][0]["card_side"] == "unknown"
+    assert sealed["annotations"][0]["source_group_key"] == sealed["images"][0]["source_group_key"]
+
+
+def test_0068_m1_preserves_ignore_and_unusable_receipts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest_path = _frozen_reviewed_m0_manifest(
+        tmp_path,
+        monkeypatch,
+        ignored_recording=campaign.TRAIN_RECORDING_IDS[0],
+        unusable_recording=campaign.VALIDATION_RECORDING_IDS[0],
+    )
+    result = materialize_rfdetr_segmentation_dataset(
+        manifest_path,
+        repository_root=tmp_path,
+        output_root=tmp_path / "view",
+        frame_extractor=_fixture_frame_extractor,
+    )
+
+    assert result.image_count == 7
+    assert result.annotation_count == 7
+    assert result.excluded_frame_count == 1
+    assert result.ineligible_outcome_count == 1
+    exclusions = json.loads((tmp_path / "view" / "exclusions.json").read_text())
+    assert len(exclusions["excluded_frames"]) == 1
+    assert len(exclusions["ineligible_outcomes"]) == 1
+    assert exclusions["ineligible_outcomes"][0]["status"] == "failed"
+
+
+def test_0068_m1_rejects_stale_reference_lineage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest_path = _frozen_reviewed_m0_manifest(tmp_path, monkeypatch)
+    manifest = json.loads(manifest_path.read_text())
+    manifest["samples"][0]["reference_revision_id"] = "stale-revision"
+    core = {key: value for key, value in manifest.items() if key != "manifest_digest"}
+    manifest["manifest_digest"] = reviewed_campaign.sha256_json(core)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RfdetrSegmentationMaterializationError, match="stale reference lineage"):
+        materialize_rfdetr_segmentation_dataset(
+            manifest_path,
+            repository_root=tmp_path,
+            output_root=tmp_path / "view",
+            frame_extractor=_fixture_frame_extractor,
+        )
+
+
+def test_0068_m1_rejects_a_stale_source_group_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest_path = _frozen_reviewed_m0_manifest(tmp_path, monkeypatch)
+    manifest = json.loads(manifest_path.read_text())
+    manifest["samples"][0]["source_group"]["session_id"] = "stale-session"
+    core = {key: value for key, value in manifest.items() if key != "manifest_digest"}
+    manifest["manifest_digest"] = reviewed_campaign.sha256_json(core)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RfdetrSegmentationMaterializationError, match="source group differs"):
+        materialize_rfdetr_segmentation_dataset(
+            manifest_path,
+            repository_root=tmp_path,
+            output_root=tmp_path / "view",
+            frame_extractor=_fixture_frame_extractor,
+        )
+
+
+def test_0068_m1_cli_materializes_the_sealed_test_view(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest_path = _frozen_reviewed_m0_manifest(tmp_path, monkeypatch)
+    output = tmp_path / "cli-view"
+    monkeypatch.setattr(
+        "doko_operations.rfdetr_segmentation_materialization._default_frame_extractor",
+        lambda: _fixture_frame_extractor,
+    )
+
+    result = main(
+        [
+            "data",
+            "rfdetr-visible-card-detector-materialize",
+            "--repository-root",
+            str(tmp_path),
+            "--manifest",
+            str(manifest_path),
+            "--output",
+            str(output),
+            "--json",
+        ]
+    )
+
+    assert result == 0
+    assert load_rfdetr_segmentation_materialization(output)["counts"]["sealed_test_images"] == 3

@@ -24,8 +24,9 @@
   source-group-safe train, validation, and sealed-test partitions, and pin the RF-DETR recipe and
   held-out gate. The audit is blocked until the live 24-recording source snapshot and checkpoint
   are available locally.
-- **M1:** Not started — materialize the reviewed instance-segmentation dataset and prove its
-  lineage, geometry, and exclusion receipts.
+- **M1:** Complete — materialize the frozen reviewed instance-segmentation dataset into
+  deterministic train, validation, and sealed-test COCO views. The live run awaits the frozen
+  24-recording M0 snapshot, which is not present in this checkout.
 - **M2:** Not started — run one local RF-DETR SegMedium candidate from the frozen recipe.
 - **M3:** Not started — evaluate the pretrained baseline and candidate on the frozen validation
   and sealed-test partitions.
@@ -141,6 +142,21 @@ Acceptance:
 - no source group crosses a trainer partition; and
 - malformed geometry, changed source frames, stale references, and ignored frames have regression
   tests.
+
+#### M1 implementation evidence — 2026-09-17
+
+- Generalized the 0067 COCO materializer to validate the 0068 reviewed-detector M0 manifest only.
+- Added a disposable `sealed_test/` COCO view beside RF-DETR `train/` and `valid/` views. The split
+  receipt contains the three frozen partitions and per-partition sample counts.
+- Added source-group lineage to every image and annotation. The materializer checks group keys,
+  group fields, partition membership, and cross-partition overlap before it extracts frames.
+- The exclusion receipt keeps every ignored frame and unusable outcome. The materializer never
+  turns these outcomes into background targets.
+- Fixture tests cover cold and warm digest equality, polygon and derived-box validation, changed
+  frame bytes, stale reference lineage, stale source-group keys, ignore and unusable receipts,
+  and the public CLI. Focused verification passes with 19 tests and Ruff checks.
+- A live materialization cannot run yet because the frozen 0068 M0 manifest and its 24 source
+  recording bundles are not available in this checkout.
 
 ### M2 — Run one bounded local candidate
 
