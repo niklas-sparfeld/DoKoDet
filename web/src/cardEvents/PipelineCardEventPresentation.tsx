@@ -146,6 +146,7 @@ export function GeneratedEventView({
   selectedEvent,
   videoRef,
   recordingId,
+  referenceNeedsSeed = false,
 }: {
   events: PipelineEvent[];
   loading: boolean;
@@ -155,6 +156,7 @@ export function GeneratedEventView({
   selectedEvent: PipelineEvent | undefined;
   videoRef: RefObject<HTMLVideoElement | null>;
   recordingId: string;
+  referenceNeedsSeed?: boolean;
 }) {
   return (
     <section
@@ -171,8 +173,9 @@ export function GeneratedEventView({
         </span>
       </div>
       <p className={styles.detailLead}>
-        Generated events are immutable suggestions. Choose Review to copy this
-        exact result into the maintained reference.
+        {referenceNeedsSeed
+          ? "Generated events are immutable suggestions. Start review to copy this exact result into the maintained reference."
+          : "Generated events are immutable suggestions. Choose Review to copy this exact result into the maintained reference."}
       </p>
       {revisionId !== null ? (
         <p className={styles.pipelineUrlState}>Source revision {revisionId}</p>

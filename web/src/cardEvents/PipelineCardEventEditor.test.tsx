@@ -64,6 +64,15 @@ function referenceResponse(
   };
 }
 
+function emptyReferenceResponse(): PipelineReferenceResource {
+  const response = referenceResponse([], 0);
+  return {
+    ...response,
+    state: { ...response.state, source_revision_id: null },
+    draft: { ...response.draft, source_revision_id: null },
+  };
+}
+
 function response(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
     status,
@@ -598,6 +607,93 @@ describe("PipelineCardEventEditor", () => {
       await screen.findByText("Card-state change at 0:03.000001"),
     ).toBeInTheDocument();
     expect(screen.getByText("0:03.000001")).toBeInTheDocument();
+  });
+
+  it("seeds an existing empty reference from the generated event result", async () => {
+    let server = emptyReferenceResponse();
+    const result = {
+      run_id: "run-1",
+      recording_id: recordingId,
+      processor_type: "card-event-detector",
+      status: "complete",
+      attempt: 1,
+      request: {},
+      state: {},
+      revisions: [
+        {
+          manifest: { revision_id: "generated-1" },
+          content: {
+            schema_version: "event-data/v1",
+            events: [
+              {
+                event_id: "generated-event-1",
+                event_type: "card_state_changed",
+                start_us: 2_000_000,
+                end_us: 2_000_000,
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const putBodies: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      if (init?.method === "PUT") {
+        putBodies.push(
+          JSON.parse(String(init.body)) as Record<string, unknown>,
+        );
+        server = referenceResponse(
+          [
+            eventItem({
+              item_id: "generated-event-1",
+              base_item_id: null,
+              item: {
+                event_id: "generated-event-1",
+                event_type: "card_state_changed",
+                start_us: 2_000_000,
+                end_us: 2_000_000,
+              },
+            }),
+          ],
+          1,
+        );
+        return response(server);
+      }
+      if (String(input).endsWith("/result")) return response(result);
+      return response(server);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <PipelineCardEventEditor
+        recordingId={recordingId}
+        durationUs={5_000_000}
+        generatedRevisionId="generated-1"
+        generatedRunId="run-1"
+        view="reviewed"
+      />,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Start review" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("1 event")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("operator-01"), {
+      target: { value: "operator-01" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start review" }));
+
+    await waitFor(() => expect(putBodies).toHaveLength(1));
+    expect(putBodies[0]?.operations).toEqual([
+      { operation: "rebase", source_revision_id: "generated-1" },
+    ]);
+    expect(
+      await screen.findByRole("button", { name: "Accept A" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByText("Card-state change at 0:02.000000"),
+    ).toBeInTheDocument();
   });
 
   it("reports maintained event rail items and the selected event", async () => {

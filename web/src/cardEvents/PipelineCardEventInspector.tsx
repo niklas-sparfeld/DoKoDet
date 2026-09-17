@@ -44,6 +44,8 @@ export type EventInspectorProps = {
   setOperatorId: (value: string) => void;
   setReviewerId: (value: string) => void;
   creatingReference: boolean;
+  referenceNeedsSeed: boolean;
+  startReference: () => void;
   completionBusy: boolean;
   completionBlocker: string | null;
   watchedPercent: number;
@@ -120,6 +122,10 @@ function EventInspectorAction({
   setOperatorId,
   setReviewerId,
   creatingReference,
+  referenceNeedsSeed,
+  startReference,
+  saveState,
+  queueLength,
   completionBusy,
   completionBlocker,
   completeReference,
@@ -168,6 +174,39 @@ function EventInspectorAction({
           disabled={creatingReference || operatorId.trim() === ""}
         >
           {creatingReference ? "Starting review…" : "Start review"}
+        </button>
+      </>
+    );
+  }
+  if (referenceNeedsSeed) {
+    return (
+      <>
+        <p className={styles.statusLabel}>Primary action</p>
+        <h2 id="pipeline-inspector-action">Start event review</h2>
+        <p className={styles.pipelineInspectorEmpty}>
+          Seed the existing empty reference from the selected generated result.
+        </p>
+        <label className={styles.pipelineSelector}>
+          <span>Operator ID</span>
+          <input
+            value={operatorId}
+            onChange={(event) => setOperatorId(event.target.value)}
+            placeholder="operator-01"
+          />
+        </label>
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={startReference}
+          disabled={
+            operatorId.trim() === "" ||
+            saveState === "saving" ||
+            queueLength > 0
+          }
+        >
+          {saveState === "saving" || queueLength > 0
+            ? "Starting review…"
+            : "Start review"}
         </button>
       </>
     );
@@ -291,6 +330,7 @@ function EventInspectorSelection({
   durationUs,
   addEvent,
   markCoverage,
+  referenceNeedsSeed,
 }: EventInspectorProps) {
   return (
     <div className={eventStyles.inspectorSelection}>
@@ -302,9 +342,13 @@ function EventInspectorSelection({
       </div>
       <p className={styles.pipelineInspectorEmpty}>
         {view === "reviewed"
-          ? selectedEvent === undefined
-            ? "Select an event from the Timeline Rail."
-            : `Card-state change at ${formatMicroseconds(selectedEvent.event.start_us)}`
+          ? referenceNeedsSeed
+            ? selectedGeneratedEvent === undefined
+              ? "Select a proposal from the Timeline Rail."
+              : `Card-state change at ${formatMicroseconds(selectedGeneratedEvent.start_us)}`
+            : selectedEvent === undefined
+              ? "Select an event from the Timeline Rail."
+              : `Card-state change at ${formatMicroseconds(selectedEvent.event.start_us)}`
           : selectedGeneratedEvent === undefined
             ? "Select a proposal from the Timeline Rail."
             : `Card-state change at ${formatMicroseconds(selectedGeneratedEvent.start_us)}`}
@@ -347,7 +391,10 @@ function EventInspectorSelection({
           </div>
         </dl>
       ) : null}
-      {view === "reviewed" && reference !== null && slots !== null ? (
+      {view === "reviewed" &&
+      reference !== null &&
+      !referenceNeedsSeed &&
+      slots !== null ? (
         <>
           <button
             className={styles.secondaryButton}

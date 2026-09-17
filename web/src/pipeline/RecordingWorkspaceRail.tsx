@@ -164,7 +164,11 @@ export function useRecordingWorkspaceRail({
     visualIdentityRail,
   ]);
 
-  const selectedEventRunId = selectedRunId(stage, displayedRevision, "events");
+  const selectedEventRunId = selectedRunId(
+    stage,
+    displayedRevision ?? stage?.selected_generated_revision_id ?? null,
+    "events",
+  );
   const selectedVisibleCardRunId = selectedRunId(
     stage,
     displayedRevision ?? stage?.selected_generated_revision_id ?? null,

@@ -126,6 +126,12 @@ export function PipelineCardEventEditor({
 
   const frameRate = 30;
 
+  const referenceNeedsSeed =
+    reference !== null &&
+    reference.draft.source_revision_id === null &&
+    reference.draft.items.length === 0 &&
+    generatedRevisionId !== null;
+
   const setLocalEvents = useCallback((nextEvents: EditableEvent[]) => {
     const sorted = [...nextEvents].sort(compareEvents);
     eventsRef.current = sorted;
@@ -313,8 +319,15 @@ export function PipelineCardEventEditor({
     if (view !== "reviewed") {
       return;
     }
+    const railEvents = referenceNeedsSeed
+      ? generatedEvents.map((event) => ({
+          event,
+          itemId: event.event_id,
+          reviewState: "pending" as const,
+        }))
+      : events;
     onRailItemsChange?.(
-      events.map((event) => ({
+      railEvents.map((event) => ({
         itemId: event.itemId,
         label: "Card-state change",
         state: event.reviewState,
@@ -322,7 +335,7 @@ export function PipelineCardEventEditor({
         endUs: event.event.end_us,
       })),
     );
-  }, [events, onRailItemsChange, view]);
+  }, [events, generatedEvents, onRailItemsChange, referenceNeedsSeed, view]);
 
   const nextCommandId = useCallback(() => {
     commandSequenceRef.current += 1;
@@ -471,6 +484,28 @@ export function PipelineCardEventEditor({
     },
     [nextCommandId, setLocalEvents],
   );
+
+  const startReference = useCallback(() => {
+    const current = referenceRef.current;
+    if (
+      current === null ||
+      current.draft.source_revision_id !== null ||
+      current.draft.items.length > 0 ||
+      generatedRevisionId === null ||
+      operatorId.trim() === ""
+    ) {
+      return;
+    }
+    setReviewerId((currentReviewer) => currentReviewer || operatorId.trim());
+    enqueue(
+      {
+        operation: "rebase",
+        source_revision_id: generatedRevisionId,
+      },
+      "Maintained event reference seeded from the selected generated result.",
+      (currentEvents) => currentEvents,
+    );
+  }, [enqueue, generatedRevisionId, operatorId]);
 
   const updateEvent = useCallback(
     (
@@ -852,10 +887,12 @@ export function PipelineCardEventEditor({
     view,
   ]);
 
-  const pendingCount = events.filter(
-    (event) =>
-      event.reviewState === "pending" || event.reviewState === "affected",
-  ).length;
+  const pendingCount = referenceNeedsSeed
+    ? generatedEvents.length
+    : events.filter(
+        (event) =>
+          event.reviewState === "pending" || event.reviewState === "affected",
+      ).length;
   const acceptedCount = events.filter((event) =>
     ["accepted", "added", "corrected"].includes(event.reviewState),
   ).length;
@@ -918,6 +955,8 @@ export function PipelineCardEventEditor({
       setOperatorId={setOperatorId}
       setReviewerId={setReviewerId}
       creatingReference={creatingReference}
+      referenceNeedsSeed={referenceNeedsSeed}
+      startReference={startReference}
       completionBusy={completionBusy}
       completionBlocker={completionBlocker}
       watchedPercent={watchedPercent}
@@ -987,6 +1026,25 @@ export function PipelineCardEventEditor({
             the inspector to start review.
           </p>
         </section>
+      </>
+    );
+  }
+
+  if (referenceNeedsSeed) {
+    return (
+      <>
+        {inspector}
+        <GeneratedEventView
+          events={generatedEvents}
+          loading={generatedLoading}
+          revisionId={generatedRevisionId}
+          videoUrl={videoUrl}
+          durationUs={durationUs}
+          selectedEvent={selectedGeneratedEvent}
+          videoRef={videoRef}
+          recordingId={recordingId}
+          referenceNeedsSeed
+        />
       </>
     );
   }
