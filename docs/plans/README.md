@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M13 and the operator-run campaigns are complete. M13 confirms that the M12 timing response does not replace M9. The operator accepts the M9 hard-negative checkpoint, threshold `0.4271905720233917`, and current causal decoder as a development baseline so downstream pipeline work can measure the cost of its remaining errors. M14 is ready to create a development-only integration lock and prepare sealed-test and Core ML export/parity handoffs. The sealed test remains unread, and M9 is not eligible for production promotion in this epic. |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M14 and the operator-run campaigns are complete. M13 confirms that the M12 timing response does not replace M9. M14 freezes the M9 hard-negative checkpoint, threshold `0.4271905720233917`, and current causal decoder as a development-only integration baseline, with immutable lineage, failed gates, and exact one-time sealed-test and Core ML export/parity handoffs. The sealed test remains unread, and M9 is not eligible for production promotion in this epic. M15 is blocked until the operator completes those handoffs. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -128,8 +128,9 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M14 only after human review.** M13 did not create a candidate lock. Do not
-   read the sealed test, export, or promote until an authorized follow-up produces a valid lock.
+1. **Continue 0063 with M15 only after the operator completes M14.** M14 created a development-only
+   integration lock and exact one-time sealed-test and Core ML export/parity handoffs. Do not tune,
+   promote, or treat M9 as the production champion.
 2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.

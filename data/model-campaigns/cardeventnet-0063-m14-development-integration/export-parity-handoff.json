@@ -1,0 +1,46 @@
+{
+  "artifact_role": "development_integration_model",
+  "campaign_id": "cardeventnet-0063-m14-development-integration",
+  "command": "mise exec -- uv run --project card_event_net cardevent export-coreml --checkpoint data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt --out data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-model/CardEventNet.mlpackage",
+  "expected_outputs": [
+    "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-model/CardEventNet.mlpackage"
+  ],
+  "fixed_inputs": {
+    "checkpoint": {
+      "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+      "sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4"
+    },
+    "coreml_input_name": "clips",
+    "coreml_input_shape": [
+      1,
+      8,
+      3,
+      224,
+      224
+    ],
+    "coreml_output_name": "logit",
+    "preprocessing": "full_frame_letterbox_v1"
+  },
+  "handoff_digest": "da0eee62f2015de34b02e13c5f5a1daf6e2d77b0705180ad511abf3bab7d3d4e",
+  "handoff_type": "integration_model_export_and_parity",
+  "integration_lock": {
+    "digest": "4f8ea516ebee9930cf0105f8bae94690510d299e2522ea7bb6a7f8d83fbd78eb",
+    "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-lock.json",
+    "sha256": "69233e9a514ff717848fd5a77f03c0ac914e752c501b1846ebc8eb2cf844da50"
+  },
+  "parity": {
+    "required": true,
+    "skip_parity_allowed": false,
+    "success_output": "Parity check passed",
+    "tolerance": {
+      "atol": 0.001,
+      "rtol": 0.001
+    }
+  },
+  "production_promotion_eligible": false,
+  "resume_behavior": "Export has no resume mode. Preserve the lock and do not change the checkpoint or export contract on retry.",
+  "schema_version": "cardeventnet-m14-coreml-export-parity-handoff/v1",
+  "sealed_test_read": false,
+  "status": "pending_operator",
+  "system_holdout_read": false
+}

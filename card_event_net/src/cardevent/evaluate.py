@@ -43,6 +43,25 @@ SAVED_PLOT_DPI = 280
 REVIEW_TIMELINE_DPI = 220
 
 
+def _apply_threshold_override(
+    selection: ThresholdSelection, threshold_override: float | None
+) -> ThresholdSelection:
+    if threshold_override is None:
+        return selection
+    if (
+        isinstance(threshold_override, bool)
+        or not isinstance(threshold_override, (int, float))
+        or not isfinite(threshold_override)
+        or not 0.0 <= threshold_override <= 1.0
+    ):
+        raise EvaluationError("threshold_override must be finite and between 0 and 1.")
+    return replace(
+        selection,
+        threshold=float(threshold_override),
+        selection_reason="explicit",
+    )
+
+
 def _git_commit() -> str | None:
     current = Path.cwd().resolve()
     for directory in (current, *current.parents):
@@ -585,6 +604,7 @@ def evaluate_checkpoint_from_files(
     data_identity: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Evaluate a checkpoint and select thresholds from validation data only."""
+
     try:
         split = load_split(split_path)
     except (OSError, SplitError, ValueError) as exc:
@@ -612,19 +632,7 @@ def evaluate_checkpoint_from_files(
             target_recall=loaded.config.metrics.target_recall,
             peak_confirmation_s=peak_confirmation_s,
         )
-        if threshold_override is not None:
-            if (
-                isinstance(threshold_override, bool)
-                or not isinstance(threshold_override, (int, float))
-                or not isfinite(threshold_override)
-                or not 0.0 <= threshold_override <= 1.0
-            ):
-                raise EvaluationError("threshold_override must be finite and between 0 and 1.")
-            selection = replace(
-                selection,
-                threshold=float(threshold_override),
-                selection_reason="explicit",
-            )
+        selection = _apply_threshold_override(selection, threshold_override)
         _save_threshold_selection(
             checkpoint_file,
             selection,
@@ -651,6 +659,7 @@ def evaluate_checkpoint_from_files(
                 event_match_tolerance_s=loaded.config.metrics.event_match_tolerance_s,
                 target_recall=loaded.config.metrics.target_recall,
             )
+        selection = _apply_threshold_override(selection, threshold_override)
         try:
             evaluated_videos = load_model_streams(
                 loaded,

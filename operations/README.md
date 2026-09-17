@@ -479,6 +479,28 @@ settings, or the training recipe. It writes `m13-comparison.json`, `m13-result.j
 gate passes. The current result is `human_review_required`; it reads no sealed test or system
 holdout.
 
+## Epic 0063 M14 development integration lock
+
+After the operator accepts the M9 hard-negative checkpoint as a development baseline, prepare the
+immutable lock and operator-only handoffs:
+
+```bash
+mise exec -- uv run --project operations doko model prepare-card-event-net-m14 \
+  cardeventnet-0063-m9-hard-negative-ablation \
+  --repository-root .
+```
+
+The command validates the M9 checkpoint, threshold, causal decoder, approved hard-negative
+manifest, training dataset and environment, the M11 successor validation references, the M13
+failed gates, and the unchanged champion registry. It writes the lock, one-time sealed-test
+handoff, Core ML export/parity handoff, result, and report below
+`data/model-campaigns/cardeventnet-0063-m14-development-integration/`.
+
+The sealed-test command uses the locked threshold and `--partition test`; it cannot tune or change
+the configuration and may run once only. The export command keeps parity enabled and produces a
+development integration model, not a production champion. M14 does not start, wait for, poll, or
+monitor either operator command. M15 validates their outputs.
+
 ## Epic 0066 interval-review pilot
 
 M4 publishes one bounded trick-clear review as a corrected event revision, then derives a

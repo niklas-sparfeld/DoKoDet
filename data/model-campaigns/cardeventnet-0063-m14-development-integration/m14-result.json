@@ -1,0 +1,563 @@
+{
+  "campaign_id": "cardeventnet-0063-m14-development-integration",
+  "current_champion_changed": false,
+  "decision": {
+    "candidate_id": "m9_hard_negative_v1",
+    "failed_gate_names": [
+      "stable_end_matches",
+      "confirmed_no_event_triggers",
+      "event_presence_recall"
+    ],
+    "failed_gates": {
+      "causal_emission_delay_p95_s": {
+        "comparison": "maximum",
+        "limit": 0.75,
+        "passed": true,
+        "value": 0.7263832000000008
+      },
+      "confirmed_no_event_triggers": {
+        "comparison": "maximum",
+        "limit": 20.0,
+        "passed": false,
+        "value": 25
+      },
+      "duplicate_detections_per_reviewed_change": {
+        "comparison": "maximum",
+        "limit": 32.0,
+        "passed": true,
+        "value": 32
+      },
+      "event_presence_recall": {
+        "comparison": "minimum",
+        "limit": 0.98,
+        "passed": false,
+        "value": 0.8935483870967742
+      },
+      "stable_end_matches": {
+        "comparison": "minimum",
+        "limit": 60.0,
+        "passed": false,
+        "value": 49
+      }
+    },
+    "production_promotion_eligible": false,
+    "rationale": "Accept the M9 hard-negative checkpoint as the development baseline so end-to-end table-observation and game-reconstruction work can measure the cost of its remaining errors. This is an explicit engineering acceptance of a known validation result, not a production promotion decision.",
+    "state": "accepted_development_baseline"
+  },
+  "export_parity_handoff": {
+    "digest": "da0eee62f2015de34b02e13c5f5a1daf6e2d77b0705180ad511abf3bab7d3d4e",
+    "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/export-parity-handoff.json",
+    "sha256": "77f9fcb3a9b59e3d9dd37b0751c964955931161bc0f1ecfaf6371a8f34dbd561"
+  },
+  "fixed_configuration": {
+    "checkpoint": {
+      "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+      "sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4"
+    },
+    "decoder": {
+      "algorithm": "causal_peak",
+      "event_match_tolerance_s": 0.75,
+      "min_event_gap_s": 0.625,
+      "peak_confirmation_s": 0.125
+    },
+    "device": "mps",
+    "precision": "fp32",
+    "successor_dataset": {
+      "dataset_sha256": "f76a398ba06c483349ce3314935823a51601a4600aa5e426ac4f22dca43fd65e",
+      "digest": "00a59b5fcd210d23c569727f98453c77237bb2c2ae71ebfc0a69e9abf8e807ee",
+      "id": "cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+      "materialization_manifest_digest": "e83a136b61d3149f76f90a090ad15b04fa4aea56ae4b00d89ab76276f6d06538",
+      "materialized_view": ".runtime/cardevent/datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+      "path": "data/operations/cardevent-datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+      "split_digest": "939ecbcfa22d3658c966c383d24368f29ee915e4aa02be820fe2bf8f6f2c8fa0",
+      "split_id": "cardeventnet-interval-split-939ecbcfa22d3658c966",
+      "split_sha256": "9459cf6566db27ec131ee9f0d8543f8a49e6cdea7ae1bb442ae3106011a99caf"
+    },
+    "successor_validation_references": [
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "recording_id": "cardeventnet-IMG_0090",
+        "sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "recording_id": "cardeventnet-IMG_0091",
+        "sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-b76ee6895345ec9d9799c3eb01826a30/content.json",
+        "recording_id": "cardeventnet-IMG_0092",
+        "sha256": "0b960b96d8951e3b5dece39dc5a1ea4d842f2f55dc999b979014ab6fe15b3e42"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-3e2d3b060f2719da7d4e932825b78370/content.json",
+        "recording_id": "cardeventnet-IMG_0095",
+        "sha256": "f703e2470ee5a44eb7ad7b33e5ea37d0bff154e3c8428de686724e0c9718c88f"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-4643e6f10607988627190cc59ee064b3/content.json",
+        "recording_id": "cardeventnet-IMG_0096",
+        "sha256": "32f248fa149fb6c451214151eeacba0cbe9f5991fb1964f56dde435d914bf19c"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-c6478cd0fd7a716bf50f81fd6df34dc9/content.json",
+        "recording_id": "cardeventnet-IMG_0097",
+        "sha256": "94b943228fdf5ad6e5583d9b1ea1e799ce467a905308082c2743a0cfd40122f7"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "recording_id": "cardeventnet-IMG_0635",
+        "sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-0332acf97aeef7dcc7db5e3b5774e183/content.json",
+        "recording_id": "cardeventnet-IMG_0636",
+        "sha256": "e90b32470ceb2fedf611602caaab78de63417369c11fe08138f2b02f403ebcb4"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-95021e1921249e2f04315178295fa34a/content.json",
+        "recording_id": "cardeventnet-IMG_0637",
+        "sha256": "7985d1c370dc6d25e182a32e326a8e54f3d9f14437ce6f2de30206bab03cbbc7"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-96a83274f0a2c7673332e117aa4634a4/content.json",
+        "recording_id": "cardeventnet-IMG_0638",
+        "sha256": "619d360a90d6da36a19732b8003d68e0695044d09e9a90bf36ee918c111d62f4"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-cb2ed8f6119ff32735a45da28a189a7a/content.json",
+        "recording_id": "cardeventnet-IMG_0639",
+        "sha256": "a4ffedd1f8ae062baa9f68d9921f3b4f73d8582a7a4cd66357245ce28a35218f"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-e7b2713881051baff4e7670071adb2a3/content.json",
+        "recording_id": "cardeventnet-IMG_0640",
+        "sha256": "ce30cc7b74954a3c864e6a8de334adfaec382e2572d42ef29773c595a935ea01"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-2a160b004691519b79550b24f9bcb08c/content.json",
+        "recording_id": "cardeventnet-IMG_0641",
+        "sha256": "344ef5ec9a8b2903f21860de69a24866e6a3b4033290e2bcd3ee46b108d1661f"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-fcc734f9ba43827938d76753ccb30f8b/content.json",
+        "recording_id": "cardeventnet-IMG_0642",
+        "sha256": "4ec6d85bd6c48b0ebb3539e42267fbb92ec920aeb070ecd5e3a9a18ced903c1c"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-e091761f4d4d7dbbf586b250dfb5a4f9/content.json",
+        "recording_id": "cardeventnet-IMG_0643",
+        "sha256": "25b0fb8dfd565a8db5e8e8c8de5768932572884db3abdc7ee78c252df95f9fe1"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "recording_id": "cardeventnet-IMG_0644",
+        "sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-585f9c640a0f08acd383b9d2fd8b8b2f/content.json",
+        "recording_id": "cardeventnet-IMG_0645",
+        "sha256": "cda9228d3aa052863441dbeaca08de14fa73eb0430fd3c1548da38ded70a58b4"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-a1af76872facf447b6d82de10e530818/content.json",
+        "recording_id": "cardeventnet-IMG_0646",
+        "sha256": "8e5868bb63857c13baedab46ecb8417f00ab2647fee707f1469deaaf03e0977e"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-1e4ec9bdaf89a9899b15422126bd55f9/content.json",
+        "recording_id": "cardeventnet-IMG_0648",
+        "sha256": "eac7d85eced250c4fe831a8db6b65181fd57f1ed12f943a3e32e45891492fc56"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-f00fda54352eef72ccc6996d6d82cbe3/content.json",
+        "recording_id": "cardeventnet-IMG_0649",
+        "sha256": "e1bb4f9e195a5073328c434deac0c21a29228851f2993d6ee3125aa2736a1709"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-69ca04143d361f6529379023b4c4cc88/content.json",
+        "recording_id": "cardeventnet-IMG_0650",
+        "sha256": "dd27729e0e29845c329866de36f3318d77d2ebd0359c50217ed5fcc734888816"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3/content.json",
+        "recording_id": "cardeventnet-IMG_0651",
+        "sha256": "538025e40adc198061696a67e041ac859415a11cc9df8c58d2e5c3f063a41b0d"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "recording_id": "cardeventnet-IMG_0652",
+        "sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-726d441f95a2cd301ebdc0968532fa21/content.json",
+        "recording_id": "cardeventnet-IMG_0653",
+        "sha256": "c92653b4bee14595b001c9ab1a1d03e2505b24f9712f1f5927ec4bc893cccc8f"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-4fbcfe0c14e734b5431eaec5f8395e15/content.json",
+        "recording_id": "cardeventnet-IMG_0654",
+        "sha256": "988d3991a428658338f650903906f3c2fb8126a8607e16a0f7f3f90421178e1b"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-6fe976245fbbc3452c14decde7d85976/content.json",
+        "recording_id": "cardeventnet-IMG_0655",
+        "sha256": "156069aceef8af6e6cf041f877e9d927b78d1d38bf6a1c84fc5ebab92bd7e216"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-4e2126dc36ea31fc69de0981e6176a12/content.json",
+        "recording_id": "cardeventnet-IMG_0656",
+        "sha256": "a8c9e43fda9716e4fe5f78c423a740765962166eaf83b7420e52bc47e2b267fe"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-17e0b4ea8fc84cec099e237467798fdd/content.json",
+        "recording_id": "cardeventnet-IMG_0657",
+        "sha256": "b7b928f5e1738af2343dba68e83a4edee10c2e7dcd7141d03282b9d4971fa4f3"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7/content.json",
+        "recording_id": "cardeventnet-IMG_0658",
+        "sha256": "488c17855d168da02d32fc5735148c66e25c9a3fc6a07a185f96321464f58702"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d/content.json",
+        "recording_id": "cardeventnet-IMG_0659",
+        "sha256": "29bee4070c2554e307de97702281888589bd37be81006e67953c36c74c58cbad"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-964d49a8d059082ea0ae3017c4dd69d7/content.json",
+        "recording_id": "cardeventnet-IMG_0660",
+        "sha256": "84ce6ac3e302325eb6427bf8f33b3e1ca02adf51e21a094dfadcc2354cfd3a16"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "recording_id": "cardeventnet-IMG_0661",
+        "sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-fd5c08dc4f7540053b3ed1c04606b909/content.json",
+        "recording_id": "cardeventnet-IMG_0662",
+        "sha256": "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-d3f30c4175781edf8312682c9fabe4fd/content.json",
+        "recording_id": "cardeventnet-IMG_0669",
+        "sha256": "af27b82edd0fa2fb9e506fd2ab397ec9a9ed6af6d68b4639cfd6b562fea9a066"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-661ac3f29c7f5a4757421991868d7650/content.json",
+        "recording_id": "cardeventnet-IMG_0670",
+        "sha256": "1193221a4a091f8bdabe2d039e67c39e737114ee3f33c34e8a95d0a7f021a687"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-9a3fb1cf734515438cffb6bf5cae5882/content.json",
+        "recording_id": "cardeventnet-IMG_0671",
+        "sha256": "16836be1126832a7e37dd6a6ee8ef58e51e6055fa8236c65cf4d6f1c645bfe33"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc/content.json",
+        "recording_id": "cardeventnet-IMG_0673",
+        "sha256": "659b4b3496ba8f184497631c13bc23937e042eda3a2222e9f71cc2e48a461910"
+      },
+      {
+        "kind": "event_reference_content",
+        "path": "data/operations/pipeline/revisions/reference-events-81a51db94227767a839e5af4387b1cc2/content.json",
+        "recording_id": "cardeventnet-IMG_0674",
+        "sha256": "bfb81b35f60494a2504ddcbb43490e42a8769988e599b54213d2f1f617b1dcce"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "recording_id": "cardeventnet-IMG_0090",
+        "sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "recording_id": "cardeventnet-IMG_0091",
+        "sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-b76ee6895345ec9d9799c3eb01826a30/manifest.json",
+        "recording_id": "cardeventnet-IMG_0092",
+        "sha256": "d83d85202ed811a73c6dc4d92c55cd42a2561237d91513f057b453736098f95d"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-3e2d3b060f2719da7d4e932825b78370/manifest.json",
+        "recording_id": "cardeventnet-IMG_0095",
+        "sha256": "4368892c0735f9b6552da19bdb5333588bafc60c5b2a7bd925de5ee8ef4d7dec"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-4643e6f10607988627190cc59ee064b3/manifest.json",
+        "recording_id": "cardeventnet-IMG_0096",
+        "sha256": "0a63838e64bcb4d0da48e965e35b1fd0d41f0ce3de9ab0c24590df067788a7a9"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-c6478cd0fd7a716bf50f81fd6df34dc9/manifest.json",
+        "recording_id": "cardeventnet-IMG_0097",
+        "sha256": "399f13e6b9dcfc027c608d45d1e8cedac441048be39ee990463f51ca452c0ae2"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "recording_id": "cardeventnet-IMG_0635",
+        "sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-0332acf97aeef7dcc7db5e3b5774e183/manifest.json",
+        "recording_id": "cardeventnet-IMG_0636",
+        "sha256": "1d40b725f7263177a421e4b4f45d0a77cdcb5693cb95ae4ec331e8c152a27d6c"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-95021e1921249e2f04315178295fa34a/manifest.json",
+        "recording_id": "cardeventnet-IMG_0637",
+        "sha256": "4649b35fa82e6f02bdbdf9a3611e474112e43a33c12b2d5e507e89a8ff8659b0"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-96a83274f0a2c7673332e117aa4634a4/manifest.json",
+        "recording_id": "cardeventnet-IMG_0638",
+        "sha256": "c4bdc399462fa8bc662adfc4ea64570e69d09d946ec417fa1fe99af01c351e50"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-cb2ed8f6119ff32735a45da28a189a7a/manifest.json",
+        "recording_id": "cardeventnet-IMG_0639",
+        "sha256": "449c6c8e7c3fb225adb784e1cc3bb594e0e525d62a8f5f90fb37d65e8795de34"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-e7b2713881051baff4e7670071adb2a3/manifest.json",
+        "recording_id": "cardeventnet-IMG_0640",
+        "sha256": "d672ab5e7b56f8c2cba01bd3f6509b0a64572c3f227f22855fdbe7f99451a7ae"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-2a160b004691519b79550b24f9bcb08c/manifest.json",
+        "recording_id": "cardeventnet-IMG_0641",
+        "sha256": "d75b81f97a167726282326d0b0f1d857fa837fbc8d2d369a1b9627923be6d086"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-fcc734f9ba43827938d76753ccb30f8b/manifest.json",
+        "recording_id": "cardeventnet-IMG_0642",
+        "sha256": "ada2b7778ad8c15772d3c8615efdcd93f21ce3afe90d9dfd663e59cc4c0a57fb"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-e091761f4d4d7dbbf586b250dfb5a4f9/manifest.json",
+        "recording_id": "cardeventnet-IMG_0643",
+        "sha256": "c27ab9283d2f956bd71f52fdc96b852dee13c8b8016362ce49e1f995beb7363f"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "recording_id": "cardeventnet-IMG_0644",
+        "sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-585f9c640a0f08acd383b9d2fd8b8b2f/manifest.json",
+        "recording_id": "cardeventnet-IMG_0645",
+        "sha256": "e761faf594a4ea5607bb9845b1c59c248dd087f2c4e8c2b49f0240830ef219d4"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-a1af76872facf447b6d82de10e530818/manifest.json",
+        "recording_id": "cardeventnet-IMG_0646",
+        "sha256": "bd42b8a28cb8033b9cb9b6f6a3c570a3407d5ceb779375a32c3c27e18d726996"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-1e4ec9bdaf89a9899b15422126bd55f9/manifest.json",
+        "recording_id": "cardeventnet-IMG_0648",
+        "sha256": "3b9f9716f80139f651f2dbd30461d2c129e756ff4a88118934650a64a2bae039"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-f00fda54352eef72ccc6996d6d82cbe3/manifest.json",
+        "recording_id": "cardeventnet-IMG_0649",
+        "sha256": "fb7771f813a5c7c34ac3e689f21e5c57ea9e7bf457c3ab2073604151034fa323"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-69ca04143d361f6529379023b4c4cc88/manifest.json",
+        "recording_id": "cardeventnet-IMG_0650",
+        "sha256": "2c708fd806419fca466fcdca4e719681256e219e1c61589758b54074780f7f29"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3/manifest.json",
+        "recording_id": "cardeventnet-IMG_0651",
+        "sha256": "235f95da08b86b0e12bbbb36f50b07dda763592f00291a9c8ff512d88050a1a3"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "recording_id": "cardeventnet-IMG_0652",
+        "sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-726d441f95a2cd301ebdc0968532fa21/manifest.json",
+        "recording_id": "cardeventnet-IMG_0653",
+        "sha256": "7b3d954667eab1bf3c13188aa569146ca4311c5002a4e5d129f802a39b62bf32"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-4fbcfe0c14e734b5431eaec5f8395e15/manifest.json",
+        "recording_id": "cardeventnet-IMG_0654",
+        "sha256": "f5625f4126675b717b22c7d04314dc30f462620c70e07992de4c6f43e73923c0"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-6fe976245fbbc3452c14decde7d85976/manifest.json",
+        "recording_id": "cardeventnet-IMG_0655",
+        "sha256": "e0c7ff75b6df834f7722c7009ac41a7c9d1e39553218976e48728dca10781bea"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-4e2126dc36ea31fc69de0981e6176a12/manifest.json",
+        "recording_id": "cardeventnet-IMG_0656",
+        "sha256": "340afa7ed3959741aa2d2b5d64f33070a17fd934734232dcafcd49763018cda0"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-17e0b4ea8fc84cec099e237467798fdd/manifest.json",
+        "recording_id": "cardeventnet-IMG_0657",
+        "sha256": "6bad2154676cc410d72131dcb0f6bc49212f329f6015e8e4b2bed2c01f453082"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7/manifest.json",
+        "recording_id": "cardeventnet-IMG_0658",
+        "sha256": "b63967b266f203456bac6288f91f851ddb0443c274f0e0eb215d22d5b483dfa1"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d/manifest.json",
+        "recording_id": "cardeventnet-IMG_0659",
+        "sha256": "1fa92c3240a1172b131f5629676fa4dee91374b9e0d3268827e9e19f37b88472"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-964d49a8d059082ea0ae3017c4dd69d7/manifest.json",
+        "recording_id": "cardeventnet-IMG_0660",
+        "sha256": "0505c4f926c2f74b47ea886bd122e1f2ff3a0e58aa389fb6f10a313e6c256ce0"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "recording_id": "cardeventnet-IMG_0661",
+        "sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-fd5c08dc4f7540053b3ed1c04606b909/manifest.json",
+        "recording_id": "cardeventnet-IMG_0662",
+        "sha256": "445dfe37c166eb3b6c76761a30fee13838761ed71acd4e59d1bebf3317b6bf91"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-d3f30c4175781edf8312682c9fabe4fd/manifest.json",
+        "recording_id": "cardeventnet-IMG_0669",
+        "sha256": "fac3a22f445f9ed6abe588bcfb2604ec7b85aac700f56cb2410f561d6565c920"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-661ac3f29c7f5a4757421991868d7650/manifest.json",
+        "recording_id": "cardeventnet-IMG_0670",
+        "sha256": "7b05a84254a8173f7bf4c1f54c79e766e8109aae974f2c7efe8cd932977bbf06"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-9a3fb1cf734515438cffb6bf5cae5882/manifest.json",
+        "recording_id": "cardeventnet-IMG_0671",
+        "sha256": "fb5353ea1485fbeb4785a0d4513d9cf4d372d170ae735a9bf90426d68bd074e0"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc/manifest.json",
+        "recording_id": "cardeventnet-IMG_0673",
+        "sha256": "00386be16a9ed771b02e395b683cf1a940372de568d687473cea8902da3bbd06"
+      },
+      {
+        "kind": "event_reference_manifest",
+        "path": "data/operations/pipeline/revisions/reference-events-81a51db94227767a839e5af4387b1cc2/manifest.json",
+        "recording_id": "cardeventnet-IMG_0674",
+        "sha256": "9025dec385f013518eddd240922f46644625b0d9b3ad76368772390c0ba4d391"
+      }
+    ],
+    "threshold": 0.4271905720233917,
+    "training_dataset": {
+      "digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+      "id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4"
+    }
+  },
+  "integration_lock": {
+    "digest": "4f8ea516ebee9930cf0105f8bae94690510d299e2522ea7bb6a7f8d83fbd78eb",
+    "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-lock.json",
+    "sha256": "69233e9a514ff717848fd5a77f03c0ac914e752c501b1846ebc8eb2cf844da50"
+  },
+  "long_commands_started": false,
+  "operator_order": [
+    "sealed_test",
+    "export_and_parity"
+  ],
+  "promotion_receipt_written": false,
+  "result_digest": "58df18f3e1d7fa662fb6f2bed3d2c7068ee626a43c430a9af01ae81e776d3476",
+  "schema_version": "cardeventnet-m14-development-integration/v1",
+  "sealed_test_handoff": {
+    "digest": "071229fd079e92e07920b931d5ca80c2a4320d91d4b3eecede91a7e5126af492",
+    "maximum_evaluations": 1,
+    "path": "data/model-campaigns/cardeventnet-0063-m14-development-integration/sealed-test-handoff.json",
+    "sha256": "39beecdc0e02b1d0d6ff0e01f762d4dcf2aa61b50dd8ab5e4b36a444c04f9631"
+  },
+  "sealed_test_read": false,
+  "source_campaign_id": "cardeventnet-0063-m9-hard-negative-ablation",
+  "state": "ready_for_operator",
+  "system_holdout_read": false
+}

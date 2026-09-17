@@ -7,6 +7,7 @@ import pytest
 from cardevent.evaluate import (
     ScoredVideo,
     ThresholdSelection,
+    _apply_threshold_override,
     _transition_diagnostics_path,
     diagnose_checkpoint_from_files,
     evaluate_streams,
@@ -21,6 +22,21 @@ from cardevent.transition_diagnostics import (
     diagnose_saved_validation_stream,
     transition_diagnostics,
 )
+
+
+def test_explicit_threshold_override_applies_to_non_validation_evaluation() -> None:
+    selection = ThresholdSelection(
+        threshold=0.2,
+        metrics={},
+        candidates=(),
+        max_f1=0.0,
+        max_f1_threshold=0.2,
+    )
+
+    resolved = _apply_threshold_override(selection, 0.4271905720233917)
+
+    assert resolved.threshold == 0.4271905720233917
+    assert resolved.selection_reason == "explicit"
 
 
 def test_probability_axis_helper_draws_shared_event_markers() -> None:

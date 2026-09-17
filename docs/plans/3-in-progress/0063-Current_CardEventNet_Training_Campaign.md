@@ -7,10 +7,11 @@
   bounded manual training campaign that produces a new CardEventNet model.
 - **Status:** In Progress
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
-- **Readiness:** M0–M13 and the operator-run campaigns are complete. The M12 timing response did
+- **Readiness:** M0–M14 and the operator-run campaigns are complete. The M12 timing response did
   not improve overall event coverage enough to replace the M9 hard-negative checkpoint. The
   operator accepts M9 as the development baseline so that end-to-end pipeline work can measure
-  the cost of its remaining errors. M14 is ready. The sealed test remains unread. Long test,
+  the cost of its remaining errors. M14 created an immutable integration lock and exact sealed-test
+  and Core ML export/parity handoffs. The sealed test remains unread. Long test,
   export, and optional diagnostic commands are operator-run and are never started or monitored by
   an implementation agent.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
@@ -111,9 +112,12 @@
   has 35 duplicate detections, 86.77% event-presence recall, and fails the 60 stable-end and 98%
   event-presence gates. M13 records `human_review_required` and creates no candidate lock. No
   sealed-test or system-holdout output is read.
-- **M14:** Not started — ready. Record the explicit M9 development-baseline decision, create its
-  immutable integration lock, and prepare the one-time sealed-test and Core ML export/parity
-  handoffs without running or monitoring operator-only commands.
+- **M14:** Complete (2026-09-17) — the M9 hard-negative checkpoint is frozen as a development-only
+  integration baseline at threshold `0.4271905720233917` with the causal decoder. The immutable
+  lock binds the original training lineage, successor validation references, failed gates, M9 code
+  revision and environment, and unchanged champion registry. One sealed-test evaluation and one
+  Core ML export/parity handoff are ready. No long command, sealed-test read, export, promotion,
+  or champion change occurred.
 - **M15:** Not started — blocked until the operator completes the M14 handoffs. Validate the sealed
   test and export/parity outputs, retain the integration bundle, publish the final campaign report,
   and close the epic without promoting M9 as the production champion.

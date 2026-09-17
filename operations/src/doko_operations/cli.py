@@ -66,6 +66,11 @@ from .cardevent_m13 import (
     compare_cardeventnet_m13_timing_candidate,
     render_cardeventnet_m13_human,
 )
+from .cardevent_m14 import (
+    CardEventM14Error,
+    prepare_cardeventnet_m14_integration_handoff,
+    render_cardeventnet_m14_human,
+)
 from .cardevent_materialization import (
     CardEventNetMaterializationError,
     materialize_cardeventnet_dataset,
@@ -640,6 +645,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_path_options(m13_compare, suppress_defaults=True)
     _add_model_options(m13_compare)
     m13_compare.add_argument("campaign_id")
+    m14_prepare = model_commands.add_parser(
+        "prepare-card-event-net-m14",
+        help="Lock the M9 development baseline and prepare M14 operator handoffs.",
+    )
+    _add_path_options(m14_prepare, suppress_defaults=True)
+    _add_model_options(m14_prepare)
+    m14_prepare.add_argument("campaign_id")
     improve = model_commands.add_parser(
         "improve", help="Run or resume a bounded component improvement campaign."
     )
@@ -1776,6 +1788,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else:
                     sys.stdout.write(render_cardeventnet_m13_human(result))
                 return 0
+            if args.model_command == "prepare-card-event-net-m14":
+                result = prepare_cardeventnet_m14_integration_handoff(
+                    args.campaign_id,
+                    repository_root=config.repository_root,
+                    campaign_root=args.campaign_root,
+                )
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(render_cardeventnet_m14_human(result))
+                return 0
             if args.model_command == "promote":
                 campaign_root = (
                     args.campaign_root or config.repository_root / "data" / "model-campaigns"
@@ -1906,6 +1929,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             CardEventM11Error,
             CardEventM12Error,
             CardEventM13Error,
+            CardEventM14Error,
             ModelImprovementError,
             SystemHoldoutError,
             SystemHoldoutEvaluationError,
