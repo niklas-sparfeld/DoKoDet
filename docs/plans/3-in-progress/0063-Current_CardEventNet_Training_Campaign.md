@@ -103,11 +103,15 @@
   interval-aware endpoint response. It keeps the checkpoint architecture, causal clip, decoder,
   seed, device, precision, hard-negative manifest, and partition fixed, and narrows only the
   stable-end positive window from 0.250 seconds to 0.125 seconds. The exact operator handoff is
-  `data/model-campaigns/cardeventnet-0063-m12-timing-response/m12-result.json`; training remains
-  unstarted and sealed test remains unread.
-- **M13:** Not started — after the operator runs the M12 command, compare the candidate on the
-  successor validation partition and either lock it or retain `human_review_required`.
-- **M14:** Not started — blocked until M13 creates a candidate lock. Prepare and validate the
+  `data/model-campaigns/cardeventnet-0063-m12-timing-response/m12-result.json`; the operator
+  completed the handoff and sealed test remains unread.
+- **M13:** Complete (2026-09-17) — the completed M12 candidate is compared with the M9 checkpoint
+  on the same successor validation references and fixed causal decoder. The candidate improves
+  stable-end matches from 49 to 54 and reduces confirmed no-event triggers from 25 to 15, but it
+  has 35 duplicate detections, 86.77% event-presence recall, and fails the 60 stable-end and 98%
+  event-presence gates. M13 records `human_review_required` and creates no candidate lock. No
+  sealed-test or system-holdout output is read.
+- **M14:** Not started — blocked because M13 did not create a candidate lock. Prepare and validate the
   one-time sealed-test, export, parity, and promotion handoffs without running operator-only
   commands.
 
@@ -784,8 +788,8 @@ Result: M12 is complete. M11 selected no decoder, so the response is
 operator handoff are under
 `data/model-campaigns/cardeventnet-0063-m12-timing-response/`. The handoff contains exact
 materialization, train, resume, validation, and diagnostics commands. It keeps interval interiors
-ignored and does not read the sealed test or system holdout. The operator must run the handoff and
-report completion before M13 compares the candidate.
+ignored and does not read the sealed test or system holdout. The operator completed the handoff
+before M13 compared the candidate.
 
 ### M13 — Compare and lock the timing candidate
 
@@ -804,6 +808,13 @@ Acceptance:
 - the candidate decision is reproducible and uses no sealed-test or system-holdout output; and
 - a lock binds the checkpoint, threshold, decoder, dataset, split, reference revisions, code, and
   environment.
+
+Result: M13 is complete. The M12 candidate output is complete and lineage-valid. The comparison
+uses the successor validation partition only and replays the declared causal decoder without
+changing annotations, threshold, decoder, or training recipe. The candidate is not lockable:
+stable-end matches are 54 (minimum 60), duplicate detections are 35 (maximum 32), and
+event-presence recall is 86.77% (minimum 98%). The decision is `human_review_required`; M14 is
+blocked until a later authorized campaign produces a valid candidate lock.
 
 ### M14 — Manual sealed test, export, and handoff
 

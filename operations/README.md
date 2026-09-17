@@ -460,6 +460,25 @@ The handoff includes exact materialization, train, resume, validation, and diagn
 expected output paths, and a fixed 12-hour operator time budget. The operator runs the commands;
 M12 does not start or monitor training and does not read sealed-test or system-holdout output.
 
+## Epic 0063 M13 timing-candidate comparison
+
+After the operator completes the M12 handoff, compare the candidate with the M9 checkpoint on the
+same successor validation references:
+
+```bash
+mise exec -- uv run --project operations doko model compare-card-event-net-m13 \
+  cardeventnet-0063-m12-timing-response \
+  --repository-root .
+```
+
+The command validates output completeness and lineage before it reads metrics. It replays the
+fixed causal decoder, reports strict stable-end metrics separately from interval-presence
+diagnostics, and applies the M12 gates without changing annotations, thresholds, decoder
+settings, or the training recipe. It writes `m13-comparison.json`, `m13-result.json`, and
+`m13-report.md` below the M12 campaign directory. It creates a candidate lock only when every
+gate passes. The current result is `human_review_required`; it reads no sealed test or system
+holdout.
+
 ## Epic 0066 interval-review pilot
 
 M4 publishes one bounded trick-clear review as a corrected event revision, then derives a
