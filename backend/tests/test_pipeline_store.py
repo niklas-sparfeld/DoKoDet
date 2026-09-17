@@ -259,6 +259,27 @@ def test_run_store_publishes_request_and_state_together_and_supports_retry(tmp_p
     )
 
 
+def test_run_store_ignores_removed_atomic_state_temp_files_during_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    run_store.create(request())
+    run_path = run_store.run_path("run-01")
+    removed_temp_path = run_path / ".state.json.removed.tmp"
+    original_rglob = Path.rglob
+
+    def rglob_with_stale_temp(path: Path, pattern: str):
+        members = list(original_rglob(path, pattern))
+        if path == run_path:
+            members.append(removed_temp_path)
+        return iter(members)
+
+    monkeypatch.setattr(Path, "rglob", rglob_with_stale_temp)
+
+    assert run_store.get("run-01") is not None
+    assert [item.run_id for item in run_store.list_statuses()] == ["run-01"]
+
+
 def test_run_store_requires_published_output_and_rejects_illegal_transition(tmp_path: Path) -> None:
     revision_store = PipelineRevisionStore(tmp_path / "runtime")
     revision_store.publish(

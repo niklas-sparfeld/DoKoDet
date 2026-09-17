@@ -188,6 +188,8 @@ class TemporaryEvidencePackage:
         final_path = self.storage.package_path(self.package_id)
         if final_path.exists():
             raise FileExistsError(final_path)
+        if not (self.temporary_path / "manifest.json").is_file():
+            raise ValueError("manifest.json must be written before commit")
         files = self.file_digests()
         commit_staged_directory(self.temporary_path, final_path)
         self._committed = True

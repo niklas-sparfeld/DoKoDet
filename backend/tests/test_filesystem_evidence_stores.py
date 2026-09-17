@@ -84,6 +84,18 @@ def test_package_store_accepts_harmless_extra_files(tmp_path: Path) -> None:
     assert [item.package_id for item in packages] == [PACKAGE_ID]
 
 
+def test_package_storage_does_not_publish_without_bundle_manifest(tmp_path: Path) -> None:
+    storage = EvidencePackageStorage(tmp_path / "evidence-packages")
+
+    with storage.start_package(PACKAGE_ID) as upload:
+        upload.write_part("frames/frame_00.jpg", b"frame")
+        with pytest.raises(ValueError, match="manifest.json must be written"):
+            upload.commit()
+
+    assert not storage.package_path(PACKAGE_ID).exists()
+    assert list(storage.root.glob(".upload-*")) == []
+
+
 def test_package_store_excludes_incomplete_bundles_and_reports_diagnostics(
     tmp_path: Path, caplog
 ) -> None:

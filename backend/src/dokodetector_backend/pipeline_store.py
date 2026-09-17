@@ -237,6 +237,12 @@ def _strict_json_file(raw: bytes, expected: bytes, context: str) -> None:
         raise PipelineDataContractError(f"{context} is not canonical JSON")
 
 
+def _is_atomic_json_temp(path: Path) -> bool:
+    """Identify store-owned JSON replacement files without a second filesystem lookup."""
+
+    return path.name.endswith(".tmp") and path.name.startswith((".request.json.", ".state.json."))
+
+
 class PipelineRevisionStore:
     """Publish and read immutable pipeline data revisions."""
 
@@ -711,7 +717,7 @@ class ProcessorRunStore:
         statuses: list[ProcessorRunStatus] = []
         for path in enumeration.paths:
             try:
-                members = list(path.rglob("*"))
+                members = [member for member in path.rglob("*") if not _is_atomic_json_temp(member)]
                 if any(member.is_symlink() for member in members) or any(
                     member.is_dir() for member in members
                 ):
@@ -1036,18 +1042,7 @@ class ProcessorRunStore:
     def _read_path(self, path: Path, *, require_canonical_name: bool = True) -> StoredProcessorRun:
         if path.is_symlink() or not path.is_dir():
             raise OSError("processor run directory is unavailable")
-        members = [
-            member
-            for member in path.rglob("*")
-            if not (
-                member.is_file()
-                and member.name.endswith(".tmp")
-                and (
-                    member.name.startswith(".request.json.")
-                    or member.name.startswith(".state.json.")
-                )
-            )
-        ]
+        members = [member for member in path.rglob("*") if not _is_atomic_json_temp(member)]
         if any(member.is_symlink() for member in members) or any(
             member.is_dir() for member in members
         ):
