@@ -240,6 +240,87 @@ def test_default_card_event_provider_freezes_discovered_checkpoint(
         )
 
 
+def test_default_card_event_provider_uses_0063_integration_checkpoint(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import cardevent
+
+    _install_recording(tmp_path)
+    checkpoint = (
+        tmp_path
+        / "data"
+        / "model-campaigns"
+        / "cardeventnet-0063-m9-hard-negative-ablation"
+        / "runs"
+        / "candidate-hard-negative-v1"
+        / "best.pt"
+    )
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"integration-checkpoint")
+    contract_path = (
+        tmp_path
+        / "data"
+        / "model-campaigns"
+        / "cardeventnet-0063-m14-development-integration"
+        / "integration-contract.json"
+    )
+    contract_path.parent.mkdir(parents=True)
+    contract_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "cardeventnet-m15-integration-contract/v1",
+                "role": "development_integration_model",
+                "production_promotion_eligible": False,
+                "threshold": 0.4271905720233917,
+                "decoder": {"min_event_gap_s": 0.625},
+                "checkpoint": {
+                    "path": checkpoint.relative_to(tmp_path).as_posix(),
+                    "sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+                },
+            }
+        )
+    )
+
+    calls: dict[str, object] = {}
+
+    def fake_infer_from_files(checkpoint_path, video_path, **kwargs):
+        calls.update(checkpoint_path=checkpoint_path, video_path=video_path, kwargs=kwargs)
+        return {"events": []}
+
+    monkeypatch.setattr(cardevent, "infer_from_files", fake_infer_from_files)
+    app = create_test_app(_settings(tmp_path))
+
+    with TestClient(app) as client:
+        request = _request("run-0063-integration-cardevent")
+        request["configuration"] = {}
+        created = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json=request,
+        )
+
+        assert created.status_code == 202
+        assert created.json()["request"]["configuration"]["checkpoint_path"] == (
+            "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/"
+            "runs/candidate-hard-negative-v1/best.pt"
+        )
+        assert created.json()["request"]["configuration"] == {
+            "checkpoint_path": (
+                "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/"
+                "runs/candidate-hard-negative-v1/best.pt"
+            ),
+            "threshold": 0.4271905720233917,
+            "merge_window_s": 0.625,
+        }
+        assert (
+            _wait_for_status(client, "run-0063-integration-cardevent", "complete")["state"][
+                "status"
+            ]
+            == "complete"
+        )
+    assert calls["checkpoint_path"] == checkpoint
+
+
 def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
     tmp_path: Path,
 ) -> None:

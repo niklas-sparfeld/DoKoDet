@@ -42,9 +42,10 @@ uv sync
 ```
 
 The backend sync installs the local CardEventNet provider used by the event processor. It uses the
-newest `card_event_net/data/outputs/**/best.pt` checkpoint when one is present. Set
-`CARD_EVENT_CHECKPOINT_PATH` to select a specific checkpoint. A prepared video cache is still
-required for an inference run.
+newest `card_event_net/data/outputs/**/best.pt` checkpoint when one is present. When that directory
+has no checkpoint, it uses the digest-checked development integration checkpoint recorded in the
+0063 integration contract. Set `CARD_EVENT_CHECKPOINT_PATH` to select a specific checkpoint. A
+prepared video cache is still required for an inference run.
 
 For the local visible-card provider, install its pinned native inference dependency as well:
 

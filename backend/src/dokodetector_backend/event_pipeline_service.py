@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
+from math import isfinite
 from pathlib import Path
 from threading import RLock
 from typing import Any, Protocol
@@ -58,6 +59,18 @@ from dokodetector_backend.video_probe import VideoProbeError, probe_video_path_m
 LOGGER = logging.getLogger(__name__)
 _SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._:-]+")
 _UTC = timezone.utc
+_CARD_EVENT_INTEGRATION_CONTRACT = Path(
+    "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-contract.json"
+)
+_CARD_EVENT_INTEGRATION_SCHEMA = "cardeventnet-m15-integration-contract/v1"
+_DEFAULT_CARD_EVENT_THRESHOLD = 0.5
+
+
+@dataclass(frozen=True, slots=True)
+class _CheckpointDefaults:
+    path: Path
+    threshold: float = _DEFAULT_CARD_EVENT_THRESHOLD
+    merge_window_s: float | None = None
 
 
 class EventProcessorProvider(Protocol):
@@ -154,24 +167,111 @@ def _configured_path(
 
 
 def _discover_checkpoint(repository_root: Path) -> Path | None:
-    """Find the newest CardEventNet training checkpoint in the local output directory."""
+    """Find the default CardEventNet checkpoint for local pipeline runs."""
+
+    defaults = _discover_checkpoint_defaults(repository_root)
+    return None if defaults is None else defaults.path
+
+
+def _discover_checkpoint_defaults(repository_root: Path) -> _CheckpointDefaults | None:
+    """Find the default CardEventNet checkpoint and its local decoding defaults."""
 
     output_root = repository_root / "card_event_net" / "data" / "outputs"
     try:
         candidates = [path for path in output_root.rglob("best.pt") if path.is_file()]
     except OSError:
         return None
-    if not candidates:
+    if candidates:
+
+        def sort_key(path: Path) -> tuple[int, str]:
+            try:
+                modified_ns = path.stat().st_mtime_ns
+            except OSError:
+                modified_ns = -1
+            return modified_ns, path.as_posix()
+
+        return _CheckpointDefaults(path=max(candidates, key=sort_key))
+
+    return _discover_integration_checkpoint_defaults(repository_root)
+
+
+def _discover_integration_checkpoint_defaults(repository_root: Path) -> _CheckpointDefaults | None:
+    """Resolve the immutable 0063 checkpoint and decoder defaults, when present."""
+
+    contract_path = repository_root / _CARD_EVENT_INTEGRATION_CONTRACT
+    try:
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(contract, Mapping):
+        return None
+    if (
+        contract.get("schema_version") != _CARD_EVENT_INTEGRATION_SCHEMA
+        or contract.get("role") != "development_integration_model"
+        or contract.get("production_promotion_eligible") is not False
+    ):
         return None
 
-    def sort_key(path: Path) -> tuple[int, str]:
-        try:
-            modified_ns = path.stat().st_mtime_ns
-        except OSError:
-            modified_ns = -1
-        return modified_ns, path.as_posix()
+    checkpoint = contract.get("checkpoint")
+    if not isinstance(checkpoint, Mapping):
+        return None
+    relative_path = checkpoint.get("path")
+    expected_digest = checkpoint.get("sha256")
+    if (
+        not isinstance(relative_path, str)
+        or not relative_path.strip()
+        or Path(relative_path).is_absolute()
+        or not isinstance(expected_digest, str)
+        or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_digest)
+    ):
+        return None
 
-    return max(candidates, key=sort_key)
+    path = (repository_root / relative_path).resolve()
+    try:
+        path.relative_to(repository_root.resolve())
+    except ValueError:
+        return None
+    if not path.is_file():
+        return None
+    if _sha256_file(path) != expected_digest.lower():
+        return None
+
+    threshold = contract.get("threshold")
+    decoder = contract.get("decoder")
+    if (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, (int, float))
+        or not isfinite(float(threshold))
+        or not 0.0 <= float(threshold) <= 1.0
+        or not isinstance(decoder, Mapping)
+    ):
+        return None
+    merge_window = decoder.get("min_event_gap_s")
+    if (
+        isinstance(merge_window, bool)
+        or not isinstance(merge_window, (int, float))
+        or not isfinite(float(merge_window))
+        or float(merge_window) < 0.0
+    ):
+        return None
+    return _CheckpointDefaults(
+        path=path,
+        threshold=float(threshold),
+        merge_window_s=float(merge_window),
+    )
+
+
+def _sha256_file(path: Path) -> str:
+    """Return a file SHA-256 digest without loading the file into memory."""
+
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+    except OSError:
+        return ""
+    return digest.hexdigest()
 
 
 def _request_path(path: Path, repository_root: Path) -> str:
@@ -420,20 +520,30 @@ class EventPipelineService:
         provider = self.event_provider
         if not isinstance(provider, CardEventFileProvider):
             return request
-        if any(key in request.configuration for key in ("checkpoint_path", "checkpoint")):
-            return request
+        configuration = dict(request.configuration)
         checkpoint = (
-            provider.resolve_checkpoint_path(request.configuration)
-            or self.card_event_checkpoint_path
-            or _discover_checkpoint(self.settings.repository_root)
+            provider.resolve_checkpoint_path(configuration) or self.card_event_checkpoint_path
         )
+        defaults = None
+        if checkpoint is None:
+            defaults = _discover_checkpoint_defaults(self.settings.repository_root)
+            checkpoint = None if defaults is None else defaults.path
         if checkpoint is None:
             raise PipelineInputError(
                 "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH "
                 "or add a trained best.pt under card_event_net/data/outputs."
             )
-        configuration = dict(request.configuration)
-        configuration["checkpoint_path"] = _request_path(checkpoint, self.settings.repository_root)
+
+        if not any(key in configuration for key in ("checkpoint_path", "checkpoint")):
+            configuration["checkpoint_path"] = _request_path(
+                checkpoint, self.settings.repository_root
+            )
+        configuration.setdefault(
+            "threshold",
+            _DEFAULT_CARD_EVENT_THRESHOLD if defaults is None else defaults.threshold,
+        )
+        if defaults is not None and defaults.merge_window_s is not None:
+            configuration.setdefault("merge_window_s", defaults.merge_window_s)
         return replace(request, configuration=configuration)
 
     def _accepted_source(
