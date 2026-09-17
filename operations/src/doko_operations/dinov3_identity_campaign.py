@@ -9,13 +9,32 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import shutil
+import subprocess
+import tempfile
 from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from table_evidence_analyzer.cards import CARD_IDENTITIES
+from table_evidence_analyzer.data import (
+    ARTIFACT_INDEX_SCHEMA,
+    CROP_CACHE_SCHEMA,
+    DATASET_VERSION_SCHEMA,
+    TARGET_SCHEMA,
+    ArtifactIndex,
+    ArtifactRecord,
+    CropArtifact,
+    CropCache,
+    DatasetEntry,
+    DatasetManifest,
+    Eligibility,
+    SplitManifest,
+    assert_valid_dataset,
+)
 from table_evidence_analyzer.local_identity import (
     DINOV3_ARCHITECTURE,
     DINOV3_AUGMENTATION_CONFIG,
@@ -37,14 +56,20 @@ from table_evidence_analyzer.pipeline_data import (
     VisualIdentityData,
 )
 
+from .derived_view import DEFAULT_TRANSFORM_VERSION as DERIVED_VIEW_TRANSFORM_VERSION
+from .derived_view import ResolvedFrame, resolve_exact_event, resolve_visible_region_crop
 from .holdout import load_system_holdout_registry, sealed_group_keys
 from .intake import inspect_repository
+from .pipeline_data import RecordingVideoSource
 from .source_exclusion import SourceExclusionError, ensure_source_allowed
 
 DINOV3_PREFLIGHT_SCHEMA_VERSION = "dinov3-identity-preflight/v1"
+DINOV3_PREPARATION_SCHEMA_VERSION = "dinov3-identity-preparation/v1"
 DINOV3_CAMPAIGN_ID = "0043-m0-first-local-dinov3-card-identifier"
+DINOV3_CAMPAIGN_ID_PREFIX = "0043-m1-dinov3-identity"
 DINOV3_IDENTITY_CONFIG_SCHEMA = "dinov3-identity-config/v1"
 DINOV3_REQUIRED_CROP_POLICY = "predicted_visible_region"
+DINOV3_CROP_TRANSFORM_VERSION = DERIVED_VIEW_TRANSFORM_VERSION
 DINOV3_TRAINING_DEVICE = "mps"
 DINOV3_SEED = 17
 DINOV3_MAX_EPOCHS = 20
@@ -65,6 +90,10 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 class DinoV3IdentityPreflightError(ValueError):
     """Raised when an M0 preflight input is malformed."""
+
+
+class DinoV3IdentityCampaignError(ValueError):
+    """Raised when the M1 campaign input cannot be frozen safely."""
 
 
 def _canonical(value: Any) -> bytes:
@@ -558,6 +587,14 @@ def _source_inventory(
                 and (_file_sha256(video_path) != bundle_digest)
             ):
                 gaps.append(f"{bundle.recording_id}: source video bytes differ from its digest")
+        source_duration_us = source.get("duration_us", manifest.get("duration_us"))
+        if (
+            isinstance(source_duration_us, bool)
+            or not isinstance(source_duration_us, int)
+            or source_duration_us <= 0
+        ):
+            gaps.append(f"{bundle.recording_id}: source duration_us is invalid")
+            source_duration_us = None
         allowed_uses = source.get("allowed_uses")
         if not isinstance(allowed_uses, list) or any(
             not isinstance(value, str) for value in allowed_uses
@@ -578,6 +615,7 @@ def _source_inventory(
                 "allowed_uses": sorted(set(allowed_uses)),
                 "retention_state": source.get("retention_state"),
                 "task_selected": task_selected,
+                "source_duration_us": source_duration_us,
                 "manifest_path": _relative(bundle_path / "manifest.json", repository),
                 "manifest_sha256": _file_sha256(bundle_path / "manifest.json"),
                 "source_record_path": _relative(source_path, repository),
@@ -586,6 +624,11 @@ def _source_inventory(
                 ),
                 "source_video_path": (
                     _relative(video_path, repository) if video_path is not None else None
+                ),
+                "source_byte_length": (
+                    video_path.stat().st_size
+                    if video_path is not None and video_path.is_file()
+                    else None
                 ),
                 "source_groups": {
                     "session_id": source.get("session_id", manifest.get("session_id")),
@@ -943,6 +986,9 @@ def _analyze_recording(
                 "card_id": card_id,
                 "target": target,
                 "card_side": visible.get("side", "unknown"),
+                "frame_identity": dict(identity.get("frame_identity", {})),
+                "geometry": dict(identity.get("geometry", {})),
+                "crop_identity": dict(crop),
                 "visible_card_revision_id": visible_id,
                 "visual_identity_revision_id": identity_id,
                 "frame_identity_digest": sha256_json(identity.get("frame_identity")),
@@ -1217,6 +1263,18 @@ def build_dinov3_identity_preflight(
                 "partition": partition,
                 "visible_card_revision_id": visible_reference["selected_revision_id"],
                 "visual_identity_revision_id": identity_reference["selected_revision_id"],
+                "visible_card_content_sha256": revisions.get(
+                    visible_reference["selected_revision_id"], {}
+                ).get("content_sha256"),
+                "visible_card_manifest_sha256": revisions.get(
+                    visible_reference["selected_revision_id"], {}
+                ).get("manifest_sha256"),
+                "visual_identity_content_sha256": revisions.get(
+                    identity_reference["selected_revision_id"], {}
+                ).get("content_sha256"),
+                "visual_identity_manifest_sha256": revisions.get(
+                    identity_reference["selected_revision_id"], {}
+                ).get("manifest_sha256"),
             }
         )
         report, rows, gaps = _analyze_recording(
@@ -1226,6 +1284,19 @@ def build_dinov3_identity_preflight(
             identity_reference,
             revisions,
             repository,
+        )
+        report.update(
+            {
+                "source_asset_id": recording.get("source_asset_id"),
+                "source_sha256": recording.get("source_sha256"),
+                "source_video_path": recording.get("source_video_path"),
+                "source_byte_length": recording.get("source_byte_length"),
+                "source_duration_us": recording.get("source_duration_us"),
+                "source_permission": recording.get("source_permission"),
+                "allowed_uses": recording.get("allowed_uses"),
+                "retention_state": recording.get("retention_state"),
+                "task_selected": recording.get("task_selected"),
+            }
         )
         recording_reports.append(report)
         selected_rows.extend(rows)
@@ -1367,6 +1438,773 @@ def build_dinov3_identity_preflight(
     return json.loads(_canonical(report).decode("utf-8"))
 
 
+def _campaign_code_revision() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return result.stdout.strip() or "unknown"
+
+
+def _campaign_dataset_mapping(dataset: DatasetManifest) -> dict[str, Any]:
+    return {
+        "schema_version": DATASET_VERSION_SCHEMA,
+        "dataset_version_id": dataset.dataset_version_id,
+        "task": dataset.task,
+        "target_schema": dataset.target_schema,
+        "entries": [entry.to_mapping() for entry in dataset.entries],
+        "allowed_use_filter": list(dataset.allowed_use_filter),
+        "group_key_names": list(dataset.group_key_names),
+        "derived_artifact_transform_version": dataset.derived_artifact_transform_version,
+        "creation_code_revision": dataset.creation_code_revision,
+        "dirty_state": dataset.dirty_state,
+        "deck_design_version": dataset.deck_design_version,
+        "card_set_version": dataset.card_set_version,
+        "created_at": dataset.created_at,
+        "dataset_version_digest": dataset.digest,
+    }
+
+
+def _campaign_artifact_mapping(index: ArtifactIndex) -> dict[str, Any]:
+    return {
+        "schema_version": ARTIFACT_INDEX_SCHEMA,
+        "artifact_index_id": index.artifact_index_id,
+        "dataset_version_id": index.dataset_version_id,
+        "dataset_version_digest": index.dataset_version_digest,
+        "artifacts": [
+            {
+                "source_asset_id": artifact.source_asset_id,
+                "source_frame_id": artifact.source_frame_id,
+                "relative_path": artifact.relative_path,
+                "media_type": artifact.media_type,
+                "byte_length": artifact.byte_length,
+                "sha256": artifact.sha256,
+            }
+            for artifact in sorted(index.artifacts, key=lambda item: item.source_frame_id)
+        ],
+        "artifact_index_digest": index.digest,
+    }
+
+
+def _campaign_crop_mapping(cache: CropCache) -> dict[str, Any]:
+    return {
+        "schema_version": CROP_CACHE_SCHEMA,
+        "dataset_version_id": cache.dataset_version_id,
+        "dataset_version_digest": cache.dataset_version_digest,
+        "split_version_id": cache.split_version_id,
+        "split_version_digest": cache.split_version_digest,
+        "transform_version": cache.transform_version,
+        "crops": [
+            crop.to_mapping() for crop in sorted(cache.crops, key=lambda item: item.dataset_item_id)
+        ],
+        "cache_digest": cache.digest,
+    }
+
+
+def _write_campaign_json(path: Path, value: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(_canonical(value) + b"\n")
+
+
+def _write_campaign_bytes(path: Path, value: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(value)
+
+
+def _campaign_relative_path(value: Any, repository: Path, field: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise DinoV3IdentityCampaignError(f"{field} is missing")
+    path = (repository / value).resolve()
+    try:
+        return path.relative_to(repository).as_posix()
+    except ValueError as error:
+        raise DinoV3IdentityCampaignError(f"{field} must stay inside the repository") from error
+
+
+def _campaign_source(
+    repository: Path, recording: Mapping[str, Any]
+) -> tuple[RecordingVideoSource, Path]:
+    recording_id = recording.get("recording_id")
+    relative_path = _campaign_relative_path(
+        recording.get("source_video_path"), repository, f"{recording_id}.source_video_path"
+    )
+    source_sha256 = recording.get("source_sha256")
+    byte_length = recording.get("source_byte_length")
+    duration_us = recording.get("source_duration_us")
+    source_asset_id = recording.get("source_asset_id")
+    if not isinstance(source_sha256, str) or _SHA256.fullmatch(source_sha256) is None:
+        raise DinoV3IdentityCampaignError(f"{recording_id}: source digest is invalid")
+    if isinstance(byte_length, bool) or not isinstance(byte_length, int) or byte_length <= 0:
+        byte_length = (repository / relative_path).stat().st_size
+    if isinstance(duration_us, bool) or not isinstance(duration_us, int) or duration_us <= 0:
+        raise DinoV3IdentityCampaignError(f"{recording_id}: source duration_us is invalid")
+    if not isinstance(recording_id, str) or not isinstance(source_asset_id, str):
+        raise DinoV3IdentityCampaignError(f"{recording_id}: source lineage is incomplete")
+    source = RecordingVideoSource(
+        recording_id=recording_id,
+        relative_path=relative_path,
+        video_sha256=source_sha256,
+        byte_length=byte_length,
+        duration_us=duration_us,
+    )
+    video_path = repository / relative_path
+    if not video_path.is_file():
+        raise DinoV3IdentityCampaignError(f"{recording_id}: source video is missing")
+    actual_length = video_path.stat().st_size
+    if actual_length != source.byte_length:
+        raise DinoV3IdentityCampaignError(f"{recording_id}: source video byte length changed")
+    actual_digest = _file_sha256(video_path)
+    if actual_digest != source.video_sha256:
+        raise DinoV3IdentityCampaignError(f"{recording_id}: source video digest changed")
+    return source, video_path
+
+
+def _campaign_frame(
+    source: RecordingVideoSource,
+    video_path: Path,
+    frame_identity: Mapping[str, Any],
+    frame_resolver: Callable[[Path, Mapping[str, Any]], ResolvedFrame] | None,
+) -> ResolvedFrame:
+    if frame_resolver is not None:
+        frame = frame_resolver(video_path, frame_identity)
+    else:
+        output_encoding = frame_identity.get("output_encoding", "jpeg")
+        if output_encoding != "jpeg":
+            raise DinoV3IdentityCampaignError(
+                "the default source resolver supports only recorded JPEG frame identities"
+            )
+        try:
+            frame = resolve_exact_event(
+                video_path,
+                source=source,
+                requested_time_us=frame_identity["requested_time_us"],
+                output_encoding=output_encoding,
+            )
+        except (KeyError, TypeError, ValueError, RuntimeError) as error:
+            raise DinoV3IdentityCampaignError(
+                f"could not reproduce frame {frame_identity.get('image_sha256')}"
+            ) from error
+    if not isinstance(frame, ResolvedFrame):
+        raise DinoV3IdentityCampaignError("frame resolver returned an invalid frame")
+    if frame.identity_mapping() != dict(frame_identity):
+        raise DinoV3IdentityCampaignError(
+            f"reproduced frame identity differs for {frame_identity.get('image_sha256')}"
+        )
+    return frame
+
+
+def _campaign_group_keys(recording: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    groups = _recording_groups(recording)
+    if not groups:
+        raise DinoV3IdentityCampaignError(
+            f"{recording.get('recording_id')}: source lineage groups are missing"
+        )
+    return tuple(sorted(groups.items()))
+
+
+def _campaign_command(
+    repository: Path,
+    campaign_id: str,
+    *,
+    batch_size: int,
+    identity_config_path: str,
+    weights_root: str | None,
+) -> str:
+    root = repository / "data" / "operations" / "dinov3-identity-campaigns" / campaign_id
+    arguments = [
+        "mise",
+        "exec",
+        "--",
+        "uv",
+        "run",
+        "--project",
+        "table_evidence_analyzer",
+        "--group",
+        "training",
+        "table-analyzer",
+        "train-dinov3-identity",
+        "--dataset",
+        (root / "dataset.json").relative_to(repository).as_posix(),
+        "--split",
+        (root / "split.json").relative_to(repository).as_posix(),
+        "--artifacts",
+        (root / "artifact-index.json").relative_to(repository).as_posix(),
+        "--identity-config",
+        identity_config_path,
+        "--output",
+        (root / "candidate-run").relative_to(repository).as_posix(),
+        "--seed",
+        str(DINOV3_SEED),
+        "--epochs",
+        str(DINOV3_MAX_EPOCHS),
+        "--batch-size",
+        str(batch_size),
+        "--learning-rate",
+        "0.001",
+        "--weight-decay",
+        "0.0",
+        "--device",
+        DINOV3_TRAINING_DEVICE,
+        "--precision",
+        "fp32",
+    ]
+    if weights_root is not None:
+        arguments.extend(("--weights-root", weights_root))
+    return " ".join(arguments)
+
+
+def _campaign_file_signature(root: Path) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): _file_sha256(path)
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _publish_campaign_directory(staging: Path, destination: Path) -> None:
+    if destination.exists():
+        if not destination.is_dir():
+            raise DinoV3IdentityCampaignError(
+                f"campaign destination is not a directory: {destination}"
+            )
+        if _campaign_file_signature(staging) != _campaign_file_signature(destination):
+            raise DinoV3IdentityCampaignError(
+                f"immutable DINOv3 campaign already exists and differs: {destination}"
+            )
+        shutil.rmtree(staging)
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    os.replace(staging, destination)
+
+
+def prepare_dinov3_identity_campaign(
+    repository_root: str | Path,
+    *,
+    operations_root: str | Path | None = None,
+    intake_root: str | Path | None = None,
+    split_path: str | Path | None = None,
+    holdout_registry_path: str | Path | None = None,
+    identity_config_path: str | Path | None = None,
+    license_record_path: str | Path | None = None,
+    weights_root: str | Path | None = None,
+    verify_source_bytes: bool = False,
+    prerequisite_probe: Mapping[str, Any] | None = None,
+    preflight_report: Mapping[str, Any] | None = None,
+    frame_resolver: Callable[[Path, Mapping[str, Any]], ResolvedFrame] | None = None,
+) -> dict[str, Any]:
+    """Freeze and materialize one deterministic M1 DINOv3 identity campaign."""
+
+    repository = Path(repository_root).expanduser().resolve()
+    operations = _resolve(repository, operations_root, repository / "data" / "operations")
+    campaign_root = operations / "dinov3-identity-campaigns"
+    preflight = (
+        json.loads(_canonical(dict(preflight_report)).decode("utf-8"))
+        if preflight_report is not None
+        else build_dinov3_identity_preflight(
+            repository,
+            operations_root=operations,
+            intake_root=intake_root,
+            split_path=split_path,
+            holdout_registry_path=holdout_registry_path,
+            identity_config_path=identity_config_path,
+            license_record_path=license_record_path,
+            weights_root=weights_root,
+            verify_source_bytes=verify_source_bytes,
+            prerequisite_probe=prerequisite_probe,
+        )
+    )
+    if preflight.get("preflight_state") != "ready":
+        return {
+            "schema_version": DINOV3_PREPARATION_SCHEMA_VERSION,
+            "milestone": "M1",
+            "state": "blocked",
+            "campaign_id": None,
+            "campaign_path": None,
+            "preflight": preflight,
+            "coverage_gaps": list(preflight.get("coverage_gaps", [])),
+        }
+
+    items = preflight.get("items")
+    if not isinstance(items, list) or not items:
+        raise DinoV3IdentityCampaignError("M0 selected no eligible face-up identity items")
+    selected_recordings = preflight.get("selection", {}).get("selected_revisions", [])
+    if not isinstance(selected_recordings, list):
+        raise DinoV3IdentityCampaignError("M0 selected revision lineage is invalid")
+    sources = {
+        recording.get("recording_id"): recording
+        for recording in preflight.get("recordings", [])
+        if isinstance(recording, Mapping) and isinstance(recording.get("recording_id"), str)
+    }
+    recording_reports = {
+        recording.get("recording_id"): recording
+        for recording in preflight.get("recordings", [])
+        if isinstance(recording, Mapping) and isinstance(recording.get("recording_id"), str)
+    }
+    if not sources:
+        raise DinoV3IdentityCampaignError("M0 source inventory is empty")
+
+    frame_values: dict[str, ResolvedFrame] = {}
+    frame_paths: dict[str, str] = {}
+    frame_source_assets: dict[str, str] = {}
+    crop_values: dict[str, bytes] = {}
+    entries: list[DatasetEntry] = []
+    crop_rows: list[CropArtifact] = []
+    materialized_items: list[dict[str, Any]] = []
+    seen_samples: set[str] = set()
+    for raw_item in sorted(items, key=lambda item: str(item.get("sample_id"))):
+        if not isinstance(raw_item, Mapping):
+            raise DinoV3IdentityCampaignError("M0 item is not an object")
+        sample_id = raw_item.get("sample_id")
+        recording_id = raw_item.get("recording_id")
+        target = raw_item.get("target")
+        if not isinstance(sample_id, str) or sample_id in seen_samples:
+            raise DinoV3IdentityCampaignError("M0 item IDs are missing or duplicated")
+        seen_samples.add(sample_id)
+        if target == "FACE_DOWN":
+            raise DinoV3IdentityCampaignError(
+                f"FACE_DOWN cannot be included in the first DINOv3 campaign: {sample_id}"
+            )
+        if target not in CARD_IDENTITIES:
+            raise DinoV3IdentityCampaignError(f"unknown visual card identity in {sample_id}")
+        if not isinstance(recording_id, str) or recording_id not in sources:
+            raise DinoV3IdentityCampaignError(f"{sample_id}: source recording is missing")
+        recording = sources[recording_id]
+        partition = raw_item.get("partition")
+        if partition not in {"train", "validation"}:
+            raise DinoV3IdentityCampaignError(f"{sample_id}: unsupported training partition")
+        frame_identity = raw_item.get("frame_identity")
+        geometry = raw_item.get("geometry")
+        crop_identity = raw_item.get("crop_identity")
+        if not isinstance(frame_identity, Mapping):
+            raise DinoV3IdentityCampaignError(f"{sample_id}: frame identity is missing")
+        if not isinstance(geometry, Mapping) or not isinstance(crop_identity, Mapping):
+            raise DinoV3IdentityCampaignError(f"{sample_id}: crop lineage is incomplete")
+        if raw_item.get("crop_policy") != DINOV3_REQUIRED_CROP_POLICY:
+            raise DinoV3IdentityCampaignError(f"{sample_id}: crop policy is not frozen")
+        if crop_identity.get("status") != "usable":
+            raise DinoV3IdentityCampaignError(f"{sample_id}: crop is not usable")
+        if crop_identity.get("output_encoding") != "ppm":
+            raise DinoV3IdentityCampaignError(f"{sample_id}: DINOv3 input crop is not PPM")
+        source, video_path = _campaign_source(repository, recording)
+        frame_key = str(raw_item.get("frame_identity_digest"))
+        if frame_key not in frame_values:
+            frame_values[frame_key] = _campaign_frame(
+                source, video_path, frame_identity, frame_resolver
+            )
+            extension = "jpeg" if frame_values[frame_key].content_type == "image/jpeg" else "png"
+            frame_paths[frame_key] = f"frames/{frame_key}.{extension}"
+            frame_source_assets[frame_key] = str(recording["source_asset_id"])
+        frame = frame_values[frame_key]
+        try:
+            crop = resolve_visible_region_crop(
+                frame,
+                geometry,
+                crop_policy=DINOV3_REQUIRED_CROP_POLICY,
+                output_encoding="ppm",
+                transform_version=DINOV3_CROP_TRANSFORM_VERSION,
+            )
+        except (TypeError, ValueError, RuntimeError) as error:
+            raise DinoV3IdentityCampaignError(f"{sample_id}: crop reproduction failed") from error
+        if crop.status != "usable" or crop.image_bytes is None:
+            raise DinoV3IdentityCampaignError(f"{sample_id}: crop reproduction is unusable")
+        if crop.image_sha256 != crop_identity.get("image_sha256"):
+            raise DinoV3IdentityCampaignError(
+                f"{sample_id}: crop bytes differ from reviewed digest"
+            )
+        if crop.frame_identity != dict(frame_identity) or crop.geometry.to_mapping() != dict(
+            geometry
+        ):
+            raise DinoV3IdentityCampaignError(f"{sample_id}: crop lineage differs from review")
+        if crop_identity.get("pixel_bounds") != crop.pixel_bounds.to_mapping():
+            raise DinoV3IdentityCampaignError(f"{sample_id}: crop pixel bounds differ from review")
+        crop_digest = crop.image_sha256
+        assert crop_digest is not None
+        crop_values[sample_id] = crop.image_bytes
+        bounds = crop.pixel_bounds
+        assert bounds is not None
+        source_groups = _campaign_group_keys(recording)
+        source_asset_id = recording.get("source_asset_id")
+        source_permission = recording.get("source_permission")
+        allowed_uses = recording.get("allowed_uses")
+        if (
+            not isinstance(source_asset_id, str)
+            or not isinstance(source_permission, str)
+            or not isinstance(allowed_uses, list)
+            or partition not in allowed_uses
+        ):
+            raise DinoV3IdentityCampaignError(f"{sample_id}: source permission is incomplete")
+        annotation_id = str(raw_item.get("visual_identity_revision_id"))
+        entry = DatasetEntry(
+            dataset_item_id=sample_id,
+            source_asset_id=source_asset_id,
+            source_sha256=source.video_sha256,
+            annotation_set_id=annotation_id,
+            review_id=annotation_id,
+            eligibility=Eligibility(
+                source_asset_id=source_asset_id,
+                state="eligible",
+                source_permission=source_permission,
+                allowed_uses=tuple(sorted(set(allowed_uses))),
+                review_state="reviewed",
+                annotation_set_id=annotation_id,
+                review_id=annotation_id,
+                intended_use=partition,
+            ),
+            target_schema=TARGET_SCHEMA,
+            group_keys=source_groups,
+            inclusion_reason="completed human visual identity with verified face-up crop",
+            transform_version=DINOV3_CROP_TRANSFORM_VERSION,
+            source_frame_id=f"frame-{frame_key}",
+            observed_card_id=str(raw_item.get("card_id")),
+            bbox=(bounds.x_min, bounds.y_min, bounds.x_max, bounds.y_max),
+            visual_card_identity=target,
+            quality_tags=("reviewed_face_up", f"crop_policy:{DINOV3_REQUIRED_CROP_POLICY}"),
+        )
+        entries.append(entry)
+        crop_rows.append(
+            CropArtifact(
+                dataset_item_id=sample_id,
+                source_asset_id=source_asset_id,
+                source_frame_id=f"frame-{frame_key}",
+                source_frame_sha256=frame.image_sha256,
+                annotation_set_id=annotation_id,
+                review_id=annotation_id,
+                observed_card_id=str(raw_item.get("card_id")),
+                visual_card_identity=target,
+                bbox=(bounds.x_min, bounds.y_min, bounds.x_max, bounds.y_max),
+                transform_version=DINOV3_CROP_TRANSFORM_VERSION,
+                relative_path=f"crops/{sha256_json(sample_id)[:40]}.ppm",
+                byte_length=len(crop.image_bytes),
+                sha256=crop_digest,
+                partition=partition,
+            )
+        )
+        materialized_items.append(
+            {
+                **dict(raw_item),
+                "source_frame_id": f"frame-{frame_key}",
+                "source_frame_sha256": frame.image_sha256,
+                "materialized_crop_sha256": crop_digest,
+                "materialized_crop_path": f"crops/{sha256_json(sample_id)[:40]}.ppm",
+            }
+        )
+
+    group_key_names = tuple(sorted({name for entry in entries for name, _ in entry.group_keys}))
+    dataset_core = DatasetManifest(
+        dataset_version_id="dinov3-identity-dataset-pending",
+        task="visual_identity",
+        target_schema=TARGET_SCHEMA,
+        entries=tuple(sorted(entries, key=lambda item: item.dataset_item_id)),
+        allowed_use_filter=("train", "validation"),
+        group_key_names=group_key_names,
+        derived_artifact_transform_version=DINOV3_CROP_TRANSFORM_VERSION,
+        creation_code_revision=_campaign_code_revision(),
+        dirty_state=False,
+        deck_design_version=None,
+        card_set_version="doko-40-v1",
+        created_at=None,
+    )
+    dataset_id = f"dinov3-identity-dataset-{dataset_core.digest[:24]}"
+    dataset = DatasetManifest(
+        dataset_version_id=dataset_id,
+        task=dataset_core.task,
+        target_schema=dataset_core.target_schema,
+        entries=dataset_core.entries,
+        allowed_use_filter=dataset_core.allowed_use_filter,
+        group_key_names=dataset_core.group_key_names,
+        derived_artifact_transform_version=dataset_core.derived_artifact_transform_version,
+        creation_code_revision=dataset_core.creation_code_revision,
+        dirty_state=dataset_core.dirty_state,
+        deck_design_version=dataset_core.deck_design_version,
+        card_set_version=dataset_core.card_set_version,
+        created_at=dataset_core.created_at,
+    )
+    # The dataset ID is intentionally derived from the stable dataset contents. Rebuild once so
+    # the ID and digest are both frozen in the shared dataset contract.
+    split_items = {entry.dataset_item_id: entry for entry in dataset.entries}
+    train = tuple(
+        sorted(
+            item for item, entry in split_items.items() if entry.eligibility.intended_use == "train"
+        )
+    )
+    validation = tuple(
+        sorted(
+            item
+            for item, entry in split_items.items()
+            if entry.eligibility.intended_use == "validation"
+        )
+    )
+    split_core = SplitManifest(
+        split_version_id="dinov3-identity-split-pending",
+        dataset_version_id=dataset.dataset_version_id,
+        dataset_version_digest=dataset.digest,
+        group_key_names=dataset.group_key_names,
+        seed=DINOV3_SEED,
+        train=train,
+        validation=validation,
+        test=(),
+        unassigned=(),
+    )
+    split = SplitManifest(
+        split_version_id=f"dinov3-identity-split-{split_core.digest[:24]}",
+        dataset_version_id=split_core.dataset_version_id,
+        dataset_version_digest=split_core.dataset_version_digest,
+        group_key_names=split_core.group_key_names,
+        seed=split_core.seed,
+        train=split_core.train,
+        validation=split_core.validation,
+        test=split_core.test,
+        unassigned=split_core.unassigned,
+    )
+    frame_artifacts = tuple(
+        ArtifactRecord(
+            source_asset_id=frame_source_assets[frame_key],
+            source_frame_id=f"frame-{frame_key}",
+            relative_path=frame_paths[frame_key],
+            media_type=frame.content_type,
+            byte_length=len(frame.image_bytes),
+            sha256=frame.image_sha256,
+        )
+        for frame_key, frame in sorted(frame_values.items())
+    )
+    artifact_core = ArtifactIndex(
+        artifact_index_id="dinov3-identity-artifacts-pending",
+        dataset_version_id=dataset.dataset_version_id,
+        dataset_version_digest=dataset.digest,
+        artifacts=frame_artifacts,
+    )
+    artifacts = ArtifactIndex(
+        artifact_index_id=f"dinov3-identity-artifacts-{artifact_core.digest[:24]}",
+        dataset_version_id=artifact_core.dataset_version_id,
+        dataset_version_digest=artifact_core.dataset_version_digest,
+        artifacts=artifact_core.artifacts,
+    )
+    cache_core = CropCache(
+        dataset_version_id=dataset.dataset_version_id,
+        dataset_version_digest=dataset.digest,
+        split_version_id=split.split_version_id,
+        split_version_digest=split.digest,
+        transform_version=DINOV3_CROP_TRANSFORM_VERSION,
+        crops=tuple(sorted(crop_rows, key=lambda item: item.dataset_item_id)),
+    )
+    batch_size = (
+        preflight.get("prerequisites", {}).get("mps_batch_probe", {}).get("selected_batch_size")
+    )
+    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size <= 0:
+        raise DinoV3IdentityCampaignError("M0 did not freeze a valid MPS batch size")
+    identity_config = preflight.get("prerequisites", {}).get("identity_config", {}).get("path")
+    if not isinstance(identity_config, str):
+        raise DinoV3IdentityCampaignError("M0 did not freeze a local identity config path")
+    identity_config = _campaign_relative_path(identity_config, repository, "identity config")
+    weights_path = preflight.get("prerequisites", {}).get("pretrained", {}).get("root")
+    if isinstance(weights_path, str):
+        weights_path = _campaign_relative_path(weights_path, repository, "weights root")
+    command_without_id = _campaign_command(
+        repository,
+        "pending",
+        batch_size=batch_size,
+        identity_config_path=identity_config,
+        weights_root=weights_path,
+    )
+    freeze_core = {
+        "preflight_manifest_digest": preflight.get("manifest_digest"),
+        "selection": preflight.get("selection"),
+        "source_recordings": [
+            {
+                "recording_id": recording_id,
+                "partition": recording_reports.get(recording_id, {}).get("partition"),
+                "source_asset_id": sources[recording_id].get("source_asset_id"),
+                "source_sha256": sources[recording_id].get("source_sha256"),
+                "source_video_path": sources[recording_id].get("source_video_path"),
+                "source_groups": sources[recording_id].get("source_groups"),
+            }
+            for recording_id in sorted(sources)
+            if recording_reports.get(recording_id, {}).get("partition") in {"train", "validation"}
+        ],
+        "items": materialized_items,
+        "dataset": {"id": dataset.dataset_version_id, "digest": dataset.digest},
+        "split": {"id": split.split_version_id, "digest": split.digest},
+        "artifacts": {"id": artifacts.artifact_index_id, "digest": artifacts.digest},
+        "crop_cache": {"digest": cache_core.digest},
+        "recipe": preflight.get("prerequisites", {}).get("recipe"),
+        "batch_size": batch_size,
+        "command": command_without_id,
+    }
+    freeze_digest = sha256_json(freeze_core)
+    campaign_id = f"{DINOV3_CAMPAIGN_ID_PREFIX}-{freeze_digest[:24]}"
+    command = _campaign_command(
+        repository,
+        campaign_id,
+        batch_size=batch_size,
+        identity_config_path=identity_config,
+        weights_root=weights_path,
+    )
+    recipe = json.loads(
+        _canonical(
+            {
+                **dict(preflight["prerequisites"]["recipe"]),
+                "campaign_id": campaign_id,
+                "dataset_version_id": dataset.dataset_version_id,
+                "dataset_version_digest": dataset.digest,
+                "split_version_id": split.split_version_id,
+                "split_version_digest": split.digest,
+                "artifact_index_id": artifacts.artifact_index_id,
+                "artifact_index_digest": artifacts.digest,
+                "crop_cache_digest": cache_core.digest,
+            }
+        ).decode("utf-8")
+    )
+    coverage = {
+        "schema_version": "dinov3-identity-coverage/v1",
+        "campaign_id": campaign_id,
+        "freeze_digest": freeze_digest,
+        "class_counts": preflight.get("coverage", {}).get("class_counts", {}),
+        "included_item_count": len(materialized_items),
+        "partition_counts": {"train": len(train), "validation": len(validation)},
+        "unsupported_identities": preflight.get("first_run_gate", {}).get(
+            "unsupported_identities", list(DINOV3_UNSUPPORTED_IDENTITIES)
+        ),
+        "excluded_face_down_outcomes": preflight.get("excluded_face_down_outcomes", []),
+        "excluded_outcomes": preflight.get("exclusions", []),
+        "materialized_crop_digests": {
+            item["sample_id"]: item["materialized_crop_sha256"] for item in materialized_items
+        },
+    }
+    training_preflight = {
+        "schema_version": "dinov3-identity-training-preflight/v1",
+        "campaign_id": campaign_id,
+        "state": "ready",
+        "device": DINOV3_TRAINING_DEVICE,
+        "precision": "fp32",
+        "batch_size": batch_size,
+        "max_epochs": DINOV3_MAX_EPOCHS,
+        "checks": {
+            "dataset": {"path": "dataset.json", "digest": dataset.digest},
+            "split": {"path": "split.json", "digest": split.digest},
+            "artifacts": {"path": "artifact-index.json", "digest": artifacts.digest},
+            "crop_inventory": {
+                "path": "crop-cache/crop-manifest.json",
+                "digest": cache_core.digest,
+            },
+            "identity_config": {
+                "path": identity_config,
+                "digest": preflight["prerequisites"]["identity_config"].get("digest"),
+            },
+        },
+        "command": command,
+    }
+    manifest_core = {
+        "schema_version": DINOV3_PREPARATION_SCHEMA_VERSION,
+        "campaign_id": campaign_id,
+        "milestone": "M1",
+        "state": "frozen",
+        "freeze_digest": freeze_digest,
+        "preflight_manifest_digest": preflight.get("manifest_digest"),
+        "selection": preflight.get("selection"),
+        "dataset": {
+            "path": "dataset.json",
+            "id": dataset.dataset_version_id,
+            "digest": dataset.digest,
+        },
+        "split": {"path": "split.json", "id": split.split_version_id, "digest": split.digest},
+        "artifact_index": {
+            "path": "artifact-index.json",
+            "id": artifacts.artifact_index_id,
+            "digest": artifacts.digest,
+        },
+        "crop_inventory": {"path": "crop-cache/crop-manifest.json", "digest": cache_core.digest},
+        "coverage": {"path": "coverage.json", "digest": sha256_json(coverage)},
+        "recipe": {"path": "recipe.json", "digest": sha256_json(recipe)},
+        "training_preflight": {
+            "path": "training-preflight.json",
+            "digest": sha256_json(training_preflight),
+            "command": command,
+        },
+        "revision_content_digests": [
+            item for item in selected_recordings if isinstance(item, Mapping)
+        ],
+        "excluded_face_down_outcomes": preflight.get("excluded_face_down_outcomes", []),
+        "unsupported_identities": list(DINOV3_UNSUPPORTED_IDENTITIES),
+    }
+    manifest = {**manifest_core, "manifest_digest": sha256_json(manifest_core)}
+    destination = campaign_root / campaign_id
+    campaign_root.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{campaign_id}.", dir=campaign_root))
+    try:
+        _write_campaign_json(staging / "manifest.json", manifest)
+        _write_campaign_json(staging / "coverage.json", coverage)
+        _write_campaign_json(staging / "dataset.json", _campaign_dataset_mapping(dataset))
+        _write_campaign_json(staging / "split.json", split.to_mapping())
+        _write_campaign_json(staging / "artifact-index.json", _campaign_artifact_mapping(artifacts))
+        _write_campaign_json(staging / "recipe.json", recipe)
+        _write_campaign_json(staging / "training-preflight.json", training_preflight)
+        crop_mapping = _campaign_crop_mapping(cache_core)
+        _write_campaign_json(staging / "crop-inventory.json", crop_mapping)
+        _write_campaign_json(staging / "crop-cache" / "crop-manifest.json", crop_mapping)
+        for frame_key, frame in sorted(frame_values.items()):
+            _write_campaign_bytes(staging / "artifacts" / frame_paths[frame_key], frame.image_bytes)
+        for sample_id, crop_bytes in sorted(crop_values.items()):
+            relative = next(
+                crop.relative_path for crop in crop_rows if crop.dataset_item_id == sample_id
+            )
+            _write_campaign_bytes(staging / "crop-cache" / relative, crop_bytes)
+        assert_valid_dataset(
+            DatasetManifest.from_mapping(_campaign_dataset_mapping(dataset)),
+            split=SplitManifest.from_mapping(split.to_mapping()),
+            artifacts=ArtifactIndex.from_mapping(
+                _campaign_artifact_mapping(artifacts), root=staging / "artifacts"
+            ),
+        )
+        loaded_cache = CropCache.from_mapping(crop_mapping, root=staging / "crop-cache")
+        for crop in loaded_cache.crops:
+            loaded_cache.read(crop)
+        _publish_campaign_directory(staging, destination)
+    except Exception:
+        if staging.exists():
+            shutil.rmtree(staging)
+        raise
+    return {
+        "schema_version": DINOV3_PREPARATION_SCHEMA_VERSION,
+        "milestone": "M1",
+        "state": "completed",
+        "campaign_id": campaign_id,
+        "campaign_path": _relative(destination, repository),
+        "manifest_digest": manifest["manifest_digest"],
+        "dataset_version_id": dataset.dataset_version_id,
+        "dataset_version_digest": dataset.digest,
+        "split_version_id": split.split_version_id,
+        "split_version_digest": split.digest,
+        "included_item_count": len(materialized_items),
+        "excluded_face_down_count": len(preflight.get("excluded_face_down_outcomes", [])),
+        "command": command,
+    }
+
+
+def render_dinov3_identity_campaign_human(result: Mapping[str, Any]) -> str:
+    """Render the operator-facing M1 freeze result."""
+
+    lines = [
+        "DINOv3 identity M1 preparation",
+        f"state: {result.get('state')}",
+        f"campaign: {result.get('campaign_id')}",
+        f"path: {result.get('campaign_path')}",
+        f"included items: {result.get('included_item_count', 0)}",
+        f"excluded FACE_DOWN outcomes: {result.get('excluded_face_down_count', 0)}",
+    ]
+    if result.get("command"):
+        lines.extend(["M2 command:", f"  {result['command']}"])
+    gaps = result.get("coverage_gaps", [])
+    if gaps:
+        lines.append("coverage gaps:")
+        lines.extend(f"  - {gap}" for gap in gaps)
+    return "\n".join(lines) + "\n"
+
+
 def render_dinov3_identity_preflight_human(report: Mapping[str, Any]) -> str:
     """Render the operator-facing M0 summary without hiding blocked checks."""
 
@@ -1400,12 +2238,17 @@ def render_dinov3_identity_preflight_human(report: Mapping[str, Any]) -> str:
 
 __all__ = [
     "DINOV3_CAMPAIGN_ID",
+    "DINOV3_CAMPAIGN_ID_PREFIX",
     "DINOV3_FACE_UP_IDENTITIES",
+    "DINOV3_PREPARATION_SCHEMA_VERSION",
     "DINOV3_PREFLIGHT_SCHEMA_VERSION",
     "DINOV3_REQUIRED_CROP_POLICY",
+    "DinoV3IdentityCampaignError",
     "DinoV3IdentityPreflightError",
     "build_dinov3_identity_preflight",
+    "prepare_dinov3_identity_campaign",
     "probe_dinov3_mps",
+    "render_dinov3_identity_campaign_human",
     "render_dinov3_identity_preflight_human",
     "sha256_json",
 ]

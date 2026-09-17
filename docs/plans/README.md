@@ -46,7 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0043 — First local DINOv3 card identifier](3-in-progress/0043-First_Local_DINOv3_Card_Identifier.md) | 0041, 0042, 0048, 0049, and 0062 complete | M0 is complete: the read-only preflight discovers current references, validates split and source lineage, reports exact revisions, checks local DINOv3 prerequisites, and writes no campaign artifacts. M1–M3 not started. |
+| [0043 — First local DINOv3 card identifier](3-in-progress/0043-First_Local_DINOv3_Card_Identifier.md) | 0041, 0042, 0048, 0049, and 0062 complete | M0 and M1 are complete: the read-only preflight gates the current corpus, and bounded preparation freezes exact references, verifies frame and crop bytes, and publishes immutable campaign inputs plus the complete M2 command. M2–M3 not started. |
 
 ### In Progress
 
@@ -148,10 +148,8 @@ The shared target architecture is
    validation outputs separate and sealed after execution.
 7. **Publish the 0051 M4 decision after M3 execution.** Use the retained paired comparison to
    select one conclusion and specify one response in 0052, or close 0052 as not required.
-8. **Start 0043 when local identity training is selected.** Keep its corpus selection open while
-   review continues. Freeze the latest eligible completed references only immediately before the
-   operator starts the one declared DINOv3 training run. The agent supplies the exact command and
-   does not run the long process.
+8. **Continue 0043 with M2 after the M1 campaign is reviewed.** Keep its frozen campaign inputs
+   fixed. The agent supplies the exact command and does not run the long process.
 9. **Resolve 0052 from the 0051 decision.** A selected response can inform a later identity-model
    revision, but it does not block the first local 0043 candidate.
 10. **Reassess 0050 after the resilient identity baseline is fixed.** Make it Ready when a bounded
