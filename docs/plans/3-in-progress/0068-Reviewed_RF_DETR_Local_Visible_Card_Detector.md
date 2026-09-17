@@ -5,7 +5,7 @@
 - **Summary:** Train and evaluate one new RF-DETR segmentation candidate from the current
   human-corrected visible-card references. Make it a locally selectable visible-card detector only
   if it passes a frozen held-out quality gate.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0037, 0048, 0049, 0065, and 0067 complete
 - **Readiness:** The selected completed references now contain 24 recordings, 1,180 reviewed
   outcomes, and 2,947 reviewed visible-card targets. After excluding 259 frames with
@@ -20,8 +20,10 @@
 
 ## Milestone status
 
-- **M0:** Not started — audit the selected corrected references and freeze source-group-safe
-  train, validation, and sealed-test partitions.
+- **M0:** Complete — discover and audit the selected completed corrected references, freeze the
+  source-group-safe train, validation, and sealed-test partitions, and pin the RF-DETR recipe and
+  held-out gate. The audit is blocked until the live 24-recording source snapshot and checkpoint
+  are available locally.
 - **M1:** Not started — materialize the reviewed instance-segmentation dataset and prove its
   lineage, geometry, and exclusion receipts.
 - **M2:** Not started — run one local RF-DETR SegMedium candidate from the frozen recipe.

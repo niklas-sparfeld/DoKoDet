@@ -46,12 +46,12 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0068 — Reviewed RF-DETR local visible-card detector](2-ready/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | Freeze the 24 corrected visible-card references into source-group-safe partitions, train one RF-DETR candidate, and register it as a local selectable provider only when its held-out gate passes. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0068 — Reviewed RF-DETR local visible-card detector](3-in-progress/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | M0 is complete: the reviewed-reference audit scans corrected selections, records lineage and exclusions, and freezes explicit train, validation, and sealed-test source groups. M1 remains next. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -129,32 +129,35 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M15 only after the operator completes M14.** M14 created a development-only
+1. **Continue 0068 with M1 for the reviewed RF-DETR detector.** Materialize the frozen
+   source-group-separated instance-segmentation view. Keep ignored and unusable outcomes in the
+   exclusion receipt and keep the sealed-test view separate from training and validation.
+2. **Continue 0063 with M15 only after the operator completes M14.** M14 created a development-only
    integration lock and exact one-time sealed-test and Core ML export/parity handoffs. Do not tune,
    promote, or treat M9 as the production champion.
-2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
+3. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.
-3. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
+4. **Use the completed 0060 iOS module boundaries as the current app ownership baseline.** Epic
    0057 is complete.
-4. **Use the reconciled 0051 M0 manifest as the fixed M3 input.** Keep its explicit
+5. **Use the reconciled 0051 M0 manifest as the fixed M3 input.** Keep its explicit
    development/validation partition and 4,920-request preflight fixed. The completed 0065 policy
    leaves four face-down and one source-problem item as explicit identity exclusions.
-5. **Run 0051 M3 through its resumable work directory.** Review the dry-run report, materialize
+6. **Run 0051 M3 through its resumable work directory.** Review the dry-run report, materialize
    crops, and execute the pinned classifier with the explicit provider budget. Keep development and
    validation outputs separate and sealed after execution.
-6. **Publish the 0051 M4 decision after M3 execution.** Use the retained paired comparison to
+7. **Publish the 0051 M4 decision after M3 execution.** Use the retained paired comparison to
    select one conclusion and specify one response in 0052, or close 0052 as not required.
-7. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
+8. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
    required before another identity or visible-region model experiment.
-8. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
+9. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
    its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
    budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
    not run an open-ended search.
-9. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
+10. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
-10. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+11. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 

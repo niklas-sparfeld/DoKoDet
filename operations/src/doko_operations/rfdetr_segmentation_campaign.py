@@ -343,13 +343,14 @@ def _bundle_audit(
         if source_record.get(field) != manifest.get(field):
             gaps.append(f"{recording_id}: source record and bundle {field} differ")
     allowed_uses = source_record.get("allowed_uses")
+    required_uses = {"test", "evaluation"} if split == "sealed_test" else {split}
     if (
         not isinstance(allowed_uses, list)
         or not allowed_uses
         or any(not isinstance(value, str) for value in allowed_uses)
         or len(allowed_uses) != len(set(allowed_uses))
         or not set(allowed_uses) <= _ALLOWED_USES
-        or split not in allowed_uses
+        or not required_uses.intersection(allowed_uses)
     ):
         gaps.append(f"{recording_id}: source permission does not allow {split}")
     if source_record.get("source_permission") not in _SOURCE_PERMISSIONS:
@@ -498,6 +499,9 @@ def _validate_candidate(
             gaps.append(f"{context}.normalization does not match frame dimensions")
     if gaps:
         return None, gaps
+    side = candidate.get("side", "unknown")
+    if side not in {"face_up", "face_down", "unknown"}:
+        return None, [f"{context}.side must be face_up, face_down, or unknown"]
     return {
         "card_id": card_id,
         "geometry": {
@@ -505,7 +509,7 @@ def _validate_candidate(
             "visible_region": {"polygons": polygons},
         },
         "normalization": dict(normalization),
-        "side": candidate.get("side", "unknown"),
+        "side": side,
     }, []
 
 

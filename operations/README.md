@@ -25,7 +25,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 The retained `doko` commands are grouped by owner:
 
 - `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `cardevent interval-readiness`, `cardevent interval-freeze`, `resilience-baseline`,
-  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
+  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `rfdetr-visible-card-detector`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
   `impact`, and `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `review-card-event-net`,
   `review-card-event-net-timing`, `promote`, and `evaluate-system`.
@@ -280,6 +280,26 @@ The materializer extracts and verifies each exact frame, writes `train/` and `va
 instance-segmentation views, and records the frozen frame exclusions plus failed or unusable
 outcomes in `exclusions.json`. It reads only a frozen M0 manifest and replaces only the named
 disposable output directory.
+
+## Reviewed RF-DETR local visible-card detector
+
+Epic 0068 M0 discovers the current selected completed corrected `visible_cards` references. It
+audits their accepted recording bundles, source permissions, exact source lineage, reviewed
+geometry, card sides, frame exclusions, and target counts. It freezes explicit train, validation,
+and sealed-test source groups, the one-candidate RF-DETR recipe, matching rules, resource budget,
+and held-out gate in one immutable manifest. The command exits with `1` and writes no manifest when
+the audit is blocked:
+
+```bash
+mise exec -- uv run --project operations doko data rfdetr-visible-card-detector \
+  --repository-root . \
+  --output data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json
+```
+
+Pass `--pretrained-checkpoint <path>` to pin the pretrained checkpoint digest. The audit keeps
+visible-card ignore-region frames and failed or unusable outcomes in receipts. It never turns
+those outcomes into ordinary background targets. The sealed-test partition is selected before any
+candidate inference and the existing 0067 artifact remains separate.
 
 ## CardEventNet frozen trainer views
 

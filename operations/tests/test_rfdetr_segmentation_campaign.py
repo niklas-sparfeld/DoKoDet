@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import doko_operations.reviewed_rfdetr_detector_campaign as reviewed_campaign
 import doko_operations.rfdetr_segmentation_campaign as campaign
 from doko_operations.cli import main
 from doko_operations.rfdetr_segmentation_materialization import (
@@ -510,3 +511,180 @@ def test_m1_cli_materializes_a_frozen_manifest(
 
     assert result == 0
     assert load_rfdetr_segmentation_materialization(output)["counts"]["images"] == 9
+
+
+def _configure_reviewed_campaign_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    recording_ids = (*campaign.TRAIN_RECORDING_IDS, *campaign.VALIDATION_RECORDING_IDS)
+    monkeypatch.setattr(
+        reviewed_campaign,
+        "DEFAULT_PARTITION_RECORDING_IDS",
+        {
+            "train": recording_ids[:3],
+            "validation": recording_ids[3:6],
+            "sealed_test": recording_ids[6:],
+        },
+    )
+    monkeypatch.setattr(
+        reviewed_campaign,
+        "EXPECTED_INVENTORY",
+        {
+            "reviewed_frames": 9,
+            "retained_frames": 9,
+            "excluded_frames": 0,
+            "ineligible_outcomes": 0,
+            "ignored_regions": 0,
+            "targets": 9,
+        },
+    )
+    monkeypatch.setattr(
+        reviewed_campaign,
+        "EXPECTED_SIDE_COUNTS",
+        {"face_up": 0, "unknown": 9, "face_down": 0},
+    )
+
+
+def _authorize_reviewed_campaign_fixture(root: Path) -> None:
+    recording_ids = (*campaign.TRAIN_RECORDING_IDS, *campaign.VALIDATION_RECORDING_IDS)
+    for recording_id in recording_ids:
+        source_record_path = (
+            root / "data" / "intake" / "recordings" / recording_id / "source-record.json"
+        )
+        source_record = json.loads(source_record_path.read_text())
+        source_record["allowed_uses"] = ["train", "validation", "evaluation"]
+        source_record_path.write_text(json.dumps(source_record), encoding="utf-8")
+
+
+def test_0068_recipe_pins_the_sealed_test_gate_and_supporting_slices() -> None:
+    recipe = reviewed_campaign.default_reviewed_rfdetr_detector_recipe(device="mps")
+
+    assert recipe["data_contract"]["test_partition"] == "sealed_test"
+    assert recipe["data_contract"]["partition_policy"] == "source_group_disjoint/v1"
+    assert recipe["validation"]["group_by"] == [
+        "recording_id",
+        "card_side",
+        "visible_card_count_bucket",
+    ]
+    assert recipe["validation"]["minimum_gate"] == {
+        "mask_ap_50_95": 0.0,
+        "recall": 0.0,
+        "beats_pretrained_mask_ap_50_95": True,
+        "beats_pretrained_recall": True,
+        "nonzero_recall_per_sealed_test_recording": True,
+    }
+
+
+def test_0068_m0_discovers_corrected_references_and_freezes_three_partitions(
+    tmp_path: Path, fixture_expected_counts: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _configure_reviewed_campaign_fixture(monkeypatch)
+    root = _fixture_corpus(tmp_path)
+    _authorize_reviewed_campaign_fixture(root)
+    checkpoint = root / "checkpoint.pt"
+    checkpoint.write_bytes(b"checkpoint")
+
+    manifest = reviewed_campaign.build_reviewed_rfdetr_detector_manifest(
+        root,
+        pretrained_checkpoint=checkpoint,
+        verify_source_bytes=True,
+        api_probe=_available_api(),
+    )
+
+    assert manifest["freeze_state"] == "frozen"
+    assert manifest["selection"]["selected_recording_ids"] == sorted(
+        (*campaign.TRAIN_RECORDING_IDS, *campaign.VALIDATION_RECORDING_IDS)
+    )
+    assert manifest["inventory"]["target_count"] == 9
+    assert manifest["inventory"]["side_counts"] == {"face_up": 0, "unknown": 9, "face_down": 0}
+    assert len(manifest["split"]["sealed_test"]["recording_ids"]) == 3
+    assert not set(manifest["split"]["train"]["recording_ids"]).intersection(
+        manifest["split"]["sealed_test"]["recording_ids"]
+    )
+    assert all(
+        sample["split"] in {"train", "validation", "sealed_test"} for sample in manifest["samples"]
+    )
+    reviewed_campaign.validate_reviewed_rfdetr_detector_manifest(manifest)
+
+
+def test_0068_m0_is_reproducible_and_manifest_writer_is_immutable(
+    tmp_path: Path, fixture_expected_counts: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _configure_reviewed_campaign_fixture(monkeypatch)
+    root = _fixture_corpus(tmp_path)
+    _authorize_reviewed_campaign_fixture(root)
+    checkpoint = root / "checkpoint.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    kwargs = {"pretrained_checkpoint": checkpoint, "api_probe": _available_api()}
+
+    first = reviewed_campaign.build_reviewed_rfdetr_detector_manifest(root, **kwargs)
+    second = reviewed_campaign.build_reviewed_rfdetr_detector_manifest(root, **kwargs)
+    assert first == second
+    destination = root / "data" / "operations" / "reviewed-rfdetr-m0.json"
+    reviewed_campaign.write_reviewed_rfdetr_detector_manifest(destination, first)
+    reviewed_campaign.write_reviewed_rfdetr_detector_manifest(destination, second)
+
+    changed = dict(second)
+    changed["coverage_gaps"] = ["drift"]
+    changed["freeze_state"] = "blocked"
+    changed["manifest_digest"] = reviewed_campaign.sha256_json(
+        {key: value for key, value in changed.items() if key != "manifest_digest"}
+    )
+    with pytest.raises(
+        reviewed_campaign.ReviewedRfdetrDetectorCampaignError, match="already exists"
+    ):
+        reviewed_campaign.write_reviewed_rfdetr_detector_manifest(destination, changed)
+
+
+def test_0068_m0_blocks_cross_partition_source_group_overlap(
+    tmp_path: Path, fixture_expected_counts: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _configure_reviewed_campaign_fixture(monkeypatch)
+    root = _fixture_corpus(tmp_path)
+    _authorize_reviewed_campaign_fixture(root)
+    overlapping_id = campaign.VALIDATION_RECORDING_IDS[0]
+    bundle = root / "data" / "intake" / "recordings" / overlapping_id
+    manifest_path = bundle / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    source_record_path = bundle / "source-record.json"
+    source_record = json.loads(source_record_path.read_text())
+    manifest["session_id"] = "session-0"
+    source_record["session_id"] = "session-0"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    source_record_path.write_text(json.dumps(source_record), encoding="utf-8")
+    checkpoint = root / "checkpoint.pt"
+    checkpoint.write_bytes(b"checkpoint")
+
+    result = reviewed_campaign.build_reviewed_rfdetr_detector_manifest(
+        root, pretrained_checkpoint=checkpoint, api_probe=_available_api()
+    )
+
+    assert result["freeze_state"] == "blocked"
+    assert any(
+        "source group field session_id crosses partitions" in gap for gap in result["coverage_gaps"]
+    )
+
+
+def test_0068_m0_reports_missing_corrected_reference_as_unavailable(
+    tmp_path: Path, fixture_expected_counts: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _configure_reviewed_campaign_fixture(monkeypatch)
+    root = _fixture_corpus(tmp_path)
+    _authorize_reviewed_campaign_fixture(root)
+    revision_path = (
+        root / "data" / "operations" / "pipeline" / "revisions" / "revision-0" / "manifest.json"
+    )
+    revision = json.loads(revision_path.read_text())
+    revision["origin"] = "manual"
+    revision_path.write_text(json.dumps(revision), encoding="utf-8")
+    checkpoint = root / "checkpoint.pt"
+    checkpoint.write_bytes(b"checkpoint")
+
+    result = reviewed_campaign.build_reviewed_rfdetr_detector_manifest(
+        root, pretrained_checkpoint=checkpoint, api_probe=_available_api()
+    )
+
+    assert result["freeze_state"] == "blocked"
+    assert any(
+        item["recording_id"] == campaign.TRAIN_RECORDING_IDS[0]
+        for item in result["selection"]["unavailable_references"]
+    )
+    assert any("selected recording set is incomplete" in gap for gap in result["coverage_gaps"])

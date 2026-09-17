@@ -135,6 +135,12 @@ from .resilience_execution import (
     execute_resilience_work,
     materialize_resilience_work,
 )
+from .reviewed_rfdetr_detector_campaign import (
+    ReviewedRfdetrDetectorCampaignError,
+    build_reviewed_rfdetr_detector_manifest,
+    render_reviewed_rfdetr_detector_human,
+    write_reviewed_rfdetr_detector_manifest,
+)
 from .rfdetr_segmentation_campaign import (
     RfdetrSegmentationCampaignError,
     build_rfdetr_segmentation_manifest,
@@ -455,6 +461,48 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rfdetr.add_argument("--format", choices=("human", "json"), default="human")
     rfdetr.add_argument("--json", action="store_true", help="Alias for --format json.")
+    reviewed_rfdetr = data_commands.add_parser(
+        "rfdetr-visible-card-detector",
+        aliases=("rfdetr-detector", "rfdetr-segmentation-0068"),
+        help="Audit and freeze the reviewed RF-DETR local visible-card detector input.",
+        description="Audit and freeze the reviewed RF-DETR local visible-card detector input.",
+    )
+    _add_path_options(reviewed_rfdetr, suppress_defaults=True)
+    reviewed_rfdetr.add_argument(
+        "--operations-root",
+        type=Path,
+        default=None,
+        help="Shared operations root (default: data/operations).",
+    )
+    reviewed_rfdetr.add_argument(
+        "--holdout-registry",
+        type=Path,
+        default=None,
+        help="Path to the shared system holdout registry.",
+    )
+    reviewed_rfdetr.add_argument(
+        "--pretrained-checkpoint",
+        type=Path,
+        default=None,
+        help="Explicit RF-DETR segmentation checkpoint to digest and pin.",
+    )
+    reviewed_rfdetr.add_argument("--device", choices=("mps", "cuda", "cpu"), default="mps")
+    reviewed_rfdetr.add_argument(
+        "--verify-source-bytes",
+        action="store_true",
+        help="Hash every selected source video in addition to checking declared digests.",
+    )
+    reviewed_rfdetr.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json"),
+        help=(
+            "Immutable manifest path (default: "
+            "data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json)."
+        ),
+    )
+    reviewed_rfdetr.add_argument("--format", choices=("human", "json"), default="human")
+    reviewed_rfdetr.add_argument("--json", action="store_true", help="Alias for --format json.")
     rfdetr_materialize = data_commands.add_parser(
         "rfdetr-segmentation-materialize",
         aliases=("rfdetr-segmentation-view",),
@@ -1346,6 +1394,42 @@ def main(argv: Sequence[str] | None = None) -> int:
             sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         else:
             sys.stdout.write(render_rfdetr_segmentation_human(manifest))
+        return 0 if manifest["freeze_state"] == "frozen" else 1
+    if args.command == "data" and args.data_command in {
+        "rfdetr-visible-card-detector",
+        "rfdetr-detector",
+        "rfdetr-segmentation-0068",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            operations_root = args.operations_root or config.derived_artifact_root
+            manifest = build_reviewed_rfdetr_detector_manifest(
+                config.repository_root,
+                intake_root=config.bundle_root,
+                operations_root=operations_root,
+                holdout_registry_path=args.holdout_registry,
+                pretrained_checkpoint=args.pretrained_checkpoint,
+                device=args.device,
+                verify_source_bytes=args.verify_source_bytes,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            if manifest["freeze_state"] == "frozen":
+                write_reviewed_rfdetr_detector_manifest(output_path, manifest)
+        except (ConfigurationError, OSError, ReviewedRfdetrDetectorCampaignError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_reviewed_rfdetr_detector_human(manifest))
         return 0 if manifest["freeze_state"] == "frozen" else 1
     if args.command == "data" and args.data_command in {
         "rfdetr-segmentation-materialize",
