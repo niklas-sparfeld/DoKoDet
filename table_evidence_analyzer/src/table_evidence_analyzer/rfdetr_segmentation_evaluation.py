@@ -34,6 +34,9 @@ from .visible_cards import (
 
 RFDETR_SEGMENTATION_VALIDATION_SCHEMA = "rfdetr-segmentation-campaign-validation/v1"
 _THRESHOLDS = tuple(round(0.5 + index * 0.05, 2) for index in range(10))
+_CARD_SIDES = ("face_down", "face_up", "unknown")
+_PARTITIONS = ("valid", "sealed_test")
+_PARTITION_LABELS = {"valid": "validation", "sealed_test": "sealed_test"}
 
 
 class RfdetrSegmentationEvaluationError(ValueError):
@@ -334,6 +337,10 @@ def _targets(coco: Mapping[str, Any]) -> dict[int, list[dict[str, Any]]]:
             raise RfdetrSegmentationEvaluationError(
                 "validation COCO annotation has another category"
             )
+        if annotation.get("card_side") not in _CARD_SIDES:
+            raise RfdetrSegmentationEvaluationError(
+                "validation COCO annotation has an unsupported card side"
+            )
         segmentation = annotation.get("segmentation")
         if not isinstance(segmentation, list) or not segmentation:
             raise RfdetrSegmentationEvaluationError(
@@ -347,6 +354,7 @@ def _targets(coco: Mapping[str, Any]) -> dict[int, list[dict[str, Any]]]:
             {
                 "annotation_id": int(annotation["id"]),
                 "card_id": annotation["card_id"],
+                "card_side": annotation["card_side"],
                 "polygons": polygons,
                 "box_xywh": [float(value) for value in annotation["bbox"]],
             }
@@ -354,14 +362,90 @@ def _targets(coco: Mapping[str, Any]) -> dict[int, list[dict[str, Any]]]:
     return result
 
 
-def _prediction_artifact(*, model_id: str, model: Any, view: Mapping[str, Any]) -> dict[str, Any]:
+def _visible_card_count_bucket(count: int) -> str:
+    if count < 1:
+        raise RfdetrSegmentationEvaluationError("visible-card count must be positive")
+    if count <= 2:
+        return str(count)
+    if count <= 4:
+        return "3-4"
+    return "5+"
+
+
+def _filtered_frames(frames: Sequence[Mapping[str, Any]], predicate: Any) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for frame in frames:
+        targets = [target for target in frame["targets"] if predicate(frame, target)]
+        if targets:
+            result.append({**frame, "targets": targets})
+    return result
+
+
+def _slice_metrics(frames: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Calculate the required independent recording, side, and count slices."""
+
+    def by_recording(value: str) -> list[dict[str, Any]]:
+        return _filtered_frames(frames, lambda frame, _target: frame["recording_id"] == value)
+
+    def by_side(value: str) -> list[dict[str, Any]]:
+        return _filtered_frames(frames, lambda _frame, target: target["card_side"] == value)
+
+    def by_bucket(value: str) -> list[dict[str, Any]]:
+        return _filtered_frames(
+            frames,
+            lambda frame, _target: frame["visible_card_count_bucket"] == value,
+        )
+
+    recording_ids = sorted({str(frame["recording_id"]) for frame in frames})
+    sides = sorted(
+        {
+            str(target["card_side"])
+            for frame in frames
+            for target in frame["targets"]
+            if target["card_side"] in _CARD_SIDES
+        }
+    )
+    buckets = sorted({str(frame["visible_card_count_bucket"]) for frame in frames})
+    by_group: dict[str, dict[str, Any]] = {}
+    for recording_id in recording_ids:
+        for side in sides:
+            for bucket in buckets:
+                selected = _filtered_frames(
+                    frames,
+                    lambda frame, target, recording_id=recording_id, side=side, bucket=bucket: (
+                        frame["recording_id"] == recording_id
+                        and frame["visible_card_count_bucket"] == bucket
+                        and target["card_side"] == side
+                    ),
+                )
+                if selected:
+                    by_group[f"{recording_id}|{side}|{bucket}"] = calculate_metrics(selected)
+    return {
+        "by_recording": {
+            recording_id: calculate_metrics(by_recording(recording_id))
+            for recording_id in recording_ids
+        },
+        "by_side": {side: calculate_metrics(by_side(side)) for side in sides},
+        "by_visible_card_count_bucket": {
+            bucket: calculate_metrics(by_bucket(bucket)) for bucket in buckets
+        },
+        "by_recording_side_bucket": by_group,
+    }
+
+
+def _prediction_artifact(
+    *, model_id: str, model: Any, view: Mapping[str, Any], partition: str = "valid"
+) -> dict[str, Any]:
+    if partition not in _PARTITIONS:
+        raise RfdetrSegmentationEvaluationError(f"unsupported evaluation partition: {partition}")
     root = Path(view["root"])
-    coco = _read_json(root / "valid" / "_annotations.coco.json", "validation COCO data")
+    partition_label = _PARTITION_LABELS[partition]
+    coco = _read_json(root / partition / "_annotations.coco.json", f"{partition_label} COCO data")
     targets = _targets(coco)
     frames: list[dict[str, Any]] = []
     for image in sorted(coco["images"], key=lambda item: int(item["id"])):
         image_id = int(image["id"])
-        image_path = root / "valid" / str(image["file_name"])
+        image_path = root / partition / str(image["file_name"])
         prediction_rows = _prediction_rows(
             model, image_path, int(image["width"]), int(image["height"])
         )
@@ -388,25 +472,81 @@ def _prediction_artifact(*, model_id: str, model: Any, view: Mapping[str, Any]) 
                 ],
             }
         )
-    by_recording = {
-        recording_id: calculate_metrics(
-            [frame for frame in frames if frame["recording_id"] == recording_id]
+        frames[-1]["visible_card_count"] = len(frames[-1]["targets"])
+        frames[-1]["visible_card_count_bucket"] = _visible_card_count_bucket(
+            frames[-1]["visible_card_count"]
         )
-        for recording_id in sorted({str(frame["recording_id"]) for frame in frames})
-    }
     return {
         "schema_version": "rfdetr-segmentation-validation-predictions/v1",
         "model_id": model_id,
+        "partition": partition_label,
         "confidence_threshold": 0.5,
         "frames": frames,
-        "metrics": {"overall": calculate_metrics(frames), "by_recording": by_recording},
+        "metrics": {"overall": calculate_metrics(frames), **_slice_metrics(frames)},
     }
+
+
+def _exclusion_artifact(view: Mapping[str, Any], partition: str) -> dict[str, Any]:
+    if partition not in _PARTITIONS:
+        raise RfdetrSegmentationEvaluationError(f"unsupported exclusion partition: {partition}")
+    root = Path(view["root"])
+    exclusions = _read_json(root / "exclusions.json", "M1 exclusion receipt")
+    label = _PARTITION_LABELS[partition]
+    excluded_frames = [
+        row for row in exclusions.get("excluded_frames", []) if row.get("split") == label
+    ]
+    ineligible_outcomes = [
+        row for row in exclusions.get("ineligible_outcomes", []) if row.get("split") == label
+    ]
+    return {
+        "excluded_frames": excluded_frames,
+        "ineligible_outcomes": ineligible_outcomes,
+        "excluded_frame_count": len(excluded_frames),
+        "ineligible_outcome_count": len(ineligible_outcomes),
+    }
+
+
+def _clear_device_cache(device: str) -> None:
+    try:
+        import torch
+    except ImportError:
+        return
+    if device == "mps" and hasattr(torch, "mps"):
+        torch.mps.empty_cache()
+    if device == "cuda" and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def _artifact_path(output: Path, key: str) -> Path:
+    return output / f"{key.replace('_', '-')}-predictions.json"
+
+
+def _evaluate_model(
+    checkpoint: Path,
+    view: Mapping[str, Any],
+    device: str,
+    *,
+    model_id: str,
+    pretrained: bool,
+    partition: str,
+) -> dict[str, Any]:
+    model = _load_model(checkpoint, device, pretrained=pretrained)
+    try:
+        return _prediction_artifact(
+            model_id=model_id,
+            model=model,
+            view=view,
+            partition=partition,
+        )
+    finally:
+        del model
+        _clear_device_cache(device)
 
 
 def run_rfdetr_segmentation_campaign_validation(
     config: RfdetrSegmentationEvaluationConfig,
 ) -> dict[str, Any]:
-    """Run the one locked baseline/candidate validation or reuse its verified report."""
+    """Run the locked validation and, when allowed, one sealed-test evaluation."""
 
     output = config.output_dir.expanduser().resolve()
     report_path = output / "report.json"
@@ -424,9 +564,16 @@ def run_rfdetr_segmentation_campaign_validation(
             report.get("schema_version") == RFDETR_SEGMENTATION_VALIDATION_SCHEMA
             and report.get("config") == expected_config
         ):
-            for key in ("baseline", "candidate"):
-                path = output / f"{key}-predictions.json"
-                if not path.is_file() or report["artifacts"][key]["sha256"] != _file_digest(path):
+            artifacts = report.get("artifacts")
+            if not isinstance(artifacts, Mapping):
+                raise RfdetrSegmentationEvaluationError("validation artifacts are missing")
+            for artifact in artifacts.values():
+                if not isinstance(artifact, Mapping) or not isinstance(artifact.get("path"), str):
+                    raise RfdetrSegmentationEvaluationError(
+                        "validation artifact metadata is invalid"
+                    )
+                path = output / artifact["path"]
+                if not path.is_file() or artifact.get("sha256") != _file_digest(path):
                     raise RfdetrSegmentationEvaluationError(
                         "completed validation artifact has drifted"
                     )
@@ -453,29 +600,119 @@ def run_rfdetr_segmentation_campaign_validation(
             raise RfdetrSegmentationEvaluationError(
                 "candidate bundle uses another M1 materialization"
             )
-        baseline_model = _load_model(pretrained, config.device, pretrained=True)
-        baseline = _prediction_artifact(
-            model_id="pretrained-baseline", model=baseline_model, view=view
+        if (
+            manifest_receipt.get("campaign_id")
+            == "0068-m0-reviewed-rfdetr-local-visible-card-detector"
+            and candidate.manifest.get("campaign_manifest", {}).get("manifest_digest")
+            != manifest_receipt["manifest_digest"]
+        ):
+            raise RfdetrSegmentationEvaluationError(
+                "candidate bundle does not contain the frozen 0068 manifest receipt"
+            )
+        baseline = _evaluate_model(
+            pretrained,
+            view,
+            config.device,
+            model_id="pretrained-baseline",
+            pretrained=True,
+            partition="valid",
         )
-        _write_json(output / "baseline-predictions.json", baseline)
-        candidate_model = _load_model(candidate.checkpoint_path, config.device)
-        candidate_predictions = _prediction_artifact(
-            model_id="candidate", model=candidate_model, view=view
+        candidate_predictions = _evaluate_model(
+            candidate.checkpoint_path,
+            view,
+            config.device,
+            model_id="candidate",
+            pretrained=False,
+            partition="valid",
         )
-        _write_json(output / "candidate-predictions.json", candidate_predictions)
-        candidate_metrics = candidate_predictions["metrics"]
-        baseline_metrics = baseline["metrics"]
-        per_recording_recall = candidate_metrics["by_recording"]
-        gate = {
+        validation_metrics = {
+            "baseline": baseline["metrics"],
+            "candidate": candidate_predictions["metrics"],
+        }
+        candidate_overall = candidate_predictions["metrics"]["overall"]
+        baseline_overall = baseline["metrics"]["overall"]
+        validation_gate = {
             "candidate_reloads": True,
             "metrics_reproducible": True,
-            "mask_ap_better_than_baseline": candidate_metrics["overall"]["mask_ap_50_95"]
-            > baseline_metrics["overall"]["mask_ap_50_95"],
-            "recall_better_than_baseline": candidate_metrics["overall"]["recall"]
-            > baseline_metrics["overall"]["recall"],
-            "every_recording_has_target_recall": all(
-                metrics["recall"] > 0 for metrics in per_recording_recall.values()
-            ),
+            "mask_ap_better_than_baseline": candidate_overall["mask_ap_50_95"]
+            > baseline_overall["mask_ap_50_95"],
+            "recall_better_than_baseline": candidate_overall["recall"] > baseline_overall["recall"],
+        }
+        validation_passes = all(validation_gate.values())
+        prediction_artifacts: dict[str, dict[str, Any]] = {
+            "validation_baseline": baseline,
+            "validation_candidate": candidate_predictions,
+        }
+        sealed_metrics: dict[str, Any] | None = None
+        sealed_gate: dict[str, Any] = {
+            "evaluated": False,
+            "reason": "validation_gate_failed",
+            "passes": False,
+        }
+        if validation_passes:
+            sealed_baseline = _evaluate_model(
+                pretrained,
+                view,
+                config.device,
+                model_id="pretrained-baseline",
+                pretrained=True,
+                partition="sealed_test",
+            )
+            sealed_candidate = _evaluate_model(
+                candidate.checkpoint_path,
+                view,
+                config.device,
+                model_id="candidate",
+                pretrained=False,
+                partition="sealed_test",
+            )
+            prediction_artifacts.update(
+                {
+                    "sealed_test_baseline": sealed_baseline,
+                    "sealed_test_candidate": sealed_candidate,
+                }
+            )
+            sealed_metrics = {
+                "baseline": sealed_baseline["metrics"],
+                "candidate": sealed_candidate["metrics"],
+            }
+            sealed_gate = {
+                "evaluated": True,
+                "every_recording_has_target_recall": all(
+                    metrics["recall"] > 0
+                    for metrics in sealed_candidate["metrics"]["by_recording"].values()
+                ),
+            }
+            sealed_gate["passes"] = all(
+                value for key, value in sealed_gate.items() if key != "evaluated"
+            )
+        gate = {
+            "validation": {**validation_gate, "passes": validation_passes},
+            "sealed_test": sealed_gate,
+            "passes": validation_passes and bool(sealed_gate["passes"]),
+        }
+        for key, artifact in prediction_artifacts.items():
+            path = _artifact_path(output, key)
+            _write_json(path, artifact)
+        exclusions = {
+            _PARTITION_LABELS[partition]: _exclusion_artifact(view, partition)
+            for partition in _PARTITIONS
+        }
+        partition_reports = {
+            label: {
+                "prediction_frame_count": artifact["metrics"]["overall"]["frame_count"],
+                "target_count": artifact["metrics"]["overall"]["target_count"],
+                "excluded_frame_count": exclusions[label]["excluded_frame_count"],
+                "ineligible_outcome_count": exclusions[label]["ineligible_outcome_count"],
+            }
+            for label, artifact in (
+                ("validation", candidate_predictions),
+                *(
+                    [("sealed_test", prediction_artifacts["sealed_test_candidate"])]
+                    if sealed_metrics is not None
+                    else []
+                ),
+            )
         }
         report = {
             "schema_version": RFDETR_SEGMENTATION_VALIDATION_SCHEMA,
@@ -493,14 +730,28 @@ def run_rfdetr_segmentation_campaign_validation(
                 "bundle_digest": candidate.manifest["bundle_digest"],
                 "checkpoint_sha256": candidate.manifest["checkpoint_sha256"],
             },
-            "metrics": {"baseline": baseline_metrics, "candidate": candidate_metrics},
-            "gate": {**gate, "passes": all(gate.values())},
+            "partitions": partition_reports,
+            "metrics": {
+                "validation": validation_metrics,
+                "sealed_test": sealed_metrics,
+            },
+            "gate": gate,
+            "exclusions": exclusions,
+            "limitations": {
+                "background_only_frames_available": False,
+                "note": (
+                    "The corpus has no reviewed empty-background frames. Excluded frames remain "
+                    "outside the score."
+                ),
+            },
             "artifacts": {
                 key: {
-                    "path": f"{key}-predictions.json",
-                    "sha256": _file_digest(output / f"{key}-predictions.json"),
+                    "path": path.name,
+                    "sha256": _file_digest(path),
                 }
-                for key in ("baseline", "candidate")
+                for key, path in (
+                    (key, _artifact_path(output, key)) for key in prediction_artifacts
+                )
             },
         }
         _write_json(report_path, report)

@@ -152,6 +152,25 @@ validates the existing staged dataset against the current M1 digest, then passes
 to RF-DETR without restaging it. The runner records the requested device and does not fall back
 to CPU.
 
+After the candidate run completes, evaluate the unchanged pretrained baseline and the selected
+candidate. The command writes retained validation predictions and, only when the validation gate
+passes, one sealed-test prediction set:
+
+```bash
+mise exec -- uv run --project table_evidence_analyzer --group training table-analyzer \
+  evaluate-rfdetr-segmentation-campaign \
+  --dataset-dir .runtime/rfdetr-segmentation-0068 \
+  --manifest data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json \
+  --pretrained-checkpoint .runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt \
+  --candidate-bundle .runtime/rfdetr-visible-card-detector-0068-m2-training/bundle \
+  --output-dir .runtime/rfdetr-visible-card-detector-0068-m3-validation \
+  --device mps
+```
+
+The report includes overall metrics, recording, card-side, and visible-card-count slices, plus
+excluded-frame and ineligible-outcome receipts. Rerunning a completed output verifies and reuses
+all retained prediction artifacts.
+
 Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
 `GEMINI_API_KEY` is present in the process environment. The fake provider is deterministic and
 does not need credentials:
