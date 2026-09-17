@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M11 and the operator-run hard-negative ablation are complete. M10 publishes 70 timing-review items in 47 deterministic regions for six recordings. M11 reconciles the prose notes into immutable item decisions, freezes successor dataset `cardeventnet-interval-dataset-00a59b5fcd210d23c569`, and measures three validation-only decoder responses without selecting one. The ablation reaches validation F1 0.922, but stable-end timing remains the main error. M12 prepares, but does not run, one timing-response campaign. Sealed test stays unread until M13 locks a candidate. |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M12 and the operator-run hard-negative ablation are complete. M10 publishes 70 timing-review items in 47 deterministic regions for six recordings. M11 reconciles the prose notes into immutable item decisions, freezes successor dataset `cardeventnet-interval-dataset-00a59b5fcd210d23c569`, and measures three validation-only decoder responses without selecting one. M12 prepares one interval-aware endpoint response with a 125 ms stable-end target, fixed seed/device/precision/decoder, and exact operator train/resume/validation handoff. No training started; sealed test stays unread until M13 locks a candidate. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -128,10 +128,10 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M12.** Use the M11 validation evidence to prepare one bounded
-   timing-response campaign. The operator makes all reference decisions. Luna prepares but does
-   not run the exact timing-response command. The operator runs all long training, test, export,
-   and optional diagnostic commands. Sealed test remains unread until a candidate is locked.
+1. **Continue 0063 with M13.** Run the exact M12 operator handoff and report completion. Then
+   validate the candidate artifacts and compare the endpoint response with the M9 checkpoint on
+   the successor validation partition. The operator runs all long training, test, export, and
+   optional diagnostic commands. Sealed test remains unread until a candidate is locked.
 2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.

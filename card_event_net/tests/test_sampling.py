@@ -115,6 +115,33 @@ def test_interval_end_keeps_the_positive_target_window() -> None:
     assert all(sample.time_s not in {10.0, 10.5, 11.0, 11.5} for sample in samples)
 
 
+def test_endpoint_response_is_interval_aware_causal_and_deterministic() -> None:
+    timestamps = tuple(index / 8.0 for index in range(49))
+    event_times = (4.0, 4.2)
+    intervals = ((3.0, 4.0), (4.1, 4.2))
+    options = {
+        "positive_window_s": 0.125,
+        "past_exclusion_s": 0.35,
+        "future_exclusion_s": 0.10,
+        "negative_to_positive_ratio": 1,
+        "event_intervals_s": intervals,
+    }
+
+    first = build_training_times(timestamps, event_times, **options)
+    second = build_training_times(timestamps, event_times, **options)
+
+    assert first == second
+    assert label_state_for_time(3.5, event_times, event_intervals_s=intervals) == LABEL_IGNORE
+    assert label_state_for_time(
+        4.0, event_times, positive_window_s=0.125, event_intervals_s=intervals
+    ) == "positive"
+    assert label_state_for_time(
+        4.2, event_times, positive_window_s=0.125, event_intervals_s=intervals
+    ) == "positive"
+    causal_indices = select_frame_indices(timestamps, 4.2)
+    assert all(timestamps[index] <= 4.2 for index in causal_indices)
+
+
 def test_overlapping_positive_windows_still_win_over_interval_ignore() -> None:
     assert (
         label_state_for_time(

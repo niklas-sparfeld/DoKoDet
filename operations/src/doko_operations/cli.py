@@ -56,6 +56,11 @@ from .cardevent_m11 import (
     publish_cardeventnet_m11_timing_review,
     render_cardeventnet_m11_human,
 )
+from .cardevent_m12 import (
+    CardEventM12Error,
+    prepare_cardeventnet_m12_timing_response,
+    render_cardeventnet_m12_human,
+)
 from .cardevent_materialization import (
     CardEventNetMaterializationError,
     materialize_cardeventnet_dataset,
@@ -616,6 +621,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_path_options(m11_review, suppress_defaults=True)
     _add_model_options(m11_review)
     m11_review.add_argument("campaign_id")
+    m12_prepare = model_commands.add_parser(
+        "prepare-card-event-net-m12",
+        help="Prepare the CardEventNet M12 timing-response handoff without training.",
+    )
+    _add_path_options(m12_prepare, suppress_defaults=True)
+    _add_model_options(m12_prepare)
+    m12_prepare.add_argument("campaign_id")
     improve = model_commands.add_parser(
         "improve", help="Run or resume a bounded component improvement campaign."
     )
@@ -1730,6 +1742,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else:
                     sys.stdout.write(render_cardeventnet_m11_human(result))
                 return 0
+            if args.model_command == "prepare-card-event-net-m12":
+                result = prepare_cardeventnet_m12_timing_response(
+                    args.campaign_id,
+                    repository_root=config.repository_root,
+                    campaign_root=args.campaign_root,
+                )
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(render_cardeventnet_m12_human(result))
+                return 0
             if args.model_command == "promote":
                 campaign_root = (
                     args.campaign_root or config.repository_root / "data" / "model-campaigns"
@@ -1858,6 +1881,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             OSError,
             CardEventM10Error,
             CardEventM11Error,
+            CardEventM12Error,
             ModelImprovementError,
             SystemHoldoutError,
             SystemHoldoutEvaluationError,

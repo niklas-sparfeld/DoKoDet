@@ -441,6 +441,25 @@ It does not train, export, promote, read sealed test, or read the system holdout
 decoder; the decision report, grid, result, and human report are written below the M9 campaign
 directory.
 
+## Epic 0063 M12 timing-response handoff
+
+After M11 selects no decoder, prepare the single interval-aware endpoint response without starting
+training:
+
+```bash
+mise exec -- uv run --project operations doko model prepare-card-event-net-m12 \
+  cardeventnet-0063-m9-hard-negative-ablation \
+  --repository-root .
+```
+
+The command writes the immutable handoff below
+`data/model-campaigns/cardeventnet-0063-m12-timing-response/`. The response keeps the M9
+architecture, causal clip, decoder, seed 42, MPS, FP32, hard-negative manifest, and successor
+validation partition. It changes only the stable-end positive window from 0.250 to 0.125 seconds.
+The handoff includes exact materialization, train, resume, validation, and diagnostics commands,
+expected output paths, and a fixed 12-hour operator time budget. The operator runs the commands;
+M12 does not start or monitor training and does not read sealed-test or system-holdout output.
+
 ## Epic 0066 interval-review pilot
 
 M4 publishes one bounded trick-clear review as a corrected event revision, then derives a

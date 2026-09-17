@@ -99,9 +99,12 @@
   matches. No decoder is selected. The report, decision lineage, dataset, materialized view, and
   decoder grid are under `data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/`
   and the successor dataset path. M11 did not train, export, promote, or read sealed test.
-- **M12:** Not started — select one timing response from M11 evidence and prepare its exact manual
-  campaign command. Prefer a decoder-only response when it satisfies the declared stable-end
-  gates. Otherwise prepare one interval-aware temporal-model response. Stop before training.
+- **M12:** Complete (2026-09-17) — M11 selected no decoder, so the campaign prepares one
+  interval-aware endpoint response. It keeps the checkpoint architecture, causal clip, decoder,
+  seed, device, precision, hard-negative manifest, and partition fixed, and narrows only the
+  stable-end positive window from 0.250 seconds to 0.125 seconds. The exact operator handoff is
+  `data/model-campaigns/cardeventnet-0063-m12-timing-response/m12-result.json`; training remains
+  unstarted and sealed test remains unread.
 - **M13:** Not started — after the operator runs the M12 command, compare the candidate on the
   successor validation partition and either lock it or retain `human_review_required`.
 - **M14:** Not started — blocked until M13 creates a candidate lock. Prepare and validate the
@@ -719,6 +722,16 @@ median signed timestamp error, and 0.236182 seconds median causal emission delay
 0.375-second peak confirmation gives 51 stable-end matches but 0.487339 seconds median causal
 emission delay. M11 selects no decoder and keeps sealed-test output unread.
 
+M12 result — 2026-09-17: because M11 selected no decoder, the single response is
+`interval_endpoint_focus_v1`. Its config is
+`data/model-campaigns/cardeventnet-0063-m12-timing-response/interval-endpoint-focus-v1.yaml`.
+It changes only `labels.positive_window_s` from 0.250 to 0.125 seconds. The handoff fixes seed
+42, MPS, FP32, the current causal decoder, the successor dataset
+`cardeventnet-interval-dataset-00a59b5fcd210d23c569`, and the validation partition. It declares a
+12-hour operator time budget, train/resume/evaluate/diagnose commands, expected artifacts, and
+the stable-end, false-trigger, duplicate-trigger, latency, and event-presence gates. M12 did not
+start or monitor training and did not read sealed-test or system-holdout output.
+
 ### M11 — Reconcile review decisions and measure decoder timing
 
 - Start only after the operator confirms that the M10 review is complete.
@@ -765,6 +778,14 @@ Acceptance:
 - the operator handoff contains the exact long-running command and expected completion artifacts;
   and
 - Luna does not start or monitor the long-running command.
+
+Result: M12 is complete. M11 selected no decoder, so the response is
+`interval_endpoint_focus_v1`, an interval-aware stable-end endpoint response. The config and
+operator handoff are under
+`data/model-campaigns/cardeventnet-0063-m12-timing-response/`. The handoff contains exact
+materialization, train, resume, validation, and diagnostics commands. It keeps interval interiors
+ignored and does not read the sealed test or system holdout. The operator must run the handoff and
+report completion before M13 compares the candidate.
 
 ### M13 — Compare and lock the timing candidate
 

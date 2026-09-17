@@ -1,0 +1,110 @@
+{
+  "campaign_id": "cardeventnet-0063-m12-timing-response",
+  "commands": {
+    "diagnose_validation": "mise exec -- uv run --project card_event_net cardevent diagnose --checkpoint data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/best.pt --dataset-view .runtime/cardevent/datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569 --out data/model-campaigns/cardeventnet-0063-m12-timing-response/diagnostics.json",
+    "evaluate_validation": "mise exec -- uv run --project card_event_net cardevent evaluate --checkpoint data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/best.pt --dataset-view .runtime/cardevent/datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569 --partition val --out data/model-campaigns/cardeventnet-0063-m12-timing-response/validation-evaluation.json --device mps",
+    "materialize_dataset": "mise exec -- uv run --project operations doko data cardevent materialize --repository-root . --dataset data/operations/cardevent-datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569/dataset.json --output .runtime/cardevent/datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+    "prepare_train_and_validation_cache": "mise exec -- uv run --project card_event_net cardevent prepare --dataset-view .runtime/cardevent/datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569 --partition train val",
+    "resume": "mise exec -- uv run --project card_event_net cardevent train --config data/model-campaigns/cardeventnet-0063-m12-timing-response/interval-endpoint-focus-v1.yaml --seed 42 --dataset-view .runtime/cardevent/datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569 --device mps --precision fp32 --hard-negative-manifest data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/reviewed-hard-negatives.json --resume data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/last.pt",
+    "train": "mise exec -- uv run --project card_event_net cardevent train --config data/model-campaigns/cardeventnet-0063-m12-timing-response/interval-endpoint-focus-v1.yaml --output-dir data/model-campaigns/cardeventnet-0063-m12-timing-response/runs --run-name candidate-interval-endpoint-focus-v1 --seed 42 --dataset-view .runtime/cardevent/datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569 --device mps --precision fp32 --hard-negative-manifest data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/reviewed-hard-negatives.json"
+  },
+  "execution_contract": {
+    "device": "mps",
+    "operator_only": true,
+    "precision": "fp32",
+    "resume_from": "last.pt",
+    "sealed_test": "not_read",
+    "seed": 42,
+    "system_holdout": "not_read",
+    "time_budget_hours": 12,
+    "validation_partition": "val"
+  },
+  "expected_outputs": [
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/config.yaml",
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/environment.json",
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/sampling.json",
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/best.pt",
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/last.pt",
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/runs/candidate-interval-endpoint-focus-v1/summary.json",
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/validation-evaluation.json",
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/validation-evaluation-transition-diagnostics.json",
+    "data/model-campaigns/cardeventnet-0063-m12-timing-response/diagnostics.json"
+  ],
+  "export_started": false,
+  "gates": {
+    "causal_emission_delay_p95_s": {
+      "maximum": 0.75,
+      "meaning": "causal emission delay from the stable-end anchor"
+    },
+    "confirmed_no_event_triggers": {
+      "maximum": 20,
+      "meaning": "confirmed no-event triggers after the M11 reference decisions"
+    },
+    "duplicate_detections_per_reviewed_change": {
+      "maximum": 32,
+      "meaning": "duplicate detections attributed to one reviewed change"
+    },
+    "event_presence_recall": {
+      "meaning": "event-presence recall, reported separately from stable-end timing",
+      "minimum": 0.98
+    },
+    "stable_end_matches": {
+      "meaning": "strict stable-end matches on the six-recording successor validation set",
+      "minimum": 60
+    }
+  },
+  "lineage": {
+    "hard_negative_manifest": {
+      "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/reviewed-hard-negatives.json",
+      "sha256": "8138a57e5c409692e0a0ed55899caad39d74090028f66bd313f3501c4bf79029"
+    },
+    "m11_result": {
+      "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m11-result.json",
+      "result_digest": "5ebc2d05dfa351287e739d22e74838cfea981b4165478b9b241e22639d4a2e39",
+      "sha256": "98de799b43379f9d6f1b391ec3d83d45b0e49413f1d79a3354dde6027b8b9e4e"
+    },
+    "m9_checkpoint": {
+      "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+      "sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4"
+    },
+    "m9_handoff": {
+      "handoff_sha256": "ccc49e0b73e5cdaed2b1f404c8650dda5912b34e42b0d3bd090419d8464207bd",
+      "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/handoff.json",
+      "sha256": "405176cdf2c8f50e0a82d4491b8e2bdf174681a020791a4906d158ad799741bb"
+    },
+    "successor_dataset": {
+      "dataset_sha256": "f76a398ba06c483349ce3314935823a51601a4600aa5e426ac4f22dca43fd65e",
+      "digest": "00a59b5fcd210d23c569727f98453c77237bb2c2ae71ebfc0a69e9abf8e807ee",
+      "id": "cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+      "materialization_manifest_digest": "e83a136b61d3149f76f90a090ad15b04fa4aea56ae4b00d89ab76276f6d06538",
+      "materialized_view": ".runtime/cardevent/datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+      "path": "data/operations/cardevent-datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+      "split_sha256": "9459cf6566db27ec131ee9f0d8543f8a49e6cdea7ae1bb442ae3106011a99caf"
+    }
+  },
+  "promotion_started": false,
+  "response": {
+    "baseline_positive_window_s": 0.25,
+    "changed_axis": "stable_end_positive_window",
+    "config_path": "data/model-campaigns/cardeventnet-0063-m12-timing-response/interval-endpoint-focus-v1.yaml",
+    "config_sha256": "24bb49fc0336a6a6ed5c98ba238250d173069a8b106b0daeac92740985345aad",
+    "endpoint_window_s": 0.125,
+    "interval_interior": "ignore",
+    "kind": "interval_aware_temporal_model",
+    "objective": "stable_end_endpoint",
+    "response_id": "interval_endpoint_focus_v1"
+  },
+  "response_selection": {
+    "candidates_considered": [
+      "interval_endpoint_focus_v1"
+    ],
+    "selected_response": "interval_endpoint_focus_v1",
+    "selection_rule": "M11 selected no decoder; use the single interval-aware endpoint response"
+  },
+  "result_digest": "968b8638f4f6df88d76d2175bddcdcf8b41b15c69bd2cecf305e1f57cfdbb52a",
+  "schema_version": "cardeventnet-m12-timing-response/v1",
+  "sealed_test_read": false,
+  "source_campaign_id": "cardeventnet-0063-m9-hard-negative-ablation",
+  "system_holdout_read": false,
+  "training_started": false
+}
