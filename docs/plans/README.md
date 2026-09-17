@@ -46,7 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0043 — First local DINOv3 card identifier](2-ready/0043-First_Local_DINOv3_Card_Identifier.md) | 0041, 0042, 0048, 0049, and 0062 complete | Freeze the latest eligible reviewed references when training starts, let the operator train one bounded frozen-encoder candidate on MPS, and prove its exported bundle through the local classifier boundary. M0–M3 not started. |
+| [0043 — First local DINOv3 card identifier](3-in-progress/0043-First_Local_DINOv3_Card_Identifier.md) | 0041, 0042, 0048, 0049, and 0062 complete | M0 is complete: the read-only preflight discovers current references, validates split and source lineage, reports exact revisions, checks local DINOv3 prerequisites, and writes no campaign artifacts. M1–M3 not started. |
 
 ### In Progress
 

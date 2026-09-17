@@ -4,7 +4,7 @@
 
 - **Summary:** Train one local DINOv3 visual card classifier from the latest completed human
   references and prove that its exported bundle runs locally.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Plans 0041, 0042, 0048, 0049, and 0062 complete
 - **Builds on:** The DINOv3 training and bundle capability from 0041, the maintained references and
   dataset boundary from 0048/0049, and the 25-class visual-classification contract from 0062
@@ -16,7 +16,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — add a current-corpus readiness and prerequisite preflight.
+- **M0:** Complete — add a read-only current-corpus readiness and prerequisite preflight.
 - **M1:** Not started — freeze and materialize the latest eligible reviewed corpus.
 - **M2:** Not started — let the operator run one bounded local training command.
 - **M3:** Not started — export, evaluate, and run the first local bundle.
@@ -39,6 +39,16 @@ quality and productive-operation work must use the retained M3 report instead of
 first candidate as production-ready.
 
 ## 1. Current evidence
+
+### M0 progress — 2026-09-17
+
+M0 is complete. The operations CLI now provides the read-only
+`data dinov3-identity-preflight` command. It discovers the selected split, current completed
+references, source bundles, revision digests, paired visible-card lineage, source groups, holdout
+exclusions, DINOv3 package and license prerequisites, and the memory-only MPS batch probe. It prints
+the exact revision IDs that would be frozen and blocks when a required input is missing. It does not
+write crops, datasets, checkpoints, or model bundles. Generated tests cover deterministic read-only
+reports, repository-relative split resolution, and FACE_DOWN exclusion with retained revision IDs.
 
 The 2026-09-17 read-only scan found nine selected completed visual-identity references with 1,093
 review outcomes:

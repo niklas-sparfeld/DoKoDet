@@ -92,6 +92,11 @@ from .cardevent_readiness import (
     write_cardeventnet_readiness_receipt,
 )
 from .config import ConfigurationError, RepositoryConfig
+from .dinov3_identity_campaign import (
+    DinoV3IdentityPreflightError,
+    build_dinov3_identity_preflight,
+    render_dinov3_identity_preflight_human,
+)
 from .evidence_adoption import EvidencePackageAdoptionError, adopt_runtime_evidence_package
 from .holdout import SystemHoldoutError, seal_system_holdout_group
 from .impact import (
@@ -419,6 +424,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     baseline.add_argument("--format", choices=("human", "json"), default="human")
     baseline.add_argument("--json", action="store_true", help="Alias for --format json.")
+    dinov3 = data_commands.add_parser(
+        "dinov3-identity-preflight",
+        aliases=("identity-preflight",),
+        help="Run the read-only M0 preflight for the first local DINOv3 identity campaign.",
+        description=(
+            "Discover current completed visual-card references, validate the selected split and "
+            "local prerequisites, and report exact revisions without publishing campaign data."
+        ),
+    )
+    _add_path_options(dinov3, suppress_defaults=True)
+    dinov3.add_argument(
+        "--operations-root", type=Path, default=None, help="Shared operations root."
+    )
+    dinov3.add_argument(
+        "--split", type=Path, default=None, help="Selected visual-identity split or active pointer."
+    )
+    dinov3.add_argument(
+        "--holdout-registry", type=Path, default=None, help="Shared system holdout registry."
+    )
+    dinov3.add_argument(
+        "--identity-config", type=Path, default=None, help="Resolved local DINOv3 identity config."
+    )
+    dinov3.add_argument(
+        "--license-record", type=Path, default=None, help="Pinned DINOv3 license record JSON."
+    )
+    dinov3.add_argument(
+        "--weights-root", type=Path, default=None, help="Already-materialized local DINOv3 files."
+    )
+    dinov3.add_argument(
+        "--verify-source-bytes",
+        action="store_true",
+        help="Hash selected source videos in addition to checking declared digests.",
+    )
+    dinov3.add_argument("--format", choices=("human", "json"), default="human")
+    dinov3.add_argument("--json", action="store_true", help="Alias for --format json.")
     rfdetr = data_commands.add_parser(
         "rfdetr-segmentation",
         aliases=("rfdetr-segmentation-audit",),
@@ -1383,6 +1423,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"error: {error}", file=sys.stderr)
             return 2
         return 0 if manifest["validation_classification_allowed"] else 1
+    if args.command == "data" and args.data_command in {
+        "dinov3-identity-preflight",
+        "identity-preflight",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                artifacts_root=args.artifacts_root,
+            )
+            report = build_dinov3_identity_preflight(
+                config.repository_root,
+                operations_root=args.operations_root or config.derived_artifact_root,
+                intake_root=config.bundle_root,
+                split_path=args.split,
+                holdout_registry_path=args.holdout_registry,
+                identity_config_path=args.identity_config,
+                license_record_path=args.license_record,
+                weights_root=args.weights_root,
+                verify_source_bytes=args.verify_source_bytes,
+            )
+        except (ConfigurationError, OSError, DinoV3IdentityPreflightError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(
+                json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+            )
+        else:
+            sys.stdout.write(render_dinov3_identity_preflight_human(report))
+        return 0 if report["preflight_state"] == "ready" else 1
     if args.command == "data" and args.data_command in {
         "rfdetr-segmentation",
         "rfdetr-segmentation-audit",
