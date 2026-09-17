@@ -12,6 +12,10 @@ from PIL import Image
 import table_evidence_analyzer.visible_cards as visible_cards
 from table_evidence_analyzer.rfdetr_segmentation_evaluation import calculate_metrics
 from table_evidence_analyzer.rfdetr_segmentation_training import (
+    RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID,
+    RFDETR_REVIEWED_DETECTOR_CAMPAIGN_RUN_SCHEMA,
+    RFDETR_REVIEWED_DETECTOR_DATASET_SCHEMA,
+    RFDETR_REVIEWED_DETECTOR_SMOKE_RUN_SCHEMA,
     RFDETR_SEGMENTATION_BUNDLE_SCHEMA,
     RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA,
     RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA,
@@ -44,14 +48,20 @@ def _image_bytes(color: tuple[int, int, int]) -> bytes:
     return output.getvalue()
 
 
-def _write_view(root: Path) -> Path:
+def _write_view(root: Path, *, reviewed: bool = False) -> Path:
     generated: list[dict[str, str]] = []
     coco_by_partition: dict[str, dict[str, object]] = {}
-    for partition, image_id, recording_id, color in (
+    samples = (
         ("train", 1, "recording-train", (20, 40, 60)),
         ("train", 2, "recording-train-2", (40, 60, 80)),
         ("valid", 3, "recording-valid", (60, 80, 100)),
-    ):
+    )
+    if reviewed:
+        samples += (("sealed_test", 4, "recording-sealed", (80, 100, 120)),)
+    campaign_id = (
+        RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID if reviewed else "0067-m0-rfdetr-segmentation"
+    )
+    for partition, image_id, recording_id, color in samples:
         image_name = f"image-{image_id:06d}.jpg"
         image_path = root / partition / "images" / image_name
         image_path.parent.mkdir(parents=True, exist_ok=True)
@@ -65,7 +75,7 @@ def _write_view(root: Path) -> Path:
             }
         )
         coco = {
-            "info": {"campaign_id": "0067-m0-rfdetr-segmentation"},
+            "info": {"campaign_id": campaign_id},
             "licenses": [],
             "images": [
                 {
@@ -152,7 +162,6 @@ def _write_view(root: Path) -> Path:
     core = {
         "schema_version": "rfdetr-segmentation-materialization/v1",
         "materializer_version": "rfdetr-segmentation-materializer/v1",
-        "campaign_id": "0067-m0-rfdetr-segmentation",
         "campaign_manifest": {"manifest_digest": "a" * 64},
         "frame_extraction": {},
         "target_conversion": {},
@@ -160,7 +169,12 @@ def _write_view(root: Path) -> Path:
         "split": {"path": "split.json", "sha256": generated[-2]["sha256"]},
         "inputs": [],
         "exclusions": {},
-        "counts": {"images": 3, "annotations": 3},
+        "counts": {
+            "images": len(samples),
+            "annotations": len(samples),
+            **({"sealed_test_images": 1, "sealed_test_annotations": 1} if reviewed else {}),
+        },
+        "campaign_id": campaign_id,
         "generated_files": generated,
     }
     materialization = {**core, "materialization_digest": _digest(core)}
@@ -252,6 +266,79 @@ def _campaign_manifest(view: Path, pretrained: Path) -> Path:
         "manifest_digest": manifest["manifest_digest"],
         "file_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
     }
+    materialization = {
+        **materialization_core,
+        "materialization_digest": _digest(materialization_core),
+    }
+    materialization_path.write_bytes(_canonical(materialization) + b"\n")
+    return manifest_path
+
+
+def _reviewed_campaign_manifest(view: Path, pretrained: Path) -> Path:
+    checkpoint_digest = hashlib.sha256(pretrained.read_bytes()).hexdigest()
+    recipe = {
+        "schema_version": "rfdetr-segmentation-recipe/v1",
+        "model": {
+            "class": "RFDETRSegMedium",
+            "variant": "rfdetr-seg-medium",
+            "class_names": ["visible_card"],
+            "num_classes": 1,
+            "resolution": [432, 432],
+        },
+        "package": {"name": "rfdetr", "version": "1.9.4"},
+        "pretrained_checkpoint": {"name": "rf-detr-seg-medium.pt", "sha256": checkpoint_digest},
+        "augmentation": {
+            "policy_id": "rfdetr-default-v1",
+            "multi_scale": True,
+            "expanded_scales": True,
+            "do_random_resize_via_padding": False,
+            "use_ema": True,
+        },
+        "training": {
+            "batch_size": 1,
+            "grad_accum_steps": 4,
+            "effective_batch_size": 4,
+            "epochs": 40,
+            "seed": 6701,
+            "num_workers": 0,
+            "device": "mps",
+            "mixed_precision": False,
+            "output_dir_name": "rfdetr-segmentation-0068",
+        },
+        "early_stopping": {"enabled": True, "patience": 8, "min_delta": 0.001},
+        "data_contract": {"test_partition": "sealed_test"},
+        "validation": {"checkpoint_selection": "highest_validation_mask_ap_50_95_then_recall"},
+    }
+    manifest_core = {
+        "schema_version": "rfdetr-visible-card-detector-manifest/v1",
+        "campaign_id": RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID,
+        "milestone": "M0",
+        "read_only": True,
+        "freeze_state": "frozen",
+        "recipe": recipe,
+        "recipe_sha256": _digest(recipe),
+    }
+    manifest = {**manifest_core, "manifest_digest": _digest(manifest_core)}
+    manifest_path = view.parent / "reviewed-m0-manifest.json"
+    manifest_path.write_bytes(_canonical(manifest) + b"\n")
+    split_path = view / "split.json"
+    split = json.loads(split_path.read_text())
+    split_core = {key: value for key, value in split.items() if key != "split_digest"}
+    split_core["campaign_manifest_digest"] = manifest["manifest_digest"]
+    split = {**split_core, "split_digest": _digest(split_core)}
+    split_path.write_bytes(_canonical(split) + b"\n")
+    materialization_path = view / "materialization.json"
+    materialization = json.loads(materialization_path.read_text())
+    materialization_core = {
+        key: value for key, value in materialization.items() if key != "materialization_digest"
+    }
+    materialization_core["campaign_manifest"] = {
+        "manifest_digest": manifest["manifest_digest"],
+        "file_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    }
+    for item in materialization_core["generated_files"]:
+        if item["path"] == "split.json":
+            item["sha256"] = hashlib.sha256(split_path.read_bytes()).hexdigest()
     materialization = {
         **materialization_core,
         "materialization_digest": _digest(materialization_core),
@@ -369,6 +456,76 @@ def test_campaign_fixture_uses_all_m1_images_and_frozen_training_recipe(tmp_path
 
     rerun = run_rfdetr_segmentation_campaign_training(config)
     assert rerun["run_id"] == record["run_id"]
+
+
+def test_reviewed_detector_smoke_records_matching_m0_m1_and_device_facts(tmp_path: Path) -> None:
+    view = _write_view(tmp_path / "view", reviewed=True)
+    pretrained = tmp_path / "rf-detr-seg-medium.pt"
+    pretrained.write_bytes(b"fixture reviewed pretrained weights")
+    manifest = _reviewed_campaign_manifest(view, pretrained)
+    output = tmp_path / "smoke"
+
+    report = run_rfdetr_segmentation_training(
+        RfdetrSegmentationTrainingConfig(
+            dataset_dir=view,
+            campaign_manifest=manifest,
+            pretrained_checkpoint=pretrained,
+            output_dir=output,
+            runner="fixture",
+            device="cpu",
+            train_image_count=2,
+            validation_image_count=1,
+        )
+    )
+
+    assert report["schema_version"] == RFDETR_REVIEWED_DETECTOR_SMOKE_RUN_SCHEMA
+    assert report["campaign_id"] == RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID
+    assert (
+        report["campaign_manifest"]["manifest_digest"]
+        == json.loads(manifest.read_text())["manifest_digest"]
+    )
+    assert (
+        report["materialization_digest"]
+        == json.loads((view / "materialization.json").read_text())["materialization_digest"]
+    )
+    assert report["resource_facts"]["requested_device"] == "cpu"
+    assert report["checkpoint"]["weights_differ"] is True
+    assert report["bundle"]["schema_version"] == RFDETR_SEGMENTATION_BUNDLE_SCHEMA
+    assert report["stages"]["reload"] == "skipped"
+    assert report["stages"]["inference"] == "skipped"
+    assert load_rfdetr_segmentation_bundle(output / "bundle").manifest["campaign_id"] == (
+        RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID
+    )
+
+
+def test_reviewed_detector_campaign_uses_all_m1_images_and_reuses_verified_run(
+    tmp_path: Path,
+) -> None:
+    view = _write_view(tmp_path / "view", reviewed=True)
+    pretrained = tmp_path / "rf-detr-seg-medium.pt"
+    pretrained.write_bytes(b"fixture reviewed pretrained weights")
+    manifest = _reviewed_campaign_manifest(view, pretrained)
+    output = tmp_path / "campaign"
+    config = RfdetrSegmentationCampaignTrainingConfig(
+        dataset_dir=view,
+        campaign_manifest=manifest,
+        pretrained_checkpoint=pretrained,
+        output_dir=output,
+        runner="fixture",
+        device="cpu",
+    )
+
+    report = run_rfdetr_segmentation_campaign_training(config)
+    record = json.loads((output / "run.json").read_text())
+    rerun = run_rfdetr_segmentation_campaign_training(config)
+
+    assert report["schema_version"] == RFDETR_REVIEWED_DETECTOR_CAMPAIGN_RUN_SCHEMA
+    assert record["campaign_id"] == RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID
+    assert record["dataset"]["schema_version"] == RFDETR_REVIEWED_DETECTOR_DATASET_SCHEMA
+    assert record["dataset"]["train_image_count"] == 2
+    assert record["dataset"]["validation_image_count"] == 1
+    assert record["checkpoint_selection"] == "highest_validation_mask_ap_50_95_then_recall"
+    assert rerun == record
 
 
 def test_failure_writes_resumable_segmentation_run_record(tmp_path: Path) -> None:

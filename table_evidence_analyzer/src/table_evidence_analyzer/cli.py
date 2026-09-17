@@ -222,13 +222,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     segmentation_train_parser = commands.add_parser(
         "train-rfdetr-segmentation",
+        aliases=("train-rfdetr-visible-card-detector",),
         help="Run the one-epoch RF-DETR visible-region segmentation smoke path.",
         description=(
-            "Train RF-DETR SegMedium on a deterministic subset of an M1 COCO view, "
-            "then reload and verify one local mask prediction."
+            "Validate the frozen M0 manifest and train RF-DETR SegMedium on a deterministic "
+            "subset of an M1 COCO view, then reload and verify one local mask prediction."
         ),
     )
     segmentation_train_parser.add_argument("--dataset-dir", type=Path, required=True)
+    segmentation_train_parser.add_argument(
+        "--manifest", type=Path, help="Frozen M0 manifest for the reviewed 0068 campaign."
+    )
     segmentation_train_parser.add_argument("--pretrained-checkpoint", type=Path, required=True)
     segmentation_train_parser.add_argument("--output-dir", type=Path, required=True)
     segmentation_train_parser.add_argument(
@@ -245,6 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     segmentation_campaign_parser = commands.add_parser(
         "train-rfdetr-segmentation-campaign",
+        aliases=("train-rfdetr-visible-card-detector-campaign",),
         help="Train and bundle the full RF-DETR visible-region campaign candidate.",
         description=(
             "Validate the frozen M0 manifest, stage the complete M1 COCO view, and train one "
@@ -674,7 +679,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.exit(1, f"error: {exc}\n")
         print(json.dumps(report, sort_keys=True))
         return 0
-    if args.command == "train-rfdetr-segmentation":
+    if args.command in {"train-rfdetr-segmentation", "train-rfdetr-visible-card-detector"}:
         from .rfdetr_segmentation_training import (
             RfdetrSegmentationTrainingConfig,
             run_rfdetr_segmentation_training,
@@ -686,6 +691,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     dataset_dir=args.dataset_dir,
                     pretrained_checkpoint=args.pretrained_checkpoint,
                     output_dir=args.output_dir,
+                    campaign_manifest=args.manifest,
                     runner=args.runner,
                     device=args.device,
                     train_image_count=args.train_image_count,
@@ -696,7 +702,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.exit(1, f"error: {exc}\n")
         print(json.dumps(report, sort_keys=True))
         return 0
-    if args.command == "train-rfdetr-segmentation-campaign":
+    if args.command in {
+        "train-rfdetr-segmentation-campaign",
+        "train-rfdetr-visible-card-detector-campaign",
+    }:
         from .rfdetr_segmentation_training import (
             RfdetrSegmentationCampaignTrainingConfig,
             run_rfdetr_segmentation_campaign_training,

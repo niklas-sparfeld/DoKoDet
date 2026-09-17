@@ -110,6 +110,31 @@ mise exec -- uv run --project table_evidence_analyzer --group training table-ana
 The campaign command validates the M0 digest and checkpoint pin before training. It refuses a
 non-empty output directory; rerunning a completed output verifies and reuses its bundle.
 
+Run the epic 0068 reviewed-detector smoke path and candidate with the same frozen RF-DETR
+SegMedium recipe. The smoke command uses six train images and one validation image. The campaign
+command stages every 0068 train and validation image and keeps the `sealed_test` view unread:
+
+```bash
+mise exec -- uv run --project table_evidence_analyzer --group training table-analyzer \
+  train-rfdetr-visible-card-detector \
+  --dataset-dir .runtime/rfdetr-segmentation-0068 \
+  --manifest data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json \
+  --pretrained-checkpoint .runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt \
+  --output-dir .runtime/rfdetr-visible-card-detector-0068-m2-smoke \
+  --device mps
+
+mise exec -- uv run --project table_evidence_analyzer --group training table-analyzer \
+  train-rfdetr-visible-card-detector-campaign \
+  --dataset-dir .runtime/rfdetr-segmentation-0068 \
+  --manifest data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json \
+  --pretrained-checkpoint .runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt \
+  --output-dir .runtime/rfdetr-visible-card-detector-0068-m2-training \
+  --device mps
+```
+
+Both commands verify the M0 and M1 digests before training. A completed output verifies and
+reuses its bundle. The runner records the requested device and does not fall back to CPU.
+
 Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
 `GEMINI_API_KEY` is present in the process environment. The fake provider is deterministic and
 does not need credentials:

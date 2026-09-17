@@ -27,7 +27,10 @@
 - **M1:** Complete — materialize the frozen reviewed instance-segmentation dataset into
   deterministic train, validation, and sealed-test COCO views. The live run awaits the frozen
   24-recording M0 snapshot, which is not present in this checkout.
-- **M2:** Not started — run one local RF-DETR SegMedium candidate from the frozen recipe.
+- **M2:** Complete — the reviewed-detector smoke and full-candidate run paths now verify matching
+  M0 and M1 digests, record explicit device and resource facts, retain resumable failures, and
+  reuse verified completed bundles. The live run is blocked until the frozen 24-recording input
+  snapshot is available in this checkout.
 - **M3:** Not started — evaluate the pretrained baseline and candidate on the frozen validation
   and sealed-test partitions.
 - **M4:** Not started — make the bounded local-provider decision and register a passing bundle.
@@ -174,6 +177,23 @@ Acceptance:
 - the emitted checkpoint differs from the pretrained checkpoint and reloads as RF-DETR SegMedium;
 - MPS is explicit and never silently falls back to CPU; and
 - a completed run is verified and reused rather than retrained.
+
+#### M2 implementation evidence — 2026-09-17
+
+- Generalized the proven 0067 RF-DETR SegMedium adapter for the frozen 0068 manifest and M1 view.
+  The adapter verifies the reviewed-detector campaign identity, recipe, checkpoint digest, split
+  receipt, and the `sealed_test` COCO view before it starts training.
+- Added `table-analyzer train-rfdetr-visible-card-detector` for the deterministic smoke path and
+  `table-analyzer train-rfdetr-visible-card-detector-campaign` for one full candidate. Both paths
+  retain package facts, requested resource facts, command arguments, input digests, checkpoint
+  facts, training evidence, bundle identity, and resumable failure records.
+- The fixture smoke and campaign tests pass. A completed fixture campaign verifies and reuses its
+  existing bundle without retraining. The RF-DETR bundle keeps the existing local mask-provider
+  contract and records the 0068 manifest receipt.
+- The live MPS smoke invocation stopped at the M1 input check because
+  `.runtime/rfdetr-segmentation-0068` is absent. It retained the failure at
+  `.runtime/rfdetr-visible-card-detector-0068-m2-smoke/run.json`. No candidate training or
+  sealed-test inspection occurred.
 
 ### M3 — Lock validation and sealed-test evidence
 
