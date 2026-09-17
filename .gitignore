@@ -18,7 +18,8 @@
 /data/intake/evidence-packages/**/*.jpeg
 /diagnostics/
 **/node_modules/
-/.vscode
+/.vscode/*
+!/.vscode/extensions.json
 /backend/data
 /data
 /game_engine/build
