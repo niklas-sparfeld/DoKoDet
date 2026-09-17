@@ -65,6 +65,7 @@ from .source_exclusion import SourceExclusionError, ensure_source_allowed
 
 DINOV3_PREFLIGHT_SCHEMA_VERSION = "dinov3-identity-preflight/v1"
 DINOV3_PREPARATION_SCHEMA_VERSION = "dinov3-identity-preparation/v1"
+DINOV3_TRAINING_PREFLIGHT_SCHEMA_VERSION = "dinov3-identity-training-handoff/v1"
 DINOV3_CAMPAIGN_ID = "0043-m0-first-local-dinov3-card-identifier"
 DINOV3_CAMPAIGN_ID_PREFIX = "0043-m1-dinov3-identity"
 DINOV3_IDENTITY_CONFIG_SCHEMA = "dinov3-identity-config/v1"
@@ -1634,6 +1635,8 @@ def _campaign_command(
         (root / "split.json").relative_to(repository).as_posix(),
         "--artifacts",
         (root / "artifact-index.json").relative_to(repository).as_posix(),
+        "--campaign-manifest",
+        (root / "manifest.json").relative_to(repository).as_posix(),
         "--identity-config",
         identity_config_path,
         "--output",
@@ -2147,7 +2150,7 @@ def prepare_dinov3_identity_campaign(
         _write_campaign_json(staging / "crop-inventory.json", crop_mapping)
         _write_campaign_json(staging / "crop-cache" / "crop-manifest.json", crop_mapping)
         for frame_key, frame in sorted(frame_values.items()):
-            _write_campaign_bytes(staging / "artifacts" / frame_paths[frame_key], frame.image_bytes)
+            _write_campaign_bytes(staging / frame_paths[frame_key], frame.image_bytes)
         for sample_id, crop_bytes in sorted(crop_values.items()):
             relative = next(
                 crop.relative_path for crop in crop_rows if crop.dataset_item_id == sample_id
@@ -2157,7 +2160,7 @@ def prepare_dinov3_identity_campaign(
             DatasetManifest.from_mapping(_campaign_dataset_mapping(dataset)),
             split=SplitManifest.from_mapping(split.to_mapping()),
             artifacts=ArtifactIndex.from_mapping(
-                _campaign_artifact_mapping(artifacts), root=staging / "artifacts"
+                _campaign_artifact_mapping(artifacts), root=staging
             ),
         )
         loaded_cache = CropCache.from_mapping(crop_mapping, root=staging / "crop-cache")
@@ -2205,6 +2208,167 @@ def render_dinov3_identity_campaign_human(result: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def validate_dinov3_identity_training_handoff(
+    repository_root: str | Path,
+    campaign_manifest: str | Path,
+) -> dict[str, Any]:
+    """Run the short M2 gate and return one concrete operator command."""
+
+    repository = Path(repository_root).expanduser().resolve()
+    manifest_path = _resolve(repository, campaign_manifest, repository / "manifest.json")
+    blocked: list[str] = []
+    try:
+        manifest = _read_json(manifest_path, "DINOv3 campaign manifest")
+        if manifest.get("schema_version") != DINOV3_PREPARATION_SCHEMA_VERSION:
+            blocked.append("campaign manifest schema is unsupported")
+        manifest_digest = manifest.get("manifest_digest")
+        if manifest_digest != sha256_json(
+            {key: value for key, value in manifest.items() if key != "manifest_digest"}
+        ):
+            blocked.append("campaign manifest digest does not match its contents")
+        if manifest.get("milestone") != "M1" or manifest.get("state") != "frozen":
+            blocked.append("campaign is not a frozen M1 campaign")
+        campaign_root = manifest_path.parent
+        dataset = None
+        split = None
+        artifacts = None
+        crop_cache = None
+        for name in ("dataset", "split", "artifact_index"):
+            reference = manifest.get(name)
+            if not isinstance(reference, Mapping):
+                blocked.append(f"campaign {name} reference is missing")
+                continue
+            path = _resolve(campaign_root, reference.get("path"), campaign_root / "missing")
+            if not path.is_file():
+                blocked.append(f"campaign {name} is missing: {path}")
+                continue
+            try:
+                raw = _read_json(path, name)
+                if name == "dataset":
+                    value = DatasetManifest.from_mapping(raw)
+                elif name == "split":
+                    value = SplitManifest.from_mapping(raw)
+                else:
+                    value = ArtifactIndex.from_mapping(raw, root=path.parent)
+            except (DinoV3IdentityPreflightError, TypeError, ValueError) as error:
+                blocked.append(f"campaign {name} is invalid: {error}")
+                continue
+            expected = reference.get("digest")
+            actual = value.digest
+            if actual != expected:
+                blocked.append(f"campaign {name} digest does not match its reference")
+            if name == "dataset":
+                dataset = value
+            elif name == "split":
+                split = value
+            else:
+                artifacts = value
+        crop_reference = manifest.get("crop_inventory")
+        if isinstance(crop_reference, Mapping):
+            crop_path = _resolve(
+                campaign_root, crop_reference.get("path"), campaign_root / "missing"
+            )
+            if crop_path.is_file():
+                try:
+                    crop_cache = CropCache.from_mapping(
+                        _read_json(crop_path, "campaign crop inventory"), root=crop_path.parent
+                    )
+                    for crop in crop_cache.crops:
+                        crop_cache.read(crop)
+                    if crop_cache.digest != crop_reference.get("digest"):
+                        blocked.append(
+                            "campaign crop inventory digest does not match its reference"
+                        )
+                except (DinoV3IdentityPreflightError, TypeError, ValueError) as error:
+                    blocked.append(f"campaign crop inventory is invalid: {error}")
+            else:
+                blocked.append(f"campaign crop inventory is missing: {crop_path}")
+        else:
+            blocked.append("campaign crop inventory reference is missing")
+        if dataset is not None and split is not None and artifacts is not None:
+            try:
+                assert_valid_dataset(dataset, split=split, artifacts=artifacts)
+            except (TypeError, ValueError) as error:
+                blocked.append(f"campaign dataset validation failed: {error}")
+        preflight_reference = manifest.get("training_preflight")
+        preflight = None
+        if isinstance(preflight_reference, Mapping):
+            preflight_path = _resolve(
+                campaign_root, preflight_reference.get("path"), campaign_root / "missing"
+            )
+            if preflight_path.is_file():
+                preflight = _read_json(preflight_path, "campaign training preflight")
+                if preflight_reference.get("digest") != sha256_json(preflight):
+                    blocked.append(
+                        "campaign training preflight digest does not match its reference"
+                    )
+                if preflight.get("state") != "ready":
+                    blocked.append("campaign training preflight is not ready")
+                command = preflight.get("command")
+                if not isinstance(command, str) or "--campaign-manifest " not in command:
+                    blocked.append("campaign training command is not bound to its manifest")
+            else:
+                blocked.append(f"campaign training preflight is missing: {preflight_path}")
+        else:
+            blocked.append("campaign training preflight reference is missing")
+        if not blocked and preflight is not None:
+            command = str(preflight["command"])
+            run_path = campaign_root / "candidate-run" / "run.json"
+            run = _read_json(run_path, "existing DINOv3 run") if run_path.is_file() else None
+            run_state = run.get("status") if run is not None else "not_started"
+            if run_state == "running":
+                blocked.append("DINOv3 candidate run is already running")
+            elif run_state in {"interrupted", "failed"}:
+                checkpoint = campaign_root / "candidate-run" / "checkpoint-last.pt"
+                if checkpoint.is_file():
+                    command = f"{command} --resume {checkpoint.relative_to(repository).as_posix()}"
+                else:
+                    blocked.append("DINOv3 failed or interrupted run has no checkpoint-last.pt")
+            elif run_state == "completed":
+                return {
+                    "schema_version": DINOV3_TRAINING_PREFLIGHT_SCHEMA_VERSION,
+                    "state": "completed",
+                    "campaign_id": manifest.get("campaign_id"),
+                    "campaign_path": _relative(campaign_root, repository),
+                    "manifest_digest": manifest.get("manifest_digest"),
+                    "run_path": _relative(run_path.parent, repository),
+                    "command": None,
+                    "checks": {"campaign": "passed", "run": "completed"},
+                }
+    except (DinoV3IdentityPreflightError, OSError, TypeError, ValueError) as error:
+        blocked.append(str(error))
+    result = {
+        "schema_version": DINOV3_TRAINING_PREFLIGHT_SCHEMA_VERSION,
+        "state": "ready" if not blocked else "blocked",
+        "campaign_id": manifest.get("campaign_id") if "manifest" in locals() else None,
+        "campaign_path": (
+            _relative(manifest_path.parent, repository) if manifest_path.parent.exists() else None
+        ),
+        "manifest_digest": manifest.get("manifest_digest") if "manifest" in locals() else None,
+        "command": command if not blocked and "command" in locals() else None,
+        "checks": {"campaign": "passed" if not blocked else "blocked"},
+        "gaps": sorted(set(blocked)),
+    }
+    return result
+
+
+def render_dinov3_identity_training_handoff_human(result: Mapping[str, Any]) -> str:
+    """Render the short M2 operator handoff."""
+
+    lines = [
+        "DINOv3 identity M2 training handoff",
+        f"state: {result.get('state')}",
+        f"campaign: {result.get('campaign_id')}",
+    ]
+    if result.get("command"):
+        lines.extend(["operator command:", f"  {result['command']}"])
+    gaps = result.get("gaps", [])
+    if gaps:
+        lines.append("gaps:")
+        lines.extend(f"  - {gap}" for gap in gaps)
+    return "\n".join(lines) + "\n"
+
+
 def render_dinov3_identity_preflight_human(report: Mapping[str, Any]) -> str:
     """Render the operator-facing M0 summary without hiding blocked checks."""
 
@@ -2243,6 +2407,7 @@ __all__ = [
     "DINOV3_PREPARATION_SCHEMA_VERSION",
     "DINOV3_PREFLIGHT_SCHEMA_VERSION",
     "DINOV3_REQUIRED_CROP_POLICY",
+    "DINOV3_TRAINING_PREFLIGHT_SCHEMA_VERSION",
     "DinoV3IdentityCampaignError",
     "DinoV3IdentityPreflightError",
     "build_dinov3_identity_preflight",
@@ -2250,5 +2415,7 @@ __all__ = [
     "probe_dinov3_mps",
     "render_dinov3_identity_campaign_human",
     "render_dinov3_identity_preflight_human",
+    "render_dinov3_identity_training_handoff_human",
     "sha256_json",
+    "validate_dinov3_identity_training_handoff",
 ]

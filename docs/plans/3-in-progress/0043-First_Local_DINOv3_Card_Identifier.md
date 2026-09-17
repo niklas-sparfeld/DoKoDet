@@ -18,7 +18,7 @@
 
 - **M0:** Complete — add a read-only current-corpus readiness and prerequisite preflight.
 - **M1:** Complete — freeze and materialize the latest eligible reviewed corpus.
-- **M2:** Not started — let the operator run one bounded local training command.
+- **M2:** Ready for operator — validate one frozen campaign and run one bounded local training command.
 - **M3:** Not started — export, evaluate, and run the first local bundle.
 
 ## Planning decision — 2026-09-17
@@ -86,6 +86,21 @@ them in coverage, fitting, checkpoint selection, or metrics. The first candidate
 measured `FACE_DOWN` capability. M0 and M1 must show the exclusion and the five unsupported classes.
 Do not move `IMG_0661` into validation implicitly. A partition change must be explicit and
 group-safe.
+
+### M2 progress — 2026-09-17
+
+The M2 training boundary is implemented. The short
+`data dinov3-identity-train-preflight` command verifies the frozen campaign manifest, dataset,
+split, artifact index, crop bytes, and training preflight before it prints one concrete operator
+command. The training command now accepts the M1 manifest, consumes its verified crop cache without
+re-materializing samples, rejects recipe or input drift, and records the campaign ID, revision
+content digests, recipe digest, code revision, environment, pretrained-file digests, and resumable
+checkpoint state in `run.json`. It does not download weights or start a long run during this
+implementation phase.
+
+The current checkout has no ready real-data M1 campaign, so no operator training command was
+issued. A real M2 run remains pending after the operator prepares the campaign and completes the
+short handoff check.
 
 ## 2. Fixed first-run recipe
 

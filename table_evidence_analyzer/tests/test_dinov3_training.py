@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from table_evidence_analyzer.data import build_smoke_fixture
+from table_evidence_analyzer.data import (
+    build_smoke_fixture,
+    load_artifact_index,
+    load_dataset_manifest,
+    load_split_manifest,
+    materialize_crops,
+)
 from table_evidence_analyzer.dinov3_training import (
     DINOV3_CHECKPOINT_SCHEMA,
     DINOV3_TASK_ADAPTER,
@@ -92,6 +99,77 @@ def _config(fixture, identity, output, **overrides):
     return DinoV3TrainConfig(**values)
 
 
+def _json_digest(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _campaign_fixture(tmp_path: Path, fixture, config: DinoV3TrainConfig) -> Path:
+    root = tmp_path / "campaign"
+    root.mkdir()
+    shutil.copy2(fixture.dataset_path, root / "dataset.json")
+    shutil.copy2(fixture.split_path, root / "split.json")
+    shutil.copy2(fixture.artifact_index_path, root / "artifact-index.json")
+    for frame in fixture.frame_paths:
+        target = root / "frames" / frame.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(frame, target)
+    dataset_path = root / "dataset.json"
+    split_path = root / "split.json"
+    artifacts_path = root / "artifact-index.json"
+    loaded_dataset = load_dataset_manifest(dataset_path)
+    loaded_split = load_split_manifest(split_path)
+    loaded_artifacts = load_artifact_index(artifacts_path)
+    cache = materialize_crops(loaded_dataset, loaded_split, loaded_artifacts, root / "crop-cache")
+    recipe = {
+        "campaign_id": "0043-m1-fixture",
+        "seed": config.seed,
+        "device": config.device,
+        "precision": config.precision,
+        "max_epochs": config.epochs,
+        "batch_size": config.batch_size,
+        "optimizer": {
+            "name": "AdamW",
+            "learning_rate": config.learning_rate,
+            "weight_decay": config.weight_decay,
+        },
+    }
+    preflight = {
+        "schema_version": "dinov3-identity-training-preflight/v1",
+        "campaign_id": recipe["campaign_id"],
+        "state": "ready",
+        "command": "fixture",
+    }
+    manifest_core = {
+        "schema_version": "dinov3-identity-preparation/v1",
+        "campaign_id": recipe["campaign_id"],
+        "milestone": "M1",
+        "state": "frozen",
+        "dataset": {"path": "dataset.json", "digest": loaded_dataset.digest},
+        "split": {"path": "split.json", "digest": loaded_split.digest},
+        "artifact_index": {"path": "artifact-index.json", "digest": loaded_artifacts.digest},
+        "crop_inventory": {
+            "path": "crop-cache/crop-manifest.json",
+            "digest": cache.digest,
+        },
+        "recipe": {"path": "recipe.json", "digest": _json_digest(recipe)},
+        "training_preflight": {
+            "path": "training-preflight.json",
+            "digest": _json_digest(preflight),
+        },
+        "revision_content_digests": [{"recording_id": "fixture-recording"}],
+    }
+    (root / "recipe.json").write_text(json.dumps(recipe, sort_keys=True), encoding="utf-8")
+    (root / "training-preflight.json").write_text(
+        json.dumps(preflight, sort_keys=True), encoding="utf-8"
+    )
+    manifest = {**manifest_core, "manifest_digest": _json_digest(manifest_core)}
+    manifest_path = root / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+    return manifest_path
+
+
 def test_task_freezes_encoder_and_exposes_only_linear_head() -> None:
     encoder = _FakeEncoder()
     task = DinoV3FrozenLinearTask(encoder)
@@ -119,6 +197,42 @@ def test_generated_cpu_training_overfits_and_writes_loadable_checkpoint(tmp_path
     assert checkpoint["progress"]["step"] == run["progress"]["step"]
     assert checkpoint["model_state"]["head.weight"].shape == (25, 4)
     assert (output / "predictions-train.json").exists()
+
+
+def test_campaign_training_consumes_frozen_crop_cache_and_records_lineage(tmp_path: Path) -> None:
+    fixture = build_smoke_fixture(tmp_path / "fixture")
+    identity = _identity_config(tmp_path)
+    output = tmp_path / "run"
+    config = _config(
+        fixture,
+        identity,
+        output,
+        epochs=2,
+        campaign_manifest=None,
+    )
+    manifest = _campaign_fixture(tmp_path, fixture, config)
+    campaign_root = manifest.parent
+    config = DinoV3TrainConfig(
+        dataset=campaign_root / "dataset.json",
+        split=campaign_root / "split.json",
+        artifacts=campaign_root / "artifact-index.json",
+        identity_config=identity,
+        output=output,
+        epochs=2,
+        batch_size=1,
+        learning_rate=0.5,
+        campaign_manifest=manifest,
+    )
+
+    train_dinov3_identity(config, encoder_factory=_factory)
+
+    run = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    assert run["status"] == "completed"
+    assert run["campaign"]["campaign_id"] == "0043-m1-fixture"
+    assert run["inputs"]["campaign_manifest_digest"]
+    assert run["inputs"]["revision_content_digests"] == [{"recording_id": "fixture-recording"}]
+    assert run["metrics"]["best_checkpoint_validation_digest"]
+    assert not (output / "crop-cache").exists()
 
 
 def test_interrupted_training_resumes_from_frozen_inputs_and_same_progress(tmp_path: Path) -> None:

@@ -46,13 +46,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0043 — First local DINOv3 card identifier](3-in-progress/0043-First_Local_DINOv3_Card_Identifier.md) | 0041, 0042, 0048, 0049, and 0062 complete | M0 and M1 are complete: the read-only preflight gates the current corpus, and bounded preparation freezes exact references, verifies frame and crop bytes, and publishes immutable campaign inputs plus the complete M2 command. M2–M3 not started. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0068 — Reviewed RF-DETR local visible-card detector](3-in-progress/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | M0–M2 implementation is complete; M0 and M1 are live and reproducible, the M2 smoke passed, and the full candidate remains resumable after the interrupted MPS run. |
+| [0043 — First local DINOv3 card identifier](3-in-progress/0043-First_Local_DINOv3_Card_Identifier.md) | 0041, 0042, 0048, 0049, and 0062 complete | M0 and M1 are complete; M2 implementation is ready for the operator: the short handoff validates the frozen campaign and prints the exact command, while training binds the campaign and verified crop cache. Real M2 training and M3 are pending. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -148,8 +148,9 @@ The shared target architecture is
    validation outputs separate and sealed after execution.
 7. **Publish the 0051 M4 decision after M3 execution.** Use the retained paired comparison to
    select one conclusion and specify one response in 0052, or close 0052 as not required.
-8. **Continue 0043 with M2 after the M1 campaign is reviewed.** Keep its frozen campaign inputs
-   fixed. The agent supplies the exact command and does not run the long process.
+8. **Continue 0043 with the M2 operator handoff after the M1 campaign is reviewed.** Keep its
+   frozen campaign inputs fixed. The agent supplies the exact command and does not run the long
+   process.
 9. **Resolve 0052 from the 0051 decision.** A selected response can inform a later identity-model
    revision, but it does not block the first local 0043 candidate.
 10. **Reassess 0050 after the resilient identity baseline is fixed.** Make it Ready when a bounded

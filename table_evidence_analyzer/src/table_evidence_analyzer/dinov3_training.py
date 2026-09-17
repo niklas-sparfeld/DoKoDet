@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from .data import (
+    CropCache,
     DatasetManifest,
     LoadedCrop,
     MaterializedCropDataset,
@@ -50,6 +51,7 @@ from .local_identity import (
 DINOV3_TASK_ADAPTER = "dinov3-frozen-linear-v1"
 DINOV3_CHECKPOINT_SCHEMA = "dinov3-identity-checkpoint/v1"
 DINOV3_PREDICTION_SCHEMA = "dinov3-identity-predictions/v1"
+DINOV3_PREPARATION_SCHEMA = "dinov3-identity-preparation/v1"
 
 
 class DinoV3TrainingError(ValueError):
@@ -199,6 +201,7 @@ class DinoV3TrainConfig:
     artifacts: Path
     identity_config: DinoV3IdentityConfig | Path
     output: Path
+    campaign_manifest: Path | None = None
     seed: int = 17
     epochs: int = 8
     batch_size: int = 1
@@ -242,6 +245,9 @@ class DinoV3TrainConfig:
             artifacts=base / str(value["artifacts"]),
             identity_config=identity_path,
             output=base / str(value["output"]),
+            campaign_manifest=(
+                base / str(value["campaign_manifest"]) if value.get("campaign_manifest") else None
+            ),
             seed=int(value.get("seed", 17)),
             epochs=int(value.get("epochs", 8)),
             batch_size=int(value.get("batch_size", 1)),
@@ -363,6 +369,14 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _config_record(config: DinoV3TrainConfig) -> dict[str, Any]:
     identity_path = (
         str(config.identity_config.expanduser().resolve())
@@ -375,6 +389,11 @@ def _config_record(config: DinoV3TrainConfig) -> dict[str, Any]:
         "artifacts": str(config.artifacts.expanduser().resolve()),
         "identity_config": identity_path,
         "output": str(config.output.expanduser().resolve()),
+        "campaign_manifest": (
+            str(config.campaign_manifest.expanduser().resolve())
+            if config.campaign_manifest is not None
+            else None
+        ),
         "seed": config.seed,
         "epochs": config.epochs,
         "batch_size": config.batch_size,
@@ -407,10 +426,11 @@ def _input_record(
     dataset: DatasetManifest,
     split: SplitManifest,
     cache_digest: str,
+    campaign: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     model = identity.to_mapping()["model"]
     target = identity.to_mapping()["target"]
-    return {
+    result = {
         "identity_digest": identity.identity_digest,
         "model_id": model["id"],
         "model_revision": model["revision"],
@@ -425,6 +445,16 @@ def _input_record(
         "split_version_digest": split.digest,
         "crop_cache_digest": cache_digest,
     }
+    if campaign is not None:
+        result.update(
+            {
+                "campaign_id": campaign["campaign_id"],
+                "campaign_manifest_digest": campaign["manifest_digest"],
+                "revision_content_digests": campaign["revision_content_digests"],
+                "recipe_digest": campaign["recipe_digest"],
+            }
+        )
+    return result
 
 
 def _semantic_config(
@@ -445,6 +475,8 @@ def _semantic_config(
         "learning_rate": config.learning_rate,
         "weight_decay": config.weight_decay,
         "precision": config.precision,
+        "campaign_id": inputs.get("campaign_id"),
+        "campaign_manifest_digest": inputs.get("campaign_manifest_digest"),
     }
 
 
@@ -523,8 +555,12 @@ def _predict(
         for batch in batches:
             tensors, targets = _batch_tensors(batch, train=False, epoch=0, seed=seed)
             logits = task.forward(tensors.to(device))
+            if not torch.isfinite(logits).all():
+                raise DinoV3TrainingError("DINOv3 prediction produced non-finite logits")
             loss = torch.nn.functional.cross_entropy(logits, targets.to(device))
             probabilities = torch.softmax(logits, dim=1).detach().cpu()
+            if not torch.isfinite(probabilities).all():
+                raise DinoV3TrainingError("DINOv3 prediction produced non-finite probabilities")
             ranked = torch.argsort(probabilities, dim=1, descending=True)
             total_loss += float(loss.item()) * len(batch)
             correct += int((ranked[:, 0] == targets).sum().item())
@@ -579,6 +615,160 @@ def _load_checkpoint_state(
     return dict(checkpoint["progress"]), dict(checkpoint["best"])
 
 
+def _read_training_json(path: Path, context: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise DinoV3TrainingError(f"could not read {context}: {path}") from error
+    if not isinstance(value, Mapping):
+        raise DinoV3TrainingError(f"{context} must be a JSON object: {path}")
+    return dict(value)
+
+
+def _campaign_path(root: Path, value: Any, field: str) -> Path:
+    if not isinstance(value, str) or not value:
+        raise DinoV3TrainingError(f"campaign {field} is missing")
+    path = (root / value).resolve()
+    try:
+        path.relative_to(root.resolve())
+    except ValueError as error:
+        raise DinoV3TrainingError(
+            f"campaign {field} must stay below the campaign directory"
+        ) from error
+    return path
+
+
+def _load_campaign_inputs(
+    config: DinoV3TrainConfig,
+    dataset: DatasetManifest,
+    split: SplitManifest,
+    artifacts: Any,
+) -> tuple[dict[str, Any], CropCache]:
+    manifest_path = config.campaign_manifest
+    if manifest_path is None:
+        raise DinoV3TrainingError("DINOv3 campaign manifest is required for campaign training")
+    manifest_path = manifest_path.expanduser().resolve()
+    manifest = _read_training_json(manifest_path, "DINOv3 campaign manifest")
+    if manifest.get("schema_version") != DINOV3_PREPARATION_SCHEMA:
+        raise DinoV3TrainingError("DINOv3 campaign manifest schema is unsupported")
+    declared_digest = manifest.get("manifest_digest")
+    if declared_digest != _digest(
+        {key: value for key, value in manifest.items() if key != "manifest_digest"}
+    ):
+        raise DinoV3TrainingError("DINOv3 campaign manifest digest does not match contents")
+    if manifest.get("milestone") != "M1" or manifest.get("state") != "frozen":
+        raise DinoV3TrainingError("DINOv3 campaign manifest is not a frozen M1 campaign")
+    campaign_root = manifest_path.parent
+    campaign_id = manifest.get("campaign_id")
+    if not isinstance(campaign_id, str) or not campaign_id:
+        raise DinoV3TrainingError("DINOv3 campaign manifest has no campaign ID")
+
+    references = {
+        "dataset": (manifest.get("dataset"), dataset.digest),
+        "split": (manifest.get("split"), split.digest),
+        "artifact_index": (manifest.get("artifact_index"), artifacts.digest),
+        "crop_inventory": (manifest.get("crop_inventory"), None),
+        "recipe": (manifest.get("recipe"), None),
+        "training_preflight": (manifest.get("training_preflight"), None),
+    }
+    loaded: dict[str, dict[str, Any]] = {}
+    for name, (reference, expected_digest) in references.items():
+        if not isinstance(reference, Mapping):
+            raise DinoV3TrainingError(f"DINOv3 campaign {name} reference is invalid")
+        path = _campaign_path(campaign_root, reference.get("path"), f"{name}.path")
+        value = _read_training_json(path, f"DINOv3 campaign {name}")
+        loaded[name] = value
+        if name in {"recipe", "training_preflight"}:
+            if reference.get("digest") != _digest(value):
+                raise DinoV3TrainingError(f"DINOv3 campaign {name} digest does not match contents")
+        elif name == "crop_inventory":
+            if reference.get("digest") != value.get("cache_digest"):
+                raise DinoV3TrainingError("DINOv3 campaign crop cache digest does not match")
+        elif reference.get("digest") != expected_digest:
+            raise DinoV3TrainingError(f"DINOv3 campaign {name} digest does not match inputs")
+        expected_path = {
+            "dataset": config.dataset,
+            "split": config.split,
+            "artifact_index": config.artifacts,
+        }.get(name)
+        if expected_path is not None and expected_path.expanduser().resolve() != path:
+            raise DinoV3TrainingError(f"DINOv3 training {name} is not the frozen campaign input")
+
+    preflight = loaded["training_preflight"]
+    if preflight.get("schema_version") != "dinov3-identity-training-preflight/v1":
+        raise DinoV3TrainingError("DINOv3 campaign training preflight schema is unsupported")
+    if preflight.get("campaign_id") != campaign_id or preflight.get("state") != "ready":
+        raise DinoV3TrainingError("DINOv3 campaign training preflight is not ready")
+    recipe = loaded["recipe"]
+    if recipe.get("campaign_id") != campaign_id:
+        raise DinoV3TrainingError("DINOv3 campaign recipe belongs to a different campaign")
+    optimizer = recipe.get("optimizer")
+    if not isinstance(optimizer, Mapping):
+        raise DinoV3TrainingError("DINOv3 campaign recipe has no optimizer contract")
+    expected_config = {
+        "seed": recipe.get("seed"),
+        "epochs": recipe.get("max_epochs"),
+        "batch_size": recipe.get("batch_size"),
+        "learning_rate": optimizer.get("learning_rate"),
+        "weight_decay": optimizer.get("weight_decay"),
+        "device": recipe.get("device"),
+        "precision": recipe.get("precision"),
+    }
+    actual_config = {
+        "seed": config.seed,
+        "epochs": config.epochs,
+        "batch_size": config.batch_size,
+        "learning_rate": config.learning_rate,
+        "weight_decay": config.weight_decay,
+        "device": config.device,
+        "precision": config.precision,
+    }
+    if actual_config != expected_config:
+        raise DinoV3TrainingError(
+            "DINOv3 training arguments differ from the frozen campaign recipe"
+        )
+    identity_reference = preflight.get("checks", {}).get("identity_config")
+    if isinstance(identity_reference, Mapping) and isinstance(config.identity_config, Path):
+        declared_path = Path(str(identity_reference.get("path", "")))
+        if not declared_path.is_absolute():
+            repository_root = next(
+                (
+                    parent.parent
+                    for parent in (campaign_root, *campaign_root.parents)
+                    if parent.name == "data"
+                ),
+                campaign_root,
+            )
+            declared_path = repository_root / declared_path
+        if config.identity_config.expanduser().resolve() != declared_path.resolve():
+            raise DinoV3TrainingError("DINOv3 identity config is not the frozen campaign input")
+        expected_digest = identity_reference.get("digest")
+        if not isinstance(expected_digest, str) or not declared_path.is_file():
+            raise DinoV3TrainingError("frozen DINOv3 identity config is missing")
+        if _file_sha256(declared_path) != expected_digest:
+            raise DinoV3TrainingError("frozen DINOv3 identity config digest does not match")
+    cache_path = _campaign_path(
+        campaign_root,
+        manifest["crop_inventory"]["path"],
+        "crop_inventory.path",
+    )
+    cache = CropCache.from_mapping(loaded["crop_inventory"], root=cache_path.parent)
+    for crop in cache.crops:
+        cache.read(crop)
+    return (
+        {
+            "campaign_id": campaign_id,
+            "manifest_digest": declared_digest,
+            "manifest_path": str(manifest_path),
+            "revision_content_digests": list(manifest.get("revision_content_digests", [])),
+            "recipe_digest": manifest["recipe"]["digest"],
+            "recipe": recipe,
+            "training_preflight": preflight,
+        },
+        cache,
+    )
+
+
 def train_dinov3_identity(
     config: DinoV3TrainConfig, *, encoder_factory: EncoderFactory | None = None
 ) -> Path:
@@ -599,12 +789,16 @@ def train_dinov3_identity(
         split = load_split_manifest(config.split)
         artifacts = load_artifact_index(config.artifacts)
         assert_valid_dataset(dataset, split=split, artifacts=artifacts)
-        cache = materialize_crops(dataset, split, artifacts, output / "crop-cache")
+        campaign: dict[str, Any] | None = None
+        if config.campaign_manifest is not None:
+            campaign, cache = _load_campaign_inputs(config, dataset, split, artifacts)
+        else:
+            cache = materialize_crops(dataset, split, artifacts, output / "crop-cache")
         train_samples = tuple(MaterializedCropDataset(cache, partition="train"))
         validation_samples = tuple(MaterializedCropDataset(cache, partition="validation"))
         if not train_samples:
             raise DinoV3TrainingError("DINOv3 training split is empty")
-        inputs = _input_record(identity, dataset, split, cache.digest)
+        inputs = _input_record(identity, dataset, split, cache.digest, campaign)
         semantic_config = _semantic_config(config, identity, inputs)
         record.update(
             {
@@ -614,13 +808,15 @@ def train_dinov3_identity(
                 "model": {
                     "adapter": DINOV3_TASK_ADAPTER,
                     "encoder": identity.to_mapping()["model"],
-        "head": {"type": "linear", "class_count": 25},
+                    "head": {"type": "linear", "class_count": 25},
                 },
                 "device": config.device,
                 "precision": config.precision,
                 "status": "running",
             }
         )
+        if campaign is not None:
+            record["campaign"] = campaign
         _write_json(run_path, record)
 
         torch, _ = _torch_modules()
@@ -734,17 +930,29 @@ def train_dinov3_identity(
             epoch += 1
             batch_start = 0
 
+        if not (output / "checkpoint-best.pt").exists():
+            _atomic_torch_save(
+                torch,
+                _checkpoint_payload(torch, task, optimizer, semantic_config, progress, best),
+                output / "checkpoint-best.pt",
+            )
+        final_progress = dict(progress)
+        best_checkpoint = load_dinov3_checkpoint(output / "checkpoint-best.pt")
+        _validate_resume(best_checkpoint, semantic_config)
+        _load_checkpoint_state(torch, task, optimizer, best_checkpoint)
         train_rows, train_loss, train_accuracy = _predict(
             task, train_samples, device=device, seed=config.seed
         )
         validation_rows, validation_loss, validation_accuracy = _predict(
             task, validation_samples, device=device, seed=config.seed
         )
-        if not (output / "checkpoint-best.pt").exists():
-            _atomic_torch_save(
-                torch,
-                _checkpoint_payload(torch, task, optimizer, semantic_config, progress, best),
-                output / "checkpoint-best.pt",
+        reloaded_validation_rows, _, _ = _predict(
+            task, validation_samples, device=device, seed=config.seed
+        )
+        validation_digest = _digest(validation_rows)
+        if reloaded_validation_rows != validation_rows:
+            raise DinoV3TrainingError(
+                "DINOv3 best checkpoint validation predictions are not reproducible"
             )
         _write_json(
             output / "predictions-train.json",
@@ -758,17 +966,18 @@ def train_dinov3_identity(
             {
                 "status": "completed",
                 "completed_at": _utc(time.time()),
-                "progress": progress,
+                "progress": final_progress,
                 "metrics": {
                     "train_samples": len(train_samples),
                     "validation_samples": len(validation_samples),
-                    "steps": progress["step"],
-                    "epochs_completed": progress["next_epoch"],
+                    "steps": final_progress["step"],
+                    "epochs_completed": final_progress["next_epoch"],
                     "train_loss": train_loss,
                     "train_top_1_accuracy": train_accuracy,
                     "validation_loss": validation_loss,
                     "validation_top_1_accuracy": validation_accuracy,
                     "best_validation_top_1_accuracy": best["value"],
+                    "best_checkpoint_validation_digest": validation_digest,
                     "duration_seconds": round(time.time() - started, 6),
                 },
                 "checkpoints": {"last": "checkpoint-last.pt", "best": "checkpoint-best.pt"},
@@ -803,6 +1012,7 @@ def train_dinov3_identity(
 __all__ = [
     "DINOV3_CHECKPOINT_SCHEMA",
     "DINOV3_PREDICTION_SCHEMA",
+    "DINOV3_PREPARATION_SCHEMA",
     "DINOV3_TASK_ADAPTER",
     "DinoV3FrozenLinearTask",
     "DinoV3TrainConfig",

@@ -16,6 +16,7 @@ from doko_operations.dinov3_identity_campaign import (
     prepare_dinov3_identity_campaign,
     render_dinov3_identity_preflight_human,
     sha256_json,
+    validate_dinov3_identity_training_handoff,
 )
 
 DIGEST = "a" * 64
@@ -359,3 +360,25 @@ def test_m1_freezes_verified_contracts_atomically_and_repeats_bytes(tmp_path: Pa
         if path.is_file()
     }
     assert before == after
+
+
+def test_m2_handoff_validates_frozen_campaign_and_prints_exact_command(tmp_path: Path) -> None:
+    frame = _campaign_frame()
+    video = tmp_path / "video.mov"
+    video.write_bytes(b"video")
+    preflight = _ready_campaign_preflight(frame)
+
+    result = prepare_dinov3_identity_campaign(
+        tmp_path,
+        operations_root=tmp_path / "data" / "operations",
+        preflight_report=preflight,
+        frame_resolver=lambda _video_path, _identity: frame,
+    )
+
+    campaign_manifest = tmp_path / result["campaign_path"] / "manifest.json"
+    handoff = validate_dinov3_identity_training_handoff(tmp_path, campaign_manifest)
+
+    assert handoff["state"] == "ready"
+    assert handoff["campaign_id"] == result["campaign_id"]
+    assert "--campaign-manifest" in handoff["command"]
+    assert "candidate-run" in handoff["command"]

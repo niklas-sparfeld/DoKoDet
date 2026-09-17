@@ -99,6 +99,8 @@ from .dinov3_identity_campaign import (
     prepare_dinov3_identity_campaign,
     render_dinov3_identity_campaign_human,
     render_dinov3_identity_preflight_human,
+    render_dinov3_identity_training_handoff_human,
+    validate_dinov3_identity_training_handoff,
 )
 from .evidence_adoption import EvidencePackageAdoptionError, adopt_runtime_evidence_package
 from .holdout import SystemHoldoutError, seal_system_holdout_group
@@ -497,6 +499,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dinov3_prepare.add_argument("--format", choices=("human", "json"), default="human")
     dinov3_prepare.add_argument("--json", action="store_true", help="Alias for --format json.")
+    dinov3_training = data_commands.add_parser(
+        "dinov3-identity-train-preflight",
+        aliases=("identity-train-preflight",),
+        help="Run the short M2 DINOv3 training handoff check.",
+        description=(
+            "Verify one frozen M1 DINOv3 campaign and print the exact local operator command; "
+            "this command never starts training."
+        ),
+    )
+    _add_path_options(dinov3_training, suppress_defaults=True)
+    dinov3_training.add_argument(
+        "--campaign-manifest", type=Path, required=True, help="Frozen M1 campaign manifest."
+    )
+    dinov3_training.add_argument("--format", choices=("human", "json"), default="human")
+    dinov3_training.add_argument("--json", action="store_true", help="Alias for --format json.")
     rfdetr = data_commands.add_parser(
         "rfdetr-segmentation",
         aliases=("rfdetr-segmentation-audit",),
@@ -1528,6 +1545,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(render_dinov3_identity_campaign_human(result))
         return 0 if result["state"] == "completed" else 1
+    if args.command == "data" and args.data_command in {
+        "dinov3-identity-train-preflight",
+        "identity-train-preflight",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                artifacts_root=args.artifacts_root,
+            )
+            result = validate_dinov3_identity_training_handoff(
+                config.repository_root, args.campaign_manifest
+            )
+        except (
+            DinoV3IdentityCampaignError,
+            DinoV3IdentityPreflightError,
+            OSError,
+            ValueError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(
+                json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+            )
+        else:
+            sys.stdout.write(render_dinov3_identity_training_handoff_human(result))
+        return 0 if result["state"] in {"ready", "completed"} else 1
     if args.command == "data" and args.data_command in {
         "rfdetr-segmentation",
         "rfdetr-segmentation-audit",

@@ -159,6 +159,9 @@ def build_parser() -> argparse.ArgumentParser:
     dinov3_train_parser.add_argument("--artifacts", type=Path, required=True)
     dinov3_train_parser.add_argument("--identity-config", type=Path, required=True)
     dinov3_train_parser.add_argument("--weights-root", type=Path)
+    dinov3_train_parser.add_argument(
+        "--campaign-manifest", type=Path, help="Frozen M1 DINOv3 campaign manifest."
+    )
     dinov3_train_parser.add_argument("--output", type=Path, required=True)
     dinov3_train_parser.add_argument("--resume", type=Path)
     dinov3_train_parser.add_argument("--seed", type=int, default=17)
@@ -767,6 +770,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     artifacts=args.artifacts,
                     identity_config=args.identity_config,
                     output=args.output,
+                    campaign_manifest=args.campaign_manifest,
                     weights_root=args.weights_root,
                     seed=args.seed,
                     epochs=args.epochs,
