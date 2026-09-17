@@ -6,37 +6,33 @@
 
 .reviewWorkbench {
   display: grid;
-  grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 1rem;
   min-width: 0;
 }
 
-.reviewWorkbenchWithSidebarControls {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.controlSidebar {
-  display: grid;
-  align-self: end;
-  align-content: start;
-  gap: 0.55rem;
-  min-width: 0;
-  padding: 0.15rem 0.25rem 0.15rem 0;
-}
-
-.controlSidebar > .statusLabel {
-  margin: 0 0 0.15rem;
-}
-
 .controlGroup {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem;
 }
 
+.controlGroup > button {
+  width: auto;
+  max-width: 100%;
+  min-height: 2rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 0.35rem;
+  font-size: 0.72rem;
+}
+
 .controlGroup + .controlGroup {
-  padding-top: 0.35rem;
-  border-top: 1px solid var(--line);
+  padding-top: 0;
+  padding-left: 0.55rem;
+  border-top: 0;
+  border-left: 1px solid var(--line);
 }
 
 .standaloneInspector {
@@ -363,31 +359,6 @@
 }
 
 @media (max-width: 800px) {
-  .reviewWorkbench {
-    grid-template-columns: 1fr;
-  }
-
-  .controlSidebar {
-    grid-column: 1;
-    grid-row: 2;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 0;
-  }
-
-  .controlSidebar > .statusLabel,
-  .controlGroup {
-    grid-column: 1 / -1;
-  }
-
-  .controlGroup {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .reviewWorkbench > .framePanel {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
   .proposalRow,
   .proposalSelect {
     grid-template-columns: 3rem minmax(0, 1fr);

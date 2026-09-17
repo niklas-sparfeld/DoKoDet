@@ -794,6 +794,8 @@ test("keeps the reviewed CardEvent workbench accessible at desktop and narrow si
       const centerRect = rect('[data-slot="center"]');
       const inspectorRect = rect('[data-slot="inspector"]');
       const railRect = rect('[data-slot="bottom"]');
+      const seekingRect = rect('[data-timeline-seeking-slot="true"]');
+      const transportRect = rect('[aria-label="Playback controls"]');
       return {
         viewportWidth: window.innerWidth,
         documentWidth: document.documentElement.scrollWidth,
@@ -803,8 +805,29 @@ test("keeps the reviewed CardEvent workbench accessible at desktop and narrow si
         controls: controlsRect
           ? {
               top: controlsRect.top,
+              bottom: controlsRect.bottom,
+              left: controlsRect.left,
               right: controlsRect.right,
               width: controlsRect.width,
+            }
+          : null,
+        seeking: seekingRect
+          ? {
+              top: seekingRect.top,
+              bottom: seekingRect.bottom,
+              left: seekingRect.left,
+              right: seekingRect.right,
+            }
+          : null,
+        transport: transportRect
+          ? {
+              top: transportRect.top,
+              left: transportRect.left,
+            }
+          : null,
+        timeline: railRect
+          ? {
+              top: railRect.top,
             }
           : null,
         centerTop: centerRect?.top ?? null,
@@ -818,12 +841,21 @@ test("keeps the reviewed CardEvent workbench accessible at desktop and narrow si
     if (layout.frame === null || layout.controls === null) {
       throw new Error("review workbench geometry is unavailable");
     }
-    if (viewport.width >= 1024) {
-      expect(layout.controls.right).toBeLessThanOrEqual(layout.frame.left);
-      expect(layout.frame.width).toBeGreaterThan(layout.controls.width);
+    if (layout.timeline === null) {
+      throw new Error("timeline rail geometry is unavailable");
+    }
+    expect(layout.seeking).not.toBeNull();
+    expect(layout.transport).not.toBeNull();
+    if (layout.seeking === null || layout.transport === null) {
+      throw new Error("timeline header geometry is unavailable");
+    }
+    expect(layout.controls.right).toBeLessThanOrEqual(layout.viewportWidth);
+    if (viewport.width >= 600) {
+      expect(layout.seeking.right).toBeLessThanOrEqual(layout.controls.left);
+      expect(layout.controls.right).toBeLessThanOrEqual(layout.transport.left);
     } else {
-      expect(layout.frame.top).toBeLessThan(layout.controls.top);
-      expect(layout.controls.right).toBeLessThanOrEqual(layout.viewportWidth);
+      expect(layout.seeking.bottom).toBeLessThanOrEqual(layout.controls.top);
+      expect(layout.controls.bottom).toBeLessThanOrEqual(layout.transport.top);
       expect(layout.centerTop).toBeLessThan(layout.inspectorTop);
       expect(layout.inspectorTop).toBeLessThan(layout.railTop);
     }

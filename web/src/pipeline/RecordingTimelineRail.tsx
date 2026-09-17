@@ -374,6 +374,10 @@ export function RecordingTimelineRail({
           data-timeline-seeking-slot="true"
         />
         <div
+          className={styles.recordingTimelineReviewControlsSlot}
+          data-timeline-review-controls-slot="true"
+        />
+        <div
           className={styles.recordingTimelineTransport}
           aria-label="Playback controls"
           role="group"

@@ -2311,24 +2311,11 @@ progress {
     );
 }
 
-.pipelineVisibleCardWorkspaceGrid .pipelineProposalSlot {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-}
-
 .pipelineVisibleCardWorkspaceGrid
   .pipelineProposalSlot
   > [data-visible-card-proposal-slot="proposals"] {
   height: auto;
   min-height: 0;
-}
-
-.pipelineVisibleCardWorkspaceGrid
-  .pipelineProposalSlot
-  > [data-visible-card-review-controls-slot="controls"] {
-  min-width: 0;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--line);
 }
 
 .pipelineTaskSurface,
@@ -2437,6 +2424,29 @@ progress {
   gap: 0.45rem;
   min-width: 0;
   padding: 0.5rem 1rem 0.55rem;
+}
+
+.recordingTimelineReviewControlsSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.recordingTimelineReviewControlsSlot:empty {
+  display: none;
+}
+
+.recordingTimelineReviewControls {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  min-width: 0;
 }
 
 .recordingTimelineRailHeader {
@@ -3968,6 +3978,11 @@ progress {
 }
 
 @media (max-width: 600px) {
+  .recordingTimelineReviewControlsSlot {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
   .pipelineToggleGroup,
   .pipelineToggle,
   .pipelineToggleActive {

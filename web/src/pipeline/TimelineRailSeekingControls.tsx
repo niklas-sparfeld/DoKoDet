@@ -35,6 +35,23 @@ export function useTimelineRailSeekingSlot(): HTMLElement | null {
   return slot;
 }
 
+export function useTimelineRailReviewControlsSlot(): HTMLElement | null {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSlot(
+        document.querySelector<HTMLElement>(
+          '[data-timeline-review-controls-slot="true"]',
+        ),
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return slot;
+}
+
 export function TimelineRailSeekingPortal({
   slot,
   groups,

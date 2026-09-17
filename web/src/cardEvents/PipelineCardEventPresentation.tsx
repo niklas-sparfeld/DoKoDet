@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { createPortal } from "react-dom";
 
 import type {
   EditableEvent,
@@ -15,6 +16,7 @@ import styles from "../App.module.css";
 import {
   TimelineRailSeekingControls,
   TimelineRailSeekingPortal,
+  useTimelineRailReviewControlsSlot,
   useTimelineRailSeekingSlot,
 } from "../pipeline/TimelineRailSeekingControls";
 import eventStyles from "./PipelineCardEventEditor.module.css";
@@ -249,6 +251,7 @@ export function CardEventReviewControls({
   onAddEvent: () => void;
 }) {
   const timelineSeekingSlot = useTimelineRailSeekingSlot();
+  const timelineReviewControlsSlot = useTimelineRailReviewControlsSlot();
   const canDecide = selectedState === "pending" || selectedState === "affected";
   const canNudge = selectedState !== null;
   const dismissLabel =
@@ -304,80 +307,84 @@ export function CardEventReviewControls({
         groups={seekingGroups}
       />
     ) : null;
+  const controls = (
+    <aside
+      className={styles.recordingTimelineReviewControls}
+      aria-label="CardEvent review controls"
+    >
+      {timelineSeekingSlot === null ? (
+        <TimelineRailSeekingControls groups={seekingGroups} />
+      ) : null}
+      <div className={eventStyles.controlGroup}>
+        <ShortcutButton
+          label="Nudge earlier"
+          shortcut=","
+          ariaShortcut=","
+          disabled={!canNudge}
+          disabledReason="Select an event before nudging its time."
+          onClick={() => onNudge(-1)}
+        />
+        <ShortcutButton
+          label="Nudge later"
+          shortcut="."
+          ariaShortcut="."
+          disabled={!canNudge}
+          disabledReason="Select an event before nudging its time."
+          onClick={() => onNudge(1)}
+        />
+      </div>
+      <div className={eventStyles.controlGroup}>
+        <ShortcutButton
+          label="Mark start"
+          shortcut="S"
+          ariaShortcut="S"
+          disabled={!canNudge}
+          disabledReason="Select an event before marking its start."
+          onClick={onMarkStart}
+        />
+        <ShortcutButton
+          label="Mark stable end"
+          shortcut="E"
+          ariaShortcut="E"
+          disabled={!canNudge}
+          disabledReason="Select an event before marking its stable end."
+          onClick={onMarkStableEnd}
+        />
+      </div>
+      <div className={eventStyles.controlGroup}>
+        <ShortcutButton
+          label="Accept"
+          shortcut="A"
+          ariaShortcut="A"
+          variant="primary"
+          disabled={!canDecide}
+          disabledReason="Accept is available for pending events."
+          onClick={onAccept}
+        />
+        <ShortcutButton
+          label={dismissLabel}
+          shortcut="D"
+          ariaShortcut="D"
+          disabled={selectedState === null}
+          disabledReason="Select an event before dismissing it."
+          onClick={onDismiss}
+        />
+        <ShortcutButton
+          label="Add event"
+          shortcut="N"
+          ariaShortcut="N"
+          variant="primary"
+          onClick={onAddEvent}
+        />
+      </div>
+    </aside>
+  );
   return (
     <>
       {seeking}
-      <aside
-        className={eventStyles.controlSidebar}
-        aria-label="CardEvent review controls"
-      >
-        <p className={styles.statusLabel}>Review controls</p>
-        {timelineSeekingSlot === null ? (
-          <TimelineRailSeekingControls groups={seekingGroups} />
-        ) : null}
-        <div className={eventStyles.controlGroup}>
-          <ShortcutButton
-            label="Nudge earlier"
-            shortcut=","
-            ariaShortcut=","
-            disabled={!canNudge}
-            disabledReason="Select an event before nudging its time."
-            onClick={() => onNudge(-1)}
-          />
-          <ShortcutButton
-            label="Nudge later"
-            shortcut="."
-            ariaShortcut="."
-            disabled={!canNudge}
-            disabledReason="Select an event before nudging its time."
-            onClick={() => onNudge(1)}
-          />
-        </div>
-        <div className={eventStyles.controlGroup}>
-          <ShortcutButton
-            label="Mark start"
-            shortcut="S"
-            ariaShortcut="S"
-            disabled={!canNudge}
-            disabledReason="Select an event before marking its start."
-            onClick={onMarkStart}
-          />
-          <ShortcutButton
-            label="Mark stable end"
-            shortcut="E"
-            ariaShortcut="E"
-            disabled={!canNudge}
-            disabledReason="Select an event before marking its stable end."
-            onClick={onMarkStableEnd}
-          />
-        </div>
-        <div className={eventStyles.controlGroup}>
-          <ShortcutButton
-            label="Accept"
-            shortcut="A"
-            ariaShortcut="A"
-            variant="primary"
-            disabled={!canDecide}
-            disabledReason="Accept is available for pending events."
-            onClick={onAccept}
-          />
-          <ShortcutButton
-            label={dismissLabel}
-            shortcut="D"
-            ariaShortcut="D"
-            disabled={selectedState === null}
-            disabledReason="Select an event before dismissing it."
-            onClick={onDismiss}
-          />
-          <ShortcutButton
-            label="Add event"
-            shortcut="N"
-            ariaShortcut="N"
-            variant="primary"
-            onClick={onAddEvent}
-          />
-        </div>
-      </aside>
+      {timelineReviewControlsSlot === null
+        ? controls
+        : createPortal(controls, timelineReviewControlsSlot)}
     </>
   );
 }

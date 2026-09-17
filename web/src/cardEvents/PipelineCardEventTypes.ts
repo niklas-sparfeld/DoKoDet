@@ -28,4 +28,6 @@ export type PendingCommand = {
   operation: PipelineReferenceOperation;
   notice: string;
   attempts: number;
+  optimistic: (current: EditableEvent[]) => EditableEvent[];
+  coalesceKey?: string;
 };

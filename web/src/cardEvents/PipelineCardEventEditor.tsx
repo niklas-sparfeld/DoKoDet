@@ -332,6 +332,14 @@ export function PipelineCardEventEditor({
   const hydrateAndContinue = useCallback(
     (nextReference: PipelineReferenceResource) => {
       hydrateReference(nextReference);
+      if (queueRef.current.length > 0) {
+        setLocalEvents(
+          queueRef.current.reduce(
+            (current, command) => command.optimistic(current),
+            eventsRef.current,
+          ),
+        );
+      }
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(
         queueRef.current.length === 0
@@ -339,7 +347,7 @@ export function PipelineCardEventEditor({
           : describeCommand(queueRef.current[0]),
       );
     },
-    [hydrateReference],
+    [hydrateReference, setLocalEvents],
   );
 
   const processQueue = useCallback(async () => {
@@ -366,8 +374,8 @@ export function PipelineCardEventEditor({
           operations: [command.operation],
         },
       );
-      hydrateAndContinue(nextReference);
       queueRef.current.shift();
+      hydrateAndContinue(nextReference);
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(
         queueRef.current.length === 0
@@ -432,6 +440,7 @@ export function PipelineCardEventEditor({
       operation: PipelineReferenceOperation,
       noticeText: string,
       optimistic: (current: EditableEvent[]) => EditableEvent[],
+      coalesceKey?: string,
     ) => {
       if (referenceRef.current === null) {
         return;
@@ -443,8 +452,17 @@ export function PipelineCardEventEditor({
         operation,
         notice: noticeText,
         attempts: 0,
+        optimistic,
+        coalesceKey,
       };
-      queueRef.current.push(command);
+      const lastCommand = queueRef.current.at(-1);
+      if (
+        queueRef.current.length > 1 &&
+        coalesceKey !== undefined &&
+        lastCommand?.coalesceKey === coalesceKey
+      )
+        queueRef.current[queueRef.current.length - 1] = command;
+      else queueRef.current.push(command);
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(describeCommand(queueRef.current[0]));
       setSaveState("saving");
@@ -460,6 +478,7 @@ export function PipelineCardEventEditor({
       changes: Partial<PipelineEvent>,
       noticeText: string,
       invalidNotice = "Event times must be inside the recording and end at or after start.",
+      coalesceKey?: string,
     ) => {
       const nextEvent = { ...event.event, ...changes };
       if (!validEvent(nextEvent, durationUs)) {
@@ -479,6 +498,7 @@ export function PipelineCardEventEditor({
               ? { ...candidate, reviewState: "corrected", event: nextEvent }
               : candidate,
           ),
+        coalesceKey,
       );
       return true;
     },
@@ -551,28 +571,33 @@ export function PipelineCardEventEditor({
   );
   const nudgeSelected = useCallback(
     (delta: -1 | 1) => {
-      if (selectedEvent === undefined) return;
+      const currentEvent = eventsRef.current.find(
+        (event) => event.localId === selectedIdRef.current,
+      );
+      if (currentEvent === undefined) return;
       const frameUs = Math.round(1_000_000 / frameRate);
       const shift = delta * frameUs;
       const startUs = clampMicroseconds(
-        selectedEvent.event.start_us + shift,
+        currentEvent.event.start_us + shift,
         durationUs,
       );
       const endUs = clampMicroseconds(
-        selectedEvent.event.end_us + shift,
+        currentEvent.event.end_us + shift,
         durationUs,
       );
       if (endUs < startUs) return;
       setCurrentTime(startUs);
       updateEvent(
-        selectedEvent,
+        currentEvent,
         { start_us: startUs, end_us: endUs },
         delta < 0
           ? "Event nudged one frame earlier."
           : "Event nudged one frame later.",
+        undefined,
+        `nudge:${currentEvent.localId}`,
       );
     },
-    [durationUs, selectedEvent, setCurrentTime, updateEvent],
+    [durationUs, setCurrentTime, updateEvent],
   );
 
   const markSelectedBound = useCallback(
@@ -973,24 +998,24 @@ export function PipelineCardEventEditor({
         className={eventStyles.pipelineEditor}
         aria-label="CardEvent maintained reference editor"
       >
+        <CardEventReviewControls
+          hasPrevious={hasPreviousEvent}
+          hasNext={hasNextEvent}
+          selectedState={selectedEvent?.reviewState ?? null}
+          onPrevious={() => selectAdjacent(-1)}
+          onNext={() => selectAdjacent(1)}
+          onSeek={seekBy}
+          onNudge={nudgeSelected}
+          onMarkStart={() => markSelectedBound("start")}
+          onMarkStableEnd={() => markSelectedBound("end")}
+          onAccept={() => {
+            if (selectedEvent !== undefined)
+              decideEvent(selectedEvent, "accept");
+          }}
+          onDismiss={dismissSelected}
+          onAddEvent={addEvent}
+        />
         <div className={eventStyles.reviewWorkbench}>
-          <CardEventReviewControls
-            hasPrevious={hasPreviousEvent}
-            hasNext={hasNextEvent}
-            selectedState={selectedEvent?.reviewState ?? null}
-            onPrevious={() => selectAdjacent(-1)}
-            onNext={() => selectAdjacent(1)}
-            onSeek={seekBy}
-            onNudge={nudgeSelected}
-            onMarkStart={() => markSelectedBound("start")}
-            onMarkStableEnd={() => markSelectedBound("end")}
-            onAccept={() => {
-              if (selectedEvent !== undefined)
-                decideEvent(selectedEvent, "accept");
-            }}
-            onDismiss={dismissSelected}
-            onAddEvent={addEvent}
-          />
           <EventSourceSurface
             recordingId={recordingId}
             requestedTimeUs={playheadUs}

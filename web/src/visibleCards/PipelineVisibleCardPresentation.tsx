@@ -11,6 +11,7 @@ import { ShortcutButton } from "../pipeline/ShortcutButton";
 import {
   TimelineRailSeekingControls,
   TimelineRailSeekingPortal,
+  useTimelineRailReviewControlsSlot,
   useTimelineRailSeekingSlot,
 } from "../pipeline/TimelineRailSeekingControls";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
@@ -80,6 +81,7 @@ export function VisibleCardReviewControls({
     selectedFrame !== null &&
     selectedFrame.outcome.frame_identity !== null;
   const timelineSeekingSlot = useTimelineRailSeekingSlot();
+  const timelineReviewControlsSlot = useTimelineRailReviewControlsSlot();
   const seekingGroups = [
     {
       label: "Frame navigation",
@@ -112,88 +114,92 @@ export function VisibleCardReviewControls({
         groups={seekingGroups}
       />
     ) : null;
+  const controls = (
+    <aside
+      className={styles.recordingTimelineReviewControls}
+      aria-label="Visible-card review controls"
+    >
+      {timelineSeekingSlot === null ? (
+        <TimelineRailSeekingControls groups={seekingGroups} />
+      ) : null}
+      {editable ? (
+        <div className={visibleStyles.controlGroup}>
+          <ShortcutButton
+            label={
+              reviewStatus === "accepted" ? "Mark unreviewed" : "Accept frame"
+            }
+            shortcut="A"
+            ariaShortcut="A"
+            variant="primary"
+            disabled={!canAccept}
+            disabledReason="Accept is available for detected frames."
+            onClick={onAccept}
+          />
+          <ShortcutButton
+            label="Add missed card"
+            shortcut="N"
+            ariaShortcut="N"
+            variant="primary"
+            disabled={!canAddCard}
+            disabledReason="A resolved source frame is required to add a card."
+            onClick={onAddCard}
+          />
+          <ShortcutButton
+            label="Convert selected to ignore region"
+            shortcut="I"
+            ariaShortcut="I"
+            variant="primary"
+            disabled={selectedCandidateCount === 0}
+            disabledReason="Select one or more proposals to convert them to an ignore region."
+            onClick={onConvertToIgnoreRegion}
+          />
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={!canAddCard}
+            onClick={onCreateIgnoreRegion}
+          >
+            Draw ignore region
+          </button>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={!canCopyIgnoreRegions}
+            title={
+              canCopyIgnoreRegions
+                ? undefined
+                : "Review an earlier frame with ignore regions first."
+            }
+            onClick={onCopyIgnoreRegions}
+          >
+            Copy ignore regions from previous reviewed frame
+          </button>
+          <ShortcutButton
+            label="Reviewed empty frame"
+            shortcut="E"
+            ariaShortcut="E"
+            disabled={selectedFrame === null}
+            disabledReason="Select a frame before marking it empty."
+            onClick={onMarkEmpty}
+          />
+          <ShortcutButton
+            label="Unusable frame"
+            shortcut="U"
+            ariaShortcut="U"
+            disabled={selectedFrame === null}
+            disabledReason="Select a frame before marking it unusable."
+            onClick={onMarkUnusable}
+          />
+        </div>
+      ) : null}
+    </aside>
+  );
   return (
     <>
       {seeking}
-      <aside
-        className={visibleStyles.controlSidebar}
-        aria-label="Visible-card review controls"
-      >
-        <p className={styles.statusLabel}>Review controls</p>
-        {timelineSeekingSlot === null ? (
-          <TimelineRailSeekingControls groups={seekingGroups} />
-        ) : null}
-        {editable ? (
-          <div className={visibleStyles.controlGroup}>
-            <ShortcutButton
-              label={
-                reviewStatus === "accepted" ? "Mark unreviewed" : "Accept frame"
-              }
-              shortcut="A"
-              ariaShortcut="A"
-              variant="primary"
-              disabled={!canAccept}
-              disabledReason="Accept is available for detected frames."
-              onClick={onAccept}
-            />
-            <ShortcutButton
-              label="Add missed card"
-              shortcut="N"
-              ariaShortcut="N"
-              variant="primary"
-              disabled={!canAddCard}
-              disabledReason="A resolved source frame is required to add a card."
-              onClick={onAddCard}
-            />
-            <ShortcutButton
-              label="Convert selected to ignore region"
-              shortcut="I"
-              ariaShortcut="I"
-              variant="primary"
-              disabled={selectedCandidateCount === 0}
-              disabledReason="Select one or more proposals to convert them to an ignore region."
-              onClick={onConvertToIgnoreRegion}
-            />
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              disabled={!canAddCard}
-              onClick={onCreateIgnoreRegion}
-            >
-              Draw ignore region
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              disabled={!canCopyIgnoreRegions}
-              title={
-                canCopyIgnoreRegions
-                  ? undefined
-                  : "Review an earlier frame with ignore regions first."
-              }
-              onClick={onCopyIgnoreRegions}
-            >
-              Copy ignore regions from previous reviewed frame
-            </button>
-            <ShortcutButton
-              label="Reviewed empty frame"
-              shortcut="E"
-              ariaShortcut="E"
-              disabled={selectedFrame === null}
-              disabledReason="Select a frame before marking it empty."
-              onClick={onMarkEmpty}
-            />
-            <ShortcutButton
-              label="Unusable frame"
-              shortcut="U"
-              ariaShortcut="U"
-              disabled={selectedFrame === null}
-              disabledReason="Select a frame before marking it unusable."
-              onClick={onMarkUnusable}
-            />
-          </div>
-        ) : null}
-      </aside>
+      {timelineReviewControlsSlot === null
+        ? controls
+        : createPortal(controls, timelineReviewControlsSlot)}
     </>
   );
 }

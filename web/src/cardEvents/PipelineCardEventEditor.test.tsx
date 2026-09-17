@@ -213,6 +213,86 @@ describe("PipelineCardEventEditor", () => {
     expect(putCalls(fetchMock)).toHaveLength(4);
   });
 
+  it("coalesces rapid nudges while an earlier save is in flight", async () => {
+    let server = referenceResponse([eventItem()]);
+    const savedBodies: Array<Record<string, unknown>> = [];
+    let releaseFirstSave: (() => void) | undefined;
+    const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+      if (init?.method !== "PUT") return response(server);
+      const payload = JSON.parse(String(init.body)) as {
+        operations?: Array<Record<string, unknown>>;
+      };
+      savedBodies.push(payload);
+      const operation = payload.operations?.[0];
+      if (operation === undefined) throw new Error("operation was not saved");
+      const itemId = operation.item_id;
+      if (operation.operation === "correct" && typeof itemId === "string") {
+        const correctedItem = operation.item;
+        server = referenceResponse(
+          server.draft.items.map((item) =>
+            item.item_id === itemId && isRecord(correctedItem)
+              ? { ...item, review_state: "corrected", item: correctedItem }
+              : item,
+          ),
+          server.draft.revision + 1,
+        );
+      }
+      const savedResponse = response(server);
+      if (savedBodies.length === 1) {
+        return new Promise<Response>((resolve) => {
+          releaseFirstSave = () => resolve(savedResponse);
+        });
+      }
+      return savedResponse;
+    });
+
+    renderReviewed(fetchMock);
+    await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
+
+    fireEvent.keyDown(window, { key: "." });
+    await waitFor(() => expect(savedBodies).toHaveLength(1));
+    fireEvent.keyDown(window, { key: "." });
+    fireEvent.keyDown(window, { key: "." });
+    fireEvent.keyDown(window, { key: "." });
+    fireEvent.keyDown(window, { key: "." });
+
+    expect(savedBodies).toHaveLength(1);
+    expect(
+      within(screen.getByLabelText("Selected event interval")).getByText(
+        "0:01.166665",
+      ),
+    ).toBeInTheDocument();
+
+    if (releaseFirstSave === undefined)
+      throw new Error("first save was not made releaseable");
+    releaseFirstSave();
+    await waitFor(() => expect(savedBodies).toHaveLength(2));
+    await waitFor(() => expect(server.draft.revision).toBe(3));
+    expect(savedBodies[0]?.operations).toEqual([
+      {
+        operation: "correct",
+        item_id: "event-1",
+        item: expect.objectContaining({
+          start_us: 1_033_333,
+          end_us: 1_233_333,
+        }),
+      },
+    ]);
+    expect(savedBodies[1]?.operations).toEqual([
+      {
+        operation: "correct",
+        item_id: "event-1",
+        item: expect.objectContaining({
+          start_us: 1_166_665,
+          end_us: 1_366_665,
+        }),
+      },
+    ]);
+    expect(server.draft.items[0]?.item.start_us).toBe(1_166_665);
+  });
+
   it("marks a point event start and stable end, then reloads the interval", async () => {
     let server = referenceResponse([]);
     const savedBodies: Array<Record<string, unknown>> = [];

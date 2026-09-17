@@ -7,8 +7,6 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { createPortal } from "react-dom";
-
 import {
   ApiError,
   createDokoDetectorClient,
@@ -32,7 +30,6 @@ import {
   VisibleCardInspectorPortals,
   useVisibleCardProposalSlot,
   useVisibleCardInspectorSlots,
-  useVisibleCardReviewControlsSlot,
 } from "./PipelineVisibleCardInspector";
 import {
   visibleCardReviewPrewarmUrls,
@@ -61,6 +58,8 @@ export type { PipelineVisibleCardRailItem } from "./PipelineVisibleCardTypes";
 
 const CONTENT_TYPE = "visible_cards" as const;
 const RETRY_LIMIT = 3;
+const POINT_DRAG_THRESHOLD_PX = 4;
+const POLYGON_SWITCH_CLEARANCE_RATIO = 0.08;
 
 export type PipelineVisibleCardEditorProps = {
   recordingId: string;
@@ -107,6 +106,9 @@ export function PipelineVisibleCardEditor({
     pointerId: number;
     polygonIndex: number;
     pointIndex: number;
+    startClientX: number;
+    startClientY: number;
+    dragging: boolean;
     dirty: boolean;
   } | null>(null);
   const [reference, setReference] = useState<PipelineReferenceResource | null>(
@@ -141,7 +143,6 @@ export function PipelineVisibleCardEditor({
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
   const proposalSlot = useVisibleCardProposalSlot();
-  const reviewControlsSlot = useVisibleCardReviewControlsSlot();
   useEffect(
     () =>
       subscribeToProfileName(() => {
@@ -1003,6 +1004,17 @@ export function PipelineVisibleCardEditor({
     (event: ReactPointerEvent<SVGSVGElement>) => {
       const drag = dragRef.current;
       if (drag === null || drag.pointerId !== event.pointerId) return;
+      if (!drag.dragging) {
+        const horizontal = event.clientX - drag.startClientX;
+        const vertical = event.clientY - drag.startClientY;
+        if (
+          horizontal * horizontal + vertical * vertical <=
+          POINT_DRAG_THRESHOLD_PX ** 2
+        ) {
+          return;
+        }
+        drag.dragging = true;
+      }
       const point = pointFromEvent(event);
       if (point === null) return;
       setEditor((current) => {
@@ -1022,6 +1034,11 @@ export function PipelineVisibleCardEditor({
     (event: ReactPointerEvent<SVGSVGElement>) => {
       const drag = dragRef.current;
       if (drag === null || drag.pointerId !== event.pointerId) return;
+      if (!drag.dragging) {
+        dragRef.current = null;
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+        return;
+      }
       const point = pointFromEvent(event);
       if (point === null) return;
       const currentEditor = editorRef.current;
@@ -1049,6 +1066,42 @@ export function PipelineVisibleCardEditor({
       if (point === null) return;
       const currentEditor = editorRef.current;
       if (currentEditor === null) return;
+      const currentFrame = framesRef.current.find(
+        (frame) => frame.itemId === currentEditor.frameItemId,
+      );
+      if (currentEditor.regionId === null && currentFrame !== undefined) {
+        const nextCandidate = findClearlySelectedCandidate(
+          currentFrame.outcome.candidates,
+          currentEditor.cardId,
+          currentEditor.polygons,
+          point,
+        );
+        if (nextCandidate !== null) {
+          openEditor(
+            currentFrame,
+            nextCandidate.candidate,
+            nextCandidate.polygonIndex,
+          );
+          return;
+        }
+      }
+      const nextPolygonIndex = findClearlySelectedPolygon(
+        currentEditor.polygons,
+        currentEditor.polygonIndex,
+        point,
+      );
+      if (nextPolygonIndex !== null) {
+        setEditor((current) =>
+          current === null
+            ? current
+            : {
+                ...current,
+                polygonIndex: nextPolygonIndex,
+                selectedPointIndex: null,
+              },
+        );
+        return;
+      }
       const activePolygon =
         currentEditor.polygons[currentEditor.polygonIndex] ?? [];
       if (currentEditor.cardId !== null && activePolygon.length >= 3) {
@@ -1086,7 +1139,7 @@ export function PipelineVisibleCardEditor({
           0,
         );
     },
-    [],
+    [openEditor],
   );
 
   const stopCanvasPointer = useCallback(
@@ -1114,6 +1167,9 @@ export function PipelineVisibleCardEditor({
         pointerId: event.pointerId,
         polygonIndex,
         pointIndex,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        dragging: false,
         dirty: false,
       };
       event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -1603,13 +1659,8 @@ export function PipelineVisibleCardEditor({
           </p>
         ) : (
           <>
-            {reviewControlsSlot !== null && reviewControls !== null
-              ? createPortal(reviewControls, reviewControlsSlot)
-              : null}
-            <div
-              className={`${visibleStyles.reviewWorkbench} ${reviewControlsSlot !== null ? visibleStyles.reviewWorkbenchWithSidebarControls : ""}`}
-            >
-              {reviewControlsSlot === null ? reviewControls : null}
+            {reviewControls}
+            <div className={visibleStyles.reviewWorkbench}>
               <VisibleCardFramePanel
                 recordingId={recordingId}
                 frame={activeFrame}
@@ -2007,6 +2058,106 @@ function segmentIntersectionParameters(
 
 function pointInPolygonUnion(point: Point, polygons: Point[][]): boolean {
   return polygons.some((polygon) => pointInPolygon(point.x, point.y, polygon));
+}
+
+function findClearlySelectedCandidate(
+  candidates: Candidate[],
+  currentCardId: string | null,
+  currentPolygons: Point[][],
+  point: Point,
+): { candidate: Candidate; polygonIndex: number } | null {
+  if (!isClearlyOutsidePolygons(currentPolygons, point)) return null;
+  let selected: {
+    candidate: Candidate;
+    polygonIndex: number;
+    clearance: number;
+  } | null = null;
+  for (const candidate of candidates) {
+    if (candidate.card_id === currentCardId) continue;
+    const polygons = geometryPolygons(candidate.geometry);
+    for (const [polygonIndex, polygon] of polygons.entries()) {
+      if (polygon.length < 3 || !pointInPolygon(point.x, point.y, polygon)) {
+        continue;
+      }
+      const clearance = polygonClearanceRatio(point, polygon);
+      if (clearance <= POLYGON_SWITCH_CLEARANCE_RATIO) continue;
+      if (selected === null || clearance > selected.clearance) {
+        selected = { candidate, polygonIndex, clearance };
+      }
+    }
+  }
+  return selected === null
+    ? null
+    : {
+        candidate: selected.candidate,
+        polygonIndex: selected.polygonIndex,
+      };
+}
+
+function findClearlySelectedPolygon(
+  polygons: Point[][],
+  currentPolygonIndex: number,
+  point: Point,
+): number | null {
+  const currentPolygon = polygons[currentPolygonIndex];
+  if (currentPolygon === undefined || currentPolygon.length < 3) return null;
+  if (!isClearlyOutsidePolygons([currentPolygon], point)) {
+    return null;
+  }
+  let selected: { index: number; clearance: number } | null = null;
+  for (const [polygonIndex, polygon] of polygons.entries()) {
+    if (
+      polygonIndex === currentPolygonIndex ||
+      polygon.length < 3 ||
+      !pointInPolygon(point.x, point.y, polygon)
+    ) {
+      continue;
+    }
+    const clearance = polygonClearanceRatio(point, polygon);
+    if (clearance <= POLYGON_SWITCH_CLEARANCE_RATIO) continue;
+    if (selected === null || clearance > selected.clearance) {
+      selected = { index: polygonIndex, clearance };
+    }
+  }
+  return selected?.index ?? null;
+}
+
+function isClearlyOutsidePolygons(polygons: Point[][], point: Point): boolean {
+  const completePolygons = polygons.filter((polygon) => polygon.length >= 3);
+  if (completePolygons.length === 0) return true;
+  if (pointInPolygonUnion(point, completePolygons)) return false;
+  return completePolygons.every(
+    (polygon) =>
+      polygonClearanceRatio(point, polygon) > POLYGON_SWITCH_CLEARANCE_RATIO,
+  );
+}
+
+function polygonClearanceRatio(point: Point, polygon: Point[]): number {
+  const scale = polygonScale(polygon);
+  let nearestDistanceSquared = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < polygon.length; index += 1) {
+    nearestDistanceSquared = Math.min(
+      nearestDistanceSquared,
+      squaredDistanceToSegment(
+        point,
+        polygon[index],
+        polygon[(index + 1) % polygon.length],
+      ),
+    );
+  }
+  return Math.sqrt(nearestDistanceSquared) / scale;
+}
+
+function polygonScale(polygon: Point[]): number {
+  const xValues = polygon.map((point) => point.x);
+  const yValues = polygon.map((point) => point.y);
+  return Math.max(
+    1,
+    Math.hypot(
+      Math.max(...xValues) - Math.min(...xValues),
+      Math.max(...yValues) - Math.min(...yValues),
+    ),
+  );
 }
 
 function pointInPolygon(x: number, y: number, polygon: Point[]): boolean {

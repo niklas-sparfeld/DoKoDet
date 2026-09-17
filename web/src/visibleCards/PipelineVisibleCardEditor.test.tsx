@@ -279,6 +279,49 @@ function referenceWithTwoCandidates() {
   };
 }
 
+function referenceWithAdjacentCandidates(
+  firstPolygon = [
+    { x: 100, y: 100 },
+    { x: 500, y: 100 },
+    { x: 500, y: 500 },
+    { x: 100, y: 500 },
+  ],
+) {
+  const current = reference();
+  const makeCandidate = (
+    cardId: string,
+    polygon: { x: number; y: number }[],
+  ): Candidate => ({
+    ...DETECTOR_CANDIDATE,
+    card_id: cardId,
+    geometry: {
+      kind: "reviewed-visible-region/v1",
+      visible_region: { polygons: [polygon] },
+    },
+  });
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      items: current.draft.items.map((item) => ({
+        ...item,
+        item: {
+          ...item.item,
+          candidates: [
+            makeCandidate("left-card", firstPolygon),
+            makeCandidate("right-card", [
+              { x: 550, y: 150 },
+              { x: 900, y: 150 },
+              { x: 900, y: 450 },
+              { x: 550, y: 450 },
+            ]),
+          ],
+        },
+      })),
+    },
+  };
+}
+
 function referenceWithIgnoreRegion(
   candidates: Candidate[] = [DETECTOR_CANDIDATE],
 ) {
@@ -494,9 +537,9 @@ describe("PipelineVisibleCardEditor", () => {
     ).toHaveLength(1);
   });
 
-  it("places review controls in the visible-card sidebar slot", async () => {
+  it("places review controls in the Timeline Rail slot", async () => {
     const controlsSlot = document.createElement("div");
-    controlsSlot.dataset.visibleCardReviewControlsSlot = "controls";
+    controlsSlot.dataset.timelineReviewControlsSlot = "true";
     document.body.append(controlsSlot);
     try {
       vi.stubGlobal(
@@ -516,10 +559,13 @@ describe("PipelineVisibleCardEditor", () => {
         />,
       );
 
-      const controls = await screen.findByRole("complementary", {
-        name: "Visible-card review controls",
-      });
-      await waitFor(() => expect(controls.parentElement).toBe(controlsSlot));
+      await waitFor(() =>
+        expect(
+          controlsSlot.querySelector(
+            '[aria-label="Visible-card review controls"]',
+          ),
+        ).not.toBeNull(),
+      );
     } finally {
       controlsSlot.remove();
     }
@@ -907,6 +953,128 @@ describe("PipelineVisibleCardEditor", () => {
         name: "Polygon 2, point 1 at 100, 100",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("switches to another clearly separated card polygon from the editor canvas", async () => {
+    const adjacentReference = referenceWithAdjacentCandidates();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(jsonResponse(adjacentReference)),
+      ),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(
+      (await screen.findAllByRole("button", { name: "Edit" }))[0],
+    );
+    const canvas = screen.getByRole("img", {
+      name: "2 visible-card proposals",
+    });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.pointerDown(canvas, { clientX: 75, clientY: 30 });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Select proposal 2" }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+    expect(
+      screen.getByRole("button", { name: "Polygon 1, point 1 at 550, 150" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Polygon 1 (5 points)" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps a near-boundary click on the active polygon", async () => {
+    const insertedPoint = { x: 505, y: 300 };
+    const adjacentReference = referenceWithAdjacentCandidates([
+      { x: 100, y: 100 },
+      { x: 500, y: 100 },
+      { x: 500, y: 500 },
+      { x: 100, y: 500 },
+    ]);
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
+      Promise.resolve(
+        jsonResponse(
+          init?.method === "PUT"
+            ? referenceWithAdjacentCandidates([
+                { x: 100, y: 100 },
+                { x: 500, y: 100 },
+                insertedPoint,
+                { x: 500, y: 500 },
+                { x: 100, y: 500 },
+              ])
+            : adjacentReference,
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(
+      (await screen.findAllByRole("button", { name: "Edit" }))[0],
+    );
+    const canvas = screen.getByRole("img", {
+      name: "2 visible-card proposals",
+    });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.pointerDown(canvas, { clientX: 50.5, clientY: 30 });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Polygon 1, point 3 at 505, 300" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Select proposal 1" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Polygon 1 (5 points)" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("converts multiple selected proposals into one untidy-stack ignore region", async () => {
@@ -1460,6 +1628,64 @@ describe("PipelineVisibleCardEditor", () => {
     expect(
       screen.getByRole("button", { name: "Close editor Esc" }),
     ).toBeInTheDocument();
+  });
+
+  it("selects a point without moving it until a real drag starts", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(reference()))),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    const point = screen.getByRole("button", {
+      name: "Polygon 1, point 1 at 100, 100",
+    });
+    const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.pointerDown(point, {
+      clientX: 12,
+      clientY: 12,
+      pointerId: 9,
+    });
+    fireEvent.pointerMove(canvas, {
+      clientX: 14,
+      clientY: 14,
+      pointerId: 9,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 9 });
+
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 100, 100",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Polygon 1, point 1 at 140, 140",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("ends edit mode when navigating to another frame", async () => {

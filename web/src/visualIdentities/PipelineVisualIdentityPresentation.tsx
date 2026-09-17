@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import {
   pipelineDerivedFramePath,
@@ -9,6 +10,7 @@ import { ShortcutButton } from "../pipeline/ShortcutButton";
 import {
   TimelineRailSeekingControls,
   TimelineRailSeekingPortal,
+  useTimelineRailReviewControlsSlot,
   useTimelineRailSeekingSlot,
 } from "../pipeline/TimelineRailSeekingControls";
 import identityStyles from "./PipelineVisualIdentityEditor.module.css";
@@ -73,6 +75,7 @@ export function IdentityReviewControls({
   const canMark =
     editable && item !== null && item.outcome.crop_identity !== null;
   const timelineSeekingSlot = useTimelineRailSeekingSlot();
+  const timelineReviewControlsSlot = useTimelineRailReviewControlsSlot();
   const seekingGroups = [
     {
       label: "Card navigation",
@@ -105,65 +108,69 @@ export function IdentityReviewControls({
         groups={seekingGroups}
       />
     ) : null;
+  const controls = (
+    <aside
+      className={styles.recordingTimelineReviewControls}
+      aria-label="Visual identity review controls"
+    >
+      {timelineSeekingSlot === null ? (
+        <TimelineRailSeekingControls groups={seekingGroups} />
+      ) : null}
+      {editable ? (
+        <div className={identityStyles.controlGroup}>
+          <ShortcutButton
+            label={reviewStatus === "accepted" ? "Mark unreviewed" : "Accept"}
+            shortcut="A"
+            ariaShortcut="A"
+            variant="primary"
+            disabled={!canAccept}
+            disabledReason="Accept is available when an identity candidate exists."
+            onClick={onAccept}
+          />
+          <ShortcutButton
+            label={
+              reviewStatus === "unusable"
+                ? "Mark unreviewed"
+                : "Identity unusable"
+            }
+            shortcut="U"
+            ariaShortcut="U"
+            disabled={!canMark}
+            disabledReason="A usable crop is required to mark an identity unusable."
+            onClick={onMarkUnusable}
+          />
+          <ShortcutButton
+            label={
+              reviewStatus === "face_down" ? "Mark unreviewed" : "Face down"
+            }
+            shortcut="F"
+            ariaShortcut="F"
+            disabled={!canMark}
+            disabledReason="A usable crop is required to mark a card face down."
+            onClick={onMarkFaceDown}
+          />
+          <ShortcutButton
+            label={
+              reviewStatus === "source_problem"
+                ? "Mark unreviewed"
+                : "Source problem"
+            }
+            shortcut="S"
+            ariaShortcut="S"
+            disabled={item === null}
+            disabledReason="Select a card before reporting a source problem."
+            onClick={onReportSourceProblem}
+          />
+        </div>
+      ) : null}
+    </aside>
+  );
   return (
     <>
       {seeking}
-      <aside
-        className={identityStyles.controlSidebar}
-        aria-label="Visual identity review controls"
-      >
-        <p className={styles.statusLabel}>Review controls</p>
-        {timelineSeekingSlot === null ? (
-          <TimelineRailSeekingControls groups={seekingGroups} />
-        ) : null}
-        {editable ? (
-          <div className={identityStyles.controlGroup}>
-            <ShortcutButton
-              label={reviewStatus === "accepted" ? "Mark unreviewed" : "Accept"}
-              shortcut="A"
-              ariaShortcut="A"
-              variant="primary"
-              disabled={!canAccept}
-              disabledReason="Accept is available when an identity candidate exists."
-              onClick={onAccept}
-            />
-            <ShortcutButton
-              label={
-                reviewStatus === "unusable"
-                  ? "Mark unreviewed"
-                  : "Identity unusable"
-              }
-              shortcut="U"
-              ariaShortcut="U"
-              disabled={!canMark}
-              disabledReason="A usable crop is required to mark an identity unusable."
-              onClick={onMarkUnusable}
-            />
-            <ShortcutButton
-              label={
-                reviewStatus === "face_down" ? "Mark unreviewed" : "Face down"
-              }
-              shortcut="F"
-              ariaShortcut="F"
-              disabled={!canMark}
-              disabledReason="A usable crop is required to mark a card face down."
-              onClick={onMarkFaceDown}
-            />
-            <ShortcutButton
-              label={
-                reviewStatus === "source_problem"
-                  ? "Mark unreviewed"
-                  : "Source problem"
-              }
-              shortcut="S"
-              ariaShortcut="S"
-              disabled={item === null}
-              disabledReason="Select a card before reporting a source problem."
-              onClick={onReportSourceProblem}
-            />
-          </div>
-        ) : null}
-      </aside>
+      {timelineReviewControlsSlot === null
+        ? controls
+        : createPortal(controls, timelineReviewControlsSlot)}
     </>
   );
 }
@@ -314,28 +321,22 @@ export function IdentitySourceSurface({
       className={identityStyles.workbenchSurface}
       aria-label="Visual identity source and crop"
     >
-      <div
-        className={
-          controls === undefined ? undefined : identityStyles.reviewWorkbench
-        }
-      >
-        {controls}
-        {loading ? (
-          <p className={styles.detailEmptyState}>Loading visual identities…</p>
-        ) : item === null ? (
-          <p className={styles.detailEmptyState}>
-            Select an identity card from the Timeline Rail.
-          </p>
-        ) : (
-          <IdentityItemPanel
-            recordingId={recordingId}
-            sourceRevisionId={sourceRevisionId}
-            item={item}
-            items={items}
-            onSelectIdentity={onSelectIdentity}
-          />
-        )}
-      </div>
+      {controls}
+      {loading ? (
+        <p className={styles.detailEmptyState}>Loading visual identities…</p>
+      ) : item === null ? (
+        <p className={styles.detailEmptyState}>
+          Select an identity card from the Timeline Rail.
+        </p>
+      ) : (
+        <IdentityItemPanel
+          recordingId={recordingId}
+          sourceRevisionId={sourceRevisionId}
+          item={item}
+          items={items}
+          onSelectIdentity={onSelectIdentity}
+        />
+      )}
     </section>
   );
 }
