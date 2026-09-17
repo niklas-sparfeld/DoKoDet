@@ -7,12 +7,12 @@
   bounded manual training campaign that produces a new CardEventNet model.
 - **Status:** In Progress
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
-- **Readiness:** M0–M11 and the operator-run hard-negative ablation are complete. The ablation
-  confirms that event presence is strong but stable-end timing remains the dominant validation
-  error. M11 reconciled the six-recording prose review, froze a successor validation dataset,
-  and replayed three decoder responses. No decoder is selected yet. The sealed test remains
-  unread. Long training, test, export, and optional diagnostic commands are operator-run and are
-  never started or monitored by an implementation agent.
+- **Readiness:** M0–M13 and the operator-run campaigns are complete. The M12 timing response did
+  not improve overall event coverage enough to replace the M9 hard-negative checkpoint. The
+  operator accepts M9 as the development baseline so that end-to-end pipeline work can measure
+  the cost of its remaining errors. M14 is ready. The sealed test remains unread. Long test,
+  export, and optional diagnostic commands are operator-run and are never started or monitored by
+  an implementation agent.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze a leakage-safe train/validation/test dataset, run a
   reproducible manual campaign, and retain a new `best.pt` and model bundle with complete lineage.
@@ -111,9 +111,12 @@
   has 35 duplicate detections, 86.77% event-presence recall, and fails the 60 stable-end and 98%
   event-presence gates. M13 records `human_review_required` and creates no candidate lock. No
   sealed-test or system-holdout output is read.
-- **M14:** Not started — blocked because M13 did not create a candidate lock. Prepare and validate the
-  one-time sealed-test, export, parity, and promotion handoffs without running operator-only
-  commands.
+- **M14:** Not started — ready. Record the explicit M9 development-baseline decision, create its
+  immutable integration lock, and prepare the one-time sealed-test and Core ML export/parity
+  handoffs without running or monitoring operator-only commands.
+- **M15:** Not started — blocked until the operator completes the M14 handoffs. Validate the sealed
+  test and export/parity outputs, retain the integration bundle, publish the final campaign report,
+  and close the epic without promoting M9 as the production champion.
 
 ## 1. Current evidence
 
@@ -266,6 +269,13 @@ validation comparison -> candidate lock -> one sealed test -> export -> explicit
 The operator can keep the current champion when no candidate passes. Do not tune after reading the
 test result. Do not overwrite the prior champion or call a candidate `best.pt` the repository
 champion without a promotion receipt.
+
+An explicit human decision can instead create an **integration lock** for a validation candidate
+that does not pass the production gates. The integration lock must freeze the checkpoint,
+threshold, decoder, training lineage, evaluation references, code, and environment before the
+sealed test is read. It must record the failed gates and the human rationale. It authorizes
+sealed-test measurement, export, parity checks, and downstream pipeline development. It does not
+authorize production promotion or change the current champion.
 
 ### 2.7 Interval labels do not make transitions negative
 
@@ -814,33 +824,74 @@ uses the successor validation partition only and replays the declared causal dec
 changing annotations, threshold, decoder, or training recipe. The candidate is not lockable:
 stable-end matches are 54 (minimum 60), duplicate detections are 35 (maximum 32), and
 event-presence recall is 86.77% (minimum 98%). The decision is `human_review_required`; M14 is
-blocked until a later authorized campaign produces a valid candidate lock.
+not permitted to lock M12.
 
-### M14 — Manual sealed test, export, and handoff
+Operator decision — 2026-09-17: accept the M9 hard-negative checkpoint as the development baseline.
+The purpose is to integrate CardEventNet with table observation and game reconstruction, then use
+end-to-end evidence to decide where further work has the highest return on investment. This is an
+explicit engineering acceptance of a known validation result, not a claim that M9 passed the
+production gates. Freeze the M9 threshold at `0.4271905720233917` and keep the current causal
+decoder with 0.125-second peak confirmation and 0.625-second minimum event gap. Do not tune the
+model, threshold, or decoder after this decision. Do not promote M9 as the production champion in
+this epic.
 
-- With explicit operator confirmation, write the exact one-time sealed-test command for the locked
-  candidate and stop. Do not start or monitor it.
-- After the operator finishes the test command, validate the result and apply the existing gates
-  without changing the candidate or threshold.
-- If the gates permit export, write the exact Core ML export and parity command and stop again. Do
-  not start or monitor it.
-- Validate the operator-produced bundle, preprocessing fixture, runtime load, parity, reports, and
-  digests. Retain the checkpoint, decoder settings, model bundle, and prior champion rollback
-  information under campaign-owned paths.
-- Promote only when the operator confirms and every hard gate passes.
-- After the campaign decision is immutable, optionally write one separate manual
-  `legacy_device_diagnostic` command for `IMG_2777` through `IMG_2781`. Do not run it by default and
-  do not merge its result into the campaign comparison or gate report.
+### M14 — Lock the M9 development baseline and prepare operator handoffs
+
+- Validate the M9 hard-negative checkpoint, selected threshold, decoder, hard-negative manifest,
+  training dataset lineage, successor validation references, code revision, and environment.
+- Write an immutable integration lock for the M9 checkpoint. Name every failed production gate,
+  record the operator decision above, and set production promotion eligibility to false.
+- Keep the existing champion unchanged. Do not reuse the production candidate-lock artifact or
+  promotion receipt for this development-only decision.
+- Write one exact, one-time sealed-test command tied to the integration lock and the preserved
+  sealed-test partition. The command must not select or tune the model, threshold, or decoder.
+- Write exact Core ML export and parity commands tied to the same integration lock. The exported
+  bundle is an integration artifact for downstream pipeline work, regardless of whether the
+  sealed-test result passes the old production gates.
+- Declare expected output paths, digests, resume behavior, and the order in which the operator runs
+  the commands. Stop before running any long command. Do not poll or monitor operator work.
 
 Acceptance:
 
-- test evaluation is tied to the locked checkpoint and new sealed test partition;
-- each long-running action has an explicit operator handoff and no agent polling;
+- the integration lock selects exactly the M9 hard-negative checkpoint, threshold
+  `0.4271905720233917`, 0.125-second peak confirmation, and 0.625-second minimum event gap;
+- the lock binds both the original training lineage and the successor validation references;
+- the lock records the known failed gates, the human acceptance rationale, and
+  `production_promotion_eligible: false` or an equivalent explicit field;
+- the current champion and all historical M9 through M13 artifacts remain unchanged;
+- the sealed-test handoff permits one evaluation only and cannot change the locked configuration;
+- the export/parity handoff identifies the resulting bundle as an integration model; and
+- Luna does not start, wait for, poll, or monitor sealed-test inference or export.
+
+### M15 — Validate the integration model and close the campaign
+
+- Start only after the operator reports that all M14 commands completed.
+- Validate the sealed-test result against the integration lock. Record the existing production
+  gates for information only. Do not use the result to tune or replace the locked configuration.
+- Validate the operator-produced Core ML bundle, preprocessing fixture, runtime load, parity,
+  reports, and digests. Retain the checkpoint, decoder settings, model bundle, and current champion
+  identity under campaign-owned paths.
+- Publish the exact integration-model path and contract needed by downstream table-observation and
+  reconstruction work. Keep the model separate from the production champion registry entry.
+- Report downstream questions for later measurement: whether an event produces a correct stable
+  table observation, whether a later proposal recovers an early proposal, whether a miss causes a
+  persistent reconstruction error, and whether duplicate or false proposals corrupt state or only
+  add computation.
+- After the campaign decision is immutable, optionally write one separate manual
+  `legacy_device_diagnostic` command for `IMG_2777` through `IMG_2781`. Do not run it by default and
+  do not merge its result into the campaign comparison or gate report.
+- Close epic 0063 with M9 retained as the development baseline. Defer more CardEventNet training
+  until downstream evidence identifies a concrete, non-recoverable failure class.
+
+Acceptance:
+
+- test evaluation is tied to the integration lock and preserved sealed-test partition;
 - the checkpoint and bundle load locally and trace to source and annotation digests;
-- promotion is atomic, explicit, and recoverable; and
+- Core ML parity meets the runtime contract required for pipeline integration;
+- the current production champion remains unchanged and no promotion receipt is written;
 - an optional old-phone diagnostic is visibly non-gating and runs only after the decision; and
-- the final report names the retained model, campaign outcome, remaining gaps, and the next manual
-  command when one remains.
+- the final report names the retained integration model, campaign outcome, known gaps, downstream
+  measurement questions, and the next manual command when one remains.
 
 ## 5. Out of scope
 
