@@ -27,7 +27,8 @@ The retained `doko` commands are grouped by owner:
 - `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `cardevent interval-readiness`, `cardevent interval-freeze`, `resilience-baseline`,
   `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
   `impact`, and `source retire`.
-- `doko model`: `status`, `compare`, `improve`, `promote`, and `evaluate-system`.
+- `doko model`: `status`, `compare`, `improve`, `review-card-event-net`,
+  `review-card-event-net-timing`, `promote`, and `evaluate-system`.
 - `doko reconstruct`: `round`.
 
 Run `mise exec -- uv run doko <command> --help` for a top-level command or
@@ -402,6 +403,25 @@ the manual and resume commands, expected outputs, and train/validation sample es
 handoff uses one candidate and seed 42 with ordinary negatives only. It does not read the sealed
 test partition, system holdout, or any hard-negative manifest. The operator runs the handoff
 command once and repeats it to resume; implementation agents do not start or monitor it.
+
+## Epic 0063 M10 timing-review handoff
+
+After the operator completes the M9 hard-negative ablation, publish the read-only timing-review
+packet:
+
+```bash
+mise exec -- uv run --project operations doko model review-card-event-net-timing \
+  cardeventnet-0063-m9-hard-negative-ablation \
+  --repository-root .
+```
+
+The command validates the M9 handoff, selected checkpoint, threshold, decoder settings, M7
+dataset and reference revisions, and saved validation stream. It writes the deterministic packet,
+operator completion checklist, and human report below
+`data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/`. The report prints the ordered
+`IMG_0090`, `IMG_0644`, `IMG_0635`, `IMG_0652`, `IMG_0091`, and `IMG_0661` review routes, both
+local startup commands, and every miss, confirmed false trigger, and in-progress detection. M10
+does not change maintained references, tune the decoder, train, or read the sealed test partition.
 
 ## Epic 0066 interval-review pilot
 

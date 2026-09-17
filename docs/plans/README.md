@@ -51,7 +51,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M9 and the operator-run hard-negative ablation are complete. The ablation reaches validation F1 0.922, but stable-end timing remains the main error. M10 must publish a six-recording timing-review handoff and stop for operator decisions. M11 then reconciles new revisions and measures decoder responses. M12 prepares, but does not run, one timing-response campaign. Sealed test stays unread until M13 locks a candidate. |
+| [0063 — Current CardEventNet training campaign](3-in-progress/0063-Current_CardEventNet_Training_Campaign.md) | 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete | M0–M10 and the operator-run hard-negative ablation are complete. M10 publishes 70 timing-review items in 47 deterministic regions for six recordings and stops for operator decisions. The ablation reaches validation F1 0.922, but stable-end timing remains the main error. M11 then reconciles new revisions and measures decoder responses. M12 prepares, but does not run, one timing-response campaign. Sealed test stays unread until M13 locks a candidate. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -128,13 +128,12 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0063 with M10 timing-review handoff.** Luna must publish the deterministic review
-   packet and give the operator the ordered `IMG_0090`, `IMG_0644`, `IMG_0635`, `IMG_0652`,
-   `IMG_0091`, and `IMG_0661` checklist, exact timestamps, local startup commands, and recording
-   workspace routes. The operator makes all reference decisions. Luna later validates those
-   decisions, measures bounded decoder responses, and prepares one exact timing-response command.
-   The operator runs all long training, test, export, and optional diagnostic commands. Sealed test
-   remains unread until a candidate is locked.
+1. **Continue 0063 with M11 after the operator completes M10.** Validate the six-recording
+   checklist and any new reference revisions, publish the review decisions, freeze a successor
+   development dataset, and run a read-only decoder replay. The operator makes all reference
+   decisions. Luna later measures bounded decoder responses and prepares one exact timing-response
+   command. The operator runs all long training, test, export, and optional diagnostic commands.
+   Sealed test remains unread until a candidate is locked.
 2. **Resume 0051 with the completed 0065 contract.** Use the reviewed ignore regions before
    affected `IMG_0661` frames enter the identity freeze. Preserve Gemini proposals as generated
    evidence. Do not create an `untidy_stack` model class.

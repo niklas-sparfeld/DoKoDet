@@ -57,3 +57,15 @@ on the same validation references, and writes `m9-review.json`, `m9-report.md`, 
 `m9-hard-negative-candidates.json` below the campaign directory. The candidate manifest uses only
 the training partition, excludes interval and label-exclusion regions, and remains
 `training_input: false` until human review. The review never reads the sealed test partition.
+
+Publish the read-only M10 timing-review handoff after the operator-run hard-negative ablation:
+
+```bash
+mise exec -- uv run --project operations doko model review-card-event-net-timing \
+  cardeventnet-0063-m9-hard-negative-ablation \
+  --repository-root .
+```
+
+This validates the M9 ablation evaluation and saved validation streams against the M7 dataset and
+reference revisions. It writes `m10-timing-review.json`, `m10-operator-review.json`, and
+`m10-report.md`. It does not change a maintained reference or read sealed test data.

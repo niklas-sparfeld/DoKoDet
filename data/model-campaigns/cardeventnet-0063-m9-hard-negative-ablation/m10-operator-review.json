@@ -1,0 +1,500 @@
+{
+  "allowed_decisions": [
+    "reference_corrected",
+    "reference_confirmed",
+    "no_event_confirmed"
+  ],
+  "completion_rule": "The operator completes every recording and region after inspecting the full action. A corrected reference must be published as a new completed revision.",
+  "packet": {
+    "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m10-timing-review.json",
+    "sha256": "eb47261ca4236c59c9dbab4565c77a4f8cec66804b9413e8c956a54f8444bc12"
+  },
+  "recordings": [
+    {
+      "decision": null,
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0090/pipeline/events"
+    },
+    {
+      "decision": null,
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0644/pipeline/events"
+    },
+    {
+      "decision": null,
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0635/pipeline/events"
+    },
+    {
+      "decision": null,
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0652/pipeline/events"
+    },
+    {
+      "decision": null,
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0091/pipeline/events"
+    },
+    {
+      "decision": null,
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0661/pipeline/events"
+    }
+  ],
+  "regions": [
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-in_progress_detection-9.750000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-001"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-missed_event-29.742867"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-002"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-missed_event-32.103412"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-003"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-36.750000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-004"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-48.500000",
+        "cardeventnet-IMG_0090-missed_event-50.043555"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-005"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-54.625000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-006"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-61.000000",
+        "cardeventnet-IMG_0090-confirmed_false_trigger-62.375000",
+        "cardeventnet-IMG_0090-confirmed_false_trigger-64.125000",
+        "cardeventnet-IMG_0090-confirmed_false_trigger-64.875000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-007"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-71.125000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-008"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-in_progress_detection-91.500000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-009"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0090-in_progress_detection-110.000000",
+        "cardeventnet-IMG_0090-missed_event-110.871133"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-010"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-8.000000",
+        "cardeventnet-IMG_0091-missed_event-9.217407"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-011"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-20.750000",
+        "cardeventnet-IMG_0091-missed_event-22.268726"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-012"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-39.125000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-013"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-59.125000",
+        "cardeventnet-IMG_0091-missed_event-60.139049"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-014"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-68.625000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-015"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-78.500000",
+        "cardeventnet-IMG_0091-in_progress_detection-79.375000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-016"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-89.000000",
+        "cardeventnet-IMG_0091-missed_event-90.442104"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-017"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-98.500000",
+        "cardeventnet-IMG_0091-missed_event-99.526363"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-018"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0635-missed_event-46.529347"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-019"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0635-missed_event-49.781398"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-020"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0635-missed_event-56.285501",
+        "cardeventnet-IMG_0635-missed_event-58.036605"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-021"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0635-confirmed_false_trigger-65.750000",
+        "cardeventnet-IMG_0635-missed_event-67.292443"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-022"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0635-confirmed_false_trigger-94.125000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-023"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0644-in_progress_detection-7.625000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-024"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0644-in_progress_detection-16.625000",
+        "cardeventnet-IMG_0644-missed_event-17.510402",
+        "cardeventnet-IMG_0644-confirmed_false_trigger-19.375000",
+        "cardeventnet-IMG_0644-confirmed_false_trigger-20.375000",
+        "cardeventnet-IMG_0644-confirmed_false_trigger-21.250000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-025"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-54.125000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-026"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-68.500000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-027"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-77.250000",
+        "cardeventnet-IMG_0644-in_progress_detection-78.000000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-028"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-88.000000",
+        "cardeventnet-IMG_0644-confirmed_false_trigger-90.000000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-029"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-97.500000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-030"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-9.509140"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-031"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-12.261786"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-032"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-23.020927"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-033"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-34.282954"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-034"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-69.066389"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-035"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0652-in_progress_detection-72.750000",
+        "cardeventnet-IMG_0652-missed_event-73.819275"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-036"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-14.250000",
+        "cardeventnet-IMG_0661-missed_event-15.012675"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-037"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-25.775097"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-038"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-30.875000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-039"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-37.536548",
+        "cardeventnet-IMG_0661-in_progress_detection-39.375000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-040"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-49.375000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-041"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-60.000000",
+        "cardeventnet-IMG_0661-missed_event-61.307990"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-042"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-66.314569"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-043"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-68.750000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-044"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-74.572609"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-045"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-84.832599"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-046"
+    },
+    {
+      "decision": null,
+      "item_ids": [
+        "cardeventnet-IMG_0661-confirmed_false_trigger-89.250000"
+      ],
+      "notes": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-047"
+    }
+  ],
+  "schema_version": "cardeventnet-m10-operator-review/v1",
+  "status": "pending_operator_review"
+}

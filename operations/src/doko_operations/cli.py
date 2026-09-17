@@ -46,6 +46,11 @@ from .cardevent_inventory import (
     render_cardevent_inventory_json,
 )
 from .cardevent_m9 import review_cardeventnet_m9
+from .cardevent_m10 import (
+    CardEventM10Error,
+    publish_cardeventnet_m10_timing_review,
+    render_cardeventnet_m10_human,
+)
 from .cardevent_materialization import (
     CardEventNetMaterializationError,
     materialize_cardeventnet_dataset,
@@ -592,6 +597,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_path_options(review, suppress_defaults=True)
     _add_model_options(review)
     review.add_argument("campaign_id")
+    timing_review = model_commands.add_parser(
+        "review-card-event-net-timing",
+        help="Publish the read-only CardEventNet M10 timing-review handoff.",
+    )
+    _add_path_options(timing_review, suppress_defaults=True)
+    _add_model_options(timing_review)
+    timing_review.add_argument("campaign_id")
     improve = model_commands.add_parser(
         "improve", help="Run or resume a bounded component improvement campaign."
     )
@@ -1684,6 +1696,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                         f"report: {review['report_path']}\n"
                     )
                 return 0
+            if args.model_command == "review-card-event-net-timing":
+                packet = publish_cardeventnet_m10_timing_review(
+                    args.campaign_id,
+                    repository_root=config.repository_root,
+                    campaign_root=args.campaign_root,
+                )
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(packet, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(render_cardeventnet_m10_human(packet))
+                return 0
             if args.model_command == "promote":
                 campaign_root = (
                     args.campaign_root or config.repository_root / "data" / "model-campaigns"
@@ -1810,6 +1833,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (
             ConfigurationError,
             OSError,
+            CardEventM10Error,
             ModelImprovementError,
             SystemHoldoutError,
             SystemHoldoutEvaluationError,

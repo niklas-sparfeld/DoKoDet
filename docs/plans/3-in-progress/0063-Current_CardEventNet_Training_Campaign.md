@@ -7,12 +7,11 @@
   bounded manual training campaign that produces a new CardEventNet model.
 - **Status:** In Progress
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
-- **Readiness:** M0–M9 and the operator-run hard-negative ablation are complete. The ablation
+- **Readiness:** M0–M10 and the operator-run hard-negative ablation are complete. The ablation
   confirms that event presence is strong but stable-end timing remains the dominant validation
-  error. The sealed test remains unread. M10 must publish a bounded human timing-review handoff
-  before another dataset freeze or training campaign. Long training, test, export, and optional
-  diagnostic commands are operator-run and are never started or monitored by an implementation
-  agent.
+  error. M10 published a bounded human timing-review handoff and now waits for operator decisions.
+  The sealed test remains unread. Long training, test, export, and optional diagnostic commands
+  are operator-run and are never started or monitored by an implementation agent.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze a leakage-safe train/validation/test dataset, run a
   reproducible manual campaign, and retain a new `best.pt` and model bundle with complete lineage.
@@ -83,9 +82,13 @@
   unchanged. The operator later completed that ablation. It reached validation recall 0.910,
   precision 0.934, F1 0.922, 20 confirmed false triggers, 22 in-progress detections, 49 stable-end
   matches, and 235 point matches. It did not create a candidate lock or read sealed test.
-- **M10:** Not started — publish the validation timing-review handoff. It must name the exact six
-  recordings and timestamps that need operator inspection, explain each reason, print the local
-  review commands and workspace routes, and stop before changing a maintained reference.
+- **M10:** Complete (2026-09-17) — the read-only timing-review command validates the M9 ablation
+  handoff, selected checkpoint, threshold, decoder settings, saved validation stream, M7 dataset,
+  and six current reference revisions. It publishes 70 raw items (28 misses, 20 confirmed false
+  triggers, and 22 in-progress detections) in 47 deterministic review regions, the ordered
+  operator checklist, local startup commands, six workspace routes, and a pending completion
+  artifact. Packet digest: `eb47261ca4236c59c9dbab4565c77a4f8cec66804b9413e8c956a54f8444bc12`.
+  It did not change maintained references, tune the decoder, start training, or read sealed test.
 - **M11:** Not started — after the operator finishes the requested review, validate the new
   revisions, publish the review decisions, freeze a successor development dataset, and run a
   read-only decoder replay against its validation references. Do not train or read sealed test.
@@ -684,6 +687,14 @@ Acceptance:
 - the generated report prints the ordered operator checklist, both startup commands, all six
   workspace routes, and the exact artifact the operator must complete; and
 - M10 stops for the operator without changing reference data or starting training.
+
+M10 result — 2026-09-17: the packet is
+`data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m10-timing-review.json`; the
+operator completion checklist is
+`data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m10-operator-review.json`; and
+the human handoff is
+`data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m10-report.md`. The operator
+must complete the checklist before M11 validates any new reference revision.
 
 ### M11 — Reconcile review decisions and measure decoder timing
 
