@@ -693,6 +693,91 @@ def test_0068_m0_is_reproducible_and_manifest_writer_is_immutable(
         reviewed_campaign.write_reviewed_rfdetr_detector_manifest(destination, changed)
 
 
+def test_0068_m0_retains_only_the_first_reused_source_frame(
+    tmp_path: Path, fixture_expected_counts: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _configure_reviewed_campaign_fixture(monkeypatch)
+    root = _fixture_corpus(tmp_path)
+    _authorize_reviewed_campaign_fixture(root)
+    recording_id = campaign.TRAIN_RECORDING_IDS[0]
+    reference_root = (
+        root / "data" / "operations" / "pipeline-references" / recording_id / "visible_cards"
+    )
+    state = json.loads((reference_root / "state.json").read_text())
+    revision_root = (
+        root
+        / "data"
+        / "operations"
+        / "pipeline"
+        / "revisions"
+        / state["selected_completed_revision_id"]
+    )
+    content_path = revision_root / "content.json"
+    content = json.loads(content_path.read_text())
+    duplicate = json.loads(json.dumps(content["outcomes"][0]))
+    duplicate["event_id"] = "event-duplicate"
+    duplicate["candidates"][0]["card_id"] = "card-duplicate"
+    content["outcomes"].append(duplicate)
+    content_path.write_text(json.dumps(content), encoding="utf-8")
+    revision_manifest_path = revision_root / "manifest.json"
+    revision_manifest = json.loads(revision_manifest_path.read_text())
+    revision_manifest["content_sha256"] = reviewed_campaign.sha256_json(content)
+    revision_manifest_path.write_text(json.dumps(revision_manifest), encoding="utf-8")
+
+    draft_path = reference_root / "draft.json"
+    draft = json.loads(draft_path.read_text())
+    draft["items"].append(
+        {
+            "item_id": "event-duplicate",
+            "base_item_id": None,
+            "review_state": "accepted",
+            "item": duplicate,
+        }
+    )
+    draft["coverage"]["frames"].append(
+        {
+            "item_id": "event-duplicate",
+            "frame_identity": duplicate["frame_identity"],
+            "decision": "cards",
+        }
+    )
+    draft_path.write_text(json.dumps(draft), encoding="utf-8")
+    monkeypatch.setattr(
+        reviewed_campaign,
+        "EXPECTED_INVENTORY",
+        {
+            "reviewed_frames": 10,
+            "retained_frames": 9,
+            "excluded_frames": 0,
+            "ineligible_outcomes": 1,
+            "ignored_regions": 0,
+            "targets": 9,
+        },
+    )
+    monkeypatch.setattr(
+        reviewed_campaign,
+        "EXPECTED_SIDE_COUNTS",
+        {"face_up": 0, "unknown": 9, "face_down": 0},
+    )
+    checkpoint = root / "checkpoint.pt"
+    checkpoint.write_bytes(b"checkpoint")
+
+    manifest = reviewed_campaign.build_reviewed_rfdetr_detector_manifest(
+        root,
+        pretrained_checkpoint=checkpoint,
+        api_probe=_available_api(),
+    )
+
+    assert manifest["freeze_state"] == "frozen"
+    assert manifest["inventory"]["retained_frame_count"] == 9
+    assert manifest["inventory"]["ineligible_outcome_count"] == 1
+    assert len(manifest["samples"]) == 9
+    duplicate = next(
+        item for item in manifest["ineligible_outcomes"] if item["status"] == "duplicate"
+    )
+    assert "first reviewed outcome retained" in duplicate["reason"]
+
+
 def test_0068_m0_blocks_cross_partition_source_group_overlap(
     tmp_path: Path, fixture_expected_counts: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:

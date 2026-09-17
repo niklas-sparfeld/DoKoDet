@@ -98,13 +98,13 @@ DEFAULT_PARTITION_RECORDING_IDS: dict[str, tuple[str, ...]] = {
 
 EXPECTED_INVENTORY = {
     "reviewed_frames": 1180,
-    "retained_frames": 785,
+    "retained_frames": 784,
     "excluded_frames": 259,
-    "ineligible_outcomes": 136,
+    "ineligible_outcomes": 137,
     "ignored_regions": 389,
-    "targets": 2208,
+    "targets": 2203,
 }
-EXPECTED_SIDE_COUNTS = {"face_up": 1625, "unknown": 560, "face_down": 23}
+EXPECTED_SIDE_COUNTS = {"face_up": 1620, "unknown": 560, "face_down": 23}
 REQUIRED_SEALED_TEST_GROUPS = 3
 CARD_SIDES = frozenset({"face_up", "face_down", "unknown"})
 

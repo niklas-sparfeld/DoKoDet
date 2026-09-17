@@ -9,8 +9,8 @@
 - **Depends on:** 0037, 0048, 0049, 0065, and 0067 complete
 - **Readiness:** The selected completed references now contain 24 recordings, 1,180 reviewed
   outcomes, and 2,947 reviewed visible-card targets. After excluding 259 frames with
-  visible-card ignore regions and 136 unusable frames, 785 positive frames with 2,208 targets are
-  eligible for ordinary RF-DETR supervision. The existing RF-DETR SegMedium materializer,
+  visible-card ignore regions and 137 unusable or duplicate-frame outcomes, 784 positive frames
+  with 2,203 targets are eligible for ordinary RF-DETR supervision. The existing RF-DETR SegMedium materializer,
   trainer, evaluator, bundle, and provider path are proven by 0067.
 - **Outcome:** A retained RF-DETR segmentation bundle and a reproducible held-out report. If the
   gate passes, register the bundle as a local selectable provider. Do not change the default
@@ -47,12 +47,12 @@ All 24 selected references have `origin: corrected`. Their reviewed outcomes are
 
 | Review result | Frames | Visible-card targets | Training treatment |
 | --- | ---: | ---: | --- |
-| Detected, no ignore region | 785 | 2,208 | One-class segmentation target |
+| Detected, no ignore region | 784 | 2,203 | One-class segmentation target |
 | Detected, with ignore region | 259 | 739 | Exclude the complete frame |
-| Unusable or failed | 136 | 0 | Exclude; never make background |
+| Unusable, failed, or duplicate source frame | 137 | 0 | Exclude; never make background |
 | Total | 1,180 | 2,947 | Keep in the frozen audit receipt |
 
-The retained targets cover `face_up` (1,625), `unknown` (560), and `face_down` (23) sides. They
+The retained targets cover `face_up` (1,620), `unknown` (560), and `face_down` (23) sides. They
 range from one to nine reviewed cards per frame. The targets are visible regions, not inferred full
 cards. The trainer must derive each box from the reviewed polygon and must not include occluders,
 hands, or hidden pixels.
@@ -69,11 +69,13 @@ recordings `IMG_2777`–`IMG_2781` remain outside this campaign by the valid dev
 - The frozen split has 15 train groups, 6 validation groups, and 3 sealed-test groups. `IMG_0669`
   and `IMG_0674` stay in the same train partition because they share one capture session and table
   setup. The sealed test uses `IMG_0646`, `IMG_0648`, and `IMG_0649`.
+- Events `IMG_0646-028` and `IMG_0646-029` resolve to one source frame. The first reviewed event
+  is retained; the later event is preserved as an ineligible duplicate outcome.
 - The checkpoint is `rfdetr==1.9.4` RF-DETR Seg Medium at
   `.runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt` with SHA-256
   `3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58`.
 - The immutable manifest is `data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json`
-  with digest `25a6b348c178a93abb3ccfe5a3baf8936b25d6925c8697884ce8dd8e188008a9`.
+  with digest `c057bacd2d62dc2f4473b2a31e821e8a268ba2b6834f34790a5dd6624c54022e`.
 
 The corpus has no reviewed empty-background frames. A result can measure matching, false and
 duplicate detections on positive frames. It cannot claim background-only precision or full-video

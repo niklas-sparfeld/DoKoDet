@@ -585,6 +585,7 @@ def _reference_audit(
         "excluded_frames": [],
         "ineligible_outcomes": [],
     }
+    retained_frame_keys: set[tuple[str, int]] = set()
     if not state_path.is_file() or not draft_path.is_file():
         return result, [f"{recording_id}: maintained visible_cards reference is incomplete"]
     try:
@@ -804,6 +805,22 @@ def _reference_audit(
                 }
             )
             continue
+        if frame is not None:
+            frame_key = (str(frame["source_video_sha256"]), int(frame["frame_index"]))
+            if frame_key in retained_frame_keys:
+                result["ineligible_outcomes"].append(
+                    {
+                        "item_id": item_id,
+                        "event_id": item_id,
+                        "status": "duplicate",
+                        "frame_identity": frame,
+                        "candidate_count": len(candidates),
+                        "target_count": len(candidates),
+                        "reason": "duplicate source frame; first reviewed outcome retained",
+                    }
+                )
+                continue
+            retained_frame_keys.add(frame_key)
         result["retained_frame_count"] += 1
         result["target_count"] += len(normalized_candidates)
         result["samples"].append(
