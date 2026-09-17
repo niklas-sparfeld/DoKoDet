@@ -1843,6 +1843,11 @@ def prepare_dinov3_identity_campaign(
             raise DinoV3IdentityCampaignError(f"{sample_id}: source recording is missing")
         recording = sources[recording_id]
         partition = raw_item.get("partition")
+        if partition in {"test", "unassigned"}:
+            # M0 reports all completed references named by the selected split. Only train and
+            # validation rows are materialized into this training campaign. In particular, an
+            # explicitly unassigned recording must remain outside the frozen dataset.
+            continue
         if partition not in {"train", "validation"}:
             raise DinoV3IdentityCampaignError(f"{sample_id}: unsupported training partition")
         frame_identity = raw_item.get("frame_identity")

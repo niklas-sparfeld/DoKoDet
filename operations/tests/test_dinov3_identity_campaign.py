@@ -389,6 +389,31 @@ def test_m1_freezes_verified_contracts_atomically_and_repeats_bytes(tmp_path: Pa
     assert before == after
 
 
+def test_m1_excludes_unassigned_preflight_items_from_training_campaign(tmp_path: Path) -> None:
+    frame = _campaign_frame()
+    video = tmp_path / "video.mov"
+    video.write_bytes(b"video")
+    preflight = _ready_campaign_preflight(frame)
+    unassigned = dict(preflight["items"][0])
+    unassigned["sample_id"] = "recording-01:card-unassigned"
+    unassigned["partition"] = "unassigned"
+    preflight["items"] = [*preflight["items"], unassigned]
+
+    result = prepare_dinov3_identity_campaign(
+        tmp_path,
+        operations_root=tmp_path / "data" / "operations",
+        preflight_report=preflight,
+        frame_resolver=lambda _video_path, _identity: frame,
+    )
+
+    assert result["state"] == "completed"
+    campaign = tmp_path / result["campaign_path"]
+    dataset = json.loads((campaign / "dataset.json").read_text())
+    assert [entry["dataset_item_id"] for entry in dataset["entries"]] == [
+        "recording-01:card-01"
+    ]
+
+
 def test_m2_handoff_validates_frozen_campaign_and_prints_exact_command(tmp_path: Path) -> None:
     frame = _campaign_frame()
     video = tmp_path / "video.mov"
