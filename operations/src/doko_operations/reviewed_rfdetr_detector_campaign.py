@@ -65,6 +65,8 @@ REVIEWED_RECORDING_IDS = (
 # ordering. The three recordings used as 0067 validation remain development evidence here.
 DEFAULT_PARTITION_RECORDING_IDS: dict[str, tuple[str, ...]] = {
     "train": (
+        "cardeventnet-IMG_0092",
+        "cardeventnet-IMG_0095",
         "cardeventnet-IMG_0096",
         "cardeventnet-IMG_0097",
         "cardeventnet-IMG_0635",
@@ -77,6 +79,7 @@ DEFAULT_PARTITION_RECORDING_IDS: dict[str, tuple[str, ...]] = {
         "cardeventnet-IMG_0643",
         "cardeventnet-IMG_0655",
         "cardeventnet-IMG_0669",
+        "cardeventnet-IMG_0674",
     ),
     "validation": (
         "cardeventnet-IMG_0090",
@@ -87,12 +90,9 @@ DEFAULT_PARTITION_RECORDING_IDS: dict[str, tuple[str, ...]] = {
         "cardeventnet-IMG_0661",
     ),
     "sealed_test": (
-        "cardeventnet-IMG_0092",
-        "cardeventnet-IMG_0095",
         "cardeventnet-IMG_0646",
         "cardeventnet-IMG_0648",
         "cardeventnet-IMG_0649",
-        "cardeventnet-IMG_0674",
     ),
 }
 
@@ -101,7 +101,7 @@ EXPECTED_INVENTORY = {
     "retained_frames": 785,
     "excluded_frames": 259,
     "ineligible_outcomes": 136,
-    "ignored_regions": 739,
+    "ignored_regions": 389,
     "targets": 2208,
 }
 EXPECTED_SIDE_COUNTS = {"face_up": 1625, "unknown": 560, "face_down": 23}

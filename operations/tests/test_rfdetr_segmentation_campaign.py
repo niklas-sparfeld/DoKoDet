@@ -603,6 +603,19 @@ def _frozen_reviewed_m0_manifest(
 def test_0068_recipe_pins_the_sealed_test_gate_and_supporting_slices() -> None:
     recipe = reviewed_campaign.default_reviewed_rfdetr_detector_recipe(device="mps")
 
+    assert reviewed_campaign.DEFAULT_PARTITION_RECORDING_IDS["sealed_test"] == (
+        "cardeventnet-IMG_0646",
+        "cardeventnet-IMG_0648",
+        "cardeventnet-IMG_0649",
+    )
+    assert reviewed_campaign.DEFAULT_PARTITION_RECORDING_IDS["train"][:2] == (
+        "cardeventnet-IMG_0092",
+        "cardeventnet-IMG_0095",
+    )
+    assert reviewed_campaign.DEFAULT_PARTITION_RECORDING_IDS["train"][-1] == (
+        "cardeventnet-IMG_0674"
+    )
+    assert reviewed_campaign.EXPECTED_INVENTORY["ignored_regions"] == 389
     assert recipe["data_contract"]["test_partition"] == "sealed_test"
     assert recipe["data_contract"]["partition_policy"] == "source_group_disjoint/v1"
     assert recipe["validation"]["group_by"] == [

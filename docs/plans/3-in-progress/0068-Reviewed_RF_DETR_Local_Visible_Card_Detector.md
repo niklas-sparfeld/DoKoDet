@@ -22,8 +22,7 @@
 
 - **M0:** Complete — discover and audit the selected completed corrected references, freeze the
   source-group-safe train, validation, and sealed-test partitions, and pin the RF-DETR recipe and
-  held-out gate. The audit is blocked until the live 24-recording source snapshot and checkpoint
-  are available locally.
+  held-out gate. The live manifest is frozen from the local 24-recording source and review stores.
 - **M1:** Complete — materialize the frozen reviewed instance-segmentation dataset into
   deterministic train, validation, and sealed-test COCO views. The live run awaits the frozen
   24-recording M0 snapshot, which is not present in this checkout.
@@ -57,6 +56,24 @@ The retained targets cover `face_up` (1,625), `unknown` (560), and `face_down` (
 range from one to nine reviewed cards per frame. The targets are visible regions, not inferred full
 cards. The trainer must derive each box from the reviewed polygon and must not include occluders,
 hands, or hidden pixels.
+
+The frozen audit records 389 reviewed ignore-region objects. The 739 targets in the table above are
+the targets on the 259 excluded frames, not ignore-region objects. The five legacy-device
+recordings `IMG_2777`–`IMG_2781` remain outside this campaign by the valid development exclusion.
+
+#### M0 live evidence — 2026-09-17
+
+- The ignored local source and review stores contain all 24 selected recordings and completed
+  corrected visible-card revisions. The campaign split is fixed by source-group lineage and does
+  not use the stale source-use labels to select partitions.
+- The frozen split has 15 train groups, 6 validation groups, and 3 sealed-test groups. `IMG_0669`
+  and `IMG_0674` stay in the same train partition because they share one capture session and table
+  setup. The sealed test uses `IMG_0646`, `IMG_0648`, and `IMG_0649`.
+- The checkpoint is `rfdetr==1.9.4` RF-DETR Seg Medium at
+  `.runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt` with SHA-256
+  `3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58`.
+- The immutable manifest is `data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json`
+  with digest `25a6b348c178a93abb3ccfe5a3baf8936b25d6925c8697884ce8dd8e188008a9`.
 
 The corpus has no reviewed empty-background frames. A result can measure matching, false and
 duplicate detections on positive frames. It cannot claim background-only precision or full-video
