@@ -28,10 +28,10 @@
   reproducible from the frozen M0 manifest.
 - **M2:** Complete — the reviewed-detector smoke and full-candidate run paths now verify matching
   M0 and M1 digests, record explicit device and resource facts, retain resumable failures, and
-  reuse verified completed bundles. The live smoke passed. The full candidate remains to be
-  completed after the interrupted MPS run.
-- **M3:** Not started — evaluate the pretrained baseline and candidate on the frozen validation
-  and sealed-test partitions.
+  reuse verified completed bundles. The live smoke passed and the full candidate completed after
+  a resumable MPS run.
+- **M3:** Complete — evaluate the unchanged pretrained baseline and selected candidate on the
+  frozen validation and sealed-test partitions, with retained predictions and required slices.
 - **M4:** Not started — make the bounded local-provider decision and register a passing bundle.
 
 ## 1. Corpus inspection
@@ -219,10 +219,31 @@ Acceptance:
 - The live full candidate started with all 537 train and 143 validation images. The operator
   stopped it after the MPS unified-memory footprint grew above 40 GB. It retained epoch-5
   RF-DETR checkpoints under `.runtime/rfdetr-visible-card-detector-0068-m2-training/rfdetr/`,
-  but no completed run record or bundle.
+  but no completed run record or bundle at that point.
 - Added `--resume` to the campaign command. It validates the existing staged dataset against the
   current M1 digest and passes a full checkpoint such as `rfdetr/last.ckpt` to RF-DETR without
   restaging. The resume path has fixture coverage and the full analyzer suite passes.
+- The resumed live full candidate completed after 3,038 seconds. It stopped at epoch 14 by the
+  frozen early-stop rule and retained the selected checkpoint with SHA-256
+  `b72462e9736d16bb975ba9c6999fe1cc4baeab8805830c3116115279170f3d4f`. The bundle digest is
+  `b3deef701e26d91ebfd9d357b4ff69b45ae9360e3722de340f1044214179df29`.
+
+#### M3 implementation evidence — 2026-09-17
+
+- Extended the locked evaluator to score both `valid` and `sealed_test` COCO views. It retains
+  baseline and candidate predictions, recording slices, card-side slices, visible-card-count
+  buckets, combined recording/side/bucket slices, and the M1 exclusion receipt.
+- The validation report is
+  `.runtime/rfdetr-visible-card-detector-0068-m3-validation/report.json`. It contains four
+  prediction artifacts and is tied to the frozen M0 manifest, M1 materialization digest, and M2
+  bundle digest. A rerun verified and reused the report in 0.21 seconds without inference.
+- Validation results were baseline mask AP50:95 `0.0`, recall `0.0`, and candidate mask AP50:95
+  `0.831965`, recall `0.986702`. The validation gate passed.
+- Sealed-test results were baseline mask AP50:95 `0.0`, recall `0.0`, and candidate mask AP50:95
+  `0.813391`, recall `0.969178`. All three sealed-test recordings had nonzero candidate recall.
+- The report covers 143 validation frames and 104 sealed-test frames. It records 122 validation
+  exclusions plus 11 ineligible outcomes, and 43 sealed-test exclusions plus 10 ineligible
+  outcomes. It states that the corpus has no reviewed empty-background frames.
 
 ### M3 — Lock validation and sealed-test evidence
 
