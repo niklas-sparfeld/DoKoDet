@@ -874,9 +874,12 @@ def _validate_reference(
 
 
 def _recording_groups(recording: Mapping[str, Any]) -> dict[str, str]:
+    raw_groups = recording.get("source_groups")
+    if not isinstance(raw_groups, Mapping):
+        raw_groups = recording.get("source_lineage_groups", {})
     return {
         name: value
-        for name, value in recording.get("source_groups", {}).items()
+        for name, value in raw_groups.items()
         if isinstance(value, str) and value
     }
 
@@ -2086,7 +2089,7 @@ def prepare_dinov3_identity_campaign(
                 "source_asset_id": sources[recording_id].get("source_asset_id"),
                 "source_sha256": sources[recording_id].get("source_sha256"),
                 "source_video_path": sources[recording_id].get("source_video_path"),
-                "source_groups": sources[recording_id].get("source_groups"),
+                "source_groups": dict(_recording_groups(sources[recording_id])),
             }
             for recording_id in sorted(sources)
             if recording_reports.get(recording_id, {}).get("partition") in {"train", "validation"}
