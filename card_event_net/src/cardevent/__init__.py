@@ -24,6 +24,7 @@ from .cache import (
     cache_path_for_video,
     extract_video_cache,
     load_cache_metadata,
+    prepare_inference_cache,
     prepare_videos,
 )
 from .config import Config, load_config, save_config
@@ -363,6 +364,7 @@ __all__ = [
     "mine_hard_negatives_from_files",
     "open_annotation_session",
     "prepare_videos",
+    "prepare_inference_cache",
     "resolve_device",
     "read_video_metadata",
     "resolve_video_path",

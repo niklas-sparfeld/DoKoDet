@@ -9,9 +9,11 @@ import torch
 from torch.utils.data import DataLoader
 
 from .cache import (
+    FULL_FRAME_LETTERBOX_V1,
     CacheError,
     cache_path_for_video,
     load_cache_metadata,
+    prepare_inference_cache,
     require_cache_preprocessing,
 )
 from .config import Config
@@ -20,6 +22,7 @@ from .device import resolve_device
 from .events import CARD_STATE_CHANGED_EVENT_TYPE, ProbabilitySample, probabilities_to_events
 from .model import CardEventNet, build_model
 from .transforms import ClipTransform
+from .video import VideoError
 
 
 class InferenceError(RuntimeError):
@@ -167,8 +170,7 @@ def _prediction_payload(
         payload["merge_window_s"] = merge_window_s
         payload["min_event_gap_s"] = merge_window_s
         payload["events"] = [
-            {**event.to_mapping(), "event_type": CARD_STATE_CHANGED_EVENT_TYPE}
-            for event in events
+            {**event.to_mapping(), "event_type": CARD_STATE_CHANGED_EVENT_TYPE} for event in events
         ]
     return payload
 
@@ -189,11 +191,18 @@ def infer_from_files(
     loaded = load_checkpoint(checkpoint_path, device_override=device_override)
     cache_path = cache_path_for_video(video, cache_root=cache_dir)
     try:
+        if loaded.config.input.preprocessing == FULL_FRAME_LETTERBOX_V1:
+            prepare_inference_cache(
+                video,
+                cache_root=cache_dir,
+                cache_fps=loaded.config.input.cache_fps,
+                size=loaded.config.input.size,
+            )
         metadata = load_cache_metadata(cache_path)
-    except CacheError as exc:
+    except (CacheError, VideoError, RuntimeError) as exc:
         raise InferenceError(
             f"Could not load the prepared cache for {video}: {exc}. "
-            "Run `cardevent prepare --videos ...` first."
+            "The inference cache could not be prepared."
         ) from exc
     if Path(metadata.source_video).name != video.name:
         raise InferenceError(

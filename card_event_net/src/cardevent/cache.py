@@ -188,6 +188,7 @@ def extract_video_cache(
     cache_fps: float = 10.0,
     size: int = 224,
     progress_callback: FrameProgressCallback | None = None,
+    require_annotation: bool = True,
 ) -> Path:
     if cache_fps <= 0.0 or not math.isfinite(cache_fps):
         raise CacheError("cache_fps must be a finite positive number.")
@@ -199,14 +200,15 @@ def extract_video_cache(
     # materialized run view links a stable recording name to the source video;
     # read_video_metadata resolves that link for the decoder.
     metadata = replace(metadata, path=Path(video_path).expanduser())
-    annotation_path = annotation_path_for_video(video_path, annotations_dir=annotations_dir)
-    if not annotation_path.is_file():
-        raise AnnotationError(
-            f"No annotation exists for {metadata.path.name}: {annotation_path}. "
-            "Annotate the video before preparing the cache."
-        )
-    annotation = load_annotation(annotation_path)
-    validate_annotation(annotation, metadata)
+    if require_annotation:
+        annotation_path = annotation_path_for_video(video_path, annotations_dir=annotations_dir)
+        if not annotation_path.is_file():
+            raise AnnotationError(
+                f"No annotation exists for {metadata.path.name}: {annotation_path}. "
+                "Annotate the video before preparing the cache."
+            )
+        annotation = load_annotation(annotation_path)
+        validate_annotation(annotation, metadata)
 
     cv2 = _import_cv2()
     capture = cv2.VideoCapture(str(metadata.path))
@@ -310,6 +312,33 @@ def extract_video_cache(
         capture.release()
         if temporary_dir != Path():
             shutil.rmtree(temporary_dir, ignore_errors=True)
+
+
+def prepare_inference_cache(
+    video_path: str | Path,
+    *,
+    cache_root: str | Path | None = None,
+    cache_fps: float = 10.0,
+    size: int = 224,
+    progress_callback: FrameProgressCallback | None = None,
+) -> Path:
+    """Prepare a full-frame cache for inference without requiring training labels."""
+    cache_path = cache_path_for_video(video_path, cache_root=cache_root)
+    if cache_is_usable(
+        video_path,
+        cache_root=cache_root,
+        cache_fps=cache_fps,
+        size=size,
+    ):
+        return cache_path
+    return extract_video_cache(
+        video_path,
+        cache_root=cache_root,
+        cache_fps=cache_fps,
+        size=size,
+        progress_callback=progress_callback,
+        require_annotation=False,
+    )
 
 
 def prepare_videos(

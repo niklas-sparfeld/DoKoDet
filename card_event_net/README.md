@@ -230,6 +230,9 @@ uv run cardevent make-split data/raw/*.mov
 The cache stores 224 x 224 JPEG frames in `data/cache/<video>/`. It also stores the source
 timestamp for every cached frame in `metadata.json`. The cache is ignored by Git.
 
+File inference prepares a matching full-frame cache on demand when one is missing. Use `prepare`
+when you want to build caches ahead of time for training or to avoid the first-inference delay.
+
 `prepare` skips a complete cache that matches the source video, cache frame rate, and frame size.
 Use `--force` to rebuild matching caches:
 
