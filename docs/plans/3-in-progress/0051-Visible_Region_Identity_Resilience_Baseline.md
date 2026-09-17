@@ -328,8 +328,9 @@ Acceptance:
 ## 7. Relationship to other epics
 
 - 0048 and 0049 provide the active revision, run, review, comparison, and UI boundaries.
-- 0043 consumes the selected identity input and crop contract when it evaluates local identity
-  models. It does not repeat this crop-resilience selection.
+- 0043 can train the first local development candidate from current reviewed crops without waiting
+  for this decision. A later resilient candidate or quality comparison consumes the selected input
+  and crop contract and does not repeat this experiment.
 - 0050 consumes the fixed resilient identity baseline when it measures visible-region providers and
   optional analyzer capabilities. Temporal association remains in 0050.
 - 0052 exists only for one identity response selected by this epic. It does not start RF-DETR.

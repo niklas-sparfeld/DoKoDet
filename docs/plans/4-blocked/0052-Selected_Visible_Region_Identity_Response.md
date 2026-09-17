@@ -38,9 +38,10 @@ failure demonstrated by 0051. Examples include:
 - mask-error augmentation for the later local identity candidate recipe.
 
 These are candidate response families, not permission to compare all of them. If the selected
-response requires local model training, define its exact handoff to 0043 and do not create a second
-identity-training campaign here. If 0051 selects a simple crop policy, a visible-region provider
-change, more reviewed data, or the current policy, close this epic as not required.
+response requires local model training, define its exact handoff to a later 0043-derived campaign
+and do not create a second identity-training campaign here. If 0051 selects a simple crop policy, a
+visible-region provider change, more reviewed data, or the current policy, close this epic as not
+required.
 
 Do not train RF-DETR, change Gemini visible-region instructions, add temporal association, change
 game rules, or promote a model in this epic. Those actions have different evidence questions and
@@ -60,7 +61,8 @@ M0 must record:
 - one cost and execution budget;
 - minimum improvement and non-regression gates;
 - a stop rule; and
-- whether the result changes only an identity decision policy or becomes an input to 0043.
+- whether the result changes only an identity decision policy or becomes an input to a later local
+  identity campaign after the first 0043 candidate.
 
 Validation results cannot change the selected response or its thresholds. A failed gate rejects the
 response. It does not authorize another candidate in this epic.
@@ -112,7 +114,8 @@ Acceptance:
 ### M3 — Accept or reject
 
 - Apply the M0 decision gate without changing it.
-- Accept the response as a later runtime or 0043 candidate, or reject it and keep the 0051 baseline.
+- Accept the response as a later runtime or local-model candidate, or reject it and keep the 0051
+  baseline.
 - Record whether later visible-region provider work in 0050 is justified.
 - Do not change a backend default or champion model implicitly.
 
@@ -120,5 +123,5 @@ Acceptance:
 
 - the conclusion is one of `accept_response` or `reject_response`;
 - rejected artifacts and failures remain reproducible;
-- 0043 receives one fixed identity input contract; and
+- later local identity work receives one fixed identity input contract; and
 - 0050 receives one fixed downstream identifier for provider comparisons.

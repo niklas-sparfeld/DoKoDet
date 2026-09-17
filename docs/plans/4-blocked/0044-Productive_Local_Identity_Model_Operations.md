@@ -3,10 +3,11 @@
 ## Plan status
 
 - **Summary:** Make reviewed identity data, bounded training, comparison, promotion, and local
-  runtime status productive in the web app after the quality proof succeeds.
+  runtime status productive in the web app after the first local candidate is measured.
 - **Status:** Blocked
-- **Depends on:** Plan 0043 locks a local candidate that passes its proof gates, and plans 0048 and 0049
-  provide retained processor results, maintained references, comparison, and dataset boundaries
+- **Depends on:** Plan 0043 exports a local development candidate and publishes its measured limits,
+  and plans 0048 and 0049 provide retained processor results, maintained references, comparison,
+  and dataset boundaries
 - **Builds on:** Plans 0028, 0039, 0040, 0041, 0042, 0043, 0046, 0048, and 0049
 - **Outcome:** An operator can find priority identity work, publish reviewed data, launch and
   inspect a bounded local campaign, explicitly promote a passing bundle, and run the normal backend
@@ -29,13 +30,14 @@ run comparisons in 0048 and 0049. A priority work list selects items in those re
 not create a parallel human reference or another review lifecycle. Store campaign predictions and
 input revisions through the same pipeline data boundary.
 
-**Blocker:** 0043 must lock a passing local candidate, and 0048/0049 must be complete. Failure to
-prove local quality leaves this epic blocked; it does not justify changing the backend default.
+**Blocker:** 0043 must export and measure the first local development candidate. M0 of this epic must
+turn the retained report, including unsupported classes, into explicit promotion gates before any
+productive cutover. A locally running candidate alone does not justify changing the backend default.
 Device evidence packages are not an input to campaigns or normal recording analysis.
 
 ## 1. Purpose
 
-Turn the proven local identity path into routine local operations. Keep human review, immutable
+Turn the measured local identity path into routine local operations. Keep human review, immutable
 data, bounded recipes, deterministic gates, and explicit promotion as the source of truth. The web
 app orchestrates existing application boundaries. It does not become a second training or
 promotion implementation.

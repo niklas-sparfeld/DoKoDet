@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0043 — First local DINOv3 card identifier](2-ready/0043-First_Local_DINOv3_Card_Identifier.md) | 0041, 0042, 0048, 0049, and 0062 complete | Freeze the latest eligible reviewed references when training starts, let the operator train one bounded frozen-encoder candidate on MPS, and prove its exported bundle through the local classifier boundary. M0–M3 not started. |
 
 ### In Progress
 
@@ -59,8 +60,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0052 — Selected response to visible-region identity failures](4-blocked/0052-Selected_Visible_Region_Identity_Response.md) | 0051 selects one follow-up identity response | Implement and evaluate at most one response to the measured 0051 failure. Close as not required for any other 0051 conclusion. M0–M3 not started. |
-| [0043 — Local visual card identity quality proof](4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) | 0041, 0042, 0048, 0049, and 0051 complete; resolve 0052 if required; plus declared real reviewed coverage | Compare at most two DINOv3 candidates with the fixed resilient identity input contract; lock at most one without changing the backend default. M0–M3 not started. |
-| [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 locks a passing candidate; 0048 and 0049 complete | Reuse maintained references for priority work; add bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
+| [0044 — Productive local identity model operations](4-blocked/0044-Productive_Local_Identity_Model_Operations.md) | 0043 exports and measures a development candidate; 0048 and 0049 complete | Define promotion gates from the retained 0043 limits, then reuse maintained references for priority work, bounded campaigns, explicit promotion, local cutover, and rollback. M0–M3 not started. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and 0051 complete; resolve 0052 if required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against the fixed resilient identifier, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
 
 ### Closed
@@ -148,16 +148,19 @@ The shared target architecture is
    validation outputs separate and sealed after execution.
 7. **Publish the 0051 M4 decision after M3 execution.** Use the retained paired comparison to
    select one conclusion and specify one response in 0052, or close 0052 as not required.
-8. **Resolve 0052 from the 0051 decision.** Start its one selected response or close it as not
-   required before another identity or visible-region model experiment.
-9. **Reassess 0043 and 0050 after the resilient identity baseline is fixed.** Make 0043 Ready when
-   its class/session coverage gates and frozen recipe are actionable. Make 0050 Ready when a bounded
+8. **Start 0043 when local identity training is selected.** Keep its corpus selection open while
+   review continues. Freeze the latest eligible completed references only immediately before the
+   operator starts the one declared DINOv3 training run. The agent supplies the exact command and
+   does not run the long process.
+9. **Resolve 0052 from the 0051 decision.** A selected response can inform a later identity-model
+   revision, but it does not block the first local 0043 candidate.
+10. **Reassess 0050 after the resilient identity baseline is fixed.** Make it Ready when a bounded
    detector/composed measurement has reviewed evidence, fixed inputs, metrics, thresholds, and a
-   budget. Neither requires the other to complete; prioritize the measured pipeline bottleneck. Do
-   not run an open-ended search.
-10. **Start 0044 only after 0043 locks a passing candidate.** Reuse 0048/0049 rather than introducing
-   another review lifecycle. Promotion and backend default changes remain explicit later actions.
-11. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
+   budget. Do not run an open-ended search.
+11. **Start 0044 only after 0043 publishes an exported development candidate and its measured
+   limits.** Reuse 0048/0049 rather than introducing another review lifecycle. Promotion and backend
+   default changes remain explicit later actions.
+12. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
    existing analysis inspection, or local feasibility workflow. Specify search improvements and full
    reconstruction correction from measured cases. Agree a production scope before production work.
 
@@ -272,6 +275,21 @@ context. Check dependencies again before changing a Blocked epic to Ready.
 - Complete 0051 M3 implementation with a dry-run planner, resumable crop receipts, pinned
   classifier-result receipts, and retained paired comparison output. Keep the live provider run as
   an explicit operator action within the frozen budget.
+
+### Planning decision — 2026-09-17
+
+- Move 0043 to Ready for the first local reviewed DINOv3 candidate. The current selected references
+  already meet its `doko-40-v1` face-up train and validation coverage gate.
+- Keep corpus membership open until the M1 freeze so newly completed human references can enter the
+  first run through the existing split and eligibility rules.
+- Do not make the live 0051 comparison or conditional 0052 response prerequisites for the first
+  local candidate. They remain inputs to later resilience or quality work.
+- The first candidate remains unpromoted. Missing `NINE` data and intentionally excluded
+  `FACE_DOWN` outcomes are explicit unsupported classes, not inferred quality. The current
+  face-down outcomes mostly come from untidy stacks without trustworthy ignore-region treatment
+  and do not enter the first campaign.
+- The operator runs real pretrained-weight acquisition and training. The agent completes short
+  preflight work and supplies one exact concrete command for each long-running operation.
 
 ## Closed-epic policy
 

@@ -168,10 +168,12 @@ Follow the [epic board next steps](plans/README.md#next-steps) for current work.
 editors, local models, filesystem stores, and reconstruction engine remain the starting point for
 the active follow-up epics.
 
-After those foundations, use reviewed real coverage to select the bounded identity proof in 0043
-or detector/capability measurements in 0050. Productive model operations remain in 0044 after a
-passing candidate. Search development, full reconstruction correction, and production scope remain
-in 0023, 0026, and 0024. None is required to reconnect the existing local feasibility pipeline.
+After those foundations, use the current reviewed real coverage for the first local DINOv3
+candidate in 0043. The corpus freezes only when training starts, so newly completed eligible
+references can enter the run. Detector/capability measurements remain in 0050. Productive model
+operations remain in 0044 after 0043 publishes its measured development candidate. Search
+development, full reconstruction correction, and production scope remain in 0023, 0026, and 0024.
+None is required to reconnect the existing local feasibility pipeline.
 
 ## 8. Rules for independent improvements
 
@@ -200,7 +202,8 @@ and tracking improve independently.
 - Closed epic [0049](plans/5-closed/0049-Recording_Pipeline_Review_and_Comparison.md) delivered the
   recording UI, reference editing, explicit run input selection, comparison, and obsolete
   review-route removal.
-- [0043](plans/4-blocked/0043-Local_Visual_Card_Identity_Quality_Proof.md) owns bounded identity quality.
+- [0043](plans/2-ready/0043-First_Local_DINOv3_Card_Identifier.md) owns the first reviewed local
+  DINOv3 candidate and its measured development limits.
 - [0044](plans/4-blocked/0044-Productive_Local_Identity_Model_Operations.md) owns later productive
   campaigns, promotion, and rollback.
 - [0050](plans/4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) owns detector baseline
