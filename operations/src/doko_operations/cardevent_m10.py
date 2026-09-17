@@ -754,6 +754,47 @@ def _write_deterministic(path: Path, content: str) -> None:
         raise CardEventM10Error(f"Could not write M10 artifact {path}: {error}") from error
 
 
+def _write_or_preserve_operator_completion(
+    path: Path, completion: Mapping[str, Any]
+) -> None:
+    """Write the initial checklist, or preserve a valid operator edit on rerun."""
+
+    if not path.exists():
+        _write_deterministic(path, json.dumps(completion, indent=2, sort_keys=True) + "\n")
+        return
+    existing = _read_json(path, "existing M10 operator completion")
+    if existing.get("schema_version") != completion["schema_version"]:
+        raise CardEventM10Error("existing M10 operator completion has an unsupported schema")
+    if existing.get("packet") != completion["packet"]:
+        raise CardEventM10Error("existing M10 operator completion is bound to another packet")
+    if existing.get("allowed_decisions") != completion["allowed_decisions"]:
+        raise CardEventM10Error("existing M10 operator completion has different allowed decisions")
+    expected_recordings = {
+        item["recording_id"]: item["route"] for item in completion["recordings"]
+    }
+    actual_recordings = {
+        item.get("recording_id"): item.get("route")
+        for item in existing.get("recordings", [])
+        if isinstance(item, Mapping)
+    }
+    if actual_recordings != expected_recordings:
+        raise CardEventM10Error("existing M10 operator completion has different recordings")
+    expected_regions = {
+        item["region_id"]: (item["recording_id"], tuple(item["item_ids"]))
+        for item in completion["regions"]
+    }
+    actual_regions = {
+        item.get("region_id"): (
+            item.get("recording_id"),
+            tuple(item.get("item_ids", [])),
+        )
+        for item in existing.get("regions", [])
+        if isinstance(item, Mapping)
+    }
+    if actual_regions != expected_regions:
+        raise CardEventM10Error("existing M10 operator completion has different regions")
+
+
 def publish_cardeventnet_m10_timing_review(
     campaign_id: str,
     *,
@@ -947,7 +988,7 @@ def publish_cardeventnet_m10_timing_review(
             "A corrected reference must be published as a new completed revision."
         ),
     }
-    _write_deterministic(completion_path, json.dumps(completion, indent=2, sort_keys=True) + "\n")
+    _write_or_preserve_operator_completion(completion_path, completion)
     report = _render_report(packet)
     report_path = campaign_dir / "m10-report.md"
     _write_deterministic(report_path, report)

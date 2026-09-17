@@ -1,0 +1,2096 @@
+{
+  "dataset_version_digest": "00a59b5fcd210d23c569727f98453c77237bb2c2ae71ebfc0a69e9abf8e807ee",
+  "dataset_version_id": "cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+  "diagnostic_exclusion_receipt_sha256": "754334c0e723a908b1e0e30393377e584bc802b365f48544e171ce2e526c5a3d",
+  "entries": [
+    {
+      "allowed_uses": [
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 112193000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+      "event_revision_content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+      "event_revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+      "event_revision_manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0090"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0090"
+        ],
+        [
+          "table_setup",
+          "setup-img-0090"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "validation",
+      "recording_id": "cardeventnet-IMG_0090",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 112193000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0090",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0090/videos/video-cardeventnet-IMG_0090.mov",
+      "source_permission": "project_use",
+      "source_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 100843000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+      "event_revision_content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+      "event_revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+      "event_revision_manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0091"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0091"
+        ],
+        [
+          "table_setup",
+          "setup-img-0091"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "validation",
+      "recording_id": "cardeventnet-IMG_0091",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 100843000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0091",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0091/videos/video-cardeventnet-IMG_0091.mov",
+      "source_permission": "project_use",
+      "source_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "train"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 95010000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-b76ee6895345ec9d9799c3eb01826a30/content.json",
+      "event_revision_content_sha256": "0b960b96d8951e3b5dece39dc5a1ea4d842f2f55dc999b979014ab6fe15b3e42",
+      "event_revision_id": "reference-events-b76ee6895345ec9d9799c3eb01826a30",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-b76ee6895345ec9d9799c3eb01826a30/manifest.json",
+      "event_revision_manifest_sha256": "d83d85202ed811a73c6dc4d92c55cd42a2561237d91513f057b453736098f95d",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0092"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0092"
+        ],
+        [
+          "table_setup",
+          "setup-img-0092"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0092",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 95010000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0092",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0092/videos/video-cardeventnet-IMG_0092.mov",
+      "source_permission": "project_use",
+      "source_sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "train"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 70690000,
+      "event_count": 53,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-3e2d3b060f2719da7d4e932825b78370/content.json",
+      "event_revision_content_sha256": "f703e2470ee5a44eb7ad7b33e5ea37d0bff154e3c8428de686724e0c9718c88f",
+      "event_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-3e2d3b060f2719da7d4e932825b78370/manifest.json",
+      "event_revision_manifest_sha256": "4368892c0735f9b6552da19bdb5333588bafc60c5b2a7bd925de5ee8ef4d7dec",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0095"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0095"
+        ],
+        [
+          "table_setup",
+          "setup-img-0095"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0095",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 53,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 70690000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 53,
+        "reviewed_item_count": 53,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0095",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0095/videos/video-cardeventnet-IMG_0095.mov",
+      "source_permission": "project_use",
+      "source_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "train"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 68125000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-4643e6f10607988627190cc59ee064b3/content.json",
+      "event_revision_content_sha256": "32f248fa149fb6c451214151eeacba0cbe9f5991fb1964f56dde435d914bf19c",
+      "event_revision_id": "reference-events-4643e6f10607988627190cc59ee064b3",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-4643e6f10607988627190cc59ee064b3/manifest.json",
+      "event_revision_manifest_sha256": "0a63838e64bcb4d0da48e965e35b1fd0d41f0ce3de9ab0c24590df067788a7a9",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0096"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0096"
+        ],
+        [
+          "table_setup",
+          "setup-img-0096"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0096",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 68125000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0096",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0096/videos/video-cardeventnet-IMG_0096.mov",
+      "source_permission": "project_use",
+      "source_sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "train"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 63992000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-c6478cd0fd7a716bf50f81fd6df34dc9/content.json",
+      "event_revision_content_sha256": "94b943228fdf5ad6e5583d9b1ea1e799ce467a905308082c2743a0cfd40122f7",
+      "event_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-c6478cd0fd7a716bf50f81fd6df34dc9/manifest.json",
+      "event_revision_manifest_sha256": "399f13e6b9dcfc027c608d45d1e8cedac441048be39ee990463f51ca452c0ae2",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0097"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0097"
+        ],
+        [
+          "table_setup",
+          "setup-img-0097"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0097",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 63992000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0097",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0097/videos/video-cardeventnet-IMG_0097.mov",
+      "source_permission": "project_use",
+      "source_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 100412000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+      "event_revision_content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+      "event_revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+      "event_revision_manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0635"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0635"
+        ],
+        [
+          "table_setup",
+          "setup-img-0635"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "validation",
+      "recording_id": "cardeventnet-IMG_0635",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 100412000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0635",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0635/videos/video-cardeventnet-IMG_0635.mov",
+      "source_permission": "project_use",
+      "source_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 88487000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-0332acf97aeef7dcc7db5e3b5774e183/content.json",
+      "event_revision_content_sha256": "e90b32470ceb2fedf611602caaab78de63417369c11fe08138f2b02f403ebcb4",
+      "event_revision_id": "reference-events-0332acf97aeef7dcc7db5e3b5774e183",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-0332acf97aeef7dcc7db5e3b5774e183/manifest.json",
+      "event_revision_manifest_sha256": "1d40b725f7263177a421e4b4f45d0a77cdcb5693cb95ae4ec331e8c152a27d6c",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0636"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0636"
+        ],
+        [
+          "table_setup",
+          "setup-img-0636"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0636",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 88487000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0636",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0636/videos/video-cardeventnet-IMG_0636.mov",
+      "source_permission": "project_use",
+      "source_sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 77608000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-95021e1921249e2f04315178295fa34a/content.json",
+      "event_revision_content_sha256": "7985d1c370dc6d25e182a32e326a8e54f3d9f14437ce6f2de30206bab03cbbc7",
+      "event_revision_id": "reference-events-95021e1921249e2f04315178295fa34a",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-95021e1921249e2f04315178295fa34a/manifest.json",
+      "event_revision_manifest_sha256": "4649b35fa82e6f02bdbdf9a3611e474112e43a33c12b2d5e507e89a8ff8659b0",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0637"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0637"
+        ],
+        [
+          "table_setup",
+          "setup-img-0637"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0637",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 77608000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0637",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0637/videos/video-cardeventnet-IMG_0637.mov",
+      "source_permission": "project_use",
+      "source_sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 96792000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-96a83274f0a2c7673332e117aa4634a4/content.json",
+      "event_revision_content_sha256": "619d360a90d6da36a19732b8003d68e0695044d09e9a90bf36ee918c111d62f4",
+      "event_revision_id": "reference-events-96a83274f0a2c7673332e117aa4634a4",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-96a83274f0a2c7673332e117aa4634a4/manifest.json",
+      "event_revision_manifest_sha256": "c4bdc399462fa8bc662adfc4ea64570e69d09d946ec417fa1fe99af01c351e50",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0638"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0638"
+        ],
+        [
+          "table_setup",
+          "setup-img-0638"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0638",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 96792000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0638",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0638/videos/video-cardeventnet-IMG_0638.mov",
+      "source_permission": "project_use",
+      "source_sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 79693000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-cb2ed8f6119ff32735a45da28a189a7a/content.json",
+      "event_revision_content_sha256": "a4ffedd1f8ae062baa9f68d9921f3b4f73d8582a7a4cd66357245ce28a35218f",
+      "event_revision_id": "reference-events-cb2ed8f6119ff32735a45da28a189a7a",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-cb2ed8f6119ff32735a45da28a189a7a/manifest.json",
+      "event_revision_manifest_sha256": "449c6c8e7c3fb225adb784e1cc3bb594e0e525d62a8f5f90fb37d65e8795de34",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0639"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0639"
+        ],
+        [
+          "table_setup",
+          "setup-img-0639"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0639",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 79693000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0639",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0639/videos/video-cardeventnet-IMG_0639.mov",
+      "source_permission": "project_use",
+      "source_sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 88902000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-e7b2713881051baff4e7670071adb2a3/content.json",
+      "event_revision_content_sha256": "ce30cc7b74954a3c864e6a8de334adfaec382e2572d42ef29773c595a935ea01",
+      "event_revision_id": "reference-events-e7b2713881051baff4e7670071adb2a3",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-e7b2713881051baff4e7670071adb2a3/manifest.json",
+      "event_revision_manifest_sha256": "d672ab5e7b56f8c2cba01bd3f6509b0a64572c3f227f22855fdbe7f99451a7ae",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0640"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0640"
+        ],
+        [
+          "table_setup",
+          "setup-img-0640"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0640",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 88902000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0640",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0640/videos/video-cardeventnet-IMG_0640.mov",
+      "source_permission": "project_use",
+      "source_sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 96492000,
+      "event_count": 53,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-2a160b004691519b79550b24f9bcb08c/content.json",
+      "event_revision_content_sha256": "344ef5ec9a8b2903f21860de69a24866e6a3b4033290e2bcd3ee46b108d1661f",
+      "event_revision_id": "reference-events-2a160b004691519b79550b24f9bcb08c",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-2a160b004691519b79550b24f9bcb08c/manifest.json",
+      "event_revision_manifest_sha256": "d75b81f97a167726282326d0b0f1d857fa837fbc8d2d369a1b9627923be6d086",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0641"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0641"
+        ],
+        [
+          "table_setup",
+          "setup-img-0641"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0641",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 53,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 96492000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 53,
+        "reviewed_item_count": 53,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0641",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0641/videos/video-cardeventnet-IMG_0641.mov",
+      "source_permission": "project_use",
+      "source_sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 95993000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-fcc734f9ba43827938d76753ccb30f8b/content.json",
+      "event_revision_content_sha256": "4ec6d85bd6c48b0ebb3539e42267fbb92ec920aeb070ecd5e3a9a18ced903c1c",
+      "event_revision_id": "reference-events-fcc734f9ba43827938d76753ccb30f8b",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-fcc734f9ba43827938d76753ccb30f8b/manifest.json",
+      "event_revision_manifest_sha256": "ada2b7778ad8c15772d3c8615efdcd93f21ce3afe90d9dfd663e59cc4c0a57fb",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0642"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0642"
+        ],
+        [
+          "table_setup",
+          "setup-img-0642"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0642",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 95993000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0642",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0642/videos/video-cardeventnet-IMG_0642.mov",
+      "source_permission": "project_use",
+      "source_sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 97975000,
+      "event_count": 52,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-e091761f4d4d7dbbf586b250dfb5a4f9/content.json",
+      "event_revision_content_sha256": "25b0fb8dfd565a8db5e8e8c8de5768932572884db3abdc7ee78c252df95f9fe1",
+      "event_revision_id": "reference-events-e091761f4d4d7dbbf586b250dfb5a4f9",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-e091761f4d4d7dbbf586b250dfb5a4f9/manifest.json",
+      "event_revision_manifest_sha256": "c27ab9283d2f956bd71f52fdc96b852dee13c8b8016362ce49e1f995beb7363f",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0643"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0643"
+        ],
+        [
+          "table_setup",
+          "setup-img-0643"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0643",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 52,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 97975000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 52,
+        "reviewed_item_count": 52,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0643",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0643/videos/video-cardeventnet-IMG_0643.mov",
+      "source_permission": "project_use",
+      "source_sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 99360000,
+      "event_count": 54,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+      "event_revision_content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+      "event_revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+      "event_revision_manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0644"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0644"
+        ],
+        [
+          "table_setup",
+          "setup-img-0644"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "validation",
+      "recording_id": "cardeventnet-IMG_0644",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 54,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 99360000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 54,
+        "reviewed_item_count": 54,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0644",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0644/videos/video-cardeventnet-IMG_0644.mov",
+      "source_permission": "project_use",
+      "source_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 100997000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-585f9c640a0f08acd383b9d2fd8b8b2f/content.json",
+      "event_revision_content_sha256": "cda9228d3aa052863441dbeaca08de14fa73eb0430fd3c1548da38ded70a58b4",
+      "event_revision_id": "reference-events-585f9c640a0f08acd383b9d2fd8b8b2f",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-585f9c640a0f08acd383b9d2fd8b8b2f/manifest.json",
+      "event_revision_manifest_sha256": "e761faf594a4ea5607bb9845b1c59c248dd087f2c4e8c2b49f0240830ef219d4",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0645"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0645"
+        ],
+        [
+          "table_setup",
+          "setup-img-0645"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0645",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 100997000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0645",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0645/videos/video-cardeventnet-IMG_0645.mov",
+      "source_permission": "project_use",
+      "source_sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 105032000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-a1af76872facf447b6d82de10e530818/content.json",
+      "event_revision_content_sha256": "8e5868bb63857c13baedab46ecb8417f00ab2647fee707f1469deaaf03e0977e",
+      "event_revision_id": "reference-events-a1af76872facf447b6d82de10e530818",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-a1af76872facf447b6d82de10e530818/manifest.json",
+      "event_revision_manifest_sha256": "bd42b8a28cb8033b9cb9b6f6a3c570a3407d5ceb779375a32c3c27e18d726996",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0646"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0646"
+        ],
+        [
+          "table_setup",
+          "setup-img-0646"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0646",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 105032000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0646",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0646/videos/video-cardeventnet-IMG_0646.mov",
+      "source_permission": "project_use",
+      "source_sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 103582000,
+      "event_count": 52,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-1e4ec9bdaf89a9899b15422126bd55f9/content.json",
+      "event_revision_content_sha256": "eac7d85eced250c4fe831a8db6b65181fd57f1ed12f943a3e32e45891492fc56",
+      "event_revision_id": "reference-events-1e4ec9bdaf89a9899b15422126bd55f9",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-1e4ec9bdaf89a9899b15422126bd55f9/manifest.json",
+      "event_revision_manifest_sha256": "3b9f9716f80139f651f2dbd30461d2c129e756ff4a88118934650a64a2bae039",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0648"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0648"
+        ],
+        [
+          "table_setup",
+          "setup-img-0648"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0648",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 52,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 103582000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 52,
+        "reviewed_item_count": 52,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0648",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0648/videos/video-cardeventnet-IMG_0648.mov",
+      "source_permission": "project_use",
+      "source_sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 109738000,
+      "event_count": 54,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-f00fda54352eef72ccc6996d6d82cbe3/content.json",
+      "event_revision_content_sha256": "e1bb4f9e195a5073328c434deac0c21a29228851f2993d6ee3125aa2736a1709",
+      "event_revision_id": "reference-events-f00fda54352eef72ccc6996d6d82cbe3",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-f00fda54352eef72ccc6996d6d82cbe3/manifest.json",
+      "event_revision_manifest_sha256": "fb7771f813a5c7c34ac3e689f21e5c57ea9e7bf457c3ab2073604151034fa323",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0649"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0649"
+        ],
+        [
+          "table_setup",
+          "setup-img-0649"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0649",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 54,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 109738000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 54,
+        "reviewed_item_count": 54,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0649",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0649/videos/video-cardeventnet-IMG_0649.mov",
+      "source_permission": "project_use",
+      "source_sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 76390000,
+      "event_count": 36,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-69ca04143d361f6529379023b4c4cc88/content.json",
+      "event_revision_content_sha256": "dd27729e0e29845c329866de36f3318d77d2ebd0359c50217ed5fcc734888816",
+      "event_revision_id": "reference-events-69ca04143d361f6529379023b4c4cc88",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-69ca04143d361f6529379023b4c4cc88/manifest.json",
+      "event_revision_manifest_sha256": "2c708fd806419fca466fcdca4e719681256e219e1c61589758b54074780f7f29",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0650"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0650"
+        ],
+        [
+          "table_setup",
+          "setup-img-0650"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0650",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 36,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 76390000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 36,
+        "reviewed_item_count": 36,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0650",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+      "source_permission": "project_use",
+      "source_sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 95492000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3/content.json",
+      "event_revision_content_sha256": "538025e40adc198061696a67e041ac859415a11cc9df8c58d2e5c3f063a41b0d",
+      "event_revision_id": "reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3/manifest.json",
+      "event_revision_manifest_sha256": "235f95da08b86b0e12bbbb36f50b07dda763592f00291a9c8ff512d88050a1a3",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0651"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0651"
+        ],
+        [
+          "table_setup",
+          "setup-img-0651"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0651",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 95492000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0651",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0651/videos/video-cardeventnet-IMG_0651.mov",
+      "source_permission": "project_use",
+      "source_sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 78025000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+      "event_revision_content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+      "event_revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+      "event_revision_manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0652"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0652"
+        ],
+        [
+          "table_setup",
+          "setup-img-0652"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "validation",
+      "recording_id": "cardeventnet-IMG_0652",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 78025000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0652",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0652/videos/video-cardeventnet-IMG_0652.mov",
+      "source_permission": "project_use",
+      "source_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 98578000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-726d441f95a2cd301ebdc0968532fa21/content.json",
+      "event_revision_content_sha256": "c92653b4bee14595b001c9ab1a1d03e2505b24f9712f1f5927ec4bc893cccc8f",
+      "event_revision_id": "reference-events-726d441f95a2cd301ebdc0968532fa21",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-726d441f95a2cd301ebdc0968532fa21/manifest.json",
+      "event_revision_manifest_sha256": "7b3d954667eab1bf3c13188aa569146ca4311c5002a4e5d129f802a39b62bf32",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0653"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0653"
+        ],
+        [
+          "table_setup",
+          "setup-img-0653"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0653",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 98578000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0653",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0653/videos/video-cardeventnet-IMG_0653.mov",
+      "source_permission": "project_use",
+      "source_sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 81277000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-4fbcfe0c14e734b5431eaec5f8395e15/content.json",
+      "event_revision_content_sha256": "988d3991a428658338f650903906f3c2fb8126a8607e16a0f7f3f90421178e1b",
+      "event_revision_id": "reference-events-4fbcfe0c14e734b5431eaec5f8395e15",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-4fbcfe0c14e734b5431eaec5f8395e15/manifest.json",
+      "event_revision_manifest_sha256": "f5625f4126675b717b22c7d04314dc30f462620c70e07992de4c6f43e73923c0",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0654"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0654"
+        ],
+        [
+          "table_setup",
+          "setup-img-0654"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0654",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 81277000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0654",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0654/videos/video-cardeventnet-IMG_0654.mov",
+      "source_permission": "project_use",
+      "source_sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 87868000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-6fe976245fbbc3452c14decde7d85976/content.json",
+      "event_revision_content_sha256": "156069aceef8af6e6cf041f877e9d927b78d1d38bf6a1c84fc5ebab92bd7e216",
+      "event_revision_id": "reference-events-6fe976245fbbc3452c14decde7d85976",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-6fe976245fbbc3452c14decde7d85976/manifest.json",
+      "event_revision_manifest_sha256": "e0c7ff75b6df834f7722c7009ac41a7c9d1e39553218976e48728dca10781bea",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0655"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0655"
+        ],
+        [
+          "table_setup",
+          "setup-img-0655"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0655",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 87868000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0655",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+      "source_permission": "project_use",
+      "source_sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 85348000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-4e2126dc36ea31fc69de0981e6176a12/content.json",
+      "event_revision_content_sha256": "a8c9e43fda9716e4fe5f78c423a740765962166eaf83b7420e52bc47e2b267fe",
+      "event_revision_id": "reference-events-4e2126dc36ea31fc69de0981e6176a12",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-4e2126dc36ea31fc69de0981e6176a12/manifest.json",
+      "event_revision_manifest_sha256": "340afa7ed3959741aa2d2b5d64f33070a17fd934734232dcafcd49763018cda0",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0656"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0656"
+        ],
+        [
+          "table_setup",
+          "setup-img-0656"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0656",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 85348000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0656",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0656/videos/video-cardeventnet-IMG_0656.mov",
+      "source_permission": "project_use",
+      "source_sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 89420000,
+      "event_count": 51,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-17e0b4ea8fc84cec099e237467798fdd/content.json",
+      "event_revision_content_sha256": "b7b928f5e1738af2343dba68e83a4edee10c2e7dcd7141d03282b9d4971fa4f3",
+      "event_revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-17e0b4ea8fc84cec099e237467798fdd/manifest.json",
+      "event_revision_manifest_sha256": "6bad2154676cc410d72131dcb0f6bc49212f329f6015e8e4b2bed2c01f453082",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0657"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0657"
+        ],
+        [
+          "table_setup",
+          "setup-img-0657"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0657",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 51,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 89420000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 51,
+        "reviewed_item_count": 51,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0657",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+      "source_permission": "project_use",
+      "source_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 78725000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7/content.json",
+      "event_revision_content_sha256": "488c17855d168da02d32fc5735148c66e25c9a3fc6a07a185f96321464f58702",
+      "event_revision_id": "reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7/manifest.json",
+      "event_revision_manifest_sha256": "b63967b266f203456bac6288f91f851ddb0443c274f0e0eb215d22d5b483dfa1",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0658"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0658"
+        ],
+        [
+          "table_setup",
+          "setup-img-0658"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0658",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 78725000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0658",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0658/videos/video-cardeventnet-IMG_0658.mov",
+      "source_permission": "project_use",
+      "source_sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 82378000,
+      "event_count": 52,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d/content.json",
+      "event_revision_content_sha256": "29bee4070c2554e307de97702281888589bd37be81006e67953c36c74c58cbad",
+      "event_revision_id": "reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d/manifest.json",
+      "event_revision_manifest_sha256": "1fa92c3240a1172b131f5629676fa4dee91374b9e0d3268827e9e19f37b88472",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0659"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0659"
+        ],
+        [
+          "table_setup",
+          "setup-img-0659"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0659",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 52,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 82378000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 52,
+        "reviewed_item_count": 52,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0659",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0659/videos/video-cardeventnet-IMG_0659.mov",
+      "source_permission": "project_use",
+      "source_sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 82728000,
+      "event_count": 49,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-964d49a8d059082ea0ae3017c4dd69d7/content.json",
+      "event_revision_content_sha256": "84ce6ac3e302325eb6427bf8f33b3e1ca02adf51e21a094dfadcc2354cfd3a16",
+      "event_revision_id": "reference-events-964d49a8d059082ea0ae3017c4dd69d7",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-964d49a8d059082ea0ae3017c4dd69d7/manifest.json",
+      "event_revision_manifest_sha256": "0505c4f926c2f74b47ea886bd122e1f2ff3a0e58aa389fb6f10a313e6c256ce0",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0660"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0660"
+        ],
+        [
+          "table_setup",
+          "setup-img-0660"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0660",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 49,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 82728000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 49,
+        "reviewed_item_count": 49,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0660",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0660/videos/video-cardeventnet-IMG_0660.mov",
+      "source_permission": "project_use",
+      "source_sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 90720000,
+      "event_count": 54,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+      "event_revision_content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+      "event_revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+      "event_revision_manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0661"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0661"
+        ],
+        [
+          "table_setup",
+          "setup-img-0661"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "validation",
+      "recording_id": "cardeventnet-IMG_0661",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 54,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 90720000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 54,
+        "reviewed_item_count": 54,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0661",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0661/videos/video-cardeventnet-IMG_0661.mov",
+      "source_permission": "project_use",
+      "source_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_trick_sequence",
+      "duration_us": 94875000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-fd5c08dc4f7540053b3ed1c04606b909/content.json",
+      "event_revision_content_sha256": "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5",
+      "event_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-fd5c08dc4f7540053b3ed1c04606b909/manifest.json",
+      "event_revision_manifest_sha256": "445dfe37c166eb3b6c76761a30fee13838761ed71acd4e59d1bebf3317b6bf91",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-img-0662"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-img-0662"
+        ],
+        [
+          "table_setup",
+          "setup-img-0662"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "train",
+      "recording_id": "cardeventnet-IMG_0662",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 94875000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0662",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+      "source_permission": "project_use",
+      "source_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_scenario",
+      "duration_us": 425027000,
+      "event_count": 61,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-d3f30c4175781edf8312682c9fabe4fd/content.json",
+      "event_revision_content_sha256": "af27b82edd0fa2fb9e506fd2ab397ec9a9ed6af6d68b4639cfd6b562fea9a066",
+      "event_revision_id": "reference-events-d3f30c4175781edf8312682c9fabe4fd",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-d3f30c4175781edf8312682c9fabe4fd/manifest.json",
+      "event_revision_manifest_sha256": "fac3a22f445f9ed6abe588bcfb2604ec7b85aac700f56cb2410f561d6565c920",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-20260825-weird-staged-a"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-20260825-weird-staged-a"
+        ],
+        [
+          "table_setup",
+          "setup-20260825-weird-staged-a"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "test",
+      "recording_id": "cardeventnet-IMG_0669",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 61,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 425027000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 61,
+        "reviewed_item_count": 61,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0669",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov",
+      "source_permission": "training_and_evaluation",
+      "source_sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_scenario",
+      "duration_us": 520752000,
+      "event_count": 55,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-661ac3f29c7f5a4757421991868d7650/content.json",
+      "event_revision_content_sha256": "1193221a4a091f8bdabe2d039e67c39e737114ee3f33c34e8a95d0a7f021a687",
+      "event_revision_id": "reference-events-661ac3f29c7f5a4757421991868d7650",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-661ac3f29c7f5a4757421991868d7650/manifest.json",
+      "event_revision_manifest_sha256": "7b05a84254a8173f7bf4c1f54c79e766e8109aae974f2c7efe8cd932977bbf06",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-20260825-weird-staged-a"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-20260825-weird-staged-a"
+        ],
+        [
+          "table_setup",
+          "setup-20260825-weird-staged-a"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "test",
+      "recording_id": "cardeventnet-IMG_0670",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 55,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 520752000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 55,
+        "reviewed_item_count": 55,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0670",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov",
+      "source_permission": "training_and_evaluation",
+      "source_sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_scenario",
+      "duration_us": 215303000,
+      "event_count": 33,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-9a3fb1cf734515438cffb6bf5cae5882/content.json",
+      "event_revision_content_sha256": "16836be1126832a7e37dd6a6ee8ef58e51e6055fa8236c65cf4d6f1c645bfe33",
+      "event_revision_id": "reference-events-9a3fb1cf734515438cffb6bf5cae5882",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-9a3fb1cf734515438cffb6bf5cae5882/manifest.json",
+      "event_revision_manifest_sha256": "fb5353ea1485fbeb4785a0d4513d9cf4d372d170ae735a9bf90426d68bd074e0",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-20260825-weird-staged-a"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-20260825-weird-staged-a"
+        ],
+        [
+          "table_setup",
+          "setup-20260825-weird-staged-a"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "test",
+      "recording_id": "cardeventnet-IMG_0671",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 33,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 215303000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 33,
+        "reviewed_item_count": 33,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0671",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov",
+      "source_permission": "training_and_evaluation",
+      "source_sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_scenario",
+      "duration_us": 308515000,
+      "event_count": 50,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc/content.json",
+      "event_revision_content_sha256": "659b4b3496ba8f184497631c13bc23937e042eda3a2222e9f71cc2e48a461910",
+      "event_revision_id": "reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc/manifest.json",
+      "event_revision_manifest_sha256": "00386be16a9ed771b02e395b683cf1a940372de568d687473cea8902da3bbd06",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-20260825-weird-staged-a"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-20260825-weird-staged-a"
+        ],
+        [
+          "table_setup",
+          "setup-20260825-weird-staged-a"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "test",
+      "recording_id": "cardeventnet-IMG_0673",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 50,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 308515000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 50,
+        "reviewed_item_count": 50,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0673",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0673/videos/video-cardeventnet-IMG_0673.mov",
+      "source_permission": "training_and_evaluation",
+      "source_sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3",
+      "task": "cardevent_event_detection"
+    },
+    {
+      "allowed_uses": [
+        "test",
+        "train",
+        "validation"
+      ],
+      "content_type": "staged_scenario",
+      "duration_us": 249407000,
+      "event_count": 34,
+      "event_revision_content_path": "data/operations/pipeline/revisions/reference-events-81a51db94227767a839e5af4387b1cc2/content.json",
+      "event_revision_content_sha256": "bfb81b35f60494a2504ddcbb43490e42a8769988e599b54213d2f1f617b1dcce",
+      "event_revision_id": "reference-events-81a51db94227767a839e5af4387b1cc2",
+      "event_revision_manifest_path": "data/operations/pipeline/revisions/reference-events-81a51db94227767a839e5af4387b1cc2/manifest.json",
+      "event_revision_manifest_sha256": "9025dec385f013518eddd240922f46644625b0d9b3ad76368772390c0ba4d391",
+      "group_keys": [
+        [
+          "session_id",
+          "capture-20260825-weird-staged-a"
+        ],
+        [
+          "source_lineage",
+          "session-lineage-capture-20260825-weird-staged-a"
+        ],
+        [
+          "table_setup",
+          "setup-20260825-weird-staged-a"
+        ]
+      ],
+      "group_metadata_basis": {
+        "source_lineage": "recorded_session_id"
+      },
+      "partition": "test",
+      "recording_id": "cardeventnet-IMG_0674",
+      "retention_state": "active",
+      "review_coverage": {
+        "annotation_event_count": 34,
+        "coverage_complete": true,
+        "coverage_intervals": [
+          {
+            "end_us": 249407000,
+            "start_us": 0
+          }
+        ],
+        "coverage_percent": 100,
+        "item_count": 34,
+        "reviewed_item_count": 34,
+        "unresolved_uncertain_events": 0
+      },
+      "source_asset_id": "source-cardeventnet-IMG_0674",
+      "source_path": "data/intake/recordings/cardeventnet-IMG_0674/videos/video-cardeventnet-IMG_0674.mov",
+      "source_permission": "training_and_evaluation",
+      "source_sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14",
+      "task": "cardevent_event_detection"
+    }
+  ],
+  "interval_aware": true,
+  "lineage": {
+    "diagnostic_exclusion": {
+      "file_sha256": "f2d05900eb7dd24b4f70ba6babaeb866e96bfc9748af83ab88e32fd632ea6743",
+      "path": "data/operations/source-exclusions/legacy-device-diagnostic.json",
+      "receipt_digest": "754334c0e723a908b1e0e30393377e584bc802b365f48544e171ce2e526c5a3d",
+      "recording_ids": [
+        "cardeventnet-IMG_2777",
+        "cardeventnet-IMG_2778",
+        "cardeventnet-IMG_2779",
+        "cardeventnet-IMG_2780",
+        "cardeventnet-IMG_2781"
+      ]
+    },
+    "interval_readiness": {
+      "file_sha256": "77e962a480d76458455161cb15463a14462901e6899889234e0052ac61f143a9",
+      "path": "data/operations/cardeventnet-interval-readiness/reports/interval-readiness.json",
+      "report_digest": "267c384dda2579bda8953fca581520ed40f52b0601b8a5090c4f7b0d2fc01cf2"
+    },
+    "m11_reference_decisions": {
+      "decision_digest": "ed964254c627f4677b0abaa6966e62190e16cd9a18d3360651ae0c4e656f461a",
+      "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m11-reference-decisions.json"
+    },
+    "source_dataset": {
+      "artifact_sha256": {
+        "coverage.json": "30b739ab8784aaaea042ef0aebc23e000c654f0bbe3d5a27a7d2c3efd5dc47b3",
+        "dataset.json": "70089f91617016a2b6e67241c4975b493e828c260efaddc9a07d0dd83c12cac2",
+        "receipt.json": "649af187ad6863f03871c9aad4dfb3d9a4f8b4a1ffbe2027bbfea9894d8ee879",
+        "split.json": "058221ab335d675330f12cb4b55eb52342c19230ce5fd09166ffab70b4499df1"
+      },
+      "dataset_version_digest": "bfbeeec4c72905f6b545eaa782b427daee6a2756373fc823bd33936fef6d28a0",
+      "dataset_version_id": "cardeventnet-dataset-babc3dca31acd0c3631c",
+      "path": "data/operations/cardevent-datasets/cardeventnet-dataset-babc3dca31acd0c3631c"
+    },
+    "successor_of": {
+      "dataset_version_digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+      "dataset_version_id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+      "path": "data/operations/cardevent-datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4"
+    }
+  },
+  "readiness_digest": "267c384dda2579bda8953fca581520ed40f52b0601b8a5090c4f7b0d2fc01cf2",
+  "schema_version": "cardeventnet-dataset/v1",
+  "split_version_digest": "c562a9077a97c2bc83699cca6b0f96f281bd2e9288033ee2c656a04654b9968e",
+  "split_version_id": "cardevent-development-split-c562a9077a97c2bc8369",
+  "target_policy": {
+    "anchor": "end_us",
+    "interval_interior": "exclude_from_negative_evidence",
+    "version": "stable-end-anchor-v1"
+  },
+  "task": "cardevent_event_detection",
+  "test_sealed": true
+}

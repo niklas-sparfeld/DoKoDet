@@ -1,0 +1,2592 @@
+{
+  "campaign_id": "cardeventnet-0063-m9-hard-negative-ablation",
+  "counts": {
+    "items": 70,
+    "no_event_confirmed": 18,
+    "recordings": 6,
+    "reference_confirmed": 25,
+    "reference_corrected": 27,
+    "regions": 47
+  },
+  "decision_digest": "ed964254c627f4677b0abaa6966e62190e16cd9a18d3360651ae0c4e656f461a",
+  "items": [
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the current completed revision now places a reviewed event at the prediction",
+      "item_id": "cardeventnet-IMG_0090-confirmed_false_trigger-36.750000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-004",
+      "time_s": 36.75
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0090-confirmed_false_trigger-48.500000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-005",
+      "time_s": 48.5
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0090-confirmed_false_trigger-54.625000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-006",
+      "time_s": 54.625
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0090-confirmed_false_trigger-61.000000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-007",
+      "time_s": 61.0
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0090-confirmed_false_trigger-62.375000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-007",
+      "time_s": 62.375
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0090-confirmed_false_trigger-64.125000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-007",
+      "time_s": 64.125
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0090-confirmed_false_trigger-64.875000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-007",
+      "time_s": 64.875
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0090-confirmed_false_trigger-71.125000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-008",
+      "time_s": 71.125
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0090-in_progress_detection-110.000000",
+      "kind": "in_progress_detection",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-010",
+      "time_s": 110.0
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0090-in_progress_detection-9.750000",
+      "kind": "in_progress_detection",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-001",
+      "time_s": 9.75
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0090-in_progress_detection-91.500000",
+      "kind": "in_progress_detection",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-009",
+      "time_s": 91.5
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0090-missed_event-110.871133",
+      "kind": "missed_event",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-010",
+      "time_s": 110.871133
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0090-missed_event-29.742867",
+      "kind": "missed_event",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-002",
+      "time_s": 29.742867
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0090-missed_event-32.103412",
+      "kind": "missed_event",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-003",
+      "time_s": 32.103412
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0090-missed_event-50.043555",
+      "kind": "missed_event",
+      "operator_notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "source_video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/content.json",
+        "content_sha256": "d3560c536261c20bd4ed32456241711bbd819cbdd09929de3973af6b3c5c760f",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-3700869dd265edda5d3aa3a7c062caef/manifest.json",
+        "manifest_sha256": "47f8c0a34166761a01cbf1301492bad3edb3ea53d43511563517611d093e50cb",
+        "revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef"
+      },
+      "region_id": "m10-region-005",
+      "time_s": 50.043555
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-20.750000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-012",
+      "time_s": 20.75
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-39.125000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-013",
+      "time_s": 39.125
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-59.125000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-014",
+      "time_s": 59.125
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-68.625000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-015",
+      "time_s": 68.625
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-78.500000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-016",
+      "time_s": 78.5
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-79.375000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-016",
+      "time_s": 79.375
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-8.000000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-011",
+      "time_s": 8.0
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-89.000000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-017",
+      "time_s": 89.0
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-in_progress_detection-98.500000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-018",
+      "time_s": 98.5
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-missed_event-22.268726",
+      "kind": "missed_event",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-012",
+      "time_s": 22.268726
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-missed_event-60.139049",
+      "kind": "missed_event",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-014",
+      "time_s": 60.139049
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-missed_event-9.217407",
+      "kind": "missed_event",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-011",
+      "time_s": 9.217407
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-missed_event-90.442104",
+      "kind": "missed_event",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-017",
+      "time_s": 90.442104
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0091-missed_event-99.526363",
+      "kind": "missed_event",
+      "operator_notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "source_video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "revision_id": "reference-events-46a7194352e9566958531b07b6765014"
+      },
+      "region_id": "m10-region-018",
+      "time_s": 99.526363
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the current completed revision now places a reviewed event at the prediction",
+      "item_id": "cardeventnet-IMG_0635-confirmed_false_trigger-65.750000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the anchors were genuinely shifted and I adjusted them",
+      "recording_id": "cardeventnet-IMG_0635",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+        "revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+        "source_video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/content.json",
+        "content_sha256": "10fc63da8f479b952b37dbe6b43f58390bd24fa1799bc2c9dde8530bcfc42644",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/manifest.json",
+        "manifest_sha256": "68a58b16a3bb5cdbe2a0cda7650b7e49d8545e55af2eb2b62c63df3355f77440",
+        "revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64"
+      },
+      "region_id": "m10-region-022",
+      "time_s": 65.75
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0635-confirmed_false_trigger-94.125000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the anchors were genuinely shifted and I adjusted them",
+      "recording_id": "cardeventnet-IMG_0635",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+        "revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+        "source_video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/content.json",
+        "content_sha256": "10fc63da8f479b952b37dbe6b43f58390bd24fa1799bc2c9dde8530bcfc42644",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/manifest.json",
+        "manifest_sha256": "68a58b16a3bb5cdbe2a0cda7650b7e49d8545e55af2eb2b62c63df3355f77440",
+        "revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64"
+      },
+      "region_id": "m10-region-023",
+      "time_s": 94.125
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0635-missed_event-46.529347",
+      "kind": "missed_event",
+      "operator_notes": "the anchors were genuinely shifted and I adjusted them",
+      "recording_id": "cardeventnet-IMG_0635",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+        "revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+        "source_video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/content.json",
+        "content_sha256": "10fc63da8f479b952b37dbe6b43f58390bd24fa1799bc2c9dde8530bcfc42644",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/manifest.json",
+        "manifest_sha256": "68a58b16a3bb5cdbe2a0cda7650b7e49d8545e55af2eb2b62c63df3355f77440",
+        "revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64"
+      },
+      "region_id": "m10-region-019",
+      "time_s": 46.529347
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0635-missed_event-49.781398",
+      "kind": "missed_event",
+      "operator_notes": "the anchors were genuinely shifted and I adjusted them",
+      "recording_id": "cardeventnet-IMG_0635",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+        "revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+        "source_video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/content.json",
+        "content_sha256": "10fc63da8f479b952b37dbe6b43f58390bd24fa1799bc2c9dde8530bcfc42644",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/manifest.json",
+        "manifest_sha256": "68a58b16a3bb5cdbe2a0cda7650b7e49d8545e55af2eb2b62c63df3355f77440",
+        "revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64"
+      },
+      "region_id": "m10-region-020",
+      "time_s": 49.781398
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0635-missed_event-56.285501",
+      "kind": "missed_event",
+      "operator_notes": "the anchors were genuinely shifted and I adjusted them",
+      "recording_id": "cardeventnet-IMG_0635",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+        "revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+        "source_video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/content.json",
+        "content_sha256": "10fc63da8f479b952b37dbe6b43f58390bd24fa1799bc2c9dde8530bcfc42644",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/manifest.json",
+        "manifest_sha256": "68a58b16a3bb5cdbe2a0cda7650b7e49d8545e55af2eb2b62c63df3355f77440",
+        "revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64"
+      },
+      "region_id": "m10-region-021",
+      "time_s": 56.285501
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0635-missed_event-58.036605",
+      "kind": "missed_event",
+      "operator_notes": "the anchors were genuinely shifted and I adjusted them",
+      "recording_id": "cardeventnet-IMG_0635",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+        "revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+        "source_video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/content.json",
+        "content_sha256": "10fc63da8f479b952b37dbe6b43f58390bd24fa1799bc2c9dde8530bcfc42644",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/manifest.json",
+        "manifest_sha256": "68a58b16a3bb5cdbe2a0cda7650b7e49d8545e55af2eb2b62c63df3355f77440",
+        "revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64"
+      },
+      "region_id": "m10-region-021",
+      "time_s": 58.036605
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0635-missed_event-67.292443",
+      "kind": "missed_event",
+      "operator_notes": "the anchors were genuinely shifted and I adjusted them",
+      "recording_id": "cardeventnet-IMG_0635",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+        "revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+        "source_video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/content.json",
+        "content_sha256": "10fc63da8f479b952b37dbe6b43f58390bd24fa1799bc2c9dde8530bcfc42644",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-0aafbb49a8134d6cf5201f0eb08e4a64/manifest.json",
+        "manifest_sha256": "68a58b16a3bb5cdbe2a0cda7650b7e49d8545e55af2eb2b62c63df3355f77440",
+        "revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64"
+      },
+      "region_id": "m10-region-022",
+      "time_s": 67.292443
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-19.375000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-025",
+      "time_s": 19.375
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-20.375000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-025",
+      "time_s": 20.375
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-21.250000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-025",
+      "time_s": 21.25
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-54.125000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-026",
+      "time_s": 54.125
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-68.500000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-027",
+      "time_s": 68.5
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-77.250000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-028",
+      "time_s": 77.25
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-88.000000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-029",
+      "time_s": 88.0
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-90.000000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-029",
+      "time_s": 90.0
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0644-confirmed_false_trigger-97.500000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-030",
+      "time_s": 97.5
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0644-in_progress_detection-16.625000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-025",
+      "time_s": 16.625
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0644-in_progress_detection-7.625000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-024",
+      "time_s": 7.625
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0644-in_progress_detection-78.000000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-028",
+      "time_s": 78.0
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0644-missed_event-17.510402",
+      "kind": "missed_event",
+      "operator_notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "source_video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-5fc93d276770219df14e46bf4212b218/manifest.json",
+        "manifest_sha256": "ce6b1789253e36a4f7cbbc80519e9ba2a99ae62d0cb127a7aafb0441a8fe132b",
+        "revision_id": "reference-events-5fc93d276770219df14e46bf4212b218"
+      },
+      "region_id": "m10-region-025",
+      "time_s": 17.510402
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0652-in_progress_detection-72.750000",
+      "kind": "in_progress_detection",
+      "operator_notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "recording_id": "cardeventnet-IMG_0652",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+        "source_video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e"
+      },
+      "region_id": "m10-region-036",
+      "time_s": 72.75
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0652-missed_event-12.261786",
+      "kind": "missed_event",
+      "operator_notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "recording_id": "cardeventnet-IMG_0652",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+        "source_video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e"
+      },
+      "region_id": "m10-region-032",
+      "time_s": 12.261786
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0652-missed_event-23.020927",
+      "kind": "missed_event",
+      "operator_notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "recording_id": "cardeventnet-IMG_0652",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+        "source_video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e"
+      },
+      "region_id": "m10-region-033",
+      "time_s": 23.020927
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0652-missed_event-34.282954",
+      "kind": "missed_event",
+      "operator_notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "recording_id": "cardeventnet-IMG_0652",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+        "source_video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e"
+      },
+      "region_id": "m10-region-034",
+      "time_s": 34.282954
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0652-missed_event-69.066389",
+      "kind": "missed_event",
+      "operator_notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "recording_id": "cardeventnet-IMG_0652",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+        "source_video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e"
+      },
+      "region_id": "m10-region-035",
+      "time_s": 69.066389
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0652-missed_event-73.819275",
+      "kind": "missed_event",
+      "operator_notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "recording_id": "cardeventnet-IMG_0652",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+        "source_video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e"
+      },
+      "region_id": "m10-region-036",
+      "time_s": 73.819275
+    },
+    {
+      "decision": "reference_confirmed",
+      "decision_basis": "the recording notes say that the maintained annotation is fine",
+      "item_id": "cardeventnet-IMG_0652-missed_event-9.509140",
+      "kind": "missed_event",
+      "operator_notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "recording_id": "cardeventnet-IMG_0652",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+        "source_video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "revision_id": "reference-events-a9295df09b66226c5346b63e9219937e"
+      },
+      "region_id": "m10-region-031",
+      "time_s": 9.50914
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decision_basis": "the prose notes review this prediction as a no-event trigger",
+      "item_id": "cardeventnet-IMG_0661-confirmed_false_trigger-89.250000",
+      "kind": "confirmed_false_trigger",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-047",
+      "time_s": 89.25
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-in_progress_detection-14.250000",
+      "kind": "in_progress_detection",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-037",
+      "time_s": 14.25
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-in_progress_detection-30.875000",
+      "kind": "in_progress_detection",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-039",
+      "time_s": 30.875
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-in_progress_detection-39.375000",
+      "kind": "in_progress_detection",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-040",
+      "time_s": 39.375
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-in_progress_detection-49.375000",
+      "kind": "in_progress_detection",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-041",
+      "time_s": 49.375
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-in_progress_detection-60.000000",
+      "kind": "in_progress_detection",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-042",
+      "time_s": 60.0
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-in_progress_detection-68.750000",
+      "kind": "in_progress_detection",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-044",
+      "time_s": 68.75
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-missed_event-15.012675",
+      "kind": "missed_event",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-037",
+      "time_s": 15.012675
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-missed_event-25.775097",
+      "kind": "missed_event",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-038",
+      "time_s": 25.775097
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-missed_event-37.536548",
+      "kind": "missed_event",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-040",
+      "time_s": 37.536548
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-missed_event-61.307990",
+      "kind": "missed_event",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-042",
+      "time_s": 61.30799
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-missed_event-66.314569",
+      "kind": "missed_event",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-043",
+      "time_s": 66.314569
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-missed_event-74.572609",
+      "kind": "missed_event",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-045",
+      "time_s": 74.572609
+    },
+    {
+      "decision": "reference_corrected",
+      "decision_basis": "the recording notes say that reviewed anchors were adjusted",
+      "item_id": "cardeventnet-IMG_0661-missed_event-84.832599",
+      "kind": "missed_event",
+      "operator_notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_after": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "source_video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+      },
+      "reference_before": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/content.json",
+        "content_sha256": "2b6d3d2e48db0da7614445fb3a0849f02b90b082ac429ffc892499a5031fbbb6",
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-c0684675d2e7a68ed43cfd1b9a864c24/manifest.json",
+        "manifest_sha256": "b6f4428c19d2177a53d9b5e017f5ff760a9cff374a28615145458f946fd079fb",
+        "revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+      },
+      "region_id": "m10-region-046",
+      "time_s": 84.832599
+    }
+  ],
+  "operator_review": {
+    "completion_evidence": "all six recording decisions and prose notes are present",
+    "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m10-operator-review.json",
+    "sha256": "c138f1e1dca5d02541006197e5b4006641361cee760c931b7a38e083bb01758f",
+    "status": "pending_operator_review"
+  },
+  "recordings": [
+    {
+      "after_lineage": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/content.json",
+        "content_sha256": "0781ee2e612159fbe8d6a939cf761ad7aae763cbc4726ca488bb554322bcd018",
+        "input_revision_ids": [
+          "reference-events-4588ca8aaa9164601c36b9f25fbba50d"
+        ],
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-03f7770e65e5b9a490ea5cb446e8a8ab/manifest.json",
+        "manifest_sha256": "1ed632afb405bd17c24d5cf0b647eca2b946694b70c6773bb60f3e599e0192eb",
+        "origin": "corrected",
+        "source": {
+          "byte_length": 149163581,
+          "duration_us": 112193000,
+          "recording_id": "cardeventnet-IMG_0090",
+          "relative_path": "data/intake/recordings/cardeventnet-IMG_0090/videos/video-cardeventnet-IMG_0090.mov",
+          "schema_version": "recording-video/v1",
+          "video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+        }
+      },
+      "after_revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+      "before_revision_id": "reference-events-3700869dd265edda5d3aa3a7c062caef",
+      "content_byte_identical": false,
+      "manifest_byte_identical": false,
+      "normalised_operator_decision": "reference_corrected",
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_decision": "adjusted",
+      "recording_id": "cardeventnet-IMG_0090",
+      "revision_changed": true
+    },
+    {
+      "after_lineage": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/content.json",
+        "content_sha256": "4ff1474b44654d5a88f0304701bbf3f2df12a5ff3d08f882bf81d4923ba9b07b",
+        "input_revision_ids": [
+          "reference-events-5fc93d276770219df14e46bf4212b218"
+        ],
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-f7043b1a3e819bd1b0a7cab9715e292f/manifest.json",
+        "manifest_sha256": "7a0b57257dc409056c94d10d7ed0a09eb7e0d83cc8a51e8ae710e9f9309d79c9",
+        "origin": "corrected",
+        "source": {
+          "byte_length": 252227791,
+          "duration_us": 99360000,
+          "recording_id": "cardeventnet-IMG_0644",
+          "relative_path": "data/intake/recordings/cardeventnet-IMG_0644/videos/video-cardeventnet-IMG_0644.mov",
+          "schema_version": "recording-video/v1",
+          "video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+        }
+      },
+      "after_revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+      "before_revision_id": "reference-events-5fc93d276770219df14e46bf4212b218",
+      "content_byte_identical": true,
+      "manifest_byte_identical": false,
+      "normalised_operator_decision": "reference_confirmed",
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "operator_decision": "prediction is okay",
+      "recording_id": "cardeventnet-IMG_0644",
+      "revision_changed": true
+    },
+    {
+      "after_lineage": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/content.json",
+        "content_sha256": "51d6f49f99702fb67a5996f5cdbc2b4239e1f8a68a2cd052fd2bf426fc5dcdea",
+        "input_revision_ids": [
+          "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64"
+        ],
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-d04445704490d73312dba20cf61df830/manifest.json",
+        "manifest_sha256": "bb6f8c53ed4aab9f1a68e6c3a75326707b547de852be9b784498215614c4aff8",
+        "origin": "corrected",
+        "source": {
+          "byte_length": 329117529,
+          "duration_us": 100412000,
+          "recording_id": "cardeventnet-IMG_0635",
+          "relative_path": "data/intake/recordings/cardeventnet-IMG_0635/videos/video-cardeventnet-IMG_0635.mov",
+          "schema_version": "recording-video/v1",
+          "video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+        }
+      },
+      "after_revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+      "before_revision_id": "reference-events-0aafbb49a8134d6cf5201f0eb08e4a64",
+      "content_byte_identical": false,
+      "manifest_byte_identical": false,
+      "normalised_operator_decision": "reference_corrected",
+      "notes": "the anchors were genuinely shifted and I adjusted them",
+      "operator_decision": "adjusted",
+      "recording_id": "cardeventnet-IMG_0635",
+      "revision_changed": true
+    },
+    {
+      "after_lineage": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/content.json",
+        "content_sha256": "eee794661f5edbfe27b045919b764141a67d57d2a769db40bde8540f65ba52b6",
+        "input_revision_ids": [
+          "reference-events-7d7cb73ad7194f20a46855c7501966b1"
+        ],
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a9295df09b66226c5346b63e9219937e/manifest.json",
+        "manifest_sha256": "9f3eb33439233f58aa51d1af512a0d61311c6c012a773eae76b4b2ac5711b359",
+        "origin": "corrected",
+        "source": {
+          "byte_length": 130173534,
+          "duration_us": 78025000,
+          "recording_id": "cardeventnet-IMG_0652",
+          "relative_path": "data/intake/recordings/cardeventnet-IMG_0652/videos/video-cardeventnet-IMG_0652.mov",
+          "schema_version": "recording-video/v1",
+          "video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+        }
+      },
+      "after_revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+      "before_revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+      "content_byte_identical": true,
+      "manifest_byte_identical": true,
+      "normalised_operator_decision": "reference_confirmed",
+      "notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "operator_decision": "unchanged",
+      "recording_id": "cardeventnet-IMG_0652",
+      "revision_changed": false
+    },
+    {
+      "after_lineage": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/content.json",
+        "content_sha256": "c7eff2a6994e3f58a79158abd047f56dc72c93d14037affa955febf830da62df",
+        "input_revision_ids": [
+          "canonical-card-state-reference-events-477f9579121386f9c00ca31ed58a50cd"
+        ],
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-46a7194352e9566958531b07b6765014/manifest.json",
+        "manifest_sha256": "37b7c5340d9703799cc188cc2db681bcab3d0a796f6b3da73fb185f43fc874c4",
+        "origin": "corrected",
+        "source": {
+          "byte_length": 134705169,
+          "duration_us": 100843000,
+          "recording_id": "cardeventnet-IMG_0091",
+          "relative_path": "data/intake/recordings/cardeventnet-IMG_0091/videos/video-cardeventnet-IMG_0091.mov",
+          "schema_version": "recording-video/v1",
+          "video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+        }
+      },
+      "after_revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+      "before_revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+      "content_byte_identical": true,
+      "manifest_byte_identical": true,
+      "normalised_operator_decision": "reference_confirmed",
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_decision": "unchanged",
+      "recording_id": "cardeventnet-IMG_0091",
+      "revision_changed": false
+    },
+    {
+      "after_lineage": {
+        "content_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/content.json",
+        "content_sha256": "71ec05851df39cbb88ccc5d891f393ea4671117a870b0b566d69e8104c731dfb",
+        "input_revision_ids": [
+          "reference-events-c0684675d2e7a68ed43cfd1b9a864c24"
+        ],
+        "manifest_path": "data/operations/pipeline/revisions/reference-events-a77b0032f5c2a22931d1edf52648d954/manifest.json",
+        "manifest_sha256": "78a25d94f0f6a9bb225b57afea2653bbb8c5e1d3c2b73bcb1db53f1fe2a96648",
+        "origin": "corrected",
+        "source": {
+          "byte_length": 151493812,
+          "duration_us": 90720000,
+          "recording_id": "cardeventnet-IMG_0661",
+          "relative_path": "data/intake/recordings/cardeventnet-IMG_0661/videos/video-cardeventnet-IMG_0661.mov",
+          "schema_version": "recording-video/v1",
+          "video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+        }
+      },
+      "after_revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+      "before_revision_id": "reference-events-c0684675d2e7a68ed43cfd1b9a864c24",
+      "content_byte_identical": false,
+      "manifest_byte_identical": false,
+      "normalised_operator_decision": "reference_corrected",
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_decision": "adjusted",
+      "recording_id": "cardeventnet-IMG_0661",
+      "revision_changed": true
+    }
+  ],
+  "regions": [
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-in_progress_detection-9.750000"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-001"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-missed_event-29.742867"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-002"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-missed_event-32.103412"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-003"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-36.750000"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-004"
+    },
+    {
+      "decision": "mixed",
+      "decisions": [
+        "no_event_confirmed",
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-48.500000",
+        "cardeventnet-IMG_0090-missed_event-50.043555"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-005"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-54.625000"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-006"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-61.000000",
+        "cardeventnet-IMG_0090-confirmed_false_trigger-62.375000",
+        "cardeventnet-IMG_0090-confirmed_false_trigger-64.125000",
+        "cardeventnet-IMG_0090-confirmed_false_trigger-64.875000"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-007"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-confirmed_false_trigger-71.125000"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-008"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-in_progress_detection-91.500000"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-009"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0090-in_progress_detection-110.000000",
+        "cardeventnet-IMG_0090-missed_event-110.871133"
+      ],
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0090",
+      "region_id": "m10-region-010"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-8.000000",
+        "cardeventnet-IMG_0091-missed_event-9.217407"
+      ],
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-011"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-20.750000",
+        "cardeventnet-IMG_0091-missed_event-22.268726"
+      ],
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-012"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-39.125000"
+      ],
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-013"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-59.125000",
+        "cardeventnet-IMG_0091-missed_event-60.139049"
+      ],
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-014"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-68.625000"
+      ],
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-015"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-78.500000",
+        "cardeventnet-IMG_0091-in_progress_detection-79.375000"
+      ],
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-016"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-89.000000",
+        "cardeventnet-IMG_0091-missed_event-90.442104"
+      ],
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-017"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0091-in_progress_detection-98.500000",
+        "cardeventnet-IMG_0091-missed_event-99.526363"
+      ],
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0091",
+      "region_id": "m10-region-018"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0635-missed_event-46.529347"
+      ],
+      "notes": "the anchors were genuinely shifted and I adjusted them",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-019"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0635-missed_event-49.781398"
+      ],
+      "notes": "the anchors were genuinely shifted and I adjusted them",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-020"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0635-missed_event-56.285501",
+        "cardeventnet-IMG_0635-missed_event-58.036605"
+      ],
+      "notes": "the anchors were genuinely shifted and I adjusted them",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-021"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0635-confirmed_false_trigger-65.750000",
+        "cardeventnet-IMG_0635-missed_event-67.292443"
+      ],
+      "notes": "the anchors were genuinely shifted and I adjusted them",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-022"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0635-confirmed_false_trigger-94.125000"
+      ],
+      "notes": "the anchors were genuinely shifted and I adjusted them",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0635",
+      "region_id": "m10-region-023"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0644-in_progress_detection-7.625000"
+      ],
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-024"
+    },
+    {
+      "decision": "mixed",
+      "decisions": [
+        "no_event_confirmed",
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0644-in_progress_detection-16.625000",
+        "cardeventnet-IMG_0644-missed_event-17.510402",
+        "cardeventnet-IMG_0644-confirmed_false_trigger-19.375000",
+        "cardeventnet-IMG_0644-confirmed_false_trigger-20.375000",
+        "cardeventnet-IMG_0644-confirmed_false_trigger-21.250000"
+      ],
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-025"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-54.125000"
+      ],
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-026"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-68.500000"
+      ],
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-027"
+    },
+    {
+      "decision": "mixed",
+      "decisions": [
+        "no_event_confirmed",
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-77.250000",
+        "cardeventnet-IMG_0644-in_progress_detection-78.000000"
+      ],
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-028"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-88.000000",
+        "cardeventnet-IMG_0644-confirmed_false_trigger-90.000000"
+      ],
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-029"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0644-confirmed_false_trigger-97.500000"
+      ],
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0644",
+      "region_id": "m10-region-030"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-9.509140"
+      ],
+      "notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-031"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-12.261786"
+      ],
+      "notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-032"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-23.020927"
+      ],
+      "notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-033"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-34.282954"
+      ],
+      "notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-034"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0652-missed_event-69.066389"
+      ],
+      "notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-035"
+    },
+    {
+      "decision": "reference_confirmed",
+      "decisions": [
+        "reference_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0652-in_progress_detection-72.750000",
+        "cardeventnet-IMG_0652-missed_event-73.819275"
+      ],
+      "notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0652",
+      "region_id": "m10-region-036"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-14.250000",
+        "cardeventnet-IMG_0661-missed_event-15.012675"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-037"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-25.775097"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-038"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-30.875000"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-039"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-37.536548",
+        "cardeventnet-IMG_0661-in_progress_detection-39.375000"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-040"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-49.375000"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-041"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-60.000000",
+        "cardeventnet-IMG_0661-missed_event-61.307990"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-042"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-66.314569"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-043"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-in_progress_detection-68.750000"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-044"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-74.572609"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-045"
+    },
+    {
+      "decision": "reference_corrected",
+      "decisions": [
+        "reference_corrected"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-missed_event-84.832599"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-046"
+    },
+    {
+      "decision": "no_event_confirmed",
+      "decisions": [
+        "no_event_confirmed"
+      ],
+      "item_ids": [
+        "cardeventnet-IMG_0661-confirmed_false_trigger-89.250000"
+      ],
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
+      "operator_region_input": null,
+      "recording_id": "cardeventnet-IMG_0661",
+      "region_id": "m10-region-047"
+    }
+  ],
+  "schema_version": "cardeventnet-m11-reference-decisions/v1",
+  "sealed_test_read": false,
+  "source_packet": {
+    "path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m10-timing-review.json",
+    "sha256": "eb47261ca4236c59c9dbab4565c77a4f8cec66804b9413e8c956a54f8444bc12"
+  },
+  "system_holdout_read": false
+}

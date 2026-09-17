@@ -423,6 +423,24 @@ operator completion checklist, and human report below
 local startup commands, and every miss, confirmed false trigger, and in-progress detection. M10
 does not change maintained references, tune the decoder, train, or read the sealed test partition.
 
+## Epic 0063 M11 reference reconciliation and decoder replay
+
+After the operator adds the six recording decisions and prose notes to the M10 checklist, run:
+
+```bash
+mise exec -- uv run --project operations doko model review-card-event-net-m11 \
+  cardeventnet-0063-m9-hard-negative-ablation \
+  --repository-root .
+```
+
+The command preserves a valid operator-edited M10 checklist, maps every M10 item to a canonical
+decision with immutable reference lineage, freezes and materializes successor dataset
+`cardeventnet-interval-dataset-00a59b5fcd210d23c569`, and replays the current decoder, a longer
+peak-confirmation decoder, and a bounded quiet-window decoder over the saved validation streams.
+It does not train, export, promote, read sealed test, or read the system holdout. M11 selects no
+decoder; the decision report, grid, result, and human report are written below the M9 campaign
+directory.
+
 ## Epic 0066 interval-review pilot
 
 M4 publishes one bounded trick-clear review as a corrected event revision, then derives a

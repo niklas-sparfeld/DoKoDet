@@ -11,38 +11,38 @@
   },
   "recordings": [
     {
-      "decision": null,
-      "notes": null,
+      "decision": "adjusted",
+      "notes": "The 60-65s span is genuinely hard. The camera moves around, and sometimes sheets of paper (but not cards) are in view. All other events have been reviewed and nudged slightly.",
       "recording_id": "cardeventnet-IMG_0090",
       "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0090/pipeline/events"
     },
     {
-      "decision": null,
-      "notes": null,
+      "decision": "prediction is okay",
+      "notes": "the 17.510 anchor is at the end of a longer trick take that is genuinely hard to detect as 'one event' because cards become visible/hidden in between.",
       "recording_id": "cardeventnet-IMG_0644",
       "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0644/pipeline/events"
     },
     {
-      "decision": null,
-      "notes": null,
+      "decision": "adjusted",
+      "notes": "the anchors were genuinely shifted and I adjusted them",
       "recording_id": "cardeventnet-IMG_0635",
       "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0635/pipeline/events"
     },
     {
-      "decision": null,
-      "notes": null,
+      "decision": "unchanged",
+      "notes": "the 21-23 trick take is genuinely harder to detect. Takes a while and cards are visible in between. But the annotation is fine.",
       "recording_id": "cardeventnet-IMG_0652",
       "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0652/pipeline/events"
     },
     {
-      "decision": null,
-      "notes": null,
+      "decision": "unchanged",
+      "notes": "the model detects the trick take *starts*, and also successfully predicts the transition periods. Just the end-anchor is too far away from the prediction. Annotations are fine.",
       "recording_id": "cardeventnet-IMG_0091",
       "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0091/pipeline/events"
     },
     {
-      "decision": null,
-      "notes": null,
+      "decision": "adjusted",
+      "notes": "15s, 25s, 61s: genuine long trick takes, model predicts start, anchor is end. 37s: wrong annotation, dismissed. 66s, 74s, 84s: Events close together, and mis-annotated -> nudged.",
       "recording_id": "cardeventnet-IMG_0661",
       "route": "http://127.0.0.1:5173/recordings/cardeventnet-IMG_0661/pipeline/events"
     }

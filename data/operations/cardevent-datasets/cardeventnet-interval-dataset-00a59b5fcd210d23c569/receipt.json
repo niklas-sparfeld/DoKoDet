@@ -1,0 +1,34 @@
+{
+  "inputs": [
+    {
+      "digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+      "id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+      "kind": "source_dataset"
+    },
+    {
+      "digest": "ed964254c627f4677b0abaa6966e62190e16cd9a18d3360651ae0c4e656f461a",
+      "kind": "m11_reference_decisions"
+    }
+  ],
+  "operator": "cardeventnet-m11",
+  "outputs": [
+    {
+      "digest": "00a59b5fcd210d23c569727f98453c77237bb2c2ae71ebfc0a69e9abf8e807ee",
+      "id": "cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+      "kind": "dataset"
+    },
+    {
+      "digest": "939ecbcfa22d3658c966c383d24368f29ee915e4aa02be820fe2bf8f6f2c8fa0",
+      "id": "cardeventnet-interval-split-939ecbcfa22d3658c966",
+      "kind": "split"
+    },
+    {
+      "digest": "3506132214a5f405d539946d042edbc42d08f4d6f2376db2602210af45a48e77",
+      "kind": "coverage"
+    }
+  ],
+  "receipt_digest": "eb8814f52277fe7ea4a6253064123a2bb4104912a6672eda0fba6a4cea3e6c23",
+  "receipt_id": "receipt-cardeventnet-m11-successor-eb8814f52277fe7ea4a6",
+  "receipt_type": "cardeventnet_interval_dataset_successor",
+  "schema_version": "cardeventnet-freeze-receipt/v1"
+}

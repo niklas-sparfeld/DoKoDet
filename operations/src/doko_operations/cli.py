@@ -51,6 +51,11 @@ from .cardevent_m10 import (
     publish_cardeventnet_m10_timing_review,
     render_cardeventnet_m10_human,
 )
+from .cardevent_m11 import (
+    CardEventM11Error,
+    publish_cardeventnet_m11_timing_review,
+    render_cardeventnet_m11_human,
+)
 from .cardevent_materialization import (
     CardEventNetMaterializationError,
     materialize_cardeventnet_dataset,
@@ -604,6 +609,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_path_options(timing_review, suppress_defaults=True)
     _add_model_options(timing_review)
     timing_review.add_argument("campaign_id")
+    m11_review = model_commands.add_parser(
+        "review-card-event-net-m11",
+        help="Reconcile the M10 review and replay the CardEventNet decoder on validation.",
+    )
+    _add_path_options(m11_review, suppress_defaults=True)
+    _add_model_options(m11_review)
+    m11_review.add_argument("campaign_id")
     improve = model_commands.add_parser(
         "improve", help="Run or resume a bounded component improvement campaign."
     )
@@ -1707,6 +1719,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else:
                     sys.stdout.write(render_cardeventnet_m10_human(packet))
                 return 0
+            if args.model_command == "review-card-event-net-m11":
+                result = publish_cardeventnet_m11_timing_review(
+                    args.campaign_id,
+                    repository_root=config.repository_root,
+                    campaign_root=args.campaign_root,
+                )
+                if args.json or args.format == "json":
+                    sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
+                else:
+                    sys.stdout.write(render_cardeventnet_m11_human(result))
+                return 0
             if args.model_command == "promote":
                 campaign_root = (
                     args.campaign_root or config.repository_root / "data" / "model-campaigns"
@@ -1834,6 +1857,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ConfigurationError,
             OSError,
             CardEventM10Error,
+            CardEventM11Error,
             ModelImprovementError,
             SystemHoldoutError,
             SystemHoldoutEvaluationError,

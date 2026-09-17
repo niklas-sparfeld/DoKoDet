@@ -7,11 +7,12 @@
   bounded manual training campaign that produces a new CardEventNet model.
 - **Status:** In Progress
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
-- **Readiness:** M0–M10 and the operator-run hard-negative ablation are complete. The ablation
+- **Readiness:** M0–M11 and the operator-run hard-negative ablation are complete. The ablation
   confirms that event presence is strong but stable-end timing remains the dominant validation
-  error. M10 published a bounded human timing-review handoff and now waits for operator decisions.
-  The sealed test remains unread. Long training, test, export, and optional diagnostic commands
-  are operator-run and are never started or monitored by an implementation agent.
+  error. M11 reconciled the six-recording prose review, froze a successor validation dataset,
+  and replayed three decoder responses. No decoder is selected yet. The sealed test remains
+  unread. Long training, test, export, and optional diagnostic commands are operator-run and are
+  never started or monitored by an implementation agent.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze a leakage-safe train/validation/test dataset, run a
   reproducible manual campaign, and retain a new `best.pt` and model bundle with complete lineage.
@@ -89,9 +90,15 @@
   operator checklist, local startup commands, six workspace routes, and a pending completion
   artifact. Packet digest: `eb47261ca4236c59c9dbab4565c77a4f8cec66804b9413e8c956a54f8444bc12`.
   It did not change maintained references, tune the decoder, start training, or read sealed test.
-- **M11:** Not started — after the operator finishes the requested review, validate the new
-  revisions, publish the review decisions, freeze a successor development dataset, and run a
-  read-only decoder replay against its validation references. Do not train or read sealed test.
+- **M11:** Complete (2026-09-17) — the six recording decisions and prose notes are reconciled
+  into 70 immutable item decisions: 27 `reference_corrected`, 25 `reference_confirmed`, and 18
+  `no_event_confirmed`. The successor dataset
+  `cardeventnet-interval-dataset-00a59b5fcd210d23c569` preserves the M7 groups and sealed-test
+  membership. Its validation replay reports 228 point matches and 49 stable-end matches with
+  the current decoder; longer peak confirmation reports 228 point matches and 51 stable-end
+  matches. No decoder is selected. The report, decision lineage, dataset, materialized view, and
+  decoder grid are under `data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/`
+  and the successor dataset path. M11 did not train, export, promote, or read sealed test.
 - **M12:** Not started — select one timing response from M11 evidence and prepare its exact manual
   campaign command. Prefer a decoder-only response when it satisfies the declared stable-end
   gates. Otherwise prepare one interval-aware temporal-model response. Stop before training.
@@ -695,6 +702,22 @@ operator completion checklist is
 the human handoff is
 `data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m10-report.md`. The operator
 must complete the checklist before M11 validates any new reference revision.
+
+M11 result — 2026-09-17: the operator entries contain prose region decisions in the six
+recording notes, so M11 records that evidence and applies a deterministic item-level mapping. The
+decision report is
+`data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m11-reference-decisions.json`;
+the successor dataset is
+`data/operations/cardevent-datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569/`; the
+decoder replay is
+`data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m11-decoder-grid.json`; and
+the human summary is
+`data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/m11-report.md`. The current
+decoder gives 228 point matches, 49 stable-end matches, 24 detections inside intervals, 32
+duplicate detections per reviewed change, 25 confirmed no-event triggers, 0.111182 seconds
+median signed timestamp error, and 0.236182 seconds median causal emission delay. A longer
+0.375-second peak confirmation gives 51 stable-end matches but 0.487339 seconds median causal
+emission delay. M11 selects no decoder and keeps sealed-test output unread.
 
 ### M11 — Reconcile review decisions and measure decoder timing
 
