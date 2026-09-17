@@ -241,6 +241,7 @@ dependencies = [
     { name = "opencv-python" },
     { name = "pillow" },
     { name = "pyyaml" },
+    { name = "rfdetr" },
     { name = "table-evidence-analyzer" },
 ]
 
@@ -250,6 +251,7 @@ requires-dist = [
     { name = "opencv-python", specifier = ">=4.10" },
     { name = "pillow", specifier = "==12.3.0" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
+    { name = "rfdetr", specifier = "==1.9.4" },
     { name = "table-evidence-analyzer", editable = "../table_evidence_analyzer" },
 ]
 
