@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0068 — Reviewed RF-DETR local visible-card detector](2-ready/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | Freeze the 24 corrected visible-card references into source-group-safe partitions, train one RF-DETR candidate, and register it as a local selectable provider only when its held-out gate passes. |
 
 ### In Progress
 
