@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -140,6 +141,62 @@ def _relative(path: Path, root: Path) -> str:
 
 def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _probe_video_duration_us(path: Path) -> int:
+    """Return the canonical duration from an accepted video bundle."""
+
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe is None:
+        raise DinoV3IdentityPreflightError("ffprobe is required to inspect source duration")
+    try:
+        result = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration:stream=codec_type,duration",
+                "-show_streams",
+                "-of",
+                "json",
+                str(path),
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise DinoV3IdentityPreflightError(f"could not probe source duration: {path}") from error
+    if result.returncode != 0:
+        raise DinoV3IdentityPreflightError(f"could not probe source duration: {path}")
+    try:
+        payload = json.loads(result.stdout)
+        stream_duration = next(
+            stream.get("duration")
+            for stream in payload["streams"]
+            if isinstance(stream, Mapping)
+            and stream.get("codec_type") == "video"
+            and stream.get("duration")
+        )
+    except (KeyError, TypeError, StopIteration, json.JSONDecodeError):
+        try:
+            stream_duration = payload["format"]["duration"]
+        except (KeyError, TypeError, UnboundLocalError) as error:
+            raise DinoV3IdentityPreflightError(
+                f"source duration is unavailable: {path}"
+            ) from error
+    try:
+        seconds = float(stream_duration)
+    except (TypeError, ValueError) as error:
+        raise DinoV3IdentityPreflightError(f"source duration is invalid: {path}") from error
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise DinoV3IdentityPreflightError(f"source duration is invalid: {path}")
+    duration_ms = round(seconds * 1_000)
+    if duration_ms <= 0:
+        raise DinoV3IdentityPreflightError(f"source duration is invalid: {path}")
+    return duration_ms * 1_000
 
 
 def _digest(value: Any, field: str) -> str:
@@ -594,8 +651,13 @@ def _source_inventory(
             or not isinstance(source_duration_us, int)
             or source_duration_us <= 0
         ):
-            gaps.append(f"{bundle.recording_id}: source duration_us is invalid")
-            source_duration_us = None
+            if video_path is not None and video_path.is_file():
+                try:
+                    source_duration_us = _probe_video_duration_us(video_path)
+                except DinoV3IdentityPreflightError:
+                    source_duration_us = None
+            if source_duration_us is None:
+                gaps.append(f"{bundle.recording_id}: source duration_us is invalid")
         allowed_uses = source.get("allowed_uses")
         if not isinstance(allowed_uses, list) or any(
             not isinstance(value, str) for value in allowed_uses

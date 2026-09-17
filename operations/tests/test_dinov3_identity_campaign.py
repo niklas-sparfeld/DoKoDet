@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from doko_operations.derived_view import (
     DEFAULT_FRAME_TRANSFORM_VERSION,
@@ -12,6 +13,7 @@ from doko_operations.derived_view import (
 from doko_operations.dinov3_identity_campaign import (
     DINOV3_REQUIRED_CROP_POLICY,
     _analyze_recording,
+    _probe_video_duration_us,
     build_dinov3_identity_preflight,
     prepare_dinov3_identity_campaign,
     render_dinov3_identity_preflight_human,
@@ -20,6 +22,31 @@ from doko_operations.dinov3_identity_campaign import (
 )
 
 DIGEST = "a" * 64
+
+
+def test_probe_video_duration_uses_video_stream_and_millisecond_rounding(
+    monkeypatch, tmp_path: Path
+) -> None:
+    video = tmp_path / "video.mov"
+    video.write_bytes(b"video")
+    monkeypatch.setattr(
+        "doko_operations.dinov3_identity_campaign.shutil.which",
+        lambda name: "/usr/bin/ffprobe" if name == "ffprobe" else None,
+    )
+    monkeypatch.setattr(
+        "doko_operations.dinov3_identity_campaign.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "streams": [{"codec_type": "video", "duration": "1.234567"}],
+                    "format": {"duration": "9.0"},
+                }
+            ),
+        ),
+    )
+
+    assert _probe_video_duration_us(video) == 1_235_000
 
 
 def _frame() -> dict[str, object]:
