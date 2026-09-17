@@ -61,6 +61,11 @@ class FakeLocalVisibleCardProvider:
         )
 
 
+class FakeLocalSegmentationProvider(FakeLocalVisibleCardProvider):
+    name = "local-rfdetr-segmentation"
+    version = "local-visible-card-segmentation-test-v1"
+
+
 class FakeLocalIdentityClassifier:
     name = "local-dinov3"
     version = "dinov3-local-identity-test-v1"
@@ -160,6 +165,33 @@ def test_local_backend_selection_keeps_gemini_identity_and_does_not_construct_ge
     assert app.state.analyzer.provider.provider.name == "local"
     assert app.state.analyzer.provider.provider.device == "cpu"
     assert app.state.analyzer.classifier.classifier.name == "gemini"
+
+
+@pytest.mark.parametrize("device", ["cpu", "mps"])
+def test_reviewed_segmentation_backend_selection_is_explicit_and_non_default(
+    tmp_path: Path, monkeypatch, device: str
+) -> None:
+    bundle_path = tmp_path / "bundle"
+    bundle_path.mkdir()
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardSegmentationProvider",
+        FakeLocalSegmentationProvider,
+    )
+    app = create_app(
+        _settings(
+            tmp_path,
+            visible_card_provider="local-rfdetr-segmentation",
+            visible_card_bundle_path=bundle_path,
+            visible_card_device=device,
+            visible_card_identity_classifier="gemini",
+        )
+    )
+
+    selected = app.state.analyzer.provider.provider
+    assert selected.name == "local-rfdetr-segmentation"
+    assert selected.device == device
+    assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
 
 
 def test_local_identity_selection_does_not_require_gemini_or_construct_gemini(

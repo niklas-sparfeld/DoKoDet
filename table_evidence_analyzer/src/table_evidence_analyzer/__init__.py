@@ -147,6 +147,16 @@ from table_evidence_analyzer.repository_intake import (
     parse_evidence_package_record,
     parse_pending_video,
 )
+from table_evidence_analyzer.rfdetr_segmentation_decision import (
+    DEFAULT_VISIBLE_CARD_PROVIDER,
+    LEGACY_LOCAL_VISIBLE_CARD_PROVIDER,
+    REVIEWED_SEGMENTATION_PROVIDER,
+    RFDETR_SEGMENTATION_DECISION_SCHEMA,
+    VISIBLE_CARD_PROVIDER_REGISTRY_SCHEMA,
+    RfdetrSegmentationDecisionConfig,
+    RfdetrSegmentationDecisionError,
+    run_rfdetr_segmentation_decision,
+)
 from table_evidence_analyzer.rfdetr_segmentation_training import (
     RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID,
     RFDETR_REVIEWED_DETECTOR_CAMPAIGN_RUN_SCHEMA,
@@ -585,6 +595,14 @@ __all__ = [
     "load_rfdetr_segmentation_bundle",
     "run_rfdetr_segmentation_campaign_training",
     "run_rfdetr_segmentation_training",
+    "DEFAULT_VISIBLE_CARD_PROVIDER",
+    "LEGACY_LOCAL_VISIBLE_CARD_PROVIDER",
+    "REVIEWED_SEGMENTATION_PROVIDER",
+    "RFDETR_SEGMENTATION_DECISION_SCHEMA",
+    "RfdetrSegmentationDecisionConfig",
+    "RfdetrSegmentationDecisionError",
+    "VISIBLE_CARD_PROVIDER_REGISTRY_SCHEMA",
+    "run_rfdetr_segmentation_decision",
     "MAX_TARGETED_BATCH_FRAMES",
     "VISIBLE_CARD_TARGETED_BATCH_SCHEMA",
     "VISIBLE_CARD_TARGETED_CANDIDATE_SCHEMA",

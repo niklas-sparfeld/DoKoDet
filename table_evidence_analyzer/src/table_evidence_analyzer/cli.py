@@ -298,6 +298,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--device", choices=("cpu", "mps", "cuda"), default="mps"
     )
 
+    segmentation_decision_parser = commands.add_parser(
+        "decide-rfdetr-visible-card-detector",
+        help="Record the M4 RF-DETR local availability decision.",
+        description=(
+            "Validate the completed M2 bundle and M3 report, then write a bounded decision "
+            "and a selectable local-provider registry entry when the gate passes."
+        ),
+    )
+    segmentation_decision_parser.add_argument("--validation-report", type=Path, required=True)
+    segmentation_decision_parser.add_argument("--training-run", type=Path, required=True)
+    segmentation_decision_parser.add_argument("--candidate-bundle", type=Path, required=True)
+    segmentation_decision_parser.add_argument("--output-dir", type=Path, required=True)
+
     evaluate_parser = commands.add_parser(
         "evaluate",
         help="Evaluate a frozen run or exported bundle.",
@@ -753,6 +766,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                     candidate_bundle=args.candidate_bundle,
                     output_dir=args.output_dir,
                     device=args.device,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "decide-rfdetr-visible-card-detector":
+        from .rfdetr_segmentation_decision import (
+            RfdetrSegmentationDecisionConfig,
+            run_rfdetr_segmentation_decision,
+        )
+
+        try:
+            report = run_rfdetr_segmentation_decision(
+                RfdetrSegmentationDecisionConfig(
+                    validation_report=args.validation_report,
+                    training_run=args.training_run,
+                    candidate_bundle=args.candidate_bundle,
+                    output_dir=args.output_dir,
                 )
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:

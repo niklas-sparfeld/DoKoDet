@@ -5,16 +5,19 @@
 - **Summary:** Train and evaluate one new RF-DETR segmentation candidate from the current
   human-corrected visible-card references. Make it a locally selectable visible-card detector only
   if it passes a frozen held-out quality gate.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** The candidate passed the frozen validation and sealed-test gate and was
+  registered as an explicit selectable local segmentation provider. The Gemini default and the
+  existing 0067 PoC artifact remain unchanged.
 - **Depends on:** 0037, 0048, 0049, 0065, and 0067 complete
 - **Readiness:** The selected completed references now contain 24 recordings, 1,180 reviewed
   outcomes, and 2,947 reviewed visible-card targets. After excluding 259 frames with
   visible-card ignore regions and 137 unusable or duplicate-frame outcomes, 784 positive frames
   with 2,203 targets are eligible for ordinary RF-DETR supervision. The existing RF-DETR SegMedium materializer,
   trainer, evaluator, bundle, and provider path are proven by 0067.
-- **Outcome:** A retained RF-DETR segmentation bundle and a reproducible held-out report. If the
-  gate passes, register the bundle as a local selectable provider. Do not change the default
-  provider automatically.
+- **Outcome:** A retained RF-DETR segmentation bundle, a reproducible held-out report, and an
+  explicit selectable local provider registration. The default provider remains unchanged.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -32,7 +35,8 @@
   a resumable MPS run.
 - **M3:** Complete — evaluate the unchanged pretrained baseline and selected candidate on the
   frozen validation and sealed-test partitions, with retained predictions and required slices.
-- **M4:** Not started — make the bounded local-provider decision and register a passing bundle.
+- **M4:** Complete — record the bounded local-provider decision and register the passing bundle as
+  `local-rfdetr-segmentation` while keeping `gemini` as the default.
 
 ## 1. Corpus inspection
 
@@ -244,6 +248,23 @@ Acceptance:
 - The report covers 143 validation frames and 104 sealed-test frames. It records 122 validation
   exclusions plus 11 ineligible outcomes, and 43 sealed-test exclusions plus 10 ineligible
   outcomes. It states that the corpus has no reviewed empty-background frames.
+
+#### M4 implementation evidence — 2026-09-17
+
+- Added `decide-rfdetr-visible-card-detector`. It validates the completed M2 run, M3 report, and
+  digest-checked candidate bundle, then writes a concise decision receipt with corpus facts,
+  locked metrics, source-linked count mismatches, resource cost, and evidence limits.
+- The live decision is `registered_selectable_candidate`. Its decision receipt is
+  `.runtime/rfdetr-visible-card-detector-0068-m4-decision/decision.json`; its provider registry is
+  `.runtime/rfdetr-visible-card-detector-0068-m4-decision/provider-registry.json` with digest
+  `450e20397ad09e1da99de50de08b73864226d23e4749aa11a2703bed92942e43`.
+- Added the explicit backend selector `VISIBLE_CARD_PROVIDER=local-rfdetr-segmentation`. It
+  accepts `VISIBLE_CARD_DEVICE=cpu` or `mps` and uses the retained RF-DETR mask-provider bundle.
+  Each provider result retains the bundle identity. The default `gemini` selector and the older
+  detection-only `local` selector remain unchanged.
+- Focused decision, provider, training, evaluation, and backend tests pass. The candidate was
+  checked on both local-device selection paths in tests. The decision does not claim
+  background-only precision or production readiness.
 
 ### M3 — Lock validation and sealed-test evidence
 

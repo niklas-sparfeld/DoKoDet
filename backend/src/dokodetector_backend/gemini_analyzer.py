@@ -9,6 +9,7 @@ from table_evidence_analyzer import (
     GeminiCardClassifier,
     GeminiVisibleCardProvider,
     LocalVisibleCardProvider,
+    LocalVisibleCardSegmentationProvider,
     TableEvidenceAnalyzer,
     VisibleCardTableAnalyzer,
     get_shared_gemini_request_limiter,
@@ -21,9 +22,7 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
     """Create the analyzer with independent detector and identity selections."""
 
     cache_root = settings.evidence_root / "gemini-cache"
-    request_limiter = get_shared_gemini_request_limiter(
-        settings.gemini_max_concurrent_requests
-    )
+    request_limiter = get_shared_gemini_request_limiter(settings.gemini_max_concurrent_requests)
     if settings.visible_card_provider == "gemini":
         if not settings.gemini_api_key:
             raise ConfigurationError(
@@ -35,7 +34,7 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
             max_retries=settings.gemini_max_retries,
             request_limiter=request_limiter,
         )
-    else:
+    elif settings.visible_card_provider == "local":
         if settings.visible_card_bundle_path is None:
             raise ConfigurationError(
                 "VISIBLE_CARD_BUNDLE_PATH is required when VISIBLE_CARD_PROVIDER=local."
@@ -52,6 +51,26 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
         except Exception as error:
             raise ConfigurationError(
                 f"The local visible-card provider could not start: {error}"
+            ) from error
+    else:
+        if settings.visible_card_bundle_path is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_BUNDLE_PATH is required when "
+                "VISIBLE_CARD_PROVIDER=local-rfdetr-segmentation."
+            )
+        if settings.visible_card_device is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_DEVICE must be set to cpu or mps when "
+                "VISIBLE_CARD_PROVIDER=local-rfdetr-segmentation."
+            )
+        try:
+            visible_card_provider = LocalVisibleCardSegmentationProvider(
+                settings.visible_card_bundle_path,
+                device=settings.visible_card_device,
+            )
+        except Exception as error:
+            raise ConfigurationError(
+                f"The local visible-card segmentation provider could not start: {error}"
             ) from error
 
     provider = CachedVisibleCardProvider(visible_card_provider, cache_root / "visible-cards")

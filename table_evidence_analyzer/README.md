@@ -58,9 +58,9 @@ mise exec -- uv sync
 
 ## Command line
 
-The `table-analyzer` command exposes the local visible-card baseline and the bounded training
-commands. The local RF-DETR provider is a Python adapter; backend provider selection is a later
-milestone.
+The `table-analyzer` command exposes the local visible-card baseline and the bounded training and
+decision commands. The local RF-DETR providers are Python adapters; backend provider selection is
+documented in `backend/README.md`.
 
 ```bash
 table-analyzer --help
@@ -72,6 +72,7 @@ table-analyzer classify-dinov3-identity --help
 table-analyzer train-visible-card-detector --help
 table-analyzer train-rfdetr-segmentation --help
 table-analyzer train-rfdetr-segmentation-campaign --help
+table-analyzer decide-rfdetr-visible-card-detector --help
 table-analyzer train --help
 table-analyzer evaluate --help
 table-analyzer export --help
@@ -170,6 +171,22 @@ mise exec -- uv run --project table_evidence_analyzer --group training table-ana
 The report includes overall metrics, recording, card-side, and visible-card-count slices, plus
 excluded-frame and ineligible-outcome receipts. Rerunning a completed output verifies and reuses
 all retained prediction artifacts.
+
+Record the bounded epic 0068 local-availability decision after the M2 run and M3 report complete:
+
+```bash
+mise exec -- uv run --project table_evidence_analyzer --group training table-analyzer \
+  decide-rfdetr-visible-card-detector \
+  --validation-report .runtime/rfdetr-visible-card-detector-0068-m3-validation/report.json \
+  --training-run .runtime/rfdetr-visible-card-detector-0068-m2-training/run.json \
+  --candidate-bundle .runtime/rfdetr-visible-card-detector-0068-m2-training/bundle \
+  --output-dir .runtime/rfdetr-visible-card-detector-0068-m4-decision
+```
+
+When the frozen gate passes, the command writes a selectable provider registry. It keeps
+`VISIBLE_CARD_PROVIDER=gemini` as the default and records removal of the candidate entry as the
+rollback. The backend selects the candidate with `VISIBLE_CARD_PROVIDER=local-rfdetr-segmentation`
+and the same `VISIBLE_CARD_BUNDLE_PATH` plus `VISIBLE_CARD_DEVICE=cpu` or `mps`.
 
 Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
 `GEMINI_API_KEY` is present in the process environment. The fake provider is deterministic and

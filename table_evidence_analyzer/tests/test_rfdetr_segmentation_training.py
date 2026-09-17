@@ -632,8 +632,9 @@ def test_failure_writes_resumable_segmentation_run_record(tmp_path: Path) -> Non
     assert record["finished_at"]
 
 
+@pytest.mark.parametrize("device", ["cpu", "mps"])
 def test_segmentation_provider_uses_mask_and_distinct_bundle(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, device: str
 ) -> None:
     _view, _pretrained, output = _config(tmp_path)
     monkeypatch.setattr(
@@ -652,7 +653,16 @@ def test_segmentation_provider_uses_mask_and_distinct_bundle(
             )
 
     provider = LocalVisibleCardSegmentationProvider(
-        output / "bundle", device="cpu", detector=Detector()
+        output / "bundle",
+        device=device,
+        detector=Detector(),
+        torch_module=(
+            None
+            if device == "cpu"
+            else SimpleNamespace(
+                backends=SimpleNamespace(mps=SimpleNamespace(is_available=lambda: True))
+            )
+        ),
     )
     image = _image_bytes((120, 80, 40))
     result = provider.propose(
@@ -670,6 +680,7 @@ def test_segmentation_provider_uses_mask_and_distinct_bundle(
 
     assert result.status == "ok"
     assert provider.bundle_identity["schema_version"] == RFDETR_SEGMENTATION_BUNDLE_SCHEMA
+    assert result.raw_response["bundle_identity"] == provider.bundle_identity
     assert result.proposals[0].box_2d.to_mapping() == {
         "x_min": 83,
         "y_min": 125,

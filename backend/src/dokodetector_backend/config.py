@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     gemini_timeout_seconds: float = 120.0
     gemini_max_retries: int = 2
     gemini_max_concurrent_requests: int = Field(default=4, ge=1)
-    visible_card_provider: Literal["gemini", "local"] = Field(
+    visible_card_provider: Literal["gemini", "local", "local-rfdetr-segmentation"] = Field(
         default="gemini",
         validation_alias=AliasChoices("VISIBLE_CARD_PROVIDER"),
     )

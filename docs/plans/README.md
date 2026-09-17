@@ -51,7 +51,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
- | [0068 — Reviewed RF-DETR local visible-card detector](3-in-progress/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | 0037, 0048, 0049, 0065, and 0067 complete | M0–M3 are complete; the selected candidate passes the validation and sealed-test evidence gate, and M4 must decide local availability. |
  | [0043 — First local DINOv3 card identifier](3-in-progress/0043-First_Local_DINOv3_Card_Identifier.md) | 0041, 0042, 0048, 0049, and 0062 complete | M0 and M1 are complete; frozen campaign `0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e` is ready, and the M2 handoff passes with the exact operator command. Real M2 training and M3 are pending. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
@@ -68,6 +67,7 @@ The shared target architecture is
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
 | [0063 — Current CardEventNet training campaign](5-closed/0063-Current_CardEventNet_Training_Campaign.md) | Complete | M0–M15 complete: M15 validated the one-time sealed-test output and Core ML integration bundle against the immutable M14 lock, recorded the runtime contract and parity digest, retained M9 as a development-only integration baseline, and left the production champion unchanged. |
+| [0068 — Reviewed RF-DETR local visible-card detector](5-closed/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | Complete | M0–M4 complete: the reviewed RF-DETR candidate passed the frozen validation and sealed-test gate, was registered as an explicit selectable local segmentation provider, and left the Gemini default plus the existing 0067 PoC artifact unchanged. |
 | [0067 — RF-DETR visible-region training campaign](5-closed/0067-RF_DETR_Visible_Region_Training_Campaign.md) | Complete | M0–M4 complete: a fixed RF-DETR SegMedium recipe produced an unpromoted `poc_candidate`. The locked validation gate passed against the unchanged pretrained baseline. The decision report retains corpus limits, source-linked errors, and the optional 0050 handoff. |
 | [0062 — Canonical card-state data and face-down identity](5-closed/0062-Canonical_Card_State_and_Face_Down_Identity.md) | Complete | M0–M4 complete: active event data and contracts use the singleton `card_state_changed` value, immutable history remains readable, review and comparison surfaces use one canonical label, `FACE_DOWN` remains outside legal card identities, and the pre-reconstruction observation plus game-engine boundary preserves face-down status, exact visual outcome diagnostics, and source lineage without changing reconstruction. |
 | [0064 — CardEvent frame-review editor](5-closed/0064-CardEvent_Frame_Review_Editor.md) | Complete | M0–M2 complete: the reviewed CardEvent editor uses the recording-owned exact source-frame surface, compact left review controls, responsive desktop and narrow layouts, and browser accessibility regression coverage while the right inspector remains unchanged. |
@@ -129,9 +129,9 @@ The shared target architecture is
 
 ## Next steps
 
-1. **Continue 0068 with M4 for the reviewed RF-DETR detector.** Use the retained M2 bundle and M3
-   report to make the bounded local-provider decision. Keep the existing provider default
-   unchanged.
+1. **Use the closed 0068 RF-DETR detector decision as a selectable local option.** Set
+   `VISIBLE_CARD_PROVIDER=local-rfdetr-segmentation` only when the retained bundle is available;
+   keep the default provider unchanged.
 2. **Continue 0063 with M15 only after the operator completes M14.** M14 created a development-only
    integration lock and exact one-time sealed-test and Core ML export/parity handoffs. Do not tune,
    promote, or treat M9 as the production champion.
