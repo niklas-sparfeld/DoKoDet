@@ -2,18 +2,16 @@
 
 ## Plan status
 
-- **Summary:** Move the remaining legacy CardEventNet corpus into shared repository data, use the
-  reviewed card-state change intervals in a second frozen dataset, and run a bounded manual
-  training campaign that produces a new CardEventNet model.
+- **Summary:** Move the remaining legacy CardEventNet corpus into shared repository data, use
+  reviewed card-state change intervals, resolve the measured stable-end timing errors, and run a
+  bounded manual training campaign that produces a new CardEventNet model.
 - **Status:** In Progress
 - **Depends on:** 0020, 0028, 0048, and 0049 complete; 0062 M0 and M1 complete
-- **Readiness:** The shared recording intake, maintained event references, group-safe development
-  split, model campaign runner, canonical `card_state_changed` event contract, and interval-aware
-  sampling policy exist. M5 produced a bounded validation result. The new interval pass is complete
-  for the recordings that remain eligible. `IMG_2777` through `IMG_2781` are old-phone recordings
-  that the operator excluded from future datasets and retained only for optional legacy-device
-  diagnostics. M6 must publish this repository-wide exclusion before a second dataset freeze. Long
-  training commands are operator-run and are never started or monitored by an implementation
+- **Readiness:** M0–M9 and the operator-run hard-negative ablation are complete. The ablation
+  confirms that event presence is strong but stable-end timing remains the dominant validation
+  error. The sealed test remains unread. M10 must publish a bounded human timing-review handoff
+  before another dataset freeze or training campaign. Long training, test, export, and optional
+  diagnostic commands are operator-run and are never started or monitored by an implementation
   agent.
 - **Outcome:** Root `data/` is the only active CardEventNet data authority. An operator can see and
   finish every human event-review gap, freeze a leakage-safe train/validation/test dataset, run a
@@ -81,10 +79,24 @@
   device-parity, and regression-fixture gates are not all satisfied. No candidate lock or sealed
   test read was created. The operator reviewed all 68 hard-negative candidates: 63 are
   `no_event` and five are `missed_event`. A separate 63-item, `training_input: true` manifest and
-  operator-only hard-negative ablation handoff are ready; the original M9 manifest remains
-  unchanged.
-- **M10:** Not started — blocked because M9 created no candidate lock. The separate hard-negative
-  ablation must run and be evaluated before any sealed-test or export handoff.
+  operator-only hard-negative ablation handoff were prepared; the original M9 manifest remains
+  unchanged. The operator later completed that ablation. It reached validation recall 0.910,
+  precision 0.934, F1 0.922, 20 confirmed false triggers, 22 in-progress detections, 49 stable-end
+  matches, and 235 point matches. It did not create a candidate lock or read sealed test.
+- **M10:** Not started — publish the validation timing-review handoff. It must name the exact six
+  recordings and timestamps that need operator inspection, explain each reason, print the local
+  review commands and workspace routes, and stop before changing a maintained reference.
+- **M11:** Not started — after the operator finishes the requested review, validate the new
+  revisions, publish the review decisions, freeze a successor development dataset, and run a
+  read-only decoder replay against its validation references. Do not train or read sealed test.
+- **M12:** Not started — select one timing response from M11 evidence and prepare its exact manual
+  campaign command. Prefer a decoder-only response when it satisfies the declared stable-end
+  gates. Otherwise prepare one interval-aware temporal-model response. Stop before training.
+- **M13:** Not started — after the operator runs the M12 command, compare the candidate on the
+  successor validation partition and either lock it or retain `human_review_required`.
+- **M14:** Not started — blocked until M13 creates a candidate lock. Prepare and validate the
+  one-time sealed-test, export, parity, and promotion handoffs without running operator-only
+  commands.
 
 ## 1. Current evidence
 
@@ -578,8 +590,167 @@ training partition and remained outside training until the operator reviewed it.
 review produced 63 approved `no_event` samples and excluded five `missed_event` samples. The
 separate ablation manifest and operator handoff are under
 `data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/`; no long command was started.
+The operator later ran the handoff. The completed result improved F1 from 0.917 to 0.922 and reduced
+confirmed false triggers from 22 to 20, but stable-end matches changed from 50 to 49. This marginal
+change confirms that another hard-negative pass is not the next campaign axis.
 
-### M10 — Manual sealed test, export, and handoff
+### M10 — Publish the validation timing-review handoff
+
+M10 is Luna work. Luna must derive one deterministic review packet from the completed hard-negative
+ablation evaluation, the M7 validation references, and the saved validation streams. The packet
+must contain the selected checkpoint, threshold, decoder settings, dataset and revision digests,
+and one item for every reported miss, confirmed false trigger, and in-progress interval detection.
+Group adjacent items into one review region so the operator does not review the same action twice.
+
+The packet must separate three questions:
+
+1. Is there a reviewed card-state change that is absent or timed incorrectly?
+2. Is the prediction inside one continuous reviewed interval?
+3. Is the prediction a real no-event trigger after the reference is confirmed?
+
+Do not show a model outcome as ground truth. Do not change a maintained reference, create a new
+dataset, tune the decoder, or run training in M10.
+
+#### Operator review order
+
+Luna must give the operator this ordered list after it publishes the packet:
+
+1. **Review `cardeventnet-IMG_0090` first.** It contains eight of the 20 confirmed false triggers,
+   four reported misses, and three in-progress detections. Inspect the miss anchors at 29.743,
+   32.103, 50.044, and 110.871 seconds. Inspect predictions at 36.750, 48.500, 54.625, 61.000,
+   62.375, 64.125, 64.875, and 71.125 seconds. Treat 61.000–64.875 seconds as one review region.
+   This recording can reveal missing events or repeated decoder triggers.
+2. **Review `cardeventnet-IMG_0644` second.** It contains nine confirmed false triggers, one
+   reported miss, and three in-progress detections. Inspect the miss anchor at 17.510 seconds.
+   Inspect predictions at 19.375, 20.375, 21.250, 54.125, 68.500, 77.250, 88.000, 90.000, and
+   97.500 seconds. Treat 17.510–21.250 seconds as one review region. Together with `IMG_0090`, this
+   recording accounts for 17 of the 20 confirmed false triggers.
+3. **Review `cardeventnet-IMG_0635` for possible missing or shifted point events.** Inspect miss
+   anchors at 46.529, 49.781, 56.286, 58.037, and 67.292 seconds, and predictions at 65.750 and
+   94.125 seconds. The first four misses have low nearby scores. The 65.750 prediction and 67.292
+   miss can be one timing disagreement.
+4. **Review `cardeventnet-IMG_0652` for the only trick clear without a decoded trigger.** Inspect
+   the reviewed interval from 21.021 to 23.021 seconds. Also inspect miss anchors at 9.509, 12.262,
+   34.283, 69.066, and 73.819 seconds. Some are merged or in-progress detections; do not split one
+   continuous change only to match the model.
+5. **Inspect `cardeventnet-IMG_0091` as a timing-only case.** It has no confirmed false triggers.
+   Inspect miss anchors at 9.217, 22.269, 60.139, 90.442, and 99.526 seconds. Four have strong
+   nearby scores. Re-annotate only when the current interval start or stable end is wrong.
+6. **Inspect `cardeventnet-IMG_0661` as a merge and timing case.** Inspect miss anchors at 15.013,
+   25.775, 37.537, 61.308, 66.315, 74.573, and 84.833 seconds, plus the prediction at 89.250
+   seconds. All seven misses have strong nearby scores. Prefer keeping valid close events over
+   moving them to satisfy the current decoder gap.
+
+The operator must inspect the complete action around each listed region, not only one frame. The
+operator must keep a correct point or interval unchanged. When the reference is wrong, the operator
+must start a new event-reference draft, correct the event, record full-source coverage, and publish
+a new completed revision. A completed review with no changes is a valid result.
+
+#### Commands that M10 must print for the operator
+
+From the repository root, start the local backend in one terminal:
+
+```bash
+mise exec -- uv run --project backend dokodetector-backend
+```
+
+Start the web workspace in a second terminal:
+
+```bash
+cd web
+mise exec -- npm run dev
+```
+
+Then open these routes in the printed order:
+
+```text
+http://127.0.0.1:5173/recordings/cardeventnet-IMG_0090/pipeline/events
+http://127.0.0.1:5173/recordings/cardeventnet-IMG_0644/pipeline/events
+http://127.0.0.1:5173/recordings/cardeventnet-IMG_0635/pipeline/events
+http://127.0.0.1:5173/recordings/cardeventnet-IMG_0652/pipeline/events
+http://127.0.0.1:5173/recordings/cardeventnet-IMG_0091/pipeline/events
+http://127.0.0.1:5173/recordings/cardeventnet-IMG_0661/pipeline/events
+```
+
+These are interactive review commands, not long-running model tasks. Luna can prepare the packet
+and verify the local commands, but only the operator can make and complete the review decisions.
+
+Acceptance:
+
+- the review packet is reproducible from immutable M7 and ablation artifacts;
+- every review item links to one recording, exact time range, current reference revision, source
+  frame evidence, model outcome, and review reason;
+- adjacent outcomes from one action are grouped without hiding their original timestamps;
+- the generated report prints the ordered operator checklist, both startup commands, all six
+  workspace routes, and the exact artifact the operator must complete; and
+- M10 stops for the operator without changing reference data or starting training.
+
+### M11 — Reconcile review decisions and measure decoder timing
+
+- Start only after the operator confirms that the M10 review is complete.
+- Validate each changed or confirmed maintained reference and publish a decision report that maps
+  every M10 item to `reference_corrected`, `reference_confirmed`, or `no_event_confirmed`.
+- Freeze and materialize a successor development dataset when any selected event revision changed.
+  Preserve source groups and the sealed-test membership. Create a new immutable dataset instead of
+  changing M7.
+- Re-evaluate the saved checkpoint against the successor validation references. Report separately:
+  point matches, stable-end matches, detections inside intervals, duplicate detections per reviewed
+  change, confirmed no-event triggers, signed timestamp error, and causal emission delay.
+- Replay a small declared decoder grid over the saved probability streams. Include the current
+  decoder, longer peak confirmation, and one bounded burst or quiet-window decoder. Select no
+  decoder after reading sealed-test output.
+
+Acceptance:
+
+- all human decisions have immutable revision and source lineage;
+- unchanged references remain byte-identical;
+- the report distinguishes event presence from stable-end readiness and never calls an interval
+  interior a negative;
+- the decoder grid, thresholds, timing windows, and selection rule are declared before comparison;
+  and
+- M11 does not train, export, promote, or read sealed test.
+
+### M12 — Prepare one timing-response campaign
+
+- If a decoder-only candidate meets the declared stable-end, false-trigger, duplicate-trigger, and
+  latency gates, keep the checkpoint fixed and prepare that bounded decoder-only campaign.
+- Otherwise implement one interval-aware temporal response. Prefer an explicit
+  `transition_in_progress` signal or equivalent endpoint objective. Do not relabel interval
+  interiors as ordinary or hard negatives.
+- Add tests for point events, long intervals, close valid events, causal emission, and deterministic
+  offline replay.
+- Write one exact operator handoff command with fixed inputs, seed, device, precision, time budget,
+  output paths, and resume behavior. The command may prepare data, train, evaluate validation, and
+  write diagnostics. It must not read sealed test or system holdout.
+- Stop before running the command. The operator runs and resumes every long training command.
+
+Acceptance:
+
+- the M11 decision rule selects exactly one response;
+- the response changes only the declared timing axis;
+- the operator handoff contains the exact long-running command and expected completion artifacts;
+  and
+- Luna does not start or monitor the long-running command.
+
+### M13 — Compare and lock the timing candidate
+
+- Start only after the operator reports that the M12 command completed.
+- Validate output completeness and lineage before reading metrics.
+- Compare the candidate with the M9 hard-negative checkpoint on the same successor validation
+  references and declared decoder contract.
+- Lock one candidate only when every validation gate passes. Otherwise retain
+  `human_review_required` with exact failure reasons.
+- Do not change annotations, threshold, decoder, or training recipe after reading this comparison.
+- Do not read sealed test.
+
+Acceptance:
+
+- the report includes strict stable-end metrics and separate interval-presence diagnostics;
+- the candidate decision is reproducible and uses no sealed-test or system-holdout output; and
+- a lock binds the checkpoint, threshold, decoder, dataset, split, reference revisions, code, and
+  environment.
+
+### M14 — Manual sealed test, export, and handoff
 
 - With explicit operator confirmation, write the exact one-time sealed-test command for the locked
   candidate and stop. Do not start or monitor it.
