@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -45,6 +46,7 @@ RFDETR_REVIEWED_DETECTOR_MANIFEST_SCHEMA = "rfdetr-visible-card-detector-manifes
 RFDETR_REVIEWED_DETECTOR_SMOKE_RUN_SCHEMA = "rfdetr-visible-card-detector-smoke-run/v1"
 RFDETR_REVIEWED_DETECTOR_CAMPAIGN_RUN_SCHEMA = "rfdetr-visible-card-detector-training-run/v1"
 RFDETR_REVIEWED_DETECTOR_DATASET_SCHEMA = "rfdetr-visible-card-detector-training-dataset/v1"
+MPS_MEMORY_TELEMETRY_FILENAME = "mps-memory.jsonl"
 _SHA256_LENGTH = 64
 _RUNNERS = frozenset({"fixture", "rfdetr"})
 _DEVICES = frozenset({"cpu", "mps", "cuda"})
@@ -923,6 +925,88 @@ def _run_fixture(inputs: Mapping[str, Any], staged_dataset: Path, training_outpu
     return checkpoint
 
 
+def _mps_memory_guard(device: str, training_output: Path) -> dict[str, Any]:
+    """Describe the MPS cache policy recorded for one training run."""
+
+    return {
+        "enabled": device == "mps",
+        "telemetry_file": MPS_MEMORY_TELEMETRY_FILENAME if device == "mps" else None,
+        "clear_cache_after_validation": device == "mps",
+    }
+
+
+def _build_mps_memory_callback(telemetry_path: Path) -> Any:
+    """Create a Lightning callback that records and releases idle MPS allocations."""
+
+    import torch
+    from pytorch_lightning import Callback
+
+    class MpsMemoryCallback(Callback):
+        def _record(self, event: str) -> None:
+            try:
+                telemetry_path.parent.mkdir(parents=True, exist_ok=True)
+                row = {
+                    "event": event,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "active_bytes": int(torch.mps.current_allocated_memory()),
+                    "driver_bytes": int(torch.mps.driver_allocated_memory()),
+                }
+                with telemetry_path.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
+            except Exception:
+                # Memory telemetry must not interrupt a checkpointable training run.
+                return
+
+        def on_fit_start(self, trainer: Any, pl_module: Any) -> None:
+            self._record("fit_start")
+
+        def on_validation_end(self, trainer: Any, pl_module: Any) -> None:
+            self._record("validation_end_before_cache_clear")
+            try:
+                torch.mps.synchronize()
+                torch.mps.empty_cache()
+            except Exception:
+                return
+            self._record("validation_end_after_cache_clear")
+
+        def on_fit_end(self, trainer: Any, pl_module: Any) -> None:
+            self._record("fit_end_before_cache_clear")
+            try:
+                torch.mps.synchronize()
+                torch.mps.empty_cache()
+            except Exception:
+                return
+            self._record("fit_end_after_cache_clear")
+
+    return MpsMemoryCallback()
+
+
+@contextmanager
+def _install_mps_memory_guard(device: str, training_output: Path) -> Any:
+    """Add the MPS guard to RF-DETR's private Lightning trainer for this call only."""
+
+    if device != "mps":
+        yield
+        return
+
+    import rfdetr.training as rfdetr_training
+
+    original_build_trainer = rfdetr_training.build_trainer
+
+    def build_trainer_with_mps_memory_guard(*args: Any, **kwargs: Any) -> Any:
+        trainer = original_build_trainer(*args, **kwargs)
+        trainer.callbacks.append(
+            _build_mps_memory_callback(training_output / MPS_MEMORY_TELEMETRY_FILENAME)
+        )
+        return trainer
+
+    rfdetr_training.build_trainer = build_trainer_with_mps_memory_guard
+    try:
+        yield
+    finally:
+        rfdetr_training.build_trainer = original_build_trainer
+
+
 def _run_rfdetr(inputs: Mapping[str, Any], staged_dataset: Path, training_output: Path) -> Path:
     if not _requested_device_available(str(inputs["device"])):
         raise RfdetrSegmentationTrainingError(
@@ -931,7 +1015,8 @@ def _run_rfdetr(inputs: Mapping[str, Any], staged_dataset: Path, training_output
     model_class = _import_segmentation_model()
     training_output.mkdir(parents=True, exist_ok=True)
     model = model_class(**inputs["model_arguments"])
-    model.train(**inputs["training_arguments"])
+    with _install_mps_memory_guard(str(inputs["device"]), training_output):
+        model.train(**inputs["training_arguments"])
     checkpoint = training_output / RFDETR_SEGMENTATION_FINAL_CHECKPOINT
     if not checkpoint.is_file():
         raise RfdetrSegmentationTrainingError(
@@ -1388,6 +1473,7 @@ def run_rfdetr_segmentation_training(
                 "model": inputs["model"],
                 "model_arguments": model_arguments,
                 "training_arguments": training_arguments,
+                "runtime_memory_guard": _mps_memory_guard(config.device, training_output),
                 "materialization_digest": inputs["materialization_digest"],
                 "campaign_manifest": campaign_receipt,
                 "pretrained_checkpoint": {
@@ -1588,6 +1674,7 @@ def run_rfdetr_segmentation_campaign_training(
                 "model": inputs["model"],
                 "model_arguments": model_arguments,
                 "training_arguments": training_arguments,
+                "runtime_memory_guard": _mps_memory_guard(config.device, training_output),
                 "materialization_digest": inputs["materialization_digest"],
                 "pretrained_checkpoint": {
                     "path": str(pretrained),

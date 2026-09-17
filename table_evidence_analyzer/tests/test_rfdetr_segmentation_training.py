@@ -3,14 +3,16 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import sys
 from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 from PIL import Image
 
+import table_evidence_analyzer.rfdetr_segmentation_training as segmentation_training
 import table_evidence_analyzer.visible_cards as visible_cards
 from table_evidence_analyzer.rfdetr_segmentation_evaluation import calculate_metrics
 from table_evidence_analyzer.rfdetr_segmentation_training import (
@@ -386,6 +388,11 @@ def test_fixture_training_freezes_segmentation_identity_and_arguments(tmp_path: 
     assert record["subset"]["train_image_count"] == 2
     assert record["subset"]["validation_image_count"] == 1
     assert record["bundle"]["schema_version"] == RFDETR_SEGMENTATION_BUNDLE_SCHEMA
+    assert record["runtime_memory_guard"] == {
+        "enabled": False,
+        "telemetry_file": None,
+        "clear_cache_after_validation": False,
+    }
 
     bundle = load_rfdetr_segmentation_bundle(output / "bundle")
     assert bundle.manifest["component"] == "visible-card-segmentation"
@@ -453,11 +460,39 @@ def test_campaign_fixture_uses_all_m1_images_and_frozen_training_recipe(tmp_path
         "amp": False,
     }
     assert len(list((output / "campaign-dataset" / "train" / "images").iterdir())) == 2
+    assert record["runtime_memory_guard"]["enabled"] is False
     assert len(list((output / "campaign-dataset" / "valid" / "images").iterdir())) == 1
     assert record["bundle"]["schema_version"] == RFDETR_SEGMENTATION_BUNDLE_SCHEMA
 
     rerun = run_rfdetr_segmentation_campaign_training(config)
     assert rerun["run_id"] == record["run_id"]
+
+
+def test_mps_memory_guard_only_wraps_one_rfdetr_training_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    package = ModuleType("rfdetr")
+    package.__path__ = []  # type: ignore[attr-defined]
+    training = ModuleType("rfdetr.training")
+    original_callback = object()
+    training.build_trainer = lambda: SimpleNamespace(callbacks=[])  # type: ignore[attr-defined]
+    original_build_trainer = training.build_trainer
+    monkeypatch.setitem(sys.modules, "rfdetr", package)
+    monkeypatch.setitem(sys.modules, "rfdetr.training", training)
+    monkeypatch.setattr(
+        segmentation_training, "_build_mps_memory_callback", lambda _path: original_callback
+    )
+
+    with segmentation_training._install_mps_memory_guard("mps", tmp_path):
+        trainer = training.build_trainer()  # type: ignore[attr-defined]
+
+    assert trainer.callbacks == [original_callback]
+    assert training.build_trainer is original_build_trainer  # type: ignore[attr-defined]
+    assert segmentation_training._mps_memory_guard("mps", tmp_path) == {
+        "enabled": True,
+        "telemetry_file": "mps-memory.jsonl",
+        "clear_cache_after_validation": True,
+    }
 
 
 def test_campaign_resume_reuses_staged_dataset_and_records_checkpoint(tmp_path: Path) -> None:
