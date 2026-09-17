@@ -61,7 +61,7 @@ recipe, and training preflight. The manifest records the full M2 command but pre
 starts training. Generated tests verify atomic publication and byte-identical repeated preparation
 from the same inputs.
 
-The 2026-09-17 read-only scan found nine selected completed visual-identity references with 1,093
+The initial 2026-09-17 read-only scan found nine selected completed visual-identity references with 1,093
 review outcomes:
 
 | Current partition | Recordings | Classified | `FACE_DOWN` | Unusable or failed |
@@ -76,6 +76,21 @@ of those classes. The largest training recording supplies 129 of 554 included ta
 The corpus therefore meets the first-run face-up gate: at least 20 train and 5 validation examples
 per `doko-40-v1` identity, at least five training recordings, at least two validation recordings,
 and no training recording above 40%.
+
+### M1 campaign result — 2026-09-17
+
+The selected nine reference pairs were repaired by publishing new immutable corrected revisions
+with detector-generated visible geometry and verified video-derived frame and crop lineage. Human
+identity labels and the previous revisions remain unchanged. For source bundles without a stored
+duration fact, M0 derives the duration from the accepted video bytes without changing the strict
+source-record contract.
+
+M1 published the frozen campaign
+`0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e` with 552 train items and 301 validation items.
+`IMG_0661` remains explicitly unassigned and is not materialized into the training dataset. The
+campaign excludes 125 `FACE_DOWN` outcomes and names all four unsupported `NINE` identities.
+The campaign manifest and all verified artifacts are below
+`data/operations/dinov3-identity-campaigns/`.
 
 The strict classifier vocabulary remains the 24 canonical suit-and-rank identities plus
 `FACE_DOWN`, as required by 0062. The current recordings use `doko-40-v1`, so they have no `NINE`
@@ -98,9 +113,10 @@ content digests, recipe digest, code revision, environment, pretrained-file dige
 checkpoint state in `run.json`. It does not download weights or start a long run during this
 implementation phase.
 
-The current checkout has no ready real-data M1 campaign, so no operator training command was
-issued. A real M2 run remains pending after the operator prepares the campaign and completes the
-short handoff check.
+The frozen real-data campaign is ready at
+`data/operations/dinov3-identity-campaigns/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/`.
+The short handoff check passed with no gaps and printed the exact operator command. No training
+was started. A real M2 run remains pending for the operator.
 
 ## 2. Fixed first-run recipe
 
@@ -168,9 +184,9 @@ Acceptance:
 - Write one immutable campaign manifest, coverage report, dataset, split, artifact index, crop
   inventory, resolved recipe, and training preflight below
   `data/operations/dinov3-identity-campaigns/<campaign_id>/`.
-- Reject later input drift, protected sources, unassigned sources, incomplete references,
-  misaligned visible-card inputs, unusable results, failures, digest mismatches, and any attempt to
-  include a `FACE_DOWN` outcome.
+- Reject later input drift, protected sources, incomplete references, misaligned visible-card
+  inputs, unusable results, failures, digest mismatches, and any attempt to include a `FACE_DOWN`
+  outcome. Keep explicitly unassigned sources outside the training dataset.
 
 Acceptance:
 
