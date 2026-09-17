@@ -172,11 +172,13 @@ function EventInspectorAction({
       </>
     );
   }
+  const isCorrectedReference =
+    reference.state.selected_completed_revision_id !== null;
   return (
     <>
       <p className={styles.statusLabel}>Primary action</p>
       <h2 id="pipeline-inspector-action">
-        {reference.state.draft_state === "completed"
+        {isCorrectedReference
           ? "Publish corrected reference"
           : "Complete event review"}
       </h2>
@@ -209,7 +211,7 @@ function EventInspectorAction({
       >
         {completionBusy
           ? "Completing reference…"
-          : reference.state.draft_state === "completed"
+          : isCorrectedReference
             ? "Publish corrected reference"
             : "Complete reference"}
       </button>

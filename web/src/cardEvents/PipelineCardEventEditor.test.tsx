@@ -733,6 +733,102 @@ describe("PipelineCardEventEditor", () => {
       },
     });
   });
+
+  it("keeps the corrected-reference action after editing a completed reference", async () => {
+    const completedBase = referenceResponse(
+      [eventItem({ review_state: "accepted" })],
+      5,
+    );
+    const completed = {
+      ...completedBase,
+      state: {
+        ...completedBase.state,
+        draft_state: "completed" as const,
+        selected_completed_revision_id: "events-completed-1",
+      },
+      draft: {
+        ...completedBase.draft,
+        coverage: {
+          kind: "event_intervals" as const,
+          intervals: [{ start_us: 0, end_us: 3_000_000 }],
+        },
+      },
+    };
+    const corrected = referenceResponse(
+      [eventItem({ review_state: "corrected" })],
+      6,
+      {
+        state: {
+          ...completed.state,
+          draft_revision: 6,
+          draft_state: "draft",
+        },
+        draft: {
+          ...completed.draft,
+          revision: 6,
+          items: [eventItem({ review_state: "corrected" })],
+          coverage: {
+            kind: "event_intervals",
+            intervals: [{ start_us: 0, end_us: 3_000_000 }],
+          },
+        },
+      },
+    );
+    const published = referenceResponse(
+      [eventItem({ review_state: "corrected" })],
+      6,
+      {
+        state: {
+          ...corrected.state,
+          draft_state: "completed",
+          selected_completed_revision_id: "events-completed-2",
+        },
+      },
+    );
+    const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+      if (init?.method === "PUT") return response(corrected);
+      if (init?.method === "POST") return response(published);
+      return response(completed);
+    });
+
+    renderReviewed(fetchMock, 3_000_000);
+    const publishButton = await screen.findByRole("button", {
+      name: "Publish corrected reference",
+    });
+    expect(publishButton).toBeDisabled();
+    expect(
+      screen.getByText(
+        "Reference is already complete; make a correction before publishing.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("operator-01"), {
+      target: { value: "operator-1" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("reviewer-01"), {
+      target: { value: "reviewer-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Nudge later ." }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Publish corrected reference" }),
+      ).not.toBeDisabled(),
+    );
+    expect(
+      screen.queryByText(
+        "Reference is already complete; make a correction before publishing.",
+      ),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Publish corrected reference" }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+      ).toBe(true),
+    );
+  });
 });
 
 function isRecord(value: unknown): value is Record<string, unknown> {
