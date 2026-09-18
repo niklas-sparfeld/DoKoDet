@@ -47,6 +47,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
+| [0069 — Auto-accept identities](2-ready/0069-Auto_Accept_Identities.md) | 0043 and 0049 complete | M0–M2 not started. In reviewed identity work, an operator can accept only Gemini identity suggestions that match the latest comparable local result. The action runs the local processor when needed. Cmd+Left and Cmd+Right move between items that still need review in every review editor. |
 
 ### In Progress
 
