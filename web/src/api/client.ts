@@ -833,7 +833,7 @@ export function pipelineReviewFramePath(
   recordingId: string,
   requestedTimeUs: number,
 ): string {
-  return `${pipelineDerivedFramePath(recordingId, requestedTimeUs)}?preview=sampled_250ms`;
+  return pipelineDerivedFramePath(recordingId, requestedTimeUs);
 }
 
 export function pipelineReferencePath(

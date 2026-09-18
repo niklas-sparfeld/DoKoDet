@@ -29,9 +29,9 @@ describe("CardEventFrameSurface", () => {
     vi.unstubAllGlobals();
   });
 
-  it("loads a sampled CardEvent review frame for the requested time", async () => {
+  it("loads an exact CardEvent review frame for the requested time", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(frameResponse(200, 1_250_000)),
+      Promise.resolve(frameResponse(200, 1_266_667)),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -44,7 +44,7 @@ describe("CardEventFrameSurface", () => {
 
     expect(
       await screen.findByRole("img", {
-        name: "CardEvent review frame at 0:01.250000",
+        name: "CardEvent review frame at 0:01.266667",
       }),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(

@@ -731,7 +731,7 @@ describe("PipelineCardEventEditor", () => {
     );
   });
 
-  it("uses the sampled review frame and Timeline Rail selection instead of an event table", async () => {
+  it("uses the exact review frame and Timeline Rail selection instead of an event table", async () => {
     const server = referenceResponse([eventItem()]);
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(response(server)),
