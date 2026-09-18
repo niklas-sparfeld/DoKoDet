@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import threading
+from types import SimpleNamespace
 from typing import Any
 
 from app_factory import create_test_app
@@ -40,6 +41,7 @@ from test_visible_card_pipeline_api import (
 from dokodetector_backend import (
     visual_identity_pipeline_service as visual_identity_pipeline_service_module,
 )
+from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
 
 
 class _IdentityProvider:
@@ -73,6 +75,135 @@ class _LocalPpmIdentityClassifier:
 
     def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
         raise AssertionError("the resolver test must not classify a crop")
+
+
+def test_auto_approval_reason_requires_matching_classified_outcomes() -> None:
+    classified = SimpleNamespace(
+        status="classified", candidates=(SimpleNamespace(identity="CLUBS_NINE"),)
+    )
+
+    assert (
+        VisualIdentityPipelineService._auto_approval_reason(
+            "pending", classified, ("local-result", classified)
+        )
+        == "eligible"
+    )
+    assert (
+        VisualIdentityPipelineService._auto_approval_reason(
+            "accepted", classified, ("local-result", classified)
+        )
+        == "already_reviewed"
+    )
+    assert VisualIdentityPipelineService._auto_approval_reason("pending", classified, None) == (
+        "local_unavailable"
+    )
+
+
+def test_auto_approval_plan_reuses_one_local_run_and_reports_matching_results(
+    tmp_path: Any,
+) -> None:
+    _install_recording(tmp_path)
+    gemini = _IdentityProvider()
+    gemini.name = "gemini"
+    local = _IdentityProvider()
+    local.name = "local-dinov3"
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=gemini,
+    )
+    app.state.visual_identity_pipeline_service.identity_classifiers = {"local": local}
+
+    with TestClient(app) as client:
+        assert (
+            client.post(
+                f"/api/recordings/{RECORDING_ID}/pipeline/events", json={"run_id": "events-auto"}
+            ).status_code
+            == 202
+        )
+        _wait_event(client, "events-auto")
+        assert (
+            client.post(
+                f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+                json={"run_id": "visible-auto"},
+            ).status_code
+            == 202
+        )
+        assert _wait(client, "visible-auto")["state"]["status"] == "complete"
+        visible_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-auto/result"
+        ).json()["state"]["output_revision_ids"][0]
+        assert (
+            client.post(
+                f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+                json={"run_id": "gemini-auto", "visible_card_revision_id": visible_revision_id},
+            ).status_code
+            == 202
+        )
+        assert _wait_identity(client, "gemini-auto")["state"]["status"] == "complete"
+        gemini_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/gemini-auto/result"
+        ).json()["state"]["output_revision_ids"][0]
+        assert (
+            client.post(
+                f"/api/recordings/{RECORDING_ID}/pipeline/references/visual_identities",
+                json={"operator_id": "operator-1", "source_revision_id": gemini_revision_id},
+            ).status_code
+            == 201
+        )
+
+        path = f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/auto-approval-plan"
+        first = client.post(path)
+        assert first.status_code == 202, first.text
+        local_run_id = first.json()["local_run"]["run_id"]
+        repeated = client.post(path)
+        assert repeated.status_code == 202, repeated.text
+        assert repeated.json()["local_run"] is None
+        assert _wait_identity(client, local_run_id)["state"]["status"] == "complete"
+        planned = client.post(path)
+        assert planned.status_code == 202, planned.text
+        items = planned.json()["items"]
+        assert items[0]["reason"] == "eligible"
+        assert items[0]["gemini_result"]["result_id"] == gemini_revision_id
+        assert items[0]["local_result"]["classifier"]["provider"] == "local-dinov3"
+        accepted = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/auto-approval",
+            json={
+                "expected_revision": planned.json()["draft_revision"],
+                "operator_id": "operator-1",
+                "command_id": "auto-approve-1",
+            },
+        )
+        assert accepted.status_code == 200, accepted.text
+        assert accepted.json()["accepted_item_ids"] == [items[0]["item_id"]]
+        retry = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/auto-approval",
+            json={
+                "expected_revision": planned.json()["draft_revision"],
+                "operator_id": "operator-1",
+                "command_id": "auto-approve-1",
+            },
+        )
+        assert retry.json() == accepted.json()
+        reference = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/references/visual_identities"
+        ).json()
+        assert reference["draft"]["items"][0]["review_state"] == "accepted"
+
+    restarted = create_test_app(_settings(tmp_path))
+    with TestClient(restarted) as client:
+        after_restart = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/auto-approval",
+            json={
+                "expected_revision": planned.json()["draft_revision"],
+                "operator_id": "operator-1",
+                "command_id": "auto-approve-1",
+            },
+        )
+        assert after_restart.status_code == 200, after_restart.text
+        assert after_restart.json() == accepted.json()
 
 
 def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> str:

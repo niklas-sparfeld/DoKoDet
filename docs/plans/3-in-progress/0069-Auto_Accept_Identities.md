@@ -5,7 +5,7 @@
 - **Summary:** Let an operator accept Gemini visual card identity suggestions when the latest
   comparable local identity result agrees, and navigate unfinished review work with Cmd+Left and
   Cmd+Right.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Plans 0043 and 0049 complete
 - **Builds on:** Plans 0041, 0042, 0043, 0048, 0049, 0059, and 0062
 - **Outcome:** An operator can use one explicit auto-approve action in reviewed visual identity
@@ -18,8 +18,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — define and implement retained Gemini/local identity comparison and local
-  run orchestration for auto-approval.
+- **M0:** Complete — retained Gemini/local comparison selects matching frozen visible-card and
+  crop lineage, reuses one deterministic local run, accepts only eligible pending items through a
+  revision-guarded command, and persists an immutable comparison receipt across restart.
 - **M1:** Not started — add the reviewed visual identity auto-approve control and its feedback.
 - **M2:** Not started — add consistent unfinished-item keyboard navigation to all review editors.
 

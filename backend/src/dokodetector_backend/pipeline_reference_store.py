@@ -108,6 +108,18 @@ class PipelineReferenceStore:
 
         return self.reference_root(recording_id, content_type) / "commands.json"
 
+    def auto_approval_receipt_path(
+        self, recording_id: str, content_type: str, command_id: str
+    ) -> Path:
+        """Return the immutable comparison receipt for one auto-approval command."""
+
+        _safe_id(command_id, "command_id")
+        return (
+            self.reference_root(recording_id, content_type)
+            / "auto-approval-receipts"
+            / (f"{command_id}.json")
+        )
+
     def get(self, recording_id: str, content_type: str) -> StoredPipelineReference | None:
         try:
             state_path = self.state_path(recording_id, content_type)
@@ -251,6 +263,48 @@ class PipelineReferenceStore:
         """Durably record command digests while the reference lock is held."""
 
         atomic_replace_json(self.command_path(recording_id, content_type), commands)
+
+    def write_auto_approval_receipt(
+        self,
+        recording_id: str,
+        content_type: str,
+        command_id: str,
+        receipt: dict[str, object],
+    ) -> None:
+        """Persist one immutable comparison receipt, or verify an idempotent retry."""
+
+        path = self.auto_approval_receipt_path(recording_id, content_type, command_id)
+        with self.locked(recording_id, content_type):
+            if path.is_file():
+                try:
+                    existing = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, UnicodeError, json.JSONDecodeError) as error:
+                    raise PipelineReferenceStoreError(
+                        "the auto-approval receipt is invalid"
+                    ) from error
+                if existing != receipt:
+                    raise PipelineReferenceStoreError(
+                        "the auto-approval command receipt differs from its earlier receipt"
+                    )
+                return
+            atomic_replace_json(path, receipt)
+
+    def get_auto_approval_receipt(
+        self, recording_id: str, content_type: str, command_id: str
+    ) -> dict[str, object] | None:
+        """Read one immutable auto-approval receipt."""
+
+        path = self.auto_approval_receipt_path(recording_id, content_type, command_id)
+        with self.locked(recording_id, content_type):
+            if not path.is_file():
+                return None
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as error:
+                raise PipelineReferenceStoreError("the auto-approval receipt is invalid") from error
+            if not isinstance(value, dict):
+                raise PipelineReferenceStoreError("the auto-approval receipt is invalid")
+            return value
 
     def _lock_path(self, recording_id: str, content_type: str) -> Path:
         return self.reference_root(recording_id, content_type).parent / (
