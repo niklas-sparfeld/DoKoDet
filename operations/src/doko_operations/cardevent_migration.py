@@ -1244,7 +1244,14 @@ def migrate_cardeventnet(
         "parity": parity,
         "legacy_retirement": {
             "state": "pending_explicit_operator_action",
-            "command": "doko data cardevent retire-legacy --confirm",
+            "required_checks": [
+                "active_consumer_cutover_verified",
+                "legacy_artifact_destinations_verified",
+                "source_parity_rechecked",
+            ],
+            "action": (
+                "remove only after the checks above pass; this migration never removes legacy data"
+            ),
         },
     }
     receipt["receipt_sha256"] = _sha256_bytes(_canonical_json_bytes(receipt))

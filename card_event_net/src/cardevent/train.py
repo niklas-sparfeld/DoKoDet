@@ -48,6 +48,7 @@ from .evaluation import (
 from .events import ProbabilitySample
 from .hard_negatives import HardNegativeError, load_hard_negative_times
 from .model import CardEventNet, build_model, freeze_backbone, unfreeze_backbone
+from .paths import DEFAULT_ANNOTATIONS_DIR, DEFAULT_CACHE_DIR, DEFAULT_OUTPUT_DIR
 from .sampling import (
     DEFAULT_CLIP_OFFSETS_S,
     LabeledTime,
@@ -1184,8 +1185,8 @@ def train_model(
     split: VideoSplit,
     *,
     run_dir: str | Path,
-    cache_dir: str | Path = "data/cache",
-    annotations_dir: str | Path = "data/annotations",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
+    annotations_dir: str | Path = DEFAULT_ANNOTATIONS_DIR,
     max_samples: int | None = None,
     device_override: str | None = None,
     hard_negative_manifest: str | Path | None = None,
@@ -1761,10 +1762,10 @@ def train_from_files(
     config_path: str | Path,
     split_path: str | Path,
     *,
-    output_dir: str | Path = "data/outputs",
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     run_name: str | None = None,
-    cache_dir: str | Path = "data/cache",
-    annotations_dir: str | Path = "data/annotations",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
+    annotations_dir: str | Path = DEFAULT_ANNOTATIONS_DIR,
     max_samples: int | None = None,
     device_override: str | None = None,
     hard_negative_manifest: str | Path | None = None,

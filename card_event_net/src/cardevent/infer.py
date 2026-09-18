@@ -21,6 +21,7 @@ from .dataset import CausalClipDataset, DatasetSample, inference_samples_for_cac
 from .device import resolve_device
 from .events import CARD_STATE_CHANGED_EVENT_TYPE, ProbabilitySample, probabilities_to_events
 from .model import CardEventNet, build_model
+from .paths import DEFAULT_CACHE_DIR
 from .transforms import ClipTransform
 from .video import VideoError
 
@@ -180,7 +181,7 @@ def infer_from_files(
     video_path: str | Path,
     *,
     out_path: str | Path,
-    cache_dir: str | Path = "data/cache",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
     device_override: str | None = None,
     batch_size: int | None = None,
     threshold: float | None = None,

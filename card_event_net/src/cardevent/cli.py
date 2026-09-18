@@ -31,6 +31,12 @@ from .lifecycle import (
     save_lifecycle_receipt,
 )
 from .manifest import ManifestError, load_dataset_manifest, make_group_split
+from .paths import (
+    DEFAULT_ANNOTATIONS_DIR,
+    DEFAULT_CACHE_DIR,
+    DEFAULT_OUTPUT_DIR,
+    DEFAULT_SPLIT_DIR,
+)
 from .run_view import RunViewError, load_materialized_run_view
 from .splits import SplitError, make_video_split, save_split
 from .train import TrainingError, train_from_files
@@ -149,8 +155,8 @@ def build_parser() -> argparse.ArgumentParser:
     annotate_parser.add_argument(
         "--annotations-dir",
         type=Path,
-        default=None,
-        help="Override the annotations directory.",
+        default=DEFAULT_ANNOTATIONS_DIR,
+        help="Annotation directory (default: .runtime/cardevent/annotations).",
     )
     annotate_parser.add_argument(
         "--proposals",
@@ -229,14 +235,14 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument(
         "--annotations-dir",
         type=Path,
-        default=None,
-        help="Override the annotations directory.",
+        default=DEFAULT_ANNOTATIONS_DIR,
+        help="Annotation directory (default: .runtime/cardevent/annotations).",
     )
     prepare_parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=None,
-        help="Override the cache root directory.",
+        default=DEFAULT_CACHE_DIR,
+        help="Cache root directory (default: .runtime/cardevent/cache).",
     )
     prepare_parser.add_argument(
         "--cache-fps",
@@ -273,8 +279,8 @@ def build_parser() -> argparse.ArgumentParser:
     split_parser.add_argument(
         "--out",
         type=Path,
-        default=Path("data/splits/default.yaml"),
-        help="Split file path (default: data/splits/default.yaml).",
+        default=DEFAULT_SPLIT_DIR / "default.yaml",
+        help="Split file path (default: .runtime/cardevent/splits/default.yaml).",
     )
     split_parser.add_argument("--seed", type=int, default=42, help="Split random seed.")
     split_parser.add_argument(
@@ -309,8 +315,8 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("data/outputs"),
-        help="Directory for timestamped runs (default: data/outputs).",
+        default=DEFAULT_OUTPUT_DIR,
+        help="Directory for timestamped runs (default: .runtime/cardevent/outputs).",
     )
     train_parser.add_argument(
         "--run-name",
@@ -320,14 +326,14 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=Path("data/cache"),
-        help="Prepared cache root (default: data/cache).",
+        default=DEFAULT_CACHE_DIR,
+        help="Prepared cache root (default: .runtime/cardevent/cache).",
     )
     train_parser.add_argument(
         "--annotations-dir",
         type=Path,
-        default=Path("data/annotations"),
-        help="Annotation directory (default: data/annotations).",
+        default=DEFAULT_ANNOTATIONS_DIR,
+        help="Annotation directory (default: .runtime/cardevent/annotations).",
     )
     train_parser.add_argument(
         "--max-samples",
@@ -390,8 +396,8 @@ def build_parser() -> argparse.ArgumentParser:
     infer_parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=Path("data/cache"),
-        help="Prepared cache root (default: data/cache).",
+        default=DEFAULT_CACHE_DIR,
+        help="Prepared cache root (default: .runtime/cardevent/cache).",
     )
     infer_parser.add_argument(
         "--device",
@@ -441,14 +447,14 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=Path("data/cache"),
-        help="Prepared cache root (default: data/cache).",
+        default=DEFAULT_CACHE_DIR,
+        help="Prepared cache root (default: .runtime/cardevent/cache).",
     )
     evaluate_parser.add_argument(
         "--annotations-dir",
         type=Path,
-        default=Path("data/annotations"),
-        help="Annotation directory (default: data/annotations).",
+        default=DEFAULT_ANNOTATIONS_DIR,
+        help="Annotation directory (default: .runtime/cardevent/annotations).",
     )
     evaluate_parser.add_argument(
         "--out",
@@ -511,14 +517,14 @@ def build_parser() -> argparse.ArgumentParser:
     diagnose_parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=Path("data/cache"),
-        help="Prepared cache root (default: data/cache).",
+        default=DEFAULT_CACHE_DIR,
+        help="Prepared cache root (default: .runtime/cardevent/cache).",
     )
     diagnose_parser.add_argument(
         "--annotations-dir",
         type=Path,
-        default=Path("data/annotations"),
-        help="Annotation directory (default: data/annotations).",
+        default=DEFAULT_ANNOTATIONS_DIR,
+        help="Annotation directory (default: .runtime/cardevent/annotations).",
     )
     diagnose_parser.add_argument(
         "--out",
@@ -556,20 +562,20 @@ def build_parser() -> argparse.ArgumentParser:
     baseline_parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=Path("data/cache"),
-        help="Prepared cache root (default: data/cache).",
+        default=DEFAULT_CACHE_DIR,
+        help="Prepared cache root (default: .runtime/cardevent/cache).",
     )
     baseline_parser.add_argument(
         "--annotations-dir",
         type=Path,
-        default=Path("data/annotations"),
-        help="Annotation directory (default: data/annotations).",
+        default=DEFAULT_ANNOTATIONS_DIR,
+        help="Annotation directory (default: .runtime/cardevent/annotations).",
     )
     baseline_parser.add_argument(
         "--out",
         type=Path,
         default=None,
-        help="Metrics JSON path (default: data/outputs).",
+        help="Metrics JSON path (default: .runtime/cardevent/outputs).",
     )
     baseline_parser.set_defaults(command_name="baseline")
 
@@ -589,20 +595,20 @@ def build_parser() -> argparse.ArgumentParser:
     mine_parser.add_argument(
         "--out",
         type=Path,
-        default=Path("data/outputs/hard-negatives.json"),
-        help="Manifest path (default: data/outputs/hard-negatives.json).",
+        default=DEFAULT_OUTPUT_DIR / "hard-negatives.json",
+        help="Manifest path (default: .runtime/cardevent/outputs/hard-negatives.json).",
     )
     mine_parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=Path("data/cache"),
-        help="Prepared cache root (default: data/cache).",
+        default=DEFAULT_CACHE_DIR,
+        help="Prepared cache root (default: .runtime/cardevent/cache).",
     )
     mine_parser.add_argument(
         "--annotations-dir",
         type=Path,
-        default=Path("data/annotations"),
-        help="Annotation directory (default: data/annotations).",
+        default=DEFAULT_ANNOTATIONS_DIR,
+        help="Annotation directory (default: .runtime/cardevent/annotations).",
     )
     mine_parser.add_argument(
         "--device",
@@ -1098,7 +1104,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (EvaluationError, RuntimeError, OSError, ValueError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(format_report(payload))
-        print(f"Metrics JSON: {args.out or 'data/outputs/baseline-' + args.partition + '.json'}")
+        default_output = DEFAULT_OUTPUT_DIR / f"baseline-{args.partition}.json"
+        print(f"Metrics JSON: {args.out or default_output}")
         return 0
 
     if command_name == "mine-hard-negatives":

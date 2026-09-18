@@ -280,7 +280,7 @@ def test_mine_hard_negatives_command_parses_checkpoint_and_split() -> None:
     assert args.command_name == "mine-hard-negatives"
     assert args.checkpoint == Path("run/best.pt")
     assert args.split == Path("data/splits/default.yaml")
-    assert args.out == Path("data/outputs/hard-negatives.json")
+    assert args.out == Path(".runtime/cardevent/outputs/hard-negatives.json")
 
 
 def test_export_coreml_command_parses_checkpoint_and_output() -> None:

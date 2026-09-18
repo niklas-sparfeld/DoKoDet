@@ -159,8 +159,10 @@ deployment.
 
 ## Git LFS
 
-The raw videos in `card_event_net/data/raw/` use Git LFS. Install Git LFS once before you work with
-the videos:
+The current shared source videos belong below `data/intake/recordings/`. Git LFS is configured for
+those recording bundles. The tracked videos under `card_event_net/data/raw/` are legacy migration
+pointers and are not the current source authority. Install Git LFS before you work with shared
+videos:
 
 ```bash
 brew install git-lfs

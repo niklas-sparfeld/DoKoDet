@@ -106,6 +106,11 @@ doko data cardevent migrate \
 The operation is resumable and a completed invocation is a no-op. Missing annotations remain
 explicit draft gaps. The command does not certify review or remove the legacy tree.
 
+The migration is the only supported importer for `card_event_net/data`. After it passes, active
+training uses a frozen view below `.runtime/cardevent/datasets/`; it does not read the legacy tree.
+The legacy tree stays in place until a separate, reviewed retirement step. Its runtime cache is
+rebuildable and is not part of the shared migration.
+
 M2 provides a read-only human-review queue over the shared CardEventNet recordings. It separates
 missing annotations from imported annotations that still need a person to review the complete
 source video. Each queued item includes the recording-workspace route, review progress, and

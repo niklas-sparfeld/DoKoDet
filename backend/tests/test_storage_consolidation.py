@@ -68,3 +68,18 @@ def test_consolidation_moves_durable_repository_runtime_records_to_operations(
         tmp_path / "data/operations/table-observations/observation-1/observation.json"
     ).is_file()
     assert (cache / "content.bin").is_file()
+
+
+def test_consolidation_archives_legacy_backend_outputs_under_operations(tmp_path: Path) -> None:
+    legacy_output = tmp_path / "backend" / "data" / "outputs" / "run" / "summary.json"
+    legacy_output.parent.mkdir(parents=True)
+    legacy_output.write_text("historical", encoding="utf-8")
+
+    report = consolidate_storage(tmp_path, apply=True)
+
+    destination = (
+        tmp_path / "data" / "operations" / "legacy" / "backend-outputs" / "run" / "summary.json"
+    )
+    assert "data/operations/legacy/backend-outputs/run/summary.json" in report.moved
+    assert destination.read_text(encoding="utf-8") == "historical"
+    assert not legacy_output.exists()

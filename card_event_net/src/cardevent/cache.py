@@ -15,6 +15,7 @@ from .annotation import (
     load_annotation,
     validate_annotation,
 )
+from .paths import DEFAULT_CACHE_DIR
 from .video import VideoError, _import_cv2, read_video_metadata
 
 
@@ -100,12 +101,7 @@ def cache_path_for_video(video_path: str | Path, *, cache_root: str | Path | Non
     path = Path(video_path)
     if cache_root is not None:
         return Path(cache_root) / path.stem
-
-    for parent in path.parents:
-        if parent.name == "raw" and parent.parent.name == "data":
-            return parent.parent / "cache" / path.stem
-
-    return path.parent / "cache" / path.stem
+    return DEFAULT_CACHE_DIR / path.stem
 
 
 def load_cache_metadata(cache_dir: str | Path) -> CacheMetadata:

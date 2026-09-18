@@ -35,10 +35,10 @@ def sample_metadata() -> VideoMetadata:
     )
 
 
-def test_annotation_path_for_video_uses_project_layout() -> None:
+def test_annotation_path_for_video_uses_disposable_runtime_layout() -> None:
     path = annotation_path_for_video(Path("card_event_net/data/raw/IMG_0090.mov"))
 
-    assert path == Path("card_event_net/data/annotations/IMG_0090.json")
+    assert path == Path(".runtime/cardevent/annotations/IMG_0090.json")
 
 
 def test_load_annotation_proposals_reads_repository_bundle_run() -> None:

@@ -65,6 +65,7 @@ _CARD_EVENT_INTEGRATION_CONTRACT = Path(
     "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-contract.json"
 )
 _CARD_EVENT_INTEGRATION_SCHEMA = "cardeventnet-m15-integration-contract/v1"
+_CARD_EVENT_RUNTIME_CACHE = Path(".runtime/cardevent/inference-cache")
 _DEFAULT_CARD_EVENT_THRESHOLD = 0.5
 
 
@@ -118,7 +119,7 @@ class CardEventFileProvider:
         if checkpoint is None:
             raise PipelineProviderError(
                 "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH "
-                "or add a trained best.pt under card_event_net/data/outputs."
+                "or publish a validated model-campaign integration contract."
             )
         cache_dir = (
             _configured_path(
@@ -126,7 +127,7 @@ class CardEventFileProvider:
                 "cache_dir",
                 repository_root=self.repository_root,
             )
-            or self.repository_root / "card_event_net" / "data" / "cache"
+            or self.repository_root / _CARD_EVENT_RUNTIME_CACHE
         )
         batch_size = configuration.get("batch_size")
         threshold = configuration.get("threshold")
@@ -177,22 +178,6 @@ def _discover_checkpoint(repository_root: Path) -> Path | None:
 
 def _discover_checkpoint_defaults(repository_root: Path) -> _CheckpointDefaults | None:
     """Find the default CardEventNet checkpoint and its local decoding defaults."""
-
-    output_root = repository_root / "card_event_net" / "data" / "outputs"
-    try:
-        candidates = [path for path in output_root.rglob("best.pt") if path.is_file()]
-    except OSError:
-        return None
-    if candidates:
-
-        def sort_key(path: Path) -> tuple[int, str]:
-            try:
-                modified_ns = path.stat().st_mtime_ns
-            except OSError:
-                modified_ns = -1
-            return modified_ns, path.as_posix()
-
-        return _CheckpointDefaults(path=max(candidates, key=sort_key))
 
     return _discover_integration_checkpoint_defaults(repository_root)
 
@@ -533,7 +518,7 @@ class EventPipelineService:
         if checkpoint is None:
             raise PipelineInputError(
                 "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH "
-                "or add a trained best.pt under card_event_net/data/outputs."
+                "or publish a validated model-campaign integration contract."
             )
 
         if not any(key in configuration for key in ("checkpoint_path", "checkpoint")):

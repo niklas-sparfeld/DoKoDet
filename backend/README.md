@@ -41,11 +41,11 @@ cd backend
 uv sync
 ```
 
-The backend sync installs the local CardEventNet provider used by the event processor. It uses the
-newest `card_event_net/data/outputs/**/best.pt` checkpoint when one is present. When that directory
-has no checkpoint, it uses the digest-checked development integration checkpoint recorded in the
-0063 integration contract. Set `CARD_EVENT_CHECKPOINT_PATH` to select a specific checkpoint. File
-inference prepares a matching full-frame video cache on demand.
+The backend sync installs the local CardEventNet provider used by the event processor. The provider
+uses the digest-checked development integration checkpoint recorded in the model-campaign
+integration contract. Set `CARD_EVENT_CHECKPOINT_PATH` to select a specific checkpoint. It never
+discovers checkpoints below the legacy `card_event_net/data` tree. File inference prepares a
+matching full-frame cache below `.runtime/cardevent/inference-cache` on demand.
 
 For the local visible-card provider, install its pinned native inference dependency as well:
 
@@ -68,8 +68,9 @@ run `npm run dev` in `web/`; its `/v1` requests use the local backend proxy.
 ## Consolidate legacy local data
 
 The repository-level `data/` and `.runtime/` directories are the only active storage roots.
-`data/operations/` holds durable operational records. `.runtime/` holds only caches and local
-process state. If an older checkout has data below `backend/data/`, `backend/.runtime/`, or an old
+`data/intake/`, `data/operations/`, and `data/model-campaigns/` hold shared source and durable
+operational records. `.runtime/` holds only caches, materialized trainer views, and local process
+state. If an older checkout has data below `backend/data/`, `backend/.runtime/`, or an old
 repository runtime layout, stop the backend and run:
 
 ```bash
@@ -81,6 +82,19 @@ mise exec -- uv run --project backend dokodetector-consolidate-storage \
 
 The first command checks the plan. The second command moves non-conflicting files and removes
 duplicate files. It stops before changing anything when central data differs from legacy data.
+
+The backend consolidator does not migrate the legacy CardEventNet corpus. Audit and migrate that
+corpus with the operations command, then keep the migration receipt as the source-parity record:
+
+```bash
+mise exec -- uv run --project operations doko data cardevent audit --repository-root .
+mise exec -- uv run --project operations doko data cardevent migrate \
+  --repository-root . --operator <name>
+```
+
+The migration archives legacy annotations, reviews, splits, and outputs below
+`data/operations/cardeventnet-imports/`. Do not remove `card_event_net/data` until the active
+consumer cutover and the receipt review are complete.
 
 ## Run the service
 

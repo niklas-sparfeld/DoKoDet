@@ -55,10 +55,10 @@ Keep original videos and accepted evidence packages outside output directories. 
 with operator metadata:
 
 ```bash
-uv run cardevent ingest data/raw \
+uv run cardevent ingest /path/to/source-videos \
   --operator-metadata data/source-metadata.yaml \
-  --manifest data/index/manifest.yaml \
-  --index data/index/ingestion-index.json \
+  --manifest .runtime/cardevent/ingestion/manifest.yaml \
+  --index .runtime/cardevent/ingestion/ingestion-index.json \
   --operator niklas
 ```
 

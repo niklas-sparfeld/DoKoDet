@@ -14,6 +14,7 @@ from .intake_contract import (
     ProposalGeneratorRun,
     parse_json_bytes,
 )
+from .paths import DEFAULT_ANNOTATIONS_DIR
 from .recording_contract import RecordingContractError, parse_device_predictions_bytes
 from .video import VideoError, VideoMetadata, _import_cv2, read_video_metadata
 from .viewer import (
@@ -424,12 +425,7 @@ def annotation_path_for_video(
     path = Path(video_path)
     if annotations_dir is not None:
         return Path(annotations_dir) / f"{path.stem}.json"
-
-    for parent in path.parents:
-        if parent.name == "raw" and parent.parent.name == "data":
-            return parent.parent / "annotations" / f"{path.stem}.json"
-
-    return path.parent / "annotations" / f"{path.stem}.json"
+    return DEFAULT_ANNOTATIONS_DIR / f"{path.stem}.json"
 
 
 def load_annotation(annotation_path: str | Path) -> VideoAnnotation:

@@ -14,7 +14,9 @@ LEGACY_STORAGE_PATHS = (
     (Path("backend/data/incoming"), Path("data/incoming")),
     (Path("backend/data/intake"), Path("data/intake")),
     (Path("backend/data/operations"), Path("data/operations")),
-    (Path("backend/data/outputs"), Path("data/outputs")),
+    # Backend-local outputs were never a current source or campaign authority. Preserve them as
+    # historical artifacts instead of recreating the obsolete repository-level data/outputs root.
+    (Path("backend/data/outputs"), Path("data/operations/legacy/backend-outputs")),
     # The former backend-local root contained both durable records and cache files. Move only
     # durable resource families into the central operations root.
     (Path("backend/.runtime/pipeline/revisions"), Path("data/operations/pipeline/revisions")),

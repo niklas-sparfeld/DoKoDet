@@ -14,6 +14,7 @@ from .events import (
     probabilities_to_events,
 )
 from .infer import InferenceError, load_checkpoint
+from .paths import DEFAULT_ANNOTATIONS_DIR, DEFAULT_CACHE_DIR, DEFAULT_OUTPUT_DIR
 from .splits import SplitError, VideoSplit, load_split
 
 
@@ -149,9 +150,9 @@ def mine_hard_negatives_from_files(
     checkpoint_path: str | Path,
     split_path: str | Path,
     *,
-    out_path: str | Path = "data/outputs/hard-negatives.json",
-    cache_dir: str | Path = "data/cache",
-    annotations_dir: str | Path = "data/annotations",
+    out_path: str | Path = DEFAULT_OUTPUT_DIR / "hard-negatives.json",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
+    annotations_dir: str | Path = DEFAULT_ANNOTATIONS_DIR,
     device_override: str | None = None,
     batch_size: int | None = None,
     threshold: float | None = None,

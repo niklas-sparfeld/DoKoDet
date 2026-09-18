@@ -3,7 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from dokodetector_backend.event_pipeline_service import CardEventFileProvider
+from dokodetector_backend.event_pipeline_service import (
+    CardEventFileProvider,
+    _discover_checkpoint_defaults,
+)
 
 
 def test_card_event_file_provider_uses_installed_cardevent_package(
@@ -66,3 +69,34 @@ def test_card_event_file_provider_uses_explicit_checkpoint_only(
     )
 
     assert calls["checkpoint_path"] == tmp_path / "checkpoints" / "best.pt"
+
+
+def test_card_event_file_provider_uses_repository_runtime_cache_by_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import cardevent
+
+    calls: dict[str, object] = {}
+
+    def fake_infer_from_files(checkpoint_path, video_path, **kwargs):
+        calls.update(checkpoint_path=checkpoint_path, video_path=video_path, kwargs=kwargs)
+        return {"events": []}
+
+    monkeypatch.setattr(cardevent, "infer_from_files", fake_infer_from_files)
+    provider = CardEventFileProvider(tmp_path)
+
+    provider.infer(
+        tmp_path / "recording.mov",
+        request=SimpleNamespace(configuration={"checkpoint_path": "checkpoints/best.pt"}),
+    )
+
+    assert calls["kwargs"]["cache_dir"] == tmp_path / ".runtime" / "cardevent" / "inference-cache"
+
+
+def test_checkpoint_discovery_ignores_legacy_cardevent_output(tmp_path: Path) -> None:
+    legacy_checkpoint = tmp_path / "card_event_net" / "data" / "outputs" / "best.pt"
+    legacy_checkpoint.parent.mkdir(parents=True)
+    legacy_checkpoint.write_bytes(b"legacy")
+
+    assert _discover_checkpoint_defaults(tmp_path) is None

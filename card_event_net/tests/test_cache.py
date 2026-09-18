@@ -55,6 +55,8 @@ def test_extract_video_cache_writes_full_frames_and_timestamps(tmp_path: Path) -
     progress: list[tuple[int, int]] = []
     cache_dir = extract_video_cache(
         video_path,
+        annotations_dir=annotation_dir,
+        cache_root=tmp_path / ".runtime" / "cardevent" / "cache",
         cache_fps=10.0,
         size=32,
         progress_callback=lambda current, total: progress.append((current, total)),

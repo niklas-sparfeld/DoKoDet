@@ -31,6 +31,7 @@ from .evaluation import (
 from .evaluation import event_f1 as _event_f1
 from .events import probabilities_to_events
 from .infer import InferenceError, LoadedCheckpoint, infer_cached_video, load_checkpoint
+from .paths import DEFAULT_ANNOTATIONS_DIR, DEFAULT_CACHE_DIR
 from .splits import SplitError, VideoSplit, load_split
 from .torchvision_import import block_pyav_import
 from .transition_diagnostics import TransitionDiagnosticError, transition_diagnostics
@@ -150,8 +151,8 @@ def load_model_streams(
     split: VideoSplit,
     partition: str,
     *,
-    cache_dir: str | Path = "data/cache",
-    annotations_dir: str | Path = "data/annotations",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
+    annotations_dir: str | Path = DEFAULT_ANNOTATIONS_DIR,
 ) -> list[ScoredVideo]:
     """Run full-video model inference for every video in one split partition."""
     videos: list[ScoredVideo] = []
@@ -597,8 +598,8 @@ def evaluate_checkpoint_from_files(
     split_path: str | Path,
     *,
     partition: str,
-    cache_dir: str | Path = "data/cache",
-    annotations_dir: str | Path = "data/annotations",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
+    annotations_dir: str | Path = DEFAULT_ANNOTATIONS_DIR,
     output_path: str | Path | None = None,
     device_override: str | None = None,
     reviewed_hard_negative_manifest: str | Path | None = None,
@@ -755,8 +756,8 @@ def diagnose_checkpoint_from_files(
     checkpoint_path: str | Path,
     split_path: str | Path,
     *,
-    cache_dir: str | Path = "data/cache",
-    annotations_dir: str | Path = "data/annotations",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
+    annotations_dir: str | Path = DEFAULT_ANNOTATIONS_DIR,
     output_path: str | Path | None = None,
     device_override: str | None = None,
     data_identity: Mapping[str, Any] | None = None,

@@ -23,6 +23,7 @@ from .evaluate import (
     select_threshold,
 )
 from .events import ProbabilitySample
+from .paths import DEFAULT_ANNOTATIONS_DIR, DEFAULT_CACHE_DIR, DEFAULT_OUTPUT_DIR
 from .sampling import select_frame_indices
 from .splits import SplitError, VideoSplit, load_split
 
@@ -73,8 +74,8 @@ def load_baseline_streams(
     split: VideoSplit,
     partition: str,
     *,
-    cache_dir: str | Path = "data/cache",
-    annotations_dir: str | Path = "data/annotations",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
+    annotations_dir: str | Path = DEFAULT_ANNOTATIONS_DIR,
 ) -> list[ScoredVideo]:
     videos: list[ScoredVideo] = []
     cache_root = Path(cache_dir)
@@ -122,8 +123,8 @@ def evaluate_baseline_from_files(
     split_path: str | Path,
     *,
     partition: str,
-    cache_dir: str | Path = "data/cache",
-    annotations_dir: str | Path = "data/annotations",
+    cache_dir: str | Path = DEFAULT_CACHE_DIR,
+    annotations_dir: str | Path = DEFAULT_ANNOTATIONS_DIR,
     output_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Tune and evaluate the classical motion baseline."""
@@ -136,7 +137,7 @@ def evaluate_baseline_from_files(
     destination = (
         Path(output_path)
         if output_path is not None
-        else Path("data/outputs") / f"baseline-{partition}.json"
+        else DEFAULT_OUTPUT_DIR / f"baseline-{partition}.json"
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
     validation_videos = load_baseline_streams(

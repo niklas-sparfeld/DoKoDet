@@ -254,7 +254,7 @@ def test_cardeventnet_probability_metrics_are_stored_with_the_run(tmp_path: Path
         assert result.json()["state"]["metrics"] == metrics
 
 
-def test_default_card_event_provider_freezes_discovered_checkpoint(
+def test_default_card_event_provider_does_not_discover_legacy_checkpoint(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -278,13 +278,8 @@ def test_default_card_event_provider_freezes_discovered_checkpoint(
             json=_request("run-default-cardevent"),
         )
 
-        assert created.status_code == 202
-        assert created.json()["request"]["configuration"]["checkpoint_path"] == (
-            "card_event_net/data/outputs/run/best.pt"
-        )
-        assert _wait_for_status(client, "run-default-cardevent", "complete")["state"]["status"] == (
-            "complete"
-        )
+        assert created.status_code == 422
+        assert "model-campaign integration contract" in created.json()["error"]["message"]
 
 
 def test_default_card_event_provider_uses_0063_integration_checkpoint(

@@ -1,137 +1,98 @@
 # CardEventNet data and model lifecycle
 
-This guide is for data contributors. Run all commands from `card_event_net/`.
+Run commands from the repository root. Shared source and review data have one canonical owner:
 
 ```text
-source video -> manifest and index -> annotations, cache, and split -> model run
-     -> validation and diagnostics -> human review -> new annotation version
-     -> retrained model -> held-out test -> optional Core ML export
+data/intake/recordings/       immutable recording bundles and source videos
+data/operations/              imported annotations, references, splits, and dataset versions
+data/model-campaigns/         checkpoints, reports, and campaign lineage
+.runtime/cardevent/           disposable annotations, caches, materialized views, and outputs
 ```
 
-Keep the raw videos unchanged. Keep each annotation version in a separate directory. Use the
-same split when you compare model runs. Do not use the test partition to select a model,
-threshold, or training change.
+`card_event_net/data` is a legacy migration input. New commands must not use it as an implicit
+source, annotation, split, cache, or model-output root.
 
-## 1. Register source videos
+## Review a canonical recording
 
-First, record the session, game, capture context, source, and usage permission in an operator
-metadata YAML file. The [video metadata guide](CardEventNet_VideoMetadata.md) defines the fields
-and controlled values. Put shared values under `defaults`. Put video-specific values under
-`videos`, keyed by the source file stem, such as `game01`.
+The backend stores each accepted video once below `data/intake/recordings/`. CardEventNet reads
+that source and writes temporary annotation work below `.runtime/cardevent/annotations/`:
 
 ```bash
-uv run cardevent ingest data/raw \
-  --operator-metadata data/operator-metadata.yaml \
-  --manifest data/datasets/batch-2026-08-24/manifest.yaml \
-  --index data/datasets/batch-2026-08-24/ingestion-index.json \
-  --artifact-dir data/datasets/batch-2026-08-24/previews
-
-uv run cardevent inspect-dataset \
-  data/datasets/batch-2026-08-24/ingestion-index.json \
-  --duplicate-status near_duplicate
+mise exec -- uv run --project card_event_net cardevent annotate \
+  data/intake/recordings/<recording-id>/videos/<video-id>.mov \
+  --annotations-dir .runtime/cardevent/annotations
 ```
 
-Check the generated metadata and duplicate findings. Fix operator metadata and run ingestion
-again when necessary. Do not edit technical probe results by guesswork. See
-[plan 0008, phase 2](plans/5-closed/0008-CardEventNet_TrainingDataImprovements.md#phase-2-build-ingestion-and-dataset-indexing-tooling)
-for the ingestion artifact contract.
+Proposal JSON remains in the recording bundle and is passed explicitly with `--proposals`.
+Annotation files are evidence for later review. They do not complete a maintained event
+reference by themselves.
 
-## 2. Annotate and prepare the dataset
+## Freeze a training view
 
-Annotate every accepted video. Follow the
-[labeling guidelines](CardEventNet_LabelingGuidelines.md) for event type and time decisions.
+Import the legacy corpus only through the operations migration:
 
 ```bash
-uv run cardevent annotate data/raw/game01.mov
-uv run cardevent prepare --videos data/raw/*
-uv run cardevent split \
-  --manifest data/datasets/batch-2026-08-24/manifest.yaml \
-  --group-by session_id \
-  --out data/splits/batch-2026-08-24.yaml
+mise exec -- uv run --project operations doko data cardevent audit --repository-root .
+mise exec -- uv run --project operations doko data cardevent migrate \
+  --repository-root . --operator <name>
 ```
 
-`prepare` creates the frame cache. `split` keeps one recording session in one partition. It also
-rejects a real game that crosses partitions. Treat the manifest, annotation directory, cache,
-and split as one data version.
+The migration verifies source digests, publishes canonical recording bundles, and preserves
+legacy annotations and other artifacts below `data/operations/cardeventnet-imports/`. It does not
+delete the legacy tree.
 
-## 3. Train a model
-
-Start with a small local check. Remove `--max-samples` for the full run.
+Freeze and materialize the active dataset through operations:
 
 ```bash
-uv run cardevent train \
-  --config configs/base.yaml \
-  --split data/splits/batch-2026-08-24.yaml \
-  --max-samples 32
+mise exec -- uv run --project operations doko data cardevent materialize \
+  --repository-root . \
+  --dataset data/operations/cardevent-datasets/<dataset-version-id>
 ```
 
-Each run directory contains its config, environment, checkpoints, metrics, plots, and selected
-validation threshold. The [CardEventNet README](../card_event_net/README.md#training) describes
-the run artifacts and resume options.
+The materialized view below `.runtime/cardevent/datasets/` is the only input for a current
+training campaign. It contains linked source videos, generated V2 annotations, the approved split,
+and a rebuildable frame cache.
 
-## 4. Evaluate and diagnose
-
-Evaluate validation data first. Then compare training and validation behavior. Use the missed
-and false event timestamps to decide what needs human review.
+## Prepare, train, and evaluate
 
 ```bash
-uv run cardevent evaluate \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/batch-2026-08-24.yaml \
+mise exec -- uv run --project card_event_net cardevent prepare \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id> \
+  --partition train val
+
+mise exec -- uv run --project card_event_net cardevent train \
+  --config card_event_net/configs/base.yaml \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id>
+
+mise exec -- uv run --project card_event_net cardevent evaluate \
+  --checkpoint <best.pt> \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id> \
   --partition val
-
-uv run cardevent diagnose \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/batch-2026-08-24.yaml
 ```
 
-You can also generate training-only hard-negative candidates:
+The model campaign stores durable checkpoints and reports below `data/model-campaigns/`. The
+materialized view and all direct-file caches remain disposable. Do not train from the legacy split,
+annotation, or output paths.
+
+## One-off inference
+
+Pass the canonical source video and an explicit runtime cache:
 
 ```bash
-uv run cardevent mine-hard-negatives \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/batch-2026-08-24.yaml
+mise exec -- uv run --project card_event_net cardevent infer \
+  --checkpoint <best.pt> \
+  --video data/intake/recordings/<recording-id>/videos/<video-id>.mov \
+  --cache-dir .runtime/cardevent/inference-cache \
+  --out .runtime/cardevent/outputs/predictions.json
 ```
 
-These outputs are candidates, not corrected ground truth. A person must review ambiguous model
-and annotation cases.
+The backend uses the same runtime cache boundary. It accepts an explicit
+`CARD_EVENT_CHECKPOINT_PATH` or the digest-checked integration contract below
+`data/model-campaigns/`; it does not search `card_event_net/data/outputs`.
 
-## 5. Correct annotations and retrain
+## Retire the legacy tree
 
-When evaluation finds a missed or false event, inspect the source video with the annotator. Use
-model proposals as navigation hints, then save the human decision in the annotation version.
-
-```bash
-uv run cardevent annotate data/raw/game01.mov \
-  --annotations-dir data/annotations \
-  --proposals data/outputs/run-.../predictions.json
-```
-
-Keep the source annotations unchanged when you need a separate correction version. Prepare a new
-cache, then train with the same split:
-
-```bash
-uv run cardevent prepare \
-  --videos data/raw/* \
-  --annotations-dir data/annotations \
-  --cache-dir data/cache-next
-
-uv run cardevent train \
-  --config configs/base.yaml \
-  --split data/splits/batch-2026-08-24.yaml \
-  --annotations-dir data/annotations \
-  --cache-dir data/cache-next
-```
-
-Repeat validation, diagnostics, and annotation only when the result justifies another data change.
-After all choices are fixed, run the held-out test once:
-
-```bash
-uv run cardevent evaluate \
-  --checkpoint data/outputs/run-next/best.pt \
-  --split data/splits/batch-2026-08-24.yaml \
-  --partition test
-```
-
-If the model passes the agreed gates, export it for the app. See the
-[Core ML export guide](../card_event_net/README.md#core-ml-export).
+Do not remove `card_event_net/data` until the migration receipt passes source parity, all legacy
+artifacts have a preserved destination or an explicit obsolete disposition, and active consumers
+have been checked. The ignored `card_event_net/data/cache/` directory is rebuildable runtime state
+and is not shared data.

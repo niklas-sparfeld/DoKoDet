@@ -4,23 +4,24 @@ CardEventNet detects meaningful visible card-state changes. A detected event tri
 table-state evaluation. Every generated proposal uses the generic event type
 `card_state_changed`; it does not claim a card play, a card side, or another gameplay meaning.
 
-Run the commands below from `card_event_net/`.
+Run the commands below from the repository root. Use
+`mise exec -- uv run --project card_event_net cardevent ...` for the CardEventNet CLI.
 
 ## First hop
 
-From `card_event_net/`:
+From the repository root:
 
 - Owned source: `src/cardevent/`.
 - Tests: `tests/`.
-- Public CLI: `mise exec -- uv run cardevent --help`.
+- Public CLI: `mise exec -- uv run --project card_event_net cardevent --help`.
 - Boundary: read source videos and selected evidence, then emit event proposals for the recording
   pipeline.
 - Local checks:
 
   ```bash
-  mise exec -- uv run pytest
-  mise exec -- uv run ruff check .
-  mise exec -- uv run ruff format --check .
+  mise exec -- uv run --project card_event_net pytest
+  mise exec -- uv run --project card_event_net ruff check card_event_net/src card_event_net/tests
+  mise exec -- uv run --project card_event_net ruff format --check card_event_net/src card_event_net/tests
   ```
 
 Use the [repository documentation route](../README.md#documentation-route) for architecture, work
@@ -43,7 +44,7 @@ split, source, event-reference, materializer, preprocessing, code, and environme
 When a campaign prepares a frozen view, it selects only the development partitions:
 
 ```bash
-uv run cardevent prepare --dataset-view <view> --partition train val
+  mise exec -- uv run --project card_event_net cardevent prepare --dataset-view <view> --partition train val
 ```
 
 Preparing `test` is a separate explicit action. The M5 campaign does not prepare or evaluate that
@@ -88,18 +89,23 @@ pipeline:
 The retained `cardevent` commands are `annotate`, `extract-evidence`, `prepare`, `make-split`,
 `split`, `train`, `infer`, `evaluate`, `transition-diagnostics`, `diagnose`, `baseline`,
 `mine-hard-negatives`, `export-coreml`, `ingest`, and `inspect-dataset`. Run
-`mise exec -- uv run cardevent <command> --help` for one command.
+`mise exec -- uv run --project card_event_net cardevent <command> --help` for one command.
 
 CardEventNet owns source-video intake, event annotation, proposal generation, model training, and
 model evaluation. It does not own recording-pipeline review or table-observation dataset assembly.
 Use the [recording workspace](../web/README.md#local-development) for pipeline review.
 
-The annotation tool stores one JSON file per source video in `data/annotations/`. New files use
-annotation V2 and contain saved events without geometry. Every event uses the single active type
+The annotation tool stores one JSON file per source video in `.runtime/cardevent/annotations/` by
+default. New files use annotation V2 and contain saved events without geometry. Every event uses
+the single active type
 `card_state_changed`. It records a persistent card-related table-state change that can justify
 another table observation. Uncertain, ignored, and proposed annotations are excluded. Use the
 repository's [labeling guidelines](../docs/CardEventNet_LabelingGuidelines.md) for event,
 timestamp, close-event, and hard-negative decisions.
+
+Without an explicit annotation directory, the tool writes disposable annotations below
+`.runtime/cardevent/annotations/`. It never writes annotations into a recording bundle or the
+legacy `card_event_net/data` tree.
 
 Annotation controls:
 
@@ -125,14 +131,14 @@ the card-state-change label.
 If `uv` is not available yet, run `mise install` first so the toolchain from `mise.toml` is ready.
 
 ```bash
-uv sync
+uv sync --project card_event_net
 ```
 
 Core ML export is optional and requires macOS:
 
 ```bash
 mise install
-uv sync --extra coreml
+uv sync --project card_event_net --extra coreml
 ```
 
 The project pins Python 3.13, PyTorch 2.7.0, torchvision 0.22.0, and coremltools 9.0.
@@ -140,10 +146,11 @@ These versions provide the native macOS Core ML modules and a tested PyTorch con
 
 ## Annotation
 
-Run the annotator from `card_event_net/`:
+Run the annotator against a canonical recording source:
 
 ```bash
-uv run cardevent annotate data/raw/IMG_0090.mov
+mise exec -- uv run --project card_event_net cardevent annotate \
+  data/intake/recordings/<recording-id>/videos/<video-id>.mov
 ```
 
 The tool shows the event definition at startup. You can label a new video immediately. You can
@@ -152,7 +159,9 @@ quit and reopen the same video later. Existing events stay in the JSON file.
 Review model candidates with an inference JSON file:
 
 ```bash
-uv run cardevent annotate data/raw/IMG_0090.mov --proposals predictions.json
+mise exec -- uv run --project card_event_net cardevent annotate \
+  data/intake/recordings/<recording-id>/videos/<video-id>.mov \
+  --proposals data/intake/recordings/<recording-id>/predictions/<proposal-run-id>.json
 ```
 
 The annotator does not save model proposals automatically. Press `Space` to confirm one at the
@@ -164,13 +173,13 @@ you need to preserve the source version.
 Create source-resolution evidence packages around reviewed `card_state_changed` timestamps:
 
 ```bash
-uv run cardevent extract-evidence \
-  --videos-dir data/raw \
-  --annotations-dir data/annotations \
-  --manifest data/dataset-manifest.v1.yaml \
-  --split data/splits/batch-2026-08-24.yaml \
+mise exec -- uv run --project card_event_net cardevent extract-evidence \
+  --videos-dir <explicit-video-directory> \
+  --annotations-dir <explicit-annotation-directory> \
+  --manifest <explicit-v1-manifest> \
+  --split <explicit-historical-split> \
   --partition train val \
-  --out data/outputs/annotation-evidence-v1
+  --out .runtime/cardevent/outputs/annotation-evidence-v1
 ```
 
 The command extracts the six target offsets `[-800, -400, -100, 150, 400, 700] ms` by default. Use
@@ -199,13 +208,14 @@ not a reviewed event and does not create a training label.
 ## Review a shared training recording
 
 The backend stores each accepted recording once in the repository intake. CardEventNet reads the
-canonical video and proposal files from that bundle. It does not copy them into `data/raw/` or
-complete metadata in a second command. Review proposals with:
+canonical video and proposal files from that bundle. It does not copy them into
+`card_event_net/data/raw/` or complete metadata in a second command. Review proposals with:
 
 ```bash
-uv run cardevent annotate \
-  ../data/intake/recordings/<recording-id>/videos/<video-id>.mov \
-  --proposals ../data/intake/recordings/<recording-id>/predictions/<proposal-run-id>.json
+mise exec -- uv run --project card_event_net cardevent annotate \
+  data/intake/recordings/<recording-id>/videos/<video-id>.mov \
+  --proposals data/intake/recordings/<recording-id>/predictions/<proposal-run-id>.json \
+  --annotations-dir .runtime/cardevent/annotations
 ```
 
 For the local end-to-end gate, generate a short saved-video recording with the macOS simulator
@@ -218,211 +228,65 @@ swift run --package-path ../ios CardEventProbeLocalPipeline upload-recording \
   --root /tmp/cardevent-recording/training --server http://127.0.0.1:8000
 ```
 
-## Cache and split
+## Runtime workspace and frozen training views
 
-Prepare the annotated videos from `card_event_net/`:
+Direct-file commands use `.runtime/cardevent/` for annotations, caches, splits, and outputs by
+default. These paths are disposable. Source videos remain in `data/intake/recordings/`; the
+runtime workspace is not a second source authority.
+
+For model work, materialize a frozen shared dataset first:
 
 ```bash
-uv run cardevent prepare --videos data/raw/*.mov
-uv run cardevent make-split data/raw/*.mov
+mise exec -- uv run --project operations doko data cardevent materialize \
+  --repository-root . \
+  --dataset data/operations/cardevent-datasets/<dataset-version-id>
 ```
 
-The cache stores 224 x 224 JPEG frames in `data/cache/<video>/`. It also stores the source
-timestamp for every cached frame in `metadata.json`. The cache is ignored by Git.
-
-File inference prepares a matching full-frame cache on demand when one is missing. Use `prepare`
-when you want to build caches ahead of time for training or to avoid the first-inference delay.
-
-`prepare` skips a complete cache that matches the source video, cache frame rate, and frame size.
-Use `--force` to rebuild matching caches:
+Prepare and train from that view:
 
 ```bash
-uv run cardevent prepare --videos data/raw/*.mov --force
+mise exec -- uv run --project card_event_net cardevent prepare \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id> \
+  --partition train val
+mise exec -- uv run --project card_event_net cardevent train \
+  --config card_event_net/configs/base.yaml \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id>
 ```
 
-The split file is `data/splits/default.yaml`. It uses video names without their file extension.
-It is not replaced when it already exists. Use `--force` only when you want to create a new split.
-
-For independent-session validation, create a dataset manifest that follows the
-[V1 video metadata guide](../docs/CardEventNet_VideoMetadata.md), then make a session-aware split:
+Evaluate or diagnose the same view and checkpoint:
 
 ```bash
-uv run cardevent split --manifest data/dataset-manifest.yaml --group-by session_id \
-  --out data/splits/session-aware.yaml
-```
-
-The command keeps all videos from one session in the same partition.
-
-## Training
-
-Train from the prepared cache and the persisted video split:
-
-```bash
-uv run cardevent train \
-  --config configs/base.yaml \
-  --split data/splits/default.yaml
-```
-
-The campaign runner can pass a declared seed with `--seed`. It records the seed in the training
-checkpoint and run configuration.
-
-Runs are stored in `data/outputs/run-YYYYMMDD-HHMMSS/`. Each run contains `config.yaml`,
-`environment.json`, `metrics.jsonl`, `epochs/`, `best.pt`, `last.pt`, and `summary.json`.
-Training uses the same label semantics for training and validation. Ignored transition samples do
-not affect BCE loss. It reports label-state counts, effective positive fraction, validation loss,
-event recall, precision, F1, false events per hour, timestamp error, and target-recall status.
-
-`labels.positive_window_s` is the positive interval after an event.
-`labels.negative_past_exclusion_s` ends the post-event exclusion interval.
-`labels.negative_future_exclusion_s` is the pre-event exclusion duration.
-The positive window must not extend past the post-event exclusion interval.
-
-The transition-label experiment uses `configs/transition-label-v1.yaml`. It writes `sampling.json`
-before the first epoch. This file separates all eligible labels from selected training samples.
-
-Training selects a validation threshold for each epoch. It uses the target-recall operating point
-when possible. If target recall is impossible, it selects the maximum-F1 fallback and records the
-failure. The best checkpoint uses this event-level ranking. Early stopping uses the configured
-event metric. Each run writes `threshold.json`, `training-history.png`, operating curves, and
-`validation-streams/epoch-*.json.gz` files.
-
-Use runtime overrides for a CUDA run:
-
-```bash
-uv run cardevent train \
-  --config configs/base.yaml \
-  --split data/splits/default.yaml \
-  --device cuda \
-  --precision bf16 \
-  --num-workers 4 \
-  --batch-size 32
-```
-
-The default precision is `fp32`, the default worker count is zero, and pin memory is enabled
-only for CUDA. The worker count and batch size depend on the machine. If a run stops, resume
-from its directory or `last.pt`:
-
-```bash
-uv run cardevent train \
-  --config configs/base.yaml \
-  --split data/splits/default.yaml \
-  --resume data/outputs/run-...
-```
-
-See [CLOUD_TRAINING.md](CLOUD_TRAINING.md) for the complete persistent-storage and RunPod
-workflow.
-
-Use `--max-samples 32` for a fast local training sanity check. This limits the samples used from
-each training and validation video. A normal run uses all samples.
-
-## Inference and evaluation
-
-Run causal inference for one prepared video. The JSON file contains float32 logits and
-probabilities for every 0.125 second decision timestamp:
-
-```bash
-uv run cardevent infer \
-  --checkpoint data/outputs/run-.../best.pt \
-  --video data/raw/IMG_0097.mov \
-  --out predictions.json
-```
-
-Evaluate the validation partition. This selects a threshold from validation event behavior and
-saves it beside the checkpoint in `threshold.json`:
-
-```bash
-uv run cardevent evaluate \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/default.yaml \
+mise exec -- uv run --project card_event_net cardevent evaluate \
+  --checkpoint <best.pt> \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id> \
   --partition val
+mise exec -- uv run --project card_event_net cardevent diagnose \
+  --checkpoint <best.pt> \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id>
 ```
 
-Pass `--threshold` to evaluate validation at an explicit operating point. Without it, the command
-selects the target-recall operating point from validation.
+The view supplies the source links, V2 annotations, split, and cache. Do not use
+`card_event_net/data/raw`, `card_event_net/data/annotations`, `card_event_net/data/splits`, or
+`card_event_net/data/outputs` as implicit campaign inputs. Those paths are migration-era data and
+remain only until the reviewed legacy retirement step.
 
-Evaluate the test partition after validation. The command uses the persisted validation
-threshold. If it is missing, the command selects it from validation first. It never uses test
-events to select the threshold:
+For one-off inference, pass a canonical recording video and an explicit runtime cache:
 
 ```bash
-uv run cardevent evaluate \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/default.yaml \
-  --partition test
+mise exec -- uv run --project card_event_net cardevent infer \
+  --checkpoint <best.pt> \
+  --video data/intake/recordings/<recording-id>/videos/<video-id>.mov \
+  --cache-dir .runtime/cardevent/inference-cache \
+  --out .runtime/cardevent/outputs/predictions.json
 ```
-
-Each evaluation writes JSON metrics, one probability plot per video, a validation stream, and
-threshold tradeoff plots. It also writes precision/recall and recall/false-event operating curves.
-Threshold candidates use unique decoded peak scores, not a fixed probability grid. The report
-includes event recall, precision, F1, false events per hour, latency p50/p95, target-recall
-status, maximum attainable recall, and the selection reason.
-
-Evaluation writes a diagnostics file beside each evaluation report. For example,
-`evaluation-val.json` writes `evaluation-val-transition-diagnostics.json`. It measures
-probabilities from 0.50 through 1.00 seconds after each event, excluding the 0.10 seconds before
-the next event. Supply reviewed validation hard negatives for nearest-stream score diagnostics:
-
-```bash
-uv run cardevent evaluate \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/default.yaml \
-  --partition val \
-  --reviewed-hard-negative-manifest data/annotations-val-reviewed/validation-hard-negatives.json
-```
-
-Compare train and validation behavior at a validation-selected threshold:
-
-```bash
-uv run cardevent diagnose \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/default.yaml
-```
-
-The diagnostics JSON contains train and validation metrics, generalization gaps, per-video
-metrics, and missed/false event timestamps. It does not use the test partition.
-
-Run the simple motion baseline with the same event evaluator:
-
-```bash
-uv run cardevent baseline \
-  --split data/splits/default.yaml \
-  --partition val
-```
-
-## Hard-negative mining
-
-Mine false triggers from the training videos after a first evaluation run:
-
-```bash
-uv run cardevent mine-hard-negatives \
-  --checkpoint data/outputs/run-.../best.pt \
-  --split data/splits/default.yaml
-```
-
-The command writes `data/outputs/hard-negatives.json`. It uses the validation threshold
-saved next to the checkpoint. Pass `--threshold` if that file does not exist. The manifest
-contains only false-trigger timestamps from training videos. It does not change annotations.
-
-Use the manifest in a later training run:
-
-```bash
-uv run cardevent train \
-  --config configs/base.yaml \
-  --split data/splits/default.yaml \
-  --hard-negative-manifest data/outputs/hard-negatives.json
-```
-
-Each mined timestamp is repeated three times by default. This gives hard negatives a higher
-sampling rate than ordinary negatives. Change `training.hard_negative_repeat` in the config
-to use a different repeat count of two or more.
 
 ## Core ML export
 
 Export a trained checkpoint on macOS:
 
 ```bash
-uv run cardevent export-coreml \
-  --checkpoint data/outputs/run-.../best.pt \
+mise exec -- uv run --project card_event_net cardevent export-coreml \
+  --checkpoint <best.pt> \
   --out CardEventNet.mlpackage
 ```
 
@@ -434,15 +298,20 @@ The v1 package also uses float32 computation to keep the converted logit close t
 The command runs a deterministic PyTorch/Core ML parity check by default. Use
 `--skip-parity` only when the Core ML prediction runtime is not available.
 
-The complete workflow is:
+The current local workflow is:
 
 ```bash
-uv sync
-uv run cardevent annotate data/raw/game01.mov
-uv run cardevent prepare --videos data/raw/*.mov
-uv run cardevent make-split data/raw/*.mov
-uv run cardevent train --config configs/base.yaml --split data/splits/default.yaml
-uv run cardevent evaluate --checkpoint <best.pt> --split data/splits/default.yaml --partition test
-uv run cardevent infer --checkpoint <best.pt> --video data/raw/game05.mov --out predictions.json
-uv run cardevent export-coreml --checkpoint <best.pt> --out CardEventNet.mlpackage
+mise install
+mise exec -- uv run --project operations doko data cardevent materialize \
+  --repository-root . \
+  --dataset data/operations/cardevent-datasets/<dataset-version-id>
+mise exec -- uv run --project card_event_net cardevent prepare \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id> \
+  --partition train val
+mise exec -- uv run --project card_event_net cardevent train \
+  --config card_event_net/configs/base.yaml \
+  --dataset-view .runtime/cardevent/datasets/<dataset-version-id>
+mise exec -- uv run --project card_event_net cardevent export-coreml \
+  --checkpoint <best.pt> \
+  --out CardEventNet.mlpackage
 ```
