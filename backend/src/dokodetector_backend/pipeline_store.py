@@ -45,7 +45,6 @@ from doko_operations.pipeline_data import (
     parse_event_data_bytes,
     parse_pipeline_selection_bytes,
     parse_processor_run_request_bytes,
-    parse_processor_run_state_bytes,
     sha256_bytes,
     validate_event_revision_content,
 )
@@ -82,6 +81,7 @@ except ImportError:  # pragma: no cover - the supported backend runs on macOS an
 LOGGER = logging.getLogger(__name__)
 _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _UTC_ZERO = timezone.utc
+_LEGACY_PROCESSOR_RUN_STATE_SCHEMA_VERSION = "processor-run-state/v1"
 
 
 class PipelineStoreError(RuntimeError):
@@ -278,6 +278,30 @@ def _canonical_split_state_bytes(
     return canonical_json_bytes(mapping)
 
 
+def _parse_processor_run_state_bytes_compat(raw: bytes) -> ProcessorRunState:
+    """Read current state and the older processor-run state form."""
+
+    data = _parse_json_object(raw, "processor run state")
+    raw_schema_version = data.get("schema_version")
+    missing_metrics = "metrics" not in data
+    legacy_schema = (
+        raw_schema_version == _LEGACY_PROCESSOR_RUN_STATE_SCHEMA_VERSION and missing_metrics
+    )
+    if legacy_schema:
+        data["schema_version"] = PROCESSOR_RUN_STATE_SCHEMA_VERSION
+    if missing_metrics:
+        data["metrics"] = {}
+    state = ProcessorRunState.from_mapping(data)
+    expected_mapping = state.to_mapping()
+    if missing_metrics:
+        expected_mapping.pop("metrics")
+    if legacy_schema:
+        expected_mapping["schema_version"] = _LEGACY_PROCESSOR_RUN_STATE_SCHEMA_VERSION
+    expected = canonical_json_bytes(expected_mapping)
+    _strict_json_file(raw, expected, "processor run state")
+    return state
+
+
 def _parse_split_state_bytes(raw: bytes) -> tuple[ProcessorRunState, tuple[str, ...]]:
     data = _parse_json_object(raw, "processor run metadata")
     expected = {
@@ -295,7 +319,9 @@ def _parse_split_state_bytes(raw: bytes) -> tuple[ProcessorRunState, tuple[str, 
         "output_revision_ids",
         "metrics",
     }
-    if set(data) != expected:
+    legacy_expected = expected - {"metrics"}
+    missing_metrics = set(data) == legacy_expected
+    if set(data) not in (expected, legacy_expected):
         raise PipelineDataContractError("processor run metadata has unexpected fields")
     raw_item_ids = data["item_ids"]
     if not isinstance(raw_item_ids, list):
@@ -306,8 +332,17 @@ def _parse_split_state_bytes(raw: bytes) -> tuple[ProcessorRunState, tuple[str, 
     state_data = dict(data)
     state_data.pop("item_ids")
     state_data["items"] = []
+    if missing_metrics:
+        state_data["metrics"] = {}
     state = ProcessorRunState.from_mapping(state_data)
-    _strict_json_file(raw, _canonical_split_state_bytes(state, item_ids), "processor run metadata")
+    expected_bytes = _canonical_split_state_bytes(state, item_ids)
+    if missing_metrics:
+        legacy_state = state.to_mapping()
+        legacy_state.pop("items")
+        legacy_state.pop("metrics")
+        legacy_state["item_ids"] = list(item_ids)
+        expected_bytes = canonical_json_bytes(legacy_state)
+    _strict_json_file(raw, expected_bytes, "processor run metadata")
     return state, item_ids
 
 
@@ -1167,13 +1202,9 @@ class ProcessorRunStore:
         if "item_ids" in metadata:
             state, _ = _parse_split_state_bytes(raw)
         else:
-            state = parse_processor_run_state_bytes(raw)
+            state = _parse_processor_run_state_bytes_compat(raw)
         if state.run_id != run_id:
             raise PipelineStateError("run state ID differs from its directory")
-        if "item_ids" not in metadata:
-            _strict_json_file(
-                raw, canonical_processor_run_state_bytes(state), "processor run state"
-            )
 
     def _read_path(
         self,
@@ -1213,8 +1244,7 @@ class ProcessorRunStore:
             "processor run request",
         )
         if legacy_layout:
-            state = parse_processor_run_state_bytes(state_bytes)
-            _strict_json_file(state_bytes, canonical_processor_run_state_bytes(state), "run state")
+            state = _parse_processor_run_state_bytes_compat(state_bytes)
         else:
             metadata_state, item_ids = _parse_split_state_bytes(state_bytes)
             item_files = {

@@ -259,6 +259,21 @@ def test_run_store_publishes_request_and_state_together_and_supports_retry(tmp_p
     )
 
 
+def test_run_store_reads_legacy_state_without_metrics(tmp_path: Path) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    stored, _ = run_store.create(request())
+    legacy_state = stored.state.to_mapping()
+    legacy_state["schema_version"] = "processor-run-state/v1"
+    legacy_state.pop("metrics")
+    run_store.items_path("run-01").rmdir()
+    run_store.state_path("run-01").write_bytes(canonical_json_bytes(legacy_state))
+
+    loaded = run_store.require("run-01")
+
+    assert loaded.state.metrics == {}
+    assert run_store.list() == (loaded,)
+
+
 def test_processor_run_store_splits_item_outcomes_on_disk(tmp_path: Path) -> None:
     run_store = ProcessorRunStore(tmp_path / "runtime")
     run_store.create(request())
