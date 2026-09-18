@@ -10,6 +10,8 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
   "Pillow==12.3.0",
   "doko-game-engine",
+  # Match OpenCV's FFmpeg 7 dylibs on macOS. PyAV 18 loads duplicate AVFoundation classes.
+  "av==15.1.0",
   "opencv-python>=4.10",
   "pyyaml>=6.0,<7",
   "rfdetr==1.9.4",

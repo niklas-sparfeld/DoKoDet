@@ -29,6 +29,8 @@ from doko_operations.pipeline_data import (
     ProcessorRunRequest,
     RecordingVideoSource,
     RunFailure,
+    RunItemOutcome,
+    RunProgress,
     canonical_event_data_bytes,
     sha256_bytes,
 )
@@ -597,11 +599,16 @@ class EventPipelineService:
             )
             metrics = _card_event_metrics_from_provider(result, run.request)
             content = _event_data_from_provider(result, run.request)
+            items = _event_run_items(content)
+            progress = RunProgress(completed=len(items), total=len(items))
+            self.run_store.update_progress(run_id, progress=progress, items=items)
             revision = self._publish_processor_revision(run, content)
             self.run_store.complete(
                 run_id,
                 [revision.manifest.revision_id],
                 metrics=metrics,
+                progress=progress,
+                items=items,
             )
             self._advance_generated_selection(
                 run.request.source.recording_id, revision.manifest.revision_id
@@ -626,6 +633,9 @@ class EventPipelineService:
             },
             run.request,
         )
+        items = _event_run_items(content)
+        progress = RunProgress(completed=len(items), total=len(items))
+        self.run_store.update_progress(run_id, progress=progress, items=items)
         revision_id = _revision_id(run, suffix="import")
         producer = ImportProducer(
             run_id=run_id,
@@ -636,7 +646,12 @@ class EventPipelineService:
         )
         revision = _build_revision(run.request, content, revision_id, producer)
         stored, _ = self.revision_store.publish(revision)
-        self.run_store.complete(run_id, [stored.manifest.revision_id])
+        self.run_store.complete(
+            run_id,
+            [stored.manifest.revision_id],
+            progress=progress,
+            items=items,
+        )
         self._advance_generated_selection(
             run.request.source.recording_id, stored.manifest.revision_id
         )
@@ -941,6 +956,20 @@ def _metric_number(value: Any, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(float(value)):
         raise PipelineProviderError(f"The event provider returned invalid metric {field}.")
     return float(value)
+
+
+def _event_run_items(content: EventData) -> tuple[RunItemOutcome, ...]:
+    """Represent every generated event in the durable processor run state."""
+
+    return tuple(
+        RunItemOutcome(
+            item_id=event.event_id,
+            status="succeeded",
+            result=event.to_mapping(),
+            failure=None,
+        )
+        for event in content.events
+    )
 
 
 def _now() -> str:

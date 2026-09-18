@@ -200,6 +200,11 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
         body = result.json()
         assert status["state"]["status"] == "complete"
         assert body["state"]["status"] == "complete"
+        assert body["state"]["progress"] == {"completed": 1, "total": 1}
+        assert body["state"]["items"][0]["item_id"] == "event-000000"
+        assert body["state"]["items"][0]["result"]["event_type"] == (
+            CARD_STATE_CHANGED_EVENT_TYPE
+        )
         assert body["revisions"][0]["content"]["events"][0]["start_us"] == 500_000
         assert body["revisions"][0]["content"]["events"][0]["event_type"] == (
             CARD_STATE_CHANGED_EVENT_TYPE
@@ -510,6 +515,8 @@ def test_import_validates_bundle_prediction_and_preserves_absent_model_fields(
         ).json()
         revision = result["revisions"][0]
         assert result["state"]["status"] == "complete"
+        assert result["state"]["progress"] == {"completed": 1, "total": 1}
+        assert result["state"]["items"][0]["item_id"] == "import-proposal-both-0"
         assert "model" not in result["request"]
         assert "model_id" in revision["manifest"]["producer"]
         assert revision["content"]["events"][0]["event_type"] == CARD_STATE_CHANGED_EVENT_TYPE
