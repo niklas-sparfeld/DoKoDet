@@ -259,6 +259,30 @@ def test_run_store_publishes_request_and_state_together_and_supports_retry(tmp_p
     )
 
 
+def test_processor_run_store_splits_item_outcomes_on_disk(tmp_path: Path) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    run_store.create(request())
+    run_store.start("run-01")
+    item = RunItemOutcome(
+        item_id="event-01",
+        status="failed",
+        result=None,
+        failure=RunFailure(code="decode_failed", message="frame unavailable"),
+    )
+
+    run_store.record_item_progress(
+        "run-01",
+        progress=RunProgress(completed=1, total=1),
+        item=item,
+    )
+
+    state_document = json.loads(run_store.state_path("run-01").read_text(encoding="utf-8"))
+    assert state_document["item_ids"] == ["event-01"]
+    assert "items" not in state_document
+    assert (run_store.items_path("run-01") / "event-01.json").is_file()
+    assert run_store.require("run-01").state.items == (item,)
+
+
 def test_run_store_ignores_removed_atomic_state_temp_files_during_reads(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

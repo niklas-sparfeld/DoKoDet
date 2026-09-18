@@ -232,13 +232,14 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
                 generated_outcome["crop_identity"]["image_sha256"]
             )
         )
-        assert preview_path.is_dir()
+        assert not preview_path.exists()
         warm_preview = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
             f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
         )
         assert warm_preview.status_code == 200, warm_preview.text
         assert warm_preview.headers["content-type"] == "image/jpeg"
+        assert preview_path.is_dir()
         for entry in service.storage.derived_views_root.iterdir():
             manifest_path = entry / "manifest.json"
             if (

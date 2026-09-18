@@ -131,6 +131,14 @@ class Settings(BaseSettings):
             "LOCAL_IDENTITY_DEVICE",
         ),
     )
+    visible_card_identity_max_concurrent_requests: int = Field(
+        default=1,
+        ge=1,
+        validation_alias=AliasChoices(
+            "VISIBLE_CARD_IDENTITY_MAX_CONCURRENT_REQUESTS",
+            "LOCAL_IDENTITY_MAX_CONCURRENT_REQUESTS",
+        ),
+    )
     server_host: str = "0.0.0.0"
     server_port: int = 8_000
     bonjour_enabled: bool = True

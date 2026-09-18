@@ -77,6 +77,11 @@ LOGGER = logging.getLogger(__name__)
 _SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._:-]+")
 
 
+def _result_latency_ms(result: Any) -> float | None:
+    value = getattr(result, "latency_ms", None)
+    return float(value) if isinstance(value, (int, float)) else None
+
+
 def _default_crop_policy_for_geometry(geometry: PipelineGeometry) -> dict[str, str]:
     """Return the polygon crop policy that matches one visible-region geometry."""
 
@@ -151,9 +156,17 @@ class VisualIdentityPipelineService:
         self.selection_store = selection_store
         self.identity_classifiers = identity_classifiers
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
-        self.max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
-        if isinstance(self.max_concurrent_requests, bool) or self.max_concurrent_requests < 1:
-            raise ValueError("gemini_max_concurrent_requests must be a positive integer")
+        self.cloud_max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
+        self.local_max_concurrent_requests = getattr(
+            settings, "visible_card_identity_max_concurrent_requests", 1
+        )
+        if (
+            isinstance(self.cloud_max_concurrent_requests, bool)
+            or self.cloud_max_concurrent_requests < 1
+            or isinstance(self.local_max_concurrent_requests, bool)
+            or self.local_max_concurrent_requests < 1
+        ):
+            raise ValueError("identity processor concurrency settings must be positive integers")
         self._derived_view_lock = DERIVED_VIEW_CACHE_LOCK
         self.classifier = self._adapt_classifier(identity_classifier)
         self._executor = ThreadPoolExecutor(
@@ -484,7 +497,7 @@ class VisualIdentityPipelineService:
                 progress=RunProgress(completed=completed, total=len(candidates)),
             )
             with ThreadPoolExecutor(
-                max_workers=self.max_concurrent_requests,
+                max_workers=self._max_concurrent_requests(run.request),
                 thread_name_prefix="visual-identity-card",
             ) as executor:
                 futures: dict[Future[VisualIdentityOutcome], int] = {
@@ -510,19 +523,20 @@ class VisualIdentityPipelineService:
                             status="failed",
                             candidates=(),
                             error="The visual identity classifier failed for this card.",
-                        )
+                    )
                     outcomes_by_index[index] = result
-                    items_by_index[index] = RunItemOutcome(
+                    item = RunItemOutcome(
                         item_id=candidate.card_id,
                         status="succeeded",
                         result=result.to_mapping(),
                         failure=None,
                     )
+                    items_by_index[index] = item
                     completed += 1
-                    self.run_store.update_progress(
+                    self.run_store.record_item_progress(
                         run_id,
                         progress=RunProgress(completed=completed, total=len(candidates)),
-                        items=tuple(item for item in items_by_index if item is not None),
+                        item=item,
                     )
 
             outcomes = [outcome for outcome in outcomes_by_index if outcome is not None]
@@ -549,7 +563,12 @@ class VisualIdentityPipelineService:
             self._fail_safely(run_id, "classifier_failed", "The visual identity classifier failed.")
 
     def _process_card(
-        self, run: StoredProcessorRun, visible_outcome: Any, card: Any
+        self,
+        run: StoredProcessorRun,
+        visible_outcome: Any,
+        card: Any,
+        *,
+        timings: dict[str, float | None] | None = None,
     ) -> VisualIdentityOutcome:
         assert visible_outcome.frame_identity is not None
         frame_identity = visible_outcome.frame_identity
@@ -557,6 +576,7 @@ class VisualIdentityPipelineService:
         classifier_identity = self._classifier_identity(run.request)
         frame = None
         try:
+            started = time.monotonic()
             with self._derived_view_lock:
                 frame = resolve_exact_event(
                     self._video_path(run.request.source.recording_id),
@@ -579,8 +599,14 @@ class VisualIdentityPipelineService:
                 candidates=(),
                 error="The exact visible-card frame is unavailable.",
             )
+        finally:
+            if timings is not None:
+                timings["frame_resolve_ms"] = round(
+                    max(0.0, time.monotonic() - started) * 1000.0, 3
+                )
 
         try:
+            started = time.monotonic()
             crop_policy = run.request.crop_policy or {}
             crop_policy_id = crop_policy.get("policy_id")
             if crop_policy_id is None:
@@ -608,6 +634,9 @@ class VisualIdentityPipelineService:
                 candidates=(),
                 error="The visible-card identity crop is unavailable.",
             )
+        finally:
+            if timings is not None:
+                timings["crop_ms"] = round(max(0.0, time.monotonic() - started) * 1000.0, 3)
         if card.side == "face_down":
             return VisualIdentityOutcome(
                 card_id=card.card_id,
@@ -629,15 +658,7 @@ class VisualIdentityPipelineService:
                 candidates=(),
                 unusable_reason=crop.unusable_reason,
             )
-        try:
-            with self._derived_view_lock:
-                resolve_crop_jpeg_preview(crop, cache=self.storage.derived_views_root)
-        except (DerivedViewError, OSError, RuntimeError):
-            LOGGER.warning(
-                "visual_identity_browser_preview_cache_warm_failed",
-                extra={"run_id": run.run_id, "card_id": card.card_id},
-                exc_info=True,
-            )
+        classifier_started: float | None = None
         try:
             assert crop.image_bytes is not None
             classifier = self._classifier_for_request(run.request)
@@ -649,7 +670,10 @@ class VisualIdentityPipelineService:
                 model=run.request.model.name if run.request.model is not None else "unknown",
                 crop_bytes=crop.image_bytes,
             )
+            classifier_started = time.monotonic()
             result = classifier.classify(request)
+            if timings is not None:
+                timings["classifier_latency_ms"] = _result_latency_ms(result)
             if result.status == "unavailable":
                 return VisualIdentityOutcome(
                     card_id=card.card_id,
@@ -707,6 +731,11 @@ class VisualIdentityPipelineService:
                 candidates=(),
                 error="The visual identity classifier failed for this card.",
             )
+        finally:
+            if timings is not None and classifier_started is not None:
+                timings["classifier_wall_time_ms"] = round(
+                    max(0.0, time.monotonic() - classifier_started) * 1000.0, 3
+                )
         return VisualIdentityOutcome(
             card_id=card.card_id,
             frame_identity=frame_identity,
@@ -721,8 +750,9 @@ class VisualIdentityPipelineService:
         self, run: StoredProcessorRun, visible_outcome: Any, card: Any
     ) -> VisualIdentityOutcome:
         started = time.monotonic()
+        timings: dict[str, float | None] = {}
         try:
-            return self._process_card(run, visible_outcome, card)
+            return self._process_card(run, visible_outcome, card, timings=timings)
         finally:
             LOGGER.info(
                 "visual_identity_card_timing",
@@ -731,11 +761,18 @@ class VisualIdentityPipelineService:
                     "run_id": run.run_id,
                     "card_id": card.card_id,
                     "item_wall_time_ms": round(max(0.0, time.monotonic() - started) * 1000.0, 3),
+                    **timings,
                     "timing_scope": (
-                        "wall-clock item timing; inference and network transfer are not separated"
+                        "wall-clock item timing with derived-view and classifier stages"
                     ),
                 },
             )
+
+    def _max_concurrent_requests(self, request: ProcessorRunRequest) -> int:
+        classifier = self._classifier_for_request(request)
+        if classifier is not None and getattr(classifier, "name", None) == "local-dinov3":
+            return self.local_max_concurrent_requests
+        return self.cloud_max_concurrent_requests
 
     def _classifier_identity(
         self, request: ProcessorRunRequest
