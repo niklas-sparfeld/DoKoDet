@@ -5,7 +5,8 @@
 - **Summary:** Let an operator accept Gemini visual card identity suggestions when the latest
   comparable local identity result agrees, and navigate unfinished review work with Cmd+Left and
   Cmd+Right.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** Plans 0043 and 0049 complete
 - **Builds on:** Plans 0041, 0042, 0043, 0048, 0049, 0059, and 0062
 - **Outcome:** An operator can use one explicit auto-approve action in reviewed visual identity
@@ -23,7 +24,9 @@
   revision-guarded command, and persists an immutable comparison receipt across restart.
 - **M1:** Complete — reviewed identity work can plan, monitor, and apply guarded matching
   Gemini/local decisions, with result lineage and reason counts visible to the operator.
-- **M2:** Not started — add consistent unfinished-item keyboard navigation to all review editors.
+- **M2:** Complete — Cmd+Left and Cmd+Right move to the nearest unfinished item in reviewed
+  CardEvent, visible-card, and visual identity work. The shortcut does not wrap and ignores text,
+  selection, and timeline controls.
 
 ## 1. Purpose
 

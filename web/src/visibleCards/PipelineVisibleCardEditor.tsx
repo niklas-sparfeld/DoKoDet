@@ -17,6 +17,10 @@ import {
 } from "../api/client";
 import styles from "../App.module.css";
 import {
+  findAdjacentUnfinishedItem,
+  ignoresReviewNavigationShortcut,
+} from "../reviewNavigation";
+import {
   describeCommand,
   frameReviewStatus,
   formatFrameTime,
@@ -1388,17 +1392,7 @@ export function PipelineVisibleCardEditor({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      const isTimelineSeekingTarget =
-        target !== null &&
-        typeof target.closest === "function" &&
-        target.closest('[data-timeline-seeking-controls="true"]') !== null;
-      if (
-        target !== null &&
-        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
-          (isTimelineSeekingTarget && event.key === " "))
-      ) {
-        return;
-      }
+      if (ignoresReviewNavigationShortcut(target)) return;
       if (event.key === "Escape" && editorRef.current !== null) {
         event.preventDefault();
         endEditMode();
@@ -1414,11 +1408,31 @@ export function PipelineVisibleCardEditor({
       const index = current.findIndex(
         (frame) => frame.itemId === selectedFrameIdRef.current,
       );
-      if (!event.altKey && event.key === "ArrowLeft" && index > 0) {
+      if (
+        event.metaKey &&
+        view === "reviewed" &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        const unfinished = findAdjacentUnfinishedItem(
+          current,
+          selectedFrameIdRef.current,
+          event.key === "ArrowLeft" ? -1 : 1,
+          (frame) =>
+            frame.reviewState === "pending" || frame.reviewState === "affected",
+        );
+        if (unfinished !== undefined) selectFrame(unfinished);
+      } else if (
+        !event.altKey &&
+        !event.metaKey &&
+        event.key === "ArrowLeft" &&
+        index > 0
+      ) {
         event.preventDefault();
         selectFrame(current[index - 1]);
       } else if (
         !event.altKey &&
+        !event.metaKey &&
         event.key === "ArrowRight" &&
         index >= 0 &&
         index < current.length - 1

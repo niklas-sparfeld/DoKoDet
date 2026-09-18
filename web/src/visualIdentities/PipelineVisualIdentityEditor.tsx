@@ -12,6 +12,10 @@ import {
 } from "../api/client";
 import styles from "../App.module.css";
 import {
+  findAdjacentUnfinishedItem,
+  ignoresReviewNavigationShortcut,
+} from "../reviewNavigation";
+import {
   IdentityInspectorPortals,
   useIdentityInspectorSlots,
 } from "./PipelineVisualIdentityInspector";
@@ -876,16 +880,7 @@ export function PipelineVisualIdentityEditor({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      const isTimelineSeekingTarget =
-        target !== null &&
-        typeof target.closest === "function" &&
-        target.closest('[data-timeline-seeking-controls="true"]') !== null;
-      if (
-        target !== null &&
-        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
-          (isTimelineSeekingTarget && event.key === " "))
-      )
-        return;
+      if (ignoresReviewNavigationShortcut(target)) return;
       const current = navigationItemsRef.current;
       const index = current.findIndex(
         (item) => item.itemId === selectedItemIdRef.current,
@@ -897,11 +892,30 @@ export function PipelineVisualIdentityEditor({
         if (videoRef.current.paused)
           void videoRef.current.play().catch(() => undefined);
         else videoRef.current.pause();
-      } else if (!event.altKey && event.key === "ArrowLeft" && index > 0) {
+      } else if (
+        event.metaKey &&
+        view === "reviewed" &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        const unfinished = findAdjacentUnfinishedItem(
+          current,
+          selectedItemIdRef.current,
+          event.key === "ArrowLeft" ? -1 : 1,
+          (candidate) => candidate.reviewState === "pending",
+        );
+        if (unfinished !== undefined) selectItem(unfinished);
+      } else if (
+        !event.altKey &&
+        !event.metaKey &&
+        event.key === "ArrowLeft" &&
+        index > 0
+      ) {
         event.preventDefault();
         selectItem(current[index - 1]);
       } else if (
         !event.altKey &&
+        !event.metaKey &&
         event.key === "ArrowRight" &&
         index >= 0 &&
         index < current.length - 1

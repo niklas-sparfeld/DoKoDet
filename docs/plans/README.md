@@ -52,7 +52,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0069 — Auto-accept identities](3-in-progress/0069-Auto_Accept_Identities.md) | 0043 and 0049 complete | M0–M1 complete; M2 not started. Retained Gemini/local comparisons use frozen visible-card and crop lineage, reuse one local run, and persist revision-guarded acceptance receipts. Reviewed identity work shows guarded auto-approval state, reason counts, and result lineage. Cmd+Arrow navigation remains. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
@@ -66,6 +65,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0069 — Auto-accept identities](5-closed/0069-Auto_Accept_Identities.md) | Complete | M0–M2 complete: retained Gemini/local comparisons safely auto-approve matching pending visual identities, with run/result lineage and guarded receipts. Cmd+Arrow moves through unfinished items in all reviewed editors. |
 | [0063 — Current CardEventNet training campaign](5-closed/0063-Current_CardEventNet_Training_Campaign.md) | Complete | M0–M15 complete: M15 validated the one-time sealed-test output and Core ML integration bundle against the immutable M14 lock, recorded the runtime contract and parity digest, retained M9 as a development-only integration baseline, and left the production champion unchanged. |
 | [0068 — Reviewed RF-DETR local visible-card detector](5-closed/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md) | Complete | M0–M4 complete: the reviewed RF-DETR candidate passed the frozen validation and sealed-test gate, was registered as an explicit selectable local segmentation provider, and left the Gemini default plus the existing 0067 PoC artifact unchanged. |
 | [0067 — RF-DETR visible-region training campaign](5-closed/0067-RF_DETR_Visible_Region_Training_Campaign.md) | Complete | M0–M4 complete: a fixed RF-DETR SegMedium recipe produced an unpromoted `poc_candidate`. The locked validation gate passed against the unchanged pretrained baseline. The decision report retains corpus limits, source-linked errors, and the optional 0050 handoff. |
