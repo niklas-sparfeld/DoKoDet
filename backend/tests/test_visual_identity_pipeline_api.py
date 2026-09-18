@@ -61,6 +61,16 @@ class _IdentityProvider:
         )
 
 
+class _LocalPpmIdentityClassifier:
+    name = "local-dinov3"
+    version = "dinov3-local-identity-test-v1"
+    model = "facebook/dinov3-vits16-pretrain-lvd1689m"
+    calibration = "uncalibrated"
+
+    def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
+        raise AssertionError("the resolver test must not classify a crop")
+
+
 def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> str:
     frame_identity = VisibleCardFrameIdentity.from_mapping(frame)
     candidates = (
@@ -133,6 +143,23 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
         selected_completed_reference_revision_id=stored.manifest.revision_id,
     )
     return stored.manifest.revision_id
+
+
+def test_visual_identity_resolves_concrete_local_classifier_name_from_local_registry(
+    tmp_path: Any,
+) -> None:
+    app = create_test_app(
+        _settings(tmp_path),
+        visible_card_identity_classifier=_IdentityProvider(),
+    )
+    service = app.state.visual_identity_pipeline_service
+    service.classifier = None
+    service.identity_classifiers = {"local": _LocalPpmIdentityClassifier()}
+
+    resolved = service._classifier_for_selection("local-dinov3")
+
+    assert resolved is not None
+    assert resolved.name == "local-dinov3"
 
 
 def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_restarts(

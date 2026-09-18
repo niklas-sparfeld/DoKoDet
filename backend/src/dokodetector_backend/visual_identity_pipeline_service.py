@@ -755,13 +755,16 @@ class VisualIdentityPipelineService:
     def _classifier_for_selection(self, requested_provider: str | None) -> Any | None:
         if requested_provider is None:
             return self.classifier
-        candidates = (
-            ("gemini", "cloud")
-            if requested_provider == "cloud"
-            else ("local",)
-            if requested_provider == "local"
-            else (requested_provider,)
-        )
+        if requested_provider == "cloud":
+            candidates = ("gemini", "cloud")
+        elif requested_provider == "local":
+            candidates = ("local",)
+        elif requested_provider.startswith("local-"):
+            # Durable requests store the concrete classifier name, while the lazy registry
+            # exposes the configured local implementation under its logical provider name.
+            candidates = (requested_provider, "local")
+        else:
+            candidates = (requested_provider,)
         if self.identity_classifiers is not None:
             for candidate in candidates:
                 try:
