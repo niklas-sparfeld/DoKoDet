@@ -1,0 +1,31 @@
+{
+  "annotation_version": "cardevent-annotation/v1",
+  "background": null,
+  "camera": null,
+  "camera_framing": "table_fills_frame",
+  "camera_motion": "fixed",
+  "camera_view": "high_oblique",
+  "card_deck": null,
+  "content_type": "real_game",
+  "device": "Apple iPhone X",
+  "duration_s": 262.245,
+  "file_name": "IMG_2778.m4v",
+  "frame_rate": 30.006,
+  "game_id": "game-20180128-a",
+  "known_limitations": [],
+  "lighting": [
+    "room_light"
+  ],
+  "notes": "One complete 40-card round with 10 tricks from a real game.",
+  "orientation": "landscape",
+  "recording_date": "2018-01-28T13:41:09Z",
+  "resolution": "1920x1080",
+  "scenario_tags": [
+    "normal_card_play"
+  ],
+  "session_id": "capture-20180128-1337-a",
+  "source": "other",
+  "source_permission": "project_use",
+  "table_setup": "setup-20180128-a",
+  "video_id": "IMG_2778"
+}

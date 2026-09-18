@@ -1,0 +1,30 @@
+{
+  "files": {
+    "proposal_generator_runs": [],
+    "source_record": {
+      "byte_length": 1069,
+      "relative_path": "source-record.json",
+      "sha256": "ef26161da79a04f082de3c440d58f31f3fb891b28cb50b2961f9128aab0bafe1",
+      "type": "application/json"
+    },
+    "task_enrollment": {
+      "byte_length": 725,
+      "relative_path": "initial-task-enrollment.json",
+      "sha256": "7bd51c9fc354d36087259892119a23b787c422f90ebc96cde7d330a4bd414c00",
+      "type": "application/json"
+    },
+    "video": {
+      "byte_length": 252227791,
+      "relative_path": "videos/video-cardeventnet-IMG_0644.mov",
+      "sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05",
+      "type": "video/quicktime"
+    }
+  },
+  "recording_id": "cardeventnet-IMG_0644",
+  "schema_version": "repository-bundle/v1",
+  "session_id": "capture-img-0644",
+  "source_asset_id": "source-cardeventnet-IMG_0644",
+  "source_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05",
+  "state": "complete",
+  "video_id": "video-cardeventnet-IMG_0644"
+}

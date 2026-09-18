@@ -1,0 +1,25 @@
+{
+  "acquisition_method": "cardeventnet_import",
+  "allowed_uses": [
+    "train",
+    "validation",
+    "test",
+    "evaluation"
+  ],
+  "byte_length": 708244420,
+  "content_type": "staged_scenario",
+  "game_id": null,
+  "media_type": "video/quicktime",
+  "notes": "Imported from the legacy CardEventNet corpus. Original metadata is retained in data/operations/cardeventnet-imports/cardeventnet-IMG_0669/metadata.json. Imported by Niklas. One staged session. The actor cooks at the same table and plays cards between cooking actions. The non-card intervals are hard negatives with kitchen objects and hand motion in the card-play area.",
+  "original_filename": "IMG_0669.MOV",
+  "recording_id": "cardeventnet-IMG_0669",
+  "retention_state": "active",
+  "round_id": null,
+  "schema_version": "source-record/v1",
+  "session_id": "capture-20260825-weird-staged-a",
+  "sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6",
+  "source_asset_id": "source-cardeventnet-IMG_0669",
+  "source_permission": "training_and_evaluation",
+  "table_setup": "setup-20260825-weird-staged-a",
+  "video_id": "video-cardeventnet-IMG_0669"
+}

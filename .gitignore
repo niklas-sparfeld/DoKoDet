@@ -22,4 +22,16 @@
 !/.vscode/extensions.json
 /backend/data
 /data
+/data/*
+!/data/
+!/data/intake/
+/data/intake/*
+!/data/intake/recordings/
+!/data/intake/recordings/**
+!/data/operations/
+/data/operations/*
+!/data/operations/cardeventnet-imports/
+!/data/operations/cardeventnet-imports/**
+/data/intake/recordings/**/.DS_Store
+/data/operations/cardeventnet-imports/**/.DS_Store
 /game_engine/build

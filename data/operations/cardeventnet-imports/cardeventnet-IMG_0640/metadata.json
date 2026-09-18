@@ -1,0 +1,38 @@
+{
+  "annotation_version": "cardevent-annotation/v1",
+  "background": null,
+  "camera": null,
+  "camera_framing": "table_with_context",
+  "camera_motion": "fixed",
+  "camera_view": "high_oblique",
+  "card_deck": null,
+  "content_type": "staged_trick_sequence",
+  "device": "Apple iPhone 14",
+  "duration_s": 88.902,
+  "file_name": "IMG_0640.MOV",
+  "frame_rate": 59.942,
+  "game_id": null,
+  "known_limitations": [
+    "regular_play_cadence",
+    "short_inter_trick_pauses",
+    "no_overlapping_card_plays",
+    "few_mistakes",
+    "no_game_decisions",
+    "single_actor"
+  ],
+  "lighting": [
+    "room_light"
+  ],
+  "notes": "Staged trick sequence. Treat this recording as an independent session because its lighting, camera angle, and background differ from the other staged recordings.",
+  "orientation": "landscape",
+  "recording_date": "2026-08-20T19:06:01Z",
+  "resolution": "1920x1080",
+  "scenario_tags": [
+    "normal_card_play"
+  ],
+  "session_id": "capture-img-0640",
+  "source": "other",
+  "source_permission": "project_use",
+  "table_setup": "setup-img-0640",
+  "video_id": "IMG_0640"
+}

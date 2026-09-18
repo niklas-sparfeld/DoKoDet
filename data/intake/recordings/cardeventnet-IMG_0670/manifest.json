@@ -1,0 +1,30 @@
+{
+  "files": {
+    "proposal_generator_runs": [],
+    "source_record": {
+      "byte_length": 1140,
+      "relative_path": "source-record.json",
+      "sha256": "6bfea1d720add913c0bee39e29e932cc2070f5b8194df10dd3e62fb138f38f61",
+      "type": "application/json"
+    },
+    "task_enrollment": {
+      "byte_length": 725,
+      "relative_path": "initial-task-enrollment.json",
+      "sha256": "0d01378c683eafc5f8cbe4e9e61555d1bf3be4b92c07cb0aede78cc6a3306976",
+      "type": "application/json"
+    },
+    "video": {
+      "byte_length": 869798284,
+      "relative_path": "videos/video-cardeventnet-IMG_0670.mov",
+      "sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0",
+      "type": "video/quicktime"
+    }
+  },
+  "recording_id": "cardeventnet-IMG_0670",
+  "schema_version": "repository-bundle/v1",
+  "session_id": "capture-20260825-weird-staged-a",
+  "source_asset_id": "source-cardeventnet-IMG_0670",
+  "source_sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0",
+  "state": "complete",
+  "video_id": "video-cardeventnet-IMG_0670"
+}

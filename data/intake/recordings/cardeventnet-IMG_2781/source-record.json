@@ -1,0 +1,25 @@
+{
+  "acquisition_method": "cardeventnet_import",
+  "allowed_uses": [
+    "train",
+    "validation",
+    "test",
+    "evaluation"
+  ],
+  "byte_length": 244885260,
+  "content_type": "real_game",
+  "game_id": null,
+  "media_type": "video/quicktime",
+  "notes": "Imported from the legacy CardEventNet corpus. Original metadata is retained in data/operations/cardeventnet-imports/cardeventnet-IMG_2781/metadata.json. Imported by Niklas. One complete 40-card round with 10 tricks from a real game.",
+  "original_filename": "IMG_2781.m4v",
+  "recording_id": "cardeventnet-IMG_2781",
+  "retention_state": "active",
+  "round_id": null,
+  "schema_version": "source-record/v1",
+  "session_id": "capture-20180124-1937-a",
+  "sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee",
+  "source_asset_id": "source-cardeventnet-IMG_2781",
+  "source_permission": "project_use",
+  "table_setup": "setup-20180124-a",
+  "video_id": "video-cardeventnet-IMG_2781"
+}

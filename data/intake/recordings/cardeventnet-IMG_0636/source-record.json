@@ -1,0 +1,25 @@
+{
+  "acquisition_method": "cardeventnet_import",
+  "allowed_uses": [
+    "train",
+    "validation",
+    "test",
+    "evaluation"
+  ],
+  "byte_length": 265216840,
+  "content_type": "staged_trick_sequence",
+  "game_id": null,
+  "media_type": "video/quicktime",
+  "notes": "Imported from the legacy CardEventNet corpus. Original metadata is retained in data/operations/cardeventnet-imports/cardeventnet-IMG_0636/metadata.json. Imported by Niklas. Staged trick sequence. Treat this recording as an independent session because its lighting, camera angle, and background differ from the other staged recordings.",
+  "original_filename": "IMG_0636.MOV",
+  "recording_id": "cardeventnet-IMG_0636",
+  "retention_state": "active",
+  "round_id": null,
+  "schema_version": "source-record/v1",
+  "session_id": "capture-img-0636",
+  "sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+  "source_asset_id": "source-cardeventnet-IMG_0636",
+  "source_permission": "project_use",
+  "table_setup": "setup-img-0636",
+  "video_id": "video-cardeventnet-IMG_0636"
+}

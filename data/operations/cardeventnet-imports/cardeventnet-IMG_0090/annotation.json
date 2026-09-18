@@ -1,0 +1,221 @@
+{
+  "schema_version": "cardevent-annotation/v2",
+  "video": "IMG_0090.mov",
+  "events": [
+    {
+      "time_s": 3.3047630497946097,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 4.957144574691915,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 6.137417092475704,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 7.789798617373009,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 9.206125638713555,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 13.455106702735197,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 14.871433724075743,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 16.28776074541629,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 17.46803326320008,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 18.884360284540627,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 21.717014327221722,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 22.89728684500551,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 24.313613866346056,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 25.729940887686606,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 26.910213405470394,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 29.742867448151486,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 31.159194469492036,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 32.10341248371907,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 33.51973950505961,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 34.7000120228434,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 38.948993086865045,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 40.36532010820559,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 42.017701633102895,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 43.90613766155696,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 45.322464682897504,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 46.738791704238054,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 50.04355475403266,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 51.223827271816454,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 52.640154293156996,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 53.82042681094079,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 55.23675383228134,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 75.30138663460575,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 77.18982266305981,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 78.60614968440036,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 80.02247670574091,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 81.43880372708145,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 85.45173028754634,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 86.86805730888689,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 88.28438433022743,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 89.70071135156797,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 90.88098386935177,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 94.6578559262599,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 96.07418294760043,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 97.49050996894098,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 98.90683699028153,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 100.55921851517884,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    },
+    {
+      "time_s": 103.15581805430318,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 104.33609057208696,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 105.98847209698427,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 107.16874461476806,
+      "type": "card_state_changed"
+    },
+    {
+      "time_s": 108.82112613966537,
+      "type": "card_state_changed",
+      "confidence": "confirmed"
+    }
+  ]
+}

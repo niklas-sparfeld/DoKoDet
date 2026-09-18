@@ -1,0 +1,36 @@
+{
+  "annotation_version": null,
+  "background": "white kitchen table with food, cookware, bottles, and a laptop",
+  "camera": null,
+  "camera_framing": "table_with_context",
+  "camera_motion": "fixed",
+  "camera_view": "high_oblique",
+  "card_deck": null,
+  "content_type": "staged_scenario",
+  "device": "Apple iPhone 14",
+  "duration_s": 520.753,
+  "file_name": "IMG_0670.MOV",
+  "frame_rate": 59.942,
+  "game_id": null,
+  "known_limitations": [
+    "no_game_decisions",
+    "single_actor"
+  ],
+  "lighting": [
+    "room_light"
+  ],
+  "notes": "One staged session. The actor cooks at the same table and plays cards between cooking actions. The non-card intervals are hard negatives with kitchen objects and hand motion in the card-play area.",
+  "orientation": "landscape",
+  "recording_date": "2026-08-25T15:26:52Z",
+  "resolution": "1920x1080",
+  "scenario_tags": [
+    "normal_card_play",
+    "long_pause",
+    "other_anomaly"
+  ],
+  "session_id": "capture-20260825-weird-staged-a",
+  "source": "self_recorded",
+  "source_permission": "training_and_evaluation",
+  "table_setup": "setup-20260825-weird-staged-a",
+  "video_id": "IMG_0670"
+}

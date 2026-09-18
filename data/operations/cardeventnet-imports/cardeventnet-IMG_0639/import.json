@@ -1,0 +1,14 @@
+{
+  "annotation_sha256": "0113ad9c04e6f9cd5092b152a502d7a67c884a117e0b768fdb808c0bed1b4dc0",
+  "events_imported": 50,
+  "migration_id": "cardeventnet-shared-data-m1",
+  "recording_id": "cardeventnet-IMG_0639",
+  "reference_action": "draft_reused",
+  "review_state": "unreviewed",
+  "revision_id": "cardeventnet-import-img_0639",
+  "schema_version": "cardeventnet-import/v2",
+  "source_byte_length": 132769108,
+  "source_sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+  "source_video": "IMG_0639.MOV",
+  "video_id": "IMG_0639"
+}

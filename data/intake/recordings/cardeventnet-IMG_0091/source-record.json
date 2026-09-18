@@ -1,0 +1,22 @@
+{
+  "acquisition_method": "cardeventnet_import",
+  "allowed_uses": [
+    "validation"
+  ],
+  "byte_length": 134705169,
+  "content_type": "staged_trick_sequence",
+  "game_id": null,
+  "media_type": "video/quicktime",
+  "notes": "Imported from card_event_net/data using default.yaml; human annotation preserved in data/operations/cardeventnet-imports/cardeventnet-IMG_0091.",
+  "original_filename": "IMG_0091.mov",
+  "recording_id": "cardeventnet-IMG_0091",
+  "retention_state": "active",
+  "round_id": null,
+  "schema_version": "source-record/v1",
+  "session_id": "capture-img-0091",
+  "sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f",
+  "source_asset_id": "source-cardeventnet-IMG_0091",
+  "source_permission": "project_use",
+  "table_setup": "setup-img-0091",
+  "video_id": "video-cardeventnet-IMG_0091"
+}
