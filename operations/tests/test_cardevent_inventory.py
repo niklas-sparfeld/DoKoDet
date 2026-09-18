@@ -2,63 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 from pathlib import Path
 
-from doko_operations.cardevent_inventory import (
-    audit_cardeventnet,
-    render_cardevent_inventory_json,
-)
+from doko_operations.cardevent_inventory import audit_cardeventnet
 from doko_operations.cli import main
-
-REPOSITORY_ROOT = Path(__file__).parents[2]
-LEGACY_SOURCE = REPOSITORY_ROOT / "card_event_net" / "data"
-
-
-def test_real_legacy_inventory_is_complete_and_byte_stable(tmp_path: Path) -> None:
-    legacy = tmp_path / "card_event_net" / "data"
-    shutil.copytree(LEGACY_SOURCE, legacy)
-    before = {
-        path.relative_to(legacy).as_posix(): path.read_bytes()
-        for path in legacy.rglob("*")
-        if path.is_file()
-    }
-
-    first = audit_cardeventnet(tmp_path)
-    second = audit_cardeventnet(tmp_path)
-
-    assert render_cardevent_inventory_json(first) == render_cardevent_inventory_json(second)
-    counts = first.to_mapping()["counts"]
-    assert counts["annotation_files"] == 43
-    assert counts["annotation_missing"] == 0
-    assert counts["annotation_valid"] == 43
-    assert counts["campaign_artifacts"] == 0
-    assert counts["event_revisions"] == 0
-    assert counts["human_review_complete"] == 0
-    assert counts["legacy_artifacts"] == len(before)
-    assert counts["legacy_by_kind"]["annotation"] == 43
-    assert counts["legacy_by_kind"]["raw_video"] == 43
-    assert counts["legacy_by_kind"]["manifest"] == 2
-    assert counts["legacy_by_kind"]["review_artifact"] == 1
-    assert counts["legacy_by_kind"]["split"] == 6
-    assert counts["raw_video_files"] == 43
-    assert counts["recordings"] == 43
-    assert counts["shared_recordings"] == 0
-    assert counts["lfs_pointer_videos"] + counts["hydrated_source_videos"] == 43
-    assert counts["discrepancies"] >= 43
-    assert all(item.disposition for item in first.artifacts)
-    example_manifest = next(
-        item for item in first.artifacts if item.path.endswith("dataset-manifest.example.yaml")
-    )
-    assert example_manifest.disposition == "obsolete"
-    assert all(item.annotation_present for item in first.recordings)
-    assert all(not item.human_review_complete for item in first.recordings)
-    after = {
-        path.relative_to(legacy).as_posix(): path.read_bytes()
-        for path in legacy.rglob("*")
-        if path.is_file()
-    }
-    assert after == before
 
 
 def test_cardevent_audit_cli_supports_human_and_json_reports(tmp_path: Path, capsys) -> None:

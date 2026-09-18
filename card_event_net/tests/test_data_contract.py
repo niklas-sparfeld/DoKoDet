@@ -72,7 +72,7 @@ def test_dataset_digest_is_stable_for_equivalent_input_order() -> None:
 
 
 def test_cardevent_v1_manifest_adapter_preserves_source_facts() -> None:
-    manifest_path = Path(__file__).parents[1] / "data" / "dataset-manifest.example.yaml"
+    manifest_path = Path(__file__).parents[1] / "fixtures" / "dataset-manifest.example.yaml"
     record = load_dataset_manifest(manifest_path)[0]
     digest = "a" * 64
     source = SourceRecord.from_cardevent_record(

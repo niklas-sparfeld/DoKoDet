@@ -93,8 +93,8 @@ mise exec -- uv run --project operations doko data cardevent migrate \
 ```
 
 The migration archives legacy annotations, reviews, splits, and outputs below
-`data/operations/cardeventnet-imports/`. Do not remove `card_event_net/data` until the active
-consumer cutover and the receipt review are complete.
+`data/operations/cardeventnet-imports/`. The former `card_event_net/data` tree was removed after
+the active consumer cutover and receipt review.
 
 ## Run the service
 

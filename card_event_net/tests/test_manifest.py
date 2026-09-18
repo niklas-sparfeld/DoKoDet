@@ -13,7 +13,11 @@ from cardevent.manifest import (
     validate_session_isolation,
 )
 from cardevent.splits import SplitError, VideoSplit, load_split
-from cardevent.video import SUPPORTED_VIDEO_EXTENSIONS
+
+REPOSITORY_ROOT = Path(__file__).parents[2]
+IMPORT_ARCHIVE = REPOSITORY_ROOT / "data/operations/cardeventnet-imports/legacy"
+CANONICAL_RECORDINGS = REPOSITORY_ROOT / "data/intake/recordings"
+EXAMPLE_MANIFEST = Path(__file__).parents[1] / "fixtures" / "dataset-manifest.example.yaml"
 
 
 def test_group_split_keeps_sessions_together() -> None:
@@ -68,9 +72,7 @@ def test_group_split_keeps_linked_game_sessions_together() -> None:
 
 
 def test_load_versioned_example_manifest() -> None:
-    path = Path(__file__).parents[1] / "data" / "dataset-manifest.example.yaml"
-
-    records = load_dataset_manifest(path)
+    records = load_dataset_manifest(EXAMPLE_MANIFEST)
 
     assert records[0].content_type == "staged_trick_sequence"
     assert records[0].game_id is None
@@ -81,19 +83,20 @@ def test_load_versioned_example_manifest() -> None:
     )
 
 
-def test_current_manifest_covers_local_annotations_and_development_split() -> None:
-    data_dir = Path(__file__).parents[1] / "data"
-    records = load_dataset_manifest(data_dir / "dataset-manifest.v1.yaml")
-    split = load_split(data_dir / "splits" / "full-frame-development.yaml")
+def test_import_archive_manifest_covers_canonical_recordings_and_development_split() -> None:
+    records = load_dataset_manifest(IMPORT_ARCHIVE / "dataset-manifest.v1.yaml")
+    split = load_split(IMPORT_ARCHIVE / "splits" / "full-frame-development.yaml")
     by_video = {record.video_id: record for record in records}
 
-    expected_video_ids = {path.stem for path in (data_dir / "annotations").glob("*.json")}
+    expected_video_ids = {
+        path.stem for path in (IMPORT_ARCHIVE / "annotations").glob("*.json")
+    }
     manifest_video_ids = {record.video_id for record in records}
     assert expected_video_ids <= manifest_video_ids
     raw_video_ids = {
-        path.stem
-        for path in (data_dir / "raw").iterdir()
-        if path.is_file() and path.suffix.casefold() in SUPPORTED_VIDEO_EXTENSIONS
+        path.name.removeprefix("cardeventnet-")
+        for path in CANONICAL_RECORDINGS.iterdir()
+        if path.is_dir() and path.name.startswith("cardeventnet-")
     }
     assert raw_video_ids == manifest_video_ids
     assigned_video_ids = set(split.train + split.val + split.test)
@@ -129,8 +132,7 @@ def test_current_manifest_covers_local_annotations_and_development_split() -> No
 
 
 def test_current_manifest_describes_recording_groups() -> None:
-    path = Path(__file__).parents[1] / "data" / "dataset-manifest.v1.yaml"
-    records = load_dataset_manifest(path)
+    records = load_dataset_manifest(IMPORT_ARCHIVE / "dataset-manifest.v1.yaml")
 
     old_staged = tuple(record for record in records if record.file_name.endswith(".mov"))
     target_videos = tuple(record for record in records if record.file_name.endswith(".MOV"))
@@ -174,7 +176,7 @@ def test_versioned_manifest_requires_complete_records(tmp_path: Path) -> None:
 
 
 def test_versioned_manifest_rejects_unknown_controlled_value(tmp_path: Path) -> None:
-    source = Path(__file__).parents[1] / "data" / "dataset-manifest.example.yaml"
+    source = EXAMPLE_MANIFEST
     path = tmp_path / "manifest.yaml"
     path.write_text(
         source.read_text(encoding="utf-8").replace(
@@ -188,7 +190,7 @@ def test_versioned_manifest_rejects_unknown_controlled_value(tmp_path: Path) -> 
 
 
 def test_versioned_manifest_rejects_null_controlled_value(tmp_path: Path) -> None:
-    source = Path(__file__).parents[1] / "data" / "dataset-manifest.example.yaml"
+    source = EXAMPLE_MANIFEST
     path = tmp_path / "manifest.yaml"
     path.write_text(
         source.read_text(encoding="utf-8").replace(
@@ -202,7 +204,7 @@ def test_versioned_manifest_rejects_null_controlled_value(tmp_path: Path) -> Non
 
 
 def test_real_game_requires_game_id(tmp_path: Path) -> None:
-    source = Path(__file__).parents[1] / "data" / "dataset-manifest.example.yaml"
+    source = EXAMPLE_MANIFEST
     path = tmp_path / "manifest.yaml"
     path.write_text(
         source.read_text(encoding="utf-8").replace(

@@ -267,8 +267,8 @@ mise exec -- uv run --project card_event_net cardevent diagnose \
 
 The view supplies the source links, V2 annotations, split, and cache. Do not use
 `card_event_net/data/raw`, `card_event_net/data/annotations`, `card_event_net/data/splits`, or
-`card_event_net/data/outputs` as implicit campaign inputs. Those paths are migration-era data and
-remain only until the reviewed legacy retirement step.
+`card_event_net/data/outputs` as implicit campaign inputs. Those migration-era paths have been
+retired; use the canonical recording and runtime paths above.
 
 For one-off inference, pass a canonical recording video and an explicit runtime cache:
 

@@ -759,7 +759,10 @@ def test_visible_dataset_rejects_an_empty_effective_ignore_mask(tmp_path: Path) 
 def test_img_0661_reviewed_ignore_region_keeps_generated_lineage_and_materializes(
     tmp_path: Path,
 ) -> None:
-    annotation_path = Path(__file__).parents[2] / "card_event_net/data/annotations/IMG_0661.json"
+    annotation_path = (
+        Path(__file__).parents[2]
+        / "data/operations/cardeventnet-imports/cardeventnet-IMG_0661/annotation.json"
+    )
     annotation = json.loads(annotation_path.read_text(encoding="utf-8"))
     assert annotation["video"] == "IMG_0661.MOV"
     assert annotation["events"]

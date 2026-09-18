@@ -8,7 +8,7 @@ videos, and describes dataset coverage. Keep the original video unchanged.
 The canonical machine-readable contract is
 [`video-metadata-v1.schema.json`](../card_event_net/schemas/video-metadata-v1.schema.json). The
 repository also contains a complete
-[`dataset-manifest.example.yaml`](../card_event_net/data/dataset-manifest.example.yaml).
+[`dataset-manifest.example.yaml`](../card_event_net/fixtures/dataset-manifest.example.yaml).
 
 ## Name for the current recordings
 

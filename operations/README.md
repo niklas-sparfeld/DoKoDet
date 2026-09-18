@@ -84,7 +84,7 @@ maintained references, development assignments, system holdouts, and model campa
 presence is separate from maintained-reference completion:
 
 ```bash
-doko data cardevent audit --repository-root . --legacy-root card_event_net/data
+doko data cardevent audit --repository-root . --legacy-root /path/to/legacy/card_event_net/data
 doko data cardevent audit --repository-root . --format json
 ```
 
@@ -99,17 +99,17 @@ only after source count, byte length, and source digest checks pass:
 ```bash
 doko data cardevent migrate \
   --repository-root . \
-  --legacy-root card_event_net/data \
+  --legacy-root /path/to/legacy/card_event_net/data \
   --operator <name>
 ```
 
 The operation is resumable and a completed invocation is a no-op. Missing annotations remain
-explicit draft gaps. The command does not certify review or remove the legacy tree.
+explicit draft gaps. The command does not certify review or remove the supplied legacy copy.
 
-The migration is the only supported importer for `card_event_net/data`. After it passes, active
-training uses a frozen view below `.runtime/cardevent/datasets/`; it does not read the legacy tree.
-The legacy tree stays in place until a separate, reviewed retirement step. Its runtime cache is
-rebuildable and is not part of the shared migration.
+The migration is the only supported importer for an external legacy CardEventNet copy. The
+repository's former legacy tree was retired after the source-parity receipt and canonical cutover.
+Active training uses a frozen view below `.runtime/cardevent/datasets/`; it does not read the legacy
+tree. Its runtime cache was rebuildable and was not part of the shared migration.
 
 M2 provides a read-only human-review queue over the shared CardEventNet recordings. It separates
 missing annotations from imported annotations that still need a person to review the complete

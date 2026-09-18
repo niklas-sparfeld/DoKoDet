@@ -160,9 +160,8 @@ deployment.
 ## Git LFS
 
 The current shared source videos belong below `data/intake/recordings/`. Git LFS is configured for
-those recording bundles. The tracked videos under `card_event_net/data/raw/` are legacy migration
-pointers and are not the current source authority. Install Git LFS before you work with shared
-videos:
+those recording bundles. The former `card_event_net/data/` tree was a migration source and is now
+retired. Install Git LFS before you work with shared videos:
 
 ```bash
 brew install git-lfs

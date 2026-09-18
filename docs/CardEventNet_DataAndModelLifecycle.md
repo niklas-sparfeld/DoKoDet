@@ -9,8 +9,8 @@ data/model-campaigns/         checkpoints, reports, and campaign lineage
 .runtime/cardevent/           disposable annotations, caches, materialized views, and outputs
 ```
 
-`card_event_net/data` is a legacy migration input. New commands must not use it as an implicit
-source, annotation, split, cache, or model-output root.
+`card_event_net/data` was the legacy migration input. The repository tree is retired. New commands
+must not use it as an implicit source, annotation, split, cache, or model-output root.
 
 ## Review a canonical recording
 
@@ -32,14 +32,18 @@ reference by themselves.
 Import the legacy corpus only through the operations migration:
 
 ```bash
-mise exec -- uv run --project operations doko data cardevent audit --repository-root .
+mise exec -- uv run --project operations doko data cardevent audit \
+  --repository-root . \
+  --legacy-root /path/to/legacy/card_event_net/data
 mise exec -- uv run --project operations doko data cardevent migrate \
-  --repository-root . --operator <name>
+  --repository-root . \
+  --legacy-root /path/to/legacy/card_event_net/data \
+  --operator <name>
 ```
 
 The migration verifies source digests, publishes canonical recording bundles, and preserves
 legacy annotations and other artifacts below `data/operations/cardeventnet-imports/`. It does not
-delete the legacy tree.
+delete the supplied legacy copy.
 
 Freeze and materialize the active dataset through operations:
 
@@ -90,9 +94,9 @@ The backend uses the same runtime cache boundary. It accepts an explicit
 `CARD_EVENT_CHECKPOINT_PATH` or the digest-checked integration contract below
 `data/model-campaigns/`; it does not search `card_event_net/data/outputs`.
 
-## Retire the legacy tree
+## Legacy tree status
 
-Do not remove `card_event_net/data` until the migration receipt passes source parity, all legacy
-artifacts have a preserved destination or an explicit obsolete disposition, and active consumers
-have been checked. The ignored `card_event_net/data/cache/` directory is rebuildable runtime state
-and is not shared data.
+The repository's `card_event_net/data` tree was retired after the migration receipt passed source
+parity, all legacy artifacts had a preserved destination or an explicit obsolete disposition, and
+active consumers were checked. The former `card_event_net/data/cache/` directory was rebuildable
+runtime state and was not shared data.
